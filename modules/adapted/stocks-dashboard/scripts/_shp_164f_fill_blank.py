@@ -41,10 +41,10 @@ from plainget import get as PG
 
 
 class R:
-    def __init__(self, c, b):
-        self.status_code = c or 0
-        self.content = b
-        self.text = b.decode("utf-8", "ignore")
+    def __init__(s, c, b):
+        s.status_code = c or 0
+        s.content = b
+        s.text = b.decode("utf-8", "ignore")
 
 
 def _get(url, headers=None, impersonate=None, timeout=60, **k):
@@ -76,7 +76,9 @@ def D(x):
 
 
 master = json.load(open(S + "/bse_master_all.json"))
-byid = {str(r.get("scrip_id") or "").upper(): int(r["SCRIP_CD"]) for r in master if r.get("scrip_id")}
+byid = {
+    str(r.get("scrip_id") or "").upper(): int(r["SCRIP_CD"]) for r in master if r.get("scrip_id")
+}
 bs = json.load(open(REPO + "/scripts/bse_scrips.json"))
 byid2 = dict(bs.get("by_id") or {})
 hist = json.load(open(REPO + "/scripts/shp_history.json"))
@@ -108,9 +110,21 @@ for (k, qq), (s, qv, src) in sorted(want.items()):
         continue
     code = byid.get(k) or byid2.get(k) or byid.get(s) or byid2.get(s)
     if not code or qe > "2016-03-31":
-        unres.append((k, qe, qv, str(src)[:40], "no code" if not code else "XBRL-era (not a page quarter)"))
+        unres.append(
+            (k, qe, qv, str(src)[:40], "no code" if not code else "XBRL-era (not a page quarter)")
+        )
         continue
-    front.append({"sym": k, "qe": qe, "code": int(code), "qtrid": A.qtrid_of(qe), "bname": "", "lname": "", "qm": qv})
+    front.append(
+        {
+            "sym": k,
+            "qe": qe,
+            "code": int(code),
+            "qtrid": A.qtrid_of(qe),
+            "bname": "",
+            "lname": "",
+            "qm": qv,
+        }
+    )
 print("page quarters to fetch:", len(front))
 print("not by this route:", unres)
 out = {}
@@ -118,7 +132,11 @@ st = collections.Counter()
 for fr in front:
     s_, cell, det = A.cell_of(fr, HERE, None)
     st[s_] += 1
-    print("  %-11s %s %-8s QM %s | %s" % (fr["sym"], fr["qe"], s_, fr["qm"], (cell[:3] if cell else det)), flush=True)
+    print(
+        "  %-11s %s %-8s QM %s | %s"
+        % (fr["sym"], fr["qe"], s_, fr["qm"], (cell[:3] if cell else det)),
+        flush=True,
+    )
     if s_ == "ok":
         out.setdefault(fr["sym"], {})[fr["qe"]] = cell
 json.dump(out, open(HERE + "/fill28_cells.json", "w"), indent=1)

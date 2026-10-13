@@ -153,7 +153,13 @@ def fetch_data(symbol, retries=2):
             ts = result["timestamp"]
             q = result["indicators"]["quote"][0]
             df = pd.DataFrame(
-                {"Open": q["open"], "High": q["high"], "Low": q["low"], "Close": q["close"], "Volume": q["volume"]},
+                {
+                    "Open": q["open"],
+                    "High": q["high"],
+                    "Low": q["low"],
+                    "Close": q["close"],
+                    "Volume": q["volume"],
+                },
                 index=pd.to_datetime(ts, unit="s"),
             )
             df = df.dropna()
@@ -172,7 +178,7 @@ def wma(series, period):
 
 def hma(series, period):
     half = max(int(period / 2), 1)
-    sqrt_p = max(round(math.sqrt(period)), 1)
+    sqrt_p = max(int(round(math.sqrt(period))), 1)
     wma_half = wma(series, half)
     wma_full = wma(series, period)
     diff = 2 * wma_half - wma_full
@@ -328,7 +334,9 @@ def run_scan():
         return None
     dfres = dfres.sort_values(["Score", "Profit%"], ascending=[False, False])
     shortlist = dfres[
-        (dfres["Score"] >= MIN_SCORE) & (dfres["Profit%"] >= MIN_PROFIT_PCT) & (dfres["CircuitSignal"] != "AVOID")
+        (dfres["Score"] >= MIN_SCORE)
+        & (dfres["Profit%"] >= MIN_PROFIT_PCT)
+        & (dfres["CircuitSignal"] != "AVOID")
     ]
     dfres.to_csv("data/swing_full.csv", index=False)
     shortlist.to_csv("data/swing_shortlist.csv", index=False)
@@ -380,7 +388,9 @@ def manage_positions(shortlist):
                 "Status": status,
             }
         )
-        print(f"{row['Symbol']:12s} Buy:{row['BuyPrice']:>9.2f} Now:{cur_price:>9.2f} P&L:{pnl_pct:>6.2f}% [{status}]")
+        print(
+            f"{row['Symbol']:12s} Buy:{row['BuyPrice']:>9.2f} Now:{cur_price:>9.2f} P&L:{pnl_pct:>6.2f}% [{status}]"
+        )
         if status == "HOLDING":
             keep_rows.append(row.to_dict())
 
@@ -441,7 +451,9 @@ def manage_positions(shortlist):
     total_invested = open_rows["BuyPrice"].sum() if not open_rows.empty else 0
     total_current_value = open_rows["CurrentPrice"].sum() if not open_rows.empty else 0
     overall_pnl_pct = (
-        round((total_current_value - total_invested) / total_invested * 100, 2) if total_invested > 0 else 0
+        round((total_current_value - total_invested) / total_invested * 100, 2)
+        if total_invested > 0
+        else 0
     )
 
     print("\n=== SWING PORTFOLIO SUMMARY ===")
@@ -460,7 +472,9 @@ def manage_positions(shortlist):
                 "TotalCurrentValue": round(total_current_value, 2),
                 "OverallPnL%": overall_pnl_pct,
                 "StocksHolding": len(open_rows),
-                "StocksTargetHitToday": len([r for r in closed_today if r["Status"] == "TARGET HIT"]),
+                "StocksTargetHitToday": len(
+                    [r for r in closed_today if r["Status"] == "TARGET HIT"]
+                ),
                 "StocksSLHitToday": len([r for r in closed_today if r["Status"] == "SL HIT"]),
             }
         ]

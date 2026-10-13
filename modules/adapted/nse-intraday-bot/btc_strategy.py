@@ -54,8 +54,6 @@ from shared.smc_engine import (
     detect_ote,
     detect_rejection_candle,
     detect_volume_signature,
-    detect_vwap_reclaim,
-    find_swings,
     get_kill_zone,
     signal_strength_label,
 )
@@ -127,10 +125,10 @@ def score_btc(
     df_15m: pd.DataFrame,
     pdh=None,
     pdl=None,
-    funding: dict | None = None,
-    fear_greed: dict | None = None,
-    cme_gap: dict | None = None,
-    ist_time: datetime | None = None,
+    funding: dict = None,
+    fear_greed: dict = None,
+    cme_gap: dict = None,
+    ist_time: datetime = None,
 ) -> dict:
     """
     Score Bitcoin for LONG or SHORT.
@@ -227,11 +225,12 @@ def score_btc(
         else:
             phase2 += 6  # neutral funding = half pts
             reasons.append(f"Funding {rate_pct:.3f}% — neutral")
-    elif rate_pct > 0.02:
-        phase2 += 12
-        reasons.append(f"Funding {rate_pct:.3f}% — favourable for shorts")
-    else:
-        phase2 += 4
+    else:  # SHORT — positive funding helps (shorts receive)
+        if rate_pct > 0.02:
+            phase2 += 12
+            reasons.append(f"Funding {rate_pct:.3f}% — favourable for shorts")
+        else:
+            phase2 += 4
 
     # OTE on 1H (+10 pts)
     ote = detect_ote(df_1h, direction)
@@ -270,7 +269,9 @@ def score_btc(
 
     # 15min → 1H → 4H structure alignment (+7 pts)
     r5 = df_15m.iloc[-5:]
-    if direction == "LONG" and (r5["high"].iloc[-1] > r5["high"].iloc[-3] and r5["low"].iloc[-1] > r5["low"].iloc[-3]):
+    if direction == "LONG" and (
+        r5["high"].iloc[-1] > r5["high"].iloc[-3] and r5["low"].iloc[-1] > r5["low"].iloc[-3]
+    ):
         phase3 += 7
         reasons.append("15min HH+HL aligns with 4H bullish bias")
     elif direction == "SHORT" and (

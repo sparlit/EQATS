@@ -51,7 +51,7 @@ async def example():
     )
     await exchange.load_markets()
     markets = list(exchange.markets.values())
-    for i in range(len(markets)):
+    for i in range(0, len(markets)):
         market = markets[i]
         if market["info"]["hip3"]:
             print(market["symbol"], "from DEX")

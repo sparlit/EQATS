@@ -73,8 +73,7 @@ def allocate_long_position(
 ) -> Allocation:
     """Size a long by the tightest of risk, position, portfolio and cash caps."""
     if entry <= stop or stop <= 0:
-        msg = "long allocation requires entry > stop > 0"
-        raise ValueError(msg)
+        raise ValueError("long allocation requires entry > stop > 0")
     if committed_positions >= config.max_open_positions:
         return Allocation(0, 0.0, 0.0, "max_open_positions")
     cash_capacity = max(0.0, config.capital_base - committed_capital)

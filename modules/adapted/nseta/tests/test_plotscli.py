@@ -1,0 +1,318 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# -*- coding: utf-8 -*-
+import unittest
+from unittest.mock import patch
+
+from baseUnitTest import baseUnitTest
+from click.testing import CliRunner
+from nseta.cli.plotscli import plot_ta
+
+
+class TestStrategycli(baseUnitTest):
+    def setUp(self, redirect_logs=True):
+        super().setUp()
+
+    def test_plot_ta_inputs(self):
+        runner = CliRunner()
+        result = runner.invoke(plot_ta, args=["--start", "2020-08-01", "--end", "2021-01-01"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Please provide security", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_all(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "ALL",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): ALL, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_no_option(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta, args=["--symbol", "BANDHANBNK", "--start", "2020-11-01", "--end", "2021-01-01"]
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): ALL, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_price(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "PRICE",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): PRICE, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_rsi(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "RSI",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): RSI, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_ema(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "EMA",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): EMA, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_sma(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "SMA",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): SMA, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_ssto(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "SSTO",
+                "--clear",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): SSTO, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_fsto(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "FSTO",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): FSTO, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_adx(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "ADX",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): ADX, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_obv(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "OBV",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): OBV, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_macd(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "MACD",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): MACD, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_mom(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "MOM",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): MOM, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_dmi(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "DMI",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): DMI, plotted.", result.output, str(result.output))
+
+    @patch("matplotlib.pyplot.show")
+    def test_plot_ta_bbands(self, mock_pyplot):
+        runner = CliRunner()
+        result = runner.invoke(
+            plot_ta,
+            args=[
+                "--symbol",
+                "BANDHANBNK",
+                "--start",
+                "2020-11-01",
+                "--end",
+                "2021-01-01",
+                "--plot-type",
+                "BBANDS",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Technical indicator(s): BBANDS, plotted.", result.output, str(result.output))
+
+    def tearDown(self):
+        super().tearDown()
+
+
+if __name__ == "__main__":
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestStrategycli)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if six.PY2:
+        if result.wasSuccessful():
+            print("tests OK")
+        for test, error in result.errors:
+            print(f"=========Error in: {test}===========")
+            print(error)
+            print("======================================")
+
+        for test, failures in result.failures:
+            print(f"=========Error in: {test}===========")
+            print(failures)
+            print("======================================")

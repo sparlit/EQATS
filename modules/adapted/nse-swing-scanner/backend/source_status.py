@@ -31,7 +31,7 @@ SOURCE_STATUSES set, so the scanner/UI can never silently treat a missing
 or failed fetch as a passing signal.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 SOURCE_STATUSES = {
     "ok",  # Source returned usable data
@@ -59,8 +59,9 @@ def make_status(
     `**extra` is for module-specific fields (e.g. `quarter`, `delivery_value_inr`).
     """
     if status not in SOURCE_STATUSES:
-        msg = f"Unknown source status: {status!r}; expected one of {sorted(SOURCE_STATUSES)}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Unknown source status: {status!r}; expected one of {sorted(SOURCE_STATUSES)}"
+        )
     out = {
         "source": source,
         "status": status,

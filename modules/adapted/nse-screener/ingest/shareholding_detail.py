@@ -38,18 +38,19 @@ the master API, which phase 1 re-stores WITH that column.
 """
 import sys
 import time
-from pathlib import Path
 
 import pandas as pd
 from ingest import nse
 from ingest.shareholding import DIR as MASTER_DIR
-from ingest.shareholding import URL as MASTER_URL
 from ingest.shareholding import fetch
 
 import config
 
 DETAIL_DIR = config.DATA_DIR / "shareholding_detail"
-DETAIL_URL = "https://www.nseindia.com/api/corporate-share-holdings-equities?ndsId={rid}&index=public-shareholder"
+DETAIL_URL = (
+    "https://www.nseindia.com/api/corporate-share-holdings-"
+    "equities?ndsId={rid}&index=public-shareholder"
+)
 KEEP_MASTER = ["date", "broadcastDate", "pr_and_prgrp", "public_val", "revisedData", "recordId"]
 WARMUP = "https://www.nseindia.com/companies-listing/corporate-filings-shareholding-pattern"
 

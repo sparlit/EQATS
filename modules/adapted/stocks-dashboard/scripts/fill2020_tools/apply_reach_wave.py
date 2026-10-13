@@ -225,7 +225,10 @@ def dump(p, o):
 
 
 ins_f = upd_f = ins_r = 0
-for path in (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCR, "fundamentals.json")):
+for path in (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCR, "fundamentals.json"),
+):
     o = load(path)
     for sym, qe, std, astd, con, acon, _rs, _rc, _s, _a in F:
         rows = o.setdefault(sym, [])
@@ -236,7 +239,7 @@ for path in (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SC
         rows.sort(key=lambda r: r[0])
         ins_f += 1
     for sym, qe, was, now, _ev in ANN:
-        r = next(x for x in o[sym] if x[0] == qe)
+        r = [x for x in o[sym] if x[0] == qe][0]
         # The twins are NOT mirrors: measured 2026-08-18, 4,085 rows differ and 713 symbols exist
         # only in docs/, with scripts/fundamentals.json systematically the LAGGING copy (nulls
         # where docs holds a value). So the pre-value assert accepts either the stale stamp we are
@@ -249,7 +252,10 @@ for path in (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SC
         upd_f += 1
     dump(path, o)
 
-for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCR, "revop_fundamentals.json")):
+for path in (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCR, "revop_fundamentals.json"),
+):
     o = load(path)
     for sym, qe, std, _as, con, _ac, rs, rc, _s, _a in F:
         if rs is None and rc is None:
@@ -285,7 +291,8 @@ for sym, qe, std, astd, con, acon, rs, rc, src, anc in F:
     led["%s|%d" % (sym, qe)] = {
         "std": std,
         "ann": astd,
-        "applied": WHEN + " reach-class fill (pre-listing quarter from a comparative column / offer doc)",
+        "applied": WHEN
+        + " reach-class fill (pre-listing quarter from a comparative column / offer doc)",
         "basis": "standalone",
         "src": src,
         "evidence": anc,
@@ -305,7 +312,12 @@ for sym, qe, std, astd, con, acon, rs, rc, src, anc in F:
             "evidence": anc,
         }
     if rc is not None:
-        led["%s|%d|con_rev" % (sym, qe)] = {"rev_con": rc, "when": WHEN, "src": src, "evidence": anc}
+        led["%s|%d|con_rev" % (sym, qe)] = {
+            "rev_con": rc,
+            "when": WHEN,
+            "src": src,
+            "evidence": anc,
+        }
 json.dump(led, open(p, "w"), indent=1)
 
 p = os.path.join(SCR, "std_rev_detres_fills.json")
@@ -325,7 +337,12 @@ json.dump(led, open(p, "w"), indent=1)
 p = os.path.join(SCR, "ann_date_fills.json")
 led = load(p)
 for sym, qe, was, now, ev in ANN:
-    led["%s|%d" % (sym, qe)] = {"ann": now, "was": was, "src": "carrying-filing read " + WHEN, "evidence": ev}
+    led["%s|%d" % (sym, qe)] = {
+        "ann": now,
+        "was": was,
+        "src": "carrying-filing read " + WHEN,
+        "evidence": ev,
+    }
 json.dump(led, open(p, "w"), indent=1)
 
 print("fund rows inserted (x2 twins): %d" % ins_f)

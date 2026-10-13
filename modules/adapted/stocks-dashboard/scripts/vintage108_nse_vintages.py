@@ -67,7 +67,6 @@ import json
 import os
 import re
 import sys
-import time
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -84,12 +83,15 @@ OUT_CON = os.path.join(HERE, "_vintage108_nse_con.json")
 DETAIL_CACHE = os.path.join(HERE, "_vintage108_nse_pages")
 os.makedirs(DETAIL_CACHE, exist_ok=True)
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 PAT_ROWS = (
-    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.IGNORECASE),
-    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.IGNORECASE),
-    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.IGNORECASE),
+    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.I),
+    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.I),
+    re.compile(r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.I),
 )
 ABS_TOL, REL_TOL = 2.0, 0.03  # the same tolerance pass 1 flags on
 # "the store IS this vintage" is a NEAREST-match question, not a fixed-epsilon one: our cells are
@@ -154,7 +156,9 @@ def lines_of(html):
     pat, prow = pick_nonzero(rows, PAT_ROWS)
     out["pat"], out["pat_row"] = pat, (prow or "")[:70]
     out["op"], _ = pick_nonzero(rows, (NA.R_OP_IND, NA.R_OP_BANK))
-    out["rev"], _ = pick_nonzero(rows, (NA.R_REV_IND, NA.R_REV_IND2, NA.R_REV_IND3, NA.R_REV_BANK, NA.R_REV_IND5))
+    out["rev"], _ = pick_nonzero(
+        rows, (NA.R_REV_IND, NA.R_REV_IND2, NA.R_REV_IND3, NA.R_REV_BANK, NA.R_REV_IND5)
+    )
     return out
 
 
@@ -176,7 +180,7 @@ def reparse():
             continue
         d = json.load(open(path, encoding="utf-8"))
         n = changed = nofile = 0
-        for v in d.values():
+        for _k, v in d.items():
             for x in v.get("vintages", []):
                 seq = str(x.get("seq") or "")
                 f = idx.get(seq)
@@ -215,7 +219,11 @@ def verdict_of(got, stored):
 
     if near(first["pat"]):
         out["verdict"] = "single-vintage-matches-store" if len(got) == 1 else "store-as-filed"
-        out["nearest"] = {"filed": first["filed"], "pat": first["pat"], "gap": round(abs(stored - first["pat"]), 4)}
+        out["nearest"] = {
+            "filed": first["filed"],
+            "pat": first["pat"],
+            "gap": round(abs(stored - first["pat"]), 4),
+        }
         return out
     hits = [x for x in got[1:] if near(x["pat"])]
     if hits:
@@ -238,8 +246,12 @@ def reverdict():
     re-adjudicate offline (memory: feedback-persist-raw-rows-for-offline-rematch)."""
     out = json.load(open(OUT, encoding="utf-8"))
     changed = 0
-    for v in out.values():
-        got = [x for x in v.get("vintages", []) if x.get("pat") is not None and x.get("cumulative") != "Cumulative"]
+    for _k, v in out.items():
+        got = [
+            x
+            for x in v.get("vintages", [])
+            if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
+        ]
         if not got:
             continue
         before = v.get("verdict")
@@ -268,9 +280,11 @@ def main():
     if "--reparse" in args:
         reparse()
         for tgt in ("std", "con"):
-            globals()["OUT"] = OUT_CON if tgt == "con" else os.path.join(HERE, "_vintage108_nse.json")
+            globals()["OUT"] = (
+                OUT_CON if tgt == "con" else os.path.join(HERE, "_vintage108_nse.json")
+            )
             reverdict()
-        return None
+        return
     if "--reverdict" in args:
         return reverdict()
     limit = int(args[args.index("--limit") + 1]) if "--limit" in args else 10**9
@@ -281,11 +295,15 @@ def main():
     out = json.load(open(OUT, encoding="utf-8")) if os.path.exists(OUT) else {}
     # Transport failures are NOT results: drop them on load so a re-run retries them instead of
     # inheriting a "no rows" that was really a 403 (runbook 61a mode 4).
-    for k in [k for k, v in out.items() if v.get("verdict") in ("list-failed", "no-readable-vintage")]:
+    for k in [
+        k for k, v in out.items() if v.get("verdict") in ("list-failed", "no-readable-vintage")
+    ]:
         del out[k]
     # Entries written before this pass captured op/rev hold PAT only; redo them rather than let a
     # partial record pass for a complete one.
-    for k in [k for k, v in out.items() if v.get("vintages") and not any("op" in x for x in v["vintages"])]:
+    for k in [
+        k for k, v in out.items() if v.get("vintages") and not any("op" in x for x in v["vintages"])
+    ]:
         del out[k]
     print("basis: %s (store slot %d)" % (BASIS_ROW, SLOT))
     every = "--all" in args
@@ -301,7 +319,12 @@ def main():
                 continue
             for r in rowset:
                 if r[0] in QS and len(r) > SLOT and r[SLOT] is not None:
-                    cand["%s|%d" % (sym, r[0])] = {"sym": sym, "qe": r[0], "stored": r[SLOT], "state": "done"}
+                    cand["%s|%d" % (sym, r[0])] = {
+                        "sym": sym,
+                        "qe": r[0],
+                        "stored": r[SLOT],
+                        "state": "done",
+                    }
         if not con:
             for k, v in scan.items():
                 if k in cand:
@@ -320,9 +343,14 @@ def main():
         v = cand[k].get("verdict")
         return (0 if v == "FLAG" else 1 if v not in ("match", None) else 2, k)
 
-    targets = sorted((k for k, v in cand.items() if v.get("state") == "done" and k not in out), key=prio)[:limit]
+    targets = sorted(
+        (k for k, v in cand.items() if v.get("state") == "done" and k not in out), key=prio
+    )[:limit]
     scan = cand
-    print("cells to test: %d (ledger holds %d)%s" % (len(targets), len(out), "  [--all]" if every else ""))
+    print(
+        "cells to test: %d (ledger holds %d)%s"
+        % (len(targets), len(out), "  [--all]" if every else "")
+    )
 
     # The per-symbol LIST call is the bottleneck — measured ~15 s each (it is the cookie-gated
     # www.nseindia.com API, and it is fetched once per symbol plus once per rename alias), while
@@ -367,7 +395,9 @@ def main():
         rows = [
             r
             for r in lists[sym]
-            if qe_of(r) == qe and (r.get("consolidated") or "") == BASIS_ROW and r.get("resultDetailedDataLink")
+            if qe_of(r) == qe
+            and (r.get("consolidated") or "") == BASIS_ROW
+            and r.get("resultDetailedDataLink")
         ]
         # In --all mode a period NSE filed once, whose detres already matched the store, has
         # nothing this test can add — the list alone settles it, at no page-read cost.
@@ -397,13 +427,17 @@ def main():
         # rate-limited www.nseindia.com API the list comes from — so a small pool here is safe
         # and is the difference between a 6-hour scan and a 2-hour one. The list calls stay
         # strictly serial.
-        ordered = sorted(rows, key=lambda x: (dt(x.get("filingDate")) or 0, x.get("seqNumber") or ""))
+        ordered = sorted(
+            rows, key=lambda x: (dt(x.get("filingDate")) or 0, x.get("seqNumber") or "")
+        )
 
         def read(r):
             link = r["resultDetailedDataLink"]
             # CACHE the page: re-extracting a different row later must never mean re-fetching
             # 6,000 pages (memory: feedback-persist-raw-rows-for-offline-rematch).
-            path = os.path.join(DETAIL_CACHE, re.sub(r"[^A-Za-z0-9_.]", "_", link.rsplit("/", 1)[-1]))
+            path = os.path.join(
+                DETAIL_CACHE, re.sub(r"[^A-Za-z0-9_.]", "_", link.rsplit("/", 1)[-1])
+            )
             try:
                 html = NA.get_detail(link, sym, path)
             except Exception as ex:
@@ -449,7 +483,6 @@ def main():
             json.dump(out, open(OUT, "w"), indent=1)
     json.dump(out, open(OUT, "w"), indent=1)
     print("done: %d cells" % n)
-    return None
 
 
 if __name__ == "__main__":

@@ -143,11 +143,17 @@ def main():
             return 100 * (x ** (1 / yrs) - 1)
 
         s_pre, s_post = equity.iloc[-1], after.iloc[-1]
-        print(f"  lots closed: {len(lots)}  ({sum(1 for f, x, _, _ in lots if (x - f).days > 365)} long-term)")
+        print(
+            f"  lots closed: {len(lots)}  "
+            f"({sum(1 for f, x, _, _ in lots if (x - f).days > 365)} long-term)"
+        )
         print(f"  taxes by FY (pre-tax scale): { {y: round(v, 4) for y, v in tax.items()} }")
         print(f"  strategy pre-tax : {100 * (s_pre - 1):+7.1f}%  (CAGR {cagr(s_pre):+.1f}%)")
         print(f"  strategy AFTER-tax: {100 * (s_post - 1):+7.1f}%  (CAGR {cagr(s_post):+.1f}%)")
-        print(f"  bench pre-tax    : {100 * (b_pre - 1):+7.1f}%   AFTER-tax: {100 * (b_post - 1):+7.1f}%")
+        print(
+            f"  bench pre-tax    : {100 * (b_pre - 1):+7.1f}%   "
+            f"AFTER-tax: {100 * (b_post - 1):+7.1f}%"
+        )
         print(
             f"  EDGE pre-tax {100 * (s_pre - b_pre):+.1f}pt → "
             f"AFTER-tax {100 * (s_post - b_post):+.1f}pt   "

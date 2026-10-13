@@ -34,7 +34,7 @@ Enforces:
 """
 
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -82,7 +82,10 @@ def can_enter(
     if len(open_positions) > 0:
         sector_pct = sector_count / len(open_positions)
         if sector_pct >= constraints.max_sector_pct:
-            return False, f"sector {sector} at {sector_pct:.0%} (max {constraints.max_sector_pct:.0%})"
+            return (
+                False,
+                f"sector {sector} at {sector_pct:.0%} (max {constraints.max_sector_pct:.0%})",
+            )
 
     # Min days between same-stock entries (check recent exits — not applicable for entry)
     # This is checked at exit time to enforce cooldown

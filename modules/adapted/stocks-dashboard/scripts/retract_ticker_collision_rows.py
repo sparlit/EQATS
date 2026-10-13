@@ -79,8 +79,14 @@ import bse_resolve as R  # noqa: E402
 
 SME_CACHE = os.environ.get("SME_CACHE") or os.path.join(HERE, "_xbrl_cache_sme")
 LOG = os.path.join(HERE, "ticker_collision_retractions.json")
-FUND_STORES = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(HERE, "fundamentals.json")]
-REVOP_STORES = [os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(HERE, "revop_fundamentals.json")]
+FUND_STORES = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(HERE, "fundamentals.json"),
+]
+REVOP_STORES = [
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(HERE, "revop_fundamentals.json"),
+]
 XTRA = os.path.join(HERE, "xbrl_extra.json.gz")
 BSEF = os.path.join(ROOT, "docs", "bse_fundamentals.json")
 TOL = 0.011  # 2-dp store vs a crore-converted filing value
@@ -259,7 +265,9 @@ def parse_fields(files, key):
 def main():
     apply = "--apply" in sys.argv
     if not os.path.isdir(SME_CACHE):
-        sys.exit(f"ABORT: SME XBRL cache {SME_CACHE} missing (set SME_CACHE) — the proofs read the filings")
+        sys.exit(
+            f"ABORT: SME XBRL cache {SME_CACHE} missing (set SME_CACHE) — the proofs read the filings"
+        )
     R.identities()
     conflicts = R.conflicts()
     fund = {p: _load(p) for p in FUND_STORES}
@@ -269,7 +277,11 @@ def main():
     bfd = _load(BSEF)
     px = bfd.get("px") or {}
     site = R.identities()["site"]
-    log = _load(LOG) if os.path.exists(LOG) else {"_README": __doc__.split("\n\n")[0].strip(), "runs": []}
+    log = (
+        _load(LOG)
+        if os.path.exists(LOG)
+        else {"_README": __doc__.split("\n\n")[0].strip(), "runs": []}
+    )
     run = {"at": time.strftime("%Y-%m-%d %H:%M"), "keys": {}}
     changed = set()
     cell_fix = {"fund": [], "revop": []}  # new reviewed-correction ledger entries
@@ -295,7 +307,9 @@ def main():
             if not ok:
                 print(f"px[{code}] {q} NOT dropped — no longer equals {k}'s served row: {c}")
                 continue
-            out.append({"q": q, "cell": c, "action": f"dropped ({k}'s own figures filed under BSE {code})"})
+            out.append(
+                {"q": q, "cell": c, "action": f"dropped ({k}'s own figures filed under BSE {code})"}
+            )
             del px[code][q]
         if out:
             run["keys"].setdefault(k, {"page": "nse", "stores": {}})["stores"][
@@ -333,7 +347,9 @@ def main():
         own_files = [own_half(p, f) for p, f in files.get(R.issuer(e["nse_isin"]), [])]
         own_files = [x for x in own_files if x and x["qe"]]
         halves_only = all(x["rq"] in ("Half yearly", "Half Yearly", "Yearly") for x in own_files)
-        first = min((int(x["start"].replace("-", "")) for x in own_files if x.get("start")), default=None)
+        first = min(
+            (int(x["start"].replace("-", "")) for x in own_files if x.get("start")), default=None
+        )
         # the page company's own figure per (qe, basis): earliest filing, proven by H1 + H2 = FY
         byq = collections.defaultdict(list)
         for x in own_files:
@@ -341,7 +357,10 @@ def main():
         mine = {}
         for (qe, b), xs in byq.items():
             x = min(xs, key=lambda t: t["filed"] or 99999999)
-            if any(not same(y["pat"], x["pat"], 0.005) or not same(y["rev"], x["rev"], 0.005) for y in xs):
+            if any(
+                not same(y["pat"], x["pat"], 0.005) or not same(y["rev"], x["rev"], 0.005)
+                for y in xs
+            ):
                 print(
                     "  {} {} {}: its filings disagree ({}) — not rewritten".format(
                         k, qe, b, [(y["f"], y["pat"]) for y in xs]
@@ -385,7 +404,9 @@ def main():
             for r in d.get(k) or []:
                 qe = r[0]
                 c = tw.get(str(qe)) or {}
-                twin = c.get("pat") not in (None, 0) and any(same(v, c.get("pat"), 0.005) for v in (r[1], r[3]))
+                twin = c.get("pat") not in (None, 0) and any(
+                    same(v, c.get("pat"), 0.005) for v in (r[1], r[3])
+                )
                 why = (
                     "equals BSE {}'s own profit {}".format(code, c.get("pat"))
                     if twin
@@ -453,14 +474,26 @@ def main():
                 rec["stores"][os.path.relpath(p, ROOT)] = out
                 changed.add(p)
         # ---- A4. revop rows ------------------------------------------------------------------------------------------
-        rewrote = {e_["row"][0]: e_["now"] for e_ in rec["stores"].get("docs/sf_fundamentals.json", []) if "now" in e_}
+        rewrote = {
+            e_["row"][0]: e_["now"]
+            for e_ in rec["stores"].get("docs/sf_fundamentals.json", [])
+            if "now" in e_
+        }
         for p, d in revop.items():
             out = []
             for q, r in sorted((d.get(k) or {}).items()):
                 c = tw.get(q) or {}
-                if c.get("rev") not in (None, 0) and any(same(r[i], c["rev"], 0.005) for i in (0, 1) if i < len(r)):
+                if c.get("rev") not in (None, 0) and any(
+                    same(r[i], c["rev"], 0.005) for i in (0, 1) if i < len(r)
+                ):
                     out.append(
-                        {"q": q, "row": r, "action": "dropped (revenue equals BSE {}'s own {})".format(code, c["rev"])}
+                        {
+                            "q": q,
+                            "row": r,
+                            "action": "dropped (revenue equals BSE {}'s own {})".format(
+                                code, c["rev"]
+                            ),
+                        }
                     )
                     del d[k][q]
                     continue
@@ -520,7 +553,9 @@ def main():
                     if not isinstance(blk, dict):
                         continue
                     pv = ownp.get(q, {}).get(b, {})
-                    gone = {f: v for f, v in blk.items() if not (f in pv and json.dumps(v) in pv[f])}
+                    gone = {
+                        f: v for f, v in blk.items() if not (f in pv and json.dumps(v) in pv[f])
+                    }
                     if gone:
                         for f in gone:
                             del blk[f]
@@ -594,7 +629,8 @@ def main():
         if out:
             run["keys"].setdefault(k, {"page": "nse", "stores": {}})
             run["keys"][k].update(
-                twin="BSE {} {} ({})".format(code, e.get("bse_name"), e.get("bse_isin")), proof_blocks=len(blocks)
+                twin="BSE {} {} ({})".format(code, e.get("bse_name"), e.get("bse_isin")),
+                proof_blocks=len(blocks),
             )
             run["keys"][k]["stores"]["scripts/xbrl_extra.json.gz"] = out
             changed.add(XTRA)
@@ -628,7 +664,12 @@ def main():
                 ]
                 if hit and all(r[i] is None or b in hit for b, i in (("s", 1), ("c", 3))):
                     out.append(
-                        {"row": r, "action": "dropped (equals the NSE twin's own {} filing)".format("/".join(hit))}
+                        {
+                            "row": r,
+                            "action": "dropped (equals the NSE twin's own {} filing)".format(
+                                "/".join(hit)
+                            ),
+                        }
                     )
                 else:
                     keep.append(r)
@@ -645,14 +686,20 @@ def main():
                 hit = [
                     b
                     for b, i in (("s", 0), ("c", 1))
-                    if i < len(r) and r[i] is not None and any(same(r[i], v) for v in rev.get((int(q), b), ()))
+                    if i < len(r)
+                    and r[i] is not None
+                    and any(same(r[i], v) for v in rev.get((int(q), b), ()))
                 ]
-                if hit and all(r[i] is None or b in hit for b, i in (("s", 0), ("c", 1)) if i < len(r)):
+                if hit and all(
+                    r[i] is None or b in hit for b, i in (("s", 0), ("c", 1)) if i < len(r)
+                ):
                     out.append(
                         {
                             "q": q,
                             "row": r,
-                            "action": "dropped (revenue equals the NSE twin's own {} filing)".format("/".join(hit)),
+                            "action": "dropped (revenue equals the NSE twin's own {} filing)".format(
+                                "/".join(hit)
+                            ),
                         }
                     )
                     del d[k][q]
@@ -694,7 +741,11 @@ def main():
             run["keys"][k] = rec
             print(
                 "%-10s page = BSE %s; NSE twin's rows removed: %s"
-                % (k, site.get(k + ".BO", {}).get("name"), {s: len(v) for s, v in rec["stores"].items()})
+                % (
+                    k,
+                    site.get(k + ".BO", {}).get("name"),
+                    {s: len(v) for s, v in rec["stores"].items()},
+                )
             )
 
     # ---- B2. the BSE page's own cells the heal exposes, mis-scaled by the vision route ---------------------------------
@@ -705,7 +756,10 @@ def main():
             if (
                 not c
                 or c.get("basis") != "S"
-                or not (same(c.get("rev"), fx["was"][0], 0.005) and same(c.get("pat"), fx["was"][1], 0.005))
+                or not (
+                    same(c.get("rev"), fx["was"][0], 0.005)
+                    and same(c.get("pat"), fx["was"][1], 0.005)
+                )
             ):
                 continue  # applied already, or moved on: never forced
             was = {k: c[k] for k in ("rev", "pat", "ann", "src") if k in c}
@@ -725,7 +779,8 @@ def main():
             ] = out
             changed.add(BSEF)
             print(
-                "px[%s] (%s's own cells): %d mis-scaled cell(s) replaced from its XBRL" % (code, spec["page"], len(out))
+                "px[%s] (%s's own cells): %d mis-scaled cell(s) replaced from its XBRL"
+                % (code, spec["page"], len(out))
             )
 
     # ---- C. ledgers --------------------------------------------------------------------------------------------------
@@ -788,7 +843,9 @@ def retire_ledgers(run, conflicts, cell_fix, apply):
     for k in sorted(keys):
         for q in [q for q in (d.get(k) or {}) if q.isdigit()]:
             e = d[k].pop(q)
-            e["retracted_why"] = note(k) + " — the stored and 'correct' values here are both that company's."
+            e["retracted_why"] = (
+                note(k) + " — the stored and 'correct' values here are both that company's."
+            )
             d[k]["_RETRACTED_" + q] = e
             log_.append(f"{k}/{q}")
     if log_:
@@ -800,9 +857,16 @@ def retire_ledgers(run, conflicts, cell_fix, apply):
     log_ = []
     fixes = {(f["sym"], f["qe"], f["basis"]): f for f in cell_fix["fund"]}
     for ck, e in sorted((d.get("cells") or {}).items()):
-        k, q, slot = ([*ck.split("|"), "", ""])[:3]
-        if k in keys and slot == "patC" and (k, q, "con") in fixes and e.get("owners") != fixes[(k, q, "con")]["fixed"]:
-            e["superseded_2026_09_27"] = {x: e[x] for x in ("owners", "note", "also_npStd", "stored_before") if x in e}
+        k, q, slot = (ck.split("|") + ["", ""])[:3]
+        if (
+            k in keys
+            and slot == "patC"
+            and (k, q, "con") in fixes
+            and e.get("owners") != fixes[(k, q, "con")]["fixed"]
+        ):
+            e["superseded_2026_09_27"] = {
+                x: e[x] for x in ("owners", "note", "also_npStd", "stored_before") if x in e
+            }
             e["owners"] = fixes[(k, q, "con")]["fixed"]
             e.pop("also_npStd", None)
             e["note"] = (
@@ -831,17 +895,23 @@ def retire_ledgers(run, conflicts, cell_fix, apply):
     d = json.load(open(p, encoding="utf-8"))
     log_ = []
     for k in sorted(keys):
-        if k in d.get("never_filed_con", []) and any(f["sym"] == k and f["basis"] == "con" for f in cell_fix["fund"]):
+        if k in d.get("never_filed_con", []) and any(
+            f["sym"] == k and f["basis"] == "con" for f in cell_fix["fund"]
+        ):
             d["never_filed_con"].remove(k)
             d["_evidence_notes"][k + "__withdrawn_203"] = (
-                note(k) + "; that company files consolidated results too (see fund_cell_fix §203 entries)."
+                note(k)
+                + "; that company files consolidated results too (see fund_cell_fix §203 entries)."
             )
             log_.append(f"never_filed_con -{k}")
     if log_:
         dump(p, d)
         run.setdefault("ledgers", {})["no_con_filing.json"] = log_
     # the reviewed-correction ledgers: re-asserted nightly after CI's rebuild, watched by verify_fills_live
-    for name, new in (("fund_cell_fix.json", cell_fix["fund"]), ("revop_cell_fix.json", cell_fix["revop"])):
+    for name, new in (
+        ("fund_cell_fix.json", cell_fix["fund"]),
+        ("revop_cell_fix.json", cell_fix["revop"]),
+    ):
         if not new:
             continue
         p = os.path.join(HERE, name)
@@ -852,10 +922,13 @@ def retire_ledgers(run, conflicts, cell_fix, apply):
             d["fixes"].extend(add)
             dump(p, d)
             run.setdefault("ledgers", {})[name] = [
-                "{} {} {} {} -> {}".format(f["sym"], f["qe"], f["basis"], f["was"], f["fixed"]) for f in add
+                "{} {} {} {} -> {}".format(f["sym"], f["qe"], f["basis"], f["was"], f["fixed"])
+                for f in add
             ]
     for n, v in (run.get("ledgers") or {}).items():
-        print("ledger %-28s %d: %s" % (n, len(v), ", ".join(v[:6]) + (" ..." if len(v) > 6 else "")))
+        print(
+            "ledger %-28s %d: %s" % (n, len(v), ", ".join(v[:6]) + (" ..." if len(v) > 6 else ""))
+        )
     return out
 
 

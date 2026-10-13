@@ -33,12 +33,10 @@ Tool selection by site:
 """
 
 
-import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from indian_quant.browser.base import BaseBrowserClient
+from indian_quant.browser.base import BaseBrowserClient
 
 log = logging.getLogger(__name__)
 
@@ -69,22 +67,24 @@ def _get_tool_for_site(url: str) -> str:
     return "playwright"
 
 
-def _create_client(tool: str, headless: bool = True, proxy: dict | None = None) -> BaseBrowserClient:
+def _create_client(
+    tool: str, headless: bool = True, proxy: dict | None = None
+) -> BaseBrowserClient:
     """Create a browser client for the given tool."""
     if tool == "playwright":
         from indian_quant.browser.playwright_client import PlaywrightBrowserClient
 
         return PlaywrightBrowserClient(headless=headless, proxy=proxy)
-    if tool == "camofox":
+    elif tool == "camofox":
         from indian_quant.browser.camofox_client import CamofoxBrowserClient
 
         return CamofoxBrowserClient(headless=headless, proxy=proxy)
-    if tool == "obscura":
+    elif tool == "obscura":
         from indian_quant.browser.obscura_client import ObscuraBrowserClient
 
         return ObscuraBrowserClient(headless=headless, proxy=proxy)
-    msg = f"Unknown tool: {tool}"
-    raise ValueError(msg)
+    else:
+        raise ValueError(f"Unknown tool: {tool}")
 
 
 class BrowserScraper:
@@ -161,12 +161,13 @@ class BrowserScraper:
                 await self._client.navigate(url, wait_until)
                 return await self._client.get_content()
             except Exception as e:
-                log.warning("Scrape attempt %d failed with %s: %s", attempt + 1, self._active_tool, e)
+                log.warning(
+                    "Scrape attempt %d failed with %s: %s", attempt + 1, self._active_tool, e
+                )
                 if attempt < self.max_retries:
                     if await self._fallback(self._active_tool):
                         continue
                 raise
-        return None
 
     async def get_text(self, selector: str | None = None) -> str:
         """Get text content from current page."""

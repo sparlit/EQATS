@@ -74,7 +74,10 @@ ECACHE = os.path.join(HERE, "_stepe_cache")
 os.makedirs(ECACHE, exist_ok=True)
 
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 # The 21 PAT-missing cells. (The 7 rev-only cells are evidenced as filed-without-positive-revenue
@@ -118,12 +121,17 @@ def detres_fields(scrip, qid):
     if os.path.exists(cp):
         rows = json.load(open(cp, encoding="utf8"))
     else:
-        u = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%d.00" % (
-            scrip,
-            qid,
+        u = (
+            "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w"
+            "?scrip_cd=%s&qtr=%d.00" % (scrip, qid)
         )
         d = BF._get(
-            u, headers={"User-Agent": BF.UA, "Accept": "application/json", "Referer": "https://www.bseindia.com/"}
+            u,
+            headers={
+                "User-Agent": BF.UA,
+                "Accept": "application/json",
+                "Referer": "https://www.bseindia.com/",
+            },
         )
         if isinstance(d, bytes):
             d = d.decode("utf8", "replace")
@@ -145,7 +153,7 @@ def dget(f, pats, scale=0.1):
     """detres currency values are rs-million -> crore via *0.1; per-share rows use scale=1."""
     for p in pats:
         for k, v in f.items():
-            if isinstance(v, float) and re.search(p, k, re.IGNORECASE):
+            if isinstance(v, float) and re.search(p, k, re.I):
                 return v * scale
     return None
 
@@ -173,7 +181,10 @@ def nse_leg(sym, rows, qe, want_span="Q"):
         f0 = N.iso_qe(r.get("fromDate"))
         if t != qe or not f0 or not r.get("resultDetailedDataLink"):
             continue
-        span = (date(t // 10000, (t // 100) % 100, t % 100) - date(f0 // 10000, (f0 // 100) % 100, f0 % 100)).days
+        span = (
+            date(t // 10000, (t // 100) % 100, t % 100)
+            - date(f0 // 10000, (f0 // 100) % 100, f0 % 100)
+        ).days
         if want_span == "Q" and span > 100:
             continue
         if want_span == "H1" and not 175 <= span <= 190:
@@ -193,7 +204,7 @@ def nse_leg(sym, rows, qe, want_span="Q"):
 def nget(d, pats, div, per_share=False):
     for p in pats:
         for k, v in d.items():
-            if re.search(p, k, re.IGNORECASE):
+            if re.search(p, k, re.I):
                 return v * div if per_share else v
     return None
 
@@ -254,9 +265,19 @@ def main():
             )
             meta, nd, span, nfn = nse_leg(sym, rows, qe, "Q")
             div = (meta.get("div", 100.0) or 100.0) if meta else 100.0
-            n_pat = nget(nd, [r"^net profit\s*\(\+\)\s*/\s*loss", r"^net profit.*for the period"], div) if nd else None
-            n_eps = nget(nd, [r"basic.*eps after", r"basic.*eps before"], div, per_share=True) if nd else None
-            n_eq = nget(nd, [r"paid-up equity share capital", r"^equity capital"], div) if nd else None
+            n_pat = (
+                nget(nd, [r"^net profit\s*\(\+\)\s*/\s*loss", r"^net profit.*for the period"], div)
+                if nd
+                else None
+            )
+            n_eps = (
+                nget(nd, [r"basic.*eps after", r"basic.*eps before"], div, per_share=True)
+                if nd
+                else None
+            )
+            n_eq = (
+                nget(nd, [r"paid-up equity share capital", r"^equity capital"], div) if nd else None
+            )
             n_fv = nget(nd, [r"^face value"], div, per_share=True) if nd else None
             n_rev = None
             if nd:
@@ -267,12 +288,18 @@ def main():
                             break
                     if n_rev is not None:
                         break
-            print(f"   detres: qe_ok={d_ok} pat={d_pat} eps={d_eps} eq={d_eq} fv={d_fv} rev={d_rev}")
-            print(f"   nse   : pat={n_pat} eps={n_eps} eq={n_eq} fv={n_fv} rev={n_rev} span={span} doc={nfn}")
+            print(
+                f"   detres: qe_ok={d_ok} pat={d_pat} eps={d_eps} eq={d_eq} fv={d_fv} rev={d_rev}"
+            )
+            print(
+                f"   nse   : pat={n_pat} eps={n_eps} eq={n_eq} fv={n_fv} rev={n_rev} span={span} doc={nfn}"
+            )
 
             # cross-source PAT agreement is a hard precondition when both exist
             if d_pat is not None and n_pat is not None and abs(d_pat - n_pat) > 0.011:
-                att[key] = {"reason": f"G: sources DISAGREE on PAT (detres {d_pat:.2f} vs nse {n_pat:.2f})"}
+                att[key] = {
+                    "reason": f"G: sources DISAGREE on PAT (detres {d_pat:.2f} vs nse {n_pat:.2f})"
+                }
                 print("   -> REFUSED: publishers disagree")
                 continue
             pat = d_pat if d_pat is not None else n_pat
@@ -280,8 +307,12 @@ def main():
             eq = d_eq if d_eq is not None else n_eq
             fv = d_fv if d_fv is not None else n_fv
             if (fv is None or fv <= 0) and len(fvs) == 1:
-                fv = next(iter(fvs))
-            rev = d_rev if (d_rev is not None and d_rev > 0) else (n_rev if (n_rev is not None and n_rev > 0) else None)
+                fv = list(fvs)[0]
+            rev = (
+                d_rev
+                if (d_rev is not None and d_rev > 0)
+                else (n_rev if (n_rev is not None and n_rev > 0) else None)
+            )
 
             gate = detail = None
             if None not in (pat, eps, eq, fv) and fv > 0 and eq > 0 and abs(eps) >= 0.10:
@@ -289,7 +320,10 @@ def main():
                 implied = pat / shares
                 tol = max(0.02 * abs(eps), 0.05)
                 if abs(implied - eps) <= tol:
-                    gate, detail = "E", f"EPS-recon implied={implied:.4f} seen={eps:.4f} (eq={eq:.2f} fv={fv:.2f})"
+                    gate, detail = (
+                        "E",
+                        f"EPS-recon implied={implied:.4f} seen={eps:.4f} (eq={eq:.2f} fv={fv:.2f})",
+                    )
                 else:
                     att[key] = {"reason": f"G: gate-E FAILS implied={implied:.4f} seen={eps:.4f}"}
                     print("   -> REFUSED: EPS identity fails")
@@ -297,18 +331,27 @@ def main():
             elif d_pat is not None and n_pat is not None and abs(d_pat) >= 0.05:
                 gate, detail = (
                     "X",
-                    "cross-publisher PAT agreement detres==nse %.2f (docs qid%d + %s)" % (d_pat, qid_for(qe), nfn),
+                    "cross-publisher PAT agreement detres==nse %.2f (docs qid%d + %s)"
+                    % (d_pat, qid_for(qe), nfn),
                 )
             if gate is None:
                 att[key] = {
                     "reason": "G: no gate closable (pat={} eps={} eq={} fv={} single-source={})".format(
-                        pat, eps, eq, fv, "detres" if d_pat is not None else ("nse" if n_pat is not None else "none")
+                        pat,
+                        eps,
+                        eq,
+                        fv,
+                        "detres" if d_pat is not None else ("nse" if n_pat is not None else "none"),
                     )
                 }
                 print("   -> UNPROVEN (single source or missing fields)")
                 continue
             stored = fmap.get(sym, {}).get(qe)
-            if stored and stored[1] is not None and abs(stored[1] - pat) > max(2.0, 0.03 * abs(pat)):
+            if (
+                stored
+                and stored[1] is not None
+                and abs(stored[1] - pat) > max(2.0, 0.03 * abs(pat))
+            ):
                 att[key] = {"reason": f"G: disagrees with stored PAT {stored[1]:.2f} vs {pat:.2f}"}
                 continue
             print(f"   -> GATE {gate} PASS: pat={pat:.2f} rev={rev} | {detail}")
@@ -340,9 +383,17 @@ def main():
         if os.path.exists(cp):
             rows_a = json.load(open(cp, encoding="utf8"))
         else:
-            u = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=534312&qtr=85.50"
+            u = (
+                "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w"
+                "?scrip_cd=534312&qtr=85.50"
+            )
             d = BF._get(
-                u, headers={"User-Agent": BF.UA, "Accept": "application/json", "Referer": "https://www.bseindia.com/"}
+                u,
+                headers={
+                    "User-Agent": BF.UA,
+                    "Accept": "application/json",
+                    "Referer": "https://www.bseindia.com/",
+                },
             )
             if isinstance(d, bytes):
                 d = d.decode("utf8", "replace")
@@ -357,15 +408,19 @@ def main():
                 except (TypeError, ValueError):
                     fa[k2] = (r.get("Value") or "").strip()
         ann = dget(fa, [r"^net profit$"])
-        span_ok = str(fa.get("Date Begin", "")).startswith("01-Apr-14") and str(fa.get("Date End", "")).startswith(
-            "31-Mar-15"
-        )
+        span_ok = str(fa.get("Date Begin", "")).startswith("01-Apr-14") and str(
+            fa.get("Date End", "")
+        ).startswith("31-Mar-15")
         sibs = [fmap.get("MTEDUCARE", {}).get(20140630), fmap.get("MTEDUCARE", {}).get(20150331)]
         dec = out.get("MTEDUCARE", {}).get("20141231")
         if ann is not None and span_ok and all(s and s[1] is not None for s in sibs) and dec:
             derived = ann - (sibs[0][1] + dec["pat"] + sibs[1][1])
-            _, nd2, _span2, nfn2 = nse_leg("MTEDUCARE", nse_rows("MTEDUCARE"), 20140930, "Q")
-            printed = nget(nd2, [r"^net profit\s*\(\+\)", r"^net profit.*for the period"], 100.0) if nd2 else None
+            _, nd2, span2, nfn2 = nse_leg("MTEDUCARE", nse_rows("MTEDUCARE"), 20140930, "Q")
+            printed = (
+                nget(nd2, [r"^net profit\s*\(\+\)", r"^net profit.*for the period"], 100.0)
+                if nd2
+                else None
+            )
             if printed is not None and abs(derived - printed) <= max(0.05, 0.01 * abs(printed)):
                 nrev = None
                 for pp in REV_ROWS:

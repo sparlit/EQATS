@@ -2,9 +2,12 @@
 Integration test suite for EQATS v8.3j self-learning trade reflection, hardware capacity auto-detection,
 and zero-mock resilience.
 """
-from typing import Any
+from institutional_integrations.system_autotune import (
+    auto_tune_system_parameters,
+    detect_system_capabilities,
+)
 from institutional_integrations.trade_memory_protocol import global_trade_memory_protocol
-from institutional_integrations.system_autotune import detect_system_capabilities, auto_tune_system_parameters
+
 
 def test_trade_memory_self_learning_retraining() -> None:
     """Verifies that winning and losing trade reflections retrain strategy weightings dynamically."""

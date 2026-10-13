@@ -111,8 +111,9 @@ PARAM_DOCS: dict[str, str] = {
     "group_name": 'Account group name (e.g. `"All"`).',
     "manual_order_cancel_time": "Manual cancel time (empty for immediate).",
     "config": "Connection configuration (username, password, host, paper, core_id).",
-    "ib_key_timeout_secs": "Live second-factor approval timeout in seconds (default ~18 min). Lower it to fail fast on unattended live logins; ignored for paper.",
-    "ib_key_token_sub_type": 'Account-specific second-factor token sub-type (default `"2a"`); ignored for paper.',
+    "ib_key_timeout_secs": "Live second-factor approval timeout in seconds. Default: no client timeout, the wait ends when the server answers or closes the login (about 18 min). Set it to fail fast on unattended live logins; ignored for paper.",
+    "code_provider": 'Callable for the typed-code second factor: called once during `connect()` with a dict `{"display_id", "avth_url"}`, returns the code as `str`. Default: wait for the mobile push approval. Ignored for paper.',
+    "ib_key_token_sub_type": "Override of the second-factor token sub-type. Default: the value the server lists for the session. Ignored for paper.",
     "host": "Server hostname.",
     "port": "Port number (unused — ibx connects directly).",
     "client_id": "Client ID (unused — single-client engine).",
@@ -536,7 +537,9 @@ def parse_wrapper_trait(path: Path) -> list[dict]:
                 doc_lines.append(line.removeprefix("///").strip())
         doc = " ".join(doc_lines)
         params = parse_rust_params(args_str)
-        results.append({"name": name, "doc": doc, "params": params, "return_type": "", "signature": ""})
+        results.append(
+            {"name": name, "doc": doc, "params": params, "return_type": "", "signature": ""}
+        )
     return results
 
 
@@ -655,7 +658,7 @@ def render_method_rust(m: dict) -> list[str]:
             out.append(f"| `{p['name']}` | {ty} | {desc} |")
         out.append("")
     ret = m.get("return_type", "")
-    if ret and ret != "()":
+    if ret and ret not in ("()",):
         out.append(f"**Returns:** `{ret}`")
         out.append("")
     out.append("---")
@@ -1092,15 +1095,27 @@ def generate_coverage_md(ver: str) -> str:
     ]
 
     # Summary
-    rust_impl = sum(1 for _, name, _ in IBAPI_ECLIENT if name in rust_methods and name not in STUB_METHODS)
-    rust_stub = sum(1 for _, name, _ in IBAPI_ECLIENT if name in rust_methods and name in STUB_METHODS)
-    py_impl = sum(1 for _, name, _ in IBAPI_ECLIENT if name in py_methods and name not in STUB_METHODS)
+    rust_impl = sum(
+        1 for _, name, _ in IBAPI_ECLIENT if name in rust_methods and name not in STUB_METHODS
+    )
+    rust_stub = sum(
+        1 for _, name, _ in IBAPI_ECLIENT if name in rust_methods and name in STUB_METHODS
+    )
+    py_impl = sum(
+        1 for _, name, _ in IBAPI_ECLIENT if name in py_methods and name not in STUB_METHODS
+    )
     py_stub = sum(1 for _, name, _ in IBAPI_ECLIENT if name in py_methods and name in STUB_METHODS)
     total_client = len(IBAPI_ECLIENT)
 
-    rw_impl = sum(1 for _, name in IBAPI_EWRAPPER if name in rust_wrapper and name not in STUB_CALLBACKS)
-    rw_stub = sum(1 for _, name in IBAPI_EWRAPPER if name in rust_wrapper and name in STUB_CALLBACKS)
-    pw_impl = sum(1 for _, name in IBAPI_EWRAPPER if name in py_wrapper and name not in STUB_CALLBACKS)
+    rw_impl = sum(
+        1 for _, name in IBAPI_EWRAPPER if name in rust_wrapper and name not in STUB_CALLBACKS
+    )
+    rw_stub = sum(
+        1 for _, name in IBAPI_EWRAPPER if name in rust_wrapper and name in STUB_CALLBACKS
+    )
+    pw_impl = sum(
+        1 for _, name in IBAPI_EWRAPPER if name in py_wrapper and name not in STUB_CALLBACKS
+    )
     pw_stub = sum(1 for _, name in IBAPI_EWRAPPER if name in py_wrapper and name in STUB_CALLBACKS)
     total_wrapper = len(IBAPI_EWRAPPER)
 
@@ -1159,7 +1174,9 @@ def main():
     COVERAGE_REF.write_text(cov, encoding="utf-8")
     print(f"{RUST_REF.relative_to(ROOT)}  — {rc} methods")
     print(f"{PYTHON_REF.relative_to(ROOT)} — {pc} methods")
-    print(f"{COVERAGE_REF.relative_to(ROOT)}  — {len(IBAPI_ECLIENT)} EClient + {len(IBAPI_EWRAPPER)} EWrapper")
+    print(
+        f"{COVERAGE_REF.relative_to(ROOT)}  — {len(IBAPI_ECLIENT)} EClient + {len(IBAPI_EWRAPPER)} EWrapper"
+    )
 
 
 if __name__ == "__main__":

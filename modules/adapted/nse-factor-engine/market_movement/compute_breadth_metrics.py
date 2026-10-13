@@ -58,7 +58,9 @@ import pandas as pd
 
 # -- Repo-root guard ----------------------------------------------------------
 if not Path("signals").is_dir():
-    sys.exit("ERROR: 'signals/' not found. Run from repo root: cd /home/ec2-user/nse-factor-engine/")
+    sys.exit(
+        "ERROR: 'signals/' not found. Run from repo root: cd /home/ec2-user/nse-factor-engine/"
+    )
 
 # -- Config -------------------------------------------------------------------
 RUN_DATE = date.today()
@@ -112,14 +114,19 @@ def _parse_universe_date(path):
     return datetime.strptime(stem.replace("universe_", ""), "%d%m%Y")
 
 
-universe_files = sorted(glob.glob(str(UNIVERSE_DIR / "universe_*.parquet")), key=_parse_universe_date)
+universe_files = sorted(
+    glob.glob(str(UNIVERSE_DIR / "universe_*.parquet")), key=_parse_universe_date
+)
 if not universe_files:
     sys.exit(f"ERROR: No universe_*.parquet found in {UNIVERSE_DIR}/")
 
 latest_universe_path = universe_files[-1]
 universe = pd.read_parquet(latest_universe_path)
 in_universe_symbols = set(universe[universe["in_universe"]]["symbol"])
-print(f"[1/4] Universe: {Path(latest_universe_path).name} | {len(in_universe_symbols)} in_universe=True symbols")
+print(
+    f"[1/4] Universe: {Path(latest_universe_path).name} | "
+    f"{len(in_universe_symbols)} in_universe=True symbols"
+)
 
 # -- Filter to in-universe stocks only ----------------------------------------
 prices = prices[prices["symbol"].isin(in_universe_symbols)].copy()
@@ -167,7 +174,9 @@ def compute_stock_signals(grp):
     ]
 
 
-stock_signals = prices.groupby("symbol", group_keys=False).apply(compute_stock_signals, include_groups=False)
+stock_signals = prices.groupby("symbol", group_keys=False).apply(
+    compute_stock_signals, include_groups=False
+)
 stock_signals = stock_signals.reset_index(level=0)  # brings symbol back from index
 print(f"[2/4] Stock signals: {len(stock_signals):,} rows")
 
@@ -195,7 +204,9 @@ daily["net_advances"] = daily["adv_count"] - daily["dec_count"]
 daily["ad_line"] = daily["net_advances"].cumsum()
 
 # Indicator 2: ADR
-daily["adr"] = np.where(daily["dec_count"] > 0, (daily["adv_count"] / daily["dec_count"]).round(4), np.nan)
+daily["adr"] = np.where(
+    daily["dec_count"] > 0, (daily["adv_count"] / daily["dec_count"]).round(4), np.nan
+)
 
 # Indicator 4: McClellan Oscillator
 daily["ema_19"] = daily["net_advances"].ewm(span=EMA_SHORT, adjust=False).mean().round(4)
@@ -204,8 +215,13 @@ daily["mcclellan"] = (daily["ema_19"] - daily["ema_39"]).round(4)
 
 # Indicator 5: TRIN
 daily["trin"] = np.where(
-    (daily["adv_count"] > 0) & (daily["dec_count"] > 0) & (daily["adv_volume"] > 0) & (daily["dec_volume"] > 0),
-    ((daily["adv_count"] / daily["dec_count"]) / (daily["adv_volume"] / daily["dec_volume"])).round(4),
+    (daily["adv_count"] > 0)
+    & (daily["dec_count"] > 0)
+    & (daily["adv_volume"] > 0)
+    & (daily["dec_volume"] > 0),
+    ((daily["adv_count"] / daily["dec_count"]) / (daily["adv_volume"] / daily["dec_volume"])).round(
+        4
+    ),
     np.nan,
 )
 
@@ -327,7 +343,9 @@ def _breadth_narrative(row):
             )
     if pd.notna(p50) and pd.notna(ad):
         if ad < 0 and p50 > 60:
-            flags.append("A/D Line negative but majority above 50d SMA — recent recovery not yet in cumulative breadth")
+            flags.append(
+                "A/D Line negative but majority above 50d SMA — recent recovery not yet in cumulative breadth"
+            )
         elif ad > 0 and p50 < 40:
             flags.append(
                 "A/D Line positive but few stocks above 50d SMA — cumulative breadth masking short-term weakness"
@@ -336,7 +354,9 @@ def _breadth_narrative(row):
         if label in ("NARROW_BEAR", "BROAD_BEAR") and nh > nl:
             flags.append("new highs still outnumber new lows — damage not yet at extremes")
         elif label in ("NARROW_BULL", "BROAD_BULL") and nl > nh:
-            flags.append("new lows outnumber new highs despite positive bias — watch for breadth rollover")
+            flags.append(
+                "new lows outnumber new highs despite positive bias — watch for breadth rollover"
+            )
 
     if flags:
         return base + " " + "; ".join(flags).capitalize() + "."

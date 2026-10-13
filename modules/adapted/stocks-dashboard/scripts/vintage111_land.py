@@ -111,7 +111,9 @@ def insert_key(text, targets):
             continue
         key = (obj.get("sym"), str(obj.get("qe")), obj.get("basis"), obj.get("found"))
         if key in targets and "confirmed_by_document" not in obj:
-            blk = json.dumps({"confirmed_by_document": targets[key]}, indent=1, ensure_ascii=False).split("\n")[1:-1]
+            blk = json.dumps(
+                {"confirmed_by_document": targets[key]}, indent=1, ensure_ascii=False
+            ).split("\n")[1:-1]
             out.extend(lines[i:j])
             out[-1] = out[-1] + ("" if out[-1].rstrip().endswith(",") else ",")
             out.extend("  " + b for b in blk)

@@ -71,10 +71,14 @@ def hl(s, dint):
     low = 1e18
     k = i
     while k >= 0 and a[k] >= lo:
-        ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]  # decode per-mil intraday high (engine hl52)
+        ph = (
+            c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
+        )  # decode per-mil intraday high (engine hl52)
         pl = c[k] * (1000 - lb[k]) / 1000 if lb else c[k]  # decode per-mil intraday low
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
         k -= 1
     return hi, low
 

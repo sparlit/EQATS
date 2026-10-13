@@ -66,8 +66,9 @@ def migrate(db_path: Path, schema_path: Path, dry_run: bool = False) -> dict:
         ).fetchone()[0]
 
         if invalid_rows:
-            msg = f"Migration blocked: {invalid_rows} invalid daily_prices rows. Run audit first."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Migration blocked: {invalid_rows} invalid daily_prices rows. Run audit first."
+            )
 
         if not dry_run:
             conn.execute(
@@ -108,7 +109,9 @@ def migrate(db_path: Path, schema_path: Path, dry_run: bool = False) -> dict:
             )
 
         target_rows = conn.execute("SELECT COUNT(*) FROM daily_prices_v2").fetchone()[0]
-        target_range = conn.execute("SELECT MIN(trade_date), MAX(trade_date) FROM daily_prices_v2").fetchone()
+        target_range = conn.execute(
+            "SELECT MIN(trade_date), MAX(trade_date) FROM daily_prices_v2"
+        ).fetchone()
         status = "DRY_RUN" if dry_run else ("PASS" if source_rows == target_rows else "WARN")
         details = {
             "migration_id": MIGRATION_ID,

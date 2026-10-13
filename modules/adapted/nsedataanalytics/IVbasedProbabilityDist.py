@@ -23,19 +23,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """ The Entire idea is to evaluate the probablity distribution of a particular stock based on its out of the money options for the last day"""
 import sys
-from datetime import date, timedelta
+from datetime import date
 from math import log, sqrt
 
 import matplotlib.pyplot as plt
-import MySQLdb
-import numpy as np
-from numpy.random import normal
 from pandas.tseries.offsets import BDay
 from scipy.stats import norm
 from scipy.stats.kde import gaussian_kde
 from SplineInterpVol import get_opt_vol_data
-
-import config
 
 if __name__ == "__main__":
     symbol = sys.argv[1]
@@ -49,7 +44,11 @@ if __name__ == "__main__":
             * (x.VOLATILITY / 100.0)
             * (x.VOLATILITY / 100.0)
             * ((x.EXPIRY_DT - x.TIMESTAMP).total_seconds() / (365 * 24 * 60 * 60))
-        ) / (0.01 * x.VOLATILITY * sqrt((x.EXPIRY_DT - x.TIMESTAMP).total_seconds() / (365 * 24 * 60 * 60)))
+        ) / (
+            0.01
+            * x.VOLATILITY
+            * sqrt((x.EXPIRY_DT - x.TIMESTAMP).total_seconds() / (365 * 24 * 60 * 60))
+        )
 
     def prob_fun(x):
         return norm.pdf(d_fun(x))

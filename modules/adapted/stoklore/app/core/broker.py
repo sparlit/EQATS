@@ -47,18 +47,22 @@ class DhanError(Exception):
 
 
 def _headers(client_id, access_token):
-    return {"access-token": access_token, "client-id": client_id, "Content-Type": "application/json"}
+    return {
+        "access-token": access_token,
+        "client-id": client_id,
+        "Content-Type": "application/json",
+    }
 
 
 def _get(path, client_id, access_token):
     try:
-        res = requests.get(f"{BASE_URL}{path}", headers=_headers(client_id, access_token), timeout=15)
+        res = requests.get(
+            f"{BASE_URL}{path}", headers=_headers(client_id, access_token), timeout=15
+        )
     except requests.RequestException as e:
-        msg = f"Couldn't reach Dhan: {e}"
-        raise DhanError(msg) from e
+        raise DhanError(f"Couldn't reach Dhan: {e}") from e
     if not res.ok:
-        msg = f"Dhan API error ({res.status_code}): {res.text[:200]}"
-        raise DhanError(msg)
+        raise DhanError(f"Dhan API error ({res.status_code}): {res.text[:200]}")
     return res.json()
 
 

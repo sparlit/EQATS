@@ -247,7 +247,9 @@ def main():
         for q, r in (revop.get(ph) or {}).items():
             trow = (revop.get(target) or {}).get(q)
             for i, pv in enumerate(r):
-                if pv is None or pv == 0:  # exact 0 = the builder's not-present sentinel, never merged
+                if (
+                    pv is None or pv == 0
+                ):  # exact 0 = the builder's not-present sentinel, never merged
                     continue
                 if trow is None or len(trow) <= i or trow[i] is None:
                     n += 1
@@ -385,7 +387,8 @@ def main():
                     entry["why"] = (
                         (
                             "the merge gate REFUSED this phantom (%d agree, %d disagree, "
-                            "%.1f%%), so its unique values are not trusted for the real key" % (agree, dis, 100 * rate)
+                            "%.1f%%), so its unique values are not trusted for the real key"
+                            % (agree, dis, 100 * rate)
                         )
                         if not ok
                         else "exact 0 is the builder's not-present sentinel, never propagated"
@@ -399,11 +402,17 @@ def main():
     for _s, t, qe, i, _ai, pv, ann, sn in merges:
         print("   MERGE %-12s %d %-3s = %-8s ann=%s   [%s]" % (t, qe, SLOT[i], pv, ann, sn))
     preserved = sum(1 for v in ledger.values() if v.get("action") == "PRESERVED-NOT-MERGED")
-    print("values PRESERVED in the journal but not merged (gate refused / sentinel): %d" % preserved)
+    print(
+        "values PRESERVED in the journal but not merged (gate refused / sentinel): %d" % preserved
+    )
 
     # ---- ledger re-keys: a registered ledger must not outlive the key it points at --------------
     rekeys, rekey_blocked = [], []
-    merged_now = {(t, qe, SLOT[i]) for _s, t, qe, i, _ai, _pv, _a, sn in merges if sn == "docs/sf_fundamentals.json"}
+    merged_now = {
+        (t, qe, SLOT[i])
+        for _s, t, qe, i, _ai, _pv, _a, sn in merges
+        if sn == "docs/sf_fundamentals.json"
+    }
     for k in sorted(mcpat):
         p = k.split("|")
         if len(p) != 3 or not is_phantom(p[0]):
@@ -434,7 +443,9 @@ def main():
         row = (revop.get(target) or {}).get(qe)
         i = 1 if basis == "con" else 0
         if row is None or len(row) <= i or row[i] is None:
-            rekey_blocked.append((k, "target sf_revop slot is empty — a re-key would report MISSING"))
+            rekey_blocked.append(
+                (k, "target sf_revop slot is empty — a re-key would report MISSING")
+            )
             continue
         rekeys.append((MCHIST, mchist, k, f"{target}|{qe}|{basis}"))
     print("\nregistered-ledger re-keys (BLOCKING verify_fills_live): %d" % len(rekeys))
@@ -460,7 +471,9 @@ def main():
                 if r[ai] is None:
                     r[ai] = ann
     for _path, d, k, nk in rekeys:
-        d[nk] = dict(d.pop(k), rekeyed_from=k, rekeyed_why="phantom key retracted from the stores 2026-08-26")
+        d[nk] = dict(
+            d.pop(k), rekeyed_from=k, rekeyed_why="phantom key retracted from the stores 2026-08-26"
+        )
     for ph in phantoms:
         for _n, st, _s in STORES:
             st.pop(ph, None)

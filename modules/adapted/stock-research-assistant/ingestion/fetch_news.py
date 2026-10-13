@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import hashlib
 import json
 import os
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import feedparser
 import requests

@@ -50,7 +50,7 @@ def readcsv():
 
 
 def drawrocSVM(y_test, y_pred):
-    fpr, tpr, _threshold = roc_curve(y_test, y_pred)
+    fpr, tpr, threshold = roc_curve(y_test, y_pred)
     print("Drawing")
     roc_auc = auc(fpr, tpr)
     plt.title("Receiver Operating Characteristic")
@@ -65,7 +65,7 @@ def drawrocSVM(y_test, y_pred):
 
 
 def drawrocNB(y_test, y_pred):
-    fpr, tpr, _threshold = roc_curve(y_test, y_pred)
+    fpr, tpr, threshold = roc_curve(y_test, y_pred)
     print("Drawing")
     roc_auc = auc(fpr, tpr)
     plt.title("Receiver Operating Characteristic")
@@ -80,7 +80,7 @@ def drawrocNB(y_test, y_pred):
 
 
 def drawrocKNN(y_test, y_pred):
-    fpr, tpr, _threshold = roc_curve(y_test, y_pred)
+    fpr, tpr, threshold = roc_curve(y_test, y_pred)
     print("Drawing")
     roc_auc = auc(fpr, tpr)
     plt.title("Receiver Operating Characteristic")
@@ -106,12 +106,16 @@ def createSVM(X, y):
             ("svm", SVC(kernel="linear", C=1)),
         ]
     )
-    return svm_clf.fit(X, y)
+    svm_clf = svm_clf.fit(X, y)
+    return svm_clf
 
 
 def createNB(X, y):
-    nb_clf = Pipeline([("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())])
-    return nb_clf.fit(X, y)
+    nb_clf = Pipeline(
+        [("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("nb", MultinomialNB())]
+    )
+    nb_clf = nb_clf.fit(X, y)
+    return nb_clf
 
 
 def evaluatemodel(y_pred, y_test):

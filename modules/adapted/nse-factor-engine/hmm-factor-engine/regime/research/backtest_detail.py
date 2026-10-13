@@ -158,7 +158,9 @@ for period in periods:
 print(f"\n{'=' * 80}")
 print(f"  BACKTEST RESULTS  {BACKTEST_START} → {BACKTEST_END}  (OOS)")
 print(f"{'=' * 80}")
-print(f"  {'Method':<14} {'Months':>7} {'Ann Ret':>9} {'Sharpe':>8} {'Hit Rate':>10} {'Cum Ret':>9}")
+print(
+    f"  {'Method':<14} {'Months':>7} {'Ann Ret':>9} {'Sharpe':>8} {'Hit Rate':>10} {'Cum Ret':>9}"
+)
 print(f"  {'-' * 14} {'-' * 7} {'-' * 9} {'-' * 8} {'-' * 10} {'-' * 9}")
 for method in METHODS:
     recs = summary_records[method]
@@ -182,12 +184,16 @@ for method in METHODS:
     print(f"  {'Date':<10} {'Regime':<10} {'Ret%':>7}  {'Stocks'}")
     print(f"  {'-' * 10} {'-' * 10} {'-' * 7}  {'-' * 60}")
     for row in summary_records[method]:
-        print(f"  {row['date']:<10} {row['regime']:<10} {row['portfolio_return']:>+7.2f}%  {row['stocks']}")
+        print(
+            f"  {row['date']:<10} {row['regime']:<10} {row['portfolio_return']:>+7.2f}%  {row['stocks']}"
+        )
 
 # ── Save CSVs ─────────────────────────────────────────────────────────────────
 for method in METHODS:
     # Summary
-    pd.DataFrame(summary_records[method]).to_csv(OUT_DIR / f"backtest_summary_{method}.csv", index=False)
+    pd.DataFrame(summary_records[method]).to_csv(
+        OUT_DIR / f"backtest_summary_{method}.csv", index=False
+    )
     # Stock level
     pd.DataFrame(all_records[method]).to_csv(OUT_DIR / f"backtest_stocks_{method}.csv", index=False)
     print(f"Saved: backtest_summary_{method}.csv  |  backtest_stocks_{method}.csv")

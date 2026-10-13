@@ -32,14 +32,16 @@ from sklearn.svm import SVC
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")  # read labelled tweets
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )  # read labelled tweets
     X = df.text
     y = df.label
     return X, y
 
 
 def drawrocSVM(y_test, y_pred):
-    fpr, tpr, _threshold = roc_curve(y_test, y_pred)
+    fpr, tpr, threshold = roc_curve(y_test, y_pred)
     print("Drawing")
     roc_auc = auc(fpr, tpr)
     plt.title("Receiver Operating Characteristic")
@@ -55,7 +57,13 @@ def drawrocSVM(y_test, y_pred):
 
 def svm_accuracy(X, y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
-    svm = Pipeline([("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("svm", SVC(kernel="linear", C=1))])
+    svm = Pipeline(
+        [
+            ("vect", CountVectorizer()),
+            ("tfidf", TfidfTransformer()),
+            ("svm", SVC(kernel="linear", C=1)),
+        ]
+    )
     svm = svm.fit(X_train, y_train)
     ypred = svm.predict(X_test)
     print("SVM metrics")

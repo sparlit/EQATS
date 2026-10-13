@@ -51,23 +51,22 @@ class Demo:
 
         match self.sub.phase:
             case Phase.OPEN:
-                if self.sub.net == 0:
-                    if not self.fin:
-                        if self.smtord.is_active:
-                            self.smtord.kill()
+                if self.sub.net == 0 and not self.fin:
+                    if self.smtord.is_active:
+                        self.smtord.kill()
 
-                        else:
-                            self.smtord.send(
-                                self.sub.bid_prc(5),
-                                10,
-                                Side.BUY,
-                                OrderType.LIMIT,
-                                Tif.GTC,
-                            )
-                            self.fin = True
+                    else:
+                        self.smtord.send(
+                            self.sub.bid_prc(5),
+                            10,
+                            Side.BUY,
+                            OrderType.LIMIT,
+                            Tif.GTC,
+                        )
+                        self.fin = True
 
             case Phase.CLOSE:
-                # TODO
+                # todo
                 pass
 
 

@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_proxies(exchange, skipped_properties):
@@ -52,7 +54,9 @@ async def test_proxy_url(exchange, skipped_properties):
     [proxy_url, http_proxy, https_proxy, socks_proxy] = test_shared_methods.remove_proxy_options(
         exchange, skipped_properties
     )
-    exchange.proxy_url = "http://" + proxy_server_ip + ":8090/proxy_url.php?caller=https://ccxt.com&url="
+    exchange.proxy_url = (
+        "http://" + proxy_server_ip + ":8090/proxy_url.php?caller=https://ccxt.com&url="
+    )
     encoded_colon = "%3A"
     encoded_slash = "%2F"
     ip_check_url = "https" + encoded_colon + encoded_slash + encoded_slash + "api.ipify.org"
@@ -68,7 +72,9 @@ async def test_proxy_url(exchange, skipped_properties):
         + '"'
     )
     # reset the instance property
-    test_shared_methods.set_proxy_options(exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy)
+    test_shared_methods.set_proxy_options(
+        exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy
+    )
     return True
 
 
@@ -92,7 +98,9 @@ async def test_http_proxy(exchange, skipped_properties):
         + '"'
     )
     # reset the instance property
-    test_shared_methods.set_proxy_options(exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy)
+    test_shared_methods.set_proxy_options(
+        exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy
+    )
     return True
 
 
@@ -120,16 +128,22 @@ async def test_proxy_for_exceptions(exchange, skipped_properties):
         "socks_proxy",
         "socks_proxy_callback",
     ]
-    for i in range(len(possible_options_array)):
-        for j in range(len(possible_options_array)):
+    for i in range(0, len(possible_options_array)):
+        for j in range(0, len(possible_options_array)):
             if j != i:
                 proxy_first = possible_options_array[i]
                 proxy_second = possible_options_array[j]
-                exchange.set_property(exchange, proxy_first, "0.0.0.0")  # actual value does not matter
-                exchange.set_property(exchange, proxy_second, "0.0.0.0")  # actual value does not matter
+                exchange.set_property(
+                    exchange, proxy_first, "0.0.0.0"
+                )  # actual value does not matter
+                exchange.set_property(
+                    exchange, proxy_second, "0.0.0.0"
+                )  # actual value does not matter
                 exception_caught = False
                 try:
-                    await exchange.fetch("http://example.com")  # url does not matter, it will not be called
+                    await exchange.fetch(
+                        "http://example.com"
+                    )  # url does not matter, it will not be called
                 except Exception:
                     exception_caught = True
                 assert exception_caught, (
@@ -146,5 +160,7 @@ async def test_proxy_for_exceptions(exchange, skipped_properties):
                 exchange.set_property(exchange, proxy_first, None)
                 exchange.set_property(exchange, proxy_second, None)
     # reset the instance property
-    test_shared_methods.set_proxy_options(exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy)
+    test_shared_methods.set_proxy_options(
+        exchange, skipped_properties, proxy_url, http_proxy, https_proxy, socks_proxy
+    )
     return True

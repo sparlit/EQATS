@@ -10,10 +10,17 @@ impl EClient {
     // ── Smart Components ──
 
     /// Request smart routing components for a BBO exchange. Matches `reqSmartComponents` in C++.
-    /// Gateway-local — returns component exchanges from init data.
-    pub fn req_smart_components(&self, req_id: i64, _bbo_exchange: &str, wrapper: &mut impl Wrapper) {
-        let components = self.shared.reference.smart_components();
-        wrapper.smart_components(req_id, &components);
+    /// Gateway-local, as the reference (ibx#441): the exchange map of the
+    /// BBO exchange that market data made known (the `bboExchange` of
+    /// `tick_req_params`); an unknown one gives error 321. When the map has
+    /// not come yet, the answer comes from `process_msgs`, within 2 s.
+    pub fn req_smart_components(&self, req_id: i64, bbo_exchange: &str, wrapper: &mut impl Wrapper) {
+        if !crate::client_core::ClientCore::ids_fit("req_smart_components", &[req_id]) { return; }
+        match self.core.req_smart_components(req_id, bbo_exchange, &self.shared) {
+            Some(Ok(components)) => wrapper.smart_components(req_id, &components),
+            Some(Err((code, msg))) => wrapper.error(req_id, code, &msg, ""),
+            None => {}
+        }
     }
 
     // ── News Providers ──
@@ -28,24 +35,35 @@ impl EClient {
     // ── Server Time ──
 
     /// Request current server time. Matches `reqCurrentTime` in C++.
-    /// Returns local system time (no server round-trip).
+    /// Answered locally, as the reference: the local clock plus the
+    /// offset to the server clock of the logon (ibx#421).
     pub fn req_current_time(&self, wrapper: &mut impl Wrapper) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-        wrapper.current_time(now);
+        wrapper.current_time(self.shared.reference.server_time_secs());
     }
 
     // ── FA (Financial Advisor) ──
 
-    /// Request FA data. Not yet implemented.
+    /// Request FA data. On a session that is not FA, error 321 as the
+    /// reference (ibx#481); the FA data exchange itself is not implemented.
     pub fn request_fa(&self, _fa_data_type: i32) {
+        if !self.shared.reference.fa_session() {
+            let (id, code, text) = crate::client_core::REQUEST_FA_NOT_FA;
+            self.shared.orders.push_order_error(id, code, text.to_string());
+            return;
+        }
         log::warn!("request_fa: not yet implemented — needs FIX capture");
     }
 
-    /// Replace FA data. Not yet implemented.
-    pub fn replace_fa(&self, _req_id: i64, _fa_data_type: i32, _cxml: &str) {
+    /// Replace FA data. On a session that is not FA, error 321 for the
+    /// request as the reference (ibx#481); the FA data exchange itself is
+    /// not implemented.
+    pub fn replace_fa(&self, req_id: i64, _fa_data_type: i32, _cxml: &str) {
+        if !crate::client_core::ClientCore::ids_fit("replace_fa", &[req_id]) { return; }
+        if !self.shared.reference.fa_session() {
+            let (code, text) = crate::client_core::REPLACE_FA_NOT_FA;
+            self.shared.orders.push_order_error(req_id, code, text.to_string());
+            return;
+        }
         log::warn!("replace_fa: not yet implemented — needs FIX capture");
     }
 
@@ -69,6 +87,7 @@ impl EClient {
     /// Gateway-local — returns tiers parsed from CCP logon tag 6522, none
     /// when the logon has no tiers (ibx#480).
     pub fn req_soft_dollar_tiers(&self, req_id: i64, wrapper: &mut impl Wrapper) {
+        if !crate::client_core::ClientCore::ids_fit("req_soft_dollar_tiers", &[req_id]) { return; }
         let tiers = self.shared.reference.soft_dollar_tiers();
         wrapper.soft_dollar_tiers(req_id, &tiers);
     }
@@ -102,6 +121,7 @@ impl EClient {
     /// Request user info. Matches `reqUserInfo` in C++.
     /// Gateway-local — returns whiteBrandingId from CCP logon.
     pub fn req_user_info(&self, req_id: i64, wrapper: &mut impl Wrapper) {
+        if !crate::client_core::ClientCore::ids_fit("req_user_info", &[req_id]) { return; }
         let id = self.shared.reference.white_branding_id();
         wrapper.user_info(req_id, &id);
     }

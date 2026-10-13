@@ -36,7 +36,6 @@ Per symbol we fetch ONE result type: Consolidated if ≥80% of its quarters
 have a consolidated filing, else Standalone — mixing types across quarters
 would corrupt YoY comparisons.
 """
-import io
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -80,11 +79,15 @@ REV_TAGS = ("RevenueFromOperations", "Income", "TotalIncome")
 
 def backfill_list(start: date = date(2018, 1, 1)) -> pd.DataFrame:
     s = nse.session()
-    s.get("https://www.nseindia.com/companies-listing/corporate-filings-financial-results", timeout=15)
+    s.get(
+        "https://www.nseindia.com/companies-listing/corporate-filings-financial-results", timeout=15
+    )
     frames, d = [], start
     while d <= date.today():
         q_end = d + timedelta(days=89)
-        r = nse.get(LIST_URL.format(frm=d.strftime("%d-%m-%Y"), to=q_end.strftime("%d-%m-%Y")), timeout=90)
+        r = nse.get(
+            LIST_URL.format(frm=d.strftime("%d-%m-%Y"), to=q_end.strftime("%d-%m-%Y")), timeout=90
+        )
         rows = r.json()
         rows = rows if isinstance(rows, list) else rows.get("data", [])
         if rows:
@@ -94,14 +97,18 @@ def backfill_list(start: date = date(2018, 1, 1)) -> pd.DataFrame:
         time.sleep(config.SLEEP_SECS)
     df = pd.concat(frames, ignore_index=True)
     df = df[df["period"] == "Quarterly"].copy()
-    df["broadcast"] = pd.to_datetime(df["broadCastDate"], format="%d-%b-%Y %H:%M:%S", errors="coerce")
+    df["broadcast"] = pd.to_datetime(
+        df["broadCastDate"], format="%d-%b-%Y %H:%M:%S", errors="coerce"
+    )
     df["q_end"] = pd.to_datetime(df["toDate"], format="%d-%b-%Y", errors="coerce")
 
     # integrated-filing era (Dec 2024 quarter onward)
     iframes, d = [], INTG_FROM
     while d <= date.today():
         m_end = d + timedelta(days=30)
-        r = nse.get(INTG_URL.format(frm=d.strftime("%d-%m-%Y"), to=m_end.strftime("%d-%m-%Y")), timeout=90)
+        r = nse.get(
+            INTG_URL.format(frm=d.strftime("%d-%m-%Y"), to=m_end.strftime("%d-%m-%Y")), timeout=90
+        )
         rows = r.json().get("data", [])
         if rows:
             iframes.append(pd.DataFrame(rows))
@@ -110,10 +117,12 @@ def backfill_list(start: date = date(2018, 1, 1)) -> pd.DataFrame:
         time.sleep(config.SLEEP_SECS)
     if iframes:
         idf = pd.concat(iframes, ignore_index=True)
-        idf["broadcast"] = pd.to_datetime(idf["broadcast_Date"], format="%d-%b-%Y %H:%M:%S", errors="coerce")
+        idf["broadcast"] = pd.to_datetime(
+            idf["broadcast_Date"], format="%d-%b-%Y %H:%M:%S", errors="coerce"
+        )
         idf["q_end"] = pd.to_datetime(idf["qe_Date"], format="%d-%b-%Y", errors="coerce")
         keep = ["symbol", "broadcast", "q_end", "consolidated", "xbrl"]
-        df = pd.concat([df[[*keep, "audited"]], idf[[*keep, "audited"]]], ignore_index=True)
+        df = pd.concat([df[keep + ["audited"]], idf[keep + ["audited"]]], ignore_index=True)
 
     df = df.dropna(subset=["broadcast", "q_end", "symbol"])
     df = df[df["xbrl"].str.len() > 60]  # placeholder-dash rows out
@@ -127,7 +136,9 @@ def _liquid_universe() -> set[str]:
     from ingest import bhavcopy, etf_list
 
     bhav = bhavcopy.load_all()
-    med = bhav.set_index("date").groupby("symbol")["turnover_lacs"].rolling(20).median().reset_index()
+    med = (
+        bhav.set_index("date").groupby("symbol")["turnover_lacs"].rolling(20).median().reset_index()
+    )
     liquid = set(med[med["turnover_lacs"] >= config.MIN_AVG_TURNOVER_LACS]["symbol"].unique())
     return liquid - etf_list.symbols()
 
@@ -139,9 +150,15 @@ def fetch_plan() -> pd.DataFrame:
     cons_share = fl.groupby("symbol")["consolidated"].apply(lambda s: (s == "Consolidated").mean())
     prefer_cons = cons_share >= 0.8
     fl["want"] = fl.apply(
-        lambda r: (r["consolidated"] == "Consolidated") == bool(prefer_cons.get(r["symbol"], False)), axis=1
+        lambda r: (
+            (r["consolidated"] == "Consolidated") == bool(prefer_cons.get(r["symbol"], False))
+        ),
+        axis=1,
     )
-    return fl[fl["want"]].sort_values("broadcast").groupby(["symbol", "q_end"], as_index=False).first()
+    plan = (
+        fl[fl["want"]].sort_values("broadcast").groupby(["symbol", "q_end"], as_index=False).first()
+    )
+    return plan
 
 
 def parse_xbrl(content: bytes, q_end: pd.Timestamp) -> dict | None:
@@ -180,7 +197,12 @@ def parse_xbrl(content: bytes, q_end: pd.Timestamp) -> dict | None:
                 if cref == "OneD":
                     return val
                 per = ctx_period.get(cref, (None, None))
-                if per[1] and pd.Timestamp(per[1]) == q_end and per[0] and (q_end - pd.Timestamp(per[0])).days < 100:
+                if (
+                    per[1]
+                    and pd.Timestamp(per[1]) == q_end
+                    and per[0]
+                    and (q_end - pd.Timestamp(per[0])).days < 100
+                ):
                     fallback = val
         return fallback
 
@@ -220,13 +242,19 @@ def backfill_xbrl() -> None:
             done = pd.concat([done, pd.DataFrame(rows)], ignore_index=True)
             done.to_parquet(done_file, index=False)
             ok = done["net_profit"].notna().mean()
-            print(f"  {len(done)} parsed ({100 * ok:.0f}% with profit), at {f['symbol']} {f['q_end'].date()}")
+            print(
+                f"  {len(done)} parsed ({100 * ok:.0f}% with profit), "
+                f"at {f['symbol']} {f['q_end'].date()}"
+            )
             rows, since_save = [], 0
         time.sleep(0.8)
     if rows:
         done = pd.concat([done, pd.DataFrame(rows)], ignore_index=True)
         done.to_parquet(done_file, index=False)
-    print(f"done: {len(done)} filings parsed, {100 * done['net_profit'].notna().mean():.0f}% with net profit")
+    print(
+        f"done: {len(done)} filings parsed, "
+        f"{100 * done['net_profit'].notna().mean():.0f}% with net profit"
+    )
 
 
 def refill_eps() -> None:
@@ -256,7 +284,10 @@ def refill_eps() -> None:
             done.to_parquet(done_file, index=False)
             print(f"  {fixed} fixed (at {row['symbol']})", flush=True)
     done.to_parquet(done_file, index=False)
-    print(f"EPS refill done: {fixed}/{len(need)} recovered → eps coverage {done['eps'].notna().mean():.1%}")
+    print(
+        f"EPS refill done: {fixed}/{len(need)} recovered "
+        f"→ eps coverage {done['eps'].notna().mean():.1%}"
+    )
 
 
 if __name__ == "__main__":

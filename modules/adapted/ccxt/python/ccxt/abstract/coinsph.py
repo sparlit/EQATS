@@ -28,12 +28,18 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    public_get_openapi_v1_ping = publicGetOpenapiV1Ping = Entry[_Dict]("openapi/v1/ping", "public", "GET", {"cost": 1})
-    public_get_openapi_v1_time = publicGetOpenapiV1Time = Entry[_Dict]("openapi/v1/time", "public", "GET", {"cost": 1})
+    public_get_openapi_v1_ping = publicGetOpenapiV1Ping = Entry[_Dict](
+        "openapi/v1/ping", "public", "GET", {"cost": 1}
+    )
+    public_get_openapi_v1_time = publicGetOpenapiV1Time = Entry[_Dict](
+        "openapi/v1/time", "public", "GET", {"cost": 1}
+    )
     public_get_openapi_v1_user_ip = publicGetOpenapiV1UserIp = Entry[_Dict](
         "openapi/v1/user/ip", "public", "GET", {"cost": 1}
     )
-    public_get_openapi_quote_v1_ticker_24hr = publicGetOpenapiQuoteV1Ticker24hr = Entry[_Dict | _List](
+    public_get_openapi_quote_v1_ticker_24hr = publicGetOpenapiQuoteV1Ticker24hr = Entry[
+        _Dict | _List
+    ](
         "openapi/quote/v1/ticker/24hr",
         "public",
         "GET",
@@ -42,9 +48,9 @@ class ImplicitAPI:
     public_get_openapi_quote_v1_ticker_price = publicGetOpenapiQuoteV1TickerPrice = Entry[_Dict](
         "openapi/quote/v1/ticker/price", "public", "GET", {"cost": 1, "noSymbol": 2}
     )
-    public_get_openapi_quote_v1_ticker_bookticker = publicGetOpenapiQuoteV1TickerBookTicker = Entry[_List](
-        "openapi/quote/v1/ticker/bookTicker", "public", "GET", {"cost": 1, "noSymbol": 2}
-    )
+    public_get_openapi_quote_v1_ticker_bookticker = publicGetOpenapiQuoteV1TickerBookTicker = Entry[
+        _List
+    ]("openapi/quote/v1/ticker/bookTicker", "public", "GET", {"cost": 1, "noSymbol": 2})
     public_get_openapi_v1_exchangeinfo = publicGetOpenapiV1ExchangeInfo = Entry[_Dict](
         "openapi/v1/exchangeInfo", "public", "GET", {"cost": 10}
     )
@@ -66,21 +72,21 @@ class ImplicitAPI:
     private_get_openapi_v1_check_sys_status = privateGetOpenapiV1CheckSysStatus = Entry[_List](
         "openapi/v1/check-sys-status", "private", "GET", {"cost": 1}
     )
-    private_get_openapi_wallet_v1_config_getall = privateGetOpenapiWalletV1ConfigGetall = Entry[_List](
-        "openapi/wallet/v1/config/getall", "private", "GET", {"cost": 10}
+    private_get_openapi_wallet_v1_config_getall = privateGetOpenapiWalletV1ConfigGetall = Entry[
+        _List
+    ]("openapi/wallet/v1/config/getall", "private", "GET", {"cost": 10})
+    private_get_openapi_wallet_v1_deposit_address = privateGetOpenapiWalletV1DepositAddress = Entry[
+        _Dict
+    ]("openapi/wallet/v1/deposit/address", "private", "GET", {"cost": 10})
+    private_get_openapi_wallet_v1_deposit_history = privateGetOpenapiWalletV1DepositHistory = Entry[
+        _List
+    ]("openapi/wallet/v1/deposit/history", "private", "GET", {"cost": 1})
+    private_get_openapi_wallet_v1_withdraw_history = privateGetOpenapiWalletV1WithdrawHistory = (
+        Entry[_List]("openapi/wallet/v1/withdraw/history", "private", "GET", {"cost": 1})
     )
-    private_get_openapi_wallet_v1_deposit_address = privateGetOpenapiWalletV1DepositAddress = Entry[_Dict](
-        "openapi/wallet/v1/deposit/address", "private", "GET", {"cost": 10}
-    )
-    private_get_openapi_wallet_v1_deposit_history = privateGetOpenapiWalletV1DepositHistory = Entry[_List](
-        "openapi/wallet/v1/deposit/history", "private", "GET", {"cost": 1}
-    )
-    private_get_openapi_wallet_v1_withdraw_history = privateGetOpenapiWalletV1WithdrawHistory = Entry[_List](
-        "openapi/wallet/v1/withdraw/history", "private", "GET", {"cost": 1}
-    )
-    private_get_openapi_wallet_v1_withdraw_address_whitelist = privateGetOpenapiWalletV1WithdrawAddressWhitelist = (
-        Entry[_List]("openapi/wallet/v1/withdraw/address-whitelist", "private", "GET", {"cost": 1})
-    )
+    private_get_openapi_wallet_v1_withdraw_address_whitelist = (
+        privateGetOpenapiWalletV1WithdrawAddressWhitelist
+    ) = Entry[_List]("openapi/wallet/v1/withdraw/address-whitelist", "private", "GET", {"cost": 1})
     private_get_openapi_v1_account = privateGetOpenapiV1Account = Entry[_Dict](
         "openapi/v1/account", "private", "GET", {"cost": 10}
     )
@@ -102,24 +108,26 @@ class ImplicitAPI:
     private_get_openapi_v1_mytrades = privateGetOpenapiV1MyTrades = Entry[_List](
         "openapi/v1/myTrades", "private", "GET", {"cost": 10}
     )
-    private_get_openapi_v1_capital_deposit_history = privateGetOpenapiV1CapitalDepositHistory = Entry[_List](
-        "openapi/v1/capital/deposit/history", "private", "GET", {"cost": 1}
+    private_get_openapi_v1_capital_deposit_history = privateGetOpenapiV1CapitalDepositHistory = (
+        Entry[_List]("openapi/v1/capital/deposit/history", "private", "GET", {"cost": 1})
     )
-    private_get_openapi_v1_capital_withdraw_history = privateGetOpenapiV1CapitalWithdrawHistory = Entry[_List](
-        "openapi/v1/capital/withdraw/history", "private", "GET", {"cost": 1}
+    private_get_openapi_v1_capital_withdraw_history = privateGetOpenapiV1CapitalWithdrawHistory = (
+        Entry[_List]("openapi/v1/capital/withdraw/history", "private", "GET", {"cost": 1})
     )
-    private_get_openapi_v3_payment_request_get_payment_request = privateGetOpenapiV3PaymentRequestGetPaymentRequest = (
-        Entry[_Dict]("openapi/v3/payment-request/get-payment-request", "private", "GET", {"cost": 1})
+    private_get_openapi_v3_payment_request_get_payment_request = (
+        privateGetOpenapiV3PaymentRequestGetPaymentRequest
+    ) = Entry[_Dict](
+        "openapi/v3/payment-request/get-payment-request", "private", "GET", {"cost": 1}
     )
     private_get_merchant_api_v1_get_invoices = privateGetMerchantApiV1GetInvoices = Entry[_Dict](
         "merchant-api/v1/get-invoices", "private", "GET", {"cost": 1}
     )
-    private_get_openapi_account_v3_crypto_accounts = privateGetOpenapiAccountV3CryptoAccounts = Entry[_Dict](
-        "openapi/account/v3/crypto-accounts", "private", "GET", {"cost": 1}
+    private_get_openapi_account_v3_crypto_accounts = privateGetOpenapiAccountV3CryptoAccounts = (
+        Entry[_Dict]("openapi/account/v3/crypto-accounts", "private", "GET", {"cost": 1})
     )
-    private_get_openapi_transfer_v3_transfers_id = privateGetOpenapiTransferV3TransfersId = Entry[_Dict](
-        "openapi/transfer/v3/transfers/{id}", "private", "GET", {"cost": 1}
-    )
+    private_get_openapi_transfer_v3_transfers_id = privateGetOpenapiTransferV3TransfersId = Entry[
+        _Dict
+    ]("openapi/transfer/v3/transfers/{id}", "private", "GET", {"cost": 1})
     private_get_openapi_v1_sub_account_list = privateGetOpenapiV1SubAccountList = Entry[_Dict](
         "openapi/v1/sub-account/list", "private", "GET", {"cost": 10}
     )
@@ -128,127 +136,153 @@ class ImplicitAPI:
     )
     private_get_openapi_v1_sub_account_transfer_universal_transfer_history = (
         privateGetOpenapiV1SubAccountTransferUniversalTransferHistory
-    ) = Entry[_Dict]("openapi/v1/sub-account/transfer/universal-transfer-history", "private", "GET", {"cost": 10})
-    private_get_openapi_v1_sub_account_transfer_sub_history = privateGetOpenapiV1SubAccountTransferSubHistory = Entry[
-        _List
-    ]("openapi/v1/sub-account/transfer/sub-history", "private", "GET", {"cost": 10})
-    private_get_openapi_v1_sub_account_apikey_ip_restriction = privateGetOpenapiV1SubAccountApikeyIpRestriction = Entry[
+    ) = Entry[_Dict](
+        "openapi/v1/sub-account/transfer/universal-transfer-history", "private", "GET", {"cost": 10}
+    )
+    private_get_openapi_v1_sub_account_transfer_sub_history = (
+        privateGetOpenapiV1SubAccountTransferSubHistory
+    ) = Entry[_List]("openapi/v1/sub-account/transfer/sub-history", "private", "GET", {"cost": 10})
+    private_get_openapi_v1_sub_account_apikey_ip_restriction = (
+        privateGetOpenapiV1SubAccountApikeyIpRestriction
+    ) = Entry[_Dict]("openapi/v1/sub-account/apikey/ip-restriction", "private", "GET", {"cost": 10})
+    private_get_openapi_v1_sub_account_wallet_deposit_address = (
+        privateGetOpenapiV1SubAccountWalletDepositAddress
+    ) = Entry[_Dict]("openapi/v1/sub-account/wallet/deposit/address", "private", "GET", {"cost": 1})
+    private_get_openapi_v1_sub_account_wallet_deposit_history = (
+        privateGetOpenapiV1SubAccountWalletDepositHistory
+    ) = Entry[_Dict]("openapi/v1/sub-account/wallet/deposit/history", "private", "GET", {"cost": 1})
+    private_get_openapi_v1_fund_collect_get_fund_record = (
+        privateGetOpenapiV1FundCollectGetFundRecord
+    ) = Entry[_List]("openapi/v1/fund-collect/get-fund-record", "private", "GET", {"cost": 1})
+    private_get_openapi_v1_asset_transaction_history = (
+        privateGetOpenapiV1AssetTransactionHistory
+    ) = Entry[_Dict]("openapi/v1/asset/transaction/history", "private", "GET", {"cost": 20})
+    private_post_openapi_wallet_v1_withdraw_apply = privatePostOpenapiWalletV1WithdrawApply = Entry[
         _Dict
-    ]("openapi/v1/sub-account/apikey/ip-restriction", "private", "GET", {"cost": 10})
-    private_get_openapi_v1_sub_account_wallet_deposit_address = privateGetOpenapiV1SubAccountWalletDepositAddress = (
-        Entry[_Dict]("openapi/v1/sub-account/wallet/deposit/address", "private", "GET", {"cost": 1})
-    )
-    private_get_openapi_v1_sub_account_wallet_deposit_history = privateGetOpenapiV1SubAccountWalletDepositHistory = (
-        Entry[_Dict]("openapi/v1/sub-account/wallet/deposit/history", "private", "GET", {"cost": 1})
-    )
-    private_get_openapi_v1_fund_collect_get_fund_record = privateGetOpenapiV1FundCollectGetFundRecord = Entry[_List](
-        "openapi/v1/fund-collect/get-fund-record", "private", "GET", {"cost": 1}
-    )
-    private_get_openapi_v1_asset_transaction_history = privateGetOpenapiV1AssetTransactionHistory = Entry[_Dict](
-        "openapi/v1/asset/transaction/history", "private", "GET", {"cost": 20}
-    )
-    private_post_openapi_wallet_v1_withdraw_apply = privatePostOpenapiWalletV1WithdrawApply = Entry[_Dict](
-        "openapi/wallet/v1/withdraw/apply", "private", "POST", {"cost": 600}
-    )
+    ]("openapi/wallet/v1/withdraw/apply", "private", "POST", {"cost": 600})
     private_post_openapi_v1_order_test = privatePostOpenapiV1OrderTest = Entry[_Dict](
         "openapi/v1/order/test", "private", "POST", {"cost": 1}
     )
     private_post_openapi_v1_order = privatePostOpenapiV1Order = Entry[_Dict](
         "openapi/v1/order", "private", "POST", {"cost": 1}
     )
-    private_post_openapi_v1_order_cancelreplace = privatePostOpenapiV1OrderCancelReplace = Entry[_Dict](
-        "openapi/v1/order/cancelReplace", "private", "POST", {"cost": 1}
+    private_post_openapi_v1_order_cancelreplace = privatePostOpenapiV1OrderCancelReplace = Entry[
+        _Dict
+    ]("openapi/v1/order/cancelReplace", "private", "POST", {"cost": 1})
+    private_post_openapi_v1_capital_withdraw_apply = privatePostOpenapiV1CapitalWithdrawApply = (
+        Entry[_Dict]("openapi/v1/capital/withdraw/apply", "private", "POST", {"cost": 1})
     )
-    private_post_openapi_v1_capital_withdraw_apply = privatePostOpenapiV1CapitalWithdrawApply = Entry[_Dict](
-        "openapi/v1/capital/withdraw/apply", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_v1_capital_deposit_apply = privatePostOpenapiV1CapitalDepositApply = Entry[_Dict](
-        "openapi/v1/capital/deposit/apply", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_v3_payment_request_payment_requests = privatePostOpenapiV3PaymentRequestPaymentRequests = (
-        Entry[_Dict]("openapi/v3/payment-request/payment-requests", "private", "POST", {"cost": 1})
-    )
+    private_post_openapi_v1_capital_deposit_apply = privatePostOpenapiV1CapitalDepositApply = Entry[
+        _Dict
+    ]("openapi/v1/capital/deposit/apply", "private", "POST", {"cost": 1})
+    private_post_openapi_v3_payment_request_payment_requests = (
+        privatePostOpenapiV3PaymentRequestPaymentRequests
+    ) = Entry[_Dict]("openapi/v3/payment-request/payment-requests", "private", "POST", {"cost": 1})
     private_post_openapi_v3_payment_request_delete_payment_request = (
         privatePostOpenapiV3PaymentRequestDeletePaymentRequest
-    ) = Entry[_Dict]("openapi/v3/payment-request/delete-payment-request", "private", "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "openapi/v3/payment-request/delete-payment-request", "private", "POST", {"cost": 1}
+    )
     private_post_openapi_v3_payment_request_payment_request_reminder = (
         privatePostOpenapiV3PaymentRequestPaymentRequestReminder
-    ) = Entry[str]("openapi/v3/payment-request/payment-request-reminder", "private", "POST", {"cost": 1})
+    ) = Entry[str](
+        "openapi/v3/payment-request/payment-request-reminder", "private", "POST", {"cost": 1}
+    )
     private_post_openapi_v1_userdatastream = privatePostOpenapiV1UserDataStream = Entry[_Dict](
         "openapi/v1/userDataStream", "private", "POST", {"cost": 1}
     )
     private_post_merchant_api_v1_invoices = privatePostMerchantApiV1Invoices = Entry[_Dict](
         "merchant-api/v1/invoices", "private", "POST", {"cost": 1}
     )
-    private_post_merchant_api_v1_invoices_cancel = privatePostMerchantApiV1InvoicesCancel = Entry[_Dict](
-        "merchant-api/v1/invoices-cancel", "private", "POST", {"cost": 1}
-    )
+    private_post_merchant_api_v1_invoices_cancel = privatePostMerchantApiV1InvoicesCancel = Entry[
+        _Dict
+    ]("merchant-api/v1/invoices-cancel", "private", "POST", {"cost": 1})
     private_post_openapi_convert_v1_get_supported_trading_pairs = (
         privatePostOpenapiConvertV1GetSupportedTradingPairs
-    ) = Entry[_Dict]("openapi/convert/v1/get-supported-trading-pairs", "private", "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "openapi/convert/v1/get-supported-trading-pairs", "private", "POST", {"cost": 1}
+    )
     private_post_openapi_convert_v1_get_quote = privatePostOpenapiConvertV1GetQuote = Entry[_Dict](
         "openapi/convert/v1/get-quote", "private", "POST", {"cost": 1}
     )
-    private_post_openapi_convert_v1_accept_quote = privatePostOpenapiConvertV1AcceptQuote = Entry[_Dict](
-        "openapi/convert/v1/accept-quote", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_convert_v1_query_order_history = privatePostOpenapiConvertV1QueryOrderHistory = Entry[_Dict](
-        "openapi/convert/v1/query-order-history", "private", "POST", {"cost": 1}
-    )
+    private_post_openapi_convert_v1_accept_quote = privatePostOpenapiConvertV1AcceptQuote = Entry[
+        _Dict
+    ]("openapi/convert/v1/accept-quote", "private", "POST", {"cost": 1})
+    private_post_openapi_convert_v1_query_order_history = (
+        privatePostOpenapiConvertV1QueryOrderHistory
+    ) = Entry[_Dict]("openapi/convert/v1/query-order-history", "private", "POST", {"cost": 1})
     private_post_openapi_otc_trade_v1_get_supported_trading_pairs = (
         privatePostOpenapiOtcTradeV1GetSupportedTradingPairs
-    ) = Entry[_Dict]("openapi/otc-trade/v1/get-supported-trading-pairs", "private", "POST", {"cost": 1})
-    private_post_openapi_otc_trade_v1_create_rfq = privatePostOpenapiOtcTradeV1CreateRfq = Entry[_Dict](
-        "openapi/otc-trade/v1/create-rfq", "private", "POST", {"cost": 1}
+    ) = Entry[_Dict](
+        "openapi/otc-trade/v1/get-supported-trading-pairs", "private", "POST", {"cost": 1}
     )
-    private_post_openapi_otc_trade_v1_accept_rfq = privatePostOpenapiOtcTradeV1AcceptRfq = Entry[_Dict](
-        "openapi/otc-trade/v1/accept-rfq", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_otc_trade_v1_manual_settle = privatePostOpenapiOtcTradeV1ManualSettle = Entry[_Dict](
-        "openapi/otc-trade/v1/manual-settle", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_otc_trade_v1_query_order_history = privatePostOpenapiOtcTradeV1QueryOrderHistory = Entry[
+    private_post_openapi_otc_trade_v1_create_rfq = privatePostOpenapiOtcTradeV1CreateRfq = Entry[
         _Dict
-    ]("openapi/otc-trade/v1/query-order-history", "private", "POST", {"cost": 1})
-    private_post_openapi_fiat_v1_support_channel = privatePostOpenapiFiatV1SupportChannel = Entry[_Dict](
-        "openapi/fiat/v1/support-channel", "private", "POST", {"cost": 1}
+    ]("openapi/otc-trade/v1/create-rfq", "private", "POST", {"cost": 1})
+    private_post_openapi_otc_trade_v1_accept_rfq = privatePostOpenapiOtcTradeV1AcceptRfq = Entry[
+        _Dict
+    ]("openapi/otc-trade/v1/accept-rfq", "private", "POST", {"cost": 1})
+    private_post_openapi_otc_trade_v1_manual_settle = privatePostOpenapiOtcTradeV1ManualSettle = (
+        Entry[_Dict]("openapi/otc-trade/v1/manual-settle", "private", "POST", {"cost": 1})
     )
+    private_post_openapi_otc_trade_v1_query_order_history = (
+        privatePostOpenapiOtcTradeV1QueryOrderHistory
+    ) = Entry[_Dict]("openapi/otc-trade/v1/query-order-history", "private", "POST", {"cost": 1})
+    private_post_openapi_fiat_v1_support_channel = privatePostOpenapiFiatV1SupportChannel = Entry[
+        _Dict
+    ]("openapi/fiat/v1/support-channel", "private", "POST", {"cost": 1})
     private_post_openapi_fiat_v1_cash_out = privatePostOpenapiFiatV1CashOut = Entry[_Dict](
         "openapi/fiat/v1/cash-out", "private", "POST", {"cost": 1}
     )
     private_post_openapi_fiat_v1_history = privatePostOpenapiFiatV1History = Entry[_Dict](
         "openapi/fiat/v1/history", "private", "POST", {"cost": 1}
     )
-    private_post_openapi_migration_v4_sellorder = privatePostOpenapiMigrationV4Sellorder = Entry[_Dict](
-        "openapi/migration/v4/sellorder", "private", "POST", {"cost": 1}
+    private_post_openapi_fiat_v2_history = privatePostOpenapiFiatV2History = Entry[_Dict](
+        "openapi/fiat/v2/history", "private", "POST", {"cost": 1}
     )
-    private_post_openapi_migration_v4_validate_field = privatePostOpenapiMigrationV4ValidateField = Entry[_Dict](
-        "openapi/migration/v4/validate-field", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_transfer_v3_transfers = privatePostOpenapiTransferV3Transfers = Entry[_Dict](
-        "openapi/transfer/v3/transfers", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_transfer_v4_transfers = privatePostOpenapiTransferV4Transfers = Entry[_Dict](
-        "openapi/transfer/v4/transfers", "private", "POST", {"cost": 1}
-    )
-    private_post_openapi_v1_sub_account_create = privatePostOpenapiV1SubAccountCreate = Entry[_Dict](
-        "openapi/v1/sub-account/create", "private", "POST", {"cost": 30}
-    )
+    private_post_openapi_fiat_v1_cancel_qr_code = privatePostOpenapiFiatV1CancelQrCode = Entry[
+        _Dict
+    ]("openapi/fiat/v1/cancel_qr_code", "private", "POST", {"cost": 1})
+    private_post_openapi_migration_v4_sellorder = privatePostOpenapiMigrationV4Sellorder = Entry[
+        _Dict
+    ]("openapi/migration/v4/sellorder", "private", "POST", {"cost": 1})
+    private_post_openapi_migration_v4_validate_field = (
+        privatePostOpenapiMigrationV4ValidateField
+    ) = Entry[_Dict]("openapi/migration/v4/validate-field", "private", "POST", {"cost": 1})
+    private_post_openapi_transfer_v3_transfers = privatePostOpenapiTransferV3Transfers = Entry[
+        _Dict
+    ]("openapi/transfer/v3/transfers", "private", "POST", {"cost": 1})
+    private_post_openapi_transfer_v4_transfers = privatePostOpenapiTransferV4Transfers = Entry[
+        _Dict
+    ]("openapi/transfer/v4/transfers", "private", "POST", {"cost": 1})
+    private_post_openapi_v1_sub_account_create = privatePostOpenapiV1SubAccountCreate = Entry[
+        _Dict
+    ]("openapi/v1/sub-account/create", "private", "POST", {"cost": 30})
     private_post_openapi_v1_sub_account_transfer_universal_transfer = (
         privatePostOpenapiV1SubAccountTransferUniversalTransfer
-    ) = Entry[_Dict]("openapi/v1/sub-account/transfer/universal-transfer", "private", "POST", {"cost": 100})
-    private_post_openapi_v1_sub_account_transfer_sub_to_master = privatePostOpenapiV1SubAccountTransferSubToMaster = (
-        Entry[_Dict]("openapi/v1/sub-account/transfer/sub-to-master", "private", "POST", {"cost": 100})
+    ) = Entry[_Dict](
+        "openapi/v1/sub-account/transfer/universal-transfer", "private", "POST", {"cost": 100}
+    )
+    private_post_openapi_v1_sub_account_transfer_sub_to_master = (
+        privatePostOpenapiV1SubAccountTransferSubToMaster
+    ) = Entry[_Dict](
+        "openapi/v1/sub-account/transfer/sub-to-master", "private", "POST", {"cost": 100}
     )
     private_post_openapi_v1_sub_account_apikey_add_ip_restriction = (
         privatePostOpenapiV1SubAccountApikeyAddIpRestriction
-    ) = Entry[_Dict]("openapi/v1/sub-account/apikey/add-ip-restriction", "private", "POST", {"cost": 30})
+    ) = Entry[_Dict](
+        "openapi/v1/sub-account/apikey/add-ip-restriction", "private", "POST", {"cost": 30}
+    )
     private_post_openapi_v1_sub_account_apikey_delete_ip_restriction = (
         privatePostOpenapiV1SubAccountApikeyDeleteIpRestriction
-    ) = Entry[_Dict]("openapi/v1/sub-account/apikey/delete-ip-restriction", "private", "POST", {"cost": 30})
+    ) = Entry[_Dict](
+        "openapi/v1/sub-account/apikey/delete-ip-restriction", "private", "POST", {"cost": 30}
+    )
     private_post_openapi_v1_fund_collect_collect_from_sub_account = (
         privatePostOpenapiV1FundCollectCollectFromSubAccount
-    ) = Entry[_Dict]("openapi/v1/fund-collect/collect-from-sub-account", "private", "POST", {"cost": 1})
+    ) = Entry[_Dict](
+        "openapi/v1/fund-collect/collect-from-sub-account", "private", "POST", {"cost": 1}
+    )
     private_put_openapi_v1_userdatastream = privatePutOpenapiV1UserDataStream = Entry[_Dict](
         "openapi/v1/userDataStream", "private", "PUT", {"cost": 1}
     )

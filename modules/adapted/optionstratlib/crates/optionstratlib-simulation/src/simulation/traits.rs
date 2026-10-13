@@ -1,0 +1,2122 @@
+// Scoped allow: bulk migration of unchecked `[]` indexing to
+// `.get().ok_or_else(..)` tracked as follow-ups to #341. The existing
+// call sites are internal to this file and audited for invariant-bound
+// indices (fixed-length buffers, just-pushed slices, etc.).
+#![allow(clippy::indexing_slicing)]
+
+use crate::error::SimulationError;
+use crate::simulation::model::WalkPath;
+use crate::simulation::ou::ou_path;
+use crate::simulation::{WalkParams, WalkType};
+use num_traits::ToPrimitive;
+use optionstratlib_core::model::Positive;
+use optionstratlib_core::model::decimal::{
+    d_add, d_div, d_exp, d_mul, d_sqrt, d_sub, decimal_normal_sample_with,
+    decimal_uniform_sample_with, finite_decimal, p_sqrt,
+};
+use optionstratlib_core::utils::deterministic_rng;
+use rand::Rng;
+use rust_decimal::Decimal;
+use std::convert::TryInto;
+use std::fmt::{Debug, Display};
+use std::ops::AddAssign;
+
+/// Runs a built-in walk kernel on the random stream `params.seed` selects.
+///
+/// `Some(seed)` draws from a fresh [`deterministic_rng`]`(seed)`, one per
+/// generated path, so a seeded path is reproducible bit for bit. `None`
+/// draws from the thread RNG, exactly the stream the unseeded
+/// `decimal_normal_sample()` reads: the same generator, advanced by the same
+/// draws in the same order. Each kernel is monomorphised for both
+/// generators, so the inner loop makes no dynamic call.
+macro_rules! with_walk_rng {
+    ($params:expr, $kernel:ident) => {
+        match $params.seed {
+            Some(seed) => $kernel($params, &mut deterministic_rng(seed)),
+            None => $kernel($params, &mut rand::rng()),
+        }
+    };
+}
+
+/// Built-in GARCH(1,1) walk kernel: simulates the price path together with
+/// the volatility path that drove it.
+///
+/// This is the shared implementation behind the default
+/// [`WalkTypeAble::garch`] and [`WalkTypeAble::garch_with_vol`] methods, exposed
+/// publicly so custom walkers overriding one of them can compose or wrap
+/// the built-in dynamics instead of reimplementing them.
+///
+/// # Errors
+///
+/// Same as [`WalkTypeAble::garch`].
+pub fn garch_walk<X, Y>(params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    with_walk_rng!(params, garch_path)
+}
+
+/// Body of [`garch_walk`], drawing its normal samples from `rng`.
+fn garch_path<X, Y, R>(params: &WalkParams<X, Y>, rng: &mut R) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::Garch {
+            dt,
+            drift,
+            volatility,
+            alpha,
+            beta,
+        } => {
+            // `alpha + beta` is the stationarity test itself, so it has to be
+            // formed before it can be compared; at `alpha = beta = MAX` the
+            // raw operator aborts instead of reporting the violation.
+            let persistence = alpha.checked_add(&beta)?;
+            if persistence >= Decimal::ONE {
+                return Err(SimulationError::GarchStationarity { alpha, beta });
+            }
+
+            let mut path = Vec::with_capacity(params.size + 1);
+            let mut vols = Vec::with_capacity(params.size + 1);
+            let mut price = params.ystep_as_positive()?.to_dec();
+            path.push(Positive::new_decimal(price).unwrap_or(Positive::ZERO));
+            vols.push(volatility);
+
+            // --- initial conditional variance (annualised) ---
+            let mut var = volatility.checked_mul(&volatility)?; // σ₀²
+            let mut prev_eps2 = Decimal::ZERO;
+            // `1 - alpha - beta` is strictly positive by the stationarity
+            // check above; the subtraction order is preserved so the
+            // long-run variance is bit-identical to the previous form.
+            let stationary_weight = d_sub(
+                d_sub(Decimal::ONE, alpha.to_dec(), "simulation::garch::omega")?,
+                beta.to_dec(),
+                "simulation::garch::omega",
+            )?;
+            let omega = volatility
+                .checked_powu(2)?
+                .checked_mul_dec(stationary_weight)?; // 0.002
+
+            // pre-compute √dt
+            let sqrt_dt = dt.to_f64().sqrt(); // scan-banned: allow -- f64 `sqrt`: returns NaN for negative input, it does not abort; the non-finite value is rejected at the `Decimal` boundary
+            let sqrt_dt_dec = finite_decimal(sqrt_dt).ok_or_else(|| {
+                SimulationError::non_finite("simulation::garch::sqrt_dt", sqrt_dt)
+            })?;
+
+            for _ in 1..params.size {
+                // 1) update variance
+                var = omega
+                    .checked_add(&alpha.checked_mul_dec(prev_eps2)?)?
+                    .checked_add(&beta.checked_mul(&var)?)?;
+
+                // 2) shock with the right scale σ√dt·Z
+                let z = decimal_normal_sample_with(rng);
+                // `var` is kept in annualized-squared units, so sqrt is
+                // the annualized conditional volatility at this step; it
+                // feeds both the shock and the reported vol path.
+                let var_sqrt = p_sqrt(&var, "simulation::traits::garch_walk")?;
+                let eps = d_mul(
+                    d_mul(z, var_sqrt.to_dec(), "simulation::garch::eps")?,
+                    sqrt_dt_dec,
+                    "simulation::garch::eps",
+                )?; // εₜ
+
+                // 3) drift  (use μ dt, or μ dt − ½σ² dt if μ is arithmetic)
+                let ret = d_add(
+                    d_mul(drift, dt.to_dec(), "simulation::garch::ret")?,
+                    eps,
+                    "simulation::garch::ret",
+                )?;
+
+                // 4) price update
+                price = d_mul(
+                    price,
+                    d_exp(ret, "simulation::garch::price")?,
+                    "simulation::garch::price",
+                )?;
+                path.push(Positive::new_decimal(price).unwrap_or(Positive::ZERO));
+                vols.push(var_sqrt);
+
+                // 5) store ε² (`powu(2)` is exactly `eps * eps`)
+                prev_eps2 = d_mul(eps, eps, "simulation::garch::eps_squared")?; // εₜ²
+            }
+            Ok(WalkPath {
+                prices: path,
+                vols: Some(vols),
+            })
+        }
+        _ => Err(SimulationError::InvalidWalkType { expected: "GARCH" }),
+    }
+}
+
+/// Built-in Heston walk kernel: simulates the price path together with
+/// the volatility path that drove it.
+///
+/// This is the shared implementation behind the default
+/// [`WalkTypeAble::heston`] and [`WalkTypeAble::heston_with_vol`] methods, exposed
+/// publicly so custom walkers overriding one of them can compose or wrap
+/// the built-in dynamics instead of reimplementing them.
+///
+/// # Errors
+///
+/// Same as [`WalkTypeAble::heston`].
+pub fn heston_walk<X, Y>(params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    with_walk_rng!(params, heston_path)
+}
+
+/// Body of [`heston_walk`], drawing its normal samples from `rng`.
+fn heston_path<X, Y, R>(params: &WalkParams<X, Y>, rng: &mut R) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::Heston {
+            dt,
+            drift,
+            volatility,
+            kappa,
+            theta,
+            xi,
+            rho,
+        } => {
+            // Validate parameters
+            if rho < -Decimal::ONE || rho > Decimal::ONE {
+                return Err(SimulationError::InvalidCorrelation { rho });
+            }
+
+            let mut values = Vec::with_capacity(params.size);
+            let mut vols = Vec::with_capacity(params.size);
+            let mut price: Positive = params.ystep_as_positive()?;
+
+            // Initial variance is the square of initial volatility
+            let mut variance = d_mul(
+                volatility.to_dec(),
+                volatility.to_dec(),
+                "simulation::heston::variance0",
+            )?;
+
+            values.push(price); // Add initial value
+            vols.push(volatility);
+
+            let dt_sqrt = d_sqrt(dt.to_dec(), "simulation::heston::sqrt_dt")
+                .map_err(|_| SimulationError::walk_error("Heston: sqrt(dt) failed (overflow)"))?;
+            // sqrt(1 - rho^2) depends only on `rho`, hoist out of the
+            // hot loop so we don't recompute it per step.
+            let one_minus_rho_sq = d_sub(
+                Decimal::ONE,
+                d_mul(rho, rho, "simulation::heston::one_minus_rho_sq")?,
+                "simulation::heston::one_minus_rho_sq",
+            )?;
+            let one_minus_rho_sq_sqrt = d_sqrt(
+                one_minus_rho_sq,
+                "simulation::heston::one_minus_rho_sq_sqrt",
+            )
+            .map_err(|_| {
+                SimulationError::walk_error(
+                    "Heston: sqrt(1 - rho^2) failed (rho out of range or overflow)",
+                )
+            })?;
+            // A zero-step walk has nothing to simulate past the seeded
+            // initial value; `size - 1` underflows there and, in release,
+            // turns the loop bound into `usize::MAX`. `size` is a step count,
+            // not a financial value, so saturating at zero is the loop bound
+            // rather than a hidden clamp on a price.
+            let steps = params.size.saturating_sub(1);
+            for _ in 0..steps {
+                // Generate correlated random numbers
+                let z1 = decimal_normal_sample_with(rng);
+                let z2 = d_add(
+                    d_mul(rho, z1, "simulation::heston::z2")?,
+                    d_mul(
+                        one_minus_rho_sq_sqrt,
+                        decimal_normal_sample_with(rng),
+                        "simulation::heston::z2",
+                    )?,
+                    "simulation::heston::z2",
+                )?;
+
+                // Ensure variance stays positive (modified Euler scheme with truncation)
+                let variance_sqrt =
+                    d_sqrt(variance, "simulation::heston::variance_sqrt").map_err(|_| {
+                        SimulationError::walk_error("Heston: sqrt(variance) failed (overflow)")
+                    })?;
+                let variance_drift = d_mul(
+                    d_mul(
+                        kappa.to_dec(),
+                        d_sub(theta.to_dec(), variance, "simulation::heston::variance_gap")?,
+                        "simulation::heston::variance_drift",
+                    )?,
+                    dt.to_dec(),
+                    "simulation::heston::variance_drift",
+                )?;
+                let variance_diffusion = d_mul(
+                    d_mul(
+                        d_mul(
+                            xi.to_dec(),
+                            variance_sqrt,
+                            "simulation::heston::variance_diffusion",
+                        )?,
+                        z2,
+                        "simulation::heston::variance_diffusion",
+                    )?,
+                    dt_sqrt,
+                    "simulation::heston::variance_diffusion",
+                )?;
+                let variance_new = d_add(
+                    d_add(variance, variance_drift, "simulation::heston::variance_new")?,
+                    variance_diffusion,
+                    "simulation::heston::variance_new",
+                )?
+                .max(Decimal::ZERO);
+
+                // Update price using the average variance over the step
+                let avg_variance = d_div(
+                    d_add(variance, variance_new, "simulation::heston::avg_variance")?,
+                    Decimal::TWO,
+                    "simulation::heston::avg_variance",
+                )?;
+                let avg_variance_sqrt = d_sqrt(
+                    avg_variance,
+                    "simulation::heston::avg_variance_sqrt",
+                )
+                .map_err(|_| {
+                    SimulationError::walk_error("Heston: sqrt(avg_variance) failed (overflow)")
+                })?;
+                let price_change = d_add(
+                    d_mul(drift, dt.to_dec(), "simulation::heston::price_change")?,
+                    d_mul(
+                        d_mul(avg_variance_sqrt, z1, "simulation::heston::price_change")?,
+                        dt_sqrt,
+                        "simulation::heston::price_change",
+                    )?,
+                    "simulation::heston::price_change",
+                )?;
+
+                price = price.checked_mul_dec(d_exp(price_change, "simulation::heston::price")?)?;
+                variance = variance_new;
+
+                values.push(price);
+                // Instantaneous annualized volatility after the step;
+                // CIR variance is truncated at zero so sqrt always exists.
+                let vol_step = d_sqrt(variance, "simulation::heston::vol_step").map_err(|_| {
+                    SimulationError::walk_error("Heston: sqrt(variance) failed (overflow)")
+                })?;
+                vols.push(Positive::new_decimal(vol_step).unwrap_or(Positive::ZERO));
+            }
+
+            Ok(WalkPath {
+                prices: values,
+                vols: Some(vols),
+            })
+        }
+        _ => Err(SimulationError::InvalidWalkType { expected: "Heston" }),
+    }
+}
+
+/// Built-in Custom (mean-reverting volatility) walk kernel: simulates the price path together with
+/// the volatility path that drove it.
+///
+/// This is the shared implementation behind the default
+/// [`WalkTypeAble::custom`] and [`WalkTypeAble::custom_with_vol`] methods, exposed
+/// publicly so custom walkers overriding one of them can compose or wrap
+/// the built-in dynamics instead of reimplementing them.
+///
+/// # Errors
+///
+/// Same as [`WalkTypeAble::custom`].
+pub fn custom_walk<X, Y>(params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    with_walk_rng!(params, custom_path)
+}
+
+/// Body of [`custom_walk`], drawing its normal samples from `rng`.
+fn custom_path<X, Y, R>(params: &WalkParams<X, Y>, rng: &mut R) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::Custom {
+            dt,
+            drift,
+            volatility,
+            vov,
+            vol_speed,
+            vol_mean,
+        } => {
+            let vols = ou_path(volatility, vol_mean, vol_speed, vov, dt, params.size, rng)?;
+
+            let sqrt_dt = p_sqrt(&dt, "simulation::traits::custom_walk")?;
+            let mut price = params.ystep_as_positive()?.to_dec();
+            let mut path = Vec::with_capacity(params.size + 1);
+            let mut vols_out = Vec::with_capacity(params.size + 1);
+            path.push(Positive::new_decimal(price).unwrap_or(Positive::ZERO));
+            vols_out.push(volatility);
+
+            // A zero-step walk has nothing to simulate past the seeded
+            // initial value; `size - 1` underflows there. `size` is a step
+            // count, not a financial value.
+            let steps = params.size.saturating_sub(1);
+            for &vol in vols.iter().take(steps) {
+                let z = decimal_normal_sample_with(rng);
+                let sigma_abs = d_mul(vol.to_dec(), price, "simulation::custom::sigma_abs")?;
+                let random_step = d_mul(
+                    d_mul(z, sigma_abs, "simulation::custom::random_step")?,
+                    sqrt_dt.to_dec(),
+                    "simulation::custom::random_step",
+                )?;
+
+                price = d_add(
+                    price,
+                    d_add(
+                        d_mul(drift, dt.to_dec(), "simulation::custom::price")?,
+                        random_step,
+                        "simulation::custom::price",
+                    )?,
+                    "simulation::custom::price",
+                )?;
+                path.push(
+                    Positive::new_decimal(price.max(Decimal::ZERO)).unwrap_or(Positive::ZERO),
+                );
+                // The OU volatility that generated this step.
+                vols_out.push(vol);
+            }
+
+            Ok(WalkPath {
+                prices: path,
+                vols: Some(vols_out),
+            })
+        }
+        _ => Err(SimulationError::InvalidWalkType { expected: "Custom" }),
+    }
+}
+
+/// Built-in Telegraph (two-state regime switching) walk kernel: simulates the price path together with
+/// the volatility path that drove it.
+///
+/// This is the shared implementation behind the default
+/// [`WalkTypeAble::telegraph`] and [`WalkTypeAble::telegraph_with_vol`] methods, exposed
+/// publicly so custom walkers overriding one of them can compose or wrap
+/// the built-in dynamics instead of reimplementing them.
+///
+/// # Errors
+///
+/// Same as [`WalkTypeAble::telegraph`].
+pub fn telegraph_walk<X, Y>(params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    with_walk_rng!(params, telegraph_path)
+}
+
+/// Body of [`telegraph_walk`], drawing its normal and uniform samples from
+/// `rng`.
+///
+/// The initial regime takes the sign of one normal draw; each step then
+/// draws the uniform of the regime-switch trial, then the price normal.
+fn telegraph_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<WalkPath, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::Telegraph {
+            dt,
+            drift,
+            volatility,
+            lambda_up,
+            lambda_down,
+            vol_multiplier_up,
+            vol_multiplier_down,
+        } => {
+            let mut values = Vec::with_capacity(params.size);
+            let mut vols = Vec::with_capacity(params.size);
+            let mut price = params.ystep_as_positive()?.to_dec();
+            values.push(Positive::new_decimal(price).unwrap_or(Positive::ZERO));
+            vols.push(volatility);
+
+            // Initialize telegraph state randomly
+            let mut state: i8 = if decimal_normal_sample_with(rng).to_f64().unwrap_or(0.0) < 0.0 {
+                1
+            } else {
+                -1
+            };
+
+            let sqrt_dt = p_sqrt(&dt, "simulation::traits::telegraph_walk")?;
+            let vol_mult_up = vol_multiplier_up.unwrap_or(Positive::ONE);
+            let vol_mult_down = vol_multiplier_down.unwrap_or(Positive::ONE);
+
+            for _ in 1..params.size {
+                // Calculate transition probabilities
+                let lambda = if state == 1 {
+                    lambda_down.to_dec()
+                } else {
+                    lambda_up.to_dec()
+                };
+
+                // `lambda` is non-negative, so the exponent is non-positive;
+                // an arbitrarily fast transition rate flushes `e^x` to zero,
+                // which is the limit `transition_prob -> 1`.
+                let transition_prob = d_sub(
+                    Decimal::ONE,
+                    d_exp(
+                        d_mul(-lambda, dt.to_dec(), "simulation::telegraph::transition")?,
+                        "simulation::telegraph::transition",
+                    )?,
+                    "simulation::telegraph::transition",
+                )?;
+
+                // Bernoulli trial on a genuine U(0,1) draw (#683):
+                // `P(switch) = 1 - e^(-λ·dt)`.
+                if decimal_uniform_sample_with(rng) < transition_prob {
+                    state *= -1;
+                }
+
+                // Apply volatility multiplier based on current state
+                let current_vol = if state == 1 {
+                    volatility.checked_mul(&vol_mult_up)?
+                } else {
+                    volatility.checked_mul(&vol_mult_down)?
+                };
+
+                // Generate price change
+                let z = decimal_normal_sample_with(rng);
+                let diffusion = d_mul(
+                    d_mul(
+                        current_vol.to_dec(),
+                        sqrt_dt.to_dec(),
+                        "simulation::telegraph::diffusion",
+                    )?,
+                    z,
+                    "simulation::telegraph::diffusion",
+                )?;
+                let drift_term = d_mul(drift, dt.to_dec(), "simulation::telegraph::drift")?;
+
+                // Update price using geometric Brownian motion with regime-dependent volatility
+                let price_change = d_add(drift_term, diffusion, "simulation::telegraph::price")?;
+                price = d_mul(
+                    price,
+                    d_exp(price_change, "simulation::telegraph::price")?,
+                    "simulation::telegraph::price",
+                )?;
+
+                values.push(Positive::new_decimal(price).unwrap_or(Positive::ZERO));
+                // Regime volatility that generated this step.
+                vols.push(current_vol);
+            }
+
+            Ok(WalkPath {
+                prices: values,
+                vols: Some(vols),
+            })
+        }
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "Telegraph",
+        }),
+    }
+}
+
+/// Built-in Brownian kernel, drawing its normal samples from `rng`.
+fn brownian_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<Vec<Positive>, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::Brownian {
+            dt,
+            drift,
+            volatility,
+        } => {
+            let mut values = Vec::with_capacity(params.size + 1);
+            let start: Positive = params.ystep_as_positive()?;
+            values.push(start);
+            let mut x: Decimal = start.to_dec();
+            let sigma_abs = volatility.checked_mul(&start)?.to_dec();
+            let sqrt_dt = dt.to_f64().sqrt(); // scan-banned: allow -- f64 `sqrt`: returns NaN for negative input, it does not abort; the non-finite value is rejected at the `Decimal` boundary
+            let sqrt_dt_dec = finite_decimal(sqrt_dt).ok_or_else(|| {
+                SimulationError::non_finite("simulation::brownian::sqrt_dt", sqrt_dt)
+            })?;
+
+            for _ in 1..params.size {
+                let z = decimal_normal_sample_with(rng);
+                let diffusion = d_mul(
+                    d_mul(sigma_abs, sqrt_dt_dec, "simulation::brownian::diffusion")?,
+                    z,
+                    "simulation::brownian::diffusion",
+                )?;
+                let drift_term = d_mul(drift, dt.to_dec(), "simulation::brownian::drift")?;
+                x = d_add(
+                    x,
+                    d_add(drift_term, diffusion, "simulation::brownian::step")?,
+                    "simulation::brownian::step",
+                )?;
+                values.push(Positive::new_decimal(x.max(Decimal::ZERO)).unwrap_or(Positive::ZERO));
+            }
+
+            Ok(values)
+        }
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "Brownian",
+        }),
+    }
+}
+
+/// Built-in geometric Brownian kernel, drawing its normal samples from `rng`.
+fn geometric_brownian_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<Vec<Positive>, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::GeometricBrownian {
+            dt,
+            drift,
+            volatility,
+        } => {
+            let mut values = Vec::with_capacity(params.size);
+            let mut current_value: Positive = params.ystep_as_positive()?;
+            values.push(current_value);
+            let sqrt_dt = p_sqrt(&dt, "simulation::traits::geometric_brownian")?;
+
+            for _ in 1..params.size {
+                // σ * √dt * Z
+                let diffusion = d_mul(
+                    d_mul(
+                        decimal_normal_sample_with(rng),
+                        volatility.to_dec(),
+                        "simulation::gbm::diffusion",
+                    )?,
+                    sqrt_dt.to_dec(),
+                    "simulation::gbm::diffusion",
+                )?;
+                // μ * dt
+                let drift_term = d_add(
+                    d_mul(drift, dt.to_dec(), "simulation::gbm::drift")?,
+                    diffusion,
+                    "simulation::gbm::drift",
+                )?;
+                current_value =
+                    current_value.checked_mul_dec(d_exp(drift_term, "simulation::gbm::price")?)?;
+                values.push(current_value);
+            }
+            Ok(values)
+        }
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "GeometricBrownian",
+        }),
+    }
+}
+
+/// Built-in log-returns kernel, drawing its normal samples from `rng`.
+fn log_returns_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<Vec<Positive>, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::LogReturns {
+            dt,
+            expected_return,
+            volatility,
+            autocorrelation,
+        } => {
+            let mut values = Vec::with_capacity(params.size + 1);
+            let mut price: Positive = params.ystep_as_positive()?;
+            values.push(price);
+
+            let sqrt_dt = dt.to_f64().sqrt(); // scan-banned: allow -- f64 `sqrt`: returns NaN for negative input, it does not abort; the non-finite value is rejected at the `Decimal` boundary
+            let sqrt_dt_dec = finite_decimal(sqrt_dt).ok_or_else(|| {
+                SimulationError::non_finite("simulation::log_returns::sqrt_dt", sqrt_dt)
+            })?;
+            let mut prev_log_ret = Decimal::ZERO;
+
+            for _ in 1..params.size {
+                let z = decimal_normal_sample_with(rng);
+                let diffusion = d_mul(
+                    d_mul(z, volatility.to_dec(), "simulation::log_returns::diffusion")?,
+                    sqrt_dt_dec,
+                    "simulation::log_returns::diffusion",
+                )?;
+                let mut log_ret = d_add(
+                    d_mul(
+                        expected_return,
+                        dt.to_dec(),
+                        "simulation::log_returns::log_ret",
+                    )?,
+                    diffusion,
+                    "simulation::log_returns::log_ret",
+                )?;
+
+                if let Some(ac) = autocorrelation {
+                    if !(-Decimal::ONE..=Decimal::ONE).contains(&ac) {
+                        return Err(SimulationError::InvalidAutocorrelation { value: ac });
+                    }
+                    log_ret = d_add(
+                        log_ret,
+                        d_mul(ac, prev_log_ret, "simulation::log_returns::autocorrelation")?,
+                        "simulation::log_returns::autocorrelation",
+                    )?;
+                }
+
+                // actualizar precio
+                price = price.checked_mul_dec(d_exp(log_ret, "simulation::log_returns::price")?)?;
+                values.push(price);
+
+                prev_log_ret = log_ret;
+            }
+            Ok(values)
+        }
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "LogReturns",
+        }),
+    }
+}
+
+/// Built-in mean-reverting kernel, drawing its normal samples from `rng`.
+fn mean_reverting_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<Vec<Positive>, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::MeanReverting {
+            dt,
+            volatility,
+            speed,
+            mean, // mean level or initial value
+        } => {
+            let sigma_abs = volatility.checked_mul(&mean)?;
+            ou_path(
+                params.ystep_as_positive()?,
+                mean,
+                speed,
+                sigma_abs,
+                dt,
+                params.size,
+                rng,
+            )
+        }
+
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "MeanReverting",
+        }),
+    }
+}
+
+/// Built-in jump-diffusion kernel, drawing its normal and uniform samples
+/// from `rng`.
+///
+/// Each step draws the diffusion normal, then the uniform of the jump
+/// trial, then, only when the trial fires, the normal of the jump size.
+fn jump_diffusion_path<X, Y, R>(
+    params: &WalkParams<X, Y>,
+    rng: &mut R,
+) -> Result<Vec<Positive>, SimulationError>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+    R: Rng + ?Sized,
+{
+    match params.walk_type {
+        WalkType::JumpDiffusion {
+            dt,
+            drift,
+            volatility,
+            intensity,
+            jump_mean,
+            jump_volatility,
+        } => {
+            let mut values = Vec::with_capacity(params.size + 1);
+            let mut x: Decimal = params.ystep_as_positive()?.to_dec();
+            values.push(Positive::new_decimal(x).unwrap_or(Positive::ZERO));
+
+            let sqrt_dt = p_sqrt(&dt, "simulation::traits::jump_diffusion")?;
+            let lambda_dt = intensity.checked_mul(&dt)?;
+
+            for _ in 1..params.size {
+                let z = decimal_normal_sample_with(rng);
+                let sigma_abs = d_mul(volatility.to_dec(), x, "simulation::jump::sigma_abs")?;
+                let diffusion = d_mul(
+                    d_mul(sigma_abs, sqrt_dt.to_dec(), "simulation::jump::diffusion")?,
+                    z,
+                    "simulation::jump::diffusion",
+                )?;
+
+                let drift_term = d_mul(drift, dt.to_dec(), "simulation::jump::drift")?;
+                // Bernoulli(λdt) trial on a genuine U(0,1) draw (#684):
+                // `P(u < λdt) = λdt`, and a step with `λdt >= 1` always jumps.
+                let jump = if decimal_uniform_sample_with(rng) < lambda_dt.to_dec() {
+                    d_add(
+                        jump_mean,
+                        d_mul(
+                            decimal_normal_sample_with(rng),
+                            jump_volatility.to_dec(),
+                            "simulation::jump::size",
+                        )?,
+                        "simulation::jump::size",
+                    )?
+                } else {
+                    Decimal::ZERO
+                };
+
+                x = d_add(
+                    x,
+                    d_add(
+                        d_add(drift_term, diffusion, "simulation::jump::step")?,
+                        jump,
+                        "simulation::jump::step",
+                    )?,
+                    "simulation::jump::step",
+                )?;
+                x = x.max(Decimal::ZERO);
+                values.push(Positive::new_decimal(x).unwrap_or(Positive::ZERO));
+            }
+
+            Ok(values)
+        }
+        _ => Err(SimulationError::InvalidWalkType {
+            expected: "JumpDiffusion",
+        }),
+    }
+}
+/// Object-safe helper trait that exposes a `Clone`-compatible operation for
+/// [`WalkTypeAble`] trait objects.
+///
+/// `Clone::clone` requires `Self: Sized`, so it cannot be invoked through
+/// `dyn WalkTypeAble<X, Y>` directly. `WalkTypeAbleClone::clone_box` returns an
+/// owned `Box<dyn WalkTypeAble<X, Y>>` instead, which lets the generic
+/// `Clone for Box<dyn WalkTypeAble<X, Y>>` implementation work uniformly for
+/// any concrete walker that is `Clone + 'static`.
+///
+/// You should never implement this trait by hand: a blanket impl covers every
+/// `T: WalkTypeAble<X, Y> + Clone + 'static`. Just `#[derive(Clone)]` on your
+/// concrete walker and the trait object gains `Clone` for free.
+pub trait WalkTypeAbleClone<X, Y>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    /// Returns a boxed clone of this walker as a trait object.
+    #[must_use]
+    fn clone_box(&self) -> Box<dyn WalkTypeAble<X, Y>>;
+}
+
+impl<T, X, Y> WalkTypeAbleClone<X, Y> for T
+where
+    T: 'static + WalkTypeAble<X, Y> + Clone,
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    #[inline]
+    fn clone_box(&self) -> Box<dyn WalkTypeAble<X, Y>> {
+        Box::new(self.clone())
+    }
+}
+
+/// Trait for implementing various random walk models and stochastic processes.
+///
+/// This trait provides methods to generate different types of stochastic processes commonly
+/// used in financial modeling, time series analysis, and simulation studies. Each method
+/// implements a specific type of random walk based on the parameters provided.
+///
+/// The trait is generic over types `X` and `Y`, which represent the x-axis (typically time)
+/// and y-axis (typically price or value) components respectively.
+///
+/// # Type Parameters
+///
+/// * `X` - The type for the x-axis values (typically time), must be `Copy`, convertible to `Positive`,
+///   implement `AddAssign`, and implement `Display`.
+/// * `Y` - The type for the y-axis values (typically price), must be `Copy`, convertible to `Positive`,
+///   and implement `Display`.
+///
+/// # Methods
+///
+/// The trait provides methods for generating the following stochastic processes:
+/// - Brownian motion (standard random walk)
+/// - Geometric Brownian motion
+/// - Log returns process with optional autocorrelation
+/// - Mean reverting (Ornstein-Uhlenbeck) process
+/// - Jump diffusion process
+/// - GARCH (Generalized Autoregressive Conditional Heteroskedasticity)
+/// - Heston stochastic volatility model
+/// - Custom stochastic process with mean-reverting volatility
+///
+/// # Object safety and cloning
+///
+/// `WalkTypeAble` is object-safe: you can hold it behind `Box<dyn WalkTypeAble<X, Y>>`
+/// (e.g., inside [`WalkParams`]). The super-trait [`WalkTypeAbleClone`] provides an
+/// object-safe `clone_box` hook that `Box<dyn WalkTypeAble<X, Y>>: Clone` delegates
+/// to. Concrete walkers must therefore implement `WalkTypeAbleClone` — a blanket
+/// impl covers every `T: WalkTypeAble<X, Y> + Clone + 'static`, so in practice it
+/// is enough to add `#[derive(Clone)]` to your walker struct and the object-safe
+/// clone path works automatically.
+///
+/// Walkers that cannot be `Clone` may implement `WalkTypeAbleClone::clone_box`
+/// by hand, but doing so is rarely necessary.
+///
+/// # Seeding
+///
+/// Every default walk method (and the public kernels [`garch_walk`],
+/// [`heston_walk`], [`custom_walk`], [`telegraph_walk`]) reads
+/// [`WalkParams::seed`]: `Some(seed)` draws the whole path from
+/// [`optionstratlib_core::utils::deterministic_rng`]`(seed)`, so it is
+/// reproducible bit for bit; `None` draws from the thread RNG. A walker that
+/// overrides a method and draws its own randomness should do the same with
+/// [`optionstratlib_core::model::decimal::decimal_normal_sample_with`] to keep
+/// seeded runs reproducible.
+///
+/// # Output contract
+///
+/// The walk generators (`generator_optionchain`, `generator_positive`,
+/// `generator_optionseries`) treat the FIRST element of a walker's output as a
+/// duplicate of the initial value and skip it. A walker may return an empty
+/// vector or a single element; the generators then yield only the initial
+/// step. Returning fewer than `params.size` values is allowed and simply
+/// shortens the walk.
+pub trait WalkTypeAble<X, Y>: WalkTypeAbleClone<X, Y>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    /// Dispatches to the walk method matching `params.walk_type`.
+    ///
+    /// This is the single authoritative variant→method dispatch: generators
+    /// call `generate` instead of matching on [`WalkType`] themselves, so
+    /// adding a new walk variant only requires extending the enum and this
+    /// trait — no generator changes.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters; `params.walk_type` selects the process.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - The generated path, per
+    ///   the contract of the selected walk method.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the error of the dispatched walk method (see each method's
+    /// documentation).
+    fn generate(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        match &params.walk_type {
+            WalkType::Brownian { .. } => self.brownian(params),
+            WalkType::GeometricBrownian { .. } => self.geometric_brownian(params),
+            WalkType::LogReturns { .. } => self.log_returns(params),
+            WalkType::MeanReverting { .. } => self.mean_reverting(params),
+            WalkType::JumpDiffusion { .. } => self.jump_diffusion(params),
+            WalkType::Garch { .. } => self.garch(params),
+            WalkType::Heston { .. } => self.heston(params),
+            WalkType::Custom { .. } => self.custom(params),
+            WalkType::Telegraph { .. } => self.telegraph(params),
+            WalkType::Historical { .. } => self.historical(params),
+        }
+    }
+
+    /// Like [`WalkTypeAble::generate`], but also exposes the per-step
+    /// volatility path for walk types whose volatility varies over time.
+    ///
+    /// For the stochastic-volatility variants (`Garch`, `Heston`, `Custom`,
+    /// `Telegraph`) the returned [`WalkPath::vols`] carries the ANNUALIZED
+    /// volatility prevailing at each step, aligned index-by-index with
+    /// [`WalkPath::prices`]. For every other variant `vols` is `None` — the
+    /// constant volatility is available via [`WalkType::volatility`], and
+    /// `Historical` per-step estimates are the caller's concern (see
+    /// `simulation::walk_steps`).
+    ///
+    /// # Note for implementors
+    ///
+    /// The price-path methods (`garch`, `heston`, `custom`, `telegraph`)
+    /// and their `*_with_vol` siblings are BOTH backed by the same built-in
+    /// kernels ([`garch_walk`], [`heston_walk`], [`custom_walk`],
+    /// [`telegraph_walk`]) but are independent override points: overriding
+    /// one never changes the other's default. Consumers that need the vol
+    /// path (the walk generators) call `generate_with_vol`, so a walker
+    /// overriding a price-path method MUST override the matching
+    /// `*_with_vol` method too — typically by wrapping its own dynamics, or
+    /// by composing the public kernel — otherwise the generators will keep
+    /// using the built-in dynamics.
+    ///
+    /// # Errors
+    ///
+    /// Propagates the error of the dispatched walk method.
+    fn generate_with_vol(&self, params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError> {
+        match &params.walk_type {
+            WalkType::Garch { .. } => self.garch_with_vol(params),
+            WalkType::Heston { .. } => self.heston_with_vol(params),
+            WalkType::Custom { .. } => self.custom_with_vol(params),
+            WalkType::Telegraph { .. } => self.telegraph_with_vol(params),
+            _ => Ok(WalkPath {
+                prices: self.generate(params)?,
+                vols: None,
+            }),
+        }
+    }
+
+    /// Generates a Brownian motion (standard random walk) process.
+    ///
+    /// Brownian motion is a continuous-time stochastic process where changes
+    /// are normally distributed with a drift term and volatility.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, time step, drift, and volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Brownian motion path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SimulationError::InvalidWalkType` when
+    /// `params.walk_type` is not a `WalkType::Brownian` variant, and
+    /// propagates `SimulationError::PositiveError` from
+    /// `params.ystep_as_positive()?` when the initial `y` value
+    /// violates the `Positive` invariant.
+    ///
+    /// Generated samples are clamped with
+    /// `Positive::new_decimal(x.max(Decimal::ZERO))
+    /// .unwrap_or(Positive::ZERO)`, so negative realisations do not
+    /// surface an error - they are replaced by `Positive::ZERO`.
+    fn brownian(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        with_walk_rng!(params, brownian_path)
+    }
+
+    /// Generates a Geometric Brownian motion process.
+    ///
+    /// Geometric Brownian motion is a continuous-time stochastic process where the logarithm of the
+    /// randomly varying quantity follows Brownian motion. It's commonly used to model stock prices
+    /// in the Black-Scholes options pricing model.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, time step, drift, and volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Geometric Brownian motion path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::GeometricBrownian`]
+    /// variant, and [`SimulationError::PositiveError`] when a
+    /// generated sample underflows below zero.
+    fn geometric_brownian(
+        &self,
+        params: &WalkParams<X, Y>,
+    ) -> Result<Vec<Positive>, SimulationError> {
+        with_walk_rng!(params, geometric_brownian_path)
+    }
+
+    /// Generates a Log Returns process, potentially with autocorrelation.
+    ///
+    /// This process models returns (percentage changes) directly, rather than absolute values,
+    /// and can include autocorrelation to capture the tendency of returns to be influenced
+    /// by previous returns.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, time step, expected return,
+    ///   volatility, and optional autocorrelation coefficient.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Log Returns path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::LogReturns`] variant,
+    /// [`SimulationError::InvalidAutocorrelation`] when the
+    /// autocorrelation coefficient is outside `[-1, 1]`, and
+    /// [`SimulationError::PositiveError`] when the exponentiated
+    /// sample underflows below zero.
+    fn log_returns(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        with_walk_rng!(params, log_returns_path)
+    }
+
+    /// Generates a Mean Reverting (Ornstein-Uhlenbeck) process.
+    ///
+    /// The Ornstein-Uhlenbeck process models a value that tends to drift toward a long-term mean,
+    /// with the strength of the reversion proportional to the distance from the mean.
+    /// It's commonly used for interest rates, volatility, and other mean-reverting financial variables.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, mean level, reversion speed,
+    ///   volatility, and time step.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Mean Reverting path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::MeanReverting`]
+    /// variant, and [`SimulationError::PositiveError`] when an
+    /// intermediate sample breaches the `Positive` invariant.
+    fn mean_reverting(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        with_walk_rng!(params, mean_reverting_path)
+    }
+
+    /// Generates a Jump Diffusion process.
+    ///
+    /// Jump Diffusion combines continuous Brownian motion with discrete jumps that occur
+    /// according to a Poisson process. This model is useful for capturing sudden market
+    /// movements like crashes or spikes that standard Brownian motion cannot adequately model.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, drift, volatility, jump intensity,
+    ///   jump mean size, and jump volatility.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Jump Diffusion path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::JumpDiffusion`]
+    /// variant, and [`SimulationError::PositiveError`] when a jumped
+    /// sample underflows below zero.
+    fn jump_diffusion(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        with_walk_rng!(params, jump_diffusion_path)
+    }
+
+    /// Generates a GARCH (Generalized Autoregressive Conditional Heteroskedasticity) process.
+    ///
+    /// GARCH models time-varying volatility clustering, where periods of high volatility
+    /// tend to be followed by high volatility, and low volatility by low volatility.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters for the GARCH process.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated GARCH path, or an error if parameters are invalid.
+    ///
+    /// # Note
+    ///
+    /// This implementation is currently a placeholder and returns an empty vector.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::Garch`] variant,
+    /// [`SimulationError::GarchStationarity`] when `alpha + beta ≥ 1`
+    /// (the recurrence is non-stationary), and
+    /// [`SimulationError::PositiveError`] when an intermediate
+    /// variance breaches the `Positive` invariant.
+    fn garch(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        // Standalone: this method never routes through `garch_with_vol`, so
+        // overriding either method cannot change the other's default.
+        Ok(garch_walk(params)?.prices)
+    }
+
+    /// GARCH(1,1) walk that also exposes the simulated conditional-volatility
+    /// path.
+    ///
+    /// Same dynamics as [`WalkTypeAble::garch`]; `vols[i]` is the ANNUALIZED
+    /// conditional volatility `sqrt(var_t)` that generated `prices[i]`
+    /// (`vols[0]` is the initial `volatility` parameter).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`WalkTypeAble::garch`].
+    fn garch_with_vol(&self, params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError> {
+        garch_walk(params)
+    }
+
+    /// Generates a Heston stochastic volatility model.
+    ///
+    /// The Heston model extends Geometric Brownian Motion by allowing the volatility
+    /// itself to be a stochastic process, following a mean-reverting square-root process.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters for the Heston process.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Heston model path, or an error if parameters are invalid.
+    ///
+    /// # Note
+    ///
+    /// This implementation is currently a placeholder and returns an empty vector.
+    /// Generates a Heston stochastic volatility model.
+    ///
+    /// The Heston model extends Geometric Brownian Motion by allowing the volatility
+    /// itself to be a stochastic process, following a mean-reverting square-root process.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters for the Heston process, including:
+    ///   - `dt`: Time step
+    ///   - `drift`: Drift coefficient for the price process
+    ///   - `v0`: Initial variance
+    ///   - `kappa`: Mean reversion speed for variance
+    ///   - `theta`: Long-term variance mean level
+    ///   - `xi`: Volatility of variance
+    ///   - `rho`: Correlation between price and variance Brownian motions
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Heston model path, or an error if parameters are invalid.
+    ///
+    /// # Notes
+    ///
+    /// The Heston model is described by the following SDEs:
+    /// dS_t = μS_t dt + √v_t S_t dW^1_t
+    /// dv_t = κ(θ - v_t) dt + ξ√v_t dW^2_t
+    /// with dW^1_t dW^2_t = ρ dt
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::Heston`] variant,
+    /// [`SimulationError::InvalidCorrelation`] when `rho` is outside
+    /// `[-1, 1]`, and [`SimulationError::PositiveError`] when an
+    /// intermediate price or variance breaches the `Positive`
+    /// invariant.
+    fn heston(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        // Standalone: this method never routes through `heston_with_vol`, so
+        // overriding either method cannot change the other's default.
+        Ok(heston_walk(params)?.prices)
+    }
+
+    /// Heston walk that also exposes the simulated volatility path.
+    ///
+    /// Same dynamics as [`WalkTypeAble::heston`]; `vols[i]` is the ANNUALIZED
+    /// instantaneous volatility `sqrt(v_t)` prevailing after the step that
+    /// produced `prices[i]` (`vols[0]` is the initial `volatility`
+    /// parameter).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`WalkTypeAble::heston`].
+    fn heston_with_vol(&self, params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError> {
+        heston_walk(params)
+    }
+
+    /// Generates a custom stochastic process with mean-reverting volatility.
+    ///
+    /// This implements a process where the underlying value follows Brownian motion,
+    /// but with volatility that follows an Ornstein-Uhlenbeck (mean-reverting) process.
+    /// This allows for modeling more complex dynamics than standard models.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including drift, initial volatility, volatility of volatility (vov),
+    ///   volatility mean reversion speed, volatility mean level, and time step.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated custom process path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::Custom`] variant,
+    /// [`SimulationError::InsufficientHistoricalData`] when the
+    /// provided calibration sample is too small for the requested
+    /// process order, and [`SimulationError::PositiveError`] when a
+    /// generated sample violates the `Positive` invariant.
+    fn custom(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        // Standalone: this method never routes through `custom_with_vol`, so
+        // overriding either method cannot change the other's default.
+        Ok(custom_walk(params)?.prices)
+    }
+
+    /// Custom (mean-reverting volatility) walk that also exposes the
+    /// Ornstein-Uhlenbeck volatility path that drove the prices.
+    ///
+    /// Same dynamics as [`WalkTypeAble::custom`]; `vols[i]` is the ANNUALIZED
+    /// OU volatility used to generate `prices[i]` (`vols[0]` is the initial
+    /// `volatility` parameter).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`WalkTypeAble::custom`].
+    fn custom_with_vol(&self, params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError> {
+        custom_walk(params)
+    }
+
+    /// Generates a Telegraph process (two-state regime switching model).
+    ///
+    /// The Telegraph process alternates between two states (+1 and -1) with specified transition rates,
+    /// affecting the volatility of the price path. This model captures regime-switching behavior
+    /// in financial markets where volatility can suddenly change between high and low regimes.
+    ///
+    /// # Parameters
+    ///
+    /// * `params` - Walk parameters including initial value, drift, base volatility, transition rates,
+    ///   and optional volatility multipliers for each state.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Positive>, SimulationError>` - A vector of positive values representing
+    ///   the generated Telegraph process path, or an error if parameters are invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SimulationError::InvalidWalkType`] when
+    /// `params.walk_type` is not a [`WalkType::Telegraph`] variant,
+    /// and [`SimulationError::PositiveError`] when an intermediate
+    /// sample breaches the `Positive` invariant.
+    fn telegraph(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        // Standalone: this method never routes through `telegraph_with_vol`, so
+        // overriding either method cannot change the other's default.
+        Ok(telegraph_walk(params)?.prices)
+    }
+
+    /// Telegraph (two-state regime switching) walk that also exposes the
+    /// regime-dependent volatility path.
+    ///
+    /// Same dynamics as [`WalkTypeAble::telegraph`]; `vols[i]` is the
+    /// ANNUALIZED regime volatility (base volatility times the active
+    /// regime's multiplier) used to generate `prices[i]` (`vols[0]` is the
+    /// base `volatility` parameter).
+    ///
+    /// # Errors
+    ///
+    /// Same as [`WalkTypeAble::telegraph`].
+    fn telegraph_with_vol(&self, params: &WalkParams<X, Y>) -> Result<WalkPath, SimulationError> {
+        telegraph_walk(params)
+    }
+
+    /// Generates a historical walk based on the given parameters.
+    ///
+    /// This function processes the historical walk by extracting a specified number of elements
+    /// from the provided price data (`prices`) based on the `size` defined in `params`.
+    ///
+    /// # Parameters
+    ///
+    /// * `self`: Reference to the instance of the object.
+    /// * `params`: A reference to `WalkParams<X, Y>` containing the configuration details for the walk.
+    ///   - Expected to have a `walk_type` of `WalkType::Historical` with associated timeframe and price data.
+    ///   - `params.size` determines the number of historical prices to include in the result.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<Positive>)`: A vector containing the first `params.size` elements from the given price data (`prices`),
+    ///   if there are at least `params.size` elements available.
+    /// * `Err(Box<dyn Error>)`: If the `walk_type` is not `WalkType::Historical` or if the provided price data
+    ///   does not contain enough elements to fulfill the requested size (`params.size`).
+    ///
+    /// # Errors
+    ///
+    /// * Returns an error if:
+    ///     - The `walk_type` in `params` is not `WalkType::Historical`.
+    ///     - The `prices` do not contain at least `params.size` elements.
+    ///
+    fn historical(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+        match &params.walk_type {
+            WalkType::Historical {
+                timeframe: _timeframe,
+                prices,
+                symbol: _symbol,
+            } => match prices.get(0..params.size) {
+                Some(window) => Ok(window.to_vec()),
+                None => Err(SimulationError::InsufficientHistoricalData {
+                    required: params.size,
+                    found: prices.len(),
+                }),
+            },
+            _ => Err(SimulationError::InvalidWalkType {
+                expected: "Historical",
+            }),
+        }
+    }
+}
+
+impl<X, Y> Debug for Box<dyn WalkTypeAble<X, Y>> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "WalkTypeAble")
+    }
+}
+
+impl<X, Y> Clone for Box<dyn WalkTypeAble<X, Y>>
+where
+    X: Copy + TryInto<Positive> + AddAssign + Display,
+    Y: TryInto<Positive> + Display + Clone,
+{
+    fn clone(&self) -> Self {
+        // Delegate to the object-safe `clone_box` hook on `WalkTypeAbleClone`.
+        // The blanket impl for `T: WalkTypeAble<X, Y> + Clone + 'static`
+        // forwards to `Clone::clone` on the concrete walker.
+        self.clone_box()
+    }
+}
+
+#[cfg(test)]
+mod tests_walk_type_able {
+    use super::*;
+    use optionstratlib_core::model::ExpirationDate;
+
+    use crate::simulation::model::WalkType;
+    use crate::simulation::params::WalkParams;
+    use crate::simulation::steps::Step;
+    use crate::simulation::traits::WalkTypeAble;
+    use optionstratlib_core::pos_or_panic;
+    use optionstratlib_core::utils::TimeFrame;
+    use rust_decimal::Decimal;
+    use std::fmt::Display;
+    use std::ops::AddAssign;
+
+    /// Seed of the simulated walks, so every run draws the same stream.
+    const SEED: u64 = 685;
+
+    #[derive(Debug, Clone)]
+    struct TestWalker {}
+
+    impl<X, Y> WalkTypeAble<X, Y> for TestWalker
+    where
+        X: Copy + TryInto<Positive> + AddAssign + Display,
+        Y: Copy + TryInto<Positive> + Display,
+    {
+    }
+
+    fn create_test_params<X, Y>(
+        size: usize,
+        x_value: X,
+        y_value: Y,
+        walk_type: WalkType,
+    ) -> WalkParams<X, Y>
+    where
+        X: Copy + TryInto<Positive> + AddAssign + Display,
+        Y: Copy + TryInto<Positive> + Display,
+    {
+        let init_step = Step::new(
+            x_value,
+            TimeFrame::Day,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            y_value,
+        );
+
+        WalkParams {
+            size,
+            init_step,
+            walk_type,
+            walker: Box::new(TestWalker {}),
+            seed: Some(SEED),
+        }
+    }
+
+    #[test]
+    fn test_brownian_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Brownian {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.brownian(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_geometric_brownian_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::GeometricBrownian {
+                dt: Positive::ONE,
+                drift: Decimal::new(5, 2), // 0.05
+                volatility: pos_or_panic!(0.2),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.geometric_brownian(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_log_returns_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::LogReturns {
+                dt: Positive::ONE,
+                expected_return: Decimal::new(5, 2), // 0.05
+                volatility: pos_or_panic!(0.2),
+                autocorrelation: None,
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.log_returns(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_mean_reverting_walk() -> Result<(), SimulationError> {
+        let mean_value = pos_or_panic!(150.0);
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::MeanReverting {
+                dt: Positive::ONE,
+                volatility: pos_or_panic!(0.2),
+                speed: pos_or_panic!(0.1),
+                mean: mean_value,
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.mean_reverting(&params)?;
+
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0], Positive::HUNDRED);
+        Ok(())
+    }
+
+    #[test]
+    fn test_jump_diffusion_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            6,
+            10.0,
+            100.0,
+            WalkType::JumpDiffusion {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                intensity: pos_or_panic!(0.1),
+                jump_mean: Decimal::ZERO,
+                jump_volatility: Positive::ONE,
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.jump_diffusion(&params)?;
+
+        assert_eq!(result.len(), 6);
+        Ok(())
+    }
+
+    /// Counts the jumps of a seeded jump-diffusion path with no diffusion
+    /// and no drift, where every jump moves the price by exactly `+1`.
+    fn count_jumps(
+        steps: usize,
+        intensity: Positive,
+        dt: Positive,
+    ) -> Result<u64, SimulationError> {
+        let params = create_test_params(
+            steps + 1,
+            1.0,
+            100.0,
+            WalkType::JumpDiffusion {
+                dt,
+                drift: Decimal::ZERO,
+                volatility: Positive::ZERO,
+                intensity,
+                jump_mean: Decimal::ONE,
+                jump_volatility: Positive::ZERO,
+            },
+        );
+        let path = TestWalker {}.jump_diffusion(&params)?;
+        assert_eq!(path.len(), steps + 1);
+        let mut jumps = 0_u64;
+        for pair in path.windows(2) {
+            let increment = pair[1].to_dec() - pair[0].to_dec();
+            if increment == Decimal::ONE {
+                jumps += 1;
+            } else {
+                assert_eq!(increment, Decimal::ZERO, "step moved without a jump");
+            }
+        }
+        Ok(jumps)
+    }
+
+    /// Asserts that `jumps` out of `steps` Bernoulli(`p`) trials lie within
+    /// five standard errors, `5 * sqrt(steps * p * (1 - p))`, of the mean
+    /// `steps * p`. A correct kernel misses the band with probability below
+    /// 6e-7 for any seed.
+    fn assert_bernoulli_frequency(jumps: u64, steps: usize, p: f64) {
+        let n = steps as f64;
+        let mean = n * p;
+        let bound = 5.0 * (n * p * (1.0 - p)).sqrt();
+        assert!(
+            (jumps as f64 - mean).abs() < bound,
+            "{jumps} jumps in {steps} steps, expected {mean} +- {bound}"
+        );
+    }
+
+    #[test]
+    fn test_jump_diffusion_daily_jump_frequency_matches_lambda_dt() -> Result<(), SimulationError> {
+        // #684: one jump a year on daily steps, `λ·dt = 1 * 0.004 = 0.004`.
+        // 500_000 steps expect 2_000 jumps, standard error 44.6, so the band
+        // is 2_000 +- 223. The former normal-draw trial fired on about half
+        // of the steps, `Φ(0.004) ≈ 0.5016`, some 250_800 jumps.
+        const STEPS: usize = 500_000;
+        let jumps = count_jumps(STEPS, Positive::ONE, pos_or_panic!(0.004))?;
+        assert_bernoulli_frequency(jumps, STEPS, 0.004);
+        Ok(())
+    }
+
+    #[test]
+    fn test_jump_diffusion_frequent_jump_frequency_matches_lambda_dt() -> Result<(), SimulationError>
+    {
+        // `λ·dt = 25 * 0.004 = 0.1`: 100_000 steps expect 10_000 jumps,
+        // standard error 94.9, band 10_000 +- 474.
+        const STEPS: usize = 100_000;
+        let jumps = count_jumps(STEPS, pos_or_panic!(25.0), pos_or_panic!(0.004))?;
+        assert_bernoulli_frequency(jumps, STEPS, 0.1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_jump_diffusion_lambda_dt_at_least_one_jumps_every_step() -> Result<(), SimulationError>
+    {
+        // `λ·dt = 1` is the Bernoulli limit: the uniform trial never exceeds it.
+        const STEPS: usize = 1_000;
+        let jumps = count_jumps(STEPS, pos_or_panic!(250.0), pos_or_panic!(0.004))?;
+        assert_eq!(jumps, STEPS as u64);
+        Ok(())
+    }
+
+    #[test]
+    fn test_jump_diffusion_zero_intensity_never_jumps() -> Result<(), SimulationError> {
+        const STEPS: usize = 1_000;
+        let jumps = count_jumps(STEPS, Positive::ZERO, pos_or_panic!(0.004))?;
+        assert_eq!(jumps, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_garch_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Garch {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                alpha: pos_or_panic!(0.1),
+                beta: pos_or_panic!(0.8),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.garch(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_heston_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Heston {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                kappa: Positive::TWO,
+                theta: pos_or_panic!(0.04),
+                xi: pos_or_panic!(0.4),
+                rho: Decimal::new(-5, 1), // -0.5
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.heston(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_custom_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Custom {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                vov: pos_or_panic!(0.4),
+                vol_speed: Positive::ONE,
+                vol_mean: pos_or_panic!(0.2),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.custom(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_telegraph_walk() -> Result<(), SimulationError> {
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Telegraph {
+                dt: Positive::ONE,
+                drift: Decimal::new(5, 2), // 0.05
+                volatility: pos_or_panic!(0.2),
+                lambda_up: pos_or_panic!(0.5),
+                lambda_down: pos_or_panic!(0.3),
+                vol_multiplier_up: Some(pos_or_panic!(1.5)),
+                vol_multiplier_down: Some(pos_or_panic!(0.8)),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.telegraph(&params)?;
+
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0], Positive::HUNDRED); // Initial value should be preserved
+        Ok(())
+    }
+
+    /// Regime-switch tallies of a seeded telegraph path, read off its
+    /// volatility path: `+1` runs at `0.30`, `-1` at `0.10`.
+    #[derive(Debug, Default)]
+    struct SwitchTally {
+        /// Trials made from the `+1` regime, and how many switched.
+        up_trials: u64,
+        up_switches: u64,
+        /// Trials made from the `-1` regime, and how many switched.
+        down_trials: u64,
+        down_switches: u64,
+    }
+
+    fn tally_switches(
+        steps: usize,
+        lambda_up: Positive,
+        lambda_down: Positive,
+    ) -> Result<SwitchTally, SimulationError> {
+        let params = create_test_params(
+            steps + 1,
+            1.0,
+            100.0,
+            WalkType::Telegraph {
+                dt: pos_or_panic!(0.004),
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                lambda_up,
+                lambda_down,
+                vol_multiplier_up: Some(pos_or_panic!(1.5)),
+                vol_multiplier_down: Some(pos_or_panic!(0.5)),
+            },
+        );
+        let vols = telegraph_walk(&params)?
+            .vols
+            .ok_or_else(|| SimulationError::walk_error("telegraph returned no vols"))?;
+        assert_eq!(vols.len(), steps + 1);
+        let up = pos_or_panic!(0.3);
+        let down = pos_or_panic!(0.1);
+        let mut tally = SwitchTally::default();
+        // `vols[0]` is the base volatility, not a regime, so the first trial
+        // has no known starting regime; every later trial starts from the
+        // regime of the previous point.
+        for pair in vols.windows(2).skip(1) {
+            let (from, to) = (pair[0], pair[1]);
+            assert!(to == up || to == down, "{to} is not a regime volatility");
+            if from == up {
+                tally.up_trials += 1;
+                tally.up_switches += u64::from(to == down);
+            } else {
+                tally.down_trials += 1;
+                tally.down_switches += u64::from(to == up);
+            }
+        }
+        Ok(tally)
+    }
+
+    /// Asserts that `switches` out of `trials` Bernoulli(`1 - e^(-λ·dt)`)
+    /// trials lie within five standard errors, `5 * sqrt(n p (1 - p))`, of
+    /// the mean `n p`. Each trial is independent of the past given its
+    /// starting regime, so the count is binomial given the number of trials.
+    fn assert_switch_frequency(switches: u64, trials: u64, lambda_dt: f64) {
+        assert!(trials > 0, "no trial started from this regime");
+        let n = trials as f64;
+        let p = 1.0 - (-lambda_dt).exp();
+        let mean = n * p;
+        let bound = 5.0 * (n * p * (1.0 - p)).sqrt();
+        assert!(
+            (switches as f64 - mean).abs() < bound,
+            "{switches} switches in {trials} trials, expected {mean} +- {bound}"
+        );
+    }
+
+    #[test]
+    fn test_telegraph_switch_frequency_matches_one_minus_exp_lambda_dt()
+    -> Result<(), SimulationError> {
+        // #683: realistic regime rates on daily steps (dt = 0.004). Leaving
+        // `+1` at λ = 12 a year gives p = 1 - e^(-0.048) = 0.046866, leaving
+        // `-1` at λ = 4 a year gives p = 1 - e^(-0.016) = 0.015873. Over
+        // 200_000 steps the chain spends about a quarter of them in `+1`
+        // (λ_up / (λ_up + λ_down)), some 50_000 trials expecting 2_343
+        // switches +- 236, and 150_000 in `-1` expecting 2_381 +- 242. The
+        // former `(|z| + 1) / 2` sample is never below 0.5, so it never
+        // switched at these rates.
+        const STEPS: usize = 200_000;
+        let tally = tally_switches(STEPS, pos_or_panic!(4.0), pos_or_panic!(12.0))?;
+        assert_eq!(tally.up_trials + tally.down_trials, STEPS as u64 - 1);
+        assert_switch_frequency(tally.up_switches, tally.up_trials, 12.0 * 0.004);
+        assert_switch_frequency(tally.down_switches, tally.down_trials, 4.0 * 0.004);
+        Ok(())
+    }
+
+    #[test]
+    fn test_telegraph_zero_rates_never_switch() -> Result<(), SimulationError> {
+        let tally = tally_switches(1_000, Positive::ZERO, Positive::ZERO)?;
+        assert_eq!(tally.up_switches + tally.down_switches, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_telegraph_flushed_rate_switches_every_step() -> Result<(), SimulationError> {
+        // λ·dt = 100: `e^(-100)` is below the 28th decimal place, so the
+        // switch probability is exactly one.
+        let tally = tally_switches(1_000, pos_or_panic!(25_000.0), pos_or_panic!(25_000.0))?;
+        assert_eq!(tally.up_switches, tally.up_trials);
+        assert_eq!(tally.down_switches, tally.down_trials);
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_different_types() -> Result<(), SimulationError> {
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        struct XType(f64);
+
+        impl From<XType> for Positive {
+            fn from(val: XType) -> Self {
+                pos_or_panic!(val.0)
+            }
+        }
+
+        impl AddAssign for XType {
+            fn add_assign(&mut self, other: Self) {
+                self.0 += other.0;
+            }
+        }
+
+        impl Display for XType {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        struct YType(f64);
+
+        impl From<YType> for Positive {
+            fn from(val: YType) -> Self {
+                pos_or_panic!(val.0)
+            }
+        }
+
+        impl Display for YType {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        let params = create_test_params(
+            5,
+            XType(10.0),
+            YType(100.0),
+            WalkType::Brownian {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+            },
+        );
+
+        let walker = TestWalker {};
+        let result = walker.brownian(&params)?;
+
+        assert_eq!(result.len(), 5);
+        Ok(())
+    }
+
+    #[test]
+    fn test_error_handling() {
+        #[derive(Clone)]
+        struct ErrorWalker {}
+
+        impl<X, Y> WalkTypeAble<X, Y> for ErrorWalker
+        where
+            X: Copy + TryInto<Positive> + AddAssign + Display,
+            Y: Copy + TryInto<Positive> + Display,
+        {
+            fn brownian(
+                &self,
+                _params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                Err(SimulationError::walk_error("Error simulado para prueba"))
+            }
+
+            fn geometric_brownian(
+                &self,
+                params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn log_returns(
+                &self,
+                params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn mean_reverting(
+                &self,
+                params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn jump_diffusion(
+                &self,
+                params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn garch(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn heston(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+
+            fn custom(&self, params: &WalkParams<X, Y>) -> Result<Vec<Positive>, SimulationError> {
+                self.brownian(params)
+            }
+        }
+
+        let params = create_test_params(
+            5,
+            10.0,
+            100.0,
+            WalkType::Brownian {
+                dt: Positive::ONE,
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+            },
+        );
+
+        let error_walker = ErrorWalker {};
+        assert!(error_walker.brownian(&params).is_err());
+    }
+
+    /// Review regression (#408/#416): the legacy price-path methods stay
+    /// authoritative override points — overriding `heston` changes
+    /// `generate`, and overriding `heston_with_vol` changes
+    /// `generate_with_vol`; neither default silently reroutes through the
+    /// other.
+    #[test]
+    fn test_price_path_and_with_vol_overrides_are_independent() {
+        use crate::simulation::model::WalkPath;
+
+        #[derive(Clone)]
+        struct RampHestonWalker {}
+        impl WalkTypeAble<Positive, Positive> for RampHestonWalker {
+            fn heston(
+                &self,
+                params: &WalkParams<Positive, Positive>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                let start = params.ystep_as_positive()?;
+                Ok((0..params.size).map(|i| start + i as f64).collect())
+            }
+        }
+
+        let params = create_test_params(
+            4,
+            Positive::ONE,
+            Positive::HUNDRED,
+            WalkType::Heston {
+                dt: pos_or_panic!(0.01),
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+                kappa: Positive::TWO,
+                theta: pos_or_panic!(0.04),
+                xi: pos_or_panic!(0.1),
+                rho: Decimal::ZERO,
+            },
+        );
+        let params = WalkParams {
+            walker: Box::new(RampHestonWalker {}),
+            ..params
+        };
+
+        // generate() dispatches to the OVERRIDDEN heston: deterministic ramp.
+        let walker = RampHestonWalker {};
+        let prices = match walker.generate(&params) {
+            Ok(prices) => prices,
+            Err(e) => panic!("generate failed: {e}"),
+        };
+        assert_eq!(
+            prices,
+            vec![
+                Positive::HUNDRED,
+                pos_or_panic!(101.0),
+                pos_or_panic!(102.0),
+                pos_or_panic!(103.0)
+            ],
+            "generate must honor the heston override"
+        );
+
+        // Overriding the *_with_vol sibling governs generate_with_vol.
+        #[derive(Clone)]
+        struct RampHestonVolWalker {}
+        impl WalkTypeAble<Positive, Positive> for RampHestonVolWalker {
+            fn heston_with_vol(
+                &self,
+                params: &WalkParams<Positive, Positive>,
+            ) -> Result<WalkPath, SimulationError> {
+                let start = params.ystep_as_positive()?;
+                let prices: Vec<Positive> = (0..params.size).map(|i| start + i as f64).collect();
+                let vols = vec![pos_or_panic!(0.5); params.size];
+                Ok(WalkPath {
+                    prices,
+                    vols: Some(vols),
+                })
+            }
+        }
+        let params = WalkParams {
+            walker: Box::new(RampHestonVolWalker {}),
+            ..params
+        };
+        let walker = RampHestonVolWalker {};
+        let path = match walker.generate_with_vol(&params) {
+            Ok(path) => path,
+            Err(e) => panic!("generate_with_vol failed: {e}"),
+        };
+        assert_eq!(path.vols, Some(vec![pos_or_panic!(0.5); 4]));
+        assert_eq!(path.prices.first(), Some(&Positive::HUNDRED));
+    }
+
+    /// Regression for issue #358: cloning through `Box<dyn WalkTypeAble>`
+    /// delegates to `clone_box`, which forwards to the concrete walker's
+    /// `Clone::clone`. Calling `.clone()` must not panic and must produce a
+    /// walker that produces byte-identical output on the same input.
+    #[test]
+    fn test_box_dyn_walktypeable_clone_roundtrip() {
+        // Deterministic walker so we can compare the full `Vec<Positive>`
+        // output rather than just its length. `brownian` returns a ramp
+        // seeded with the struct's `seed` field, which survives `Clone`.
+        #[derive(Clone, Debug, PartialEq)]
+        struct CountingWalker {
+            seed: u32,
+        }
+        impl<X, Y> WalkTypeAble<X, Y> for CountingWalker
+        where
+            X: Copy + TryInto<Positive> + AddAssign + Display,
+            Y: Copy + TryInto<Positive> + Display,
+        {
+            fn brownian(
+                &self,
+                params: &WalkParams<X, Y>,
+            ) -> Result<Vec<Positive>, SimulationError> {
+                let start = params.ystep_as_positive()?;
+                let mut out = Vec::with_capacity(params.size);
+                out.push(start);
+                for i in 1..params.size {
+                    let offset = Positive::new(f64::from(self.seed) + i as f64)?;
+                    out.push(start + offset);
+                }
+                Ok(out)
+            }
+        }
+
+        let original: Box<dyn WalkTypeAble<Positive, Positive>> =
+            Box::new(CountingWalker { seed: 42 });
+        // Would previously panic; now forwards through clone_box to
+        // CountingWalker::clone.
+        let cloned = original.clone();
+
+        let params = create_test_params(
+            4,
+            pos_or_panic!(1.0),
+            Positive::HUNDRED,
+            WalkType::Brownian {
+                dt: pos_or_panic!(0.01),
+                drift: Decimal::ZERO,
+                volatility: pos_or_panic!(0.2),
+            },
+        );
+        let original_out = original
+            .brownian(&params)
+            .expect("deterministic walker succeeds");
+        let cloned_out = cloned.brownian(&params).expect("cloned walker succeeds");
+        assert_eq!(original_out, cloned_out);
+    }
+}

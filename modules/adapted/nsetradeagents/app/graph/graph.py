@@ -150,7 +150,9 @@ def blocked_node(state: TradingState) -> dict:
     score = state.get("rules_score")
     bands = state.get("rules_bands") or {}
     veto = state.get("veto_result") or {}
-    veto_reasons = [f"Veto {veto['reason']}: {veto['cited_fact']}"] if veto.get("verdict") == "KILL" else []
+    veto_reasons = (
+        [f"Veto {veto['reason']}: {veto['cited_fact']}"] if veto.get("verdict") == "KILL" else []
+    )
     reasons = (
         fundamental.get("block_reasons")
         or risk.get("block_reasons")
@@ -224,8 +226,7 @@ def execute_node(state: TradingState) -> dict:
 
     if not settings.simulation_mode:
         # Phase 2: Kite API order placement goes here
-        msg = "Live trading via Kite API not yet implemented"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Live trading via Kite API not yet implemented")
 
     return {
         "trade_result": {
@@ -309,7 +310,9 @@ def build_graph():
     # Sequential from here
     graph.add_edge("fetch_price", "risk")
 
-    graph.add_conditional_edges("risk", route_after_risk, {"blocked": "blocked", "rules_gate": "rules_gate"})
+    graph.add_conditional_edges(
+        "risk", route_after_risk, {"blocked": "blocked", "rules_gate": "rules_gate"}
+    )
 
     graph.add_conditional_edges(
         "rules_gate",
@@ -317,7 +320,9 @@ def build_graph():
         {"blocked": "blocked", "veto": "veto", "execute": "execute"},
     )
 
-    graph.add_conditional_edges("veto", route_after_veto, {"blocked": "blocked", "execute": "execute"})
+    graph.add_conditional_edges(
+        "veto", route_after_veto, {"blocked": "blocked", "execute": "execute"}
+    )
 
     graph.add_edge("blocked", END)
     graph.add_edge("execute", END)

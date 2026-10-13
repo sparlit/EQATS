@@ -48,7 +48,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import time
 
 MON = {
@@ -99,22 +98,22 @@ def parse(html):
     grand = None
     subs = {}
     for i, c in enumerate(cs):
-        if re.search(r"Promoter'?s Holding", c, re.IGNORECASE):
+        if re.search(r"Promoter'?s Holding", c, re.I):
             sec = "prom"
             continue
-        if re.search(r"Institutional Investors", c, re.IGNORECASE):
+        if re.search(r"Institutional Investors", c, re.I):
             sec = "inst"
             continue
-        if re.fullmatch(r"Others", c, re.IGNORECASE):
+        if re.fullmatch(r"Others", c, re.I):
             sec = "oth"
             continue
         n = nums_at(i)
         if len(n) >= 2:
             lab = c
-            if re.fullmatch(r"Sub Total", c, re.IGNORECASE) and sec:
+            if re.fullmatch(r"Sub Total", c, re.I) and sec:
                 subs[sec] = (n[0], n[1])
                 continue
-            if re.search(r"GRAND TOTAL", c, re.IGNORECASE):
+            if re.search(r"GRAND TOTAL", c, re.I):
                 grand = (n[0], n[1])
                 continue
             out["rows"].append((sec, lab, n[0], n[1]))
@@ -198,8 +197,14 @@ def cell_of(p, neigh=None, sym=None):
                 nb.append(neigh[k])
         if any(v > 1.0 for v in nb):
             return ("zero-vs-neighbour", None, f"fii 0.00 beside stored {max(nb):.2f}")
-    sub = (datetime.date(int(qe[:4]), int(qe[5:7]), int(qe[8:])) + datetime.timedelta(days=21)).isoformat()
-    return ("ok", [round(prom, 4), round(fii, 4), round(dii, 4), round(mf, 4), None, sub, None, "nsewb"], qe)
+    sub = (
+        datetime.date(int(qe[:4]), int(qe[5:7]), int(qe[8:])) + datetime.timedelta(days=21)
+    ).isoformat()
+    return (
+        "ok",
+        [round(prom, 4), round(fii, 4), round(dii, 4), round(mf, 4), None, sub, None, "nsewb"],
+        qe,
+    )
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -230,7 +235,8 @@ def cmd_plan(D):
         if not k.startswith("_") and isinstance(v, dict):
             have[norm(k)].update(v)
     snaps = sorted(
-        (x["effectiveDate"], [norm(y) for y in x["symbols"] if not y.startswith("DUMMY")]) for x in ih["Nifty 500"]
+        (x["effectiveDate"], [norm(y) for y in x["symbols"] if not y.startswith("DUMMY")])
+        for x in ih["Nifty 500"]
     )
 
     def members(qe):
@@ -242,7 +248,9 @@ def cmd_plan(D):
                 break
         return best
 
-    qes = ["%d%s" % (y, s) for y in range(2001, 2007) for s in ("-03-31", "-06-30", "-09-30", "-12-31")]
+    qes = [
+        "%d%s" % (y, s) for y in range(2001, 2007) for s in ("-03-31", "-06-30", "-09-30", "-12-31")
+    ]
     missing = [(s, q) for q in qes for s in members(q) if q not in have.get(s, {})]
     cdx = json.load(open(os.path.join(HERE, "nse_shpdetails_cdx.json")))["rows"]
     caps = collections.defaultdict(list)
@@ -285,7 +293,17 @@ def cmd_fetch(D, workers):
             return
         for a in range(8):
             subprocess.run(
-                ["curl", "-s", "-m", "90", "-A", "Mozilla/5.0", f"https://web.archive.org/web/{ts}id_/{url}", "-o", fn]
+                [
+                    "curl",
+                    "-s",
+                    "-m",
+                    "90",
+                    "-A",
+                    "Mozilla/5.0",
+                    f"https://web.archive.org/web/{ts}id_/{url}",
+                    "-o",
+                    fn,
+                ]
             )
             try:
                 t = open(fn, errors="replace").read()
@@ -360,14 +378,19 @@ def cmd_apply(D):
     bad = [d for d in ov if d[0] > 0.11 or d[1] > 0.11]
     print("OVERLAP GATE: %d stored too, %d disagree beyond 0.11pp" % (len(ov), len(bad)))
     for d in (bad or ov[:5])[:12]:
-        print("   dFII={:.2f} dDII={:.2f} {} {} nse={:.2f} stored={:.2f} | dii {:.2f} vs {:.2f}".format(*d))
+        print(
+            "   dFII={:.2f} dDII={:.2f} {} {} nse={:.2f} stored={:.2f} | dii {:.2f} vs {:.2f}".format(
+                *d
+            )
+        )
     # SCOPE (user instruction 2026-09-05 ~13:30 IST, relayed to every session: "work only on nifty 500 stocks"):
     # fill ONLY point-in-time Nifty 500 member-quarters — the engine's membersAsOf rule (last snapshot at or
     # before the quarter-end). A parsed cell on a non-member quarter is kept in nse_result.json for the record
     # but never written to the ledger.
     ih = json.load(open(os.path.join(HERE, "indices_history.json")))
     snaps = sorted(
-        (x["effectiveDate"], {norm(y) for y in x["symbols"] if not y.startswith("DUMMY")}) for x in ih["Nifty 500"]
+        (x["effectiveDate"], {norm(y) for y in x["symbols"] if not y.startswith("DUMMY")})
+        for x in ih["Nifty 500"]
     )
 
     def members(qe):
@@ -397,8 +420,15 @@ def cmd_apply(D):
         "| parsed-but-non-member skipped",
         skipped_nonmember,
     )
-    json.dump({"overlap": ov, "rejects": rej}, open(os.path.join(D, "nse_result.json"), "w"), indent=0, default=str)
-    with gzip.open(os.path.join(D, "shp_fill_nse_shpdetails.json.gz"), "wt", encoding="utf-8") as fh:
+    json.dump(
+        {"overlap": ov, "rejects": rej},
+        open(os.path.join(D, "nse_result.json"), "w"),
+        indent=0,
+        default=str,
+    )
+    with gzip.open(
+        os.path.join(D, "shp_fill_nse_shpdetails.json.gz"), "wt", encoding="utf-8"
+    ) as fh:
         json.dump(
             {
                 "_built": "fetch_shp_nse_shpdetails apply (NSE Wayback shareholdingdetails.jsp, runbook §127g)",
@@ -417,6 +447,8 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=4)
     a = ap.parse_args()
     os.makedirs(a.dir, exist_ok=True)
-    {"plan": lambda: cmd_plan(a.dir), "fetch": lambda: cmd_fetch(a.dir, a.workers), "apply": lambda: cmd_apply(a.dir)}[
-        a.cmd
-    ]()
+    {
+        "plan": lambda: cmd_plan(a.dir),
+        "fetch": lambda: cmd_fetch(a.dir, a.workers),
+        "apply": lambda: cmd_apply(a.dir),
+    }[a.cmd]()

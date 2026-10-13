@@ -146,4 +146,14 @@ for i, (code, sym) in enumerate(items):
             % (i + 1, len(items), sym, code, tot, n, dict(errs), time.time() - t0)
         )
         sys.stdout.flush()
-print("DONE symbols", len(items), "rows", tot, "fetches", n, "errs", dict(errs), "(%.0fs)" % (time.time() - t0))
+print(
+    "DONE symbols",
+    len(items),
+    "rows",
+    tot,
+    "fetches",
+    n,
+    "errs",
+    dict(errs),
+    "(%.0fs)" % (time.time() - t0),
+)

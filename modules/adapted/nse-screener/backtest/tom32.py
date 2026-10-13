@@ -71,7 +71,10 @@ def main():
                 continue
             for cost in (0.0005, 0.0010):
                 net = float((1 + rw[mask.loc[w]]).prod() * (1 - cost) ** n_months - 1)
-                line += f"  | net@{100 * cost:.2f}%RT {100 * net:+8.1f}% [{'beats' if net > bh else 'dead'}]"
+                line += (
+                    f"  | net@{100 * cost:.2f}%RT {100 * net:+8.1f}% "
+                    f"[{'beats' if net > bh else 'dead'}]"
+                )
             print(line)
         d_in = int(c1_mask.loc[w].sum())
         print(f"  concentration: C1 days = {d_in}/{len(rw)} ({100 * d_in / len(rw):.0f}% of days)")

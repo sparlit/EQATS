@@ -55,10 +55,15 @@ from indian_quant.config.connections import get_engine
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-NSE_PRICE_BAND_URL = "https://nsearchives.nseindia.com/content/equities/circuit_breakers/PRICE_BAND_{yyyymmdd}.csv"
+NSE_PRICE_BAND_URL = (
+    "https://nsearchives.nseindia.com/content/equities/circuit_breakers/PRICE_BAND_{yyyymmdd}.csv"
+)
 
 HEADERS = {
-    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"),
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0 Safari/537.36"
+    ),
     "Accept": "*/*",
 }
 
@@ -82,7 +87,7 @@ def fetch_nse_price_band(trade_date: date, timeout: float = 30.0) -> list[dict] 
         log.info(f"NSE Price Band {trade_date}: {len(rows)} stocks")
         return rows
     except Exception as e:
-        log.exception(f"Error fetching NSE Price Band for {trade_date}: {e}")
+        log.error(f"Error fetching NSE Price Band for {trade_date}: {e}")
         return None
 
 

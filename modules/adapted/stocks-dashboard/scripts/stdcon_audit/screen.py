@@ -31,10 +31,8 @@ Rule (as specified by the user, reproduced verbatim):
     divergent ones (a divergent quarter both before AND after), is suspect.
 This is a SCREEN, not a defect count.
 """
-import collections
 import json
 import os
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
@@ -47,7 +45,11 @@ def divergent(std, con):
 def screen(fund):
     out = {}
     for sym, rows in fund.items():
-        pairs = [(r[0], r[1], r[3]) for r in rows if len(r) >= 4 and r[1] is not None and r[3] is not None]
+        pairs = [
+            (r[0], r[1], r[3])
+            for r in rows
+            if len(r) >= 4 and r[1] is not None and r[3] is not None
+        ]
         pairs.sort()
         if len(pairs) < 4:
             continue

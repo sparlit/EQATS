@@ -47,7 +47,6 @@ Usage:
 
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from rich.console import Console
@@ -102,11 +101,19 @@ class PairAnalysis:
 
         if self.signal != "NO_SIGNAL":
             if self.signal == "LONG_A_SHORT_B":
-                lines.append(f"\n  Trade: BUY {self.stock_a}, SELL {self.stock_b} (spread to narrow)")
+                lines.append(
+                    f"\n  Trade: BUY {self.stock_a}, SELL {self.stock_b} (spread to narrow)"
+                )
             else:
-                lines.append(f"\n  Trade: BUY {self.stock_b}, SELL {self.stock_a} (spread to narrow)")
+                lines.append(
+                    f"\n  Trade: BUY {self.stock_b}, SELL {self.stock_a} (spread to narrow)"
+                )
 
-        console.print(Panel("\n".join(lines), title="[bold cyan]Pair Analysis[/bold cyan]", border_style="cyan"))
+        console.print(
+            Panel(
+                "\n".join(lines), title="[bold cyan]Pair Analysis[/bold cyan]", border_style="cyan"
+            )
+        )
 
 
 # ── Common Indian Pairs ──────────────────────────────────────

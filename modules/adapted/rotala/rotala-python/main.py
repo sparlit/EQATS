@@ -56,9 +56,7 @@ def risk_management(unexecuted_orders, total_value):
         if order.price:
             gross_value += order.qty * order.price
 
-    if gross_value > total_value * 0.1:
-        return False
-    return True
+    return not gross_value > total_value * 0.1
 
 
 def create_orders(bid_grid, ask_grid):
@@ -114,12 +112,13 @@ if __name__ == "__main__":
         risk = risk_management(brkr.unexecuted_orders, brkr.get_current_value())
         if len(brkr.unexecuted_orders) == 0:
             [brkr.insert_order(order) for order in create_orders(bid_grid, ask_grid)]
-        elif mid_change > 0.1:
-            # In practice, we want to look for overlapping levels so we don't need
-            # to clear whole book
-            for order_id in brkr.unexecuted_orders:
-                order = brkr.unexecuted_orders[order_id]
-                if order.is_transaction():
-                    brkr.insert_order(Order(OrderType.Cancel, "SOL", 0, None, order_id))
+        else:
+            if mid_change > 0.1:
+                # In practice, we want to look for overlapping levels so we don't need
+                # to clear whole book
+                for order_id in brkr.unexecuted_orders:
+                    order = brkr.unexecuted_orders[order_id]
+                    if order.is_transaction():
+                        brkr.insert_order(Order(OrderType.Cancel, "SOL", 0, None, order_id))
 
-            [brkr.insert_order(order) for order in create_orders(bid_grid, ask_grid)]
+                [brkr.insert_order(order) for order in create_orders(bid_grid, ask_grid)]

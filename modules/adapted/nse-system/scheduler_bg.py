@@ -120,12 +120,16 @@ def _purge_vetoed():
 
         conn = db.get_conn()
         today = dt.date.today().isoformat()
-        rows = conn.execute("SELECT symbol FROM swing_signals WHERE signal_date=?", (today,)).fetchall()
+        rows = conn.execute(
+            "SELECT symbol FROM swing_signals WHERE signal_date=?", (today,)
+        ).fetchall()
         killed = []
         for (sym,) in rows:
             bad, why = fund_veto.vetoed(sym, conn=conn)
             if bad:
-                conn.execute("DELETE FROM swing_signals WHERE signal_date=? AND symbol=?", (today, sym))
+                conn.execute(
+                    "DELETE FROM swing_signals WHERE signal_date=? AND symbol=?", (today, sym)
+                )
                 killed.append(f"{sym} ({why})")
         conn.commit()
         conn.close()
@@ -264,7 +268,9 @@ def _drift_check():
 
         conn = db.get_conn()
         rows = conn.execute(
-            "SELECT outcome FROM swing_signals WHERE outcome IN ('WIN','LOSS') ORDER BY signal_date DESC LIMIT 40"
+            "SELECT outcome FROM swing_signals "
+            "WHERE outcome IN ('WIN','LOSS') "
+            "ORDER BY signal_date DESC LIMIT 40"
         ).fetchall()
         conn.close()
         if len(rows) < 15:
@@ -273,7 +279,10 @@ def _drift_check():
         wins = sum(1 for r in rows if r[0] == "WIN")
         live_wr = wins / len(rows)
         if live_wr < 0.35:
-            msg = f"[DRIFT] ⚠️ live win-rate {live_wr:.0%} over last {len(rows)} graded — review setup quality"
+            msg = (
+                f"[DRIFT] ⚠️ live win-rate {live_wr:.0%} over last "
+                f"{len(rows)} graded — review setup quality"
+            )
             log.warning(msg)
             try:
                 from alerts import send
@@ -318,34 +327,64 @@ def start():
     _scheduler = BackgroundScheduler(timezone=IST)
     # ---- Weekday chain ----
     _scheduler.add_job(
-        _data_quality_job, CronTrigger(hour=15, minute=30, timezone=IST), id="data_quality", replace_existing=True
+        _data_quality_job,
+        CronTrigger(hour=15, minute=30, timezone=IST),
+        id="data_quality",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _daily_job, CronTrigger(hour=15, minute=45, timezone=IST), id="daily_update", replace_existing=True
+        _daily_job,
+        CronTrigger(hour=15, minute=45, timezone=IST),
+        id="daily_update",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _trend_job, CronTrigger(hour=15, minute=50, timezone=IST), id="trend_scan", replace_existing=True
+        _trend_job,
+        CronTrigger(hour=15, minute=50, timezone=IST),
+        id="trend_scan",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _delivery_job, CronTrigger(hour=16, minute=0, timezone=IST), id="delivery_fetch", replace_existing=True
+        _delivery_job,
+        CronTrigger(hour=16, minute=0, timezone=IST),
+        id="delivery_fetch",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _swing_job, CronTrigger(hour=16, minute=15, timezone=IST), id="swing_scan", replace_existing=True
+        _swing_job,
+        CronTrigger(hour=16, minute=15, timezone=IST),
+        id="swing_scan",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _warm_research_job, CronTrigger(hour=16, minute=20, timezone=IST), id="research_warm", replace_existing=True
+        _warm_research_job,
+        CronTrigger(hour=16, minute=20, timezone=IST),
+        id="research_warm",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _institutional_job, CronTrigger(hour=16, minute=45, timezone=IST), id="institutional", replace_existing=True
+        _institutional_job,
+        CronTrigger(hour=16, minute=45, timezone=IST),
+        id="institutional",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _macro_job, CronTrigger(hour=17, minute=30, timezone=IST), id="macro_flow", replace_existing=True
+        _macro_job,
+        CronTrigger(hour=17, minute=30, timezone=IST),
+        id="macro_flow",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _pattern_job, CronTrigger(hour=18, minute=5, timezone=IST), id="pattern_scan", replace_existing=True
+        _pattern_job,
+        CronTrigger(hour=18, minute=5, timezone=IST),
+        id="pattern_scan",
+        replace_existing=True,
     )
     _scheduler.add_job(
-        _template_job, CronTrigger(hour=18, minute=35, timezone=IST), id="template_scan", replace_existing=True
+        _template_job,
+        CronTrigger(hour=18, minute=35, timezone=IST),
+        id="template_scan",
+        replace_existing=True,
     )
     _scheduler.add_job(
         _league_job,
@@ -398,7 +437,10 @@ def start():
         replace_existing=True,
     )
     _scheduler.add_job(
-        _validate_wf_job, CronTrigger(day=1, hour=10, minute=0, timezone=IST), id="validate_wf", replace_existing=True
+        _validate_wf_job,
+        CronTrigger(day=1, hour=10, minute=0, timezone=IST),
+        id="validate_wf",
+        replace_existing=True,
     )
     _scheduler.start()
     log.info(

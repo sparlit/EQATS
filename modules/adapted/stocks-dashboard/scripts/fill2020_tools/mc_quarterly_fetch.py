@@ -89,12 +89,18 @@ SKIPS = os.path.join(HERE, "_mc_skips.json")
 CODES = os.path.join(HERE, "_mc_codes.json")
 CACHE = os.path.join(SCRIPTS, "_mc_qcache")
 
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126 Safari/537.36"
+)
 FEED = (
     "https://appfeeds.moneycontrol.com/jsonapi/stocks/quarterly_results_responsive"
     "?sc_id=%s&type_format=%s&start=0&limit=%d"
 )
-SEARCH = "https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php?classic=true&query=%s&type=1&format=json"
+SEARCH = (
+    "https://www.moneycontrol.com/mccode/common/autosuggestion_solr.php"
+    "?classic=true&query=%s&type=1&format=json"
+)
 FMT = {"std": "quarterly", "con": "cons_quarterly"}
 SLOT = {"std": 0, "con": 1}
 # ⚠️ NOT ONE UNIVERSAL ROW. For insurers "Net Sales/Income from operations" is only the PREMIUM leg
@@ -122,7 +128,12 @@ BANK_COMPONENTS = (
     "others",
 )
 DERIVED_INTEREST = "Interest Earned (derived: sum of bank interest components)"
-REV_ROWS = ("Net Sales/Income from operations", "Total Income From Operations", "Interest Earned", DERIVED_INTEREST)
+REV_ROWS = (
+    "Net Sales/Income from operations",
+    "Total Income From Operations",
+    "Interest Earned",
+    DERIVED_INTEREST,
+)
 REV_ROW = REV_ROWS[0]
 
 
@@ -356,7 +367,8 @@ def series(code, basis, limit=200, ours=None):
         score = sum(
             1
             for qe, v in (ours or {}).items()
-            if qe in cand and abs(cand[qe] - v) <= max(TOL_ABS, TOL_REL * max(abs(v), abs(cand[qe])))
+            if qe in cand
+            and abs(cand[qe] - v) <= max(TOL_ABS, TOL_REL * max(abs(v), abs(cand[qe])))
         )
         if score > best_score:
             best, best_label, best_score = cand, label, score
@@ -405,7 +417,12 @@ def gate(mc, ours, target=None):
                 ),
             )
         if len(lo_ok) < NEED_LOCAL:
-            return False, match, bad, "only %d anchors within +/-%d quarters" % (len(lo_ok), LOCAL_WIN)
+            return (
+                False,
+                match,
+                bad,
+                "only %d anchors within +/-%d quarters" % (len(lo_ok), LOCAL_WIN),
+            )
     return True, match, bad, "ok"
 
 
@@ -445,7 +462,8 @@ def main():
                     continue
                 want.append((sym, qe, basis))
     print(
-        "open target cells: %d across %d symbols" % ((want and len(want)) or 0, len({s for s, _, _ in want})),
+        "open target cells: %d across %d symbols"
+        % (want and len(want) or 0, len({s for s, _, _ in want})),
         flush=True,
     )
 
@@ -461,7 +479,9 @@ def main():
             _jitter(0.4, 0.9)  # the search call is a second request
         if not code:
             for qe in qlist:
-                skips["%s|%d|%s" % (sym, qe, basis)] = "no verified moneycontrol code for this symbol"
+                skips["%s|%d|%s" % (sym, qe, basis)] = (
+                    "no verified moneycontrol code for this symbol"
+                )
             continue
         # ★ `ours` MUST be built BEFORE series() — it is what series() scores the candidate row
         # labels against, and it decides which revenue definition gets read. Passing an unset (or,
@@ -478,20 +498,31 @@ def main():
         _jitter()
         if not mc:
             for qe in qlist:
-                skips["%s|%d|%s" % (sym, qe, basis)] = f"RETRYABLE empty {basis} series (run-time, not evidence)"
+                skips["%s|%d|%s" % (sym, qe, basis)] = (
+                    f"RETRYABLE empty {basis} series (run-time, not evidence)"
+                )
             continue
         ok, match, bad, why = gate(mc, ours)  # gate returns 4: (ok, match, bad, why)
         if not ok:
             for qe in qlist:
                 skips["%s|%d|%s" % (sym, qe, basis)] = (
                     "GATE(%s): %s — %d of our stored quarters reproduced, %d disagreements%s"
-                    % (label, why, len(match), len(bad), (" e.g. %d ours %.2f vs mc %.2f" % bad[0]) if bad else "")
+                    % (
+                        label,
+                        why,
+                        len(match),
+                        len(bad),
+                        (" e.g. %d ours %.2f vs mc %.2f" % bad[0]) if bad else "",
+                    )
                 )
             continue
         for qe in qlist:
             key = "%s|%d|%s" % (sym, qe, basis)
             if qe not in mc:
-                skips[key] = "series passed the gate but has no row for %d (oldest %d)" % (qe, min(mc) if mc else 0)
+                skips[key] = "series passed the gate but has no row for %d (oldest %d)" % (
+                    qe,
+                    min(mc) if mc else 0,
+                )
                 continue
             v = mc[qe]
             if v <= 0:
@@ -507,7 +538,10 @@ def main():
                 "gate_quarters": match[:8],
             }
             read += 1
-            print("%-13s %d %-3s rev %-11.2f  (gate %d matched)" % (sym, qe, basis, v, len(match)), flush=True)
+            print(
+                "%-13s %d %-3s rev %-11.2f  (gate %d matched)" % (sym, qe, basis, v, len(match)),
+                flush=True,
+            )
         if n % 10 == 0:
             json.dump(fills, open(FILLS, "w"), indent=1, sort_keys=True)
             json.dump(skips, open(SKIPS, "w"), indent=0, sort_keys=True)

@@ -89,7 +89,9 @@ def fetch_corporate_events(days_ahead: int = 14, limit: int = 12) -> list[dict]:
         if out:
             return out[:limit]
     except Exception as exc:
-        logger.warning("Corporate events direct fetch failed ({}); trying cache", type(exc).__name__)
+        logger.warning(
+            "Corporate events direct fetch failed ({}); trying cache", type(exc).__name__
+        )
 
     # Fallback to the GitHub-Actions-populated cache (NSE blocks datacenter IPs)
     try:
@@ -141,7 +143,9 @@ def macro_events(days_ahead: int = 21) -> list[dict]:
         ("US Fed / FOMC", "MED", "Impacts FII flows — confirm"),
     ]
     for name, impact, note in macro:
-        events.append({"date": None, "date_str": "Upcoming", "event": name, "impact": impact, "note": note})
+        events.append(
+            {"date": None, "date_str": "Upcoming", "event": name, "impact": impact, "note": note}
+        )
 
     dated = sorted([e for e in events if e["date"]], key=lambda x: x["date"])
     undated = [e for e in events if not e["date"]]

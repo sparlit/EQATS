@@ -34,7 +34,7 @@ timestamps are normalized to naive UTC so sorting never mixes aware/naive.
 import html
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from xml.etree import ElementTree as ET
 
 import requests
@@ -44,13 +44,29 @@ from loguru import logger
 RSS_SOURCES = [
     # India
     ("ET Markets", "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms", "india"),
-    ("ET Stocks", "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms", "india"),
+    (
+        "ET Stocks",
+        "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
+        "india",
+    ),
     ("Livemint Markets", "https://www.livemint.com/rss/markets", "india"),
     ("Livemint Money", "https://www.livemint.com/rss/money", "india"),
-    ("ET Economy", "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms", "india"),
+    (
+        "ET Economy",
+        "https://economictimes.indiatimes.com/news/economy/rssfeeds/1373380680.cms",
+        "india",
+    ),
     # Global
-    ("CNBC", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "global"),
-    ("CNBC Markets", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135", "global"),
+    (
+        "CNBC",
+        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",
+        "global",
+    ),
+    (
+        "CNBC Markets",
+        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135",
+        "global",
+    ),
     ("Yahoo Finance", "https://finance.yahoo.com/news/rssindex", "global"),
     ("MarketWatch", "https://feeds.content.dowjones.io/public/rss/mw_topstories", "global"),
     ("BBC Business", "https://feeds.bbci.co.uk/news/business/rss.xml", "global"),

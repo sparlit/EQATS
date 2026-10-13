@@ -62,7 +62,8 @@ NIFTY_INDEX_URLS = {
 
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     ),
     "Accept": "text/csv,*/*",
     "Referer": "https://www.nseindia.com/",
@@ -91,8 +92,7 @@ def _fetch_csv(urls: tuple, timeout: int) -> pd.DataFrame:
         except Exception as e:
             last_err = e
             continue
-    msg = f"Failed to fetch NSE index list from {urls}. Last error: {last_err}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"Failed to fetch NSE index list from {urls}. Last error: {last_err}")
 
 
 def fetch_nifty500(timeout: int = 15) -> pd.DataFrame:

@@ -33,7 +33,8 @@ from main import DEFAULT_UNIVERSE
 def load(sym):
     conn = db.get_conn()
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date",
         (sym.split(".")[0],),
     ).fetchall()
     conn.close()
@@ -63,7 +64,9 @@ for sym in DEFAULT_UNIVERSE:
         st = SetupDetector.detect(hist, sym)
         if st.triggered:
             triggered += 1
-            print(f"   ✅ {sym} on {hist.index[-1].date()} entry {st.entry_price} stop {st.stop_loss}")
+            print(
+                f"   ✅ {sym} on {hist.index[-1].date()} entry {st.entry_price} stop {st.stop_loss}"
+            )
         else:
             for r in st.reasons:
                 key = r[:45]

@@ -1,7 +1,5 @@
 // Platform detection and command utilities — mirrors old utils.ts
 
-use std::process::Command;
-
 /// Check if a command exists on PATH
 pub async fn command_exists(cmd: &str) -> bool {
     #[cfg(not(target_os = "android"))]
@@ -64,7 +62,7 @@ fn shell_command_path(cmd: &str) -> Option<String> {
     let shell_clone = shell.clone();
 
     thread::spawn(move || {
-        let output = Command::new(&shell_clone)
+        let output = crate::utils::process::command(&shell_clone)
             .args(["-lc", &format!("command -v {} 2>/dev/null", cmd_clone)])
             .output();
         let _ = tx.send(output);
@@ -117,15 +115,12 @@ pub async fn python_module_exists(module: &str) -> bool {
     thread::spawn(move || {
         #[cfg(windows)]
         let result = {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            Command::new("python")
+            crate::utils::process::command("python")
                 .args(["-m", &module_clone, "--version"])
-                .creation_flags(CREATE_NO_WINDOW)
                 .output()
         };
         #[cfg(not(windows))]
-        let result = Command::new("python3")
+        let result = crate::utils::process::command("python3")
             .args(["-m", &module_clone, "--version"])
             .output();
 
@@ -159,16 +154,15 @@ pub async fn get_version(cmd: &str) -> Option<String> {
     thread::spawn(move || {
         #[cfg(windows)]
         let output = {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
             // Use cmd.exe /C to properly resolve .cmd batch wrappers (npm-installed tools)
-            Command::new("cmd")
+            crate::utils::process::command("cmd")
                 .args(["/C", &cmd_clone, "--version"])
-                .creation_flags(CREATE_NO_WINDOW)
                 .output()
         };
         #[cfg(not(windows))]
-        let output = Command::new(&cmd_clone).arg("--version").output();
+        let output = crate::utils::process::command(&cmd_clone)
+            .arg("--version")
+            .output();
 
         let _ = tx.send(output);
     });

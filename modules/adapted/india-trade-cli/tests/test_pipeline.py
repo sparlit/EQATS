@@ -67,7 +67,9 @@ def _make_report(
 
 
 ALL_BULLISH_REPORTS = [
-    _make_report("Technical", "BULLISH", 60, 75, ["RSI:28 oversold", "MACD:bullish", "above EMA50"]),
+    _make_report(
+        "Technical", "BULLISH", 60, 75, ["RSI:28 oversold", "MACD:bullish", "above EMA50"]
+    ),
     _make_report("Fundamental", "BULLISH", 70, 80, ["PE:22 ROE:20% D/E:0.1"]),
     _make_report("Options", "BULLISH", 50, 65, ["PCR:1.3 IVR:30 MaxPain:2600"]),
     _make_report("News & Macro", "BULLISH", 55, 60, ["FII net buy", "positive headlines"]),
@@ -87,7 +89,9 @@ MIXED_REPORTS = [
 ]
 
 ALL_BEARISH_REPORTS = [
-    _make_report("Technical", "BEARISH", -60, 80, ["RSI:72 overbought", "MACD:bear", "below EMA50"]),
+    _make_report(
+        "Technical", "BEARISH", -60, 80, ["RSI:72 overbought", "MACD:bear", "below EMA50"]
+    ),
     _make_report("Fundamental", "BEARISH", -50, 70, ["PE:45 ROE:8% high D/E"]),
     _make_report("Options", "BEARISH", -45, 65, ["PCR:0.5 IVR:85 MaxPain:2200"]),
     _make_report("News & Macro", "BEARISH", -55, 75, ["FII net sell large", "bearish headlines"]),
@@ -172,7 +176,7 @@ class TestBuildCompactSignals:
     def test_skips_errored_analysts(self):
         reports_with_error = MIXED_REPORTS.copy()
         bad = _make_report("Technical", "UNKNOWN", 0, 0, error="API timeout")
-        reports_with_error = [bad, *MIXED_REPORTS[1:]]
+        reports_with_error = [bad] + MIXED_REPORTS[1:]
         text = build_compact_signals("RELIANCE", "NSE", reports_with_error, 2850.0)
         # Errored analyst shows as failed or is skipped
         assert "API timeout" not in text or "FAILED" in text or "Technical" in text
@@ -187,7 +191,10 @@ class TestBuildCompactSignals:
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = []
-                names = [alias.name for alias in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                if isinstance(node, ast.Import):
+                    names = [alias.name for alias in node.names]
+                else:
+                    names = [node.module or ""]
                 for name in names:
                     assert "anthropic" not in name, f"LLM import found: {name}"
                     assert "openai" not in name, f"LLM import found: {name}"

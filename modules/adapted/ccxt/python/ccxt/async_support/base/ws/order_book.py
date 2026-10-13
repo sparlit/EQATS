@@ -102,7 +102,6 @@ class OrderBook(dict):
         if nonce is not None and self["nonce"] is not None and nonce < self["nonce"]:
             return self
         self.reset(snapshot)
-        return None
 
 
 # -----------------------------------------------------------------------------

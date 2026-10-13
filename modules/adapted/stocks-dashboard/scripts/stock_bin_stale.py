@@ -105,9 +105,13 @@ def main():
 
     age_days = (time.time() - latest_ts) / 86400
     if age_days <= max_age_days:
-        print(f"docs/stock_data.bin prices are {age_days:.1f}d old (<= {max_age_days}d) — skipping commit")
+        print(
+            f"docs/stock_data.bin prices are {age_days:.1f}d old (<= {max_age_days}d) — skipping commit"
+        )
         return 0
-    print(f"docs/stock_data.bin prices are {age_days:.1f}d old (> {max_age_days}d) — will commit fresh copy")
+    print(
+        f"docs/stock_data.bin prices are {age_days:.1f}d old (> {max_age_days}d) — will commit fresh copy"
+    )
     return 1
 
 

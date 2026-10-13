@@ -53,7 +53,7 @@ def get_trader_functions(venue: Venue) -> dict[str, callable]:
             "update_order_status": update_order_status_binance,
             "update_trade_status": update_trade_status_binance,
         }
-    if venue == venue.MT5:
+    elif venue == venue.MT5:
         from outputs.trader_mt5 import (
             trader_mt5,
         )
@@ -73,5 +73,5 @@ def get_trader_functions(venue: Venue) -> dict[str, callable]:
             "update_order_status": update_order_status_mt5,
             "update_trade_status": update_trade_status_mt5,
         }
-    msg = f"Unknown trader venue: {venue!r}"
-    raise ValueError(msg)
+    else:
+        raise ValueError(f"Unknown trader venue: {venue!r}")

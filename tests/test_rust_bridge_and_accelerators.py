@@ -1,11 +1,20 @@
 """
 Integration and Benchmarking Test Suite for Rust CFFI Acceleration Core and Fallback Dynamics.
 """
-from typing import Any
 import time
+
 import numpy as np
+
 import indicators
-from institutional_integrations.rust_bridge import is_rust_available, execute_high_speed_rust_order_send, rust_accelerated_ema, rust_accelerated_vpin, rust_accelerated_mcts_risk_simulation, _mark_rust_failure
+from institutional_integrations.rust_bridge import (
+    _mark_rust_failure,
+    execute_high_speed_rust_order_send,
+    is_rust_available,
+    rust_accelerated_ema,
+    rust_accelerated_mcts_risk_simulation,
+    rust_accelerated_vpin,
+)
+
 
 def test_rust_library_loading() -> None:
     """Verifies compiled Rust library loading state function executes cleanly."""

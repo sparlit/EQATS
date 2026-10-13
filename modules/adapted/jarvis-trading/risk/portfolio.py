@@ -23,15 +23,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 def max_open_positions(df: pd.DataFrame, max_positions: int = 2) -> pd.DataFrame:
     """Limit the number of open position candidates."""
     if df.empty:
-        msg = "DataFrame is empty"
-        raise ValueError(msg)
+        raise ValueError("DataFrame is empty")
     return df.head(max_positions).copy()

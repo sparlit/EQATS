@@ -32,7 +32,6 @@ import csv
 import datetime as dt
 import json
 import math
-import re
 import sqlite3
 from collections import Counter
 from pathlib import Path
@@ -77,8 +76,7 @@ for label, symbol in {**ALIASES, **KITE_ALIASES}.items():
     key = _norm(label)
     previous = NORMALIZED_ALIASES.get(key)
     if previous is not None and previous != symbol:
-        msg = f"Conflicting curated KITE alias: {label!r}"
-        raise ValueError(msg)
+        raise ValueError(f"Conflicting curated KITE alias: {label!r}")
     NORMALIZED_ALIASES[key] = symbol
 
 VALUE_COLUMNS = {
@@ -121,8 +119,7 @@ def _read_csv(path):
     with Path(path).open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         if not reader.fieldnames:
-            msg = f"{path} has no CSV header"
-            raise ValueError(msg)
+            raise ValueError(f"{path} has no CSV header")
         rows = []
         for row in reader:
             rows.append({str(key).strip(): (value or "").strip() for key, value in row.items()})
@@ -164,8 +161,10 @@ def _instrument_map(instrument, by_name, by_symbol):
     if alias_symbol:
         security = by_symbol.get(alias_symbol)
         if security is None:
-            msg = f"Curated alias {instrument!r} points to missing NSE security-master symbol {alias_symbol!r}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Curated alias {instrument!r} points to missing NSE "
+                f"security-master symbol {alias_symbol!r}"
+            )
         return security, "curated_alias"
 
     symbol_matches = [record for symbol, record in by_symbol.items() if _norm(symbol) == key]
@@ -178,19 +177,16 @@ def _instrument_map(instrument, by_name, by_symbol):
 
 def _snapshot_rows(rows, master_path, as_of, source_path):
     if not rows:
-        msg = "KITE export has no data rows"
-        raise ValueError(msg)
+        raise ValueError("KITE export has no data rows")
     if any(not row.get("Instrument", "").strip() for row in rows):
-        msg = "KITE export contains a row without Instrument"
-        raise ValueError(msg)
+        raise ValueError("KITE export contains a row without Instrument")
 
     grouped = {}
     for row in rows:
         key = _norm(row["Instrument"])
         if key in grouped:
             if grouped[key]["row"] != row:
-                msg = f"Conflicting duplicate KITE instrument: {row['Instrument']!r}"
-                raise ValueError(msg)
+                raise ValueError(f"Conflicting duplicate KITE instrument: {row['Instrument']!r}")
             grouped[key]["duplicate_row_count"] += 1
         else:
             grouped[key] = {"row": row, "duplicate_row_count": 1}
@@ -207,8 +203,9 @@ def _snapshot_rows(rows, master_path, as_of, source_path):
         security, match_method = _instrument_map(instrument, by_name, by_symbol)
         symbol = security["symbol"] if security else None
         if symbol and symbol in mapped_symbols:
-            msg = f"Multiple KITE instruments map to {symbol}; refusing an ambiguous import"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Multiple KITE instruments map to {symbol}; refusing an ambiguous import"
+            )
         if symbol:
             mapped_symbols.add(symbol)
 
@@ -319,7 +316,9 @@ def _apply(database, snapshots):
             f"{definitions}, "
             "PRIMARY KEY (as_of_date, instrument_key))"
         )
-        existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(kite_market_snapshots)")}
+        existing_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(kite_market_snapshots)")
+        }
         for name, kind in columns.items():
             if name not in existing_columns:
                 conn.execute(f"ALTER TABLE kite_market_snapshots ADD COLUMN {name} {kind}")
@@ -333,7 +332,9 @@ def _apply(database, snapshots):
             f"VALUES ({','.join('?' for _ in column_names)}) "
             "ON CONFLICT(as_of_date,instrument_key) DO UPDATE SET "
             + ",".join(
-                f"{name}=excluded.{name}" for name in column_names if name not in ("as_of_date", "instrument_key")
+                f"{name}=excluded.{name}"
+                for name in column_names
+                if name not in ("as_of_date", "instrument_key")
             )
         )
         for snapshot in snapshots:
@@ -352,8 +353,14 @@ def _print_summary(snapshots, duplicate_source_rows, sentinels, source_path, app
     matched = sum(row["symbol"] is not None for row in snapshots)
     counts = Counter(row["mapping_method"] for row in snapshots)
     print(f"KITE export: {Path(source_path).name}")
-    print(f"Snapshot date: {snapshots[0]['as_of_date']} (derived from file modification date; not a financial period)")
-    print(f"Unique instruments: {len(snapshots)}; mapped: {matched}; unmapped/ambiguous: {len(snapshots) - matched}")
+    print(
+        f"Snapshot date: {snapshots[0]['as_of_date']} "
+        "(derived from file modification date; not a financial period)"
+    )
+    print(
+        f"Unique instruments: {len(snapshots)}; mapped: {matched}; "
+        f"unmapped/ambiguous: {len(snapshots) - matched}"
+    )
     print(f"Duplicate identical source rows omitted: {duplicate_source_rows}")
     print("Mappings: " + ", ".join(f"{name}={count}" for name, count in sorted(counts.items())))
     print("All-zero unavailable fields: " + (", ".join(sorted(sentinels)) if sentinels else "none"))
@@ -377,7 +384,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv", nargs="?", default="data/incoming/KITE.csv", help="KITE CSV export")
     parser.add_argument(
-        "--master", default="data/incoming/nse_equity_master.csv", help="NSE EQUITY_L.csv security master"
+        "--master",
+        default="data/incoming/nse_equity_master.csv",
+        help="NSE EQUITY_L.csv security master",
     )
     parser.add_argument("--as-of", help="Snapshot date YYYY-MM-DD; defaults to file date")
     parser.add_argument("--db", default=str(DB_PATH), help="Target SQLite database")
@@ -387,15 +396,17 @@ def main(argv=None):
     master = Path(args.master)
     database = Path(args.db)
     if not source.is_file() or not master.is_file():
-        msg = "KITE CSV or NSE security master not found"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError("KITE CSV or NSE security master not found")
     if args.apply and not database.is_file():
-        msg = f"Target database does not exist: {database}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Target database does not exist: {database}")
 
     rows = _read_csv(source)
     modified_at = dt.datetime.fromtimestamp(source.stat().st_mtime).astimezone()
-    as_of = dt.date.fromisoformat(args.as_of).isoformat() if args.as_of else modified_at.date().isoformat()
+    as_of = (
+        dt.date.fromisoformat(args.as_of).isoformat()
+        if args.as_of
+        else modified_at.date().isoformat()
+    )
     snapshots, sentinels, source_rows = _snapshot_rows(rows, master, as_of, source)
     duplicates = source_rows - len(snapshots)
     _print_summary(snapshots, duplicates, sentinels, source)

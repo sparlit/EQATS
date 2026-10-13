@@ -31,7 +31,6 @@ import json
 import os
 from datetime import date
 
-import pandas as pd
 import requests
 
 CACHE_FILE = "nse_stock_cache.json"

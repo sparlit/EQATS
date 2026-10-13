@@ -26,14 +26,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Trigger-aware entry, stop, target and plan-quality construction."""
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from .entry_triggers import EntryTrigger
 from .indicators import atr, fixed_hybrid_hull_signals
-
-if TYPE_CHECKING:
-    from .entry_triggers import EntryTrigger
 
 
 @dataclass(frozen=True)
@@ -73,7 +70,9 @@ def _nearest_resistance(data: pd.DataFrame, entry: float, lookback: int = 120) -
 def _resistance_levels(data: pd.DataFrame, entry: float, lookback: int = 120) -> list[float]:
     values = sorted(
         float(value)
-        for value in data.iloc[:-1].tail(lookback).loc[data.iloc[:-1].tail(lookback)["high"] > entry, "high"]
+        for value in data.iloc[:-1]
+        .tail(lookback)
+        .loc[data.iloc[:-1].tail(lookback)["high"] > entry, "high"]
     )
     levels: list[float] = []
     for value in values:
@@ -86,7 +85,9 @@ def _expiry_for_horizon(primary_horizon: str) -> int:
     return {"1M": 3, "3M": 5, "6M": 10, "12M": 15}.get(primary_horizon, 3)
 
 
-def _trigger_levels(data: pd.DataFrame, trigger: EntryTrigger, current_atr: float) -> tuple[float, float, str, str]:
+def _trigger_levels(
+    data: pd.DataFrame, trigger: EntryTrigger, current_atr: float
+) -> tuple[float, float, str, str]:
     last = data.iloc[-1]
     hybrid = fixed_hybrid_hull_signals(data)
     pd.to_numeric(data["close"], errors="coerce")
@@ -234,11 +235,19 @@ def build_trigger_trade_plan(
     extension_ok = close_extension <= 1.5
 
     rr_component = min(30.0, 30.0 * max(rr1, 0.0) / 1.5)
-    stop_component = 25.0 if risk_ok else max(0.0, 25.0 * max_risk_percent / max(risk_percent, 0.01))
+    stop_component = (
+        25.0 if risk_ok else max(0.0, 25.0 * max_risk_percent / max(risk_percent, 0.01))
+    )
     entry_component = 20.0 if extension_ok else 5.0
     resistance_component = 15.0 if resistance_clear and rr_ok else 3.0
     atr_component = 10.0 if risk_percent <= 5.0 else (6.0 if risk_ok else 0.0)
-    score = round(min(100.0, rr_component + stop_component + entry_component + resistance_component + atr_component), 2)
+    score = round(
+        min(
+            100.0,
+            rr_component + stop_component + entry_component + resistance_component + atr_component,
+        ),
+        2,
+    )
 
     if not resistance_clear or risk <= 0:
         state = "INVALID"
@@ -301,7 +310,11 @@ def build_long_trade_plan(
     if risk <= 0:
         return TradePlan(False, entry, stop, 0, 0, risk, 0, 0, None, ("non_positive_risk",))
     resistance = _nearest_resistance(data, entry)
-    target1 = min(entry + target1_r * risk, resistance) if resistance is not None else entry + target1_r * risk
+    target1 = (
+        min(entry + target1_r * risk, resistance)
+        if resistance is not None
+        else entry + target1_r * risk
+    )
     target2 = entry + target2_r * risk
     rr1 = (target1 - entry) / risk
     rr2 = (target2 - entry) / risk

@@ -80,6 +80,8 @@ class NSEIndiaApiBennyEngine:
         return {
             "last_price": last_price,
             "open": open_price,
+            "high": high_price,
+            "low": low_price,
             "vwap": vwap,
             "change": change,
             "p_change": round(p_change, 2),

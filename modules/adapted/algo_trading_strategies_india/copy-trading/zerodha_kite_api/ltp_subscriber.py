@@ -33,7 +33,9 @@ from kiteconnect import KiteTicker
 from psycopg2.extras import execute_values
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", handlers=[logging.StreamHandler()]
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "clients_config.yaml")
@@ -133,8 +135,9 @@ class LTPSubscriber:
         conn.close()
 
         if not result or not result[1]:
-            msg = f"No access token for {self.account_name}. Run login_all_accounts.py first."
-            raise Exception(msg)
+            raise Exception(
+                f"No access token for {self.account_name}. Run login_all_accounts.py first."
+            )
 
         self.api_key = result[0]
         self.access_token = result[1]
@@ -180,7 +183,7 @@ class LTPSubscriber:
 
             self.logger.info(f"Loaded {len(self.symbol_cache)} symbols into cache")
         except Exception as e:
-            self.logger.exception(f"Error loading symbol cache: {e}")
+            self.logger.error(f"Error loading symbol cache: {e}")
 
     def on_ticks(self, ws, ticks):
         try:
@@ -196,12 +199,16 @@ class LTPSubscriber:
                     if symbol_info:
                         self.symbol_cache[instrument_token] = symbol_info
 
-                tradingsymbol = symbol_info.get("tradingsymbol", "UNKNOWN") if symbol_info else "UNKNOWN"
+                tradingsymbol = (
+                    symbol_info.get("tradingsymbol", "UNKNOWN") if symbol_info else "UNKNOWN"
+                )
                 exchange = symbol_info.get("exchange", "UNKNOWN") if symbol_info else "UNKNOWN"
                 last_price = tick.get("last_price", 0.0)
                 volume = tick.get("volume", 0)
 
-                self.logger.info(f"TICK | {exchange}:{tradingsymbol} | LTP: {last_price:.2f} | Vol: {volume}")
+                self.logger.info(
+                    f"TICK | {exchange}:{tradingsymbol} | LTP: {last_price:.2f} | Vol: {volume}"
+                )
 
                 tick_data_list.append(
                     (
@@ -225,7 +232,7 @@ class LTPSubscriber:
                 self.save_ticks_immediately(tick_data_list)
 
         except Exception as e:
-            self.logger.exception(f"Error processing ticks: {e}")
+            self.logger.error(f"Error processing ticks: {e}")
 
     def get_symbol_info(self, instrument_token):
         try:
@@ -243,7 +250,7 @@ class LTPSubscriber:
                 return {"tradingsymbol": result[0], "exchange": result[1]}
             return None
         except Exception as e:
-            self.logger.exception(f"Error getting symbol info: {e}")
+            self.logger.error(f"Error getting symbol info: {e}")
             return None
 
     def save_ticks_immediately(self, tick_data_list):
@@ -286,7 +293,7 @@ class LTPSubscriber:
             self.logger.info(f"DB SAVED | {len(tick_data_list)} ticks | {', '.join(symbols)}")
 
         except Exception as e:
-            self.logger.exception(f"Error saving ticks: {e}")
+            self.logger.error(f"Error saving ticks: {e}")
             if self.db_conn:
                 with contextlib.suppress(Exception):
                     self.db_conn.rollback()
@@ -324,7 +331,7 @@ class LTPSubscriber:
             conn.close()
             return results
         except Exception as e:
-            self.logger.exception(f"Error reading positions from DB: {e}")
+            self.logger.error(f"Error reading positions from DB: {e}")
             return []
 
     def subscribe_to_positions(self):
@@ -343,7 +350,9 @@ class LTPSubscriber:
                 closed_count = len(positions) - open_count
                 total_pnl = sum(pos[3] for pos in positions)
 
-                self.logger.info(f"Positions: {open_count} open, {closed_count} closed, Total PnL: {total_pnl}")
+                self.logger.info(
+                    f"Positions: {open_count} open, {closed_count} closed, Total PnL: {total_pnl}"
+                )
 
                 for pos in positions:
                     status = "OPEN" if pos[2] != 0 else "CLOSED"
@@ -360,7 +369,7 @@ class LTPSubscriber:
                 self.logger.info(f"Total subscriptions: {len(self.subscribed_tokens)}")
 
         except Exception as e:
-            self.logger.exception(f"Error in subscription: {e}")
+            self.logger.error(f"Error in subscription: {e}")
 
     def monitor_positions(self):
         self.logger.info(f"Position monitor started (checking every {POSITION_CHECK_INTERVAL}s)")
@@ -379,7 +388,7 @@ class LTPSubscriber:
                         self.subscribe_to_positions()
 
             except Exception as e:
-                self.logger.exception(f"Error in monitor: {e}")
+                self.logger.error(f"Error in monitor: {e}")
                 time.sleep(10)
 
     def get_total_pnl(self):
@@ -400,9 +409,13 @@ class LTPSubscriber:
             result = cursor.fetchone()
             cursor.close()
             conn.close()
-            return {"total_pnl": result[0] or 0, "open_pnl": result[1] or 0, "closed_pnl": result[2] or 0}
+            return {
+                "total_pnl": result[0] or 0,
+                "open_pnl": result[1] or 0,
+                "closed_pnl": result[2] or 0,
+            }
         except Exception as e:
-            self.logger.exception(f"Error calculating PnL: {e}")
+            self.logger.error(f"Error calculating PnL: {e}")
             return {"total_pnl": 0, "open_pnl": 0, "closed_pnl": 0}
 
     def start(self):

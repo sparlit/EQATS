@@ -68,11 +68,11 @@ for sym, events in FAC.items():
     for ex, fac, i, ratio in sorted(todo, key=lambda e: -e[0]):
         cut = bisect.bisect_left(a, ex)
         for f in PRICE:
-            if o.get(f):
+            if f in o and o[f]:
                 for k in range(cut):
                     if o[f][k] is not None:
                         o[f][k] = round(o[f][k] * fac, 4)
-        if o.get("v"):
+        if "v" in o and o["v"]:
             for k in range(cut):
                 if o["v"][k] is not None:
                     o["v"][k] = int(o["v"][k] / fac)
@@ -91,7 +91,10 @@ for s in ["MOTILALOFS", "INOXWIND", "ADANIPOWER"]:
             i = b.bisect_right(a, dt) - 1
             return round(c[i], 1) if i >= 0 else None
 
-        print("  %-11s Apr2024=%s Jul2024=%s now=%s" % (s, cl(20240401), cl(20240731), round(c[-1], 1)))
+        print(
+            "  %-11s Apr2024=%s Jul2024=%s now=%s"
+            % (s, cl(20240401), cl(20240731), round(c[-1], 1))
+        )
 buf = gzip.compress(json.dumps(D, separators=(",", ":")).encode())
 open(path, "wb").write(buf)
 print("SAVED %d bytes" % len(buf))

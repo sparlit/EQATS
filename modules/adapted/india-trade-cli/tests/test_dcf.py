@@ -78,21 +78,31 @@ class TestDCF:
     def test_higher_growth_higher_value(self):
         from analysis.dcf import compute_dcf
 
-        low = compute_dcf(fcf_cr=1000, growth_rate=5.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0)
-        high = compute_dcf(fcf_cr=1000, growth_rate=20.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0)
+        low = compute_dcf(
+            fcf_cr=1000, growth_rate=5.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
+        high = compute_dcf(
+            fcf_cr=1000, growth_rate=20.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
         assert high.intrinsic_value > low.intrinsic_value
 
     def test_higher_wacc_lower_value(self):
         from analysis.dcf import compute_dcf
 
-        low_wacc = compute_dcf(fcf_cr=1000, growth_rate=10.0, wacc=10.0, shares_outstanding=100_000_000, net_debt_cr=0)
-        high_wacc = compute_dcf(fcf_cr=1000, growth_rate=10.0, wacc=15.0, shares_outstanding=100_000_000, net_debt_cr=0)
+        low_wacc = compute_dcf(
+            fcf_cr=1000, growth_rate=10.0, wacc=10.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
+        high_wacc = compute_dcf(
+            fcf_cr=1000, growth_rate=10.0, wacc=15.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
         assert low_wacc.intrinsic_value > high_wacc.intrinsic_value
 
     def test_negative_fcf_returns_zero(self):
         from analysis.dcf import compute_dcf
 
-        result = compute_dcf(fcf_cr=-500, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0)
+        result = compute_dcf(
+            fcf_cr=-500, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
         # Negative FCF → intrinsic value should be 0 or negative (company burns cash)
         assert result.intrinsic_value <= 0
 
@@ -116,7 +126,9 @@ class TestDCF:
     def test_sensitivity_table(self):
         from analysis.dcf import compute_dcf
 
-        result = compute_dcf(fcf_cr=1000, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0)
+        result = compute_dcf(
+            fcf_cr=1000, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
         assert result.sensitivity is not None
         assert len(result.sensitivity) > 0
         # Should be a grid of growth × WACC
@@ -128,7 +140,9 @@ class TestDCF:
     def test_net_debt_reduces_value(self):
         from analysis.dcf import compute_dcf
 
-        no_debt = compute_dcf(fcf_cr=1000, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0)
+        no_debt = compute_dcf(
+            fcf_cr=1000, growth_rate=10.0, wacc=12.0, shares_outstanding=100_000_000, net_debt_cr=0
+        )
         with_debt = compute_dcf(
             fcf_cr=1000,
             growth_rate=10.0,

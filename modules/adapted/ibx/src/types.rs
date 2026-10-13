@@ -2,8 +2,14 @@
 /// Used as an index into pre-allocated arrays, so values are dense and small.
 pub type InstrumentId = u32;
 
-/// Engine-assigned order identifier.
-pub type OrderId = u64;
+/// Order identifier: the API order id, or the server's for an order of
+/// an earlier session. Signed, as the API's ids; 64 bits, as the server's
+/// ids can be wider than the API's 32-bit ints.
+pub type OrderId = i64;
+
+/// Request and ticker id, as the API gives it. Signed like the
+/// reference's, whose ids are 32-bit ints; -1 names no request.
+pub type ReqId = i64;
 
 /// Fixed-point price: value * 10^8. Avoids floating-point on the hot path.
 /// Example: $150.25 = 15_025_000_000
@@ -16,20 +22,19 @@ pub type Qty = i64;
 pub const PRICE_SCALE: i64 = 100_000_000; // 10^8
 pub const QTY_SCALE: i64 = 10_000; // 10^4
 
-/// Snap a fixed-point price to the nearest multiple of `tick` (ties round
-/// away from zero). A non-positive tick means the grid is unknown and the
-/// price is returned unchanged. Pure integer math — exact on the fixed-point
-/// representation. See ibx#216.
-pub fn snap_to_tick(price: Price, tick: i64) -> Price {
-    if tick <= 0 {
-        return price;
-    }
-    let half = tick / 2;
-    if price >= 0 {
-        ((price + half) / tick) * tick
-    } else {
-        -(((-price + half) / tick) * tick)
-    }
+/// Whether a price the reference checks is off the contract's price grid
+/// (ibx#263, reversing the snapping of ibx#216): negative where the rule
+/// does not allow it (ib-agent#192 B5, a REL offset of -0.50 refused with
+/// 110), or not a multiple of `tick` when the tick is known (a
+/// non-positive tick: unknown, not checked). The rule allows a price at or
+/// below 0 only when it says so (`jmarketrules.o.o(double)`: above 0, or
+/// its flag `ak`): a combo's rule does (`jclient.dy.cP()`, captured BAG
+/// limit prices of -73.15 and -50.10, ibx#470), a stock's does not.
+/// The reference refuses such an order with 110 and sends nothing
+/// (`jextend.dx.a(dy, boolean)@1886-1961`, `trader.common.b9.a(OrderCreator,
+/// o)`); it does not round it.
+pub fn off_grid(price: Price, tick: i64, signed: bool) -> bool {
+    (price < 0 && !signed) || (tick > 0 && price % tick != 0)
 }
 
 /// Maximum number of concurrently tracked instruments.
@@ -64,9 +69,9 @@ pub enum OrderStatus {
     Rejected,
     /// Server reports order inactive (FIX 39=I).
     Inactive,
-    /// Order state is unknown due to an auth connection disconnect.
-    /// Will be reconciled when reconnection completes (mass status request).
-    Uncertain,
+    /// An order the client placed that never left: a global cancel came
+    /// while it waited (the reference's `ApiCancelled`).
+    ApiCancelled,
 }
 
 impl OrderStatus {
@@ -79,7 +84,6 @@ impl OrderStatus {
     /// via `Context::set_order_status_forced`.
     pub fn rank(self) -> u8 {
         match self {
-            Self::Uncertain => 0,
             Self::PendingSubmit => 1,
             Self::PreSubmitted => 2,
             // Working tier: a modify ack returns PendingReplace to
@@ -88,13 +92,13 @@ impl OrderStatus {
             // A partially filled order can still be cancelled, and a fill
             // can land while a cancel is pending.
             Self::PendingCancel | Self::PartiallyFilled => 4,
-            Self::Filled | Self::Cancelled | Self::Rejected => 5,
+            Self::Filled | Self::Cancelled | Self::Rejected | Self::ApiCancelled => 5,
         }
     }
 
     /// Terminal states are absorbing: no ordinary frame may leave them.
     pub fn is_terminal(self) -> bool {
-        matches!(self, Self::Filled | Self::Cancelled | Self::Rejected)
+        matches!(self, Self::Filled | Self::Cancelled | Self::Rejected | Self::ApiCancelled)
     }
 }
 
@@ -113,6 +117,7 @@ pub struct Quote {
     pub high: Price,
     pub low: Price,
     pub close: Price,
+    /// Last trade time, ns since the epoch (the server gives whole seconds).
     pub timestamp_ns: u64,
     /// Bid-exchange bitmask. Each set bit indexes into smart_components by bit_number.
     /// Hypothesis pending wire-format confirmation; see deepentropy/ib-agent#120.
@@ -142,6 +147,83 @@ impl Default for Quote {
         }
     }
 }
+
+/// What the farm told about a quote beside its prices and sizes (ibx#446),
+/// packed in one word: whether the bid and the ask can execute
+/// automatically, the trading status the last trade came with, and which
+/// sizes came at least once. The engine keeps it per instrument for the
+/// catch-up steps of the market data queue (`md_events`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct QuoteMarks(pub u64);
+
+impl QuoteMarks {
+    const BID_AUTO: u32 = 0;
+    const ASK_AUTO: u32 = 2;
+    const HALTED_KNOWN: u64 = 1 << 4;
+    const HALTED_SHIFT: u32 = 5;
+    const SEEN_SHIFT: u32 = 8;
+
+    fn flag(self, shift: u32) -> Option<bool> {
+        match (self.0 >> shift) & 3 {
+            1 => Some(false),
+            2 => Some(true),
+            _ => None,
+        }
+    }
+
+    fn set_flag(&mut self, shift: u32, on: bool) {
+        self.0 = (self.0 & !(3 << shift)) | ((if on { 2 } else { 1 }) << shift);
+    }
+
+    /// Whether the bid can execute automatically; `None` before the farm said.
+    pub fn bid_auto(self) -> Option<bool> { self.flag(Self::BID_AUTO) }
+    /// Whether the ask can execute automatically; `None` before the farm said.
+    pub fn ask_auto(self) -> Option<bool> { self.flag(Self::ASK_AUTO) }
+    pub fn set_bid_auto(&mut self, on: bool) { self.set_flag(Self::BID_AUTO, on) }
+    pub fn set_ask_auto(&mut self, on: bool) { self.set_flag(Self::ASK_AUTO, on) }
+
+    /// Both flags from the farm's bits: 4 the bid, 8 the ask.
+    pub fn set_auto_bits(&mut self, bits: i64) {
+        self.set_bid_auto(bits & 4 != 0);
+        self.set_ask_auto(bits & 8 != 0);
+    }
+
+    /// Both auto-execution flags as one byte (0: the farm said nothing).
+    pub fn auto_word(self) -> u8 { (self.0 & 0xF) as u8 }
+    /// The flags of an `auto_word`.
+    pub fn from_auto_word(word: u8) -> Self { Self(word as u64 & 0xF) }
+
+    /// The trading status of the last trade, as its two low bits (1 halted,
+    /// 2 volatility halted); `None` before a trade gave one.
+    pub fn halted(self) -> Option<i64> {
+        (self.0 & Self::HALTED_KNOWN != 0).then_some(((self.0 >> Self::HALTED_SHIFT) & 3) as i64)
+    }
+
+    /// A trade's status; -1 is no status.
+    pub fn set_halted(&mut self, status: i64) {
+        if status == -1 {
+            return;
+        }
+        self.0 = (self.0 & !(3 << Self::HALTED_SHIFT)) | Self::HALTED_KNOWN | (((status & 3) as u64) << Self::HALTED_SHIFT);
+    }
+
+    /// The API value of the halted tick for a status: 1 halted, else 2
+    /// volatility halted, else 0.
+    pub fn halted_tick_value(status: i64) -> f64 {
+        if status & 1 != 0 { 1.0 } else if status & 2 != 0 { 2.0 } else { 0.0 }
+    }
+
+    /// Whether a size or the volume came from the farm at least once: the
+    /// reference sends a first size even when it is 0.
+    pub fn seen(self, size: SizeKind) -> bool { self.0 & (1 << (Self::SEEN_SHIFT + size as u32)) != 0 }
+    pub fn set_seen(&mut self, size: SizeKind) { self.0 |= 1 << (Self::SEEN_SHIFT + size as u32) }
+    /// The sizes seen as one byte (`SizeKind` bits).
+    pub fn seen_word(self) -> u8 { ((self.0 >> Self::SEEN_SHIFT) & 0xF) as u8 }
+}
+
+/// A size kind for `QuoteMarks::seen`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeKind { Bid = 0, Ask = 1, Last = 2, Volume = 3 }
 
 /// Execution fill report.
 #[derive(Debug, Clone, Copy)]
@@ -216,8 +298,8 @@ pub const ORD_MIDPX: u8 = 2;     // FIX "MIDPX" — Mid-Price
 pub const ORD_SNAP_MKT: u8 = 3;  // FIX "SMKT" — Snap to Market
 pub const ORD_SNAP_MID: u8 = 4;  // FIX "SMID" — Snap to Midpoint
 pub const ORD_SNAP_PRI: u8 = 5;  // FIX "SREL" — Snap to Primary
-pub const ORD_PEG_MKT: u8 = 6;   // FIX "E" + ExecInst "P" — Pegged to Market
-pub const ORD_PEG_MID: u8 = 7;   // FIX "E" + ExecInst "M" — Pegged to Midpoint
+pub const ORD_PEG_MKT: u8 = 6;   // FIX "P" + ExecInst "P" — Pegged to Market
+pub const ORD_PEG_MID: u8 = 7;   // FIX "P" + ExecInst "M" — Pegged to Midpoint
 pub const ORD_PEG_BENCH: u8 = 8; // FIX "PB" — Pegged to Benchmark
 pub const ORD_WHAT_IF: u8 = 9;   // Not a real OrdType — marker for what-if orders
 
@@ -230,7 +312,7 @@ pub fn ord_type_fix_str(t: u8) -> &'static str {
         ORD_SNAP_MKT => "SMKT",
         ORD_SNAP_MID => "SMID",
         ORD_SNAP_PRI => "SREL",
-        ORD_PEG_MKT | ORD_PEG_MID => "E",
+        ORD_PEG_MKT | ORD_PEG_MID => "P",
         ORD_PEG_BENCH => "PB",
         b'1' => "1", b'2' => "2", b'3' => "3", b'4' => "4", b'5' => "5",
         b'B' => "B", b'E' => "E", b'J' => "J", b'K' => "K",
@@ -241,7 +323,7 @@ pub fn ord_type_fix_str(t: u8) -> &'static str {
 
 /// What-If margin/commission preview response (execution report with tag 6091=1).
 /// Returned when a what-if order is submitted — the order is NOT placed.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Default)]
 pub struct WhatIfResponse {
     pub order_id: OrderId,
     pub instrument: InstrumentId,
@@ -252,6 +334,40 @@ pub struct WhatIfResponse {
     pub maint_margin_after: Price,
     pub equity_with_loan_after: Price,
     pub commission: Price,
+    /// The reply as the reference reports it to the API (ibx#462).
+    pub state: WhatIfState,
+    /// The reply that ends the preview: false for the frame that carries
+    /// only an order message, after which the preview still waits.
+    pub final_reply: bool,
+}
+
+/// One what-if reply as the server sent it (ibx#462): the values that
+/// came, unset when absent or not a number.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WhatIfState {
+    /// The API status of the reply's order status (39=A is PreSubmitted).
+    pub status: String,
+    pub init_margin_before: Option<f64>,
+    pub maint_margin_before: Option<f64>,
+    pub equity_with_loan_before: Option<f64>,
+    pub init_margin_after: Option<f64>,
+    pub maint_margin_after: Option<f64>,
+    pub equity_with_loan_after: Option<f64>,
+    pub commission: Option<f64>,
+    pub commission_currency: String,
+    pub margin_currency: String,
+    /// The suggested size, empty when the server sent none.
+    pub suggested_size: String,
+    /// The order message of the reply (warning text).
+    pub warning_text: String,
+    /// The server's reason when it refuses the order (error 201 after the
+    /// open order).
+    pub reject_reason: String,
+    /// The permId of the preview's order (37 of the reply); 0 without one.
+    pub perm_id: i64,
+    /// The conId of the reply (6008), for a preview placed without one: the
+    /// reference shows the contract it looked up (ibx#486).
+    pub con_id: i64,
 }
 
 /// Adjusted order type for adjustable stops (FIX tag 6261).
@@ -342,6 +458,10 @@ pub struct OrderAttrs {
     pub min_qty: u32,
     /// Hidden order — not displayed on book (IB tag 6135).
     pub hidden: bool,
+    /// Customer account (tag 6207) and professional customer (tag 6636),
+    /// sent only on an account whose config allows them (ibx#425).
+    pub customer_account: String,
+    pub professional_customer: bool,
     /// Allow trading outside regular hours (IB tag 6433).
     pub outside_rth: bool,
     /// Delay order activation until this time (FIX tag 168). 0 = not set. Unix seconds.
@@ -360,7 +480,7 @@ pub struct OrderAttrs {
     /// When non-empty, takes precedence over numeric `oca_group`.
     pub oca_group_str: String,
     /// Parent order ID (IB tag 6107). 0 = no parent. Links child orders to parent in brackets.
-    pub parent_id: u64,
+    pub parent_id: OrderId,
     /// Discretionary amount (IB tag 9813). 0 = not set. Fixed-point Price value.
     /// The amount above the limit price that the order may trade at.
     pub discretionary_amt: Price,
@@ -372,7 +492,8 @@ pub struct OrderAttrs {
     /// 0=default, 1=double-bid-ask, 2=last, 3=double-last, 4=bid-ask,
     /// 7=last-or-bid-ask, 8=mid-point.
     pub trigger_method: u8,
-    /// Cash quantity — order by dollar amount instead of shares (IB tag 5920). 0 = not set.
+    /// Cash quantity — order by dollar amount instead of shares (tag 152,
+    /// ibx#263). 0 = not set.
     /// Fixed-point Price value (e.g., $1000 = 1000 * PRICE_SCALE).
     pub cash_qty: Price,
     /// Conditions that must be met before the order activates (IB tag 6136+).
@@ -385,6 +506,97 @@ pub struct OrderAttrs {
     /// emits the gateway default 3 (ReduceOnFillNonBlock). Only emitted when
     /// an OCA group is present. See ibx#215.
     pub oca_type: u8,
+    /// Reference exchange of a pegged-to-benchmark order; empty = not set
+    /// (ibx#415). Not sent for other order types.
+    pub reference_exchange: String,
+    /// Work the order in the overnight session too (API includeOvernight),
+    /// sent as an order attribute (ibx#467).
+    pub include_overnight: bool,
+    /// The API clearingIntent: empty, IB, Away or PTA (ibx#417). A
+    /// clearing away from the broker lets a short-side order pass the
+    /// reference's side check.
+    pub clearing_intent: String,
+    /// The short-sale instructions of a short-side order (ibx#417).
+    pub short_sale: ShortSale,
+    /// The API usePriceMgmtAlgo: None when unset (ibx#492).
+    pub use_price_mgmt_algo: Option<bool>,
+    /// The order's algo, None for none. The reference writes it on top of
+    /// the order's own type and price fields, whatever the type (ibx#263).
+    pub algo: Option<OrderAlgo>,
+    /// The combo of a BAG order, None for any other order (ibx#470).
+    pub combo: Option<Box<ComboSpec>>,
+}
+
+/// A combo (BAG) order as the caller gave it (ibx#470): the engine builds
+/// the combo from it with the reference's set-up requests before the
+/// order goes out.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ComboSpec {
+    /// The BAG contract's exchange as given: SMART for a smart combo.
+    pub exchange: String,
+    pub currency: String,
+    /// The BAG symbol as given, checked against the legs (478).
+    pub symbol: String,
+    /// The conId of the smart combo of the currency (logon tag 6611), 0
+    /// for a directed combo.
+    pub smart_con_id: i64,
+    /// The legs in the caller's order.
+    pub legs: Vec<ComboLegSpec>,
+    /// The per-leg prices (orderComboLegs) in the caller's leg order;
+    /// empty when the order has none.
+    pub leg_prices: Vec<Price>,
+    /// The smartComboRoutingParams as order attributes, (tag, value) in
+    /// the caller's order.
+    pub routing_attrs: Vec<(u32, String)>,
+    /// NonGuaranteed=1 among the routing parameters.
+    pub non_guaranteed: bool,
+}
+
+/// One leg of a combo as the caller gave it (ibx#470).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ComboLegSpec {
+    pub con_id: i64,
+    pub ratio: i32,
+    /// The leg buys (BUY); a SELL, SSHORT or SSHORTX leg sells.
+    pub buy: bool,
+    /// The leg's exchange as given.
+    pub exchange: String,
+}
+
+/// An algo on an order (ibx#263): the Adaptive priority, or the
+/// parameters of another algo.
+#[derive(Debug, Clone)]
+pub enum OrderAlgo {
+    Adaptive(AdaptivePriority),
+    Params(AlgoParams),
+}
+
+/// The short-sale instructions of an order (ibx#417): the API
+/// shortSaleSlot, designatedLocation and exemptCode. The default is the
+/// API's: no slot, no location, no exempt code (-1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShortSale {
+    /// 1 = the broker holds the shares, 2 = delivered from elsewhere,
+    /// 0 = not set.
+    pub slot: i32,
+    /// Where the shares are held, needed with slot 2.
+    pub location: String,
+    /// Exempt reason code, -1 = none.
+    pub exempt_code: i32,
+}
+
+impl Default for ShortSale {
+    fn default() -> Self {
+        Self { slot: 0, location: String::new(), exempt_code: -1 }
+    }
+}
+
+impl ShortSale {
+    /// The exempt code names a reason of the reference's reason table:
+    /// -2 and 0 to 9. -1 and any other code are no reason.
+    pub fn exempt_reason_given(&self) -> bool {
+        matches!(self.exempt_code, -2 | 0..=9)
+    }
 }
 
 /// A condition that must be met before an order activates.
@@ -537,7 +749,10 @@ pub enum OrderKind {
     TrailingStopLimit { lmt_offset: Price, lmt_price: Option<Price>, trail_amt: Price, trail_stop_price: Price },
     /// Trailing stop by percentage. Basis points: 100 = 1%.
     /// `trail_stop_price` is the optional initial stop trigger (tag 6117); 0 = not set.
-    TrailPct { trail_pct: u32, trail_stop_price: Price },
+    /// The percent as the API gives it, in the price fixed point (1% =
+    /// PRICE_SCALE): the reference writes it with its price formatter, so
+    /// 1.239 goes out as 1.239 (ibx#263; basis points kept two decimals).
+    TrailPct { trail_percent: Price, trail_stop_price: Price },
     Moc,
     Loc { price: Price },
     Mit { stop_price: Price },
@@ -546,12 +761,31 @@ pub enum OrderKind {
     MktPrt,
     StpPrt { stop_price: Price },
     MidPrice { price_cap: Price },
-    SnapMkt,
-    SnapMid,
-    SnapPri,
-    PegMkt { offset: Price },
-    PegMid { offset: Price },
-    Rel { offset: Price },
+    /// The snap types carry their offset (the API auxPrice) in both price
+    /// fields, 0 when unset (ibx#413).
+    SnapMkt { offset: Price },
+    SnapMid { offset: Price },
+    SnapPri { offset: Price },
+    /// Pegged to market / to midpoint (ibx#414): `price` is the limit
+    /// price, 0 = unset; `offset` the API auxPrice (pegged to midpoint
+    /// always sends a zero offset, as the reference).
+    PegMkt { price: Price, offset: Price },
+    PegMid { price: Price, offset: Price },
+    /// Relative: `price` is the price cap (the API lmtPrice), 0 = unset;
+    /// `offset` the API auxPrice (ibx#263).
+    Rel { price: Price, offset: Price },
+    /// Pegged to benchmark (ibx#415): the starting price (0 = unset), the
+    /// stock reference price (0 = unset), the reference contract, the
+    /// pegged change (sent negative for a decrease) and the reference
+    /// change. The reference exchange rides `OrderAttrs::reference_exchange`.
+    PegBench {
+        starting_price: Price,
+        stock_ref_price: Price,
+        ref_con_id: i64,
+        is_peg_decrease: bool,
+        pegged_change_amount: Price,
+        ref_change_amount: Price,
+    },
     /// Adjustable stop, same fields as `OrderRequest::SubmitAdjustableStop`.
     /// On this path it also carries parent, OCA and tif, so it can be a
     /// bracket child (ibx#240).
@@ -567,38 +801,32 @@ pub enum OrderKind {
 }
 
 impl OrderKind {
-    /// Snap every price of this kind to the tick grid (ibx#216). Percent
-    /// values are not prices and are left alone.
-    pub fn snap_prices(&mut self, tick: i64) {
-        if tick <= 0 {
-            return;
-        }
-        let s = |p: &mut Price| *p = snap_to_tick(*p, tick);
-        match self {
+    /// The prices of this kind the reference checks against the price grid
+    /// (`trader.common.b9.a(OrderCreator, o)`, ibx#263): the limit price of
+    /// every type, and the stop or offset price (the API auxPrice) of the
+    /// types that have one (`jibtypes.s.s()`), for a trailing type its
+    /// amount, never a percent. Not checked: the trailing stop price, the
+    /// TRAIL LIMIT offset, the adjusted prices, the benchmark changes.
+    /// Unset prices are 0 and pass.
+    pub fn grid_prices(&self) -> [Price; 2] {
+        match *self {
             OrderKind::Market | OrderKind::Moc | OrderKind::Mtl | OrderKind::MktPrt
-            | OrderKind::SnapMkt | OrderKind::SnapMid | OrderKind::SnapPri => {}
-            OrderKind::TrailPct { trail_stop_price, .. } => s(trail_stop_price),
-            OrderKind::Limit { price } | OrderKind::Loc { price } => s(price),
+            | OrderKind::TrailPct { .. } => [0, 0],
+            OrderKind::Limit { price } | OrderKind::Loc { price } => [price, 0],
             OrderKind::Stop { stop_price }
             | OrderKind::Mit { stop_price }
-            | OrderKind::StpPrt { stop_price } => s(stop_price),
+            | OrderKind::StpPrt { stop_price }
+            | OrderKind::AdjustableStop { stop_price, .. } => [0, stop_price],
             OrderKind::StopLimit { price, stop_price }
-            | OrderKind::Lit { price, stop_price } => { s(price); s(stop_price); }
-            OrderKind::TrailingStop { trail_amt, trail_stop_price } => { s(trail_amt); s(trail_stop_price); }
-            OrderKind::TrailingStopLimit { lmt_offset, lmt_price, trail_amt, trail_stop_price } => {
-                s(lmt_offset); if let Some(p) = lmt_price { s(p); } s(trail_amt); s(trail_stop_price);
-            }
-            OrderKind::MidPrice { price_cap } => s(price_cap),
-            OrderKind::PegMkt { offset } | OrderKind::PegMid { offset }
-            | OrderKind::Rel { offset } => s(offset),
-            OrderKind::AdjustableStop {
-                stop_price, trigger_price, adjusted_stop_price, adjusted_stop_limit_price,
-                adjusted_trailing_amount, adjustable_trailing_unit, ..
-            } => {
-                s(stop_price); s(trigger_price); s(adjusted_stop_price); s(adjusted_stop_limit_price);
-                // Same rule as SubmitAdjustableStop: a percent does not snap.
-                if *adjustable_trailing_unit == 0 { s(adjusted_trailing_amount); }
-            }
+            | OrderKind::Lit { price, stop_price } => [price, stop_price],
+            OrderKind::TrailingStop { trail_amt, .. } => [0, trail_amt],
+            OrderKind::TrailingStopLimit { lmt_price, trail_amt, .. } => [lmt_price.unwrap_or(0), trail_amt],
+            OrderKind::MidPrice { price_cap } => [price_cap, 0],
+            OrderKind::PegMkt { price, offset } | OrderKind::PegMid { price, offset }
+            | OrderKind::Rel { price, offset } => [price, offset],
+            OrderKind::SnapMkt { offset }
+            | OrderKind::SnapMid { offset } | OrderKind::SnapPri { offset } => [0, offset],
+            OrderKind::PegBench { starting_price, .. } => [0, starting_price],
         }
     }
 }
@@ -696,7 +924,8 @@ pub enum OrderRequest {
         /// Optional initial stop trigger (tag 6117); 0 = not set.
         trail_stop_price: Price,
     },
-    /// Trailing stop by percentage. `trail_pct` is in basis points (1% = 100);
+    /// Trailing stop by percentage. `trail_percent` is the percent in the
+    /// price fixed point (1% = PRICE_SCALE, ibx#263);
     /// on the wire the percent rides as a decimal with the unit flag set to
     /// percent (ibx#339).
     SubmitTrailingStopPct {
@@ -704,7 +933,7 @@ pub enum OrderRequest {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
-        trail_pct: u32, // basis points: 100 = 1%, 250 = 2.5%
+        trail_percent: Price, // 1% = PRICE_SCALE, 2.5% = 2.5 * PRICE_SCALE
         /// Optional initial stop trigger (tag 6117); 0 = not set.
         trail_stop_price: Price,
     },
@@ -713,7 +942,7 @@ pub enum OrderRequest {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
-        trail_pct: u32,
+        trail_percent: Price,
         tif: u8,
         attrs: OrderAttrs,
         /// Optional initial stop trigger (tag 6117); 0 = not set.
@@ -848,6 +1077,7 @@ pub enum OrderRequest {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price, // the API auxPrice, 0 = unset
     },
     /// Snap to Midpoint: snaps to midpoint. OrdType SMID.
     SubmitSnapMid {
@@ -855,6 +1085,7 @@ pub enum OrderRequest {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price, // the API auxPrice, 0 = unset
     },
     /// Snap to Primary: snaps to primary (NBBO). OrdType SREL.
     SubmitSnapPri {
@@ -862,22 +1093,26 @@ pub enum OrderRequest {
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        offset: Price, // the API auxPrice, 0 = unset
     },
-    /// Pegged to Market: pegs to market with optional offset. OrdType E + ExecInst P.
+    /// Pegged to Market: pegs to market with optional offset and limit price.
     SubmitPegMkt {
         order_id: OrderId,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        price: Price,  // limit price, 0 = unset
         offset: Price, // peg offset, 0 = no offset
     },
-    /// Pegged to Midpoint: pegs to midpoint with optional offset. OrdType E + ExecInst M.
+    /// Pegged to Midpoint: pegs to midpoint with optional limit price. The
+    /// offset is kept but goes out as zero, as the reference (ibx#414).
     SubmitPegMid {
         order_id: OrderId,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
-        offset: Price, // peg offset, 0 = no offset
+        price: Price,  // limit price, 0 = unset
+        offset: Price,
     },
     /// Algorithmic order: limit order with IB algo strategy overlay (VWAP, TWAP, etc.).
     SubmitAlgo {
@@ -892,18 +1127,23 @@ pub enum OrderRequest {
         tif: u8,
         attrs: OrderAttrs,
     },
-    /// Pegged to Benchmark: pegs to a benchmark instrument's price. OrdType PB.
-    /// Companion tags: 6941=refConId, 6938=isPegDecrease, 6939=pegChangeAmt, 6942=refChangeAmt.
+    /// Pegged to Benchmark: pegs to a benchmark instrument's price, written
+    /// as the reference writes it (ibx#415).
     SubmitPegBench {
         order_id: OrderId,
         instrument: InstrumentId,
         side: Side,
         qty: u32,
+        /// The starting price, 0 = unset. There is no limit price.
         price: Price,
-        ref_con_id: u32,
+        ref_con_id: i64,
         is_peg_decrease: bool,
         pegged_change_amount: Price,
         ref_change_amount: Price,
+        /// The stock reference price, 0 = unset.
+        stock_ref_price: Price,
+        /// The reference contract's exchange, empty = not sent.
+        ref_exchange: String,
     },
     /// Limit order for auction (TIF=AUC, tag 59=8). Participates in exchange opening/closing auction.
     SubmitLimitAuc {
@@ -920,18 +1160,12 @@ pub enum OrderRequest {
         side: Side,
         qty: u32,
     },
-    /// What-If order: sends a limit order with tag 6091=1 for margin/commission preview.
-    /// The order is NOT placed — response comes back as 35=8 with margin fields.
+    /// What-If preview of a new order (ibx#462): `request` is the order as
+    /// it would be placed, written by its own encoder with the preview flag,
+    /// under a ClOrdID of its own. It is NOT placed and never modifies a
+    /// working order; the answer is an `Event::WhatIf`.
     SubmitWhatIf {
-        order_id: OrderId,
-        instrument: InstrumentId,
-        side: Side,
-        qty: u32,
-        price: Price,
-        /// Time-in-force byte and extended attributes, like every other
-        /// order type: a parented or GTC algo order kept neither (ibx#318).
-        tif: u8,
-        attrs: OrderAttrs,
+        request: Box<OrderRequest>,
     },
     /// Fractional shares limit order. Qty is fixed-point (QTY_SCALE = 10^4).
     /// E.g., 0.5 shares = 5000. Tag 38 sent as decimal string.
@@ -969,6 +1203,9 @@ pub enum OrderRequest {
     CancelAll {
         instrument: InstrumentId,
     },
+    /// The API global cancel: every order of the book, whatever its
+    /// client or session, as the reference cancels them.
+    GlobalCancel,
     /// Replace a working order. Carries the full wanted state, like a new
     /// order does: the replace restates the order type, prices, time-in-force
     /// and the attributes the reference restates (ibx#247 ibx#324 ibx#334
@@ -984,11 +1221,12 @@ pub enum OrderRequest {
 }
 
 impl OrderRequest {
-    /// Extract the order_id from any variant. Returns 0 for CancelAll (no order_id).
+    /// Extract the order_id from any variant. Returns 0 for CancelAll and
+    /// GlobalCancel (no order_id).
     pub fn order_id(&self) -> OrderId {
         match self {
             Self::Cancel { order_id } => *order_id,
-            Self::CancelAll { .. } => 0,
+            Self::CancelAll { .. } | Self::GlobalCancel => 0,
             Self::Modify { order_id, .. } => *order_id,
             Self::SubmitLimit { order_id, .. }
             | Self::SubmitMarket { order_id, .. }
@@ -1024,11 +1262,69 @@ impl OrderRequest {
             | Self::SubmitPegBench { order_id, .. }
             | Self::SubmitLimitAuc { order_id, .. }
             | Self::SubmitMtlAuc { order_id, .. }
-            | Self::SubmitWhatIf { order_id, .. }
             | Self::SubmitLimitFractional { order_id, .. }
             | Self::SubmitAdjustableStop { order_id, .. }
             | Self::SubmitEx { order_id, .. } => *order_id,
             Self::SubmitBracket { parent_id, .. } => *parent_id,
+            Self::SubmitWhatIf { request } => request.order_id(),
+        }
+    }
+
+    /// The order ids of the new orders the request makes: none for a
+    /// cancel or a replace, the three orders of a bracket.
+    pub fn new_order_ids(&self) -> Vec<OrderId> {
+        match self {
+            Self::SubmitBracket { parent_id, tp_id, sl_id, .. } => vec![*parent_id, *tp_id, *sl_id],
+            Self::SubmitWhatIf { request } => request.new_order_ids(),
+            _ if self.new_order_qty().is_some() => vec![self.order_id()],
+            _ => Vec::new(),
+        }
+    }
+
+    /// The quantity of a new order, fixed-point (QTY_SCALE); None for a
+    /// cancel or a replace. A bracket gives its legs' quantity.
+    pub fn new_order_qty(&self) -> Option<Qty> {
+        match self {
+            Self::Cancel { .. } | Self::CancelAll { .. } | Self::GlobalCancel | Self::Modify { .. } => None,
+            Self::SubmitWhatIf { request } => request.new_order_qty(),
+            Self::SubmitLimitFractional { qty, .. } => Some(*qty),
+            Self::SubmitLimit { qty, .. }
+            | Self::SubmitMarket { qty, .. }
+            | Self::SubmitStop { qty, .. }
+            | Self::SubmitStopLimit { qty, .. }
+            | Self::SubmitLimitGtc { qty, .. }
+            | Self::SubmitStopGtc { qty, .. }
+            | Self::SubmitStopLimitGtc { qty, .. }
+            | Self::SubmitLimitIoc { qty, .. }
+            | Self::SubmitLimitFok { qty, .. }
+            | Self::SubmitTrailingStop { qty, .. }
+            | Self::SubmitTrailingStopLimit { qty, .. }
+            | Self::SubmitTrailingStopPct { qty, .. }
+            | Self::SubmitTrailingStopPctEx { qty, .. }
+            | Self::SubmitMoc { qty, .. }
+            | Self::SubmitLoc { qty, .. }
+            | Self::SubmitMit { qty, .. }
+            | Self::SubmitLit { qty, .. }
+            | Self::SubmitLimitEx { qty, .. }
+            | Self::SubmitRel { qty, .. }
+            | Self::SubmitLimitOpg { qty, .. }
+            | Self::SubmitAdaptive { qty, .. }
+            | Self::SubmitMtl { qty, .. }
+            | Self::SubmitMktPrt { qty, .. }
+            | Self::SubmitStpPrt { qty, .. }
+            | Self::SubmitMidPrice { qty, .. }
+            | Self::SubmitSnapMkt { qty, .. }
+            | Self::SubmitSnapMid { qty, .. }
+            | Self::SubmitSnapPri { qty, .. }
+            | Self::SubmitPegMkt { qty, .. }
+            | Self::SubmitPegMid { qty, .. }
+            | Self::SubmitAlgo { qty, .. }
+            | Self::SubmitPegBench { qty, .. }
+            | Self::SubmitLimitAuc { qty, .. }
+            | Self::SubmitMtlAuc { qty, .. }
+            | Self::SubmitAdjustableStop { qty, .. }
+            | Self::SubmitEx { qty, .. }
+            | Self::SubmitBracket { qty, .. } => Some(*qty as Qty * QTY_SCALE),
         }
     }
 
@@ -1037,7 +1333,7 @@ impl OrderRequest {
     /// the tracked order).
     pub fn instrument(&self) -> Option<InstrumentId> {
         match self {
-            Self::Cancel { .. } | Self::Modify { .. } => None,
+            Self::Cancel { .. } | Self::Modify { .. } | Self::GlobalCancel => None,
             Self::CancelAll { instrument }
             | Self::SubmitLimit { instrument, .. }
             | Self::SubmitMarket { instrument, .. }
@@ -1073,82 +1369,184 @@ impl OrderRequest {
             | Self::SubmitPegBench { instrument, .. }
             | Self::SubmitLimitAuc { instrument, .. }
             | Self::SubmitMtlAuc { instrument, .. }
-            | Self::SubmitWhatIf { instrument, .. }
             | Self::SubmitLimitFractional { instrument, .. }
             | Self::SubmitAdjustableStop { instrument, .. }
             | Self::SubmitEx { instrument, .. }
             | Self::SubmitBracket { instrument, .. } => Some(*instrument),
+            Self::SubmitWhatIf { request } => request.instrument(),
         }
     }
 
-    /// Snap every outbound price-like field to the instrument's tick grid
-    /// (ibx#216). `tick` is the fixed-point tick from
-    /// `MarketState::min_tick_scaled`; 0 (unknown — no market-data
-    /// subscription seen yet) leaves prices unchanged. Percent-based fields
-    /// (trailing percent) and non-price fields (quantities, cash amounts)
-    /// are not touched.
-    pub fn snap_prices(&mut self, tick: i64) {
-        if tick <= 0 {
-            return;
-        }
-        let s = |p: &mut Price| *p = snap_to_tick(*p, tick);
+    /// The instrument of a new order, to change: the slot of its contract
+    /// once the contract's lookup found it (ibx#486). None for a cancel, a
+    /// modify, a cancel-all and a global cancel.
+    pub fn new_order_instrument_mut(&mut self) -> Option<&mut InstrumentId> {
         match self {
-            Self::Cancel { .. } | Self::CancelAll { .. }
+            Self::Cancel { .. } | Self::Modify { .. } | Self::CancelAll { .. } | Self::GlobalCancel => None,
+            Self::SubmitLimit { instrument, .. }
+            | Self::SubmitMarket { instrument, .. }
+            | Self::SubmitStop { instrument, .. }
+            | Self::SubmitStopLimit { instrument, .. }
+            | Self::SubmitLimitGtc { instrument, .. }
+            | Self::SubmitStopGtc { instrument, .. }
+            | Self::SubmitStopLimitGtc { instrument, .. }
+            | Self::SubmitLimitIoc { instrument, .. }
+            | Self::SubmitLimitFok { instrument, .. }
+            | Self::SubmitTrailingStop { instrument, .. }
+            | Self::SubmitTrailingStopLimit { instrument, .. }
+            | Self::SubmitTrailingStopPct { instrument, .. }
+            | Self::SubmitTrailingStopPctEx { instrument, .. }
+            | Self::SubmitMoc { instrument, .. }
+            | Self::SubmitLoc { instrument, .. }
+            | Self::SubmitMit { instrument, .. }
+            | Self::SubmitLit { instrument, .. }
+            | Self::SubmitLimitEx { instrument, .. }
+            | Self::SubmitRel { instrument, .. }
+            | Self::SubmitLimitOpg { instrument, .. }
+            | Self::SubmitAdaptive { instrument, .. }
+            | Self::SubmitMtl { instrument, .. }
+            | Self::SubmitMktPrt { instrument, .. }
+            | Self::SubmitStpPrt { instrument, .. }
+            | Self::SubmitMidPrice { instrument, .. }
+            | Self::SubmitSnapMkt { instrument, .. }
+            | Self::SubmitSnapMid { instrument, .. }
+            | Self::SubmitSnapPri { instrument, .. }
+            | Self::SubmitPegMkt { instrument, .. }
+            | Self::SubmitPegMid { instrument, .. }
+            | Self::SubmitAlgo { instrument, .. }
+            | Self::SubmitPegBench { instrument, .. }
+            | Self::SubmitLimitAuc { instrument, .. }
+            | Self::SubmitMtlAuc { instrument, .. }
+            | Self::SubmitLimitFractional { instrument, .. }
+            | Self::SubmitAdjustableStop { instrument, .. }
+            | Self::SubmitEx { instrument, .. }
+            | Self::SubmitBracket { instrument, .. } => Some(instrument),
+            Self::SubmitWhatIf { request } => request.new_order_instrument_mut(),
+        }
+    }
+
+    /// The combo of a new combo (BAG) order (ibx#470).
+    pub fn combo(&self) -> Option<&ComboSpec> {
+        self.new_order_side()?.1?.combo.as_deref()
+    }
+
+    /// The instrument of a new order sent through the extended encoder,
+    /// the one every combo order takes (ibx#470).
+    pub fn ex_instrument_mut(&mut self) -> Option<&mut InstrumentId> {
+        match self {
+            Self::SubmitWhatIf { request } => request.ex_instrument_mut(),
+            Self::SubmitTrailingStopPctEx { instrument, .. }
+            | Self::SubmitLimitEx { instrument, .. }
+            | Self::SubmitEx { instrument, .. }
+            | Self::SubmitAdaptive { instrument, .. }
+            | Self::SubmitAlgo { instrument, .. } => Some(instrument),
+            _ => None,
+        }
+    }
+
+    /// The side of a new order and its attributes when it carries them.
+    /// None for a cancel or a replace. A bracket gives its parent's side.
+    pub fn new_order_side(&self) -> Option<(Side, Option<&OrderAttrs>)> {
+        match self {
+            Self::Cancel { .. } | Self::CancelAll { .. } | Self::GlobalCancel | Self::Modify { .. } => None,
+            Self::SubmitWhatIf { request } => request.new_order_side(),
+            Self::SubmitTrailingStopPctEx { side, attrs, .. }
+            | Self::SubmitLimitEx { side, attrs, .. }
+            | Self::SubmitEx { side, attrs, .. }
+            | Self::SubmitAdaptive { side, attrs, .. }
+            | Self::SubmitAlgo { side, attrs, .. } => Some((*side, Some(attrs))),
+            Self::SubmitLimit { side, .. }
+            | Self::SubmitMarket { side, .. }
+            | Self::SubmitStop { side, .. }
+            | Self::SubmitStopLimit { side, .. }
+            | Self::SubmitLimitGtc { side, .. }
+            | Self::SubmitStopGtc { side, .. }
+            | Self::SubmitStopLimitGtc { side, .. }
+            | Self::SubmitLimitIoc { side, .. }
+            | Self::SubmitLimitFok { side, .. }
+            | Self::SubmitTrailingStop { side, .. }
+            | Self::SubmitTrailingStopLimit { side, .. }
+            | Self::SubmitTrailingStopPct { side, .. }
+            | Self::SubmitMoc { side, .. }
+            | Self::SubmitLoc { side, .. }
+            | Self::SubmitMit { side, .. }
+            | Self::SubmitLit { side, .. }
+            | Self::SubmitBracket { side, .. }
+            | Self::SubmitRel { side, .. }
+            | Self::SubmitLimitOpg { side, .. }
+            | Self::SubmitMtl { side, .. }
+            | Self::SubmitMktPrt { side, .. }
+            | Self::SubmitStpPrt { side, .. }
+            | Self::SubmitMidPrice { side, .. }
+            | Self::SubmitSnapMkt { side, .. }
+            | Self::SubmitSnapMid { side, .. }
+            | Self::SubmitSnapPri { side, .. }
+            | Self::SubmitPegMkt { side, .. }
+            | Self::SubmitPegMid { side, .. }
+            | Self::SubmitPegBench { side, .. }
+            | Self::SubmitLimitAuc { side, .. }
+            | Self::SubmitMtlAuc { side, .. }
+            | Self::SubmitLimitFractional { side, .. }
+            | Self::SubmitAdjustableStop { side, .. } => Some((*side, None)),
+        }
+    }
+
+    /// The order of this request with a price off the contract's price
+    /// grid (`off_grid`, `signed` for a rule that allows prices at or
+    /// below 0), as the reference checks it (ibx#263): None when
+    /// every checked price is on the grid. A bracket answers for the first
+    /// leg found.
+    pub fn off_grid_order(&self, tick: i64, signed: bool) -> Option<OrderId> {
+        let off = |prices: &[Price]| prices.iter().any(|&p| off_grid(p, tick, signed));
+        let checked: (OrderId, [Price; 2]) = match self {
+            Self::Cancel { .. } | Self::CancelAll { .. } | Self::GlobalCancel
             | Self::SubmitMarket { .. } | Self::SubmitMoc { .. }
             | Self::SubmitMtl { .. } | Self::SubmitMktPrt { .. }
-            | Self::SubmitSnapMkt { .. } | Self::SubmitSnapMid { .. }
-            | Self::SubmitSnapPri { .. } | Self::SubmitMtlAuc { .. } => {}
-            Self::Modify { kind, .. } => kind.snap_prices(tick),
-            Self::SubmitLimit { price, .. }
-            | Self::SubmitLimitGtc { price, .. }
-            | Self::SubmitLimitIoc { price, .. }
-            | Self::SubmitLimitFok { price, .. }
-            | Self::SubmitLimitEx { price, .. }
-            | Self::SubmitLimitOpg { price, .. }
-            | Self::SubmitLimitAuc { price, .. }
-            | Self::SubmitLimitFractional { price, .. }
-            | Self::SubmitAdaptive { price, .. }
-            | Self::SubmitAlgo { price, .. }
-            | Self::SubmitWhatIf { price, .. }
-            | Self::SubmitLoc { price, .. } => s(price),
-            Self::SubmitStop { stop_price, .. }
-            | Self::SubmitStopGtc { stop_price, .. }
-            | Self::SubmitMit { stop_price, .. }
-            | Self::SubmitStpPrt { stop_price, .. } => s(stop_price),
-            Self::SubmitStopLimit { price, stop_price, .. }
-            | Self::SubmitStopLimitGtc { price, stop_price, .. }
-            | Self::SubmitLit { price, stop_price, .. } => { s(price); s(stop_price); }
-            Self::SubmitTrailingStop { trail_amt, trail_stop_price, .. } => { s(trail_amt); s(trail_stop_price); }
-            Self::SubmitTrailingStopLimit { lmt_offset, lmt_price, trail_amt, trail_stop_price, .. } => {
-                s(lmt_offset); if let Some(p) = lmt_price { s(p); } s(trail_amt); s(trail_stop_price);
+            | Self::SubmitMtlAuc { .. }
+            | Self::SubmitTrailingStopPct { .. } | Self::SubmitTrailingStopPctEx { .. } => return None,
+            Self::SubmitWhatIf { request } => return request.off_grid_order(tick, signed),
+            Self::Modify { order_id, kind, .. } | Self::SubmitEx { order_id, kind, .. } => (*order_id, kind.grid_prices()),
+            Self::SubmitLimit { order_id, price, .. }
+            | Self::SubmitLimitGtc { order_id, price, .. }
+            | Self::SubmitLimitIoc { order_id, price, .. }
+            | Self::SubmitLimitFok { order_id, price, .. }
+            | Self::SubmitLimitEx { order_id, price, .. }
+            | Self::SubmitLimitOpg { order_id, price, .. }
+            | Self::SubmitLimitAuc { order_id, price, .. }
+            | Self::SubmitLimitFractional { order_id, price, .. }
+            | Self::SubmitAdaptive { order_id, price, .. }
+            | Self::SubmitAlgo { order_id, price, .. }
+            | Self::SubmitLoc { order_id, price, .. }
+            | Self::SubmitMidPrice { order_id, price_cap: price, .. } => (*order_id, [*price, 0]),
+            Self::SubmitStop { order_id, stop_price, .. }
+            | Self::SubmitStopGtc { order_id, stop_price, .. }
+            | Self::SubmitMit { order_id, stop_price, .. }
+            | Self::SubmitStpPrt { order_id, stop_price, .. }
+            | Self::SubmitAdjustableStop { order_id, stop_price, .. } => (*order_id, [0, *stop_price]),
+            Self::SubmitStopLimit { order_id, price, stop_price, .. }
+            | Self::SubmitStopLimitGtc { order_id, price, stop_price, .. }
+            | Self::SubmitLit { order_id, price, stop_price, .. } => (*order_id, [*price, *stop_price]),
+            Self::SubmitTrailingStop { order_id, trail_amt, .. } => (*order_id, [0, *trail_amt]),
+            Self::SubmitTrailingStopLimit { order_id, lmt_price, trail_amt, .. } => (*order_id, [lmt_price.unwrap_or(0), *trail_amt]),
+            Self::SubmitPegMkt { order_id, price, offset, .. }
+            | Self::SubmitPegMid { order_id, price, offset, .. } => (*order_id, [*price, *offset]),
+            Self::SubmitRel { order_id, offset, .. }
+            | Self::SubmitSnapMkt { order_id, offset, .. }
+            | Self::SubmitSnapMid { order_id, offset, .. }
+            | Self::SubmitSnapPri { order_id, offset, .. } => (*order_id, [0, *offset]),
+            Self::SubmitPegBench { order_id, price, .. } => (*order_id, [0, *price]),
+            Self::SubmitBracket { parent_id, tp_id, sl_id, entry_price, take_profit, stop_loss, .. } => {
+                return [(*parent_id, [*entry_price, 0]), (*tp_id, [*take_profit, 0]), (*sl_id, [0, *stop_loss])]
+                    .into_iter().find(|(_, prices)| off(prices)).map(|(id, _)| id);
             }
-            Self::SubmitTrailingStopPct { trail_stop_price, .. }
-            | Self::SubmitTrailingStopPctEx { trail_stop_price, .. } => s(trail_stop_price),
-            Self::SubmitMidPrice { price_cap, .. } => s(price_cap),
-            Self::SubmitRel { offset, .. }
-            | Self::SubmitPegMkt { offset, .. }
-            | Self::SubmitPegMid { offset, .. } => s(offset),
-            Self::SubmitBracket { entry_price, take_profit, stop_loss, .. } => {
-                s(entry_price); s(take_profit); s(stop_loss);
-            }
-            Self::SubmitPegBench { price, pegged_change_amount, ref_change_amount, .. } => {
-                s(price); s(pegged_change_amount); s(ref_change_amount);
-            }
-            Self::SubmitAdjustableStop {
-                stop_price, trigger_price, adjusted_stop_price, adjusted_stop_limit_price,
-                adjusted_trailing_amount, adjustable_trailing_unit, ..
-            } => {
-                s(stop_price); s(trigger_price); s(adjusted_stop_price); s(adjusted_stop_limit_price);
-                // Snap the trailing amount only when it is an absolute price
-                // offset; a percent (unit 100) is not a price and must not snap.
-                if *adjustable_trailing_unit == 0 { s(adjusted_trailing_amount); }
-            }
-            Self::SubmitEx { kind, .. } => kind.snap_prices(tick),
-        }
+        };
+        off(&checked.1).then_some(checked.0)
     }
 }
 
-/// Pre-allocated buffer for pending order requests. Never allocates on the hot path.
+/// Pre-allocated buffer for pending order requests. Allocates on the hot
+/// path only for a burst past its capacity (more than 64 orders in one
+/// pass, or held while the auth link is down): the reference has no limit.
 /// Created once with capacity, then push/clear cycle each tick.
 pub struct OrderBuffer {
     buf: Vec<OrderRequest>,
@@ -1162,7 +1560,6 @@ impl OrderBuffer {
     }
 
     pub fn push(&mut self, req: OrderRequest) {
-        debug_assert!(self.buf.len() < MAX_PENDING_ORDERS, "order buffer overflow");
         self.buf.push(req);
     }
 
@@ -1170,47 +1567,153 @@ impl OrderBuffer {
         self.buf.drain(..)
     }
 
+    /// Put requests back ahead of the queued ones, in their order.
+    pub fn prepend(&mut self, reqs: Vec<OrderRequest>) {
+        self.buf.splice(0..0, reqs);
+    }
+
     pub fn is_empty(&self) -> bool {
         self.buf.is_empty()
     }
 }
 
-/// Tick-by-tick data type for subscription requests.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TbtType {
-    /// Last trade ticks (AllLast).
-    Last,
-    /// Bid/ask quote ticks (BidAsk).
-    BidAsk,
+/// The client's market data modes, as the reference sets them from
+/// reqMarketDataType (ibx#447): 1 turns all off; 2 turns frozen on and
+/// leaves the delayed modes; 3 turns delayed on and delayed-frozen off,
+/// leaving frozen; 4 turns delayed and delayed-frozen on.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MarketDataModes {
+    pub frozen: bool,
+    pub delayed: bool,
+    pub delayed_frozen: bool,
 }
 
-/// A single tick-by-tick trade (AllLast) from 35=E.
+impl MarketDataModes {
+    /// Apply a reqMarketDataType value; false (nothing changed) outside
+    /// 1..=4, which the reference refuses.
+    pub fn apply(&mut self, market_data_type: i32) -> bool {
+        match market_data_type {
+            1 => *self = Self::default(),
+            2 => self.frozen = true,
+            3 => { self.delayed = true; self.delayed_frozen = false; }
+            4 => { self.delayed = true; self.delayed_frozen = true; }
+            _ => return false,
+        }
+        true
+    }
+
+    /// The per-entry mode code of a subscription, from the reference's
+    /// table: 0 real time, 1 delayed, 2 frozen, 3 delayed frozen.
+    pub fn entry_mode(frozen: bool, delayed: bool) -> i32 {
+        match (frozen, delayed) {
+            (false, false) => 0,
+            (false, true) => 1,
+            (true, false) => 2,
+            (true, true) => 3,
+        }
+    }
+}
+
+/// Tick-by-tick data type for subscription requests: the four types of
+/// the API, each asked under its own name (ibx#455).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TbtType {
+    /// Last trade ticks ("Last").
+    Last,
+    /// All trade ticks ("AllLast").
+    AllLast,
+    /// Bid/ask quote ticks ("BidAsk").
+    BidAsk,
+    /// Midpoint ticks ("MidPoint").
+    MidPoint,
+}
+
+impl TbtType {
+    /// The type of an API tick type string: exactly one of the four names,
+    /// case sensitive, as the reference checks it; None otherwise.
+    pub fn from_api(tick_type: &str) -> Option<Self> {
+        match tick_type {
+            "Last" => Some(TbtType::Last),
+            "AllLast" => Some(TbtType::AllLast),
+            "BidAsk" => Some(TbtType::BidAsk),
+            "MidPoint" => Some(TbtType::MidPoint),
+            _ => None,
+        }
+    }
+
+    /// The API name, also the name the request is sent with.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TbtType::Last => "Last",
+            TbtType::AllLast => "AllLast",
+            TbtType::BidAsk => "BidAsk",
+            TbtType::MidPoint => "MidPoint",
+        }
+    }
+
+    /// The tickType a client reports: 1 Last, 2 AllLast, 3 BidAsk, 4
+    /// MidPoint.
+    pub fn api_tick_type(self) -> i32 {
+        match self {
+            TbtType::Last => 1,
+            TbtType::AllLast => 2,
+            TbtType::BidAsk => 3,
+            TbtType::MidPoint => 4,
+        }
+    }
+}
+
+/// A single tick-by-tick trade (Last or AllLast) from 35=E, for one
+/// request of the stream (ibx#455).
 #[derive(Debug, Clone)]
 pub struct TbtTrade {
     pub instrument: InstrumentId,
+    pub req_id: ReqId,
+    /// Last or AllLast: the tickType the request reports.
+    pub tbt_type: TbtType,
     pub price: Price,
     pub size: i64,
     pub timestamp: u64,
     pub exchange: String,
     pub conditions: String,
+    /// Attribute bits 0 and 1 of the entry (ibx#404).
+    pub past_limit: bool,
+    pub unreported: bool,
 }
 
-/// A single tick-by-tick bid/ask quote from 35=E.
+/// A single tick-by-tick bid/ask quote from 35=E, for one request of the
+/// stream (ibx#455).
 #[derive(Debug, Clone, Copy)]
 pub struct TbtQuote {
     pub instrument: InstrumentId,
+    pub req_id: ReqId,
     pub bid: Price,
     pub ask: Price,
     pub bid_size: i64,
     pub ask_size: i64,
+    pub timestamp: u64,
+    /// Attribute bits 0 and 1 of the entry (ibx#404).
+    pub bid_past_low: bool,
+    pub ask_past_high: bool,
+}
+
+/// A single tick-by-tick midpoint from 35=E, for one request of the
+/// stream (ibx#404).
+#[derive(Debug, Clone, Copy)]
+pub struct TbtMidPoint {
+    pub instrument: InstrumentId,
+    pub req_id: ReqId,
+    pub mid_point: Price,
     pub timestamp: u64,
 }
 
 /// An IB news bulletin from auth server news bulletin message.
 #[derive(Debug, Clone)]
 pub struct NewsBulletin {
+    /// Message id given by the server (ibx#461).
     pub msg_id: i32,
-    /// 1=Regular, 2=Exchange unavailable, 3=Exchange available.
+    /// 1=Regular, 2=Exchange available, 3=Exchange unavailable, 4=HTML,
+    /// 5=Popup text, 6=Popup HTML (ibx#461).
     pub msg_type: i32,
     pub message: String,
     pub exchange: String,
@@ -1219,7 +1722,7 @@ pub struct NewsBulletin {
 /// A market depth (L2 order book) update.
 #[derive(Debug, Clone)]
 pub struct DepthUpdate {
-    pub req_id: u32,
+    pub req_id: ReqId,
     /// Book position (0-based).
     pub position: i32,
     /// Market maker ID (L2 only).
@@ -1231,6 +1734,9 @@ pub struct DepthUpdate {
     pub price: f64,
     pub size: f64,
     pub is_smart_depth: bool,
+    /// Sent as updateMktDepthL2 (SmartDepth, or a book with market
+    /// makers), else as updateMktDepth (#451).
+    pub l2: bool,
 }
 
 /// Exchange metadata for market depth availability.
@@ -1243,8 +1749,27 @@ pub struct DepthMktDataDescription {
     pub agg_group: i32,
 }
 
+/// The reference's security type ids (`SecType` values), by API
+/// security type (ibx#449, ibx#441).
+const SEC_TYPE_IDS: [(&str, u8); 23] = [
+    ("STK", 1), ("CFD", 2), ("OPT", 3), ("FOP", 4), ("WAR", 5), ("FUT", 6), ("FWD", 7),
+    ("BAG", 8), ("CASH", 10), ("IND", 11), ("BOND", 12), ("BILL", 13), ("FIXED", 14),
+    ("FUND", 15), ("SLB", 16), ("NEWS", 17), ("CMDTY", 18), ("BSK", 19), ("IOPT", 20),
+    ("ICU", 21), ("ICS", 22), ("PHYSS", 23), ("CRYPTO", 24),
+];
+
+/// The reference's security type id of an API security type.
+pub fn sec_type_id(sec_type: &str) -> Option<u8> {
+    SEC_TYPE_IDS.iter().find(|(name, _)| *name == sec_type).map(|(_, id)| *id)
+}
+
+/// The API security type of a security type id.
+pub fn sec_type_by_id(id: u8) -> Option<&'static str> {
+    SEC_TYPE_IDS.iter().find(|(_, i)| *i == id).map(|(name, _)| *name)
+}
+
 /// A component exchange in a SMART routing map.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SmartComponent {
     pub bit_number: i32,
     pub exchange: String,
@@ -1273,45 +1798,57 @@ pub struct FamilyCode {
     pub family_code_str: String,
 }
 
-/// A real-time news headline from 8=O|35=G tick type 0x1E90.
-#[derive(Debug, Clone)]
+/// A news headline of a contract's news tick (ibx#458), as the reference
+/// gives it to tickNews.
+#[derive(Debug, Clone, PartialEq)]
 pub struct TickNews {
     pub instrument: InstrumentId,
     pub provider_code: String,
     pub article_id: String,
+    /// The headline without its leading `{...}` part.
     pub headline: String,
-    pub timestamp: u64,
+    /// Time of the headline, epoch milliseconds.
+    pub timestamp: i64,
+    /// The text between the first `{` and the next `}` of the raw headline.
+    pub extra_data: String,
 }
 
-/// A historical tick (midpoint).
-#[derive(Debug, Clone)]
+/// A historical tick (midpoint), as the official `HistoricalTick` (ibx#432):
+/// time in Unix seconds, and a size (0 for a midpoint).
+#[derive(Debug, Clone, PartialEq)]
 pub struct HistoricalTickMidpoint {
-    pub time: String,
+    pub time: i64,
     pub price: f64,
+    pub size: f64,
 }
 
-/// A historical tick (last trade).
-#[derive(Debug, Clone)]
+/// A historical tick (last trade), as the official `HistoricalTickLast`
+/// (ibx#432): time in Unix seconds, the past limit and unreported flags.
+#[derive(Debug, Clone, PartialEq)]
 pub struct HistoricalTickLast {
-    pub time: String,
+    pub time: i64,
+    pub tick_attrib_last: crate::api::types::TickAttribLast,
     pub price: f64,
-    pub size: i64,
+    pub size: f64,
     pub exchange: String,
     pub special_conditions: String,
 }
 
-/// A historical tick (bid/ask).
-#[derive(Debug, Clone)]
+/// A historical tick (bid/ask), as the official `HistoricalTickBidAsk`
+/// (ibx#432): time in Unix seconds, the bid past low and ask past high
+/// flags.
+#[derive(Debug, Clone, PartialEq)]
 pub struct HistoricalTickBidAsk {
-    pub time: String,
-    pub bid_price: f64,
-    pub ask_price: f64,
-    pub bid_size: i64,
-    pub ask_size: i64,
+    pub time: i64,
+    pub tick_attrib_bid_ask: crate::api::types::TickAttribBidAsk,
+    pub price_bid: f64,
+    pub price_ask: f64,
+    pub size_bid: f64,
+    pub size_ask: f64,
 }
 
 /// Historical tick data (one of three types based on whatToShow).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum HistoricalTickData {
     Midpoint(Vec<HistoricalTickMidpoint>),
     Last(Vec<HistoricalTickLast>),
@@ -1375,32 +1912,112 @@ pub struct SecDefFilters {
     /// lookup rides the identifier instead of the symbol (ib-agent#174).
     pub sec_id: String,
     pub sec_id_type: String,
+    /// Expired contracts are included (ibx#229).
+    pub include_expired: bool,
+    /// Bond issuer id (ibx#438): when set, the lookup is for the issuer's
+    /// bonds.
+    pub issuer_id: String,
+}
+
+impl SecDefFilters {
+    /// The strike of a lookup, empty when unset: 0 (the Rust API's unset
+    /// strike) or the maximum double (the official API's).
+    pub fn strike_text(&self) -> String {
+        if self.strike > 0.0 && self.strike != f64::MAX { format!("{}", self.strike) } else { String::new() }
+    }
+}
+
+/// A contract as the API gave it, for a lookup by symbol (ibx#427).
+#[derive(Debug, Clone, Default)]
+pub struct ContractLookup {
+    pub symbol: String,
+    pub sec_type: String,
+    pub exchange: String,
+    pub currency: String,
+    pub filters: SecDefFilters,
 }
 
 /// Commands sent from the control plane to the hot loop via SPSC channel.
 #[derive(Debug, Clone)]
 pub enum ControlCommand {
+    /// A historical-data request for a contract with no conId (ibx#427):
+    /// the contract is looked up first. With exactly one contract found,
+    /// `request` is sent with its conId; otherwise the request gets error
+    /// 200 and no query is sent.
+    ResolveContract {
+        req_id: ReqId,
+        lookup: ContractLookup,
+        request: Box<ControlCommand>,
+    },
     /// Subscribe to market data for a contract.
     /// `exchange` and `sec_type` determine farm routing (empty = UsFarm default).
-    /// `mode_9887` encodes per-request market-data mode via FIX field 9887:
-    /// 0 = REALTIME (absent, default fan-out 264=442 BID_ASK + 264=443 LAST),
-    /// 1 = DELAYED, 2 = FROZEN, 3 = DELAYED_FROZEN (single 264=1 TOP + 9887=N).
+    /// `mode_9887` is the per-request market-data mode sent on each entry
+    /// of the bid/ask and last pair: 0 = REALTIME (none sent), 1 = DELAYED,
+    /// 2 = FROZEN, 3 = DELAYED_FROZEN (`MarketDataModes::entry_mode`).
+    /// `snapshot` asks the pair once, as a snapshot, instead of a stream
+    /// (ibx#446).
     Subscribe {
         con_id: i64, symbol: String, exchange: String, sec_type: String,
         last_trade_date: String, strike: f64, right: String, multiplier: String,
-        mode_9887: i32,
+        mode_9887: i32, snapshot: bool,
+        reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>>,
+    },
+    /// Subscribe to market data for a contract given without a conId
+    /// (ibx#278): the engine looks the contract up first, as the
+    /// reference does, then subscribes with the conId found. The reply
+    /// gives the instrument at once; a lookup that finds no single contract
+    /// ends the subscription with error 200.
+    SubscribeBySymbol {
+        symbol: String, sec_type: String, exchange: String, currency: String,
+        filters: SecDefFilters,
+        mode_9887: i32, snapshot: bool,
         reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>>,
     },
     /// Unsubscribe from market data for an instrument.
     Unsubscribe { instrument: InstrumentId },
+    /// The client's reqMarketDataType (1..4), applied to the engine's
+    /// `MarketDataModes`: with delayed on, a subscription the server
+    /// rejects switches to delayed data (ibx#447).
+    SetMarketDataType { market_data_type: i32 },
     /// Subscribe to tick-by-tick data via historical data connection.
-    SubscribeTbt { con_id: i64, symbol: String, tbt_type: TbtType, reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>> },
-    /// Unsubscribe from tick-by-tick data.
-    UnsubscribeTbt { instrument: InstrumentId },
-    /// Subscribe to per-contract news ticks via CCP (264=292).
-    SubscribeNews { con_id: i64, symbol: String, providers: String, reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>> },
-    /// Unsubscribe from per-contract news ticks.
-    UnsubscribeNews { instrument: InstrumentId },
+    /// `number_of_ticks` above 0 asks for that many past ticks first,
+    /// given to `req_id` as historical ticks; `ignore_size` sends the size
+    /// filter. A request for a stream that exists (same contract, type and
+    /// size filter) joins it, with no new query (ibx#455).
+    SubscribeTbt {
+        req_id: ReqId,
+        con_id: i64, symbol: String, exchange: String, sec_type: String,
+        tbt_type: TbtType, number_of_ticks: i32, ignore_size: bool,
+        reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>>,
+    },
+    /// End the tick-by-tick request `req_id`: its stream is cancelled once
+    /// no request is left on it.
+    UnsubscribeTbt { req_id: ReqId },
+    /// The news tick of a market data request (generic tick 292, ibx#458),
+    /// given after its `Subscribe` / `SubscribeBySymbol`: the news entry
+    /// goes to the farm of the contract's route with the request's top of
+    /// book. `providers` is the provider key (codes sorted, comma
+    /// separated); a `refusal` (the text of error 10094) ends the request
+    /// once its contract is known, before anything is sent. The news entry
+    /// is cancelled with the request (`Unsubscribe`).
+    SubscribeNews {
+        instrument: InstrumentId, con_id: i64, exchange: String, sec_type: String,
+        providers: String, refusal: Option<String>,
+    },
+    /// A request with the news tick left an instrument other requests
+    /// still use (ibx#444): its share of the news entry with this provider
+    /// key goes; the entry is cancelled when no request uses it.
+    UnsubscribeNews { instrument: InstrumentId, providers: String },
+    /// The generic ticks of a market data request (ibx#450), request codes,
+    /// given after its `Subscribe` / `SubscribeBySymbol`: each one the
+    /// contract does not have yet is an entry on the farm of the contract's
+    /// route, at once or once its top of book is acknowledged
+    /// (`control::generic_values`). The entries are cancelled with the
+    /// request (`Unsubscribe`).
+    SubscribeGeneric { instrument: InstrumentId, con_id: i64, exchange: String, sec_type: String, codes: Vec<i32> },
+    /// A request with generic ticks left an instrument other requests still
+    /// use (ibx#450): the entries no request needs any more are cancelled.
+    UnsubscribeGeneric { instrument: InstrumentId, codes: Vec<i32> },
     /// Subscribe to whole-account P&L via CCP (6040=142).
     SubscribePnl { req_id: i64, account: String },
     /// Cancel P&L subscription.
@@ -1420,34 +2037,52 @@ pub enum ControlCommand {
     Order(OrderRequest),
     /// Register an instrument from external caller (bridge mode).
     RegisterInstrument { con_id: i64, symbol: String, sec_type: String, exchange: String, reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>> },
+    /// A slot of its own for the contract of an order given without a
+    /// conId: the engine looks the contract up before the order goes out,
+    /// as the reference does for each API order (ibx#486).
+    RegisterOrderContract { symbol: String, sec_type: String, exchange: String, currency: String, reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>> },
     /// Request historical bar data via historical data connection.
     FetchHistorical {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
         symbol: String,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         end_date_time: String,
         duration: String,
         bar_size: String,
         what_to_show: String,
         use_rth: bool,
         keep_up_to_date: bool,
+        /// The contract includes expired contracts (ibx#427).
+        include_expired: bool,
+        /// How bar times are written: 1, 2 or 3 (ibx#431).
+        format_date: i32,
     },
     /// Measure auth-connection round-trip time (ibx#158): sends a
     /// test request immediately; the sample lands in
     /// `SharedState::last_ccp_rtt` when the reply arrives.
     Ping,
     /// Cancel a historical data request.
-    CancelHistorical { req_id: u32 },
+    CancelHistorical { req_id: ReqId },
     /// Request head timestamp via historical data connection.
     FetchHeadTimestamp {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         what_to_show: String,
         use_rth: bool,
+        /// How the time is written: 1, 2 or 3 (ibx#431).
+        format_date: i32,
     },
     /// Request contract details via auth connection.
     FetchContractDetails {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
         symbol: String,
         sec_type: String,
@@ -1456,27 +2091,37 @@ pub enum ControlCommand {
         filters: SecDefFilters,
     },
     /// Cancel a head timestamp request.
-    CancelHeadTimestamp { req_id: u32 },
+    CancelHeadTimestamp { req_id: ReqId },
     /// Search for matching symbols via auth connection.
-    FetchMatchingSymbols { req_id: u32, pattern: String },
+    FetchMatchingSymbols { req_id: ReqId, pattern: String },
+    /// Option chain parameters of an underlying via auth connection
+    /// (ibx#440), after the local checks.
+    FetchSecDefOptParams {
+        req_id: ReqId,
+        underlying_symbol: String,
+        fut_fop_exchange: String,
+        /// The type as the reference reads it: FUT, STK, IND or CASH.
+        underlying_sec_type: String,
+        underlying_con_id: i64,
+    },
     /// Request available exchanges for market depth.
     FetchMktDepthExchanges,
     /// Request scanner parameter XML via historical data connection.
     FetchScannerParams,
     /// Subscribe to a scanner scan via historical data connection.
     SubscribeScanner {
-        req_id: u32,
-        instrument: String,
-        location_code: String,
-        scan_code: String,
-        max_items: u32,
+        req_id: ReqId,
+        /// Client id of the session, part of the subscription id (ibx#457).
+        client_id: i64,
+        /// The checked request, with its filters (ibx#456).
+        subscription: crate::control::scanner::ScannerSubscription,
     },
     /// Cancel a scanner subscription.
-    CancelScanner { req_id: u32 },
+    CancelScanner { req_id: ReqId },
     /// Request historical news via historical data connection.
     FetchHistoricalNews {
-        req_id: u32,
-        con_id: u32,
+        req_id: ReqId,
+        con_id: i64,
         provider_codes: String,
         start_time: String,
         end_time: String,
@@ -1484,58 +2129,96 @@ pub enum ControlCommand {
     },
     /// Request a news article via historical data connection.
     FetchNewsArticle {
-        req_id: u32,
+        req_id: ReqId,
         provider_code: String,
         article_id: String,
     },
     /// Request fundamental data via historical data connection.
     FetchFundamentalData {
-        req_id: u32,
-        con_id: u32,
+        req_id: ReqId,
+        con_id: i64,
         report_type: String,
     },
     /// Cancel fundamental data request.
-    CancelFundamentalData { req_id: u32 },
+    CancelFundamentalData { req_id: ReqId },
+    /// Regulatory snapshot of a contract (ibx#446): one snapshot request to
+    /// the farm, answered into the instrument's record.
+    SubscribeSnapshot {
+        con_id: i64, symbol: String, exchange: String, sec_type: String,
+        reply_tx: Option<crossbeam_channel::Sender<Result<InstrumentId, String>>>,
+    },
+    /// End of a regulatory snapshot: its request is forgotten, nothing is
+    /// sent to the farm.
+    DropSnapshot { instrument: InstrumentId },
+    /// Option calculation (implied volatility or price) of an option by
+    /// conId, answered by the local option model.
+    CalcOption {
+        req_id: ReqId,
+        con_id: i64,
+        kind: crate::control::optcalc::CalcKind,
+        under_price: f64,
+    },
     /// Request histogram data via historical data connection.
     FetchHistogramData {
-        req_id: u32,
-        con_id: u32,
+        req_id: ReqId,
+        con_id: i64,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         use_rth: bool,
         period: String,
     },
     /// Cancel histogram data request.
-    CancelHistogramData { req_id: u32 },
+    CancelHistogramData { req_id: ReqId },
     /// Request historical ticks via historical data connection.
     FetchHistoricalTicks {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
+        /// Symbol of the chart name of the query: the local symbol when
+        /// given, else the symbol (ibx#432).
+        symbol: String,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         start_date_time: String,
         end_date_time: String,
-        number_of_ticks: u32,
+        number_of_ticks: i32,
         what_to_show: String,
         use_rth: bool,
+        /// BID_ASK without sizes (ibx#432).
+        ignore_size: bool,
     },
     /// Subscribe to real-time 5-second bars via historical data connection.
     SubscribeRealTimeBar {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
         symbol: String,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         what_to_show: String,
         use_rth: bool,
     },
     /// Cancel real-time bar subscription.
-    CancelRealTimeBar { req_id: u32 },
+    CancelRealTimeBar { req_id: ReqId },
     /// Request historical schedule via historical data connection.
     FetchHistoricalSchedule {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
+        /// Security type of the API contract (ibx#305). Empty is a stock.
+        sec_type: String,
+        /// Exchange of the API contract (ibx#305). Empty is `SMART`.
+        exchange: String,
         end_date_time: String,
         duration: String,
         use_rth: bool,
     },
     /// Subscribe to market depth (L2) for a contract.
     SubscribeDepth {
-        req_id: u32,
+        req_id: ReqId,
         con_id: i64,
         exchange: String,
         sec_type: String,
@@ -1543,15 +2226,15 @@ pub enum ControlCommand {
         is_smart_depth: bool,
     },
     /// Unsubscribe from market depth.
-    UnsubscribeDepth { req_id: u32 },
+    UnsubscribeDepth { req_id: ReqId },
     /// Request news providers list (gateway-local).
-    FetchNewsProviders { req_id: u32 },
+    FetchNewsProviders { req_id: ReqId },
     /// Request SMART routing components.
-    FetchSmartComponents { req_id: u32, bbo_exchange: String },
+    FetchSmartComponents { req_id: ReqId, bbo_exchange: String },
     /// Request soft dollar tiers.
-    FetchSoftDollarTiers { req_id: u32 },
+    FetchSoftDollarTiers { req_id: ReqId },
     /// Request user info.
-    FetchUserInfo { req_id: u32 },
+    FetchUserInfo { req_id: ReqId },
     /// Graceful shutdown.
     Shutdown,
 }
@@ -1613,6 +2296,27 @@ pub struct MidnightSeed {
 mod tests {
     use super::*;
     use std::mem;
+
+    // ibx#447: the reference's reqMarketDataType table, and the entry mode
+    // of each frozen / delayed pair.
+    #[test]
+    fn market_data_modes_follow_the_reference_table() {
+        let mut m = MarketDataModes::default();
+        assert!(m.apply(3));
+        assert_eq!(m, MarketDataModes { frozen: false, delayed: true, delayed_frozen: false });
+        assert!(m.apply(2));
+        assert_eq!(m, MarketDataModes { frozen: true, delayed: true, delayed_frozen: false }, "2 keeps delayed");
+        assert!(m.apply(4));
+        assert_eq!(m, MarketDataModes { frozen: true, delayed: true, delayed_frozen: true });
+        assert!(m.apply(3));
+        assert_eq!(m, MarketDataModes { frozen: true, delayed: true, delayed_frozen: false }, "3 keeps frozen");
+        assert!(!m.apply(0) && !m.apply(5));
+        assert_eq!(m, MarketDataModes { frozen: true, delayed: true, delayed_frozen: false });
+        assert!(m.apply(1));
+        assert_eq!(m, MarketDataModes::default());
+        assert_eq!([(false, false), (false, true), (true, false), (true, true)]
+            .map(|(f, d)| MarketDataModes::entry_mode(f, d)), [0, 1, 2, 3]);
+    }
 
     // --- Quote layout ---
 
@@ -1701,7 +2405,7 @@ mod tests {
         let mut buf = OrderBuffer::new();
         let cap_before = buf.buf.capacity();
         for i in 0..MAX_PENDING_ORDERS {
-            buf.push(OrderRequest::Cancel { order_id: i as u64 });
+            buf.push(OrderRequest::Cancel { order_id: i as OrderId });
         }
         // Capacity should not have grown (pre-allocated)
         assert_eq!(buf.buf.capacity(), cap_before);
@@ -1855,7 +2559,7 @@ mod tests {
         let mut buf = OrderBuffer::new();
         for cycle in 0..10 {
             for i in 0..5 {
-                buf.push(OrderRequest::Cancel { order_id: (cycle * 5 + i) as u64 });
+                buf.push(OrderRequest::Cancel { order_id: (cycle * 5 + i) as OrderId });
             }
             let drained: Vec<_> = buf.drain().collect();
             assert_eq!(drained.len(), 5);
@@ -1892,89 +2596,59 @@ mod tests {
         }
     }
 
-    // ── ibx#216: snap-to-tick ──
+    // ── ibx#263: a price off the grid is refused, not snapped (ibx#216) ──
 
     const TICK_CENT: i64 = PRICE_SCALE / 100; // 0.01
 
     #[test]
-    fn snap_to_tick_rounds_to_nearest() {
-        // 150.123 on a 0.01 grid -> 150.12
-        assert_eq!(snap_to_tick(15_012_300_000, TICK_CENT), 15_012_000_000);
-        // 150.126 -> 150.13
-        assert_eq!(snap_to_tick(15_012_600_000, TICK_CENT), 15_013_000_000);
-        // Exact multiples unchanged.
-        assert_eq!(snap_to_tick(15_012_000_000, TICK_CENT), 15_012_000_000);
-        // Tie (150.125) rounds away from zero -> 150.13
-        assert_eq!(snap_to_tick(15_012_500_000, TICK_CENT), 15_013_000_000);
-        // Negative price mirrors: -150.125 -> -150.13
-        assert_eq!(snap_to_tick(-15_012_500_000, TICK_CENT), -15_013_000_000);
-        // 0.05 grid: 10.02 -> 10.00, 10.03 -> 10.05
+    fn off_grid_is_a_negative_price_or_one_off_the_tick() {
+        assert!(!off_grid(15_012_000_000, TICK_CENT, false));
+        assert!(off_grid(15_012_300_000, TICK_CENT, false));
+        assert!(!off_grid(0, TICK_CENT, false));
         let nickel = 5 * TICK_CENT;
-        assert_eq!(snap_to_tick(10_02_000_000, nickel), 10_00_000_000);
-        assert_eq!(snap_to_tick(10_03_000_000, nickel), 10_05_000_000);
-        // Unknown tick: unchanged.
-        assert_eq!(snap_to_tick(15_012_345_678, 0), 15_012_345_678);
-        assert_eq!(snap_to_tick(15_012_345_678, -1), 15_012_345_678);
-        // Zero price stays zero (MidPrice "no cap" sentinel).
-        assert_eq!(snap_to_tick(0, TICK_CENT), 0);
+        assert!(off_grid(10_02_000_000, nickel, false));
+        assert!(!off_grid(10_05_000_000, nickel, false));
+        // Unknown tick: only a negative price is refused (ib-agent#192 B5:
+        // a REL offset of -0.50).
+        assert!(!off_grid(15_012_345_678, 0, false));
+        assert!(off_grid(-50_000_000, 0, false));
+        assert!(off_grid(-50_000_000, TICK_CENT, false));
+        // A combo's rule allows a price at or below 0 (`jclient.dy.cP()`;
+        // captured BAG limits -73.15 and -50.10, ibx#470), on its tick.
+        assert!(!off_grid(-7_315_000_000, 0, true));
+        assert!(!off_grid(-5_010_000_000, TICK_CENT, true));
+        assert!(off_grid(-5_010_500_000, TICK_CENT, true));
     }
 
     #[test]
-    fn snap_prices_limit_and_stop_fields() {
-        let mut req = OrderRequest::SubmitStopLimit {
-            order_id: 1, instrument: 0, side: Side::Buy, qty: 1,
-            price: 15_012_345_678, stop_price: 15_099_999_999,
+    fn off_grid_checks_the_limit_and_the_stop_or_offset_prices() {
+        let stop_limit = |price, stop_price| OrderRequest::SubmitStopLimit {
+            order_id: 3, instrument: 0, side: Side::Buy, qty: 1, price, stop_price,
         };
-        req.snap_prices(TICK_CENT);
-        match req {
-            OrderRequest::SubmitStopLimit { price, stop_price, .. } => {
-                assert_eq!(price, 15_012_000_000);
-                assert_eq!(stop_price, 15_100_000_000);
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[test]
-    fn snap_prices_submit_ex_kind() {
-        let mut req = OrderRequest::SubmitEx {
-            order_id: 1, instrument: 0, side: Side::Sell, qty: 1,
-            kind: OrderKind::Stop { stop_price: 24_000_123_456 },
-            tif: b'1', attrs: OrderAttrs::default(),
+        assert_eq!(stop_limit(15_012_000_000, 15_100_000_000).off_grid_order(TICK_CENT, false), None);
+        assert_eq!(stop_limit(15_012_345_678, 15_100_000_000).off_grid_order(TICK_CENT, false), Some(3));
+        assert_eq!(stop_limit(15_012_000_000, 15_099_999_999).off_grid_order(TICK_CENT, false), Some(3));
+        let ex = |kind| OrderRequest::SubmitEx {
+            order_id: 4, instrument: 0, side: Side::Sell, qty: 1, kind, tif: b'1', attrs: OrderAttrs::default(),
         };
-        req.snap_prices(TICK_CENT);
-        match req {
-            OrderRequest::SubmitEx { kind: OrderKind::Stop { stop_price }, .. } => {
-                assert_eq!(stop_price, 24_000_000_000);
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    #[test]
-    fn snap_prices_leaves_percent_trail_alone() {
-        // trail_pct is basis points, not a price — must never be snapped.
-        let mut req = OrderRequest::SubmitTrailingStopPct {
-            order_id: 1, instrument: 0, side: Side::Sell, qty: 1, trail_pct: 137,
-            trail_stop_price: 0,
+        assert_eq!(ex(OrderKind::Stop { stop_price: 24_000_123_456 }).off_grid_order(TICK_CENT, false), Some(4));
+        assert_eq!(ex(OrderKind::Rel { price: 0, offset: -50_000_000 }).off_grid_order(TICK_CENT, false), Some(4));
+        // Not checked: a percent, a trailing stop price, a TRAIL LIMIT offset.
+        assert_eq!(ex(OrderKind::TrailPct { trail_percent: 123_900_000, trail_stop_price: 1 }).off_grid_order(TICK_CENT, false), None);
+        assert_eq!(ex(OrderKind::TrailingStop { trail_amt: TICK_CENT, trail_stop_price: 1 }).off_grid_order(TICK_CENT, false), None);
+        assert_eq!(ex(OrderKind::TrailingStopLimit { lmt_offset: 1, lmt_price: None, trail_amt: TICK_CENT, trail_stop_price: 0 })
+            .off_grid_order(TICK_CENT, false), None);
+        assert_eq!(ex(OrderKind::TrailingStop { trail_amt: 1, trail_stop_price: 0 }).off_grid_order(TICK_CENT, false), Some(4));
+        // A what-if is checked as its order; a bracket answers for its leg.
+        let what_if = OrderRequest::SubmitWhatIf { request: Box::new(stop_limit(15_012_345_678, 0)) };
+        assert_eq!(what_if.off_grid_order(TICK_CENT, false), Some(3));
+        let bracket = OrderRequest::SubmitBracket {
+            parent_id: 10, tp_id: 11, sl_id: 12, instrument: 0, side: Side::Buy, qty: 1,
+            entry_price: 100 * PRICE_SCALE, take_profit: 110 * PRICE_SCALE, stop_loss: 90 * PRICE_SCALE + 1,
         };
-        req.snap_prices(TICK_CENT);
-        match req {
-            OrderRequest::SubmitTrailingStopPct { trail_pct, .. } => assert_eq!(trail_pct, 137),
-            _ => unreachable!(),
-        }
-    }
-
-    #[test]
-    fn snap_prices_unknown_tick_is_noop() {
-        let mut req = OrderRequest::SubmitLimit {
-            order_id: 1, instrument: 0, side: Side::Buy, qty: 1, price: 15_012_345_678,
-        };
-        req.snap_prices(0);
-        match req {
-            OrderRequest::SubmitLimit { price, .. } => assert_eq!(price, 15_012_345_678),
-            _ => unreachable!(),
-        }
+        assert_eq!(bracket.off_grid_order(TICK_CENT, false), Some(12));
+        // Unknown tick: nothing off the grid but a negative price.
+        assert_eq!(stop_limit(15_012_345_678, 0).off_grid_order(0, false), None);
     }
 
     #[test]
@@ -2060,7 +2734,7 @@ mod tests {
 
     #[test]
     fn control_command_subscribe() {
-        let cmd = ControlCommand::Subscribe { con_id: 265598, symbol: "AAPL".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None };
+        let cmd = ControlCommand::Subscribe { con_id: 265598, symbol: "AAPL".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None };
         match cmd {
             ControlCommand::Subscribe { con_id, .. } => assert_eq!(con_id, 265598),
             _ => panic!("wrong variant"),
@@ -2090,7 +2764,7 @@ mod tests {
 
     #[test]
     fn control_command_clone() {
-        let cmd = ControlCommand::Subscribe { con_id: 42, symbol: "TEST".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None };
+        let cmd = ControlCommand::Subscribe { con_id: 42, symbol: "TEST".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None };
         let cmd2 = cmd.clone();
         match cmd2 {
             ControlCommand::Subscribe { con_id, .. } => assert_eq!(con_id, 42),
@@ -2160,7 +2834,7 @@ mod tests {
     // --- WhatIfResponse ---
 
     #[test]
-    fn what_if_response_is_copy() {
+    fn what_if_response_is_clone() {
         let r = WhatIfResponse {
             order_id: 1,
             instrument: 0,
@@ -2171,8 +2845,9 @@ mod tests {
             maint_margin_after: 8143_51 * (PRICE_SCALE / 100),
             equity_with_loan_after: 754_255_14 * (PRICE_SCALE / 100),
             commission: 1 * PRICE_SCALE,
+            ..Default::default()
         };
-        let r2 = r; // Copy
+        let r2 = r.clone();
         assert_eq!(r.init_margin_after, r2.init_margin_after);
         assert_eq!(r.commission, r2.commission);
     }

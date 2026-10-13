@@ -51,7 +51,6 @@ import json
 import gzip
 import datetime
 import statistics
-from bisect import bisect_left
 import sys as _sys
 
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -91,6 +90,20 @@ def next_qe(qe):
     return y2 * 10000 + m2 * 100 + last
 
 
+def ist_today():
+    """Today's date in India (runners are UTC: 00:00-05:30 IST on a quarter's first day is still the old day in UTC)."""
+    return (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()
+
+
+def last_ended_qe(day):
+    """The latest quarter-end strictly before `day` — 2026-10-01 -> 20260930, 2026-09-30 -> 20260630."""
+    y, _m = day.year, day.month
+    for qm, qd in ((12, 31), (9, 30), (6, 30), (3, 31)):
+        if datetime.date(y, qm, qd) < day:
+            return y * 10000 + qm * 100 + qd
+    return (y - 1) * 10000 + 1231
+
+
 def main():
     fund = jload(os.path.join(DOCS, "sf_fundamentals.json"))
     revop = jload(os.path.join(DOCS, "sf_revop.json"))
@@ -116,7 +129,10 @@ def main():
                 bmeta[_new] = bmeta[_old]
             carried += 1
     if carried:
-        print("carried %d renamed price series onto their current ticker (bin lags _rename_map)" % carried)
+        print(
+            "carried %d renamed price series onto their current ticker (bin lags _rename_map)"
+            % carried
+        )
 
     slim_meta = {}
     slim_p = os.path.join(DOCS, "dash_slim.bin")
@@ -174,7 +190,34 @@ def main():
                 q = int(k)
             except Exception:
                 continue
-            latest = max(latest, q)
+            if q > latest:
+                latest = q
+    # BSE-only and vision-read results count too (§218): a quarter's first filers can be BSE-only names
+    # (HIIL filed Sep-2026 on 2026-10-03, before any NSE name) whose numbers live only in bse_fundamentals /
+    # vision_fills — without this the page had no column for them and their filing sat unread.
+    _today = int(ist_today().strftime("%Y%m%d"))
+    for _fn, _key in (("bse_fundamentals.json", "px"), ("vision_fills.json", None)):
+        try:
+            _st = jload(os.path.join(DOCS, _fn))
+        except (OSError, ValueError):
+            continue
+        for _cells in ((_st.get(_key) if _key else _st) or {}).values():
+            for k, c in _cells.items() if isinstance(_cells, dict) else ():
+                try:
+                    q = int(k)
+                except Exception:
+                    continue
+                if (
+                    latest < q < _today
+                    and q % 10000 in (331, 630, 930, 1231)
+                    and isinstance(c, dict)
+                    and c.get("pat") is not None
+                ):
+                    latest = q
+    # CALENDAR RULE (§218, user 2026-10-04: "as soon as the date is first October, quarterly results table should show
+    # September 26, zero results filed … every quarter in future"): the newest column is the latest quarter that has
+    # ENDED by today's IST date, whether or not anyone has filed — a filing can never open its quarter late again.
+    latest = max(latest, last_ended_qe(ist_today()))
     quarters = []
     q = latest
     for _ in range(N_Q):
@@ -183,7 +226,7 @@ def main():
     qidx = {q: i for i, q in enumerate(quarters)}
     print("quarters:", quarters[0], "..", quarters[-1])
 
-    today = datetime.date.today()
+    today = ist_today()
     sr_cut = int((today - datetime.timedelta(days=SR_WINDOW_DAYS)).strftime("%Y%m%d"))
 
     out_co, n_rx, n_sr = {}, 0, 0
@@ -261,7 +304,9 @@ def main():
                 fin_tot += 1
                 fin_ones += 1 if v[6] == 1 else 0
         _kk = klass.get(sym) or klass.get(sym + ".NS") or {}
-        _macro = _kk.get("macro") or (slim_meta.get(sym) or {}).get("sector") or meta.get("ind") or ""
+        _macro = (
+            _kk.get("macro") or (slim_meta.get(sym) or {}).get("sector") or meta.get("ind") or ""
+        )
         _fin_sector = "financial" in _macro.lower()
         fin = 1 if fin_ones >= 1 else 0
         if fin and fin_ones <= 1 and fin_tot >= 8 and not _fin_sector:
@@ -332,7 +377,12 @@ def main():
         }
 
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
-    out = {"updated": ist.strftime("%Y-%m-%d %H:%M IST"), "asof": asof, "quarters": quarters, "co": out_co}
+    out = {
+        "updated": ist.strftime("%Y-%m-%d %H:%M IST"),
+        "asof": asof,
+        "quarters": quarters,
+        "co": out_co,
+    }
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     mb = os.path.getsize(OUT) / 1e6
     n_lq = sum(1 for v in out_co.values() if v["q"][0] is not None)

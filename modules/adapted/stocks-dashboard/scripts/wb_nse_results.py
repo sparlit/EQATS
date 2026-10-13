@@ -90,9 +90,19 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "_wbnse_cache")
 MON = {
-    m: i for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1)
+    m: i
+    for i, m in enumerate(
+        ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], 1
+    )
 }
-SCALE = {"lakhs": 100.0, "lakh": 100.0, "crores": 1.0, "crore": 1.0, "million": 10.0, "millions": 10.0}
+SCALE = {
+    "lakhs": 100.0,
+    "lakh": 100.0,
+    "crores": 1.0,
+    "crore": 1.0,
+    "million": 10.0,
+    "millions": 10.0,
+}
 PAT_TOL_REL = 0.03  # G5, applied to the PAT side -- see gate() for why that matters
 
 
@@ -124,7 +134,9 @@ def fetch(ts, original, tries=3):
     url = f"https://web.archive.org/web/{ts}id_/{original}"
     for a in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "gzip"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "gzip"}
+            )
             with urllib.request.urlopen(req, timeout=60) as r:
                 b = r.read()
                 if r.headers.get("Content-Encoding") == "gzip":
@@ -156,7 +168,11 @@ def parse(t):
     # its size guard accepted). It is its OWN refusal class: the fetch worked and the archive holds
     # something for this URL, it just is not a filing. Recording that as "no data" would poison a
     # later absence claim.
-    if "NullPointerException" in t or "javax.servlet.ServletException" in t or "Exception:" in txt[:4000]:
+    if (
+        "NullPointerException" in t
+        or "javax.servlet.ServletException" in t
+        or "Exception:" in txt[:4000]
+    ):
         return {"_error_page": True}
     if "Financial Results" not in txt:
         return None
@@ -165,14 +181,18 @@ def parse(t):
     out["symbol"] = m.group(1) if m else None
     m = re.search(r"Company\s+(.+?)\s+NSE Symbol", txt)
     out["company"] = m.group(1).strip() if m else None
-    m = re.search(r"Result Period\s+(\d{2}-[A-Z]{3}-\d{4})\s+to\s+(\d{2}-[A-Z]{3}-\d{4})\s*\(([^)]*)\)", txt)
+    m = re.search(
+        r"Result Period\s+(\d{2}-[A-Z]{3}-\d{4})\s+to\s+(\d{2}-[A-Z]{3}-\d{4})\s*\(([^)]*)\)", txt
+    )
     if not m:
         return None
     out["from"], out["to"], out["period_role"] = m.group(1), m.group(2), m.group(3).strip()
     m = re.search(r"Result Type\s+(.+?)\s+(?:Non\s+)?Banking Financial Results", txt)
     out["result_type"] = m.group(1).strip() if m else None
     # "Non Banking Financial Results" (industrial) vs "Banking Financial Results" (bank).
-    out["bank"] = ("Non Banking Financial Results" not in txt) and ("Banking Financial Results" in txt)
+    out["bank"] = ("Non Banking Financial Results" not in txt) and (
+        "Banking Financial Results" in txt
+    )
     m = re.search(r"Financial Results\s+\(Rs\.\s*([a-zA-Z]+)\)", txt)
     out["scale"] = m.group(1).lower() if m else None
 
@@ -199,7 +219,9 @@ def parse(t):
     b = (int(out["to"][7:11]), MON[out["to"][3:6]])
     out["months"] = (b[0] - a[0]) * 12 + (b[1] - a[1]) + 1
     out["div"] = SCALE.get(out["scale"])
-    out["pat_cr"] = (out["net_profit"] / out["div"]) if (out["net_profit"] is not None and out["div"]) else None
+    out["pat_cr"] = (
+        (out["net_profit"] / out["div"]) if (out["net_profit"] is not None and out["div"]) else None
+    )
     return out
 
 
@@ -212,7 +234,10 @@ def gate(sym, qe, p):
     if end != str(qe)[:6]:
         return None, f"G1b page's period ends {end}, not the quarter asked for ({str(qe)[:6]})"
     if p["months"] != 3:
-        return None, "G2 period spans %d months, not 3 (declared role %r)" % (p["months"], p["period_role"])
+        return None, "G2 period spans %d months, not 3 (declared role %r)" % (
+            p["months"],
+            p["period_role"],
+        )
     if "Non-Cumulative" not in rt:
         return None, f"G2 not declared Non-Cumulative: type={rt!r}"
     # G3. ⚠️ DO NOT REQUIRE THE "Non-Consolidated" TOKEN -- THE 2002 VINTAGE USUALLY OMITS THE
@@ -233,7 +258,9 @@ def gate(sym, qe, p):
     if p.get("div") is None:
         return None, "G4 scale not declared or unknown: {!r}".format(p.get("scale"))
     if p.get("pat_cr") is None:
-        return None, "G4b no Net Profit row read (%s schema)" % ("banking" if p.get("bank") else "industrial")
+        return None, "G4b no Net Profit row read (%s schema)" % (
+            "banking" if p.get("bank") else "industrial"
+        )
     fv, pu, eps, np_ = p.get("face"), p.get("paidup"), p.get("eps"), p.get("net_profit")
     if not (fv and pu and pu > 0 and eps is not None):
         return None, f"G5 EPS identity not testable (eps={eps} face={fv} paidup={pu})"
@@ -379,14 +406,27 @@ def main():
                 }
         if (i + 1) % 50 == 0:
             print(
-                "  [%d/%d] filled=%d rejected=%d (%.0fs)" % (i + 1, len(todo), len(props), len(rej), time.time() - t0)
+                "  [%d/%d] filled=%d rejected=%d (%.0fs)"
+                % (i + 1, len(todo), len(props), len(rej), time.time() - t0)
             )
             sys.stdout.flush()
-            json.dump({"proposals": props, "rejected": rej}, open(a.out, "w"), indent=1, sort_keys=True)
-    json.dump({"proposals": props, "rejected": rej, "d2_tripwire": d2}, open(a.out, "w"), indent=1, sort_keys=True)
-    print("\nDONE: %d passed, %d rejected -> %s (%.0fs)" % (len(props), len(rej), a.out, time.time() - t0))
+            json.dump(
+                {"proposals": props, "rejected": rej}, open(a.out, "w"), indent=1, sort_keys=True
+            )
+    json.dump(
+        {"proposals": props, "rejected": rej, "d2_tripwire": d2},
+        open(a.out, "w"),
+        indent=1,
+        sort_keys=True,
+    )
+    print(
+        "\nDONE: %d passed, %d rejected -> %s (%.0fs)"
+        % (len(props), len(rej), a.out, time.time() - t0)
+    )
     print("reject reasons:")
-    for k, v in collections.Counter(v["why"].split(":")[0][:52] for v in rej.values()).most_common():
+    for k, v in collections.Counter(
+        v["why"].split(":")[0][:52] for v in rej.values()
+    ).most_common():
         print("   %4d  %s" % (v, k))
     if d2:
         print("\n⚠️ D2 TRIPWIRE FIRED on %d cells -- read each before landing:" % len(d2))

@@ -112,7 +112,9 @@ def main():
             )
     for k, n in sorted(cnt.items()):
         print("  %-48s %d" % (k, n))
-    print("\nrev/op slot proposals: %d (%s)" % (len(props), dict(Counter(p["basis"] for p in props))))
+    print(
+        "\nrev/op slot proposals: %d (%s)" % (len(props), dict(Counter(p["basis"] for p in props)))
+    )
     json.dump({"revop": props}, open(os.path.join(HERE, "_vintage109_revop.json"), "w"), indent=1)
 
 

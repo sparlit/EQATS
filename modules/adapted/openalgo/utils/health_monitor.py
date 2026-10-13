@@ -1,0 +1,806 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Health Monitoring Utilities
+
+Collects infrastructure-level health metrics:
+- File descriptors
+- Memory usage
+- Database connections
+- WebSocket connections
+- Thread usage
+
+ZERO LATENCY IMPACT:
+- Runs in background daemon thread
+- Does not block API/WebSocket operations
+- Minimal CPU overhead (<1%)
+- Sampling every 10 seconds (configurable)
+"""
+
+import logging
+import os
+import threading
+import time
+from datetime import UTC, datetime
+
+import psutil
+from database.health_db import (
+    HealthAlert,
+    HealthMetric,
+    health_session,
+    init_health_db,
+    purge_old_metrics,
+)
+
+logger = logging.getLogger(__name__)
+
+# Configuration from environment
+HEALTH_MONITOR_ENABLED = os.getenv("HEALTH_MONITOR_ENABLED", "true").lower() == "true"
+HEALTH_SAMPLE_INTERVAL = int(os.getenv("HEALTH_SAMPLE_INTERVAL", "10"))  # seconds
+HEALTH_RETENTION_DAYS = int(os.getenv("HEALTH_RETENTION_DAYS", "7"))
+
+# File Descriptor / Handle Thresholds
+# Windows handles are NOT Unix FDs — a normal Flask app uses 500-2000+ handles.
+# Use platform-appropriate defaults unless overridden via env.
+import platform as _platform
+
+_IS_WINDOWS = _platform.system() == "Windows"
+FD_WARNING_THRESHOLD = int(
+    os.getenv("HEALTH_FD_WARNING_THRESHOLD", "5000" if _IS_WINDOWS else "700")
+)
+FD_CRITICAL_THRESHOLD = int(
+    os.getenv("HEALTH_FD_CRITICAL_THRESHOLD", "10000" if _IS_WINDOWS else "900")
+)
+
+# Memory Thresholds (MB)
+MEMORY_WARNING_THRESHOLD = int(os.getenv("HEALTH_MEMORY_WARNING_THRESHOLD", "500"))
+MEMORY_CRITICAL_THRESHOLD = int(os.getenv("HEALTH_MEMORY_CRITICAL_THRESHOLD", "1000"))
+
+# Database Connection Thresholds
+DB_WARNING_THRESHOLD = int(os.getenv("HEALTH_DB_WARNING_THRESHOLD", "10"))
+DB_CRITICAL_THRESHOLD = int(os.getenv("HEALTH_DB_CRITICAL_THRESHOLD", "20"))
+
+# WebSocket Connection Thresholds
+WS_WARNING_THRESHOLD = int(os.getenv("HEALTH_WS_WARNING_THRESHOLD", "10"))
+WS_CRITICAL_THRESHOLD = int(os.getenv("HEALTH_WS_CRITICAL_THRESHOLD", "20"))
+
+# Thread Thresholds
+THREAD_WARNING_THRESHOLD = int(os.getenv("HEALTH_THREAD_WARNING_THRESHOLD", "50"))
+THREAD_CRITICAL_THRESHOLD = int(os.getenv("HEALTH_THREAD_CRITICAL_THRESHOLD", "100"))
+
+# Under the gthread worker the request pool alone is a fixed 64 threads (the
+# launcher's constant), before a single Socket.IO session, the event bus or a
+# scheduler is counted, so the defaults above would report "fail" on a healthy
+# instance and /health/status would answer 503. There the defaults sit this
+# far above the pool instead. Explicit HEALTH_THREAD_* settings always win,
+# and under eventlet and the dev server nothing changes.
+GTHREAD_THREADS_ASSUMED = 64
+GTHREAD_THREAD_WARNING_MARGIN = 80
+GTHREAD_THREAD_CRITICAL_MARGIN = 160
+
+#: Name prefixes of the permanent threads this release added on every runtime:
+#: the event bus's lane for order updates and the eventlet hub worker. Off
+#: gthread they are not counted against the thresholds above, which were set
+#: before they existed.
+UNCOUNTED_OFF_GTHREAD = ("eventbus-critical", "openalgo-hub-worker")
+
+
+def _thread_thresholds() -> tuple[int, int]:
+    """(warning, critical) thread counts for this runtime."""
+    from utils import runtime
+
+    warn, fail = THREAD_WARNING_THRESHOLD, THREAD_CRITICAL_THRESHOLD
+    if not runtime.gthread_active():
+        return warn, fail
+    threads = runtime.configured_threads() or GTHREAD_THREADS_ASSUMED
+    if "HEALTH_THREAD_WARNING_THRESHOLD" not in os.environ:
+        warn = threads + GTHREAD_THREAD_WARNING_MARGIN
+    if "HEALTH_THREAD_CRITICAL_THRESHOLD" not in os.environ:
+        fail = threads + GTHREAD_THREAD_CRITICAL_MARGIN
+    return warn, fail
+
+
+# Global collector thread
+_collector_thread = None
+_collector_running = False
+_collector_lock = threading.Lock()
+
+#: Longest the loop sleeps before re-checking the stop flag, so stopping is
+#: prompt rather than waiting out a whole sampling interval. Matched to the
+#: strategy checkpoint writer, which had the same problem first.
+_STOP_CHECK_SEC = 0.1
+
+# Cached metrics for fast access (updated by background thread)
+_cached_metrics = {
+    "status": "pass",
+    "timestamp": None,
+    "fd": {},
+    "memory": {},
+    "database": {},
+    "websocket": {},
+    "threads": {},
+}
+_cache_lock = threading.Lock()
+
+
+def get_cached_health_status():
+    """
+    Get cached health status (instant, no latency).
+    For AWS ELB and monitoring tools.
+
+    Returns:
+        dict: {"status": "pass"|"warn"|"fail", "timestamp": "..."}
+    """
+    with _cache_lock:
+        return {
+            "status": _cached_metrics.get("status", "pass"),
+            "timestamp": _cached_metrics.get("timestamp"),
+        }
+
+
+def check_db_connectivity():
+    """
+    Quick database connectivity check.
+    For /health/check endpoint.
+
+    Returns:
+        dict: {
+            "status": "pass"|"fail",
+            "databases": {
+                "openalgo": "pass"|"fail",
+                "logs": "pass"|"fail",
+                ...
+            }
+        }
+    """
+    results = {}
+    overall_status = "pass"
+
+    databases = {
+        "openalgo": "database.auth_db",
+        "logs": "database.traffic_db",
+        "latency": "database.latency_db",
+    }
+
+    for db_name, module_path in databases.items():
+        try:
+            parts = module_path.rsplit(".", 1)
+            if len(parts) == 2:
+                module_name, _ = parts
+                module = __import__(module_name, fromlist=["db_session"])
+
+                # Try a simple query
+                if hasattr(module, "db_session"):
+                    session = module.db_session
+                    # Execute simple query to test connectivity
+                    session.execute("SELECT 1").fetchone()
+                    results[db_name] = "pass"
+                elif hasattr(module, "logs_session"):
+                    session = module.logs_session
+                    session.execute("SELECT 1").fetchone()
+                    results[db_name] = "pass"
+                elif hasattr(module, "latency_session"):
+                    session = module.latency_session
+                    session.execute("SELECT 1").fetchone()
+                    results[db_name] = "pass"
+                else:
+                    results[db_name] = "pass"  # Assume pass if no session found
+        except Exception as e:
+            logger.error(f"Database connectivity check failed for {db_name}: {e}")
+            results[db_name] = "fail"
+            overall_status = "fail"
+
+    return {"status": overall_status, "databases": results}
+
+
+def get_fd_metrics():
+    """Get file descriptor / handle metrics (lightweight, <1ms)"""
+    try:
+        process = psutil.Process(os.getpid())
+
+        # Get FD count (Unix) or handle count (Windows)
+        if hasattr(process, "num_fds"):
+            fd_count = process.num_fds()
+        else:
+            # Windows - count handles (includes threads, mutexes, registry keys, etc.)
+            fd_count = process.num_handles() if hasattr(process, "num_handles") else 0
+
+        # Get FD limit — only meaningful on Unix
+        if hasattr(os, "sysconf") and hasattr(os, "sysconf_names"):
+            if "SC_OPEN_MAX" in os.sysconf_names:
+                fd_limit = os.sysconf("SC_OPEN_MAX")
+            else:
+                fd_limit = 1024  # Default
+        else:
+            # Windows has no process-level handle limit — set to None
+            fd_limit = None
+
+        if fd_limit:
+            fd_usage_percent = fd_count / fd_limit * 100
+            fd_available = fd_limit - fd_count
+        else:
+            fd_usage_percent = 0.0
+            fd_available = None
+
+        # Determine status using absolute thresholds (platform-aware defaults)
+        metric_label = "Handle" if _IS_WINDOWS else "File descriptor"
+        if fd_count >= FD_CRITICAL_THRESHOLD:
+            status = "fail"
+            HealthAlert.create_alert(
+                alert_type="fd_fail",
+                severity="fail",
+                metric_name="fd_count",
+                metric_value=fd_count,
+                threshold_value=FD_CRITICAL_THRESHOLD,
+                message=f"{metric_label} count critical: {fd_count} (threshold: {FD_CRITICAL_THRESHOLD})",
+            )
+        elif fd_count >= FD_WARNING_THRESHOLD:
+            status = "warn"
+            HealthAlert.create_alert(
+                alert_type="fd_warn",
+                severity="warn",
+                metric_name="fd_count",
+                metric_value=fd_count,
+                threshold_value=FD_WARNING_THRESHOLD,
+                message=f"{metric_label} count elevated: {fd_count} (threshold: {FD_WARNING_THRESHOLD})",
+            )
+        else:
+            status = "pass"
+            HealthAlert.auto_resolve_alerts("fd_count", fd_count, FD_WARNING_THRESHOLD)
+
+        return {
+            "count": fd_count,
+            "limit": fd_limit,
+            "usage_percent": fd_usage_percent,
+            "available": fd_available,
+            "status": status,
+        }
+    except Exception as e:
+        logger.error(f"Error getting FD metrics: {e}")
+        return {
+            "count": 0,
+            "limit": None,
+            "usage_percent": 0.0,
+            "available": None,
+            "status": "unknown",
+        }
+
+
+def get_memory_metrics():
+    """Get memory usage metrics (lightweight, <1ms)"""
+    try:
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+
+        rss_mb = mem_info.rss / (1024 * 1024)  # Resident Set Size
+        vms_mb = mem_info.vms / (1024 * 1024)  # Virtual Memory Size
+
+        # Get system memory
+        system_mem = psutil.virtual_memory()
+        memory_percent = process.memory_percent()
+        available_mb = system_mem.available / (1024 * 1024)
+
+        # Get swap usage (may fail on Windows if Performance Counters are disabled)
+        try:
+            swap = psutil.swap_memory()
+            swap_mb = swap.used / (1024 * 1024)
+        except Exception:
+            swap_mb = 0
+
+        # Determine status
+        if rss_mb >= MEMORY_CRITICAL_THRESHOLD:
+            status = "fail"
+            HealthAlert.create_alert(
+                alert_type="memory_fail",
+                severity="fail",
+                metric_name="memory_rss_mb",
+                metric_value=rss_mb,
+                threshold_value=MEMORY_CRITICAL_THRESHOLD,
+                message=f"Memory usage critical: {rss_mb:.1f} MB (threshold: {MEMORY_CRITICAL_THRESHOLD} MB)",
+            )
+        elif rss_mb >= MEMORY_WARNING_THRESHOLD:
+            status = "warn"
+            HealthAlert.create_alert(
+                alert_type="memory_warn",
+                severity="warn",
+                metric_name="memory_rss_mb",
+                metric_value=rss_mb,
+                threshold_value=MEMORY_WARNING_THRESHOLD,
+                message=f"Memory usage elevated: {rss_mb:.1f} MB (threshold: {MEMORY_WARNING_THRESHOLD} MB)",
+            )
+        else:
+            status = "pass"
+            HealthAlert.auto_resolve_alerts("memory_rss_mb", rss_mb, MEMORY_WARNING_THRESHOLD)
+
+        return {
+            "rss_mb": rss_mb,
+            "vms_mb": vms_mb,
+            "percent": memory_percent,
+            "available_mb": available_mb,
+            "swap_mb": swap_mb,
+            "status": status,
+        }
+    except Exception as e:
+        logger.error(f"Error getting memory metrics: {e}")
+        return {
+            "rss_mb": 0,
+            "vms_mb": 0,
+            "percent": 0,
+            "available_mb": 0,
+            "swap_mb": 0,
+            "status": "unknown",
+        }
+
+
+def get_database_metrics():
+    """Get database connection metrics (lightweight check)"""
+    try:
+        connections = {}
+
+        # Check each database (minimal overhead)
+        databases = {
+            "openalgo": "database.auth_db",
+            "logs": "database.traffic_db",
+            "latency": "database.latency_db",
+            "apilog": "database.apilog_db",
+            "health": "database.health_db",
+        }
+
+        for db_name, module_path in databases.items():
+            try:
+                parts = module_path.rsplit(".", 1)
+                if len(parts) == 2:
+                    module_name, attr_name = parts
+                    module = __import__(module_name, fromlist=[attr_name])
+
+                    # Try different session variable names
+                    session_names = [
+                        "db_session",
+                        "logs_session",
+                        "latency_session",
+                        "health_session",
+                    ]
+                    conn_count = 0
+
+                    for session_name in session_names:
+                        if hasattr(module, session_name):
+                            session = getattr(module, session_name)
+                            # Check if session has active connections
+                            if hasattr(session, "registry"):
+                                # Scoped session - check registry
+                                if hasattr(session.registry, "has") and session.registry.has():
+                                    conn_count = 1
+                                break
+
+                    connections[db_name] = conn_count
+            except Exception:
+                connections[db_name] = 0
+
+        total_connections = sum(connections.values())
+
+        # Determine status
+        if total_connections >= DB_CRITICAL_THRESHOLD:
+            status = "fail"
+            HealthAlert.create_alert(
+                alert_type="db_fail",
+                severity="fail",
+                metric_name="db_connections_total",
+                metric_value=total_connections,
+                threshold_value=DB_CRITICAL_THRESHOLD,
+                message=f"Database connections critical: {total_connections} (threshold: {DB_CRITICAL_THRESHOLD})",
+            )
+        elif total_connections >= DB_WARNING_THRESHOLD:
+            status = "warn"
+            HealthAlert.create_alert(
+                alert_type="db_warn",
+                severity="warn",
+                metric_name="db_connections_total",
+                metric_value=total_connections,
+                threshold_value=DB_WARNING_THRESHOLD,
+                message=f"Database connections elevated: {total_connections} (threshold: {DB_WARNING_THRESHOLD})",
+            )
+        else:
+            status = "pass"
+            HealthAlert.auto_resolve_alerts(
+                "db_connections_total", total_connections, DB_WARNING_THRESHOLD
+            )
+
+        return {"total": total_connections, "connections": connections, "status": status}
+    except Exception as e:
+        logger.error(f"Error getting database metrics: {e}")
+        return {"total": 0, "connections": {}, "status": "unknown"}
+
+
+def get_websocket_metrics():
+    """Get WebSocket connection metrics (minimal overhead)"""
+    try:
+        connections = {}
+        total_connections = 0
+        total_symbols = 0
+
+        # Try to import and check WebSocket proxy connection pools
+        try:
+            from websocket_proxy.broker_factory import get_pool_stats
+
+            pool_stats = get_pool_stats()
+
+            for pool_key, stats in pool_stats.items():
+                conn_count = stats.get("active_connections", 0)
+                symbols_count = stats.get("total_subscriptions", 0)
+                broker_name = stats.get("broker") or pool_key
+
+                connections[pool_key] = {
+                    "broker": broker_name,
+                    "count": conn_count,
+                    "symbols": symbols_count,
+                }
+                total_connections += conn_count
+                total_symbols += symbols_count
+
+        except ImportError:
+            pass  # WebSocket proxy not available
+        except Exception:
+            pass  # Error checking WebSocket connections
+
+        # Cross-process fallback: the WS proxy runs in its own process, so
+        # the in-process pools above are always empty under the current
+        # architecture. The proxy writes a snapshot file every ~10s
+        # (websocket_proxy/server.py _stats_file_writer, GitHub issue #1301).
+        if total_connections == 0 and total_symbols == 0:
+            try:
+                import json as _json
+
+                stats_path = os.getenv(
+                    "WS_PROXY_STATS_FILE", os.path.join("log", "ws_proxy_stats.json")
+                )
+                with open(stats_path) as f:
+                    snapshot = _json.load(f)
+                # Ignore stale snapshots (proxy stopped or file left behind).
+                if time.time() - float(snapshot.get("timestamp", 0)) < 60:
+                    total_connections = int(snapshot.get("total_connections", 0))
+                    total_symbols = int(snapshot.get("total_symbols", 0))
+                    broker_counts: dict = {}
+                    for b in snapshot.get("brokers", []):
+                        broker_counts[b] = broker_counts.get(b, 0) + 1
+                    for b, n in broker_counts.items():
+                        connections[b] = {"broker": b, "count": n, "symbols": total_symbols}
+            except FileNotFoundError:
+                pass  # Proxy not started yet / never wrote a snapshot
+            except Exception:
+                pass  # Malformed snapshot — keep zeros rather than crash
+
+        # Determine status
+        if total_connections >= WS_CRITICAL_THRESHOLD:
+            status = "fail"
+            HealthAlert.create_alert(
+                alert_type="ws_fail",
+                severity="fail",
+                metric_name="ws_connections_total",
+                metric_value=total_connections,
+                threshold_value=WS_CRITICAL_THRESHOLD,
+                message=f"WebSocket connections critical: {total_connections} (threshold: {WS_CRITICAL_THRESHOLD})",
+            )
+        elif total_connections >= WS_WARNING_THRESHOLD:
+            status = "warn"
+            HealthAlert.create_alert(
+                alert_type="ws_warn",
+                severity="warn",
+                metric_name="ws_connections_total",
+                metric_value=total_connections,
+                threshold_value=WS_WARNING_THRESHOLD,
+                message=f"WebSocket connections elevated: {total_connections} (threshold: {WS_WARNING_THRESHOLD})",
+            )
+        else:
+            status = "pass"
+            HealthAlert.auto_resolve_alerts(
+                "ws_connections_total", total_connections, WS_WARNING_THRESHOLD
+            )
+
+        return {
+            "total": total_connections,
+            "total_symbols": total_symbols,
+            "connections": connections,
+            "status": status,
+        }
+    except Exception as e:
+        logger.error(f"Error getting WebSocket metrics: {e}")
+        return {"total": 0, "total_symbols": 0, "connections": {}, "status": "unknown"}
+
+
+def get_thread_metrics():
+    """Get thread usage metrics (minimal overhead)"""
+    try:
+        # Get all threads (lightweight enumeration)
+        threads_info = []
+        stuck_count = 0
+
+        for thread in threading.enumerate():
+            thread_info = {
+                "id": thread.ident,
+                "name": thread.name,
+                "daemon": thread.daemon,
+                "alive": thread.is_alive(),
+            }
+            threads_info.append(thread_info)
+
+        from utils import runtime
+
+        thread_count = len(threads_info)
+        warning_threshold, critical_threshold = _thread_thresholds()
+        # Judged against the eventlet thresholds without the few permanent
+        # threads this release added to every runtime, so an install that has
+        # not opted in to gthread is warned at the same load as before.
+        uncounted = 0
+        if not runtime.gthread_active():
+            uncounted = sum(
+                1 for info in threads_info if str(info["name"]).startswith(UNCOUNTED_OFF_GTHREAD)
+            )
+        reported_count = thread_count
+        thread_count = thread_count - uncounted
+
+        # Determine status
+        if thread_count >= critical_threshold or stuck_count > 0:
+            status = "fail"
+            message = f"Thread count critical: {thread_count} (threshold: {critical_threshold})"
+            if stuck_count > 0:
+                message += f", {stuck_count} stuck threads detected"
+
+            HealthAlert.create_alert(
+                alert_type="thread_fail",
+                severity="fail",
+                metric_name="thread_count",
+                metric_value=thread_count,
+                threshold_value=critical_threshold,
+                message=message,
+            )
+        elif thread_count >= warning_threshold:
+            status = "warn"
+            HealthAlert.create_alert(
+                alert_type="thread_warn",
+                severity="warn",
+                metric_name="thread_count",
+                metric_value=thread_count,
+                threshold_value=warning_threshold,
+                message=f"Thread count elevated: {thread_count} (threshold: {warning_threshold})",
+            )
+        else:
+            status = "pass"
+            HealthAlert.auto_resolve_alerts("thread_count", thread_count, warning_threshold)
+
+        result = {
+            "count": reported_count,
+            "stuck_count": stuck_count,
+            "threads": threads_info[:50],  # Limit to first 50 for JSON size
+            "status": status,
+        }
+        if uncounted:
+            result["uncounted"] = uncounted
+        # Under gthread, how much of the request pool long-lived work holds:
+        # open streams and browser (Socket.IO) connections each keep a thread.
+        # Sampled here, every collection, so the low-headroom warning fires
+        # without anyone having to open the admin page.
+        if runtime.gthread_active():
+            from utils.stream_registry import thread_budget
+
+            result["budget"] = thread_budget()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting thread metrics: {e}")
+        return {"count": 0, "stuck_count": 0, "threads": [], "status": "unknown"}
+
+
+def get_process_metrics(limit: int = 5):
+    """Get top memory-consuming processes (best-effort, may skip inaccessible processes)"""
+    processes = []
+    try:
+        for proc in psutil.process_iter(attrs=["pid", "name", "memory_info", "memory_percent"]):
+            try:
+                info = proc.info
+                mem_info = info.get("memory_info")
+                if not mem_info:
+                    mem_info = proc.memory_info()
+
+                rss_mb = mem_info.rss / (1024 * 1024)
+                vms_mb = mem_info.vms / (1024 * 1024)
+
+                processes.append(
+                    {
+                        "pid": info.get("pid"),
+                        "name": info.get("name") or "unknown",
+                        "rss_mb": rss_mb,
+                        "vms_mb": vms_mb,
+                        "memory_percent": info.get("memory_percent") or 0,
+                    }
+                )
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+
+        processes.sort(key=lambda p: p.get("rss_mb", 0), reverse=True)
+        return processes[:limit]
+    except Exception as e:
+        logger.error(f"Error getting process metrics: {e}")
+        return []
+
+
+def collect_metrics():
+    """
+    Collect all metrics and log to database.
+    Runs in background thread - ZERO API LATENCY IMPACT.
+
+    Returns:
+        dict: All collected metrics
+    """
+    try:
+        fd_metrics = get_fd_metrics()
+        memory_metrics = get_memory_metrics()
+        db_metrics = get_database_metrics()
+        ws_metrics = get_websocket_metrics()
+        thread_metrics = get_thread_metrics()
+        process_metrics = get_process_metrics()
+
+        # Log to database
+        HealthMetric.log_metrics(
+            fd_metrics=fd_metrics,
+            memory_metrics=memory_metrics,
+            db_metrics=db_metrics,
+            ws_metrics=ws_metrics,
+            thread_metrics=thread_metrics,
+            process_metrics=process_metrics,
+        )
+
+        # Update cache for fast access
+        overall_status = "pass"
+        for metrics in [fd_metrics, memory_metrics, db_metrics, ws_metrics, thread_metrics]:
+            if metrics.get("status") == "fail":
+                overall_status = "fail"
+                break
+            elif metrics.get("status") == "warn":
+                overall_status = "warn"
+
+        with _cache_lock:
+            _cached_metrics.update(
+                {
+                    "status": overall_status,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "fd": fd_metrics,
+                    "memory": memory_metrics,
+                    "database": db_metrics,
+                    "websocket": ws_metrics,
+                    "threads": thread_metrics,
+                    "processes": process_metrics,
+                }
+            )
+
+        return _cached_metrics.copy()
+    except Exception as e:
+        logger.exception(f"Error collecting metrics: {e}")
+        return {}
+    finally:
+        # Always remove session
+        health_session.remove()
+
+
+def _sleep(seconds):
+    """Sleep in slices, so stopping does not wait out a sampling interval.
+
+    ``stop_health_collector`` clears the flag and joins for five seconds. A
+    single ``time.sleep(HEALTH_SAMPLE_INTERVAL)`` cannot see the flag while it
+    is running, so with the default interval of ten seconds the join timed out
+    every time and Ctrl+C paid five seconds before the rest of the teardown
+    even started.
+    """
+    remaining = seconds
+    while _collector_running and remaining > 0:
+        slice_ = min(_STOP_CHECK_SEC, remaining)
+        time.sleep(slice_)
+        remaining -= slice_
+
+
+def _collector_loop():
+    """Background collector loop (daemon thread, low priority)"""
+    global _collector_running
+
+    logger.debug(f"Health monitoring collector started (interval: {HEALTH_SAMPLE_INTERVAL}s)")
+
+    while _collector_running:
+        try:
+            collect_metrics()
+        except Exception as e:
+            logger.exception(f"Error in collector loop: {e}")
+
+        # Sliced, so a stop lands within _STOP_CHECK_SEC rather than within
+        # HEALTH_SAMPLE_INTERVAL. Still releases the GIL the same way.
+        _sleep(HEALTH_SAMPLE_INTERVAL)
+
+    logger.info("Health monitoring collector stopped")
+
+
+def start_health_collector(interval=None):
+    """
+    Start background metrics collector.
+    Daemon thread, zero latency impact on API/WebSocket operations.
+
+    Args:
+        interval (int, optional): Sampling interval in seconds. Uses HEALTH_SAMPLE_INTERVAL if not provided.
+    """
+    global _collector_thread, _collector_running, HEALTH_SAMPLE_INTERVAL
+
+    if not HEALTH_MONITOR_ENABLED:
+        logger.debug("Health monitoring is disabled (HEALTH_MONITOR_ENABLED=false)")
+        return
+
+    if interval:
+        HEALTH_SAMPLE_INTERVAL = interval
+
+    with _collector_lock:
+        if _collector_running:
+            logger.warning("Health monitoring collector is already running")
+            return
+
+        _collector_running = True
+        _collector_thread = threading.Thread(
+            target=_collector_loop,
+            name="HealthCollector",
+            daemon=True,  # Daemon = zero impact
+        )
+        _collector_thread.start()
+        logger.debug("Started health monitoring collector (background daemon thread)")
+
+
+def stop_health_collector():
+    """Stop background metrics collector"""
+    global _collector_running
+
+    with _collector_lock:
+        if not _collector_running:
+            return
+
+        _collector_running = False
+        logger.info("Stopping health monitoring collector...")
+
+        if _collector_thread:
+            _collector_thread.join(timeout=5)
+
+
+def init_health_monitoring(app):
+    """
+    Initialize health monitoring system.
+    ZERO LATENCY IMPACT - all collection runs in background.
+
+    Args:
+        app: Flask application instance
+    """
+    try:
+        # Initialize database
+        init_health_db()
+
+        # Purge old metrics
+        purge_old_metrics(days=HEALTH_RETENTION_DAYS)
+
+        # Start collector (background daemon thread)
+        start_health_collector()
+
+        logger.debug("Health monitoring initialized successfully (background mode)")
+    except Exception as e:
+        logger.exception(f"Error initializing health monitoring: {e}")

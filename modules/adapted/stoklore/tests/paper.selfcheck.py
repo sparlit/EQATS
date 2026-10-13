@@ -64,16 +64,13 @@ def reasons(fills):
 
 # --- long: nothing triggers in between -----------------------------------------------------------
 fills, filled = paper.check_position(pos(), 102.0)
-assert fills == []
-assert filled is False
+assert fills == [] and filled is False
 
 # --- long: stop and target ------------------------------------------------------------------------
 fills, _ = paper.check_position(pos(), 95.0)
-assert reasons(fills) == ["stop_loss"]
-assert fills[0]["price"] == 95.0
+assert reasons(fills) == ["stop_loss"] and fills[0]["price"] == 95.0
 fills, _ = paper.check_position(pos(), 110.0)
-assert reasons(fills) == ["target"]
-assert fills[0]["price"] == 110.0
+assert reasons(fills) == ["target"] and fills[0]["price"] == 110.0
 
 # --- short: everything inverts ---------------------------------------------------------------------
 short = pos(
@@ -100,7 +97,9 @@ fills, _ = paper.check_position(short, 70.0)
 assert fills[0]["price"] == 90.0, fills
 
 # --- laddered exits: only the legs actually reached ------------------------------------------------
-ladder = pos(targets=[{"id": "t1", "price": 110.0, "qty": 50}, {"id": "t2", "price": 120.0, "qty": 50}])
+ladder = pos(
+    targets=[{"id": "t1", "price": 110.0, "qty": 50}, {"id": "t2", "price": 120.0, "qty": 50}]
+)
 fills, _ = paper.check_position(ladder, 110.0)
 assert len(fills) == 1 and fills[0]["qty"] == 50, fills  # near target only
 fills, _ = paper.check_position(ladder, 125.0)
@@ -111,7 +110,10 @@ assert sum(f["qty"] for f in fills) == 100
 # --- stop-loss wins the tick -----------------------------------------------------------------------
 # A price that has reached both sides is unresolvable from one sample, so the pessimistic reading
 # is taken - same conservative rule as Bar Replay's bar engine.
-both = pos(stop_losses=[{"id": "s1", "price": 95.0, "qty": 100}], targets=[{"id": "t1", "price": 96.0, "qty": 100}])
+both = pos(
+    stop_losses=[{"id": "s1", "price": 95.0, "qty": 100}],
+    targets=[{"id": "t1", "price": 96.0, "qty": 100}],
+)
 fills, _ = paper.check_position(both, 94.0)
 assert reasons(fills) == ["stop_loss"], fills
 
@@ -213,7 +215,9 @@ laddered = pos(
     stop_losses=[{"id": "s1", "price": 554.15, "qty": 5}, {"id": "s2", "price": 540.00, "qty": 5}],
     targets=[],
 )
-first = paper.catch_up(laddered, [bar(20, 560.0, 562.0, 548.0, 551.0), bar(21, 545.0, 546.0, 520.0, 525.0)])
+first = paper.catch_up(
+    laddered, [bar(20, 560.0, 562.0, 548.0, 551.0), bar(21, 545.0, 546.0, 520.0, 525.0)]
+)
 assert [f["leg"]["id"] for f in first] == ["s1"], first
 assert first[0]["at"] == datetime.date(2026, 8, 20)
 

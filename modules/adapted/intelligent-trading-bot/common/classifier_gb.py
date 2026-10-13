@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import lightgbm as lgbm
-import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
@@ -32,7 +31,8 @@ def train_predict_gb(df_X, df_y, df_X_test, model_config: dict):
     Train model with the specified hyper-parameters and return its predictions for the test data.
     """
     model_pair = train_gb(df_X, df_y, model_config)
-    return predict_gb(model_pair, df_X_test, model_config)
+    y_test_hat = predict_gb(model_pair, df_X_test, model_config)
+    return y_test_hat
 
 
 def train_gb(df_X, df_y, model_config: dict):
@@ -96,8 +96,14 @@ def predict_gb(models: tuple, df_X_test, model_config: dict):
     nonans_index = df_X_test_nonans.index
 
     y_test_hat_nonans = models[0].predict(df_X_test_nonans.values)
-    y_test_hat_nonans = pd.Series(data=y_test_hat_nonans, index=nonans_index)  # Attach indexes with gaps
+    y_test_hat_nonans = pd.Series(
+        data=y_test_hat_nonans, index=nonans_index
+    )  # Attach indexes with gaps
 
     df_ret = pd.DataFrame(index=input_index)  # Create empty dataframe with original index
     df_ret["y_hat"] = y_test_hat_nonans  # Join using indexes
-    return df_ret["y_hat"]  # This series has all original input indexes but NaNs where input is NaN
+    sr_ret = df_ret[
+        "y_hat"
+    ]  # This series has all original input indexes but NaNs where input is NaN
+
+    return sr_ret

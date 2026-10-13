@@ -76,12 +76,13 @@ OUT = os.path.join(HERE, "_nsearch_reads_oldfmt.json")
 ZEROS = os.path.join(HERE, "_nsearch_oldfmt_zeros.json")
 SKIPS = os.path.join(HERE, "_nsearch_oldfmt_skips.json")
 
-R_TOTEXP = re.compile(r"^total expenditure$|^total expenses$", re.IGNORECASE)
+R_TOTEXP = re.compile(r"^total expenditure$|^total expenses$", re.I)
 # The "/(Loss)" half is OPTIONAL — the 2011-12 layout prints a bare "Profit from Operations
 # before Other Income, Interest & Exceptional Items". Making it mandatory (the main tool's
 # R_OP_IND still does) silently loses every pre-2013 page: measured on ORISSAMINE, 2 of 8 cells.
 R_OPBEFORE = re.compile(
-    r"profit\s*(?:\(\+\))?\s*(?:/?\s*\(?loss\)?\s*(?:\(-\))?\s*)?from operations before other income", re.IGNORECASE
+    r"profit\s*(?:\(\+\))?\s*(?:/?\s*\(?loss\)?\s*(?:\(-\))?\s*)?from operations before other income",
+    re.I,
 )
 # Any row that states revenue directly, for the cross-check. ORDER MATTERS: pick() returns the
 # FIRST pattern that matches, so the TOTAL must be tried before its components. The (a) net-sales
@@ -89,16 +90,20 @@ R_OPBEFORE = re.compile(
 # (a) first compares the derivation against a sub-line and the gate fires on a correct read —
 # measured, it rejected 5 sound DBREALTY/ORBITCORP cells (printed 0.0000 = the (a) row alone).
 R_REVISH = (
-    re.compile(r"total income from operations", re.IGNORECASE),
-    re.compile(r"^revenue from operations?\b", re.IGNORECASE),
-    re.compile(r"net sales\s*/\s*income from operations?", re.IGNORECASE),
-    re.compile(r"^other operating income$", re.IGNORECASE),
+    re.compile(r"total income from operations", re.I),
+    re.compile(r"^revenue from operations?\b", re.I),
+    re.compile(r"net sales\s*/\s*income from operations?", re.I),
+    re.compile(r"^other operating income$", re.I),
 )
 
 
 def main():
     argv = sys.argv
-    gapf = argv[argv.index("--gaps") + 1] if "--gaps" in argv else os.path.join(HERE, "_gaps_n500_stdfill.json")
+    gapf = (
+        argv[argv.index("--gaps") + 1]
+        if "--gaps" in argv
+        else os.path.join(HERE, "_gaps_n500_stdfill.json")
+    )
     only = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else None
     gaps = json.load(open(gapf))
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
@@ -116,7 +121,10 @@ def main():
             continue
         if str(qe) in [str(x) for x in gaps.get(sym, [])]:
             todo.setdefault(sym, set()).add(qe)
-    print("cells to retry: %d across %d syms" % (sum(len(v) for v in todo.values()), len(todo)), flush=True)
+    print(
+        "cells to retry: %d across %d syms" % (sum(len(v) for v in todo.values()), len(todo)),
+        flush=True,
+    )
 
     M.JAR = M.BF.nse_jar()
     out = json.load(open(OUT)) if os.path.exists(OUT) else {}
@@ -174,7 +182,9 @@ def main():
                     "totexp": totexp,
                     "op_before": opbef,
                     "printed_rev_row": printed,
-                    "src": "nse-archive {} ({})".format(link.rsplit("/", 1)[-1], meta.get("unit", "lakhs")),
+                    "src": "nse-archive {} ({})".format(
+                        link.rsplit("/", 1)[-1], meta.get("unit", "lakhs")
+                    ),
                 }
                 continue
             out.setdefault(sym, {})[str(qe)] = {
@@ -199,7 +209,11 @@ def main():
     json.dump(out, open(OUT, "w"), indent=1, sort_keys=True)
     json.dump(zeros, open(ZEROS, "w"), indent=1, sort_keys=True)
     json.dump(skips, open(SKIPS, "w"), indent=1, sort_keys=True)
-    print("DONE: %d cells filled, %d parked as derived-zero, %d skipped" % (nfill, len(zeros), len(skips)), flush=True)
+    print(
+        "DONE: %d cells filled, %d parked as derived-zero, %d skipped"
+        % (nfill, len(zeros), len(skips)),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

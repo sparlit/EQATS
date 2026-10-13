@@ -228,7 +228,9 @@ def get_sentiment_svg(compound: float) -> str:
     return _ICON["neutral"]
 
 
-def render_sparkline(values: list[float], width: int = 160, height: int = 32, color: str = "#22b573") -> str:
+def render_sparkline(
+    values: list[float], width: int = 160, height: int = 32, color: str = "#22b573"
+) -> str:
     """Render an inline SVG sparkline from a list of 0-100 values.
 
     Shows a flat line for 1 value. Returns empty string if None or empty list.
@@ -332,7 +334,11 @@ def _render_pivot_html(pivot_data: dict[str, Any] | None) -> str:
         parts.append(f'<span style="color:#22b573">R1 {fmt_price(r1)}</span>')
     if not parts:
         return ""
-    return '<div style="margin-top:0.5rem;font-size:0.8rem;color:#8891a0;">' + " · ".join(parts) + "</div>"
+    return (
+        '<div style="margin-top:0.5rem;font-size:0.8rem;color:#8891a0;">'
+        + " · ".join(parts)
+        + "</div>"
+    )
 
 
 def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
@@ -361,7 +367,12 @@ def _build_chart_script(ohlcv_json: str | None, nonce: str) -> str:
         _closes_200 = [d["close"] for d in _ohlc]
         _sma = []
         for i in range(199, len(_closes_200)):
-            _sma.append({"time": _ohlc[i]["time"], "value": round(sum(_closes_200[i - 199 : i + 1]) / 200, 2)})
+            _sma.append(
+                {
+                    "time": _ohlc[i]["time"],
+                    "value": round(sum(_closes_200[i - 199 : i + 1]) / 200, 2),
+                }
+            )
         _sma200 = _json.dumps(_sma)
 
     _bb_upper_s = _json.dumps(_bb_upper) if isinstance(_bb_upper, (list, dict)) else _bb_upper
@@ -558,7 +569,7 @@ def _card_news(news_items: list[dict[str, Any]], news_html: str) -> str:
     return f"""<!-- ═══ NEWS HEADLINES ═══ -->
     <div class="card">
         <div class="card-title">{_ICON["file_text"]} Recent News ({len(news_items)} articles)</div>
-        {news_html or '<div class="ss-comp-label" style="padding:0.75rem 0;color:#8891a0">No articles found for this ticker</div>'}
+        {news_html if news_html else '<div class="ss-comp-label" style="padding:0.75rem 0;color:#8891a0">No articles found for this ticker</div>'}
     </div>"""
 
 
@@ -583,7 +594,9 @@ def _card_technicals(
 {_render_cascade_html(cascade_effects)}"""
 
 
-def _card_chart(acc_html: str, cal_html: str, fii_html: str, _chart_script: str, auto_height_script: str) -> str:
+def _card_chart(
+    acc_html: str, cal_html: str, fii_html: str, _chart_script: str, auto_height_script: str
+) -> str:
     """Render the price chart card as an HTML string."""
     return f"""<!-- ═══ PRICE CHART ═══ -->
     <div class="card">
@@ -719,7 +732,7 @@ def render_dashboard(
             vol_quality_html = '<span class="session-badge warn"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg> Volume is 0 — check data quality</span>'
         elif avg_vol_50 and avg_vol_50 > 0 and vol_now < avg_vol_50 * 0.1:
             vol_quality_html = '<span class="session-badge info"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="m8 12 4 4 4-4"/></svg> Suspiciously low volume</span>'
-        spike_result = detect_volume_spike(vol_now, cast("float", avg_vol_50), threshold=1.5)
+        spike_result = detect_volume_spike(vol_now, cast(float, avg_vol_50), threshold=1.5)
         if spike_result["spike"]:
             ratio = spike_result["ratio"]
             if ratio >= 3:
@@ -737,13 +750,25 @@ def render_dashboard(
         _up_icon = _ICON["arrow_up"]
         _down_icon = _ICON["arrow_down"]
         if ti.get("sma50_cross") == "bullish":
-            cross_50_html = '<span class="cross-badge bullish">' + _up_icon + " SMA50 bullish crossover</span>"
+            cross_50_html = (
+                '<span class="cross-badge bullish">' + _up_icon + " SMA50 bullish crossover</span>"
+            )
         elif ti.get("sma50_cross") == "bearish":
-            cross_50_html = '<span class="cross-badge bearish">' + _down_icon + " SMA50 bearish crossover</span>"
+            cross_50_html = (
+                '<span class="cross-badge bearish">'
+                + _down_icon
+                + " SMA50 bearish crossover</span>"
+            )
         if ti.get("sma200_cross") == "bullish":
-            cross_200_html = '<span class="cross-badge bullish">' + _up_icon + " SMA200 bullish crossover</span>"
+            cross_200_html = (
+                '<span class="cross-badge bullish">' + _up_icon + " SMA200 bullish crossover</span>"
+            )
         elif ti.get("sma200_cross") == "bearish":
-            cross_200_html = '<span class="cross-badge bearish">' + _down_icon + " SMA200 bearish crossover</span>"
+            cross_200_html = (
+                '<span class="cross-badge bearish">'
+                + _down_icon
+                + " SMA200 bearish crossover</span>"
+            )
 
     # Track record accuracy
     acc_html = ""
@@ -864,9 +889,7 @@ def render_dashboard(
             if (adx is not None and adx < 25)
             else "N/A"
         )
-        ti_preview = (
-            f"RSI {rsi:.1f} ({rsi_label}) \u00b7 SMA50 {above_50} \u00b7 SMA200 {above_200} \u00b7 MACD {macd_label}"
-        )
+        ti_preview = f"RSI {rsi:.1f} ({rsi_label}) \u00b7 SMA50 {above_50} \u00b7 SMA200 {above_200} \u00b7 MACD {macd_label}"
         if adx is not None:
             ti_preview += f" \u00b7 ADX {adx:.1f} ({'Strong' if adx >= 25 else 'Weak'})"
         ti_rows = f"""
@@ -930,7 +953,13 @@ def render_dashboard(
         ss_signal_raw = result.get("smartscore_signal", "NEUTRAL")
         # Strip trailing emoji — the raw string is "BULLISH 🟢" etc.
         ss_signal = ss_signal_raw.rstrip(" 🟢🔴⚪") if isinstance(ss_signal_raw, str) else "NEUTRAL"
-        ss_color = "#22b573" if ss_signal == "BULLISH" else "#f85149" if ss_signal == "BEARISH" else "#8891a0"
+        ss_color = (
+            "#22b573"
+            if ss_signal == "BULLISH"
+            else "#f85149"
+            if ss_signal == "BEARISH"
+            else "#8891a0"
+        )
         # SVG icon for the signal
         ss_icon = get_signal_icon(result.get("smartscore_emoji", "⚪"))
 
@@ -1000,7 +1029,9 @@ def render_dashboard(
             body = h(item["body"][:200])
 
         in_portfolio = item.get("in_portfolio", False)
-        port_badge = '<span class="port-badge">\U0001f4cc In portfolio</span>' if in_portfolio else ""
+        port_badge = (
+            '<span class="port-badge">\U0001f4cc In portfolio</span>' if in_portfolio else ""
+        )
         news_html += f"""
         <div class="news-item">
             <div class="news-emoji">{emoji}</div>
@@ -1013,7 +1044,11 @@ def render_dashboard(
 
     # Source badges section (pre-computed to avoid nested f-string issues)
     badge_section = f'<div class="badge-wrap">{badge_html}</div>' if badge_html else ""
-    source_health = f'<div class="source-health">{_ICON["wifi"]} Sources: {sources_str}</div>' if sources_str else ""
+    source_health = (
+        f'<div class="source-health">{_ICON["wifi"]} Sources: {sources_str}</div>'
+        if sources_str
+        else ""
+    )
     ti_section = f'<div class="ti-preview">{ti_preview}</div>' if ti_preview else ""
 
     # Session quality badge

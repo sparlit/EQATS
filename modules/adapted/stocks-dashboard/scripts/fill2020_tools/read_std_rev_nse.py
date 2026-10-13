@@ -66,7 +66,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)
 NAR.JAR = NAR.BF.nse_jar()
@@ -82,22 +84,22 @@ PAT_ABS, PAT_REL = 2.0, 0.03
 MAX_QE = 20191231  # hard scope bound -- post-2020 is another session's
 
 R_PAT = (
-    re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE),
-    re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.IGNORECASE),
-    re.compile(r"net profit\s*\(\+\)\s*/?\s*\(?loss", re.IGNORECASE),
-    re.compile(r"profit\s*/?\s*\(?\s*loss\s*\)?\s*(?:from ordinary activities )?after tax", re.IGNORECASE),
+    re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I),
+    re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.I),
+    re.compile(r"net profit\s*\(\+\)\s*/?\s*\(?loss", re.I),
+    re.compile(r"profit\s*/?\s*\(?\s*loss\s*\)?\s*(?:from ordinary activities )?after tax", re.I),
 )
 R_REV_IND = (
-    re.compile(r"total income from operations", re.IGNORECASE),
-    re.compile(r"net sales\s*/\s*income from operations", re.IGNORECASE),
-    re.compile(r"^revenue from operations", re.IGNORECASE),
-    re.compile(r"net sales\s*/\s*revenue from operations", re.IGNORECASE),
-    re.compile(r"income from operations", re.IGNORECASE),
+    re.compile(r"total income from operations", re.I),
+    re.compile(r"net sales\s*/\s*income from operations", re.I),
+    re.compile(r"^revenue from operations", re.I),
+    re.compile(r"net sales\s*/\s*revenue from operations", re.I),
+    re.compile(r"income from operations", re.I),
 )
 R_REV_BANK = (
-    re.compile(r"^interest earned", re.IGNORECASE),
-    re.compile(r"total income from operations", re.IGNORECASE),
-    re.compile(r"^total income", re.IGNORECASE),
+    re.compile(r"^interest earned", re.I),
+    re.compile(r"total income from operations", re.I),
+    re.compile(r"^total income", re.I),
 )
 
 
@@ -127,9 +129,11 @@ def read_std(link, sym, qe):
         return None, "basis=%s" % (basis or "?")
     if NAR.iso_qe(meta.get("Period Ended", "")) != qe:
         return None, "period={}".format(meta.get("Period Ended"))
-    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym, *NAR.aliases(sym)])}:
+    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym] + NAR.aliases(sym))}:
         return None, "symbol={}".format(meta.get("Symbol"))
-    m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+    m = re.search(
+        r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+    )
     if m and m.group(1).lower().replace("-", "").startswith("cumulative"):
         return None, "cumulative-page(YTD)"
     pat = NAR.pick(rows, *R_PAT)
@@ -206,9 +210,15 @@ def main():
         pat, rev, fmt = got
         d = abs(pat - stored)
         if d > max(PAT_ABS, abs(stored) * PAT_REL):
-            reads["%s|%d" % (sym, qe)] = {"skip": f"pat-anchor off {d:.2f} (page {pat:.2f} vs stored {stored:.2f})"}
+            reads["%s|%d" % (sym, qe)] = {
+                "skip": f"pat-anchor off {d:.2f} (page {pat:.2f} vs stored {stored:.2f})"
+            }
             skip += 1
-            print("  SKIP %-12s %d  anchor off %.2f (page %.2f vs stored %.2f)" % (sym, qe, d, pat, stored), flush=True)
+            print(
+                "  SKIP %-12s %d  anchor off %.2f (page %.2f vs stored %.2f)"
+                % (sym, qe, d, pat, stored),
+                flush=True,
+            )
             continue
         if rev is None or rev < 0:
             reads["%s|%d" % (sym, qe)] = {"skip": "negative-or-missing-revenue"}
@@ -222,11 +232,13 @@ def main():
             "link": link,
         }
         ok += 1
-        print("  OK   %-12s %d  rev=%-12.2f (%s; PAT anchor %.2f cr)" % (sym, qe, rev, fmt, d), flush=True)
+        print(
+            "  OK   %-12s %d  rev=%-12.2f (%s; PAT anchor %.2f cr)" % (sym, qe, rev, fmt, d),
+            flush=True,
+        )
         json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     print("\nlanded %d | skipped %d -> %s" % (ok, skip, os.path.basename(READS)))
-    return None
 
 
 def apply_reads():

@@ -8,14 +8,36 @@ impl EClient {
     // ── Market Data ──
 
     /// Subscribe to market data. Matches `reqMktData` in C++.
-    /// When `snapshot` is true, delivers the first available quote then calls
-    /// `tick_snapshot_end` and auto-cancels the subscription.
+    /// When `snapshot` is true, the request is a snapshot, as the
+    /// reference's: each tick type is sent once, then `tick_snapshot_end`
+    /// when the bid, ask, last, open and close came (with the option
+    /// computations for an option; the types a contract has none of are not
+    /// waited for), or 11 seconds after the start; then the request is
+    /// gone. A snapshot with generic ticks, or beyond the per-second
+    /// snapshot limit, is refused with error 321.
     ///
-    /// `generic_tick_list` is NOT transmitted to the gateway, with one
-    /// exception: "292" additionally subscribes per-contract news. Other
-    /// generic tick types (RTVolume and friends) have no emission path, and
-    /// `tick_generic` never fires (ibx#234). Delayed data cannot be
-    /// requested either — see `req_market_data_type`.
+    /// `generic_tick_list` is checked as the reference checks it: a list
+    /// with an unknown tick, or one not legal for the security type, is
+    /// refused with error 321 (ibx#450). Each generic tick valid for the
+    /// contract is its own farm entry, shared by the requests of the
+    /// contract, and its values come as the reference's ticks
+    /// (`control::generic_values`): option volume 29/30 (100), open
+    /// interest 27/28 (101), average option volume 87 (105), implied and
+    /// historical volatility 24 (106) and 23 (104), misc stats 21 and
+    /// 15-20 (165), auction 34-36 and 61 (225), RTVolume 48 (233) and RT
+    /// trade volume 77 (375), shortable 46 and 89 (236), trade count, rate
+    /// and volume rate 54-56 (293-295), last RTH trade 57 (318), dividends
+    /// 59 (456), futures open interest 86 (588). The other legal ticks are
+    /// accepted and not sent. The news tick, "292" (every subscribed news
+    /// source) or "292:CODE1+CODE2", subscribes the contract's headlines,
+    /// delivered as `tick_news` (ibx#458); a derivative contract or a code
+    /// that is not a subscribed source ends the request with error 10094.
+    /// `mdoff` keeps the top of book ticks from the request.
+    ///
+    /// Several request ids may ask for one contract, as with the
+    /// reference (ibx#444): they share its subscription, a request that
+    /// joins gets at once what the others have, and the subscription ends
+    /// with the cancel of the last one.
     pub fn req_mkt_data(
         &self, req_id: i64, contract: &Contract,
         generic_tick_list: &str, snapshot: bool, regulatory_snapshot: bool,
@@ -23,68 +45,186 @@ impl EClient {
         self.req_mkt_data_ex(req_id, contract, generic_tick_list, snapshot, regulatory_snapshot, 0)
     }
 
-    /// Like [`req_mkt_data`], but encodes the market-data mode per-request via
-    /// FIX field 9887, allowing parallel realtime + frozen subscriptions for
-    /// the same contract:
+    /// Like [`req_mkt_data`], but sends a market-data mode with the request,
+    /// allowing parallel realtime + frozen subscriptions for the same
+    /// contract. The request is always the bid/ask and last pair; the mode
+    /// rides on each of its entries:
     ///
-    /// | `mode_9887` | mode             | wire shape |
-    /// |-------------|------------------|---|
-    /// | `0`         | REALTIME         | `264=442` (BID_ASK) + `264=443` (LAST), no 9887 |
-    /// | `1`         | DELAYED          | `264=1` (TOP) + `9887=1` |
-    /// | `2`         | FROZEN           | `264=1` (TOP) + `9887=2` |
-    /// | `3`         | DELAYED_FROZEN   | `264=1` (TOP) + `9887=3` |
+    /// | `mode_9887` | mode             |
+    /// |-------------|------------------|
+    /// | `0`         | REALTIME (no mode sent) |
+    /// | `1`         | DELAYED          |
+    /// | `2`         | FROZEN           |
+    /// | `3`         | DELAYED_FROZEN   |
     ///
     /// The frozen sub keeps thinly-traded names streaming after-hours when the
     /// realtime feed is silent. Issue 3-4 parallel calls per contract with
     /// different modes and pick whichever feed has data.
     pub fn req_mkt_data_ex(
         &self, req_id: i64, contract: &Contract,
-        generic_tick_list: &str, snapshot: bool, _regulatory_snapshot: bool,
+        generic_tick_list: &str, snapshot: bool, regulatory_snapshot: bool,
         mode_9887: i32,
     ) -> Result<(), String> {
+        if !crate::client_core::ClientCore::ids_fit("req_mkt_data_ex", &[req_id, contract.con_id]) { return Ok(()); }
+        // A contract with no exchange: 321, the reference's first check.
+        // An invalid generic tick list of a request that is no snapshot:
+        // 321 (ibx#450).
+        if let Some((code, text)) = crate::client_core::ClientCore::market_data_exchange_refusal(&contract.exchange, &contract.sec_type)
+            .or_else(|| self.core.generic_tick_list_refusal(generic_tick_list, snapshot, &contract.sec_type))
+        {
+            self.shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        // The snapshot checks come before the duplicate check, as the
+        // reference's (ibx#446).
+        if snapshot
+            && let Some((code, text)) = self.core.snapshot_refusal(&self.shared, generic_tick_list, &contract.sec_type)
+        {
+            self.shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        if let Some((code, text)) = self.core.duplicate_ticker_refusal(req_id) {
+            self.shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        // A regulatory snapshot goes through its own fetcher: one batch of
+        // ticks and the snapshot end, no request parameters, no market data
+        // type (ibx#446). It is billed on live accounts.
+        if regulatory_snapshot {
+            return self.core.start_regulatory_snapshot(
+                &self.shared, &self.control_tx, req_id, contract.con_id,
+                &contract.symbol, &contract.exchange, &contract.sec_type,
+            );
+        }
+        // The news tick of a known contract is checked first (ibx#458).
+        if let Some((code, text)) = self.core.news_tick_refusal(&self.shared, generic_tick_list, contract.con_id, &contract.sec_type) {
+            self.shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        let filters = SecDefFilters {
+            primary_exchange: contract.primary_exchange.clone(),
+            local_symbol: contract.local_symbol.clone(),
+            last_trade_date_or_contract_month: contract.last_trade_date_or_contract_month.clone(),
+            strike: contract.strike,
+            right: contract.right.clone(),
+            multiplier: contract.multiplier.clone(),
+            trading_class: contract.trading_class.clone(),
+            sec_id: contract.sec_id.clone(),
+            sec_id_type: contract.sec_id_type.clone(),
+            include_expired: contract.include_expired,
+            issuer_id: String::new(),
+        };
         self.core.register_mkt_data(
             &self.shared, &self.control_tx, req_id,
             contract.con_id, &contract.symbol, &contract.exchange, &contract.sec_type,
-            &contract.last_trade_date_or_contract_month, contract.strike, &contract.right, &contract.multiplier,
-            snapshot, generic_tick_list, mode_9887,
+            &contract.currency, &filters, snapshot, generic_tick_list, mode_9887,
         )?;
         Ok(())
     }
 
+    // ── Option calculations ──
+
+    /// Implied volatility of an option price. Matches
+    /// `calculateImpliedVolatility` in C++. Computed locally by the option
+    /// model, as the reference: one `tick_option_computation` with tick type
+    /// 53, or nothing when no volatility is found within 5 seconds. The
+    /// options are read and not used, as the reference.
+    pub fn calculate_implied_volatility(
+        &self, req_id: i64, contract: &Contract, option_price: f64, under_price: f64,
+        _implied_vol_options: &[crate::api::types::TagValue],
+    ) -> Result<(), String> {
+        self.calculate_option(req_id, contract, crate::control::optcalc::CalcKind::ImpliedVol { option_price }, under_price)
+    }
+
+    /// Price and greeks of an option at a volatility. Matches
+    /// `calculateOptionPrice` in C++: one `tick_option_computation` with tick
+    /// type 53; after 30 seconds without a price, the tick has no price and no
+    /// greeks, as the reference.
+    pub fn calculate_option_price(
+        &self, req_id: i64, contract: &Contract, volatility: f64, under_price: f64,
+        _opt_prc_options: &[crate::api::types::TagValue],
+    ) -> Result<(), String> {
+        self.calculate_option(req_id, contract, crate::control::optcalc::CalcKind::Price { volatility }, under_price)
+    }
+
+    fn calculate_option(
+        &self, req_id: i64, contract: &Contract, kind: crate::control::optcalc::CalcKind, under_price: f64,
+    ) -> Result<(), String> {
+        if !crate::client_core::ClientCore::ids_fit("calculate_option", &[req_id, contract.con_id]) { return Ok(()); }
+        let price = matches!(kind, crate::control::optcalc::CalcKind::Price { .. });
+        let features = self.shared.reference.account_features();
+        if let Some((code, text)) = crate::client_core::ClientCore::option_calc_refusal(contract, price, features.as_deref()) {
+            self.shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        let request = crate::types::ControlCommand::CalcOption { req_id, con_id: contract.con_id, kind, under_price };
+        self.send(crate::client_core::ClientCore::resolve_first(req_id, contract, request))
+    }
+
+    /// Matches `cancelCalculateImpliedVolatility` in C++. Does nothing, as
+    /// the reference: a running calculation still answers.
+    pub fn cancel_calculate_implied_volatility(&self, _req_id: i64) {}
+
+    /// Matches `cancelCalculateOptionPrice` in C++. Does nothing, as the
+    /// reference: a running calculation still answers.
+    pub fn cancel_calculate_option_price(&self, _req_id: i64) {}
+
     /// Cancel market data. Matches `cancelMktData` in C++.
     pub fn cancel_mkt_data(&self, req_id: i64) -> Result<(), String> {
-        let (instrument, needs_news_unsub) = self.core.unregister_mkt_data(req_id);
-        if let Some(instrument) = instrument {
-            self.send(ControlCommand::Unsubscribe { instrument })?;
-            if needs_news_unsub {
-                let _ = self.send(ControlCommand::UnsubscribeNews { instrument });
+        if !crate::client_core::ClientCore::ids_fit("cancel_mkt_data", &[req_id]) { return Ok(()); }
+        // A running regulatory snapshot stops silently (ibx#446).
+        if self.core.cancel_regulatory_snapshot(req_id, &self.control_tx) {
+            return Ok(());
+        }
+        if let Some(cancel) = self.core.unregister_mkt_data(&self.shared, req_id) {
+            // The subscription ends with the last request of the contract;
+            // its news entries go with it (ibx#458, ibx#444).
+            for command in cancel.commands() {
+                self.send(command)?;
             }
+        } else {
+            // An unknown request id: error 300, as the reference (ibx#444).
+            self.shared.orders.push_order_error(req_id, 300, format!("Can't find EId with tickerId:{}", req_id));
         }
         Ok(())
     }
 
     /// Subscribe to tick-by-tick data. Matches `reqTickByTickData` in C++.
+    /// `tick_type` is "Last", "AllLast", "BidAsk" or "MidPoint", each asked
+    /// under its own name; anything else gives error 321, as the reference.
+    /// `number_of_ticks` above 0 asks for that many past ticks first, given
+    /// as historical ticks; `ignore_size` asks for the size filter. A
+    /// request for a contract, type and size filter already streaming
+    /// joins that stream (ibx#455).
     pub fn req_tick_by_tick_data(
         &self, req_id: i64, contract: &Contract, tick_type: &str,
-        _number_of_ticks: i32, _ignore_size: bool,
+        number_of_ticks: i32, ignore_size: bool,
     ) -> Result<(), String> {
-        let tbt_type = match tick_type {
-            "BidAsk" => TbtType::BidAsk,
-            _ => TbtType::Last,
+        if !crate::client_core::ClientCore::ids_fit("req_tick_by_tick_data", &[req_id, contract.con_id]) { return Ok(()); }
+        let local_symbol = if contract.local_symbol.is_empty() { &contract.symbol } else { &contract.local_symbol };
+        let tbt_type = match self.core.tbt_refusal(&self.shared, &contract.sec_type, tick_type, local_symbol) {
+            Ok(t) => t,
+            Err((code, text)) => {
+                self.shared.orders.push_order_error(req_id, code, text);
+                return Ok(());
+            }
         };
+        if contract.con_id == 0 {
+            return self.core.register_tbt_by_symbol(&self.control_tx, req_id, contract, tbt_type, number_of_ticks, ignore_size);
+        }
         self.core.register_tbt(
             &self.shared, &self.control_tx, req_id,
-            contract.con_id, &contract.symbol, tbt_type,
+            contract.con_id, &contract.symbol, &contract.exchange, &contract.sec_type,
+            tbt_type, number_of_ticks, ignore_size,
         )?;
         Ok(())
     }
 
     /// Cancel tick-by-tick data. Matches `cancelTickByTickData` in C++.
     pub fn cancel_tick_by_tick_data(&self, req_id: i64) -> Result<(), String> {
-        if let Some(instrument) = self.core.req_to_instrument.lock().unwrap().remove(&req_id) {
-            self.core.instrument_to_req.lock().unwrap().remove(&instrument);
-            self.core.forget_instrument(instrument);
-            self.send(ControlCommand::UnsubscribeTbt { instrument })?;
+        if !crate::client_core::ClientCore::ids_fit("cancel_tick_by_tick_data", &[req_id]) { return Ok(()); }
+        if self.core.unregister_tbt(req_id).is_some() {
+            self.send(ControlCommand::UnsubscribeTbt { req_id })?;
         }
         Ok(())
     }
@@ -96,10 +236,13 @@ impl EClient {
         &self, req_id: i64, contract: &Contract,
         num_rows: i32, is_smart_depth: bool,
     ) -> Result<(), String> {
-        let exchange = if contract.exchange.is_empty() { "SMART".to_string() } else { contract.exchange.clone() };
+        if !crate::client_core::ClientCore::ids_fit("req_mkt_depth", &[req_id, contract.con_id]) { return Ok(()); }
+        // An empty exchange is refused by the engine, as the reference
+        // refuses it (#452).
+        let exchange = contract.exchange.clone();
         let sec_type = if contract.sec_type.is_empty() { "STK".to_string() } else { contract.sec_type.clone() };
         self.send(ControlCommand::SubscribeDepth {
-            req_id: req_id as u32,
+            req_id,
             con_id: contract.con_id,
             exchange,
             sec_type,
@@ -110,7 +253,8 @@ impl EClient {
 
     /// Cancel market depth. Matches `cancelMktDepth` in C++.
     pub fn cancel_mkt_depth(&self, req_id: i64) -> Result<(), String> {
-        self.send(ControlCommand::UnsubscribeDepth { req_id: req_id as u32 })
+        if !crate::client_core::ClientCore::ids_fit("cancel_mkt_depth", &[req_id]) { return Ok(()); }
+        self.send(ControlCommand::UnsubscribeDepth { req_id })
     }
 
     // ── Real-Time Bars ──
@@ -120,18 +264,24 @@ impl EClient {
         &self, req_id: i64, contract: &Contract,
         _bar_size: i32, what_to_show: &str, use_rth: bool,
     ) -> Result<(), String> {
-        self.send(ControlCommand::SubscribeRealTimeBar {
-            req_id: req_id as u32,
+        if !crate::client_core::ClientCore::ids_fit("req_real_time_bars", &[req_id, contract.con_id]) { return Ok(()); }
+        // A contract without a conId is looked up first, as the reference
+        // does (captured 05/10/2026).
+        self.send(crate::client_core::ClientCore::resolve_first(req_id, contract, ControlCommand::SubscribeRealTimeBar {
+            req_id,
             con_id: contract.con_id,
             symbol: contract.symbol.clone(),
+            sec_type: contract.sec_type.clone(),
+            exchange: contract.exchange.clone(),
             what_to_show: what_to_show.into(),
             use_rth,
-        })
+        }))
     }
 
     /// Cancel real-time bars. Matches `cancelRealTimeBars` in C++.
     pub fn cancel_real_time_bars(&self, req_id: i64) -> Result<(), String> {
-        self.send(ControlCommand::CancelRealTimeBar { req_id: req_id as u32 })
+        if !crate::client_core::ClientCore::ids_fit("cancel_real_time_bars", &[req_id]) { return Ok(()); }
+        self.send(ControlCommand::CancelRealTimeBar { req_id })
     }
 
     /// Set market data type preference (1=live, 2=frozen, 3=delayed, 4=delayed-frozen).
@@ -153,19 +303,18 @@ impl EClient {
         self.shared.last_ccp_rtt()
     }
 
-    /// NOT supported end to end (ibx#234): the requested type is stored
-    /// locally but never sent to the gateway, so subscriptions always
-    /// deliver realtime data and delayed tick variants never arrive.
-    /// Requesting a non-realtime type logs a warning, and the
-    /// `market_data_type` callback reports the DELIVERED type (realtime)
-    /// rather than echoing the request.
+    /// Set the market data type (ibx#447), as the reference sets its modes:
+    /// 1 all off, 2 frozen on, 3 delayed on, 4 delayed and delayed-frozen
+    /// on (2 keeps the delayed modes, 3 keeps frozen). With delayed on, a
+    /// subscription the server rejects goes on with delayed data when the
+    /// server has it: `market_data_type(reqId, 3)` then error 10167, as the
+    /// reference. The frozen modes are kept but no frozen subscription is
+    /// sent: when the reference asks for frozen data is not known. A value
+    /// outside 1..=4 gives error 321 with id -1.
     pub fn req_market_data_type(&self, market_data_type: i32) {
-        self.core.set_market_data_type(market_data_type);
-    }
-
-    /// Set news provider codes for per-contract news ticks.
-    pub fn set_news_providers(&self, providers: &str) {
-        self.core.set_news_providers(providers);
+        if let Some((code, text)) = self.core.set_market_data_type(&self.control_tx, market_data_type) {
+            self.shared.orders.push_order_error(-1, code, text);
+        }
     }
 
     // ── Escape Hatch ──

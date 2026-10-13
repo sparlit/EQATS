@@ -74,7 +74,9 @@ class TestFeatures:
         df = make_symbol_frame()
         spiked = df.copy()
         spiked.loc[df.index[-1], "deliv_pct"] = 95.0
-        feat = add_features(prepare_frame(spiked[["date", "symbol", "segment", "close", "deliv_pct"]]))
+        feat = add_features(
+            prepare_frame(spiked[["date", "symbol", "segment", "close", "deliv_pct"]])
+        )
         assert feat["deliv_z"].iloc[-1] > 2
 
     def test_streak_counter(self):
@@ -116,8 +118,7 @@ class TestEvaluate:
             f.loc[f.index[-2], "ret_1d"] = 0.05
             frames.append(f)
         results = evaluate_bucket(frames, "dz_hi_up", horizons=(1,))
-        assert "1" in results
-        assert results["1"]["n"] >= 1
+        assert "1" in results and results["1"]["n"] >= 1
 
     def test_unknown_signal_raises(self):
         with pytest.raises(KeyError):

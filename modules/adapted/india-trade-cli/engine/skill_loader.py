@@ -57,7 +57,7 @@ All other module-level code is executed when the file is imported (use sparingly
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # ── Search paths ────────────────────────────────���─────────────
 
@@ -87,7 +87,7 @@ def discover_skills(extra_dirs: list[Path] | None = None) -> list[Path]:
             continue
         for py_file in sorted(d.glob("*.py")):
             name = py_file.stem
-            if name.startswith(("_", "example_")):
+            if name.startswith("_") or name.startswith("example_"):
                 continue
             found.append(py_file)
 

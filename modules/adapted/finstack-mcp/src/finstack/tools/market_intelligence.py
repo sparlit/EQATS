@@ -86,7 +86,7 @@ def register_market_intelligence_tools(mcp):
         return json.dumps(get_options_oi_analytics(symbol), indent=2)
 
     @mcp.tool()
-    def options_greeks(symbol: str, expiry: str | None = None) -> str:
+    def options_greeks(symbol: str, expiry: str = None) -> str:
         """Calculate Black-Scholes Greeks (Delta, Gamma, Theta, Vega, Rho) for all option strikes.
 
         Covers features Sensibull Pro charges ₹1,300/month for — free here.

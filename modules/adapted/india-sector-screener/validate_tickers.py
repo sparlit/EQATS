@@ -27,7 +27,7 @@ import json
 import urllib.parse
 import urllib.request
 
-from universe import BENCHMARKS, SECTORS, all_symbols
+from universe import all_symbols
 
 UA = {"User-Agent": "Mozilla/5.0"}
 

@@ -55,7 +55,6 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from brokers.base import (
     BrokerAPI,
@@ -226,8 +225,7 @@ def _get_sdk():
 
         return fyersModel
     except ImportError:
-        msg = "fyers-apiv3 not installed. Run:\n  pip install fyers-apiv3"
-        raise RuntimeError(msg)
+        raise RuntimeError("fyers-apiv3 not installed. Run:\n  pip install fyers-apiv3")
 
 
 class FyersAPI(BrokerAPI):
@@ -322,7 +320,7 @@ class FyersAPI(BrokerAPI):
         if not token:
             error_msg = response.get("message", "Unknown error")
             if "invalid app id" in error_msg.lower() or "app id hash" in error_msg.lower():
-                msg = (
+                raise RuntimeError(
                     f"Fyers login failed: {error_msg}\n"
                     "Your App ID and Secret Key don't match. To fix:\n"
                     "  trade\n"
@@ -331,14 +329,12 @@ class FyersAPI(BrokerAPI):
                     "  > login\n"
                     "Then re-enter the correct values from myapi.fyers.in"
                 )
-                raise RuntimeError(msg)
-            msg = (
+            raise RuntimeError(
                 f"Fyers login failed: {error_msg}\n"
                 "Possible causes: expired auth code, wrong redirect URL, or network issue.\n"
                 "Try logging in again. If it persists, verify your app config at myapi.fyers.in\n"
                 "and ensure Redirect URL is exactly: http://127.0.0.1:8765/fyers/callback"
             )
-            raise RuntimeError(msg)
 
         self._access_token = token
         self._token_ts = time.time()
@@ -547,7 +543,11 @@ class FyersAPI(BrokerAPI):
             chain = []
             for item in data.get("data", {}).get("optionsChain", []):
                 for opt_type in ["CE", "PE"]:
-                    opt = item.get(opt_type, item) if opt_type in str(item.get("option_type", "")) else None
+                    opt = (
+                        item.get(opt_type, item)
+                        if opt_type in str(item.get("option_type", ""))
+                        else None
+                    )
                     if not opt and item.get("option_type") == opt_type:
                         opt = item
                     if not opt:
@@ -592,7 +592,7 @@ class FyersAPI(BrokerAPI):
             "side": 1 if req.transaction_type == "BUY" else -1,
             "productType": product_map.get(req.product, "CNC"),
             "limitPrice": req.price if req.order_type == "LIMIT" else 0,
-            "stopPrice": req.trigger_price or 0,
+            "stopPrice": req.trigger_price if req.trigger_price else 0,
             "validity": "DAY",
             "disclosedQty": 0,
             "offlineOrder": False,
@@ -686,8 +686,7 @@ class FyersAPI(BrokerAPI):
                 for c in candles
             ]
         except Exception as e:
-            msg = (
+            raise RuntimeError(
                 f"Fyers historical data error: {e}\n"
                 "Check that the symbol and date range are valid. If your session expired, try: logout → login"
-            )
-            raise RuntimeError(msg) from e
+            ) from e

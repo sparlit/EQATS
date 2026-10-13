@@ -128,7 +128,9 @@ def main():
 
     def rev_rows(qe):
         return [
-            (k, (st[k].get(SYM) or {}).get(str(qe))) for k in ("rev_d", "rev_s") if (st[k].get(SYM) or {}).get(str(qe))
+            (k, (st[k].get(SYM) or {}).get(str(qe)))
+            for k in ("rev_d", "rev_s")
+            if (st[k].get(SYM) or {}).get(str(qe))
         ]
 
     # ---- 1. the correction. Guard on the value we measured as wrong: if the store no longer holds
@@ -137,13 +139,19 @@ def main():
         wcon, wrev, wop = WAS[qe]
         for label, row in fund_rows(qe):
             if row[3] is None or abs(row[3] - wcon) > TOL:
-                print(f"  !! {label} {qe} conPAT is {row[3]}, expected the defective {wcon} — stopping")
+                print(
+                    f"  !! {label} {qe} conPAT is {row[3]}, expected the defective {wcon} — stopping"
+                )
                 return 1
             print("  %-8s %s conPAT %s -> %s" % (label, qe, row[3], con))
             if apply:
                 row[3], row[4] = con, ANN
         for label, row in rev_rows(qe):
-            for slot, was, now, name in ((1, wrev, rev, "revC"), (3, wop, op, "opC"), (5, wcon, con, "patC")):
+            for slot, was, now, name in (
+                (1, wrev, rev, "revC"),
+                (3, wop, op, "opC"),
+                (5, wcon, con, "patC"),
+            ):
                 cur = row[slot] if len(row) > slot else None
                 if cur is None or abs(cur - was) > TOL:
                     print(f"  !! {label} {qe} {name} is {cur}, expected {was} — stopping")

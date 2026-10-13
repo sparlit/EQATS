@@ -70,44 +70,47 @@ SKIPS = os.path.join(HERE, "_nsearch_skips.json")
 
 H = {"User-Agent": BF.UA, "Accept": "*/*", "Referer": "https://www.nseindia.com/"}
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 NUM = re.compile(r"^-?[\d,]+\.?\d*$")
 
 # rev: the printed top line. Banking filings have no "income from operations" row at all.
-R_REV_IND = re.compile(r"total income from operations", re.IGNORECASE)
-R_REV_IND2 = re.compile(r"net sales\s*/\s*income from operations", re.IGNORECASE)
+R_REV_IND = re.compile(r"total income from operations", re.I)
+R_REV_IND2 = re.compile(r"net sales\s*/\s*income from operations", re.I)
 # Ind-AS-era pages (~2016+) label the line plainly "Revenue from operations" — neither pattern
 # above matches it, so those filings read as "no-rev-row" even when the anchor passed.
 R_REV_IND3 = re.compile(
     r"^revenue from operations?\b|^income from operations?$"
     r"|^total revenue from operations?",
-    re.IGNORECASE,
+    re.I,
 )
-R_REV_BANK = re.compile(r"^interest earned", re.IGNORECASE)
+R_REV_BANK = re.compile(r"^interest earned", re.I)
 # Two more operating-revenue spellings found 2026-08-07 on pages whose PAT anchor PASSED (so the
 # page is definitely the right filing) but which still reported "no-rev-row":
 #   "Net Income from sales / services"  -- unambiguously the operating revenue line
-R_REV_IND5 = re.compile(r"^net income from sales\s*/?\s*services?", re.IGNORECASE)
+R_REV_IND5 = re.compile(r"^net income from sales\s*/?\s*services?", re.I)
 #   bare "Total Income" -- LAST RESORT ONLY, and deliberately kept separate from the patterns
 # above rather than folded in. For a BANK/NBFC Total Income IS the top line, but for an
 # industrial it is sales PLUS other income, so preferring it over a real sales row would
 # silently overstate revenue. It is therefore tried only after every other pattern has failed,
 # which matches the campaign's own rule: "for banks/NBFCs use Total Income; if ONLY Total
 # Income is shown, use that".
-R_REV_TOTINC = re.compile(r"^total income$", re.IGNORECASE)
+R_REV_TOTINC = re.compile(r"^total income$", re.I)
 # op: printed directly — no reconstruction from expense components needed
-R_OP_IND = re.compile(r"profit\s*/?\s*\(?loss\)?\s*from operations before other income", re.IGNORECASE)
-R_OP_BANK = re.compile(r"operating profit before provisions", re.IGNORECASE)
+R_OP_IND = re.compile(r"profit\s*/?\s*\(?loss\)?\s*from operations before other income", re.I)
+R_OP_BANK = re.compile(r"operating profit before provisions", re.I)
 # PAT: prefer the owners-attributable line (post minority interest + associates)
 # "after taxES, minority interest" — the archive's actual wording. The old pattern demanded
 # "after tax" immediately followed by anything then "minority interest", which the plural broke,
 # so pick() returned None and 128 cells failed as "pat-anchor None" with the number on the page.
-R_PAT_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE)
+R_PAT_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I)
 R_PAT_ANY = re.compile(
     r"net profit\s*/?\s*\(?loss\)?\s*for the period"
     r"|net profit.*from ordinary activities after tax",
-    re.IGNORECASE,
+    re.I,
 )
 # Same template, sign-notation variants the two patterns above miss:
 #   "Net Sales/Income from Operation"          <- SINGULAR, R_REV_IND2 demands "operations"
@@ -116,12 +119,12 @@ R_PAT_ANY = re.compile(
 # Both are tried STRICTLY LAST (separate pick() calls, never folded into the alternations
 # above) so every currently-matching page keeps the exact row it matches today -- widening an
 # existing alternation could make it match an EARLIER row and silently change landed values.
-R_REV_SIGNED = re.compile(r"net sales\s*/\s*income from operations?\b", re.IGNORECASE)
-R_PAT_CONNET = re.compile(r"^consolidated net profit.*for the period", re.IGNORECASE)
+R_REV_SIGNED = re.compile(r"net sales\s*/\s*income from operations?\b", re.I)
+R_PAT_CONNET = re.compile(r"^consolidated net profit.*for the period", re.I)
 R_PAT_SIGNED = re.compile(
     r"net profit\s*\([+-]\)\s*/?\s*\(?loss\)?\s*\([+-]\)?\s*for the period"
     r"|net profit\s*\([+-]\)\s*/\s*loss",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -139,7 +142,9 @@ def aliases(sym):
     try:
         import csv as _csv
 
-        for row in _csv.reader(open(os.path.join(HERE, "symchg.csv"), encoding="utf8", errors="replace")):
+        for row in _csv.reader(
+            open(os.path.join(HERE, "symchg.csv"), encoding="utf8", errors="replace")
+        ):
             if len(row) >= 3 and row[1].strip() and row[2].strip():
                 edges.setdefault(row[2].strip().upper(), set()).add(row[1].strip().upper())
     except Exception:
@@ -161,7 +166,7 @@ def list_rows(sym):
     import urllib.parse
 
     rows = []
-    for s in [sym, *aliases(sym)]:
+    for s in [sym] + aliases(sym):
         lp = os.path.join(CACHE, "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", s.upper())))
         got, err = None, None
         # the list endpoint is the fragile www.nseindia.com API (cookie-gated, rate-limited);
@@ -171,7 +176,9 @@ def list_rows(sym):
             try:
                 raw = get(
                     "https://www.nseindia.com/api/corporates-financial-results"
-                    "?index=equities&symbol={}&period=Quarterly".format(urllib.parse.quote(s, safe="")),
+                    "?index=equities&symbol={}&period=Quarterly".format(
+                        urllib.parse.quote(s, safe="")
+                    ),
                     lp,
                 )
                 got = json.loads(raw)
@@ -197,14 +204,14 @@ def get_detail(link, sym, path=None):
     404s while financial_res_GMRINFRA_131242.html serves 13KB. Proven the whole rename residue:
     fills AND skips were both zero because the fetch failed silently before any row was parsed."""
     names = [link]
-    m = re.match(r"(.*financial_res_)(.+)(_\d+\.html?)$", link, re.IGNORECASE)
+    m = re.match(r"(.*financial_res_)(.+)(_\d+\.html?)$", link, re.I)
     if m:
         # `sym` ITSELF is a candidate too (2026-09-02, CON-GAP PRE-2020): when the list is queried
         # under an era name (AGCNET) the API still rewrites the filename to the CURRENT name
         # (financial_res_BBOX_53155.html, 404) while the stored file carries the era name that
         # was asked for -- aliases(sym) lists only names OLDER than sym, so AGCNET was never tried
         # and all 14 of its 2008-2011 consolidated pages read as fetch:HTTPError.
-        for a in [sym, *aliases(sym)]:
+        for a in [sym] + aliases(sym):
             if a.upper() != m.group(2).upper():
                 names.append(m.group(1) + a + m.group(3))
     err = None
@@ -254,11 +261,16 @@ def parse_detail(html):
     meta, rows = {}, []
     for i, c in enumerate(cells):
         nxt = cells[i + 1] if i + 1 < len(cells) else ""
-        if c in ("Consolidated / Non-Consolidated", "Period Ended", "Symbol", "Audited / Un-Audited"):
+        if c in (
+            "Consolidated / Non-Consolidated",
+            "Period Ended",
+            "Symbol",
+            "Audited / Un-Audited",
+        ):
             meta[c] = nxt
         if c in ("Banking", "Non Banking"):
             meta["fmt"] = c
-        m = re.match(r"Amount\s*\(\s*Rs\.?\s*in\s*(lakhs?|crores?|thousands?|millions?)", c, re.IGNORECASE)
+        m = re.match(r"Amount\s*\(\s*Rs\.?\s*in\s*(lakhs?|crores?|thousands?|millions?)", c, re.I)
         if m:
             meta["unit"] = m.group(1).lower()
         if not NUM.match(c) and NUM.match(nxt or ""):
@@ -286,7 +298,7 @@ def parse_detail(html):
 # — it ate the "Net " of "Net Profit / (Loss) for the period", so every `net profit` regex missed
 # and ~4,500 pre-2017 cells were skipped as "pat-anchor None". 2017 filings hid the bug because
 # their labels embed a serial ("13 Net Profit ..."), where stripping happens to produce a clean match.
-ROWNUM = re.compile(r"^\(?(?:\d{1,3}|[ivxlcdm]{1,4}|[a-z])\)?[\.\)\s]+", re.IGNORECASE)
+ROWNUM = re.compile(r"^\(?(?:\d{1,3}|[ivxlcdm]{1,4}|[a-z])\)?[\.\)\s]+", re.I)
 
 
 def pick(rows, *pats):
@@ -308,7 +320,11 @@ def close(a, b):
 def main():
     global JAR
     argv = sys.argv
-    gapf = argv[argv.index("--gaps") + 1] if "--gaps" in argv else os.path.join(HERE, "_gaps_pre2018.json")
+    gapf = (
+        argv[argv.index("--gaps") + 1]
+        if "--gaps" in argv
+        else os.path.join(HERE, "_gaps_pre2018.json")
+    )
     only = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else None
     limit = int(argv[argv.index("--limit") + 1]) if "--limit" in argv else None
     shard = argv[argv.index("--shard") + 1] if "--shard" in argv else None
@@ -357,7 +373,9 @@ def main():
                 return False
             if basis_want is None:
                 return True
-            return any(e.get("basis") == basis_want for e in (ent if isinstance(ent, list) else [ent]))
+            return any(
+                e.get("basis") == basis_want for e in (ent if isinstance(ent, list) else [ent])
+            )
 
         want = {int(q) for q in gaps[sym] if not have(q)}
         if not want:
@@ -372,7 +390,11 @@ def main():
             if qe not in want or not r.get("resultDetailedDataLink"):
                 continue
             if basis_want:
-                row_basis = "con" if str(r.get("consolidated", "")).strip().lower() == "consolidated" else "std"
+                row_basis = (
+                    "con"
+                    if str(r.get("consolidated", "")).strip().lower() == "consolidated"
+                    else "std"
+                )
                 if row_basis != basis_want:
                     continue
             link = r["resultDetailedDataLink"]
@@ -386,9 +408,15 @@ def main():
             # financial-format per the DATA (any existing cell fin=1), never the ticker name —
             # catches AAVAS/DHANI/HUDCO/SHRIRAMFIN-class NBFCs no name regex would
             isfin = isbank or any(
-                c[6] == 1 for c in (revop_now.get(sym) or {}).values() if len(c) > 6 and c[6] is not None
+                c[6] == 1
+                for c in (revop_now.get(sym) or {}).values()
+                if len(c) > 6 and c[6] is not None
             )
-            basis = "con" if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non") else "std"
+            basis = (
+                "con"
+                if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non")
+                else "std"
+            )
             if basis_want and basis != basis_want:
                 skips["%s|%d|%s" % (sym, qe, basis_want)] = f"page-basis-{basis}-not-{basis_want}"
                 continue
@@ -461,7 +489,9 @@ def main():
             else:
                 op = pick(prows, R_OP_IND)
             if op == 0.0:
-                op = None  # a printed 0.00 on a crore-scale filer is a placeholder row, not a result
+                op = (
+                    None  # a printed 0.00 on a crore-scale filer is a placeholder row, not a result
+                )
             prev = out.setdefault(sym, {}).get(str(qe))
             ent = {
                 "rev": round(rev, 2),
@@ -473,7 +503,11 @@ def main():
                     link.rsplit("/", 1)[-1], meta.get("unit", "lakhs"), meta.get("fmt", "?")
                 ),
             }
-            out[sym][str(qe)] = (prev if isinstance(prev, list) else ([prev] if prev else [])) + [ent] if prev else ent
+            out[sym][str(qe)] = (
+                (prev if isinstance(prev, list) else ([prev] if prev else [])) + [ent]
+                if prev
+                else ent
+            )
             nfill += 1
             print(
                 "%-12s %d %-3s -> rev %.2f op %s (anchor %.2f)"

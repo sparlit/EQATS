@@ -97,7 +97,10 @@ class Wrapper(EWrapper):
             self.order_statuses[order_id] = []
         self.order_statuses[order_id].append((status, filled, remaining, perm_id))
         self.perm_ids[order_id] = perm_id
-        print(f"  [status] oid={order_id} status={status} filled={filled} remaining={remaining} permId={perm_id}")
+        print(
+            f"  [status] oid={order_id} status={status} filled={filled} "
+            f"remaining={remaining} permId={perm_id}"
+        )
         self.got_status.set()
         if status == "Filled" or filled > 0:
             self.got_fill.set()
@@ -239,7 +242,12 @@ def run_example():
 
     w = Wrapper()
     c = EClient(w)
-    c.connect(username=username, password=password, host=os.environ.get("IB_HOST", "cdc1.ibllc.com"), paper=True)
+    c.connect(
+        username=username,
+        password=password,
+        host=os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+        paper=True,
+    )
     t = threading.Thread(target=c.run, daemon=True)
     t.start()
     assert w.connected.wait(timeout=15), "Connection failed"
@@ -319,7 +327,9 @@ def run_example():
             if child_st:
                 names = [s[0] for s in child_st]
                 print(f"  {label} statuses after parent fill: {names}")
-                assert any(s in ("Submitted", "PreSubmitted") for s in names), f"{label} should be active, got: {names}"
+                assert any(s in ("Submitted", "PreSubmitted") for s in names), (
+                    f"{label} should be active, got: {names}"
+                )
 
         # Cancel children
         c.cancel_order(tid2, "")

@@ -7,9 +7,6 @@ mod codex_binary;
 mod config_manager;
 mod onboarding_bypass;
 
-pub use codex_binary::{
-    resolve_codex_cli_binary, resolve_codex_cli_shim, resolve_desktop_binary,
-    resolve_desktop_launch_uri, resolve_desktop_launch_uri_scanned,
-};
+pub use codex_binary::{resolve_codex_cli_binary, resolve_codex_cli_shim};
 pub use config_manager::{default_codex_dir, migrate_legacy_proxy_config};
 pub use onboarding_bypass::bypass_onboarding;

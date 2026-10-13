@@ -53,7 +53,9 @@ def main() -> int:
     parser.add_argument("--restore-snapshots", action="store_true")
     parser.add_argument("--send-telegram", action="store_true")
     parser.add_argument(
-        "--ladder-inspired", action="store_true", help="Experimental Penny EMA14/21 scoring and recent crossover gate"
+        "--ladder-inspired",
+        action="store_true",
+        help="Experimental Penny EMA14/21 scoring and recent crossover gate",
     )
     parser.add_argument(
         "--activate-penny-profile",
@@ -68,7 +70,11 @@ def main() -> int:
     args = parser.parse_args()
     if args.activate_penny_profile and not args.ladder_inspired:
         parser.error("--activate-penny-profile requires --ladder-inspired")
-    if args.ladder_inspired and not args.activate_penny_profile and (args.send_telegram or args.uniform_portfolio_dir):
+    if (
+        args.ladder_inspired
+        and not args.activate_penny_profile
+        and (args.send_telegram or args.uniform_portfolio_dir)
+    ):
         parser.error(
             "Research profile requires --uniform-portfolio-dir '' and no --send-telegram; keep a separate forward cohort before activation"
         )
@@ -80,9 +86,10 @@ def main() -> int:
     database = V2Database(args.db)
     prices = database.load_prices(args.date)
     if prices.empty:
-        msg = "No market prices available"
-        raise RuntimeError(msg)
-    as_of = str(pd.to_datetime(prices["trade_date"]).max().date()) if args.date is None else args.date
+        raise RuntimeError("No market prices available")
+    as_of = (
+        str(pd.to_datetime(prices["trade_date"]).max().date()) if args.date is None else args.date
+    )
     master = database.load_symbol_master(as_of)
     restricted = database.load_restricted_symbols(as_of)
     lifecycle_registry = database.load_lifecycle_registry()
@@ -102,7 +109,9 @@ def main() -> int:
             report,
             database,
             Path(args.uniform_portfolio_dir) / ledger_name,
-            provenance="PENNY_EMA14_21_FORWARD_20260923" if args.activate_penny_profile else "FORWARD_PAPER_COHORT",
+            provenance="PENNY_EMA14_21_FORWARD_20260923"
+            if args.activate_penny_profile
+            else "FORWARD_PAPER_COHORT",
         )
         report["uniform_portfolio"] = snapshot
         report["portfolio"] = [p for p in snapshot["positions"] if p["remaining_quantity"]]
@@ -110,7 +119,8 @@ def main() -> int:
     topic_order = ("early_radar", "confirming", "ready", "circuit_risk", "portfolio", "system")
     messages = {topic: render_topic_messages(report, topic) for topic in topic_order}
     deliveries = {
-        topic: send_messages(messages[topic], topic, enabled=args.send_telegram).__dict__ for topic in topic_order
+        topic: send_messages(messages[topic], topic, enabled=args.send_telegram).__dict__
+        for topic in topic_order
     }
     payload = {**report, "delivery": deliveries}
     target = Path(args.output)
@@ -120,7 +130,11 @@ def main() -> int:
     failed = []
     for topic in topic_order:
         result = deliveries[topic]
-        status = "SENT" if result["sent"] else ("SKIPPED" if result["reason"] == "disabled" else "FAILED")
+        status = (
+            "SENT"
+            if result["sent"]
+            else ("SKIPPED" if result["reason"] == "disabled" else "FAILED")
+        )
         print(f"[TELEGRAM] {topic}: {status} ({result['reason']}; pages={len(messages[topic])})")
         if args.send_telegram and not result["sent"]:
             failed.append(topic)

@@ -92,7 +92,9 @@ def _cache_path(kind: str, symbol: str) -> str:
     return os.path.join(d, f"{safe}.json")
 
 
-def _get_json(path: str, params: dict, kind: str, symbol: str, max_age_hours: float = 12) -> list | dict:
+def _get_json(
+    path: str, params: dict, kind: str, symbol: str, max_age_hours: float = 12
+) -> list | dict:
     cp = _cache_path(kind, symbol)
     if os.path.exists(cp):
         age = (time.time() - os.path.getmtime(cp)) / 3600
@@ -134,7 +136,11 @@ def corporate_announcements(symbol: str) -> list[dict]:
 def annual_reports(symbol: str) -> list[dict]:
     """Annual report PDFs. Fields: fromYr, toYr, fileName."""
     data = _get_json(
-        "annual-reports", {"index": "equities", "symbol": symbol}, "annual_reports", symbol, max_age_hours=24 * 7
+        "annual-reports",
+        {"index": "equities", "symbol": symbol},
+        "annual_reports",
+        symbol,
+        max_age_hours=24 * 7,
     )
     return data.get("data", []) if isinstance(data, dict) else data
 
@@ -142,7 +148,11 @@ def annual_reports(symbol: str) -> list[dict]:
 def corporate_actions(symbol: str) -> list[dict]:
     """Dividends/splits/bonuses. Fields: exDate, recDate, subject."""
     data = _get_json(
-        "corporates-corporateActions", {"index": "equities", "symbol": symbol}, "corp_actions", symbol, max_age_hours=24
+        "corporates-corporateActions",
+        {"index": "equities", "symbol": symbol},
+        "corp_actions",
+        symbol,
+        max_age_hours=24,
     )
     return data if isinstance(data, list) else data.get("data", [])
 
@@ -163,7 +173,11 @@ def integrated_filings(symbol: str) -> list[dict]:
     """Quarterly results filings incl. XBRL URLs.
     Fields: qe_Date, consolidated, audited, xbrl, ixbrl."""
     data = _get_json(
-        "integrated-filing-results", {"index": "equities", "symbol": symbol}, "filings", symbol, max_age_hours=6
+        "integrated-filing-results",
+        {"index": "equities", "symbol": symbol},
+        "filings",
+        symbol,
+        max_age_hours=6,
     )
     return data.get("data", []) if isinstance(data, dict) else data
 
@@ -237,7 +251,7 @@ def download(url: str, subdir: str = "files", max_mb: float = 40) -> str | None:
         return None
     d = os.path.join(CACHE_ROOT, subdir)
     os.makedirs(d, exist_ok=True)
-    ext = os.path.splitext(url.split("?", maxsplit=1)[0])[1] or ".bin"
+    ext = os.path.splitext(url.split("?")[0])[1] or ".bin"
     path = os.path.join(d, hashlib.md5(url.encode()).hexdigest() + ext)
     if os.path.exists(path) and os.path.getsize(path) > 0:
         return path
@@ -266,7 +280,13 @@ def download(url: str, subdir: str = "files", max_mb: float = 40) -> str | None:
 
 
 def _parse_nse_date(s: str) -> dt.date | None:
-    for fmt in ("%d-%b-%Y", "%d-%b-%Y %H:%M:%S", "%d-%b-%Y %H:%M", "%d-%B-%Y", "%d-%b-%Y %H:%M:%S.%f"):
+    for fmt in (
+        "%d-%b-%Y",
+        "%d-%b-%Y %H:%M:%S",
+        "%d-%b-%Y %H:%M",
+        "%d-%B-%Y",
+        "%d-%b-%Y %H:%M:%S.%f",
+    ):
         try:
             return dt.datetime.strptime(s.strip()[:20], fmt).date()
         except (ValueError, AttributeError):
@@ -325,7 +345,10 @@ def promoter_trend(symbol: str) -> dict:
 
 # Announcement categories that historically precede trouble or upside
 RED_FLAG_PATTERNS = [
-    (r"resignation.*(cfo|chief financial|auditor|managing director|md\b)", "senior exit (CFO/auditor/MD)"),
+    (
+        r"resignation.*(cfo|chief financial|auditor|managing director|md\b)",
+        "senior exit (CFO/auditor/MD)",
+    ),
     (r"resignation of (statutory )?auditor", "auditor resignation"),
     (r"\bpledge|pledged shares|invocation", "promoter pledge activity"),
     (r"qualified opinion|adverse opinion|emphasis of matter", "audit qualification"),
@@ -374,12 +397,29 @@ def classify_announcements(symbol: str, days: int = 365) -> dict:
         )
         for pat, label in RED_FLAG_PATTERNS:
             if re.search(pat, text) and label not in [f["type"] for f in flags]:
-                flags.append({"type": label, "date": d.isoformat(), "text": (a.get("attchmntText") or "")[:200]})
+                flags.append(
+                    {
+                        "type": label,
+                        "date": d.isoformat(),
+                        "text": (a.get("attchmntText") or "")[:200],
+                    }
+                )
         for pat, label in CATALYST_PATTERNS:
             if re.search(pat, text) and label not in [c["type"] for c in catalysts]:
-                catalysts.append({"type": label, "date": d.isoformat(), "text": (a.get("attchmntText") or "")[:200]})
+                catalysts.append(
+                    {
+                        "type": label,
+                        "date": d.isoformat(),
+                        "text": (a.get("attchmntText") or "")[:200],
+                    }
+                )
 
-    return {"red_flags": flags, "catalysts": catalysts, "recent_announcements": recent[:40], "count": len(recent)}
+    return {
+        "red_flags": flags,
+        "catalysts": catalysts,
+        "recent_announcements": recent[:40],
+        "count": len(recent),
+    }
 
 
 def upcoming_corporate_actions(symbol: str, days: int = 120) -> list[dict]:
@@ -394,7 +434,13 @@ def upcoming_corporate_actions(symbol: str, days: int = 120) -> list[dict]:
     for ca in corporate_actions(symbol):
         ex = _parse_nse_date(ca.get("exDate", ""))
         if ex and today - dt.timedelta(days=7) <= ex <= today + dt.timedelta(days=days):
-            out.append({"ex_date": ex.isoformat(), "subject": ca.get("subject"), "record_date": ca.get("recDate")})
+            out.append(
+                {
+                    "ex_date": ex.isoformat(),
+                    "subject": ca.get("subject"),
+                    "record_date": ca.get("recDate"),
+                }
+            )
     return sorted(out, key=lambda x: x["ex_date"])
 
 
@@ -403,11 +449,13 @@ def latest_annual_report_pdf(symbol: str, n_years: int = 5) -> list[dict]:
     reports = annual_reports(symbol)
     out = []
     for r in reports[:n_years]:
-        out.append({"from": r.get("fromYr"), "to": r.get("toYr"), "url": r.get("fileName"), "path": None})
+        out.append(
+            {"from": r.get("fromYr"), "to": r.get("toYr"), "url": r.get("fileName"), "path": None}
+        )
     return out
 
 
-_QUARTERLY_RESULT_TEXT = re.compile(r"financial results for the (period|quarter|year)", re.IGNORECASE)
+_QUARTERLY_RESULT_TEXT = re.compile(r"financial results for the (period|quarter|year)", re.I)
 
 
 def latest_quarterly_result_filing(symbol: str) -> dict | None:
@@ -433,7 +481,11 @@ def latest_quarterly_result_filing(symbol: str) -> dict | None:
         return None
     matches.sort(key=lambda a: _parse_nse_date(a.get("an_dt", "")) or dt.date.min, reverse=True)
     best = matches[0]
-    return {"date": best.get("an_dt"), "url": best.get("attchmntFile"), "text": best.get("attchmntText")}
+    return {
+        "date": best.get("an_dt"),
+        "url": best.get("attchmntFile"),
+        "text": best.get("attchmntText"),
+    }
 
 
 if __name__ == "__main__":
@@ -447,4 +499,6 @@ if __name__ == "__main__":
     print("catalysts:", cls["catalysts"])
     print("upcoming CA:", upcoming_corporate_actions(sym))
     print("annual reports:", latest_annual_report_pdf(sym))
-    print("filings:", [(f.get("qe_Date"), f.get("consolidated")) for f in integrated_filings(sym)][:4])
+    print(
+        "filings:", [(f.get("qe_Date"), f.get("consolidated")) for f in integrated_filings(sym)][:4]
+    )

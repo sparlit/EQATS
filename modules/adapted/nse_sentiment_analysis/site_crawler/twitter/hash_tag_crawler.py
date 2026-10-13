@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import csv
 
-import pandas as pd
 import tweepy
 from site_crawler.cleaner.cleaner import Cleaner
 from site_crawler.twitter.credentials import Credentials
@@ -66,7 +65,8 @@ searched_tweets = list(tweepy.Cursor(api.search, q=query).items(max_tweets))
 
 
 outtweets = [
-    [cleaner.clean_tweets(tweet.text), predict([cleaner.clean_tweets(tweet.text)])] for tweet in searched_tweets
+    [cleaner.clean_tweets(tweet.text), predict([cleaner.clean_tweets(tweet.text)])]
+    for tweet in searched_tweets
 ]
 
 
@@ -81,6 +81,7 @@ with open("./predict.csv", "w") as f:
     writer = csv.writer(f)
     writer.writerow(["text", "label"])
     writer.writerows(outtweets)
+pass
 
 # df=pd.read_csv("./predict.csv")
 # df=df.dropna(how='any')

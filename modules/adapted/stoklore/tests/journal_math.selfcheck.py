@@ -47,7 +47,13 @@ PER_SHARE = {
     "brokerage_pct": 0.03,
     "other_charges_pct": 0.1,
 }
-BPS = {"slippage_value": 5, "slippage_type": "bps", "brokerage_flat": 0, "brokerage_pct": 0, "other_charges_pct": 0.025}
+BPS = {
+    "slippage_value": 5,
+    "slippage_type": "bps",
+    "brokerage_flat": 0,
+    "brokerage_pct": 0,
+    "other_charges_pct": 0.025,
+}
 FREE = {
     "slippage_value": 0,
     "slippage_type": "per_share",
@@ -73,17 +79,32 @@ def trade(**kw):
 
 CASES = [
     # (trade, account) - each one pins a branch or an edge of the arithmetic.
-    (trade(exit_price=112.5, stop_loss=95, target=120, ideal_risk_amount=50), PER_SHARE),  # long winner, planned RR
-    (trade(direction="short", exit_price=91.2, stop_loss=104, ideal_risk_amount=40), BPS),  # short winner, realised RR
-    (trade(direction="short", exit_price=106.4, stop_loss=104), PER_SHARE),  # short loser past its stop
+    (
+        trade(exit_price=112.5, stop_loss=95, target=120, ideal_risk_amount=50),
+        PER_SHARE,
+    ),  # long winner, planned RR
+    (
+        trade(direction="short", exit_price=91.2, stop_loss=104, ideal_risk_amount=40),
+        BPS,
+    ),  # short winner, realised RR
+    (
+        trade(direction="short", exit_price=106.4, stop_loss=104),
+        PER_SHARE,
+    ),  # short loser past its stop
     (trade(exit_price=None, stop_loss=97), PER_SHARE),  # open: entry side costed only
     (trade(exit_price=101.0, stop_loss=100.0), None),  # zero stop distance; no account
     (trade(exit_price=100.015, quantity=100), FREE),  # inside the neutral band
     # 0.125 x 100 is exactly 12.5: JS rounds it to 13, Python's round() to 12. The mirror must say 13.
     (trade(entry_price=100.0, exit_price=100.125, quantity=1), FREE),
-    (trade(direction="short", entry_price=100.0, exit_price=100.125, quantity=1), FREE),  # ... and its negative
+    (
+        trade(direction="short", entry_price=100.0, exit_price=100.125, quantity=1),
+        FREE,
+    ),  # ... and its negative
     (trade(exit_price=250.0, quantity=0), PER_SHARE),  # no quantity: result unknown
-    (trade(exit_price=1343.6, entry_price=1394.0, quantity=3, stop_loss=1351.0), FREE),  # a real paper trade
+    (
+        trade(exit_price=1343.6, entry_price=1394.0, quantity=3, stop_loss=1351.0),
+        FREE,
+    ),  # a real paper trade
     (trade(traded_at="2026-09-15T09:20:00+05:30", exit_price=101), None),  # Opening
     (trade(traded_at="2026-09-15T14:30:00+05:30", exit_price=101), None),  # Closing starts at 14:30
     (trade(traded_at="2026-09-15T15:30:00+05:30", exit_price=101), None),  # after the close
@@ -137,18 +158,23 @@ mismatches = [
 ]
 for i, key, t_val, p_val in mismatches:
     print(f"case {i} {key}: TypeScript {t_val!r} != Python {p_val!r}")
-assert not mismatches, f"{len(mismatches)} journal numbers differ between the dashboard and the journal"
+assert not mismatches, (
+    f"{len(mismatches)} journal numbers differ between the dashboard and the journal"
+)
 
 # Pinned outright too, so the check can't pass by both sides being wrong the same way.
-assert py[0]["pnl"] == 125.0
-assert py[0]["planned_rr"] == 4.0
-assert py[0]["r_multiple"] == 2.5
-assert py[2]["realised_rr"] == -1.6
-assert py[2]["auto_result"] == "loss"
-assert py[3]["pnl"] is None and py[3]["costs"] is not None, "an open trade is charged its entry side"
-assert py[4]["costs"] is None and py[4]["net_pnl"] == py[4]["pnl"], "no account: unknown costs, net = gross"
+assert py[0]["pnl"] == 125.0 and py[0]["planned_rr"] == 4.0 and py[0]["r_multiple"] == 2.5
+assert py[2]["realised_rr"] == -1.6 and py[2]["auto_result"] == "loss"
+assert py[3]["pnl"] is None and py[3]["costs"] is not None, (
+    "an open trade is charged its entry side"
+)
+assert py[4]["costs"] is None and py[4]["net_pnl"] == py[4]["pnl"], (
+    "no account: unknown costs, net = gross"
+)
 assert py[5]["auto_result"] == "neutral"
-assert py[6]["pnl"] == 0.13 and py[7]["pnl"] == -0.12, "halves round toward +infinity, the way the browser does"
+assert py[6]["pnl"] == 0.13 and py[7]["pnl"] == -0.12, (
+    "halves round toward +infinity, the way the browser does"
+)
 assert py[8]["auto_result"] is None
 assert [p["session"] for p in py[10:14]] == ["Opening", "Closing", "After hours", "Opening"]
 

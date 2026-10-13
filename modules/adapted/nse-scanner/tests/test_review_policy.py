@@ -58,7 +58,9 @@ def test_fresh_review_is_cached(tmp_path):
     symbol_dir.mkdir()
     (symbol_dir / "latest.json").write_text(json.dumps(_review("2026-07-20")), encoding="utf-8")
     policy = ReviewPolicy(max_age_days=45)
-    required, reason = should_review_symbol("TCS", reports_root=tmp_path, policy=policy, as_of=date(2026, 7, 31))
+    required, reason = should_review_symbol(
+        "TCS", reports_root=tmp_path, policy=policy, as_of=date(2026, 7, 31)
+    )
     assert required is False
     assert "fresh" in reason
 
@@ -78,7 +80,9 @@ def test_stale_review_is_requeued(tmp_path):
 
 
 def test_force_refresh_bypasses_cache(tmp_path):
-    required, reason = should_review_symbol("TCS", reports_root=tmp_path, policy=ReviewPolicy(force_refresh=True))
+    required, reason = should_review_symbol(
+        "TCS", reports_root=tmp_path, policy=ReviewPolicy(force_refresh=True)
+    )
     assert required is True
     assert reason == "forced refresh"
 

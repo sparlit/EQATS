@@ -1,0 +1,1046 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Samco WebSocket Client Implementation
+Handles connection to Samco's Broadcast API for streaming market data
+Based on official Samco Python SDK pattern
+"""
+
+import json
+import threading
+import time
+from collections.abc import Callable
+from urllib.parse import unquote
+
+import websocket
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class SamcoWebSocket:
+    """
+    Samco WebSocket client for real-time market data streaming
+
+    Uses Samco's Broadcast API at wss://stream.stocknote.com
+    """
+
+    # WebSocket URL - Official Samco streaming endpoint
+    WS_URL = "wss://stream.samco.in"
+
+    # Connection constants
+    CONNECTION_TIMEOUT = 15
+    THREAD_JOIN_TIMEOUT = 5
+
+    # Heartbeat constants
+    HEARTBEAT_INTERVAL = 30
+    HEARTBEAT_TIMEOUT = 120
+    PING_INTERVAL = 30
+    PING_TIMEOUT = 10
+
+    # Subscription modes
+    LTP_MODE = 1
+    QUOTE_MODE = 2
+    DEPTH_MODE = 3
+
+    # Streaming types - Samco uses "quote2" for quote data and "marketDepth" for market depth
+    STREAMING_TYPE_QUOTE = "quote2"
+    STREAMING_TYPE_MARKETDATA = "marketDepth"
+
+    # Request types
+    REQUEST_SUBSCRIBE = "subscribe"
+    REQUEST_UNSUBSCRIBE = "unsubscribe"
+
+    def __init__(
+        self,
+        session_token: str,
+        user_id: str,
+        on_message: Callable | None = None,
+        on_error: Callable | None = None,
+        on_close: Callable | None = None,
+        on_open: Callable | None = None,
+        on_data: Callable | None = None,
+        auth_error_check: Callable | None = None,
+    ):
+        """
+        Initialize Samco WebSocket client
+
+        Args:
+            session_token: Session token from login API
+            user_id: User ID for authentication
+            on_message: Callback for text messages
+            on_error: Callback for connection errors
+            on_close: Callback for connection close
+            on_open: Callback for connection open
+            on_data: Callback for market data
+            auth_error_check: Predicate that returns True when an error string
+                means the broker refused a dead credential (401/403). The
+                adapter passes BaseBrokerWebSocketAdapter.is_auth_error so
+                samco shares the fleet's auth-error vocabulary.
+        """
+        # Authentication credentials
+        # URL-decode the session token if it contains encoded characters
+        self.session_token = unquote(session_token) if session_token else session_token
+        self.user_id = user_id
+
+        # Connection state
+        self.ws = None
+        self.ws_thread = None
+        self.running = False
+        self.connected = False
+
+        # Callbacks
+        self._on_message_callback = on_message
+        self._on_error_callback = on_error
+        self._on_close_callback = on_close
+        self._on_open_callback = on_open
+        self._on_data_callback = on_data
+        self.auth_error_check = auth_error_check
+
+        # Auth-failure state. Set from the error/close handlers when the broker
+        # rejects the session token; the adapter reads it to stop reconnecting
+        # instead of hammering the broker with a credential that cannot work.
+        self.auth_failed = False
+        self.auth_failure_reason = None
+
+        # Subscription tracking
+        self.subscribed_symbols = {}  # {symbol_key: {symbol, exchange, mode}}
+        self.input_request_dict = {}  # For resubscription
+        self.RESUBSCRIBE_FLAG = False
+
+        # Latest raw fields per symbol, merged across the quote and quote2
+        # streams (neither carries the full picture on its own).
+        self._tick_state = {}
+        self._tick_state_lock = threading.Lock()
+
+        # Subscription coalescing. Every subscribe frame restates the full symbol
+        # set, so a per-symbol burst from the proxy is collapsed into one send.
+        self._sub_dirty = threading.Event()
+        self._sub_flush_thread = None
+        self._sub_flush_stop = threading.Event()
+        # Serialises snapshot+send in the flusher against remove+send in
+        # unsubscribe, so a stale snapshot cannot resurrect a dropped symbol.
+        self._sub_send_lock = threading.Lock()
+
+        # Heartbeat management
+        self._heartbeat_thread = None
+        self._last_message_time = None
+        self._heartbeat_lock = threading.Lock()
+        self._heartbeat_stop_event = threading.Event()
+
+        # Reconnection settings
+        self.max_retry_attempts = 5
+        self.retry_delay = 5
+        self.retry_multiplier = 2
+        self.current_retry_attempt = 0
+        self.DISCONNECT_FLAG = False
+
+        # Logger
+        self.logger = get_logger("samco_websocket")
+
+    # Callback properties for compatibility with adapter
+    @property
+    def on_open(self):
+        return self._on_open_callback
+
+    @on_open.setter
+    def on_open(self, callback):
+        self._on_open_callback = callback
+
+    @property
+    def on_message(self):
+        return self._on_message_callback
+
+    @on_message.setter
+    def on_message(self, callback):
+        self._on_message_callback = callback
+
+    @property
+    def on_error(self):
+        return self._on_error_callback
+
+    @on_error.setter
+    def on_error(self, callback):
+        self._on_error_callback = callback
+
+    @property
+    def on_close(self):
+        return self._on_close_callback
+
+    @on_close.setter
+    def on_close(self, callback):
+        self._on_close_callback = callback
+
+    @property
+    def on_data(self):
+        return self._on_data_callback
+
+    @on_data.setter
+    def on_data(self, callback):
+        self._on_data_callback = callback
+
+    def connect(self) -> bool:
+        """
+        Establish WebSocket connection with authentication
+
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
+        if self.running:
+            self.logger.warning("Already connected or connecting")
+            return True
+
+        try:
+            self._initialize_connection()
+            return self._wait_for_connection()
+        except Exception as e:
+            self.logger.error(f"Connection error: {e}")
+            self.close_connection()
+            return False
+
+    def _initialize_connection(self) -> None:
+        """Initialize WebSocket connection with authentication headers"""
+        self.running = True
+        self.DISCONNECT_FLAG = False
+        # A new attempt carries a freshly re-read token, so the previous
+        # attempt's verdict must not block it. The adapter has already
+        # consumed the old flag by the time it calls connect() again.
+        self.auth_failed = False
+        self.auth_failure_reason = None
+
+        # Build headers with session token
+        # Log token info for debugging (first/last 4 chars only for security)
+        token_preview = (
+            f"{self.session_token[:4]}...{self.session_token[-4:]}"
+            if len(self.session_token) > 8
+            else "***"
+        )
+        self.logger.info(f"Connecting to {self.WS_URL} with token: {token_preview}")
+
+        # Headers as dict - matching official Samco SDK format
+        headers = {"x-session-token": self.session_token}
+
+        # Disable trace in production to avoid verbose logging
+        websocket.enableTrace(False)
+
+        self.ws = websocket.WebSocketApp(
+            self.WS_URL,
+            header=headers,
+            on_open=self._on_open,
+            on_message=self._on_message,
+            on_error=self._on_error,
+            on_close=self._on_close,
+        )
+
+        self.ws_thread = threading.Thread(target=self._run_websocket, daemon=True)
+        self.ws_thread.start()
+
+    def _wait_for_connection(self) -> bool:
+        """Wait for WebSocket connection to be established"""
+        start_time = time.time()
+
+        while time.time() - start_time < self.CONNECTION_TIMEOUT:
+            if self.connected:
+                self.logger.info("Samco WebSocket connected successfully")
+                return True
+            if self.auth_failed:
+                # The handshake was rejected outright; waiting out the full
+                # timeout only delays the adapter's decision to stop.
+                self.logger.error(f"Samco WebSocket auth failure: {self.auth_failure_reason}")
+                self.close_connection()
+                return False
+            time.sleep(0.1)
+
+        self.logger.error("Connection timeout")
+        self.close_connection()
+        return False
+
+    def _run_websocket(self) -> None:
+        """Run the WebSocket connection with proper error handling"""
+        try:
+            self.ws.run_forever(ping_interval=self.PING_INTERVAL, ping_timeout=self.PING_TIMEOUT)
+        except Exception as e:
+            self.logger.error(f"WebSocket run error: {e}")
+        finally:
+            self._cleanup_connection_state()
+
+    def _cleanup_connection_state(self) -> None:
+        """Clean up connection state"""
+        # run_forever() has returned, so the current connection lifecycle is
+        # over. Leave running=False so the adapter's reconnect loop can call
+        # connect() and create a fresh WebSocketApp instead of getting the
+        # "already connected or connecting" no-op.
+        self.running = False
+        self.connected = False
+        self._stop_heartbeat()
+        self._stop_subscription_flusher()
+        # Prices from the dead connection must not survive into the next one.
+        with self._tick_state_lock:
+            self._tick_state.clear()
+
+    def close_connection(self) -> None:
+        """Stop the WebSocket connection and cleanup resources"""
+        self.logger.info("Stopping Samco WebSocket connection")
+
+        self.running = False
+        self.connected = False
+        self.DISCONNECT_FLAG = True
+        self.RESUBSCRIBE_FLAG = False
+
+        self._close_websocket()
+        self._wait_for_thread_completion()
+        self._stop_heartbeat()
+        self._stop_subscription_flusher()
+
+    def _close_websocket(self) -> None:
+        """Close WebSocket connection and release socket fd"""
+        if self.ws:
+            try:
+                self.ws.close()
+            except Exception as e:
+                self.logger.error(f"Error closing WebSocket: {e}")
+            finally:
+                self.ws = None
+
+    def _wait_for_thread_completion(self) -> None:
+        """Wait for WebSocket thread to complete and release reference"""
+        if self.ws_thread and self.ws_thread.is_alive():
+            self.ws_thread.join(timeout=self.THREAD_JOIN_TIMEOUT)
+            if self.ws_thread.is_alive():
+                self.logger.warning("WebSocket thread did not terminate within timeout")
+        self.ws_thread = None
+
+    # WebSocket Event Handlers
+    def _on_open(self, ws) -> None:
+        """Handle WebSocket connection open event"""
+        self.connected = True
+        self._update_last_message_time()
+        self.current_retry_attempt = 0
+
+        self.logger.info("Samco WebSocket connection opened")
+
+        # Start heartbeat
+        self._start_heartbeat()
+        self._start_subscription_flusher()
+
+        # Resubscribe if needed
+        if self.RESUBSCRIBE_FLAG and self.subscribed_symbols:
+            self.logger.info("Resubscribing to previously subscribed symbols")
+            self._resubscribe_all()
+
+        # Call external callback
+        if self._on_open_callback:
+            try:
+                self._on_open_callback(ws)
+            except Exception as e:
+                self.logger.error(f"Error in on_open callback: {e}")
+
+    def _on_message(self, ws, message: str) -> None:
+        """Handle incoming WebSocket messages"""
+        self._update_last_message_time()
+
+        # Log all incoming messages for debugging
+        self.logger.debug(
+            f"Received WebSocket message: {message[:500] if len(message) > 500 else message}"
+        )
+
+        try:
+            # Try to parse as JSON
+            data = json.loads(message)
+
+            streaming_type, market_data = self._unwrap_tick(data)
+
+            if streaming_type in ["quote", "quote2", "marketDepth"]:
+                # Market data - normalize and pass to data callback
+                normalized = self._normalize_market_data(market_data, streaming_type)
+
+                self.logger.debug(
+                    f"Normalized data: symbol={normalized.get('symbol')}, has_callback={self._on_data_callback is not None}"
+                )
+
+                if self._on_data_callback:
+                    try:
+                        self._on_data_callback(ws, normalized)
+                        self.logger.debug("Data callback invoked successfully")
+                    except Exception as e:
+                        self.logger.error(f"Error in on_data callback: {e}", exc_info=True)
+                else:
+                    self.logger.warning("No on_data callback registered!")
+                return
+
+            # Other messages - pass to message callback
+            if self._on_message_callback:
+                try:
+                    self._on_message_callback(ws, message)
+                except Exception as e:
+                    self.logger.error(f"Error in on_message callback: {e}")
+
+        except json.JSONDecodeError:
+            # Plain text message
+            self.logger.debug(f"Non-JSON message: {message}")
+            if self._on_message_callback:
+                try:
+                    self._on_message_callback(ws, message)
+                except Exception as e:
+                    self.logger.error(f"Error in on_message callback: {e}")
+
+    # Subscription coalescing
+    SUB_FLUSH_DEBOUNCE = 0.25  # seconds of quiet before a subscription is sent
+
+    def _request_subscription_flush(self) -> None:
+        """Mark the subscription set dirty; the flush worker sends it."""
+        self._sub_dirty.set()
+
+    def _start_subscription_flusher(self) -> None:
+        """
+        Start the coalescing worker. Idempotent; one thread per connection.
+
+        A reconnect calls _stop_subscription_flusher() then this, so the previous
+        worker may still be winding down. Returning early on is_alive() alone
+        would leave the stop flag set and start no replacement - killing the
+        flusher for good, and with it every later subscription (a silent dead
+        feed on exactly the path that matters). Wait for a stopping worker
+        instead of skipping the restart.
+
+        A worker that misses the join is ALSO replaced. It can be wedged in
+        ws.send() on a dead socket for far longer than the timeout, and refusing
+        to replace it left the feed dead forever - every later reconnect just
+        re-joined the same corpse. Replacing is safe: the predecessor holds its
+        own (already set) stop event, so after its in-flight send returns it
+        re-checks that event and exits without another send.
+        """
+        old = self._sub_flush_thread
+        if old and old.is_alive():
+            if not self._sub_flush_stop.is_set():
+                return  # healthy worker already running
+            old.join(timeout=self.THREAD_JOIN_TIMEOUT)
+            if old.is_alive():
+                self.logger.warning(
+                    "Previous subscription flusher did not exit within "
+                    f"{self.THREAD_JOIN_TIMEOUT}s; starting a replacement with an "
+                    "independent stop event"
+                )
+
+        # A fresh event per worker: clearing a shared one would resurrect a
+        # stalled predecessor instead of stopping it.
+        self._sub_flush_stop = threading.Event()
+        self._sub_flush_thread = threading.Thread(
+            target=self._subscription_flush_worker,
+            args=(self._sub_flush_stop,),
+            daemon=True,
+            name="samco-sub-flush",
+        )
+        self._sub_flush_thread.start()
+
+    def _stop_subscription_flusher(self) -> None:
+        self._sub_flush_stop.set()
+        self._sub_dirty.set()  # wake the worker so it can exit promptly
+
+    def _subscription_flush_worker(self, stop_event: threading.Event) -> None:
+        """
+        Collapse a burst of subscribe() calls into a single frame pair.
+
+        Takes its own stop event so a restart cannot revive it (see
+        _start_subscription_flusher).
+        """
+        while not stop_event.is_set():
+            if not self._sub_dirty.wait(timeout=1.0):
+                continue
+            if stop_event.is_set():
+                break
+
+            # Let the burst settle: each new subscribe() re-sets the flag, so keep
+            # waiting until the set stops growing.
+            while True:
+                self._sub_dirty.clear()
+                if not self._sub_dirty.wait(timeout=self.SUB_FLUSH_DEBOUNCE):
+                    break
+                if stop_event.is_set():
+                    return
+
+            try:
+                self._send_subscription_state()
+            except Exception as e:
+                self.logger.error(f"Error flushing subscription state: {e}")
+
+    def _send_subscription_state(self) -> None:
+        """
+        Send the full current subscription set, once per streaming type.
+
+        Samco splits market data across two streaming types and neither is a
+        superset of the other:
+          quote2 -> bidValues/askValues/tbq/taq + greeks  (NO ltp, volume, OI, OHLC)
+          quote  -> ltp/ltq/o/h/l/c/vol/oI/bPr/aPr        (NO depth ladder)
+        A Depth (mode 3) subscriber needs both, so depth symbols go on BOTH streams
+        and the frames are merged per symbol on receipt (_normalize_market_data).
+        """
+        if not self._validate_connection_state("subscribe"):
+            return
+
+        with self._sub_send_lock:
+            self._send_subscription_state_locked()
+
+    def _send_subscription_state_locked(self) -> None:
+        depth_symbols = []
+        quote_symbols = []
+        for sym_key, sym_info in list(self.subscribed_symbols.items()):
+            if sym_info.get("mode", 2) == self.DEPTH_MODE:
+                depth_symbols.append({"symbol": sym_key})
+            # every subscriber, depth included, needs the quote stream for LTP
+            quote_symbols.append({"symbol": sym_key})
+
+        for streaming_type, symbol_list in (
+            (self.STREAMING_TYPE_QUOTE, depth_symbols),  # "quote2" -> depth ladder
+            ("quote", quote_symbols),  # "quote"  -> ltp/ohlc/volume/oi
+        ):
+            if not symbol_list:
+                continue
+
+            request_data = {
+                "request": {
+                    "streaming_type": streaming_type,
+                    "data": {"symbols": symbol_list},
+                    "request_type": self.REQUEST_SUBSCRIBE,
+                    "response_format": "json",
+                }
+            }
+
+            # Samco parses incoming frames as newline-delimited JSON: the trailing
+            # newline must terminate the SAME frame, or the subscription is
+            # buffered and never takes effect.
+            #
+            # debug, not info: this payload is one entry per subscribed symbol and
+            # runs to tens of KB on a full option chain.
+            request_json = json.dumps(request_data)
+            self.logger.debug(f"Sending subscription: {request_json}")
+            self.ws.send(request_json + "\n")
+            self.logger.info(
+                f"Subscribed {len(symbol_list)} symbols on streaming_type={streaming_type}"
+            )
+
+    def _unwrap_tick(self, data: dict) -> tuple:
+        """
+        Extract (streaming_type, payload) from a Samco streaming frame.
+
+        Samco uses two envelopes on the same socket:
+        - marketDepth / quote2 ticks are wrapped:
+          {"response": {"data": {...}, "streaming_type": "quote2"}}
+        - quote ticks arrive flat, with streaming_type alongside the fields:
+          {"sym": "2885_NSE", "ltp": "...", ..., "streaming_type": "quote"}
+
+        Returns ("", {}) for anything that is not a market-data tick.
+        """
+        if not isinstance(data, dict):
+            return "", {}
+
+        response = data.get("response")
+        if isinstance(response, dict):
+            payload = response.get("data")
+            return response.get("streaming_type", ""), payload if isinstance(payload, dict) else {}
+
+        return data.get("streaming_type", ""), data
+
+    def _normalize_market_data(self, data: dict, streaming_type: str) -> dict:
+        """
+        Normalize Samco quote data to common format
+
+        Samco quote response fields:
+        - aPr: Ask price
+        - aSz: Ask size
+        - avgPr: Average price
+        - bPr: Bid price
+        - bSz: Bid size
+        - c: Close
+        - ch: Change
+        - chPer: Change percentage
+        - h: High
+        - l: Low
+        - lTrdT: Last traded time
+        - ltp: Last traded price
+        - ltq: Last traded quantity
+        - ltt: Last traded time
+        - lttUTC: Last traded time UTC
+        - o: Open
+        - oI: Open interest
+        - sym: Symbol
+        - vol: Volume
+        """
+        # Determine mode: quote2 has depth data, quote has OHLC data
+        if streaming_type in ["quote2", "marketDepth"]:
+            mode = self.DEPTH_MODE  # quote2 has bidValues/askValues (depth data)
+        else:
+            mode = self.QUOTE_MODE  # quote has ltp, ohlc, vol
+
+        # Merge with what the other stream last reported for this symbol. quote2
+        # frames carry no ltp/volume/OI/OHLC and quote frames carry no depth
+        # ladder, so emitting either one raw leaves the missing half at 0 - which
+        # is what blanked LTP for depth subscribers (the option chain overwrites
+        # its REST LTP with whatever the feed publishes).
+        symbol_key = data.get("symbol") or data.get("sym") or ""
+        if symbol_key:
+            fresh = {k: v for k, v in data.items() if v not in (None, "")}
+            with self._tick_state_lock:
+                state = self._tick_state.setdefault(symbol_key, {})
+                state.update(fresh)
+                data = dict(state)
+
+        # Extract bid/ask values - quote2 has bidValues/askValues arrays
+        bid_values = data.get("bidValues", [])
+        ask_values = data.get("askValues", [])
+
+        # Get best bid/ask from first level (quote2) or direct fields (quote)
+        best_bid_price = 0.0
+        best_bid_qty = 0
+        best_ask_price = 0.0
+        best_ask_qty = 0
+
+        if bid_values and len(bid_values) > 0:
+            # quote2 format with depth arrays
+            best_bid_price = self._safe_float(bid_values[0].get("price", 0))
+            best_bid_qty = self._safe_int(bid_values[0].get("qty", 0))
+        else:
+            # quote format with direct fields: bPr, bSz
+            best_bid_price = self._safe_float(data.get("bPr", 0))
+            best_bid_qty = self._safe_int(data.get("bSz", 0))
+
+        if ask_values and len(ask_values) > 0:
+            # quote2 format with depth arrays
+            best_ask_price = self._safe_float(ask_values[0].get("price", 0))
+            best_ask_qty = self._safe_int(ask_values[0].get("qty", 0))
+        else:
+            # quote format with direct fields: aPr, aSz
+            best_ask_price = self._safe_float(data.get("aPr", 0))
+            best_ask_qty = self._safe_int(data.get("aSz", 0))
+
+        # Build depth data
+        depth_buy = []
+        depth_sell = []
+        for bid in bid_values:
+            depth_buy.append(
+                {
+                    "price": self._safe_float(bid.get("price", 0)),
+                    "quantity": self._safe_int(bid.get("qty", 0)),
+                    "orders": self._safe_int(bid.get("no", 0)),
+                }
+            )
+        for ask in ask_values:
+            depth_sell.append(
+                {
+                    "price": self._safe_float(ask.get("price", 0)),
+                    "quantity": self._safe_int(ask.get("qty", 0)),
+                    "orders": self._safe_int(ask.get("no", 0)),
+                }
+            )
+
+        result = {
+            "subscription_mode": mode,
+            "subscription_mode_val": "DEPTH" if mode == self.DEPTH_MODE else "QUOTE",
+            "token": data.get("symbol", "") or data.get("sym", ""),
+            "symbol": data.get("symbol", "") or data.get("sym", ""),
+            "last_traded_price": self._safe_float(data.get("ltp", 0)),
+            "open_price_of_the_day": self._safe_float(data.get("o", 0)),
+            "high_price_of_the_day": self._safe_float(data.get("h", 0)),
+            "low_price_of_the_day": self._safe_float(data.get("l", 0)),
+            "closed_price": self._safe_float(data.get("c", 0)),
+            "last_traded_quantity": self._safe_int(data.get("ltq", 0)),
+            "volume_trade_for_the_day": self._safe_int(data.get("vol", 0)),
+            "average_traded_price": self._safe_float(data.get("avgPr", 0)),
+            "change": self._safe_float(data.get("ch", 0)),
+            "change_percentage": self._safe_float(data.get("chPer", 0)),
+            "best_bid_price": best_bid_price,
+            "best_bid_quantity": best_bid_qty,
+            "best_ask_price": best_ask_price,
+            "best_ask_quantity": best_ask_qty,
+            # quote2/marketDepth report totals as tbq/taq, the quote stream as tBQ/tSQ
+            "total_bid_quantity": self._safe_int(data.get("tbq") or data.get("tBQ", 0)),
+            "total_ask_quantity": self._safe_int(data.get("taq") or data.get("tSQ", 0)),
+            "open_interest": self._safe_int(data.get("oI", 0)),
+            "last_traded_time": data.get("lTrdT", "") or data.get("ltt", ""),
+            "exchange_timestamp": int(time.time() * 1000),
+        }
+
+        # Add depth data if available
+        if depth_buy or depth_sell:
+            result["depth"] = {"buy": depth_buy, "sell": depth_sell}
+
+        return result
+
+    def _safe_float(self, value) -> float:
+        """Safely convert value to float"""
+        if value is None or value == "":
+            return 0.0
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", "")
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _safe_int(self, value) -> int:
+        """Safely convert value to int"""
+        if value is None or value == "":
+            return 0
+        try:
+            if isinstance(value, str):
+                value = value.replace(",", "")
+            return int(float(value))
+        except (ValueError, TypeError):
+            return 0
+
+    def _is_auth_error(self, detail) -> bool:
+        """True when `detail` reads as the broker refusing a dead credential."""
+        if self.auth_error_check is None or detail in (None, ""):
+            return False
+        try:
+            return bool(self.auth_error_check(str(detail)))
+        except Exception:
+            self.logger.exception("samco auth_error_check raised; treating as non-auth error")
+            return False
+
+    def _record_auth_failure(self, reason: str) -> None:
+        """Latch the auth-failure verdict for the adapter to act on."""
+        if self.auth_failed:
+            return
+        self.auth_failed = True
+        self.auth_failure_reason = reason
+        self.logger.error(f"Samco WebSocket auth failure: {reason}")
+
+    def _on_error(self, ws, error) -> None:
+        """Handle WebSocket connection errors — reconnection is handled by the adapter"""
+        self.logger.error(f"Samco WebSocket error: {error}")
+
+        # websocket-client raises WebSocketBadStatusException with the HTTP
+        # status attached when the handshake itself is rejected; the status
+        # attribute is more reliable than the stringified message.
+        status = getattr(error, "status_code", None)
+        if status in (401, 403) or self._is_auth_error(error):
+            self._record_auth_failure(str(error))
+
+        if self._on_error_callback:
+            try:
+                self._on_error_callback(ws, error)
+            except Exception as e:
+                self.logger.error(f"Error in on_error callback: {e}")
+
+    def _on_close(
+        self, ws, close_status_code: int | None = None, close_msg: str | None = None
+    ) -> None:
+        """Handle WebSocket connection close event"""
+        self.connected = False
+        self.logger.info(f"Samco WebSocket closed: {close_status_code} - {close_msg}")
+
+        # The adapter's on_close callback only receives `ws`, so the close
+        # reason has to be judged here and latched on the client.
+        if self._is_auth_error(close_msg) or self._is_auth_error(close_status_code):
+            self._record_auth_failure(f"close code={close_status_code} msg={close_msg}")
+
+        self._stop_heartbeat()
+        self._stop_subscription_flusher()
+
+        if self._on_close_callback:
+            try:
+                self._on_close_callback(ws)
+            except Exception as e:
+                self.logger.error(f"Error in on_close callback: {e}")
+
+    # Heartbeat Management
+    def _update_last_message_time(self) -> None:
+        """Update the timestamp of the last received message"""
+        with self._heartbeat_lock:
+            self._last_message_time = time.time()
+
+    def _start_heartbeat(self) -> None:
+        """
+        Start heartbeat monitoring thread.
+
+        Same restart race as _start_subscription_flusher(): a reconnect stops the
+        old worker and immediately starts a new one, so bailing on is_alive()
+        alone can leave the stop flag set with no thread running - here the cost
+        is losing stale-connection detection.
+        """
+        old = self._heartbeat_thread
+        if old and old.is_alive():
+            if not self._heartbeat_stop_event.is_set():
+                return  # healthy worker already running
+            old.join(timeout=self.THREAD_JOIN_TIMEOUT)
+            if old.is_alive():
+                # Same reasoning as the flusher: replace it rather than leave the
+                # connection with no stale-connection monitor. The predecessor's
+                # own stop event is set, so it exits at its next wait() without
+                # running another health check.
+                self.logger.warning(
+                    "Previous heartbeat thread did not exit within "
+                    f"{self.THREAD_JOIN_TIMEOUT}s; starting a replacement with an "
+                    "independent stop event"
+                )
+
+        self._heartbeat_stop_event = threading.Event()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_worker,
+            args=(self._heartbeat_stop_event,),
+            daemon=True,
+            name="samco-heartbeat",
+        )
+        self._heartbeat_thread.start()
+        self.logger.debug("Heartbeat thread started")
+
+    def _stop_heartbeat(self) -> None:
+        """Stop heartbeat monitoring thread immediately"""
+        self._heartbeat_stop_event.set()
+
+    def _heartbeat_worker(self, stop_event: threading.Event) -> None:
+        """
+        Heartbeat worker thread - monitors connection health.
+
+        Takes its own stop event so a restart cannot revive it (see
+        _start_heartbeat).
+        """
+        while self.running and self.connected:
+            try:
+                # Wait with interrupt support instead of blocking sleep
+                if stop_event.wait(timeout=self.HEARTBEAT_INTERVAL):
+                    break  # Stop event was set
+
+                if self.running and self.connected:
+                    if not self._check_connection_health():
+                        break
+
+            except Exception as e:
+                self.logger.error(f"Heartbeat worker error: {e}")
+                break
+
+    def _check_connection_health(self) -> bool:
+        """Check connection health based on last message timestamp"""
+        with self._heartbeat_lock:
+            if self._last_message_time:
+                time_since_message = time.time() - self._last_message_time
+                if time_since_message > self.HEARTBEAT_TIMEOUT:
+                    self.logger.error("Connection timeout - no messages received")
+                    self._close_websocket()
+                    return False
+        return True
+
+    # Subscription Management
+    def subscribe(self, correlation_id: str, mode: int, token_list: list[dict]) -> bool:
+        """
+        Subscribe to market data for given symbols
+
+        Args:
+            correlation_id: Unique identifier for tracking
+            mode: Subscription mode - 1: LTP, 2: Quote, 3: Depth
+            token_list: List of dicts with exchangeType and tokens
+                       Format: [{"exchangeType": "NSE", "tokens": ["RELIANCE"]}]
+
+        Returns:
+            bool: True if subscription sent successfully
+        """
+        if not self._validate_connection_state("subscribe"):
+            return False
+
+        try:
+            # Build symbols list in Samco format
+            symbols_list = []
+
+            for token_group in token_list:
+                exchange = token_group.get("exchangeType", "NSE")
+                tokens = token_group.get("tokens", [])
+
+                for token in tokens:
+                    # Samco streaming uses format: scripCode_segment (e.g., "11536_NSE", "464925_MFO")
+                    # Index tokens start with '-' (e.g., "-23" for NIFTY) and should NOT have exchange suffix
+                    token_str = str(token)
+                    if token_str.startswith("-"):
+                        # Index token - use as-is without exchange suffix
+                        symbol_key = token_str
+                    elif "_" in token_str:
+                        # Token already has format like "11536_NSE"
+                        symbol_key = token_str
+                    else:
+                        # Token is just scripCode like "11536", need to append segment
+                        symbol_key = f"{token_str}_{exchange}"
+
+                    symbols_list.append({"symbol": symbol_key})
+                    self.logger.debug(f"Samco subscription symbol: {symbol_key}")
+
+                    # Track subscription
+                    self.subscribed_symbols[symbol_key] = {
+                        "symbol": symbol_key,
+                        "exchange": exchange,
+                        "mode": mode,
+                        "correlation_id": correlation_id,
+                    }
+
+            # Store for resubscription
+            if mode not in self.input_request_dict:
+                self.input_request_dict[mode] = {}
+
+            for token_group in token_list:
+                exchange = token_group.get("exchangeType", "NSE")
+                tokens = token_group.get("tokens", [])
+                if exchange in self.input_request_dict[mode]:
+                    # Use set to prevent duplicate tokens accumulating
+                    existing = set(self.input_request_dict[mode][exchange])
+                    existing.update(tokens)
+                    self.input_request_dict[mode][exchange] = list(existing)
+                else:
+                    self.input_request_dict[mode][exchange] = list(tokens)
+
+            # Each subscribe frame carries the COMPLETE symbol set, and the proxy
+            # calls subscribe() once per symbol - so sending on every call is
+            # O(N^2) in frame volume (726 symbols => ~264k symbol entries, doubled
+            # again by the two streaming types). Mark dirty instead and let the
+            # coalescing worker send one frame pair once the burst settles.
+            self._request_subscription_flush()
+            self.RESUBSCRIBE_FLAG = True
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error during subscribe: {e}")
+            return False
+
+    def unsubscribe(self, correlation_id: str, mode: int, token_list: list[dict]) -> bool:
+        """
+        Unsubscribe from market data for given symbols
+
+        Args:
+            correlation_id: Unique identifier for tracking
+            mode: Subscription mode
+            token_list: List of dicts with exchangeType and tokens
+
+        Returns:
+            bool: True if unsubscription sent successfully
+        """
+        if not self._validate_connection_state("unsubscribe"):
+            return False
+
+        try:
+            symbols_list = []
+
+            # Held across the removal AND the send: the coalescing flusher
+            # snapshots subscribed_symbols under the same lock, so an in-flight
+            # snapshot can no longer re-subscribe a symbol removed here.
+            with self._sub_send_lock:
+                symbols_list = self._unsubscribe_locked(mode, token_list)
+
+            # Re-flush so the next full-set frame reflects the removal - under
+            # Samco's replace semantics that is what actually drops the symbol.
+            self._request_subscription_flush()
+
+            # debug, not info: the proxy unsubscribes one symbol per call, so a
+            # teardown of a large option chain logs a line per strike.
+            self.logger.debug(f"Unsubscribed from {len(symbols_list)} symbols")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error during unsubscribe: {e}")
+            return False
+
+    def _unsubscribe_locked(self, mode: int, token_list: list[dict]) -> list:
+        """Remove symbols and send the unsubscribe frames. Caller holds _sub_send_lock."""
+        symbols_list = []
+        for token_group in token_list:
+            exchange = token_group.get("exchangeType", "NSE")
+            tokens = token_group.get("tokens", [])
+
+            for token in tokens:
+                # Build symbol key same way as subscribe
+                token_str = str(token)
+                if token_str.startswith("-"):
+                    # Index token - use as-is without exchange suffix
+                    symbol_key = token_str
+                elif "_" in token_str:
+                    symbol_key = token_str
+                else:
+                    symbol_key = f"{token_str}_{exchange}"
+
+                symbols_list.append({"symbol": symbol_key})
+
+                # Remove from tracking
+                if symbol_key in self.subscribed_symbols:
+                    del self.subscribed_symbols[symbol_key]
+
+                # Drop the merged field cache so a later resubscribe cannot
+                # emit stale prices before the first fresh frame arrives.
+                with self._tick_state_lock:
+                    self._tick_state.pop(symbol_key, None)
+
+                # Remove from input_request_dict
+                if mode in self.input_request_dict:
+                    if exchange in self.input_request_dict[mode]:
+                        if token in self.input_request_dict[mode][exchange]:
+                            self.input_request_dict[mode][exchange].remove(token)
+
+        # Mirror subscribe(): depth symbols were subscribed on BOTH quote2
+        # (ladder) and quote (ltp/ohlc), so both have to be cancelled or the
+        # quote stream keeps delivering ticks for an unsubscribed symbol.
+        if mode == self.DEPTH_MODE:
+            streaming_types = (self.STREAMING_TYPE_QUOTE, "quote")
+        else:
+            streaming_types = ("quote",)
+
+        for streaming_type in streaming_types:
+            request_data = {
+                "request": {
+                    "streaming_type": streaming_type,
+                    "data": {"symbols": symbols_list},
+                    "request_type": self.REQUEST_UNSUBSCRIBE,
+                    "response_format": "json",
+                }
+            }
+
+            # Trailing newline must terminate the same frame (see subscribe()).
+            self.ws.send(json.dumps(request_data) + "\n")
+
+        return symbols_list
+
+    def _resubscribe_all(self) -> None:
+        """Resubscribe to all previously subscribed symbols after reconnection"""
+        try:
+            for mode, exchanges in self.input_request_dict.items():
+                token_list = []
+                for exchange, tokens in exchanges.items():
+                    if tokens:
+                        token_list.append({"exchangeType": exchange, "tokens": tokens})
+
+                if token_list:
+                    self.subscribe(f"resub_{mode}", mode, token_list)
+
+        except Exception as e:
+            self.logger.error(f"Error during resubscribe: {e}")
+
+    def _validate_connection_state(self, operation_name: str) -> bool:
+        """Validate that connection is ready for sending messages"""
+        if not self.ws:
+            self.logger.warning(f"Cannot {operation_name}: WebSocket not initialized")
+            return False
+
+        if not self.connected:
+            self.logger.warning(f"Cannot {operation_name}: not connected")
+            return False
+
+        return True
+
+    def is_connected(self) -> bool:
+        """Check if WebSocket is currently connected"""
+        return self.connected and self.running

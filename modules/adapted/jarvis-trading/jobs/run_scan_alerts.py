@@ -165,7 +165,9 @@ def main() -> None:
 
     if pings:
         ok, err = send_message(
-            "<b>🔔 AXIOM Scan Alerts</b>\n" + "\n".join(pings) + "\n<i>axiom-129.vercel.app → Screener → Builder</i>"
+            "<b>🔔 AXIOM Scan Alerts</b>\n"
+            + "\n".join(pings)
+            + "\n<i>axiom-129.vercel.app → Screener → Builder</i>"
         )
         logger.info("Telegram: {} {}", ok, err or "")
     else:

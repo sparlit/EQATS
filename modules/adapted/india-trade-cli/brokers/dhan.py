@@ -41,7 +41,6 @@ until implemented. This scaffold documents the mapping layer.
 
 
 import os
-from typing import Optional
 
 import requests
 from brokers.base import (
@@ -141,8 +140,7 @@ class DhanBroker(BrokerAPI):
         client_id = kwargs.get("client_id") or self.client_id
         access_token = kwargs.get("access_token") or self.access_token
         if not access_token:
-            msg = "DHAN_ACCESS_TOKEN must be set"
-            raise ValueError(msg)
+            raise ValueError("DHAN_ACCESS_TOKEN must be set")
         os.environ["DHAN_CLIENT_ID"] = client_id
         os.environ["DHAN_ACCESS_TOKEN"] = access_token
         self.client_id = client_id
@@ -239,12 +237,17 @@ class DhanBroker(BrokerAPI):
         Dhan uses securityId-based quotes — requires symbol lookup first.
         """
         # Simplified: real implementation needs symbol→securityId mapping
-        msg = "Dhan quote API requires securityId lookup. Use marketFeed/ltp endpoint with securityId."
-        raise NotImplementedError(msg)
+        raise NotImplementedError(
+            "Dhan quote API requires securityId lookup. "
+            "Use marketFeed/ltp endpoint with securityId."
+        )
 
-    def get_options_chain(self, underlying: str, expiry: str | None = None) -> list[OptionsContract]:
-        msg = "Dhan options chain: use /v2/optionchain endpoint with underlyingSecurityId."
-        raise NotImplementedError(msg)
+    def get_options_chain(
+        self, underlying: str, expiry: str | None = None
+    ) -> list[OptionsContract]:
+        raise NotImplementedError(
+            "Dhan options chain: use /v2/optionchain endpoint with underlyingSecurityId."
+        )
 
     # ── Orders ───────────────────────────────────────────────
 

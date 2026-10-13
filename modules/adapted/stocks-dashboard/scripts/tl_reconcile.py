@@ -69,7 +69,7 @@ UA = {
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36",
     "X-Requested-With": "XMLHttpRequest",
 }
-RESULT_PURPOSE = re.compile(r"quarterly results|audited results|financial results", re.IGNORECASE)
+RESULT_PURPOSE = re.compile(r"quarterly results|audited results|financial results", re.I)
 ACTIONABLE_ALERT_AT = 3  # workflow opens the alert issue at this many
 
 
@@ -165,12 +165,17 @@ def tl_dashboard_total():
     """Declared count from Trendlyne's public results dashboard (tiles, table fallback)."""
     try:
         h = get("https://trendlyne.com/dashboard/results/industry/")
-        tiles = re.findall(r">\s*(\d+)\s*<[^>]*>(?:[^<>]*<[^>]+>)*\s*(POSITIVE|NEGATIVE|NEUTRAL)\s+PROFIT\s+GROWTH", h)
+        tiles = re.findall(
+            r">\s*(\d+)\s*<[^>]*>(?:[^<>]*<[^>]+>)*\s*(POSITIVE|NEGATIVE|NEUTRAL)\s+PROFIT\s+GROWTH",
+            h,
+        )
         if not tiles:
             tiles = [
                 (m.group(1), m.group(2))
                 for m in re.finditer(
-                    r"(\d+)[^<>]{0,60}</\w+>[^<>]{0,220}(POSITIVE|NEGATIVE|NEUTRAL)\s+PROFIT\s+GROWTH", h, re.DOTALL
+                    r"(\d+)[^<>]{0,60}</\w+>[^<>]{0,220}(POSITIVE|NEGATIVE|NEUTRAL)\s+PROFIT\s+GROWTH",
+                    h,
+                    re.S,
                 )
             ]
         if len(tiles) >= 2:
@@ -191,16 +196,25 @@ def tl_result_meetings(start, end):
         url = (
             "https://trendlyne.com/equity/api/events/calendar-v2/?corporate_actions=BM"
             "&stock_group=All&perPageCount=200&groupType=all&groupName=all"
-            "&start_date={}&end_date={}".format(day.strftime("%d%%2F%m%%2F%Y"), hi.strftime("%d%%2F%m%%2F%Y"))
+            "&start_date={}&end_date={}".format(
+                day.strftime("%d%%2F%m%%2F%Y"), hi.strftime("%d%%2F%m%%2F%Y")
+            )
         )
         try:
             for e in json.loads(get(url))["body"]["eventsData"]:
                 if not RESULT_PURPOSE.search(str(e.get("purpose") or e.get("event-details") or "")):
                     continue
                 s = e["stock"]
-                key = (s.get("NSEcode") or "BSE:{}".format(s.get("BSEcode")) or s["get_full_name"]).upper()
+                key = (
+                    s.get("NSEcode") or "BSE:{}".format(s.get("BSEcode")) or s["get_full_name"]
+                ).upper()
                 d = out.setdefault(
-                    key, {"name": s.get("get_full_name") or key, "bse": str(s.get("BSEcode") or ""), "dates": []}
+                    key,
+                    {
+                        "name": s.get("get_full_name") or key,
+                        "bse": str(s.get("BSEcode") or ""),
+                        "dates": [],
+                    },
                 )
                 d["dates"].append(e["date"])
         except Exception as ex:
@@ -225,7 +239,11 @@ def diff(meets, syms, names, feed_qe, qe, today):
         if sym in syms or mapped in syms or nname(m["name"]) in names:
             continue
         qes = feed_qe.get(sym, set()) | feed_qe.get(mapped, set())
-        rec = {"sym": mapped if mapped in feed_qe else sym, "name": m["name"], "dates": sorted(m["dates"])}
+        rec = {
+            "sym": mapped if mapped in feed_qe else sym,
+            "name": m["name"],
+            "dates": sorted(m["dates"]),
+        }
         if qes and qe not in qes:
             other_quarter.append(rec)  # March/annual filer — both sides exclude
         elif max(m["dates"]) >= grace:
@@ -263,7 +281,11 @@ def main():
             print("   ", a["sym"], a["name"], a["dates"][-1])
         for script in ("fetch_announcements.py", "fetch_bse_results.py"):
             try:
-                subprocess.run([sys.executable, "-X", "utf8", os.path.join(HERE, script)], timeout=1200, check=False)
+                subprocess.run(
+                    [sys.executable, "-X", "utf8", os.path.join(HERE, script)],
+                    timeout=1200,
+                    check=False,
+                )
             except Exception as ex:
                 print(f"  (heal step {script} failed: {ex})")
         before = len(actionable)
@@ -290,7 +312,10 @@ def main():
         ensure_ascii=False,
         indent=1,
     )
-    print("wrote docs/tl_reconcile.json — ours %d vs TL %s, %d actionable" % (len(syms), tl_total, len(actionable)))
+    print(
+        "wrote docs/tl_reconcile.json — ours %d vs TL %s, %d actionable"
+        % (len(syms), tl_total, len(actionable))
+    )
 
 
 if __name__ == "__main__":

@@ -24,8 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 Setup Meta-Model v7 — C3 + Secret Sauce + Pattern flags + DTW + Delivery
 + trend-persistence features.
-Features (33): momentum + structure + volume + fundamentals + sentiment
-+ sector strength + vcr/ret_std20/below52 + 7 pattern flags + dtw_sim
+Features: price/derived history only. Current fundamentals, sentiment and
+sector context are intentionally excluded until point-in-time history exists.
++ vcr/ret_std20/below52 + 7 pattern flags + dtw_sim
 + delivery_sim + days_above_200_30 + days_above_50_30 + ema200_dist_z.
 Weekly auto-retrain. Metrics auto-recorded to model_runs.
 """
@@ -38,14 +39,21 @@ import joblib
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
+import universe_helper as U
 
 MODEL_PATH = "data/meta_model.pkl"
 _MODEL = None
+_MODEL_METADATA = {}
 _WARNED_OLD = False
+MODEL_VERSION = "v8-pit-safe"
+LABEL_HORIZON = 20
+LABEL_DESCRIPTION = (
+    "+10% high within next 20 sessions; uncalibrated event score, not trade win probability"
+)
 
 
 def get_model():
-    global _MODEL, _WARNED_OLD
+    global _MODEL, _MODEL_METADATA, _WARNED_OLD
     if _MODEL is not None:
         return _MODEL
     try:
@@ -60,36 +68,39 @@ def get_model():
     if isinstance(loaded, dict) and "model" in loaded:
         model = loaded["model"]
         feats = loaded.get("features", [])
-        if feats and feats != FEATURES:
+        metadata = loaded.get("metadata", {})
+        if (
+            loaded.get("version") != MODEL_VERSION
+            or feats != FEATURES
+            or metadata.get("label") != LABEL_DESCRIPTION
+            or metadata.get("context_features_excluded") != sorted(CONTEXT_FEATS)
+        ):
             print(
                 f"[META] model feature mismatch: "
-                f"model has {len(feats)}, code expects {len(FEATURES)}. "
+                f"model version/metadata is incompatible with {MODEL_VERSION}. "
                 f"Retrain required."
             )
             return None
         _MODEL = model
+        _MODEL_METADATA = metadata
         return _MODEL
 
     if not _WARNED_OLD:
-        print("[META] loaded legacy model (no feature list). Retrain to enable feature compatibility checks.")
+        print("[META] refusing legacy/unversioned model. Retrain required.")
         _WARNED_OLD = True
-    try:
-        n = loaded.booster_.num_feature()
-    except Exception:
-        n = None
-    if n is not None and n != len(FEATURES):
-        print(
-            f"[META] legacy model has {n} features, code expects {len(FEATURES)} — refusing to score. Retrain required."
-        )
-        return None
-    _MODEL = loaded
-    return _MODEL
+    return None
 
 
 def reload_model():
-    global _MODEL
+    global _MODEL, _MODEL_METADATA
     _MODEL = None
+    _MODEL_METADATA = {}
     return get_model()
+
+
+def model_bundle_metadata(model=None):
+    """Metadata for the currently accepted bundle (empty when unavailable)."""
+    return dict(_MODEL_METADATA)
 
 
 FEATURES = [
@@ -105,12 +116,6 @@ FEATURES = [
     "atr",
     "rv",
     "vc",
-    "roce",
-    "pe",
-    "debt_eq",
-    "promoter",
-    "sector_rs",
-    "sentiment",
     "vcr",
     "ret_std20",
     "below52",
@@ -171,7 +176,9 @@ def _pattern_flags(tags, dates):
 
 def _dtw_map(conn, sym):
     try:
-        rows = conn.execute("SELECT date, similarity FROM template_scores WHERE symbol=?", (sym,)).fetchall()
+        rows = conn.execute(
+            "SELECT date, similarity FROM template_scores WHERE symbol=?", (sym,)
+        ).fetchall()
     except Exception:
         return {}
     m = {}
@@ -199,7 +206,8 @@ def _dtw_series(tmap, dates):
 def _delivery_map(conn, sym):
     try:
         rows = conn.execute(
-            "SELECT date, delivery_pct FROM delivery_daily WHERE symbol=? AND delivery_pct > 0", (sym,)
+            "SELECT date, delivery_pct FROM delivery_daily WHERE symbol=? AND delivery_pct > 0",
+            (sym,),
         ).fetchall()
     except Exception:
         return {}
@@ -221,14 +229,9 @@ def _delivery_series(pmap, dates):
 
 
 def _symbols(conn, limit=400):
-    rows = conn.execute(
-        "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 "
-        "AND 8000 AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-        "ORDER BY mcap_cr DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
+    rows = U.band_universe(conn, limit)
     core = [r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1")]
-    return sorted({r[0] for r in rows} | set(core))
+    return sorted(set(rows) | set(core))
 
 
 def _fund_map(conn):
@@ -315,7 +318,17 @@ def _features_df(df, ctx):
     e50 = c.ewm(span=50, adjust=False).mean()
     e200 = c.ewm(span=200, adjust=False).mean()
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-    fut_max = h.iloc[::-1].rolling(20, min_periods=1).max().iloc[::-1].shift(-1)
+    # A label is known only when all 20 future bars exist.  Never turn an
+    # immature tail row into a negative example.
+    future_high = h.shift(-1)
+    fut_max = (
+        future_high.iloc[::-1].rolling(LABEL_HORIZON, min_periods=LABEL_HORIZON).max().iloc[::-1]
+    )
+    label_end = (
+        df["date"].shift(-LABEL_HORIZON)
+        if "date" in df
+        else pd.Series(index=df.index, dtype="datetime64[ns]")
+    )
 
     out = pd.DataFrame(index=df.index)
     out["mom1"] = c / c.shift(21) - 1
@@ -350,7 +363,8 @@ def _features_df(df, ctx):
     std60 = rel_e200.rolling(60).std().replace(0, np.nan)
     out["ema200_dist_z"] = (rel_e200 - mean60) / std60
 
-    out["win"] = ((fut_max / c - 1) >= 0.10).astype(float)
+    out["win"] = np.where(fut_max.notna(), ((fut_max / c - 1) >= 0.10).astype(float), np.nan)
+    out["label_available_date"] = label_end
     return out
 
 
@@ -368,7 +382,8 @@ def build_train_data(conn):
     frames = []
     for sym in _symbols(conn):
         rows = conn.execute(
-            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 300:
             continue
@@ -387,7 +402,9 @@ def build_train_data(conn):
         feat["date"] = df["date"]
         feat = feat.iloc[::5]
         try:
-            tags = conn.execute("SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)).fetchall()
+            tags = conn.execute(
+                "SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)
+            ).fetchall()
         except Exception:
             tags = []
         fl = _pattern_flags(tags, feat["date"].tolist())
@@ -397,7 +414,7 @@ def build_train_data(conn):
         feat["dtw_sim"] = _dtw_series(tmap, feat["date"].tolist())
         dmap = _delivery_map(conn, sym)
         feat["delivery_sim"] = _delivery_series(dmap, feat["date"].tolist())
-        feat = feat.dropna(subset=[*PRICE_FEATS, "win"])
+        feat = feat.dropna(subset=PRICE_FEATS + ["win", "label_available_date"])
         frames.append(feat)
     if not frames:
         return None
@@ -408,10 +425,11 @@ def build_train_data(conn):
             med = data[f].median()
             data[f] = data[f].fillna(med if pd.notna(med) else 0.0)
     data = _coerce_numeric(data)
-    return data.sort_values("date")
+    return data.sort_values(["date", "label_available_date"]).reset_index(drop=True)
 
 
-def _fit(tr, te, feats):
+def _fit(tr, val, feats, medians=None):
+    medians = medians or tr[feats].median().fillna(0.0).to_dict()
     model = lgb.LGBMClassifier(
         n_estimators=500,
         learning_rate=0.05,
@@ -423,19 +441,19 @@ def _fit(tr, te, feats):
         verbose=-1,
     )
     model.fit(
-        tr[feats],
+        tr[feats].fillna(medians),
         tr["win"],
-        eval_set=[(te[feats], te["win"])],
+        eval_set=[(val[feats].fillna(medians), val["win"])],
         eval_metric="auc",
         callbacks=[lgb.early_stopping(50, verbose=False)],
     )
     return model
 
 
-def _eval(model, te, feats):
+def _eval(model, te, feats, medians=None):
     from sklearn.metrics import roc_auc_score
 
-    proba = model.predict_proba(te[feats])[:, 1]
+    proba = model.predict_proba(te[feats].fillna(medians or {}))[:, 1]
     auc = float(roc_auc_score(te["win"], proba))
     order = np.argsort(-proba)
     top = int(max(1, len(proba) * 0.10))
@@ -450,21 +468,48 @@ def train():
     if data is None or data.empty:
         print("no training rows - check prices_daily")
         return None
-    cutoff = data["date"].quantile(0.8)
-    tr = data[data["date"] <= cutoff]
-    te = data[data["date"] > cutoff]
-    model = _fit(tr, te, FEATURES)
-    auc, top_rate = _eval(model, te, FEATURES)
+    dates = np.sort(data["date"].unique())
+    train_end = dates[max(0, int(len(dates) * 0.60) - 1)]
+    val_end = dates[min(len(dates) - 1, int(len(dates) * 0.80))]
+    tr = data[data["date"] <= train_end]
+    val = data[(data["date"] > train_end) & (data["date"] < val_end)]
+    te = data[data["date"] >= val_end]
+    # Purge observations whose forward label is not available before the next
+    # fold starts. Validation is for early stopping; test remains untouched.
+    tr = tr[tr["label_available_date"] < val["date"].min()]
+    val = val[val["label_available_date"] < te["date"].min()]
+    if min(len(tr), len(val), len(te)) == 0:
+        print("no non-overlapping train/validation/test rows")
+        return None
+    medians = tr[FEATURES].median().fillna(0.0).to_dict()
+    model = _fit(tr, val, FEATURES, medians)
+    auc, top_rate = _eval(model, te, FEATURES, medians)
     base = float(te["win"].mean())
-    joblib.dump({"model": model, "features": FEATURES, "version": "v7"}, MODEL_PATH)
+    joblib.dump(
+        {
+            "model": model,
+            "features": FEATURES,
+            "version": MODEL_VERSION,
+            "metadata": {
+                "label": LABEL_DESCRIPTION,
+                "horizon_sessions": LABEL_HORIZON,
+                "context_features_excluded": sorted(CONTEXT_FEATS),
+                "imputation_medians": medians,
+                "split": "global_date_purged",
+                "validation": "early_stopping_only",
+                "test": "final_holdout",
+            },
+        },
+        MODEL_PATH,
+    )
     metrics = {
-        "rows": len(data),
+        "rows": int(len(data)),
         "winners": round(base, 4),
         "auc": round(auc, 4),
         "base_win": round(base, 4),
         "top10_win": round(top_rate, 4),
         "n_features": len(FEATURES),
-        "note": "retrain v7 (trend-persistence features)",
+        "note": "retrain v8 PIT-safe; label is an uncalibrated +10%/20-session event",
     }
     print(f"rows {len(data)} | winners {base:.1%}")
     print(f"test AUC {auc:.3f} | base win {base:.1%} | top-10% win {top_rate:.1%}")
@@ -486,19 +531,27 @@ def lift_test():
     conn.close()
     if data is None or data.empty:
         return {"error": "no training data"}
-    cutoff = data["date"].quantile(0.8)
-    tr = data[data["date"] <= cutoff]
-    te = data[data["date"] > cutoff]
+    dates = np.sort(data["date"].unique())
+    train_end = dates[max(0, int(len(dates) * 0.60) - 1)]
+    val_end = dates[min(len(dates) - 1, int(len(dates) * 0.80))]
+    tr = data[data["date"] <= train_end]
+    val = data[(data["date"] > train_end) & (data["date"] < val_end)]
+    te = data[data["date"] >= val_end]
+    tr = tr[tr["label_available_date"] < val["date"].min()]
+    val = val[val["label_available_date"] < te["date"].min()]
+    if min(len(tr), len(val), len(te)) == 0:
+        return {"error": "no non-overlapping split"}
+    medians = tr[FEATURES].median().fillna(0.0).to_dict()
     results = {}
     for name, feats in [("full", FEATURES), ("price_only", PRICE_FEATS)]:
-        model = _fit(tr, te, feats)
-        auc, top_rate = _eval(model, te, feats)
+        model = _fit(tr, val, feats, {k: medians.get(k, 0.0) for k in feats})
+        auc, top_rate = _eval(model, te, feats, {k: medians.get(k, 0.0) for k in feats})
         results[name] = {"auc": round(auc, 4), "top10_win": round(top_rate, 4)}
         print(f"   {name}: AUC {auc:.4f} | top10 {top_rate:.1%}")
     delta_auc = round(results["full"]["auc"] - results["price_only"]["auc"], 4)
     delta_top = round(results["full"]["top10_win"] - results["price_only"]["top10_win"], 4)
     metrics = {
-        "rows": len(data),
+        "rows": int(len(data)),
         "auc": results["full"]["auc"],
         "base_win": round(float(te["win"].mean()), 4),
         "top10_win": results["full"]["top10_win"],
@@ -539,7 +592,8 @@ def score_symbol(sym, use_yahoo=True):
         return None
     conn = db.get_conn()
     rows = conn.execute(
-        "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+        "SELECT date, close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date",
+        (sym,),
     ).fetchall()
     conn.close()
     if len(rows) >= 300:
@@ -575,7 +629,9 @@ def score_symbol(sym, use_yahoo=True):
     sent = _sentiment_map(conn2)
     srs = sector_rs_map(conn2)
     try:
-        tags = conn2.execute("SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)).fetchall()
+        tags = conn2.execute(
+            "SELECT date, pattern, direction FROM pattern_tags WHERE symbol=?", (sym,)
+        ).fetchall()
     except Exception:
         tags = []
     tmap = _dtw_map(conn2, sym)
@@ -598,10 +654,12 @@ def score_symbol(sym, use_yahoo=True):
 
     feat = _attach_extra_feats(feat, tags, tmap, dmap)
     feat = _coerce_numeric(feat)
-    for col in CONTEXT_FEATS:
+    medians = (
+        model_bundle_metadata(model).get("imputation_medians", {}) if model is not None else {}
+    )
+    for col in FEATURES:
         if col in feat.columns:
-            med = feat[col].median()
-            feat[col] = feat[col].fillna(med if pd.notna(med) else 0.0)
+            feat[col] = feat[col].fillna(medians.get(col, 0.0))
     feat = feat.dropna(subset=PRICE_FEATS)
     if feat.empty:
         return None

@@ -66,7 +66,7 @@ def contexts(xml):
         r'<xbrli:context id="([^"]+)">.*?<xbrli:startDate>([\d-]+)</xbrli:startDate>'
         r"\s*<xbrli:endDate>([\d-]+)</xbrli:endDate>",
         xml,
-        re.DOTALL,
+        re.S,
     ):
         out[m.group(1)] = (m.group(2), m.group(3))
     if not out:
@@ -74,7 +74,7 @@ def contexts(xml):
             r'<context id="([^"]+)">.*?<startDate>([\d-]+)</startDate>'
             r"\s*<endDate>([\d-]+)</endDate>",
             xml,
-            re.DOTALL,
+            re.S,
         ):
             out[m.group(1)] = (m.group(2), m.group(3))
     return out
@@ -97,7 +97,9 @@ def main():
         seq = (v.get("xbrl") or {}).get("seq")
         fl = (v.get("filings") or [{}])[0]
         print("== {} (earliest filed {}, n_rows={})".format(k, fl.get("filed"), v.get("n_rows")))
-        lp = os.path.join(HERE, "_nsearch_cache", "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", sym)))
+        lp = os.path.join(
+            HERE, "_nsearch_cache", "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", sym))
+        )
         rows = json.load(open(lp, encoding="utf-8"))
         row = next((r for r in rows if str(r.get("seqNumber")) == str(seq)), None)
         if not row or not row.get("xbrl"):
@@ -118,7 +120,11 @@ def main():
             got = {c: fv[c] for c in q_ctx if c in fv}
             if got:
                 print("     %-55s %s" % (tag, {c: round(x / 1e7, 2) for c, x in got.items()}))
-        print("   stored: rev {} op {} pat {}".format(v.get("live_rev"), v.get("live_op"), v.get("live_pat")))
+        print(
+            "   stored: rev {} op {} pat {}".format(
+                v.get("live_rev"), v.get("live_op"), v.get("live_pat")
+            )
+        )
 
 
 def _days(s, e):

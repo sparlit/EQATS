@@ -93,7 +93,10 @@ def _predup(name, obj):
                 name,
                 n,
                 len(conflicts),
-                "".join("\n    CONFLICT {} {} {}".format(c["sym"], c["qe"], c["conflicts"]) for c in conflicts),
+                "".join(
+                    "\n    CONFLICT {} {} {}".format(c["sym"], c["qe"], c["conflicts"])
+                    for c in conflicts
+                ),
             )
         )
     return obj
@@ -175,15 +178,17 @@ def main():
             out, ch, kept = merge_listrows(base, ours, theirs)
             out = _predup("merged", out)
         else:
-            msg = "unrecognised payload shape"
-            raise ValueError(msg)
+            raise ValueError("unrecognised payload shape")
     except Exception as ex:
         # Never make the refresh worse than the old blind copy: fall back to OURS.
         print(f"ci_preserve_merge: FALLBACK to ours ({type(ex).__name__}: {ex})")
         json.dump(ours, open(out_p, "w"), separators=(",", ":"))
         return
     json.dump(out, open(out_p, "w"), separators=(",", ":"))
-    print("ci_preserve_merge %s: %d slots from this run, %d left as origin had them" % (out_p.split("/")[-1], ch, kept))
+    print(
+        "ci_preserve_merge %s: %d slots from this run, %d left as origin had them"
+        % (out_p.split("/")[-1], ch, kept)
+    )
 
 
 if __name__ == "__main__":

@@ -137,10 +137,12 @@ class PredictionBrainAgent:
             predictor.learning_rate = max(0.01, predictor.learning_rate * 0.95)
         kronos = predictive_brain.get_kronos_predictor(context.symbol)
         kronos_fc = getattr(context, "kronos_forecast", {})
+        kronos_active = kronos is not None
         context.prediction_data = {
             "accuracy": accuracy,
             "loss": loss,
             "learning_rate": predictor.learning_rate,
+            "kronos_active": kronos_active,
             "kronos_upside_prob": kronos_fc.get("upside_probability", 0.5),
             "kronos_vol_amp": kronos_fc.get("volatility_amplification", 0.0),
         }

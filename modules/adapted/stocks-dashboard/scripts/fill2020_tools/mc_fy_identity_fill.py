@@ -106,7 +106,9 @@ def pick_label(code, sym, revop):
     for basis in ("std", "con"):
         slot = SLOT[basis]
         ours[basis] = {
-            int(q): r[slot] for q, r in (revop.get(sym) or {}).items() if len(r) > slot and r[slot] is not None
+            int(q): r[slot]
+            for q, r in (revop.get(sym) or {}).items()
+            if len(r) > slot and r[slot] is not None
         }
     total_stored = len(ours["std"]) + len(ours["con"])
     if total_stored < MIN_STORED_FOR_LABEL:
@@ -127,7 +129,8 @@ def pick_label(code, sym, revop):
             score += sum(
                 1
                 for qe, v in ours[basis].items()
-                if qe in ser and abs(ser[qe] - v) <= max(MC.TOL_ABS, MC.TOL_REL * max(abs(v), abs(ser[qe])))
+                if qe in ser
+                and abs(ser[qe] - v) <= max(MC.TOL_ABS, MC.TOL_REL * max(abs(v), abs(ser[qe])))
             )
         if score > best_score:
             best, runner, best_score = label, best_score, score
@@ -166,7 +169,10 @@ def filing_conflict(sym, qe, ncf, ce):
             "%d, before this quarter." % sp
         )
     if e and e.get("first_con_fy") and fy(qe) < e["first_con_fy"]:
-        return "§51a CONFLICT: measured first consolidated FY is %d, after this quarter." % e["first_con_fy"]
+        return (
+            "§51a CONFLICT: measured first consolidated FY is %d, after this quarter."
+            % e["first_con_fy"]
+        )
     return None
 
 
@@ -175,7 +181,11 @@ def band_ok(series, qe, v):
     vals = sorted(series[q] for q in near if series[q] > 0)
     if not vals:
         return True, None
-    med = vals[len(vals) // 2] if len(vals) % 2 else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    med = (
+        vals[len(vals) // 2]
+        if len(vals) % 2
+        else (vals[len(vals) // 2 - 1] + vals[len(vals) // 2]) / 2.0
+    )
     if med <= 0:
         return True, None
     return (BAND_LO <= v / med <= BAND_HI), round(v / med, 3)
@@ -194,7 +204,9 @@ def members_by_quarter():
                     best = s
                 else:
                     break
-            cache[qe] = {x for x in best["symbols"] if not x.upper().startswith("DUMMY")} if best else set()
+            cache[qe] = (
+                {x for x in best["symbols"] if not x.upper().startswith("DUMMY")} if best else set()
+            )
         return cache[qe]
 
     return f
@@ -231,7 +243,8 @@ def main():
     if lim:
         work = work[:lim]
     print(
-        "ungateable-by-anchor pairs in scope: %d | open cells: %d" % (len(work), sum(len(g) for _, _, g in work)),
+        "ungateable-by-anchor pairs in scope: %d | open cells: %d"
+        % (len(work), sum(len(g) for _, _, g in work)),
         flush=True,
     )
 
@@ -279,7 +292,8 @@ def main():
         MC._jitter()
         if not ident:
             skips[f"{sym}|{basis}"] = (
-                "no FY in MC's annual table is fully spanned by its own quarterly table — the identity cannot be run"
+                "no FY in MC's annual table is fully spanned by its own "
+                "quarterly table — the identity cannot be run"
             )
             continue
         std_series = None
@@ -292,12 +306,13 @@ def main():
             if not fy:
                 skips[key] = "quarter falls in no FY the annual table covers"
                 continue
-            ok, av, s, _qs = ident[fy[0]]
+            ok, av, s, qs = ident[fy[0]]
             if not ok:
                 skips[key] = (
                     "FY IDENTITY FAILS for FY%d: MC's own four quarters sum to %.2f against "
                     "its own annual %.2f (%.2f%% apart) — a restated year or a bad quarter, "
-                    "either way not writable" % (fy[0], s, av, 100.0 * abs(s - av) / max(abs(av), 1e-9))
+                    "either way not writable"
+                    % (fy[0], s, av, 100.0 * abs(s - av) / max(abs(av), 1e-9))
                 )
                 continue
             v = series[qe]
@@ -326,7 +341,9 @@ def main():
                     continue
             bok, ratio = band_ok(series, qe, v)
             if not bok:
-                skips[key] = f"§83 band: {v:.2f} is {ratio}x the nearest-6 median of MC's own series"
+                skips[key] = (
+                    f"§83 band: {v:.2f} is {ratio}x the nearest-6 median of MC's own series"
+                )
                 continue
             fills[key] = {
                 "rev": round(v, 2),

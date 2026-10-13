@@ -155,8 +155,7 @@ def get_nifty_ltp():
             a += 1
     # If the LTP could not be retrieved after 10 attempts, raise an error
     if nt_ltp is None:
-        msg = "Failed to retrieve NIFTY LTP after multiple attempts."
-        raise ValueError(msg)
+        raise ValueError("Failed to retrieve NIFTY LTP after multiple attempts.")
     # Return the last traded price
     return nt_ltp
 

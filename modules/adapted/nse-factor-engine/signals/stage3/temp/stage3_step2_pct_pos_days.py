@@ -29,7 +29,6 @@ Window: T-252 -> T-21 (same formation window as FIP)
 All 500 symbols. NaN propagates for symbols with < 253 rows.
 """
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"

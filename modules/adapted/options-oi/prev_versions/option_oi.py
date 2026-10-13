@@ -128,8 +128,8 @@ def filter_chain(filename, atm_slicer, ind):
             else:
                 print("fail")
 
-        atm_oi_yval = max(*call_oi, *put_oi)
-        atm_change_oi_yval = max(*call_change_oi, *put_change_oi)
+        atm_oi_yval = max(max(call_oi), max(put_oi))
+        atm_change_oi_yval = max(max(call_change_oi), max(put_change_oi))
 
         # Contract values calculation in million
         calls = round(50 * sum(call_oi) / 1000000, 2)
@@ -138,7 +138,7 @@ def filter_chain(filename, atm_slicer, ind):
         puts_change = round(50 * sum(put_change_oi) / 1000000, 2)
 
         # splitting into subplots with shared strike price x-axis
-        _fig, axs = plt.subplots(2, 1, sharex=True)
+        fig, axs = plt.subplots(2, 1, sharex=True)
 
         # plotting OI and atm strike as a subplot
         axs[0].bar(
@@ -223,6 +223,8 @@ def filter_chain(filename, atm_slicer, ind):
     load_button.pack()
 
     win.mainloop()
+
+    return
 
 
 if __name__ == "__main__":

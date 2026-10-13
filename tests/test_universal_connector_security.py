@@ -7,13 +7,14 @@ connections or failed live order executions would unconditionally fall through
 to SimulatorConnector, creating synthetic local positions that callers could
 not distinguish from real broker executions.
 """
-from typing import Any
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
+
 import config
 import database
 from connector import UniversalConnector
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
 
 class TestUniversalConnectorSecurityFix(unittest.TestCase):
     """

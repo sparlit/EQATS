@@ -119,10 +119,17 @@ if __name__ == "__main__":
                 sys.exit(0)
             except Exception:
                 pass
-        msg = f"universe: BSE scrip master unreachable and no committed universe.json to fall back on: {e}"
-        raise SystemExit(msg)
+        raise SystemExit(
+            f"universe: BSE scrip master unreachable and no committed universe.json to fall back on: {e}"
+        )
     os.makedirs(DOCS, exist_ok=True)
-    out = {"asof": ist.today().isoformat(), "mcap_min": a.min, "mcap_max": a.max, "count": len(uni), "rows": uni}
+    out = {
+        "asof": ist.today().isoformat(),
+        "mcap_min": a.min,
+        "mcap_max": a.max,
+        "count": len(uni),
+        "rows": uni,
+    }
     json.dump(out, open(out_fn, "w"), separators=(",", ":"))
     import collections
 

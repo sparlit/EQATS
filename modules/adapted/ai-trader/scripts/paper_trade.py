@@ -38,7 +38,6 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import signal
@@ -46,7 +45,6 @@ import sys
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
@@ -55,8 +53,19 @@ load_dotenv()
 
 import numpy as np
 import pandas as pd
+from config.settings import (
+    MARKET_CLOSE_HOUR,
+    MARKET_CLOSE_MINUTE,
+    SCORE_THRESHOLD,
+    TD_INDEX_FUTURES_SYMBOLS,
+    TD_INDEX_SPOT_SYMBOLS,
+    WEIGHT_ML_PROBABILITY,
+    WEIGHT_OPTIONS_FLOW,
+    WEIGHT_TECHNICAL_STRENGTH,
+)
 from data.news_sentiment import NewsSentimentEngine
 from data.truedata_adapter import TrueDataAdapter
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from features.option_chain_features import OptionChainFeatureEngine
 from models.predict import Predictor
@@ -64,24 +73,6 @@ from models.strategy_models import StrategyPredictor
 from strategy.regime_detector import MarketRegime, RegimeDetector, get_strategies_for_regime
 from strategy.signal_generator import generate_signals
 from utils.logger import get_logger
-
-from config.settings import (
-    ATM_RANGE,
-    MARKET_CLOSE_HOUR,
-    MARKET_CLOSE_MINUTE,
-    MARKET_OPEN_HOUR,
-    MARKET_OPEN_MINUTE,
-    MAX_SYMBOLS,
-    SCORE_THRESHOLD,
-    STRIKE_GAP,
-    SYMBOLS,
-    TD_INDEX_FUTURES_SYMBOLS,
-    TD_INDEX_SPOT_SYMBOLS,
-    WEIGHT_ML_PROBABILITY,
-    WEIGHT_OPTIONS_FLOW,
-    WEIGHT_TECHNICAL_STRENGTH,
-)
-from database.db import get_engine, read_sql, write_df
 
 # ── Setup logging ────────────────────────────────────────────────────────────
 log_dir = Path("logs")
@@ -227,7 +218,8 @@ class PaperTrade:
         self.bar_count += 1
 
         # Track peak for trailing
-        self.peak_premium = max(self.peak_premium, current_premium)
+        if current_premium > self.peak_premium:
+            self.peak_premium = current_premium
 
         # Trailing stop activation
         move_pct = (current_premium - self.entry_premium) / self.entry_premium
@@ -358,7 +350,9 @@ def process_minute(
     if news_engine is not None:
         try:
             ts_utc = minute_ts.tz_localize("UTC") if minute_ts.tz is None else minute_ts
-            sentiment = news_engine.get_market_sentiment(lookback_hours=NEWS_LOOKBACK_HOURS, as_of=ts_utc)
+            sentiment = news_engine.get_market_sentiment(
+                lookback_hours=NEWS_LOOKBACK_HOURS, as_of=ts_utc
+            )
             if sentiment["should_block_trading"]:
                 return
             if sentiment["score"] < NEWS_BLOCK_THRESHOLD:
@@ -417,7 +411,7 @@ def process_minute(
             continue
 
         strat_prob = strategy_predictor.predict(sig.strategy, latest)
-        strat_prob = strat_prob or 0.5
+        strat_prob = strat_prob if strat_prob else 0.5
 
         flow_score = 0.5
         pcr = latest.get("pcr")
@@ -607,7 +601,15 @@ def run_live_paper():
 
     # Process function with captured components
     def process_fn(minute_ts, minute_ticks):
-        process_minute(minute_ts, minute_ticks, predictor, strategy_predictor, regime_detector, news_engine, oc_engine)
+        process_minute(
+            minute_ts,
+            minute_ticks,
+            predictor,
+            strategy_predictor,
+            regime_detector,
+            news_engine,
+            oc_engine,
+        )
 
     # Tick handler
     def on_tick(tick):
@@ -621,7 +623,12 @@ def run_live_paper():
     print(f"  {'─' * 60}\n")
 
     close_time = datetime(
-        date.today().year, date.today().month, date.today().day, MARKET_CLOSE_HOUR, MARKET_CLOSE_MINUTE, 0
+        date.today().year,
+        date.today().month,
+        date.today().day,
+        MARKET_CLOSE_HOUR,
+        MARKET_CLOSE_MINUTE,
+        0,
     ) + timedelta(minutes=2)
 
     while running and datetime.now() < close_time:

@@ -71,7 +71,10 @@ _SCHEMA_PERIODS = {
                 "additionalProperties": False,
                 "properties": {
                     "end": {"type": "string"},  # period-end, YYYY-MM-DD
-                    "kind": {"type": "string", "enum": ["Q", "Y"]},  # quarter column vs full-year column
+                    "kind": {
+                        "type": "string",
+                        "enum": ["Q", "Y"],
+                    },  # quarter column vs full-year column
                     "rev": {"type": ["number", "null"]},
                     "pat": {"type": ["number", "null"]},
                 },
@@ -104,7 +107,11 @@ def vision_extract_periods(name, pngs):
     content = [
         {
             "type": "image",
-            "source": {"type": "base64", "media_type": "image/png", "data": base64.standard_b64encode(p).decode()},
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": base64.standard_b64encode(p).decode(),
+            },
         }
         for p in pngs[:5]
     ]

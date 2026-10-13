@@ -117,7 +117,9 @@ def main():
     # sf_revop patC is a MIRROR of sf_fundamentals npCon (runbook 70) -- keep the two stores
     # consistent, or a retraction empties one while the same figure stays live in the other
     # (runbook 85a-bis). Already null for every cell in the ledger today; this guards the future.
-    pats = {(k.split("|")[0], int(k.split("|")[1])): v for k, v in cells if k.split("|")[2] == "patC"}
+    pats = {
+        (k.split("|")[0], int(k.split("|")[1])): v for k, v in cells if k.split("|")[2] == "patC"
+    }
     for path in (FUND, FUND_M):
         if not os.path.exists(path):
             continue
@@ -181,7 +183,10 @@ def main():
     for key, val in nulled:
         print("   nulled   %-28s was %s" % (key, val))
     for key, was, cur in changed:
-        print("   CHANGED  %-28s ledger recorded %s, live value is %s -- LEFT ALONE, needs a human" % (key, was, cur))
+        print(
+            "   CHANGED  %-28s ledger recorded %s, live value is %s -- LEFT ALONE, needs a human"
+            % (key, was, cur)
+        )
     return 1 if changed else 0
 
 

@@ -45,7 +45,9 @@ def main() -> int:
         if not latest:
             table = (
                 "daily_prices_v2"
-                if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'").fetchone()
+                if conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'"
+                ).fetchone()
                 else "daily_prices"
             )
             column = "trade_date" if table == "daily_prices_v2" else "date"

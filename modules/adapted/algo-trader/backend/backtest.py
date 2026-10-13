@@ -51,8 +51,8 @@ from daystate import apply_cross_sectional_ranks, compute_day_state
 from engine import fetch, fetch_intraday
 from regime import classify
 from risk import RiskConfig, RiskManager
-from store import init_db, load_candles, save_candles, save_daily_summary, save_trades
-from strategies import STRATEGY_REGISTRY, apply_orb, get_strategy_fn
+from store import init_db, load_candles, save_candles, save_trades
+from strategies import STRATEGY_REGISTRY
 from universe import SCAN_UNIVERSE, get_ticker
 
 from indicators import compute_all
@@ -216,8 +216,12 @@ def _simulate_day(
     regime = regime_info["regime"]
 
     first_ist = df.index[0].astimezone(IST)
-    obs_end = first_ist.replace(hour=_OBS_END_TIME[0], minute=_OBS_END_TIME[1], second=0, microsecond=0)
-    close_bar = first_ist.replace(hour=_MARKET_CLOSE[0], minute=_MARKET_CLOSE[1], second=0, microsecond=0)
+    obs_end = first_ist.replace(
+        hour=_OBS_END_TIME[0], minute=_OBS_END_TIME[1], second=0, microsecond=0
+    )
+    close_bar = first_ist.replace(
+        hour=_MARKET_CLOSE[0], minute=_MARKET_CLOSE[1], second=0, microsecond=0
+    )
 
     for ts, row in df.iterrows():
         bar_idx += 1
@@ -236,13 +240,17 @@ def _simulate_day(
                 if price - entry_price >= entry_risk * _BREAKEVEN_TRIGGER_R:
                     sl_price = max(sl_price, round(entry_price, 2))
                 if price - entry_price >= entry_risk * _TRAIL_TRIGGER_R:
-                    trail_ref = max(float(row.get("ema20", entry_price)), float(row.get("vwap", entry_price)))
+                    trail_ref = max(
+                        float(row.get("ema20", entry_price)), float(row.get("vwap", entry_price))
+                    )
                     sl_price = max(sl_price, round(trail_ref, 2))
             else:
                 if entry_price - price >= entry_risk * _BREAKEVEN_TRIGGER_R:
                     sl_price = min(sl_price, round(entry_price, 2))
                 if entry_price - price >= entry_risk * _TRAIL_TRIGGER_R:
-                    trail_ref = min(float(row.get("ema20", entry_price)), float(row.get("vwap", entry_price)))
+                    trail_ref = min(
+                        float(row.get("ema20", entry_price)), float(row.get("vwap", entry_price))
+                    )
                     sl_price = min(sl_price, round(trail_ref, 2))
 
         # ── Exit checks ───────────────────────────────────────────────────────
@@ -334,10 +342,14 @@ def _simulate_day(
                         nifty_bullish = float(nifty_row["close"]) > float(nifty_row["vwap"])
                         market_open = float(market_df.iloc[0]["open"])
                         market_move_pct = (
-                            ((float(nifty_row["close"]) - market_open) / market_open * 100) if market_open else 0.0
+                            ((float(nifty_row["close"]) - market_open) / market_open * 100)
+                            if market_open
+                            else 0.0
                         )
                         stock_open = float(df.iloc[0]["open"])
-                        stock_move_pct = ((price - stock_open) / stock_open * 100) if stock_open else 0.0
+                        stock_move_pct = (
+                            ((price - stock_open) / stock_open * 100) if stock_open else 0.0
+                        )
                         rel_strength = stock_move_pct - market_move_pct
                         if new_side == 1 and not nifty_bullish:
                             continue  # don't go long when Nifty is below its VWAP
@@ -421,7 +433,11 @@ def _build_day_context(symbol: str, day: date, interval: str, df: pd.DataFrame =
     if not idx_before.empty:
         prev_close_val = float(enriched.loc[idx_before].iloc[-1]["close"])
         today_open_val = float(df_today.iloc[0]["open"])
-        gap_pct = round((today_open_val - prev_close_val) / prev_close_val * 100, 3) if prev_close_val else 0.0
+        gap_pct = (
+            round((today_open_val - prev_close_val) / prev_close_val * 100, 3)
+            if prev_close_val
+            else 0.0
+        )
         df_today["prev_close"] = prev_close_val
     df_today["gap_pct"] = gap_pct
 
@@ -507,7 +523,14 @@ def _prepare_symbol_day(
     day_str = ctx["day_str"]
     regime_info = ctx["regime_info"]
     regime = regime_info["regime"]
-    confidence = round(max(regime_info["trend_prob"], regime_info["sideways_prob"], regime_info["highvol_prob"]) * 100)
+    confidence = int(
+        round(
+            max(
+                regime_info["trend_prob"], regime_info["sideways_prob"], regime_info["highvol_prob"]
+            )
+            * 100
+        )
+    )
     regime_stats[regime]["days"] += 1
 
     # Record today's counterfactual outcomes for future selection.
@@ -627,8 +650,15 @@ def _prepare_scan_day(
         if arm not in ctx["arm_frames"]:
             continue
         regime_info = ctx["regime_info"]
-        confidence = round(
-            max(regime_info["trend_prob"], regime_info["sideways_prob"], regime_info["highvol_prob"]) * 100
+        confidence = int(
+            round(
+                max(
+                    regime_info["trend_prob"],
+                    regime_info["sideways_prob"],
+                    regime_info["highvol_prob"],
+                )
+                * 100
+            )
         )
         regime_stats[regime_info["regime"]]["days"] += 1
         prepared_days.append(
@@ -784,7 +814,9 @@ def live_decision(symbols: list[str], interval: str = "5m", history_days: int = 
 
         ctx, _ = _build_day_context(symbol, today, interval, df=df)
         if ctx is None:
-            results.append({**entry_res, "status": "no_data", "detail": "insufficient bars for today yet"})
+            results.append(
+                {**entry_res, "status": "no_data", "detail": "insufficient bars for today yet"}
+            )
             continue
 
         decision = sel.choose(ctx["features"], day_str)
@@ -868,7 +900,9 @@ def _simulate_portfolio_day(
     {p.symbol: p for p in prepared_days}
     all_ts = sorted({ts for p in prepared_days for ts in p.df_signals.index})
     close_bar = (
-        all_ts[0].astimezone(IST).replace(hour=_MARKET_CLOSE[0], minute=_MARKET_CLOSE[1], second=0, microsecond=0)
+        all_ts[0]
+        .astimezone(IST)
+        .replace(hour=_MARKET_CLOSE[0], minute=_MARKET_CLOSE[1], second=0, microsecond=0)
     )
 
     positions: dict[str, dict] = {}  # symbol → open position
@@ -886,18 +920,34 @@ def _simulate_portfolio_day(
 
                 if position["entry_risk"] > 0:
                     if position["side"] == 1:
-                        if price - position["entry_price"] >= position["entry_risk"] * _BREAKEVEN_TRIGGER_R:
-                            position["sl_price"] = max(position["sl_price"], round(position["entry_price"], 2))
-                        if price - position["entry_price"] >= position["entry_risk"] * _TRAIL_TRIGGER_R:
+                        if (
+                            price - position["entry_price"]
+                            >= position["entry_risk"] * _BREAKEVEN_TRIGGER_R
+                        ):
+                            position["sl_price"] = max(
+                                position["sl_price"], round(position["entry_price"], 2)
+                            )
+                        if (
+                            price - position["entry_price"]
+                            >= position["entry_risk"] * _TRAIL_TRIGGER_R
+                        ):
                             trail_ref = max(
                                 float(row.get("ema20", position["entry_price"])),
                                 float(row.get("vwap", position["entry_price"])),
                             )
                             position["sl_price"] = max(position["sl_price"], round(trail_ref, 2))
                     else:
-                        if position["entry_price"] - price >= position["entry_risk"] * _BREAKEVEN_TRIGGER_R:
-                            position["sl_price"] = min(position["sl_price"], round(position["entry_price"], 2))
-                        if position["entry_price"] - price >= position["entry_risk"] * _TRAIL_TRIGGER_R:
+                        if (
+                            position["entry_price"] - price
+                            >= position["entry_risk"] * _BREAKEVEN_TRIGGER_R
+                        ):
+                            position["sl_price"] = min(
+                                position["sl_price"], round(position["entry_price"], 2)
+                            )
+                        if (
+                            position["entry_price"] - price
+                            >= position["entry_risk"] * _TRAIL_TRIGGER_R
+                        ):
                             trail_ref = min(
                                 float(row.get("ema20", position["entry_price"])),
                                 float(row.get("vwap", position["entry_price"])),
@@ -925,12 +975,13 @@ def _simulate_portfolio_day(
                         exit_reason = "take_profit"
                     elif ts >= close_bar:
                         exit_reason = "eod"
-                elif price >= position["sl_price"]:
-                    exit_reason = "stop_loss"
-                elif price <= position["tp_price"]:
-                    exit_reason = "take_profit"
-                elif ts >= close_bar:
-                    exit_reason = "eod"
+                else:
+                    if price >= position["sl_price"]:
+                        exit_reason = "stop_loss"
+                    elif price <= position["tp_price"]:
+                        exit_reason = "take_profit"
+                    elif ts >= close_bar:
+                        exit_reason = "eod"
 
                 if exit_reason:
                     if exit_reason == "stop_loss":
@@ -947,7 +998,9 @@ def _simulate_portfolio_day(
                     pnl_pct = round(pnl / (position["entry_price"] * position["qty"]) * 100, 2)
                     cash += position["qty"] * position["entry_price"] + gross
                     del positions[sym]
-                    equity = round(cash + sum(o["qty"] * o["entry_price"] for o in positions.values()), 2)
+                    equity = round(
+                        cash + sum(o["qty"] * o["entry_price"] for o in positions.values()), 2
+                    )
                     risk_mgr.record_trade(pnl, ts)
                     risk_mgr.set_capital(equity)
                     trades.append(
@@ -995,11 +1048,15 @@ def _simulate_portfolio_day(
                     nifty_row = market_df.iloc[nearest_idx]
                     market_open = float(market_df.iloc[0]["open"])
                     market_move_pct = (
-                        ((float(nifty_row["close"]) - market_open) / market_open * 100) if market_open else 0.0
+                        ((float(nifty_row["close"]) - market_open) / market_open * 100)
+                        if market_open
+                        else 0.0
                     )
                     stock_open = float(p.df_signals.iloc[0]["open"])
                     price = float(row["close"])
-                    stock_move_pct = ((price - stock_open) / stock_open * 100) if stock_open else 0.0
+                    stock_move_pct = (
+                        ((price - stock_open) / stock_open * 100) if stock_open else 0.0
+                    )
                     rel_strength = stock_move_pct - market_move_pct
                 except Exception:
                     pass
@@ -1106,7 +1163,9 @@ def run(
     scan_syms = _scan_symbol_list(symbols) if scan_universe else None
 
     if not force_strategy:
-        boot = ensure_history(scan_syms if scan_universe else symbols, start_date, interval, n_days=history_days)
+        boot = ensure_history(
+            scan_syms if scan_universe else symbols, start_date, interval, n_days=history_days
+        )
         if boot:
             print(f"  Bootstrapped {boot} day-states into selector history")
 
@@ -1120,7 +1179,9 @@ def run(
     day_regimes: list[dict] = []
 
     trading_days = _trading_days(start_date, end_date)
-    print(f"\n  Backtest: {len(symbols)} symbols × {len(trading_days)} days  [{start_date} → {end_date}]\n")
+    print(
+        f"\n  Backtest: {len(symbols)} symbols × {len(trading_days)} days  [{start_date} → {end_date}]\n"
+    )
 
     account_equity = float(capital)
     risk_mgr = RiskManager(account_equity, risk_config)
@@ -1207,7 +1268,9 @@ def _fetch_day(ticker: str, symbol: str, day_str: str, interval: str):
         from upstox_data import fetch_upstox, is_configured
 
         if is_configured():
-            end_buf = (datetime.strptime(day_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+            end_buf = (datetime.strptime(day_str, "%Y-%m-%d") + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )
             clean = symbol.replace(".NS", "")
             df = fetch_upstox(clean, start=day_str, end=end_buf, interval=interval)
             if not df.empty:
@@ -1255,8 +1318,12 @@ def _nifty_daily_bias(day_str: str) -> str:
 
     try:
         end_buf = (datetime.strptime(day_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-        start_buf = (datetime.strptime(day_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
-        df = yf.Ticker(_NIFTY_TICKER).history(start=start_buf, end=end_buf, interval="1d", auto_adjust=True)
+        start_buf = (datetime.strptime(day_str, "%Y-%m-%d") - timedelta(days=14)).strftime(
+            "%Y-%m-%d"
+        )
+        df = yf.Ticker(_NIFTY_TICKER).history(
+            start=start_buf, end=end_buf, interval="1d", auto_adjust=True
+        )
         if len(df) < 4:
             _nifty_daily_cache[day_str] = "neutral"
             return "neutral"
@@ -1389,7 +1456,7 @@ def _build_summary(trades, daily_pnl, regime_stats, total_capital, day_regimes=N
     avg_l = (loss_sum / len(losses)) if losses else 0.0
     expectancy = round(wr * avg_w - (1 - wr) * avg_l, 2)
 
-    for rs in regime_stats.values():
+    for _rg, rs in regime_stats.items():
         rs["win_rate"] = round(rs["wins"] / rs["trades"] * 100, 1) if rs["trades"] else 0
 
     if len(daily_pnl) >= 5:

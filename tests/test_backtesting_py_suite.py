@@ -3,10 +3,19 @@ Unit tests for Backtesting.py Suite integration.
 Verifies crossover, cross, barssince, resample_apply, SignalStrategy, and TrailingStrategy.
 """
 from typing import Any
+
 import numpy as np
 import pandas as pd
-import pytest
-from institutional_integrations.backtesting_py_suite import SignalStrategy, TrailingStrategy, barssince, cross, crossover, resample_apply
+
+from institutional_integrations.backtesting_py_suite import (
+    SignalStrategy,
+    TrailingStrategy,
+    barssince,
+    cross,
+    crossover,
+    resample_apply,
+)
+
 
 def test_signal_math_helpers() -> None:
     s1 = [10, 12, 15, 20]

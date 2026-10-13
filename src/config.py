@@ -4,7 +4,11 @@ import os
 _log = logging.getLogger("config")
 SIMULATION_MODE = False
 DEMO_ACCOUNT_ONLY = True
-MT5_TERMINAL_PATH = "C:\\Program Files\\Alpari MT5\\terminal64.exe"
+MT5_TERMINAL_PATH = os.environ.get(
+    "TRADINGOS_MT5_PATH", "C:\\Program Files\\Alpari MT5\\terminal64.exe"
+)
+WEB_PORT = int(os.environ.get("TRADINGOS_WEB_PORT", 50005))
+IPC_PORT = int(os.environ.get("TRADINGOS_IPC_PORT", 9001))
 SYMBOLS = [
     "EURUSD",
     "GBPUSD",

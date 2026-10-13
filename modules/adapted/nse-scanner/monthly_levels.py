@@ -117,7 +117,8 @@ def fetch_monthly_data(symbol, retries=2):
             ts = result["timestamp"]
             q = result["indicators"]["quote"][0]
             df = pd.DataFrame(
-                {"High": q["high"], "Low": q["low"], "Close": q["close"]}, index=pd.to_datetime(ts, unit="s")
+                {"High": q["high"], "Low": q["low"], "Close": q["close"]},
+                index=pd.to_datetime(ts, unit="s"),
             )
             df = df.dropna()
             if len(df) < 2:
@@ -139,7 +140,8 @@ def fetch_daily_data(symbol, retries=2):
             ts = result["timestamp"]
             q = result["indicators"]["quote"][0]
             df = pd.DataFrame(
-                {"High": q["high"], "Low": q["low"], "Close": q["close"]}, index=pd.to_datetime(ts, unit="s")
+                {"High": q["high"], "Low": q["low"], "Close": q["close"]},
+                index=pd.to_datetime(ts, unit="s"),
             )
             df = df.dropna()
             if len(df) < 3:
@@ -253,7 +255,9 @@ def manage_positions(buy_signals):
     if os.path.exists(ENTRY_FILE):
         entries = pd.read_csv(ENTRY_FILE)
     else:
-        entries = pd.DataFrame(columns=["Symbol", "EntryDate", "Signal", "BuyPrice", "Target", "StopLoss"])
+        entries = pd.DataFrame(
+            columns=["Symbol", "EntryDate", "Signal", "BuyPrice", "Target", "StopLoss"]
+        )
 
     today_rows = []
     keep_rows = []
@@ -283,7 +287,9 @@ def manage_positions(buy_signals):
                 "Status": status,
             }
         )
-        print(f"{row['Symbol']:12s} Buy:{row['BuyPrice']:>9.2f} Now:{cur_price:>9.2f} P&L:{pnl_pct:>6.2f}% [{status}]")
+        print(
+            f"{row['Symbol']:12s} Buy:{row['BuyPrice']:>9.2f} Now:{cur_price:>9.2f} P&L:{pnl_pct:>6.2f}% [{status}]"
+        )
         if status == "HOLDING":
             keep_rows.append(row.to_dict())
 
@@ -346,7 +352,9 @@ def manage_positions(buy_signals):
     total_invested = open_rows["BuyPrice"].sum() if not open_rows.empty else 0
     total_current_value = open_rows["CurrentPrice"].sum() if not open_rows.empty else 0
     overall_pnl_pct = (
-        round((total_current_value - total_invested) / total_invested * 100, 2) if total_invested > 0 else 0
+        round((total_current_value - total_invested) / total_invested * 100, 2)
+        if total_invested > 0
+        else 0
     )
 
     print("\n=== MONTHLY LEVELS PORTFOLIO SUMMARY ===")
@@ -362,7 +370,9 @@ def manage_positions(buy_signals):
                 "TotalCurrentValue": round(total_current_value, 2),
                 "OverallPnL%": overall_pnl_pct,
                 "StocksHolding": len(open_rows),
-                "StocksTargetHitToday": len([r for r in closed_today if r["Status"] == "TARGET HIT"]),
+                "StocksTargetHitToday": len(
+                    [r for r in closed_today if r["Status"] == "TARGET HIT"]
+                ),
                 "StocksSLHitToday": len([r for r in closed_today if r["Status"] == "SL HIT"]),
             }
         ]

@@ -40,7 +40,10 @@ DATA = Path(__file__).resolve().parent / "data"
 def events(min_floor=15001):
     df = pd.DataFrame(json.load(open(DATA / "senate_tx.json")))
     df["td"] = pd.to_datetime(df["transaction_date"], errors="coerce")
-    df = df[df["type"].str.contains("Purchase", na=False) & df["ticker"].str.match(r"^[A-Z]{1,5}$", na=False)]
+    df = df[
+        df["type"].str.contains("Purchase", na=False)
+        & df["ticker"].str.match(r"^[A-Z]{1,5}$", na=False)
+    ]
     df["floor"] = df["amount"].str.extract(r"\$([\d,]+)")[0].str.replace(",", "").astype(float)
     df = df[df["floor"] >= min_floor].dropna(subset=["td"])
     # follower's entry: disclosure can take ~45 days (no timestamps in data)
@@ -55,7 +58,7 @@ def events(min_floor=15001):
 
 
 def main():
-    close, open_, _vol, member_at = load()
+    close, open_, vol, member_at = load()
     for name, kw, hold in (
         ("baseline(>=15k,63d)", {}, 63),
         ("all_amounts", {"min_floor": 1001}, 63),
@@ -66,7 +69,10 @@ def main():
         res = study(ev, close, open_, member_at, hold=hold)
         ev_report(name, res)
         if name.startswith("baseline"):
-            for lab, lo, hi in (("  2016-18", "2016-01-01", "2019-01-01"), ("  2019-21", "2019-01-01", "2021-06-30")):
+            for lab, lo, hi in (
+                ("  2016-18", "2016-01-01", "2019-01-01"),
+                ("  2019-21", "2019-01-01", "2021-06-30"),
+            ):
                 ev_report(lab, res[(res["date"] >= lo) & (res["date"] < hi)])
 
 

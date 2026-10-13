@@ -37,7 +37,12 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-from collectors.oi_collector import collect_chain_snapshot, collect_snapshot, save_chain_snapshot, save_snapshot
+from collectors.oi_collector import (
+    collect_chain_snapshot,
+    collect_snapshot,
+    save_chain_snapshot,
+    save_snapshot,
+)
 
 print("=== Collecting OI Snapshot (37 symbols) ===\n")
 oi_df = collect_snapshot()
@@ -63,7 +68,17 @@ if not chain_df.empty:
         near_atm = nifty.iloc[(nifty["strike"] - spot).abs().argsort()[:5]]
         print(
             near_atm[
-                ["strike", "ce_ltp", "ce_iv", "ce_delta", "ce_oi", "pe_ltp", "pe_iv", "pe_delta", "pe_oi"]
+                [
+                    "strike",
+                    "ce_ltp",
+                    "ce_iv",
+                    "ce_delta",
+                    "ce_oi",
+                    "pe_ltp",
+                    "pe_iv",
+                    "pe_delta",
+                    "pe_oi",
+                ]
             ].to_string(index=False)
         )
 else:

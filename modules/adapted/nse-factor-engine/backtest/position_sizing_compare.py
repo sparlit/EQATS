@@ -26,7 +26,9 @@ import pandas as pd
 from scipy.cluster.hierarchy import leaves_list, linkage
 from scipy.spatial.distance import squareform
 
-ACTIVITY = "/home/ec2-user/nse-factor-engine/backtest/results/backtest_portfolio_activity_09072026.parquet"
+ACTIVITY = (
+    "/home/ec2-user/nse-factor-engine/backtest/results/backtest_portfolio_activity_09072026.parquet"
+)
 PRICES = "/home/ec2-user/nse-factor-engine/backtest/data/prices_backtest.parquet"
 LOOKBACK = 26
 MAX_W = 0.10

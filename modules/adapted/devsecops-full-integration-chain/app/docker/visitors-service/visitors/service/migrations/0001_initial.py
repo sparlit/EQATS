@@ -35,7 +35,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Visitor",
             fields=[
-                ("id", models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
                 ("service_ip", models.CharField(max_length=16)),
                 ("client_ip", models.CharField(max_length=16)),
                 ("timestamp", models.DateTimeField(auto_now_add=True)),

@@ -136,7 +136,8 @@ def compute(conn=None, limit=1500):
     rows_out = []
     for sym in syms:
         prows = conn.execute(
-            "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?", (sym, MIN_HISTORY)
+            "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+            (sym, MIN_HISTORY),
         ).fetchall()
         if len(prows) < MIN_HISTORY:
             continue
@@ -202,7 +203,8 @@ def compute(conn=None, limit=1500):
 
     try:
         prev_row = conn.execute(
-            "SELECT COUNT(*) FROM trend_candidates WHERE date < ? ORDER BY date DESC LIMIT 1", (today,)
+            "SELECT COUNT(*) FROM trend_candidates WHERE date < ? ORDER BY date DESC LIMIT 1",
+            (today,),
         ).fetchone()
         prev_n = prev_row[0] if prev_row else 0
         cur_n = len(rows_out)
@@ -239,7 +241,10 @@ def top(n=25):
         (today, n),
     ).fetchall()
     conn.close()
-    return [{"symbol": r[0], "close": r[1], "ema50": r[2], "ema200": r[3], "score": r[4], "notes": r[5]} for r in rows]
+    return [
+        {"symbol": r[0], "close": r[1], "ema50": r[2], "ema200": r[3], "score": r[4], "notes": r[5]}
+        for r in rows
+    ]
 
 
 def report(n=25, send_tg=False):

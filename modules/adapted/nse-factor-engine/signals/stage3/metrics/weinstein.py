@@ -34,7 +34,6 @@ Inputs : prices (full price history), T
 Returns: dataframe with columns [symbol, weinstein_stage2]
 """
 
-import numpy as np
 import pandas as pd
 
 
@@ -49,21 +48,35 @@ def compute(prices: pd.DataFrame, T) -> pd.DataFrame:
     weekly = weekly.sort_values(["symbol", "week"])
 
     # 30-week MA
-    weekly["ma30w"] = weekly.groupby("symbol")["close"].transform(lambda x: x.rolling(30, min_periods=20).mean())
+    weekly["ma30w"] = weekly.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(30, min_periods=20).mean()
+    )
     weekly["ma30w_prev"] = weekly.groupby("symbol")["ma30w"].transform(lambda x: x.shift(1))
 
     weekly["ma_slope_pos"] = weekly["ma30w"] > weekly["ma30w_prev"]
     weekly["price_above_ma"] = weekly["close"] > weekly["ma30w"]
 
     latest_weekly = (
-        weekly.sort_values("week").groupby("symbol").last().reset_index()[["symbol", "ma_slope_pos", "price_above_ma"]]
+        weekly.sort_values("week")
+        .groupby("symbol")
+        .last()
+        .reset_index()[["symbol", "ma_slope_pos", "price_above_ma"]]
     )
 
     # ── Condition 3: 150-day SMA > 200-day SMA (daily, at T) ──────────────────
-    px["sma150"] = px.groupby("symbol")["close"].transform(lambda x: x.rolling(150, min_periods=100).mean())
-    px["sma200"] = px.groupby("symbol")["close"].transform(lambda x: x.rolling(200, min_periods=130).mean())
+    px["sma150"] = px.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(150, min_periods=100).mean()
+    )
+    px["sma200"] = px.groupby("symbol")["close"].transform(
+        lambda x: x.rolling(200, min_periods=130).mean()
+    )
 
-    latest_daily = px.sort_values("date").groupby("symbol").last().reset_index()[["symbol", "sma150", "sma200"]]
+    latest_daily = (
+        px.sort_values("date")
+        .groupby("symbol")
+        .last()
+        .reset_index()[["symbol", "sma150", "sma200"]]
+    )
     latest_daily["sma150_gt_sma200"] = latest_daily["sma150"] > latest_daily["sma200"]
 
     # ── Combine all three ────────────────────────────────────────────────────

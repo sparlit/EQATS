@@ -319,6 +319,7 @@ fn read_at(home: &Path) -> Option<ModelInfo> {
         protocol: Some(protocol.to_string()),
         display_model: None,
         relay_mode: None,
+        web_search: None,
         one_m_context: None,
     })
 }
@@ -505,6 +506,46 @@ mod tests {
                 .as_str(),
             Some("account-token")
         );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn switching_accounts_preserves_shared_raw_and_compressed_session_files() {
+        let dir = fixture();
+        let mut originals = Vec::new();
+        for (session, name, bytes) in [
+            ("a-session", "session.jsonl", b"{\"type\":\"session\",\"version\":0,\"id\":\"a-session\",\"createdAt\":1,\"cwd\":\"/workspace\",\"delegationDepth\":0}\n{\"type\":\"tool-result\",\"data\":\"original\"}\n".as_slice()),
+            // A real Zstandard frame containing the original b-session header.
+            ("b-session", "session.jsonl.zstd", b"\x28\xb5\x2f\xfd\x20\x65\xb5\x02\x00\x22\x45\x12\x19\x90\xb5\x3a\x08\x39\x32\x82\xe9\xe6\xa8\xfd\x95\xdd\xfc\xc7\x45\x84\xf0\x3f\x8f\xe6\x3c\x6f\x06\x01\x43\xc1\xa4\x97\x6d\x47\x16\x53\x7b\x94\x07\x9e\x8c\x3e\x3a\x4d\x01\x8e\xbd\xe2\x21\xa3\x91\xde\x23\x7d\xcf\x1d\x22\x12\xa7\x93\x32\x9a\x74\x17\x18\xbd\x98\x52\xbd\x3a\xfd\x36\x58\x13\x02\x03\x00\x86\x0a\x0b\xa8\xf5\xda\x96\x26".as_slice()),
+        ] {
+            let path = dir.join("sessions/workspace").join(session).join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, bytes).unwrap();
+            originals.push((path, bytes));
+        }
+        for (token, device) in [
+            ("token-a", "device-a"),
+            ("token-b", "device-b"),
+            ("token-b", "device-b"),
+            ("token-a", "device-a"),
+        ] {
+            apply_account_at(&dir, token, device).unwrap();
+            assert_eq!(active_account_token(&dir).as_deref(), Some(token));
+            assert_eq!(
+                credentials_at(&dir).unwrap()["records"]["deepseek-account-platform/device"]
+                    ["payload"]["id"]
+                    .as_str(),
+                Some(device)
+            );
+            for (path, bytes) in &originals {
+                assert_eq!(fs::read(path).unwrap(), *bytes);
+            }
+        }
+        fs::write(dir.join(".credentials.yaml"), "version: 2\n").unwrap();
+        assert!(apply_account_at(&dir, "token-b", "device-b").is_err());
+        for (path, bytes) in &originals {
+            assert_eq!(fs::read(path).unwrap(), *bytes);
+        }
         fs::remove_dir_all(dir).unwrap();
     }
 

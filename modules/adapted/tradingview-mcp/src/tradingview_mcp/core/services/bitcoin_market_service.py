@@ -61,7 +61,9 @@ def _http_get_json(url: str) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _classify_risk(btc_change_24h: float, btc_dominance: float, total_mcap_change_24h: float) -> tuple[str, str]:
+def _classify_risk(
+    btc_change_24h: float, btc_dominance: float, total_mcap_change_24h: float
+) -> tuple[str, str]:
     """Map (btc trend, dominance, broader market) -> label + reasoning paragraph.
 
     Bands chosen from years of crypto behavior, not statistical fit:
@@ -76,12 +78,10 @@ def _classify_risk(btc_change_24h: float, btc_dominance: float, total_mcap_chang
     if btc_volatile and btc_change_24h < 0:
         return (
             "HIGH_RISK",
-            (
-                f"BTC is down {btc_change_24h:.1f}% in 24h - that's a meaningful move, not noise. "
-                f"Dominance at {btc_dominance:.1f}% means alts are likely bleeding harder than the headline. "
-                f"Total crypto market cap is {total_mcap_change_24h:+.1f}% on the day. "
-                f"Tight stops or sit-out on alt entries until BTC stabilizes."
-            ),
+            f"BTC is down {btc_change_24h:.1f}% in 24h - that's a meaningful move, not noise. "
+            f"Dominance at {btc_dominance:.1f}% means alts are likely bleeding harder than the headline. "
+            f"Total crypto market cap is {total_mcap_change_24h:+.1f}% on the day. "
+            f"Tight stops or sit-out on alt entries until BTC stabilizes.",
         )
     if btc_volatile and btc_change_24h > 0:
         rotation = (
@@ -93,36 +93,28 @@ def _classify_risk(btc_change_24h: float, btc_dominance: float, total_mcap_chang
         )
         return (
             "OPPORTUNITY_WITH_CAUTION",
-            (
-                f"BTC is up {btc_change_24h:.1f}% in 24h - strong move. "
-                f"Dominance at {btc_dominance:.1f}%: {rotation} "
-                f"Total market cap {total_mcap_change_24h:+.1f}%."
-            ),
+            f"BTC is up {btc_change_24h:.1f}% in 24h - strong move. "
+            f"Dominance at {btc_dominance:.1f}%: {rotation} "
+            f"Total market cap {total_mcap_change_24h:+.1f}%.",
         )
     if dom_high and btc_change_24h < -1.5:
         return (
             "ALT_RISK",
-            (
-                f"BTC dominance high ({btc_dominance:.1f}%) AND BTC soft ({btc_change_24h:+.1f}%/24h) - "
-                "worst combo for altcoins. Capital is in BTC and BTC isn't holding. "
-                "Alt longs face a double headwind regardless of individual setups."
-            ),
+            f"BTC dominance high ({btc_dominance:.1f}%) AND BTC soft ({btc_change_24h:+.1f}%/24h) - "
+            "worst combo for altcoins. Capital is in BTC and BTC isn't holding. "
+            "Alt longs face a double headwind regardless of individual setups.",
         )
     if dom_low and btc_change_24h > 1.5:
         return (
             "ALT_FAVORABLE",
-            (
-                f"BTC dominance low ({btc_dominance:.1f}%) and BTC up {btc_change_24h:+.1f}% - "
-                "classic capital-rotation-into-alts pattern. Macro is permissive for strong alt setups."
-            ),
+            f"BTC dominance low ({btc_dominance:.1f}%) and BTC up {btc_change_24h:+.1f}% - "
+            "classic capital-rotation-into-alts pattern. Macro is permissive for strong alt setups.",
         )
     return (
         "NEUTRAL",
-        (
-            f"BTC {btc_change_24h:+.1f}%/24h, dominance {btc_dominance:.1f}%, "
-            f"total mcap {total_mcap_change_24h:+.1f}%. No strong directional signal - "
-            "individual chart setups carry most of the weight here."
-        ),
+        f"BTC {btc_change_24h:+.1f}%/24h, dominance {btc_dominance:.1f}%, "
+        f"total mcap {total_mcap_change_24h:+.1f}%. No strong directional signal - "
+        "individual chart setups carry most of the weight here.",
     )
 
 

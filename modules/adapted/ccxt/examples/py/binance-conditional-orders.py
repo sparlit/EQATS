@@ -55,13 +55,18 @@ if order1_price is None:
     executed_quantity = float(order1["info"]["executedQty"])
     order1_price = cumulative_quote / executed_quantity
 
+pprint(order1)
 
 print("---------------------------------------------------------------------")
 
 stop_loss_params = {"stopPrice": order1_price * 0.9}
 order2 = exchange.create_order(symbol, "stop_market", "sell", amount, None, stop_loss_params)
+pprint(order2)
 
 print("---------------------------------------------------------------------")
 
 take_profit_params = {"stopPrice": order1_price * 1.6}
-order3 = exchange.create_order(symbol, "take_profit_market", "sell", amount, None, take_profit_params)
+order3 = exchange.create_order(
+    symbol, "take_profit_market", "sell", amount, None, take_profit_params
+)
+pprint(order3)

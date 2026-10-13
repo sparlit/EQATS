@@ -98,7 +98,9 @@ def apply_orb(df: pd.DataFrame) -> pd.DataFrame:
     )
     in_trade_window = pd.Series(False, index=df.index)
     in_trade_window.iloc[_ORB_BARS:] = True
-    in_trade_window &= pd.Series([ts.astimezone(IST) <= cutoff_ist for ts in df.index], index=df.index)
+    in_trade_window &= pd.Series(
+        [ts.astimezone(IST) <= cutoff_ist for ts in df.index], index=df.index
+    )
 
     # Candle quality: real body (not doji / spinning top)
     bar_range = (df["high"] - df["low"]).replace(0, float("nan"))
@@ -274,7 +276,12 @@ def apply_gap_fade(df: pd.DataFrame) -> pd.DataFrame:
     atr_s = df["atr"] if "atr" in df.columns else (df["high"] - df["low"]).rolling(14).mean()
 
     if gap_pct > 0:  # gap up → fade short toward prev close
-        setup = in_window & (df["close"] < day_open) & (df["close"] < vwap_s) & (df["close"] > prev_close)
+        setup = (
+            in_window
+            & (df["close"] < day_open)
+            & (df["close"] < vwap_s)
+            & (df["close"] > prev_close)
+        )
         entry_rows = setup & ~setup.shift(1, fill_value=False)
         df.loc[entry_rows, "signal"] = -1
         for idx in df.index[entry_rows]:
@@ -287,7 +294,12 @@ def apply_gap_fade(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 df.loc[idx, "signal"] = 0
     else:  # gap down → fade long toward prev close
-        setup = in_window & (df["close"] > day_open) & (df["close"] > vwap_s) & (df["close"] < prev_close)
+        setup = (
+            in_window
+            & (df["close"] > day_open)
+            & (df["close"] > vwap_s)
+            & (df["close"] < prev_close)
+        )
         entry_rows = setup & ~setup.shift(1, fill_value=False)
         df.loc[entry_rows, "signal"] = 1
         for idx in df.index[entry_rows]:
@@ -400,7 +412,8 @@ STRATEGY_REGISTRY = {
     "GAP_FADE": {
         "id": "GAP_FADE",
         "name": "Gap Fade",
-        "description": "Fades failing moderate overnight gaps (0.3–2%) toward the prior close. Gap-day arm.",
+        "description": "Fades failing moderate overnight gaps (0.3–2%) toward the "
+        "prior close. Gap-day arm.",
         "fn": apply_gap_fade,
     },
     "MOMO": {

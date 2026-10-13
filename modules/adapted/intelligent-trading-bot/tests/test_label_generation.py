@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy.testing as npt
-import pytest
 from common.gen_labels_topbot import *
 from common.gen_signals import *
 from common.utils import *
@@ -56,7 +54,11 @@ def test_extremum_labels():
     # https://matplotlib.org/stable/api/markers_api.html
     # '-', '--', '-.', ':', 'None', ' ', '', 'solid', 'dashed', 'dashdot', 'dotted'
     sns.lineplot(data=sr)
-    sns.lineplot(data=extr_df, x="x", y="y", marker="o", markersize=10, linestyle="dotted")  # "^" 'v'
+    sns.lineplot(
+        data=extr_df, x="x", y="y", marker="o", markersize=10, linestyle="dotted"
+    )  # "^" 'v'
+
+    pass
 
 
 def test_interval_and_aggregation():
@@ -73,11 +75,19 @@ def test_interval_and_aggregation():
 
     # Add label
     df, _ = add_extremum_features(
-        df, column_name="close", level_fracs=[level_frac], tolerance_frac=tolerance_frac, out_names=["is_close_top"]
+        df,
+        column_name="close",
+        level_fracs=[level_frac],
+        tolerance_frac=tolerance_frac,
+        out_names=["is_close_top"],
     )
 
     # Aggregate score with chosen parameters
     aggregate_scores(df, "score_agg", ["score"], None, 2)
 
     threshold = 6
-    find_interval_precision(df, label_column="is_close_top", score_column="score_agg", threshold=threshold)
+    find_interval_precision(
+        df, label_column="is_close_top", score_column="score_agg", threshold=threshold
+    )
+
+    pass

@@ -26,12 +26,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Persistent shadow lifecycle records, intentionally separate from Hull state."""
 
 import sqlite3
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def init_schema(db_path: str | Path) -> None:
@@ -43,7 +40,9 @@ def init_schema(db_path: str | Path) -> None:
             confirming_horizons TEXT NOT NULL, PRIMARY KEY (as_of_date, symbol))""")
 
 
-def record(db_path: str | Path, scored: pd.DataFrame, prior_scored: pd.DataFrame | None = None) -> pd.DataFrame:
+def record(
+    db_path: str | Path, scored: pd.DataFrame, prior_scored: pd.DataFrame | None = None
+) -> pd.DataFrame:
     """Store point-in-time shadow observations and derive migration labels."""
     init_schema(db_path)
     columns = [
@@ -61,7 +60,9 @@ def record(db_path: str | Path, scored: pd.DataFrame, prior_scored: pd.DataFrame
     # legacy imports. A shadow observation is explicitly one row per symbol
     # and completed EOD date, so collapse those defensively before persistence.
     current = current.drop_duplicates(["as_of_date", "symbol"], keep="last")
-    current["confirming_horizons"] = current["confirming_horizons"].apply(",".join)
+    current["confirming_horizons"] = current["confirming_horizons"].apply(
+        lambda values: ",".join(values)
+    )
     current["qualified"] = current["qualified"].astype(int)
     with sqlite3.connect(str(db_path)) as conn:
         previous = pd.read_sql_query(

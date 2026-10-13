@@ -4,9 +4,11 @@ Tests for 50000-60000 6-Port Communication Matrix & Control Center Dashboard Con
 
 import os
 import unittest
+
 import src.database as database
 import src.institutional_integrations.sebi_broker_adapter as sebi
 from src.brain_agents_orchestrator import global_brain_orchestrator
+
 
 class TestPortMatrixAndDashboardIntegration(unittest.TestCase):
     def test_openalgo_fenix_adapter_base_url_port(self):
@@ -25,7 +27,7 @@ class TestPortMatrixAndDashboardIntegration(unittest.TestCase):
     def test_gui_leverage_option_and_port_check(self):
         """Verify gui.py preserves leverage 1:3000 and uses valid port configs."""
         gui_path = os.path.join("src", "gui.py")
-        with open(gui_path, "r", encoding="utf-8") as f:
+        with open(gui_path, encoding="utf-8") as f:
             content = f.read()
         self.assertIn('"1:3000"', content)
 

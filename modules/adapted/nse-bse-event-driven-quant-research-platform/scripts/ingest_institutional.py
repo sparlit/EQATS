@@ -125,7 +125,8 @@ def upsert_fii_dii_daily(engine, data: list[dict]) -> int:
             phs = ", ".join(f":{k}" for k in values)
             updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in values if k != "trade_date")
             sql = sa.text(
-                f"INSERT INTO fii_dii_daily ({cols}) VALUES ({phs}) ON CONFLICT (trade_date) DO UPDATE SET {updates}"
+                f"INSERT INTO fii_dii_daily ({cols}) VALUES ({phs}) "
+                f"ON CONFLICT (trade_date) DO UPDATE SET {updates}"
             )
             with engine.begin() as conn:
                 conn.execute(sql, values)
@@ -295,7 +296,8 @@ def upsert_bulk_deals(engine, data: list[dict]) -> int:
             cols = ", ".join(values.keys())
             phs = ", ".join(f":{k}" for k in values)
             sql = sa.text(
-                f"INSERT INTO bulk_deals ({cols}) VALUES ({phs}) ON CONFLICT (deal_date, symbol, client) DO NOTHING"
+                f"INSERT INTO bulk_deals ({cols}) VALUES ({phs}) "
+                f"ON CONFLICT (deal_date, symbol, client) DO NOTHING"
             )
             with engine.begin() as conn:
                 conn.execute(sql, values)
@@ -340,7 +342,9 @@ def upsert_insider_trades(engine, symbol: str, data: list[dict]) -> int:
                 if isinstance(trade_date, str):
                     continue
 
-            insider_name = entry.get("insider_name") or entry.get("acquirer_name") or entry.get("name")
+            insider_name = (
+                entry.get("insider_name") or entry.get("acquirer_name") or entry.get("name")
+            )
             if not insider_name:
                 continue
 
@@ -399,7 +403,10 @@ def upsert_promoter_pledge(engine, symbol: str, data: dict) -> None:
     cols = ", ".join(values.keys())
     phs = ", ".join(f":{k}" for k in values)
     updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in values if k != "symbol")
-    sql = sa.text(f"INSERT INTO promoter_pledge ({cols}) VALUES ({phs}) ON CONFLICT (symbol) DO UPDATE SET {updates}")
+    sql = sa.text(
+        f"INSERT INTO promoter_pledge ({cols}) VALUES ({phs}) "
+        f"ON CONFLICT (symbol) DO UPDATE SET {updates}"
+    )
     with engine.begin() as conn:
         conn.execute(sql, values)
 
@@ -409,13 +416,17 @@ def get_universe_symbols(engine) -> list[str]:
     with engine.connect() as conn:
         try:
             result = conn.execute(
-                sa.text("SELECT DISTINCT symbol FROM cached_signals WHERE exchange = 'NSE' ORDER BY symbol")
+                sa.text(
+                    "SELECT DISTINCT symbol FROM cached_signals WHERE exchange = 'NSE' ORDER BY symbol"
+                )
             )
             return [r[0] for r in result.fetchall()]
         except Exception:
             pass
         try:
-            result = conn.execute(sa.text("SELECT symbol FROM instruments WHERE exchange = 'NSE' ORDER BY symbol"))
+            result = conn.execute(
+                sa.text("SELECT symbol FROM instruments WHERE exchange = 'NSE' ORDER BY symbol")
+            )
             return [r[0] for r in result.fetchall()]
         except Exception:
             pass
@@ -425,7 +436,9 @@ def get_universe_symbols(engine) -> list[str]:
 def main():
     parser = argparse.ArgumentParser(description="Ingest institutional flow data")
     parser.add_argument("--daily", action="store_true", help="FII/DII + bulk deals (daily)")
-    parser.add_argument("--shareholding", action="store_true", help="Shareholding patterns (weekly)")
+    parser.add_argument(
+        "--shareholding", action="store_true", help="Shareholding patterns (weekly)"
+    )
     parser.add_argument("--insiders", action="store_true", help="Insider trades (weekly)")
     parser.add_argument("--pledge", action="store_true", help="Promoter pledge (weekly)")
     parser.add_argument("--all", action="store_true", help="Everything")
@@ -499,7 +512,9 @@ def main():
                 if (i + 1) % args.batch_size == 0:
                     elapsed = time.time() - start
                     rate = (i + 1) / elapsed if elapsed > 0 else 0
-                    log.info(f"  [{i + 1}/{len(symbols)}] success={success} failed={failed} rate={rate:.1f}/s")
+                    log.info(
+                        f"  [{i + 1}/{len(symbols)}] success={success} failed={failed} rate={rate:.1f}/s"
+                    )
                     time.sleep(args.sleep)
 
             except KeyboardInterrupt:

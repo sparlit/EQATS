@@ -3,7 +3,8 @@ Unit & Integration Tests for AI Stock Screener Engine (Animesh4002/ai-stock-scre
 """
 
 from datetime import datetime
-from institutional_integrations.ai_stock_screener_engine import AIStockScreenerEngine, MAGIC_NUMBER
+
+from institutional_integrations.ai_stock_screener_engine import MAGIC_NUMBER, AIStockScreenerEngine
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

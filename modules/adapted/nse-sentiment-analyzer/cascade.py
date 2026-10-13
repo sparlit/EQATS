@@ -199,7 +199,12 @@ CASCADE_MAP: list[dict[str, Any]] = [
             r"\bspot\s+gold\b",
         ],
         "affects": [
-            ("GOLDBEES", -1, "Gold price decline impacts metal value", "Gold price rally benefits metal holdings"),
+            (
+                "GOLDBEES",
+                -1,
+                "Gold price decline impacts metal value",
+                "Gold price rally benefits metal holdings",
+            ),
             (
                 "TITAN",
                 -1,
@@ -405,7 +410,8 @@ def _get_compiled() -> dict[str, list[re.Pattern[str]]]:
     global _COMPILED_PATTERNS
     if _COMPILED_PATTERNS is None:
         _COMPILED_PATTERNS = {
-            entry["driver"]: [re.compile(p, re.IGNORECASE) for p in entry["keywords"]] for entry in CASCADE_MAP
+            entry["driver"]: [re.compile(p, re.IGNORECASE) for p in entry["keywords"]]
+            for entry in CASCADE_MAP
         }
     return _COMPILED_PATTERNS
 

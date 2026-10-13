@@ -109,16 +109,23 @@ for (sym, qe), (v, a) in vals.items():
 for sym in ["GICRE", "ICICIGI", "LICI", "SBILIFE", "STARHEALTH"]:
     rows = sorted(series.get(sym, []))
     print(
-        "\n=== %s : %d quarters  (%d..%d) ===" % (sym, len(rows), rows[0][0] if rows else 0, rows[-1][0] if rows else 0)
+        "\n=== %s : %d quarters  (%d..%d) ==="
+        % (sym, len(rows), rows[0][0] if rows else 0, rows[-1][0] if rows else 0)
     )
     print("   " + "  ".join("%d=%s" % (qe, v) for qe, v, a in rows))
 
 if APPLY:
     P = os.path.join(ROOT, "docs", "sf_fundamentals.json")
-    F = json.loads(subprocess.check_output(["git", "-C", ROOT, "show", "origin/main:docs/sf_fundamentals.json"]))
+    F = json.loads(
+        subprocess.check_output(
+            ["git", "-C", ROOT, "show", "origin/main:docs/sf_fundamentals.json"]
+        )
+    )
     n = 0
     for sym in series:
-        arr = [[qe, v, a, v, a] for qe, v, a in sorted(series[sym])]  # insurers: standalone == consolidated
+        arr = [
+            [qe, v, a, v, a] for qe, v, a in sorted(series[sym])
+        ]  # insurers: standalone == consolidated
         if arr:
             F[sym] = arr
             n += 1

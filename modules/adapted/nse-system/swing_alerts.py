@@ -27,7 +27,7 @@ New code should `import alerts` directly.
 """
 from alerts import notify_all_weather, notify_setup, send
 
-__all__ = ["notify_all_weather", "notify_setup", "send"]
+__all__ = ["send", "notify_setup", "notify_all_weather"]
 
 
 if __name__ == "__main__":

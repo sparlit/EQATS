@@ -25,14 +25,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pandas as pd
-
-from indian_quant.adapters.announcements.models import Announcement
 
 BASE_URL = "https://www.bseindia.com/"
 API_URL = "https://api.bseindia.com/BseIndiaAPI/api"
@@ -116,8 +114,7 @@ class BSEAnnouncementClient:
         match = re.search(regex, response)
         if match:
             return match.group(1)
-        msg = f"Could not find scrip code for {scripname}"
-        raise ValueError(msg)
+        raise ValueError(f"Could not find scrip code for {scripname}")
 
     def announcements(
         self,
@@ -135,8 +132,7 @@ class BSEAnnouncementClient:
         if to_date is None:
             to_date = datetime.now()
         if from_date > to_date:
-            msg = "'from_date' cannot be greater than 'to_date'"
-            raise ValueError(msg)
+            raise ValueError("'from_date' cannot be greater than 'to_date'")
         url = f"{API_URL}/AnnSubCategoryGetData/w"
         fmt = "%Y%m%d"
         params = {
@@ -167,7 +163,9 @@ class BSEAnnouncementClient:
         page_count = 1
         total_count = 1000
         while True:
-            res = self.announcements(page_no=page_count, from_date=from_date, to_date=to_date, segment=segment)
+            res = self.announcements(
+                page_no=page_count, from_date=from_date, to_date=to_date, segment=segment
+            )
             if page_count == 1:
                 total_count = res.get("Table1", [{}])[0].get("ROWCNT", 0)
             page_count += 1
@@ -195,9 +193,23 @@ class BSEAnnouncementClient:
         df["Exchange"] = "BSE"
         df["Announcement Type"] = df.get("ATTACHMENTNAME", "")
         df["Linked Text"] = df["Announcement Type"].apply(
-            lambda x: f"https://www.bseindia.com/xml-data/corpfiling/AttachLive/{x}" if pd.notna(x) and x else ""
+            lambda x: (
+                f"https://www.bseindia.com/xml-data/corpfiling/AttachLive/{x}"
+                if pd.notna(x) and x
+                else ""
+            )
         )
-        return df[["Company", "Time", "SCRIP_CD", "Category", "Exchange", "Announcement Type", "Linked Text"]]
+        return df[
+            [
+                "Company",
+                "Time",
+                "SCRIP_CD",
+                "Category",
+                "Exchange",
+                "Announcement Type",
+                "Linked Text",
+            ]
+        ]
 
     def close(self):
         self._client.close()

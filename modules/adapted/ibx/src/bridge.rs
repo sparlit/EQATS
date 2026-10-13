@@ -10,12 +10,11 @@
 //! - The HotLoop pushes to SharedState sub-containers directly.
 //! - External callers read snapshots and poll events without blocking the hot loop.
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{fence, AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex};
-use std::cell::UnsafeCell;
 
 use std::collections::HashMap;
-use crate::control::historical::{HistoricalResponse, HeadTimestampResponse};
+use crate::control::historical::{HistoricalBar, HistoricalResponse, HeadTimestampResponse};
 use crate::control::contracts::{ContractDefinition, SymbolMatch};
 use crate::control::scanner::ScannerResult;
 use crate::control::news::NewsHeadline;
@@ -51,6 +50,44 @@ pub struct FillExec {
     pub model_code: String,
     /// Tag 6010.
     pub order_ref: String,
+    /// Tag 851 (lastLiquidity); 0 when absent.
+    pub last_liquidity: i32,
+    /// A report of a combo order (ibx#470): the contract its execution
+    /// shows, and for a leg report the leg's own execution values.
+    pub combo: Option<Box<ComboExec>>,
+    /// An execution of an order of another API client: kept for
+    /// `req_executions`, with no live callback and no commission report
+    /// (`jextend.ba.a(dq, aQ)`: the reports go to the order's client).
+    pub other_client: bool,
+}
+
+/// The execution of a combo report (ibx#470): the reference shows the
+/// combo contract on the report of the combo, the leg's contract and its
+/// own side, size and prices on the report of a leg.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ComboExec {
+    pub contract: api::Contract,
+    pub leg: Option<LegExec>,
+}
+
+/// What the report of one leg of a combo fill says (ibx#470).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LegExec {
+    /// BOT or SLD.
+    pub side: String,
+    pub shares: f64,
+    pub price: f64,
+    pub cum_qty: f64,
+    pub avg_price: f64,
+}
+
+/// What the reference shows of a combo order in openOrder (ibx#470): the
+/// combo contract with its legs, and the per-leg prices in the contract's
+/// leg order, f64::MAX for a leg without one.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ComboView {
+    pub contract: api::Contract,
+    pub leg_prices: Vec<f64>,
 }
 
 /// Events emitted by the IB engine.
@@ -68,18 +105,20 @@ pub enum Event {
     TbtTrade(TbtTrade),
     /// Tick-by-tick bid/ask quote.
     TbtQuote(TbtQuote),
+    /// Tick-by-tick midpoint.
+    TbtMidPoint(TbtMidPoint),
     /// What-if order response (margin/commission preview).
     WhatIf(WhatIfResponse),
     /// Real-time news headline.
     News(TickNews),
     /// Historical bar data.
-    HistoricalData { req_id: u32, data: HistoricalResponse },
+    HistoricalData { req_id: ReqId, data: HistoricalResponse },
     /// Head timestamp response.
-    HeadTimestamp { req_id: u32, data: HeadTimestampResponse },
+    HeadTimestamp { req_id: ReqId, data: HeadTimestampResponse },
     /// Contract details response.
-    ContractDetails { req_id: u32, details: ContractDefinition },
+    ContractDetails { req_id: ReqId, details: ContractDefinition },
     /// End of contract details for a request.
-    ContractDetailsEnd(u32),
+    ContractDetailsEnd(ReqId),
     /// Position update.
     /// `position` is fixed-point (QTY_SCALE).
     PositionUpdate { instrument: InstrumentId, con_id: i64, position_fixed: Qty, avg_cost: Price },
@@ -96,34 +135,83 @@ pub enum Event {
     },
 }
 
-/// SeqLock-protected quote slot. Writer (hot loop) never blocks.
-/// Reader retries if it catches a write in progress.
-#[repr(C)]
-pub struct SeqQuote {
-    version: AtomicU64,
-    data: UnsafeCell<Quote>,
+/// Number of 8-byte words in a `Quote` payload (its fields, not its padding).
+const QUOTE_WORDS: usize = 15;
+
+/// Lists every `Quote` field once with its word slot. The load side builds
+/// the `Quote` with a struct literal, so a field missing here fails to compile.
+macro_rules! quote_words {
+    ($m:ident) => {
+        $m!(
+            0 bid i64, 1 ask i64, 2 last i64,
+            3 bid_size i64, 4 ask_size i64, 5 last_size i64, 6 volume i64,
+            7 open i64, 8 high i64, 9 low i64, 10 close i64,
+            11 timestamp_ns u64,
+            12 bid_exch_mask i64, 13 ask_exch_mask i64, 14 last_exch_mask i64
+        )
+    };
 }
 
-// SAFETY: SeqQuote is designed for single-writer (hot loop) + multiple-reader (Python).
-// The version counter ensures readers see consistent data.
-unsafe impl Sync for SeqQuote {}
-unsafe impl Send for SeqQuote {}
+/// SeqLock-protected quote slot. Writer (hot loop) never blocks.
+/// Reader retries if it catches a write in progress.
+///
+/// The payload is held as atomic words accessed with `Relaxed` ordering. On
+/// the usual targets these compile to plain loads and stores; a reader that
+/// overlaps a write reads stale or mixed words, which the version check
+/// rejects, instead of racing a non-atomic access.
+///
+/// Ordering (single writer, any number of readers):
+/// - writer: odd version (Relaxed), Release fence, payload (Relaxed), even
+///   version (Release). The fence keeps the payload stores after the odd mark.
+/// - reader: version v1 (Acquire), payload (Relaxed), Acquire fence, version
+///   v2 (Relaxed). If any payload word read comes from a write in progress,
+///   the fence pair makes that write's odd mark visible to the v2 load, so
+///   v2 != v1 and the snapshot is retried. An accepted snapshot (v1 even and
+///   v1 == v2) is the full payload of one write.
+#[repr(C, align(64))]
+pub struct SeqQuote {
+    version: AtomicU64,
+    data: [AtomicU64; QUOTE_WORDS],
+}
 
 impl SeqQuote {
     pub fn new() -> Self {
-        Self {
+        let s = Self {
             version: AtomicU64::new(0),
-            data: UnsafeCell::new(Quote::default()),
-        }
+            data: std::array::from_fn(|_| AtomicU64::new(0)),
+        };
+        s.store_payload(&Quote::default());
+        s
     }
 
-    /// Write a quote (hot loop side). Never blocks.
+    #[inline(always)]
+    fn store_payload(&self, q: &Quote) {
+        macro_rules! store {
+            ($($i:literal $f:ident $t:ty),*) => {
+                $( self.data[$i].store(q.$f as u64, Ordering::Relaxed); )*
+            };
+        }
+        quote_words!(store);
+    }
+
+    #[inline(always)]
+    fn load_payload(&self) -> Quote {
+        macro_rules! load {
+            ($($i:literal $f:ident $t:ty),*) => {
+                Quote { $( $f: self.data[$i].load(Ordering::Relaxed) as $t, )* }
+            };
+        }
+        quote_words!(load)
+    }
+
+    /// Write a quote (hot loop side). Never blocks. Single writer only.
     #[inline]
     pub fn write(&self, quote: &Quote) {
         let v = self.version.load(Ordering::Relaxed);
-        self.version.store(v + 1, Ordering::Release); // odd = writing
-        unsafe { *self.data.get() = *quote; }
-        self.version.store(v + 2, Ordering::Release); // even = stable
+        self.version.store(v.wrapping_add(1), Ordering::Relaxed); // odd = writing
+        fence(Ordering::Release);
+        self.store_payload(quote);
+        self.version.store(v.wrapping_add(2), Ordering::Release); // even = stable
     }
 
     /// Read a consistent quote snapshot (reader side). Spins on conflict.
@@ -131,9 +219,13 @@ impl SeqQuote {
     pub fn read(&self) -> Quote {
         loop {
             let v1 = self.version.load(Ordering::Acquire);
-            if v1 & 1 != 0 { continue; } // writer active
-            let q = unsafe { *self.data.get() };
-            let v2 = self.version.load(Ordering::Acquire);
+            if v1 & 1 != 0 { // writer active
+                std::hint::spin_loop();
+                continue;
+            }
+            let q = self.load_payload();
+            fence(Ordering::Acquire);
+            let v2 = self.version.load(Ordering::Relaxed);
             if v1 == v2 { return q; }
         }
     }
@@ -141,31 +233,178 @@ impl SeqQuote {
 
 // ── Domain-specific state containers ──
 
+/// News bulletins of the session (ibx#461): the store of the day, replayed
+/// on request, and the ones not yet handed to the client.
+#[derive(Default)]
+struct BulletinStore {
+    store: Vec<NewsBulletin>,
+    queue: Vec<NewsBulletin>,
+    day: Option<jiff::civil::Date>,
+}
+
+/// The API ticks of one generic tick block of a contract (ibx#450), for the
+/// requests that asked that tick: `at` is the market data queue position
+/// when it was read, so the requests get it between the steps of the farm
+/// messages around it.
+#[derive(Debug, Clone)]
+pub struct GenericTicks {
+    pub at: u64,
+    pub instrument: InstrumentId,
+    /// The request code of the tick (233 and 375 go to the requests of
+    /// either).
+    pub code: i32,
+    pub ticks: Vec<crate::control::generic_values::GenTick>,
+}
+
 /// Lock-free quotes, TBT streams, real-time bars, depth updates, and news ticks.
 pub struct MarketDataState {
     quotes: Box<[SeqQuote; MAX_INSTRUMENTS]>,
+    /// The steps of each farm message for the API client's market data
+    /// requests, in their order (ibx#446).
+    pub md_events: crate::md_events::MdQueue,
     /// InstrumentId counter — set by hot loop on RegisterInstrument.
     instrument_count: AtomicU64,
     tbt_trades: Mutex<Vec<TbtTrade>>,
     tbt_quotes: Mutex<Vec<TbtQuote>>,
-    real_time_bars: Mutex<Vec<(u32, RealTimeBar)>>,
+    tbt_mid_points: Mutex<Vec<TbtMidPoint>>,
+    real_time_bars: Mutex<Vec<(ReqId, RealTimeBar)>>,
     depth_updates: Mutex<Vec<DepthUpdate>>,
     tick_news: Mutex<Vec<TickNews>>,
-    news_bulletins: Mutex<Vec<NewsBulletin>>,
+    /// The API ticks of generic tick blocks (ibx#450), with their place in
+    /// `md_events`.
+    generic_ticks: Mutex<Vec<GenericTicks>>,
+    news_bulletins: Mutex<BulletinStore>,
+    /// Subscriptions the market data server rejected (ibx#444, ibx#447).
+    md_rejects: Mutex<Vec<MdReject>>,
+    /// Requests given without a conId whose contract another request had
+    /// subscribed: (their own slot, the slot they joined) (ibx#444).
+    md_merges: Mutex<Vec<(InstrumentId, InstrumentId, u64)>>,
+    /// The request parameters of acked subscriptions (ibx#449).
+    tick_req_params: Mutex<Vec<TickReqParams>>,
+    snapshot_acks: Mutex<Vec<TickReqParams>>,
+    /// Tick-by-tick requests that ended with an error: the request, the
+    /// code and the whole text (ibx#455).
+    tbt_errors: Mutex<Vec<(ReqId, i32, String)>>,
+}
+
+/// What a client reports as tickReqParams for a subscription, from its
+/// bid/ask ack (ibx#449): the minimum tick, the BBO exchange code with the
+/// security type code the reference appends, and the snapshot permissions
+/// (0 irrelevant, 1 no top, 2 snapshot, 3 real-time top, 4 snapshot, no
+/// API).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TickReqParams {
+    pub instrument: InstrumentId,
+    pub min_tick: f64,
+    pub bbo_exchange: String,
+    pub snapshot_permissions: i32,
+}
+
+/// A top-of-book subscription the server rejected, and what the client
+/// reports for it (ibx#444, ibx#447).
+#[derive(Debug, Clone, PartialEq)]
+pub enum MdReject {
+    /// Delayed data enabled and available: the subscription went on with
+    /// delayed data (marketDataType 3 and error 10167).
+    Delayed { instrument: InstrumentId },
+    /// The subscription stopped: error 354 (with the "delayed available"
+    /// text when the server says so) or 10089 (an API subscription is
+    /// needed). `description`: the contract as the error names it
+    /// (`jclient.dy.cU()`), empty when not known (ibx#444).
+    /// `kept_params`: the request parameters (minimum tick, BBO exchange,
+    /// permissions) the contract's record kept from an earlier subscription,
+    /// which the requests get before the error (captured 05/10/2026).
+    NotSubscribed {
+        instrument: InstrumentId, delayed_available: bool, needs_api_subscription: bool, description: String,
+        kept_params: Option<(f64, String, i64)>,
+    },
+    /// A subscription given without a conId whose lookup found no single
+    /// contract: error 200, the subscription is gone (ibx#278).
+    NoSecurityDefinition { instrument: InstrumentId },
+    /// A request with the news tick refused once its contract was known:
+    /// error 10094 with this text, nothing was sent (ibx#458).
+    NewsRefused { instrument: InstrumentId, text: String },
+}
+
+impl MdReject {
+    /// The instrument of the rejected subscription.
+    pub fn instrument(&self) -> InstrumentId {
+        match *self {
+            MdReject::Delayed { instrument }
+            | MdReject::NotSubscribed { instrument, .. }
+            | MdReject::NoSecurityDefinition { instrument }
+            | MdReject::NewsRefused { instrument, .. } => instrument,
+        }
+    }
 }
 
 impl MarketDataState {
     fn new() -> Self {
         Self {
             quotes: Box::new(std::array::from_fn(|_| SeqQuote::new())),
+            md_events: crate::md_events::MdQueue::new(),
             instrument_count: AtomicU64::new(0),
             tbt_trades: Mutex::new(Vec::with_capacity(256)),
             tbt_quotes: Mutex::new(Vec::with_capacity(256)),
+            tbt_mid_points: Mutex::new(Vec::with_capacity(64)),
             real_time_bars: Mutex::new(Vec::with_capacity(64)),
             depth_updates: Mutex::new(Vec::with_capacity(64)),
             tick_news: Mutex::new(Vec::with_capacity(32)),
-            news_bulletins: Mutex::new(Vec::with_capacity(16)),
+            generic_ticks: Mutex::new(Vec::new()),
+            news_bulletins: Mutex::new(BulletinStore::default()),
+            md_rejects: Mutex::new(Vec::new()),
+            md_merges: Mutex::new(Vec::new()),
+            tick_req_params: Mutex::new(Vec::new()),
+            snapshot_acks: Mutex::new(Vec::new()),
+            tbt_errors: Mutex::new(Vec::new()),
         }
+    }
+
+    #[doc(hidden)] pub fn push_tbt_error(&self, req_id: ReqId, code: i32, text: String) {
+        self.tbt_errors.lock().unwrap().push((req_id, code, text));
+    }
+
+    pub fn drain_tbt_errors(&self) -> Vec<(ReqId, i32, String)> {
+        self.tbt_errors.lock().unwrap().drain(..).collect()
+    }
+
+    #[doc(hidden)] pub fn push_tick_req_params(&self, params: TickReqParams) {
+        self.tick_req_params.lock().unwrap().push(params);
+    }
+
+    pub fn drain_tick_req_params(&self) -> Vec<TickReqParams> {
+        self.tick_req_params.lock().unwrap().drain(..).collect()
+    }
+
+    /// Acknowledgement of a regulatory snapshot request (ibx#446): the
+    /// permission and the raw BBO exchange code of its instrument.
+    #[doc(hidden)] pub fn push_snapshot_ack(&self, ack: TickReqParams) {
+        self.snapshot_acks.lock().unwrap().push(ack);
+    }
+
+    pub fn drain_snapshot_acks(&self) -> Vec<TickReqParams> {
+        self.snapshot_acks.lock().unwrap().drain(..).collect()
+    }
+
+    #[doc(hidden)] pub fn push_md_reject(&self, reject: MdReject) {
+        self.md_rejects.lock().unwrap().push(reject);
+    }
+
+    pub fn drain_md_rejects(&self) -> Vec<MdReject> {
+        self.md_rejects.lock().unwrap().drain(..).collect()
+    }
+
+    /// A request on slot `from` joined the subscription of slot `into`
+    /// (ibx#444), at this point of the market data queue (ibx#446).
+    #[doc(hidden)] pub fn push_md_merge(&self, from: InstrumentId, into: InstrumentId) {
+        let at = self.md_events.position();
+        self.md_merges.lock().unwrap().push((from, into, at));
+    }
+
+    pub fn drain_md_merges(&self) -> Vec<(InstrumentId, InstrumentId, u64)> {
+        let mut merges = self.md_merges.lock().unwrap();
+        if merges.is_empty() { return Vec::new(); }
+        merges.drain(..).collect()
     }
 
     /// Read a quote snapshot (lock-free via SeqLock).
@@ -202,7 +441,11 @@ impl MarketDataState {
         self.tbt_quotes.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_real_time_bars(&self) -> Vec<(u32, RealTimeBar)> {
+    pub fn drain_tbt_mid_points(&self) -> Vec<TbtMidPoint> {
+        self.tbt_mid_points.lock().unwrap().drain(..).collect()
+    }
+
+    pub fn drain_real_time_bars(&self) -> Vec<(ReqId, RealTimeBar)> {
         self.real_time_bars.lock().unwrap().drain(..).collect()
     }
 
@@ -214,8 +457,27 @@ impl MarketDataState {
         self.tick_news.lock().unwrap().drain(..).collect()
     }
 
+    /// The generic tick blocks decoded before queue position `head`
+    /// (ibx#450); the later ones stay.
+    pub fn take_generic_ticks(&self, head: u64) -> Vec<GenericTicks> {
+        let mut q = self.generic_ticks.lock().unwrap();
+        if q.is_empty() {
+            return Vec::new();
+        }
+        let n = q.iter().take_while(|g| g.at <= head).count();
+        q.drain(..n).collect()
+    }
+
     pub fn drain_news_bulletins(&self) -> Vec<NewsBulletin> {
-        self.news_bulletins.lock().unwrap().drain(..).collect()
+        self.news_bulletins.lock().unwrap().queue.drain(..).collect()
+    }
+
+    /// The bulletins arrived since the last call; with `replay`, the whole
+    /// store of the day instead (ibx#461).
+    pub fn take_news_bulletins(&self, replay: bool) -> Vec<NewsBulletin> {
+        let mut store = self.news_bulletins.lock().unwrap();
+        let queued: Vec<NewsBulletin> = store.queue.drain(..).collect();
+        if replay { store.store.clone() } else { queued }
     }
 
     // ── Hot-loop-side writers ──
@@ -223,6 +485,15 @@ impl MarketDataState {
     #[doc(hidden)]
     pub fn push_quote(&self, id: InstrumentId, quote: &Quote) {
         self.quotes[id as usize].write(quote);
+    }
+
+    /// A farm message for a quote, as a test gives it (ibx#446): the quote
+    /// is published, and its steps (`md_events::TestMessage`) are handed to
+    /// the API client.
+    #[doc(hidden)]
+    pub fn push_test_message(&self, id: InstrumentId, quote: &Quote, message: &crate::md_events::TestMessage) {
+        self.push_quote(id, quote);
+        self.md_events.push_message(&message.events(id, quote));
     }
 
     #[doc(hidden)] pub fn push_tbt_trade(&self, trade: TbtTrade) {
@@ -233,8 +504,12 @@ impl MarketDataState {
         self.tbt_quotes.lock().unwrap().push(quote);
     }
 
+    #[doc(hidden)] pub fn push_tbt_mid_point(&self, mid: TbtMidPoint) {
+        self.tbt_mid_points.lock().unwrap().push(mid);
+    }
 
-    #[doc(hidden)] pub fn push_real_time_bar(&self, req_id: u32, bar: RealTimeBar) {
+
+    #[doc(hidden)] pub fn push_real_time_bar(&self, req_id: ReqId, bar: RealTimeBar) {
         self.real_time_bars.lock().unwrap().push((req_id, bar));
     }
 
@@ -243,16 +518,39 @@ impl MarketDataState {
     }
 
     /// Remove all buffered depth updates for a given req_id (called on cancel).
-    #[doc(hidden)] pub fn purge_depth_updates(&self, req_id: u32) {
+    #[doc(hidden)] pub fn purge_depth_updates(&self, req_id: ReqId) {
         self.depth_updates.lock().unwrap().retain(|u| u.req_id != req_id);
+    }
+
+    #[doc(hidden)] pub fn push_generic_ticks(&self, ticks: GenericTicks) {
+        self.generic_ticks.lock().unwrap().push(ticks);
     }
 
     #[doc(hidden)] pub fn push_tick_news(&self, news: TickNews) {
         self.tick_news.lock().unwrap().push(news);
     }
 
-    #[doc(hidden)] pub fn push_news_bulletin(&self, bulletin: NewsBulletin) {
-        self.news_bulletins.lock().unwrap().push(bulletin);
+    /// Store a bulletin received today (local day) (ibx#461).
+    #[doc(hidden)] pub fn push_news_bulletin(&self, bulletin: NewsBulletin) -> bool {
+        self.push_news_bulletin_on(bulletin, jiff::Zoned::now().date())
+    }
+
+    /// Store a bulletin received on `day`, as the reference does
+    /// (ibx#461): the store is emptied when a bulletin arrives on a new
+    /// day, and a message id already stored is dropped. Returns false
+    /// when dropped.
+    #[doc(hidden)] pub fn push_news_bulletin_on(&self, bulletin: NewsBulletin, day: jiff::civil::Date) -> bool {
+        let mut store = self.news_bulletins.lock().unwrap();
+        if store.day != Some(day) {
+            store.day = Some(day);
+            store.store.clear();
+        }
+        if store.store.iter().any(|b| b.msg_id == bulletin.msg_id) {
+            return false;
+        }
+        store.store.push(bulletin.clone());
+        store.queue.push(bulletin);
+        true
     }
 
     #[doc(hidden)] pub fn set_instrument_count(&self, count: u32) {
@@ -266,28 +564,114 @@ pub struct OrderState {
     fills: Mutex<Vec<(Fill, FillExec)>>,
     /// Commission reports from the server's commission frame (ibx#471).
     commission_reports: Mutex<Vec<api::CommissionAndFeesReport>>,
+    /// Executions of orders the engine does not track, for the execution
+    /// store only: no live fill callback without a known order (ibx#314).
+    untracked_executions: Mutex<Vec<(api::Contract, api::Execution, FillExec)>>,
     order_updates: Mutex<Vec<OrderUpdate>>,
     cancel_rejects: Mutex<Vec<CancelReject>>,
-    /// Order errors raised before sending, keyed by the full order id (ibx#349).
-    order_errors: Mutex<Vec<(u64, i64, String)>>,
+    /// Errors raised before sending: (request or order id as the API gives
+    /// it, -1 for none; code; message) (ibx#349, ibx#285).
+    order_errors: Mutex<Vec<(i64, i64, String)>>,
+    /// Notices of a server report given after the status of that report:
+    /// the reject 201 and the cancel 202 (ibx#486).
+    order_notices: Mutex<Vec<(i64, i64, String)>>,
     what_if_responses: Mutex<Vec<WhatIfResponse>>,
     completed_orders: Mutex<Vec<CompletedOrder>>,
     /// Enriched order info from CCP exec reports (order_id -> RichOrderInfo).
-    order_cache: Mutex<HashMap<u64, RichOrderInfo>>,
+    order_cache: Mutex<HashMap<OrderId, RichOrderInfo>>,
+    /// Set from the logon, or from a lost auth link, to the end of the order
+    /// replay of the logon: open-order requests wait for the replay (ibx#251).
+    open_orders_held: AtomicBool,
+    /// The combo of each combo order sent this session (ibx#470).
+    combo_views: Mutex<HashMap<OrderId, ComboView>>,
+    /// Orders the engine dropped with no status for the client: filled
+    /// while the auth link was lost (ibx#251).
+    forgotten_orders: Mutex<Vec<OrderId>>,
+    /// The API order id of an order of another session whose id differs
+    /// from the engine's key: the report's 6121, 0 when it has none.
+    api_order_ids: Mutex<HashMap<OrderId, OrderId>>,
+    /// The place of each order in the reference's book (insertion number)
+    /// and the most orders the book held, for the order of the open-order
+    /// listings (`jclient.jv.w()`).
+    book_seqs: Mutex<HashMap<OrderId, u64>>,
+    book_peak: std::sync::atomic::AtomicUsize,
+    /// The highest API order id (6121) the server's reports gave for each
+    /// API client (6119): the ids a client used in earlier sessions, as far
+    /// as the server's replays show them.
+    reported_order_ids: Mutex<HashMap<i64, OrderId>>,
 }
 
 impl OrderState {
     fn new() -> Self {
         Self {
+            combo_views: Mutex::new(HashMap::new()),
             fills: Mutex::new(Vec::with_capacity(64)),
             commission_reports: Mutex::new(Vec::with_capacity(64)),
+            untracked_executions: Mutex::new(Vec::new()),
             order_updates: Mutex::new(Vec::with_capacity(64)),
             cancel_rejects: Mutex::new(Vec::with_capacity(16)),
             order_errors: Mutex::new(Vec::new()),
+            order_notices: Mutex::new(Vec::new()),
             what_if_responses: Mutex::new(Vec::with_capacity(8)),
             completed_orders: Mutex::new(Vec::with_capacity(64)),
             order_cache: Mutex::new(HashMap::new()),
+            open_orders_held: AtomicBool::new(false),
+            forgotten_orders: Mutex::new(Vec::new()),
+            api_order_ids: Mutex::new(HashMap::new()),
+            book_seqs: Mutex::new(HashMap::new()),
+            book_peak: std::sync::atomic::AtomicUsize::new(0),
+            reported_order_ids: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Note an API order id a report gave for an API client (engine side).
+    #[doc(hidden)] pub fn note_reported_order_id(&self, client_id: i64, order_id: OrderId) {
+        let mut ids = self.reported_order_ids.lock().unwrap();
+        let highest = ids.entry(client_id).or_insert(0);
+        *highest = (*highest).max(order_id);
+    }
+
+    /// The highest API order id the server's reports gave for an API
+    /// client, 0 for none.
+    pub fn reported_order_id(&self, client_id: i64) -> OrderId {
+        self.reported_order_ids.lock().unwrap().get(&client_id).copied().unwrap_or(0)
+    }
+
+    /// The API order id the client sees for an order: the engine's key,
+    /// or for an order of another session the id its report gave (0 when
+    /// none), as the reference shows it.
+    pub fn api_order_id(&self, order_id: OrderId) -> OrderId {
+        self.api_order_ids.lock().unwrap().get(&order_id).copied().unwrap_or(order_id)
+    }
+
+    #[doc(hidden)] pub fn set_api_order_id(&self, order_id: OrderId, api_id: OrderId) {
+        self.api_order_ids.lock().unwrap().insert(order_id, api_id);
+    }
+
+    /// An order's place in the reference's book, and the most orders the
+    /// book held (engine side).
+    #[doc(hidden)] pub fn note_book(&self, order_id: OrderId, seq: u64, peak: usize) {
+        self.book_seqs.lock().unwrap().insert(order_id, seq);
+        self.book_peak.store(peak, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// The book place of an order, and the most orders the book held.
+    pub fn book_place(&self, order_id: OrderId) -> (Option<u64>, usize) {
+        (self.book_seqs.lock().unwrap().get(&order_id).copied(),
+            self.book_peak.load(std::sync::atomic::Ordering::Relaxed))
+    }
+
+    /// Hold the open-order requests (`true`, at the logon or when the auth
+    /// link is lost) or let them be answered (`false`, the order replay has
+    /// ended), as the reference does (ibx#251). Hot-loop side.
+    #[doc(hidden)]
+    pub fn set_open_orders_held(&self, held: bool) {
+        self.open_orders_held.store(held, Ordering::Release);
+    }
+
+    /// True while open-order requests wait for the order replay (ibx#251).
+    pub fn open_orders_held(&self) -> bool {
+        self.open_orders_held.load(Ordering::Acquire)
     }
 
     pub fn drain_fills(&self) -> Vec<Fill> {
@@ -297,6 +681,12 @@ impl OrderState {
     /// Fills with their execution details (empty when injected without).
     pub fn drain_fills_with_exec(&self) -> Vec<(Fill, FillExec)> {
         self.fills.lock().unwrap().drain(..).collect()
+    }
+
+    /// Executions of untracked orders, to store for `req_executions`
+    /// (ibx#314).
+    pub fn drain_untracked_executions(&self) -> Vec<(api::Contract, api::Execution, FillExec)> {
+        self.untracked_executions.lock().unwrap().drain(..).collect()
     }
 
     pub fn drain_commission_reports(&self) -> Vec<api::CommissionAndFeesReport> {
@@ -312,8 +702,13 @@ impl OrderState {
     }
 
     /// Order errors raised before anything was sent: (order id, code, message).
-    pub fn drain_order_errors(&self) -> Vec<(u64, i64, String)> {
+    pub fn drain_order_errors(&self) -> Vec<(i64, i64, String)> {
         self.order_errors.lock().unwrap().drain(..).collect()
+    }
+
+    /// The notices to give after the order statuses (ibx#486).
+    pub fn drain_order_notices(&self) -> Vec<(i64, i64, String)> {
+        self.order_notices.lock().unwrap().drain(..).collect()
     }
 
     pub fn drain_what_if_responses(&self) -> Vec<WhatIfResponse> {
@@ -328,7 +723,7 @@ impl OrderState {
     /// Terminal entries (Filled / Cancelled / Inactive / etc.) are filtered out
     /// so `req_open_orders` does not leak historical orders that are still cached
     /// for `req_completed_orders` lookups.
-    pub fn drain_open_orders(&self) -> Vec<(u64, RichOrderInfo)> {
+    pub fn drain_open_orders(&self) -> Vec<(OrderId, RichOrderInfo)> {
         let lock = self.order_cache.lock().unwrap();
         lock.iter()
             .filter(|(_, v)| crate::client_core::is_open_status(&v.order_state.status))
@@ -336,14 +731,30 @@ impl OrderState {
             .collect()
     }
 
+    /// The combo of a combo order (ibx#470), None for any other order.
+    pub fn combo_view(&self, order_id: OrderId) -> Option<ComboView> {
+        self.combo_views.lock().unwrap().get(&order_id).cloned()
+    }
+
+    #[doc(hidden)] pub fn set_combo_view(&self, order_id: OrderId, view: ComboView) {
+        self.combo_views.lock().unwrap().insert(order_id, view);
+    }
+
+    /// The per-leg prices a report of a combo order carries (ibx#470).
+    #[doc(hidden)] pub fn set_combo_leg_prices(&self, order_id: OrderId, leg_prices: Vec<f64>) {
+        if let Some(view) = self.combo_views.lock().unwrap().get_mut(&order_id) {
+            view.leg_prices = leg_prices;
+        }
+    }
+
     /// Get enriched order info by order_id.
-    pub fn get_order_info(&self, order_id: u64) -> Option<RichOrderInfo> {
+    pub fn get_order_info(&self, order_id: OrderId) -> Option<RichOrderInfo> {
         self.order_cache.lock().unwrap().get(&order_id).cloned()
     }
 
     /// Remove an enriched entry. Called after a completed order has been
     /// delivered to the user, to bound `order_cache` growth in long sessions.
-    pub fn remove_order_info(&self, order_id: u64) {
+    pub fn remove_order_info(&self, order_id: OrderId) {
         self.order_cache.lock().unwrap().remove(&order_id);
     }
 
@@ -355,6 +766,21 @@ impl OrderState {
 
     #[doc(hidden)] pub fn push_fill_with_exec(&self, fill: Fill, exec: FillExec) {
         self.fills.lock().unwrap().push((fill, exec));
+    }
+
+    /// An order the client no longer knows, with no callback (ibx#251).
+    #[doc(hidden)] pub fn push_forgotten_order(&self, order_id: OrderId) {
+        self.forgotten_orders.lock().unwrap().push(order_id);
+    }
+
+    /// The orders the engine dropped with no status since the last call
+    /// (ibx#251).
+    pub fn drain_forgotten_orders(&self) -> Vec<OrderId> {
+        std::mem::take(&mut *self.forgotten_orders.lock().unwrap())
+    }
+
+    #[doc(hidden)] pub fn push_untracked_execution(&self, contract: api::Contract, execution: api::Execution, exec: FillExec) {
+        self.untracked_executions.lock().unwrap().push((contract, execution, exec));
     }
 
     #[doc(hidden)] pub fn push_commission_report(&self, report: api::CommissionAndFeesReport) {
@@ -369,8 +795,14 @@ impl OrderState {
         self.cancel_rejects.lock().unwrap().push(reject);
     }
 
-    #[doc(hidden)] pub fn push_order_error(&self, order_id: u64, code: i64, message: String) {
+    #[doc(hidden)] pub fn push_order_error(&self, order_id: i64, code: i64, message: String) {
         self.order_errors.lock().unwrap().push((order_id, code, message));
+    }
+
+    /// A notice of a server report (201, 202), given after the status the
+    /// same report gives, as the reference writes them (ibx#486).
+    #[doc(hidden)] pub fn push_order_notice(&self, order_id: i64, code: i64, message: String) {
+        self.order_notices.lock().unwrap().push((order_id, code, message));
     }
 
     #[doc(hidden)] pub fn push_what_if(&self, response: WhatIfResponse) {
@@ -381,29 +813,48 @@ impl OrderState {
         self.completed_orders.lock().unwrap().push(order);
     }
 
-    #[doc(hidden)] pub fn push_order_info(&self, order_id: u64, info: RichOrderInfo) {
+    #[doc(hidden)] pub fn push_order_info(&self, order_id: OrderId, info: RichOrderInfo) {
         self.order_cache.lock().unwrap().insert(order_id, info);
     }
 }
 
+/// BBO exchange code and security type id of an exchange map (ibx#441).
+pub type ExchangeMapKey = (String, u8);
+
+/// What is known of the exchange map of a BBO exchange (ibx#441).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExchangeMapState {
+    /// No market data acknowledgement gave this code.
+    Unknown,
+    /// The code is known, its map is asked.
+    Waiting,
+    Ready(Vec<crate::types::SmartComponent>),
+}
+
 /// Historical data, contract definitions, scanners, news archives, market rules, contract cache.
 pub struct ReferenceState {
-    historical_data: Mutex<Vec<(u32, HistoricalResponse)>>,
-    head_timestamps: Mutex<Vec<(u32, HeadTimestampResponse)>>,
-    contract_details: Mutex<Vec<(u32, ContractDefinition)>>,
-    contract_details_end: Mutex<Vec<u32>>,
-    matching_symbols: Mutex<Vec<(u32, Vec<SymbolMatch>)>>,
+    historical_data: Mutex<Vec<(ReqId, HistoricalResponse)>>,
+    /// Bars of keepUpToDate requests, the whole current bar each time
+    /// (ibx#429), for historicalDataUpdate.
+    historical_updates: Mutex<Vec<(ReqId, HistoricalBar)>>,
+    head_timestamps: Mutex<Vec<(ReqId, HeadTimestampResponse)>>,
+    contract_details: Mutex<Vec<(ReqId, ContractDefinition)>>,
+    contract_details_end: Mutex<Vec<ReqId>>,
+    matching_symbols: Mutex<Vec<(ReqId, Vec<SymbolMatch>)>>,
+    /// Option chain answers (ibx#440): the rows of a request, then its end.
+    option_chains: Mutex<Vec<(ReqId, Vec<crate::control::optparams::OptionChain>)>>,
     scanner_params: Mutex<Vec<String>>,
-    scanner_data: Mutex<Vec<(u32, ScannerResult)>>,
-    historical_news: Mutex<Vec<(u32, Vec<NewsHeadline>, bool)>>,
-    news_articles: Mutex<Vec<(u32, i32, String)>>,
-    fundamental_data: Mutex<Vec<(u32, String)>>,
-    histogram_data: Mutex<Vec<(u32, Vec<HistogramEntry>)>>,
-    historical_ticks: Mutex<Vec<(u32, HistoricalTickData, String, bool)>>,
-    historical_schedules: Mutex<Vec<(u32, HistoricalScheduleResponse)>>,
+    scanner_data: Mutex<Vec<(ReqId, ScannerResult)>>,
+    historical_news: Mutex<Vec<(ReqId, Vec<NewsHeadline>, bool)>>,
+    news_articles: Mutex<Vec<(ReqId, i32, String)>>,
+    fundamental_data: Mutex<Vec<(ReqId, String)>>,
+    option_computations: Mutex<Vec<crate::control::optcalc::OptionComputation>>,
+    histogram_data: Mutex<Vec<(ReqId, Vec<HistogramEntry>)>>,
+    historical_ticks: Mutex<Vec<(ReqId, HistoricalTickData, String, bool)>>,
+    historical_schedules: Mutex<Vec<(ReqId, HistoricalScheduleResponse)>>,
     /// Errors surfaced by HMDS for in-flight reference queries (req_id, code, message).
     /// Drained by the dispatcher and forwarded to `Wrapper::error`. ibx#186.
-    historical_errors: Mutex<Vec<(u32, i32, String)>>,
+    historical_errors: Mutex<Vec<(ReqId, i32, String)>>,
     market_rules: Mutex<Vec<MarketRule>>,
     depth_exchanges_cache: Mutex<Vec<DepthMktDataDescription>>,
     depth_exchanges_pending: Mutex<bool>,
@@ -411,22 +862,90 @@ pub struct ReferenceState {
     contract_cache: Mutex<HashMap<i64, api::Contract>>,
     /// Market names from contract details, by conId.
     market_names: Mutex<HashMap<i64, String>>,
+    /// Zone of the trading hours from contract details, by conId (ibx#335).
+    time_zone_ids: Mutex<HashMap<i64, String>>,
+    /// Exchange maps of the BBO exchanges (ibx#441), by BBO exchange code
+    /// and security type id, in the order they were first seen: `None`
+    /// while the map is asked.
+    exchange_maps: Mutex<Vec<(ExchangeMapKey, Option<Vec<crate::types::SmartComponent>>)>>,
+    /// The exchange map key of each contract with market data (ibx#441),
+    /// with where it was set in the market data queue: a reused slot has
+    /// the key of its earlier contract for the steps queued before
+    /// (ibx#446). The last few, oldest first.
+    instrument_exchange_maps: Mutex<HashMap<InstrumentId, Vec<(u64, ExchangeMapKey)>>>,
+    /// Where each exchange map came in the market data queue: the steps
+    /// written before it had no letters (ibx#446).
+    exchange_maps_at: Mutex<HashMap<ExchangeMapKey, u64>>,
     /// Gateway-local init data (populated during connection, read-only after).
-    smart_components: Mutex<Vec<crate::types::SmartComponent>>,
     news_providers: Mutex<Vec<crate::types::NewsProvider>>,
+    /// Subscribed API news source codes of the logon, in logon order
+    /// (ibx#460): the provider check and the all-subscribed form of the
+    /// historical news request use them.
+    news_sources: Mutex<Vec<String>>,
     soft_dollar_tiers: Mutex<Vec<crate::types::SoftDollarTier>>,
     family_codes: Mutex<Vec<crate::types::FamilyCode>>,
     white_branding_id: Mutex<String>,
+    /// The account ids of the logon's account list (6095), in logon order
+    /// (ibx#420).
+    managed_accounts: Mutex<Vec<String>>,
+    /// The accounts whose application is not approved (8092 of the last
+    /// logon reply or logon update, ibx#421).
+    pending_accounts: Mutex<Vec<String>>,
+    /// FA session, from CCP logon tag 6108 (ibx#481).
+    fa_session: std::sync::atomic::AtomicBool,
+    /// The logon's super user and omnibus flags (ibx#417): either one lets
+    /// a short-side order pass the side check.
+    super_user: AtomicBool,
+    omnibus: AtomicBool,
+    /// The smart combo conId of each currency, from logon tag 6611
+    /// (ibx#470).
+    smart_combo_con_ids: Mutex<HashMap<String, i64>>,
+    /// The API client id the new orders carry (ibx#466); 0 until set.
+    api_client_id: std::sync::atomic::AtomicI64,
+    /// The algo definitions the server sent (ibx#263).
+    algo_definitions: Mutex<crate::control::algo::AlgoDefinitions>,
+    /// Most contracts with tick-by-tick data at once, from the logon;
+    /// u64::MAX until known (ibx#455).
+    tick_by_tick_limit: AtomicU64,
+    /// The logon turns tick-by-tick data off (ibx#455).
+    tick_by_tick_off: AtomicBool,
+    /// Most snapshot requests per second, the API ticker limit of the
+    /// logon as the reference sets it; 100 until known (ibx#446).
+    snapshot_rate_limit: AtomicU32,
+    /// Account config (6040=210): feature list and MiFID config id; None
+    /// until known (ibx#425).
+    account_config: Mutex<Option<(Vec<String>, String)>>,
     /// Session ID surfaced to webapp REST clients as `x-ccp-session-id`.
     ccp_session_id: Mutex<String>,
     /// Logical-name → host URL map pushed by the gateway during logon.
     misc_urls: Mutex<HashMap<String, String>>,
+    /// Offset of the local clock to the server clock, from the logon
+    /// replies and later server messages (ibx#421).
+    clock: crate::control::logon::ClockOffset,
+    /// The logon feature list allows matching symbols requests
+    /// (SECDEFTA, ibx#421); true until a logon says otherwise.
+    matching_symbols_allowed: AtomicBool,
+    /// Most years of a historical data request, from the logon (6774);
+    /// 0 until known (ibx#421).
+    max_backfill_years: AtomicU32,
+    /// The logon feature list has NIGHTLY: no years limit (ibx#421).
+    nightly: AtomicBool,
+    /// The logon feature list has NOMAGNFIX: option chain strikes as the
+    /// server sends them (ibx#440).
+    no_magnifier_fix: AtomicBool,
+    /// The logon feature list has ISLAND2NASDAQ: NASDAQ is not left out of
+    /// the option chains (ibx#440).
+    island_to_nasdaq: AtomicBool,
+    /// BONDAPI and EVAPI of the logon (ibx#436).
+    bond_api: AtomicBool,
+    ev_api: AtomicBool,
 }
 
 impl ReferenceState {
     fn new() -> Self {
         Self {
             historical_data: Mutex::new(Vec::with_capacity(16)),
+            historical_updates: Mutex::new(Vec::with_capacity(16)),
             head_timestamps: Mutex::new(Vec::with_capacity(8)),
             contract_details: Mutex::new(Vec::with_capacity(16)),
             contract_details_end: Mutex::new(Vec::with_capacity(8)),
@@ -436,6 +955,7 @@ impl ReferenceState {
             historical_news: Mutex::new(Vec::with_capacity(8)),
             news_articles: Mutex::new(Vec::with_capacity(8)),
             fundamental_data: Mutex::new(Vec::with_capacity(4)),
+            option_computations: Mutex::new(Vec::new()),
             histogram_data: Mutex::new(Vec::with_capacity(4)),
             historical_ticks: Mutex::new(Vec::with_capacity(4)),
             historical_schedules: Mutex::new(Vec::with_capacity(4)),
@@ -445,69 +965,113 @@ impl ReferenceState {
             depth_exchanges_pending: Mutex::new(false),
             contract_cache: Mutex::new(HashMap::new()),
             market_names: Mutex::new(HashMap::new()),
-            smart_components: Mutex::new(Vec::new()),
+            time_zone_ids: Mutex::new(HashMap::new()),
+            exchange_maps: Mutex::new(Vec::new()),
+            instrument_exchange_maps: Mutex::new(HashMap::new()),
+            exchange_maps_at: Mutex::new(HashMap::new()),
             news_providers: Mutex::new(Vec::new()),
+            news_sources: Mutex::new(Vec::new()),
             soft_dollar_tiers: Mutex::new(Vec::new()),
             family_codes: Mutex::new(Vec::new()),
             white_branding_id: Mutex::new(String::new()),
+            managed_accounts: Mutex::new(Vec::new()),
+            pending_accounts: Mutex::new(Vec::new()),
+            fa_session: std::sync::atomic::AtomicBool::new(false),
+            super_user: AtomicBool::new(false),
+            omnibus: AtomicBool::new(false),
+            smart_combo_con_ids: Mutex::new(HashMap::new()),
+            api_client_id: std::sync::atomic::AtomicI64::new(0),
+            algo_definitions: Mutex::new(Default::default()),
+            tick_by_tick_limit: AtomicU64::new(u64::MAX),
+            tick_by_tick_off: AtomicBool::new(false),
+            snapshot_rate_limit: AtomicU32::new(100),
+            account_config: Mutex::new(None),
             ccp_session_id: Mutex::new(String::new()),
             misc_urls: Mutex::new(HashMap::new()),
+            clock: Default::default(),
+            matching_symbols_allowed: AtomicBool::new(true),
+            max_backfill_years: AtomicU32::new(0),
+            nightly: AtomicBool::new(false),
+            no_magnifier_fix: AtomicBool::new(false),
+            island_to_nasdaq: AtomicBool::new(false),
+            bond_api: AtomicBool::new(false),
+            ev_api: AtomicBool::new(false),
+            option_chains: Mutex::new(Vec::new()),
         }
     }
 
-    pub fn drain_historical_data(&self) -> Vec<(u32, HistoricalResponse)> {
+    pub fn drain_historical_data(&self) -> Vec<(ReqId, HistoricalResponse)> {
         self.historical_data.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_head_timestamps(&self) -> Vec<(u32, HeadTimestampResponse)> {
+    pub fn drain_historical_updates(&self) -> Vec<(ReqId, HistoricalBar)> {
+        self.historical_updates.lock().unwrap().drain(..).collect()
+    }
+
+    pub fn drain_head_timestamps(&self) -> Vec<(ReqId, HeadTimestampResponse)> {
         self.head_timestamps.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_contract_details(&self) -> Vec<(u32, ContractDefinition)> {
+    pub fn drain_contract_details(&self) -> Vec<(ReqId, ContractDefinition)> {
         self.contract_details.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_contract_details_end(&self) -> Vec<u32> {
+    pub fn drain_contract_details_end(&self) -> Vec<ReqId> {
         self.contract_details_end.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_matching_symbols(&self) -> Vec<(u32, Vec<SymbolMatch>)> {
+    pub fn drain_matching_symbols(&self) -> Vec<(ReqId, Vec<SymbolMatch>)> {
         self.matching_symbols.lock().unwrap().drain(..).collect()
+    }
+
+    /// Option chain answers (ibx#440): the rows of each request, for one
+    /// SECURITY_DEFINITION_OPTION_PARAMETER each, then its end.
+    pub fn drain_option_chains(&self) -> Vec<(ReqId, Vec<crate::control::optparams::OptionChain>)> {
+        self.option_chains.lock().unwrap().drain(..).collect()
+    }
+
+    #[doc(hidden)] pub fn push_option_chains(&self, req_id: ReqId, rows: Vec<crate::control::optparams::OptionChain>) {
+        self.option_chains.lock().unwrap().push((req_id, rows));
     }
 
     pub fn drain_scanner_params(&self) -> Vec<String> {
         self.scanner_params.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_scanner_data(&self) -> Vec<(u32, ScannerResult)> {
+    pub fn drain_scanner_data(&self) -> Vec<(ReqId, ScannerResult)> {
         self.scanner_data.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_historical_news(&self) -> Vec<(u32, Vec<NewsHeadline>, bool)> {
+    pub fn drain_historical_news(&self) -> Vec<(ReqId, Vec<NewsHeadline>, bool)> {
         self.historical_news.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_news_articles(&self) -> Vec<(u32, i32, String)> {
+    pub fn drain_news_articles(&self) -> Vec<(ReqId, i32, String)> {
         self.news_articles.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_fundamental_data(&self) -> Vec<(u32, String)> {
+    pub fn drain_fundamental_data(&self) -> Vec<(ReqId, String)> {
         self.fundamental_data.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_histogram_data(&self) -> Vec<(u32, Vec<HistogramEntry>)> {
+    /// Answers of option calculations, in arrival order.
+    pub fn drain_option_computations(&self) -> Vec<crate::control::optcalc::OptionComputation> {
+        self.option_computations.lock().unwrap().drain(..).collect()
+    }
+
+    pub fn drain_histogram_data(&self) -> Vec<(ReqId, Vec<HistogramEntry>)> {
         self.histogram_data.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_historical_ticks(&self) -> Vec<(u32, HistoricalTickData, String, bool)> {
+    pub fn drain_historical_ticks(&self) -> Vec<(ReqId, HistoricalTickData, String, bool)> {
         self.historical_ticks.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_historical_schedules(&self) -> Vec<(u32, HistoricalScheduleResponse)> {
+    pub fn drain_historical_schedules(&self) -> Vec<(ReqId, HistoricalScheduleResponse)> {
         self.historical_schedules.lock().unwrap().drain(..).collect()
     }
 
-    pub fn drain_historical_errors(&self) -> Vec<(u32, i32, String)> {
+    pub fn drain_historical_errors(&self) -> Vec<(ReqId, i32, String)> {
         self.historical_errors.lock().unwrap().drain(..).collect()
     }
 
@@ -538,25 +1102,47 @@ impl ReferenceState {
         }
     }
 
+    /// Zone of a contract's trading hours (for example US/Eastern for
+    /// AAPL), when its contract details were received.
+    pub fn time_zone_id(&self, con_id: i64) -> Option<String> {
+        self.time_zone_ids.lock().unwrap().get(&con_id).cloned()
+    }
+
+    #[doc(hidden)] pub fn cache_time_zone_id(&self, con_id: i64, zone: &str) {
+        if !zone.is_empty() {
+            self.time_zone_ids.lock().unwrap().insert(con_id, zone.to_string());
+        }
+    }
+
     // ── Hot-loop-side writers ──
 
-    #[doc(hidden)] pub fn push_historical_data(&self, req_id: u32, response: HistoricalResponse) {
+    #[doc(hidden)] pub fn push_historical_data(&self, req_id: ReqId, response: HistoricalResponse) {
         self.historical_data.lock().unwrap().push((req_id, response));
     }
 
-    #[doc(hidden)] pub fn push_head_timestamp(&self, req_id: u32, response: HeadTimestampResponse) {
+    #[doc(hidden)] pub fn push_historical_update(&self, req_id: ReqId, bar: HistoricalBar) {
+        self.historical_updates.lock().unwrap().push((req_id, bar));
+    }
+
+    /// Drop the updates of a request not delivered yet: none goes out
+    /// after its cancel (ibx#429).
+    #[doc(hidden)] pub fn purge_historical_updates(&self, req_id: ReqId) {
+        self.historical_updates.lock().unwrap().retain(|(r, _)| *r != req_id);
+    }
+
+    #[doc(hidden)] pub fn push_head_timestamp(&self, req_id: ReqId, response: HeadTimestampResponse) {
         self.head_timestamps.lock().unwrap().push((req_id, response));
     }
 
-    #[doc(hidden)] pub fn push_contract_details(&self, req_id: u32, def: ContractDefinition) {
+    #[doc(hidden)] pub fn push_contract_details(&self, req_id: ReqId, def: ContractDefinition) {
         self.contract_details.lock().unwrap().push((req_id, def));
     }
 
-    #[doc(hidden)] pub fn push_contract_details_end(&self, req_id: u32) {
+    #[doc(hidden)] pub fn push_contract_details_end(&self, req_id: ReqId) {
         self.contract_details_end.lock().unwrap().push(req_id);
     }
 
-    #[doc(hidden)] pub fn push_matching_symbols(&self, req_id: u32, matches: Vec<SymbolMatch>) {
+    #[doc(hidden)] pub fn push_matching_symbols(&self, req_id: ReqId, matches: Vec<SymbolMatch>) {
         self.matching_symbols.lock().unwrap().push((req_id, matches));
     }
 
@@ -564,35 +1150,44 @@ impl ReferenceState {
         self.scanner_params.lock().unwrap().push(xml);
     }
 
-    #[doc(hidden)] pub fn push_scanner_data(&self, req_id: u32, result: ScannerResult) {
+    #[doc(hidden)] pub fn push_scanner_data(&self, req_id: ReqId, result: ScannerResult) {
         self.scanner_data.lock().unwrap().push((req_id, result));
     }
 
-    #[doc(hidden)] pub fn push_historical_news(&self, req_id: u32, headlines: Vec<NewsHeadline>, has_more: bool) {
+    /// Drop the queued results of a cancelled scanner (ibx#457).
+    #[doc(hidden)] pub fn discard_scanner_data(&self, req_id: ReqId) {
+        self.scanner_data.lock().unwrap().retain(|(r, _)| *r != req_id);
+    }
+
+    #[doc(hidden)] pub fn push_historical_news(&self, req_id: ReqId, headlines: Vec<NewsHeadline>, has_more: bool) {
         self.historical_news.lock().unwrap().push((req_id, headlines, has_more));
     }
 
-    #[doc(hidden)] pub fn push_news_article(&self, req_id: u32, article_type: i32, article_text: String) {
+    #[doc(hidden)] pub fn push_news_article(&self, req_id: ReqId, article_type: i32, article_text: String) {
         self.news_articles.lock().unwrap().push((req_id, article_type, article_text));
     }
 
-    #[doc(hidden)] pub fn push_fundamental_data(&self, req_id: u32, data: String) {
+    #[doc(hidden)] pub fn push_option_computation(&self, answer: crate::control::optcalc::OptionComputation) {
+        self.option_computations.lock().unwrap().push(answer);
+    }
+
+    #[doc(hidden)] pub fn push_fundamental_data(&self, req_id: ReqId, data: String) {
         self.fundamental_data.lock().unwrap().push((req_id, data));
     }
 
-    #[doc(hidden)] pub fn push_histogram_data(&self, req_id: u32, entries: Vec<HistogramEntry>) {
+    #[doc(hidden)] pub fn push_histogram_data(&self, req_id: ReqId, entries: Vec<HistogramEntry>) {
         self.histogram_data.lock().unwrap().push((req_id, entries));
     }
 
-    #[doc(hidden)] pub fn push_historical_ticks(&self, req_id: u32, data: HistoricalTickData, what_to_show: String, done: bool) {
+    #[doc(hidden)] pub fn push_historical_ticks(&self, req_id: ReqId, data: HistoricalTickData, what_to_show: String, done: bool) {
         self.historical_ticks.lock().unwrap().push((req_id, data, what_to_show, done));
     }
 
-    #[doc(hidden)] pub fn push_historical_schedule(&self, req_id: u32, response: HistoricalScheduleResponse) {
+    #[doc(hidden)] pub fn push_historical_schedule(&self, req_id: ReqId, response: HistoricalScheduleResponse) {
         self.historical_schedules.lock().unwrap().push((req_id, response));
     }
 
-    #[doc(hidden)] pub fn push_historical_error(&self, req_id: u32, code: i32, message: String) {
+    #[doc(hidden)] pub fn push_historical_error(&self, req_id: ReqId, code: i32, message: String) {
         self.historical_errors.lock().unwrap().push((req_id, code, message));
     }
 
@@ -605,18 +1200,21 @@ impl ReferenceState {
         }
     }
 
-    pub fn drain_depth_exchanges(&self) -> Vec<DepthMktDataDescription> {
+    /// The answer to a reqMktDepthExchanges, once per request: the depth
+    /// routes (an empty list is an answer too, #453).
+    pub fn drain_depth_exchanges(&self) -> Option<Vec<DepthMktDataDescription>> {
         let mut pending = self.depth_exchanges_pending.lock().unwrap();
         if *pending {
             *pending = false;
-            self.depth_exchanges_cache.lock().unwrap().clone()
+            Some(self.depth_exchanges_cache.lock().unwrap().clone())
         } else {
-            Vec::new()
+            None
         }
     }
 
-    #[doc(hidden)] pub fn push_depth_exchanges(&self, descs: Vec<DepthMktDataDescription>) {
-        self.depth_exchanges_cache.lock().unwrap().extend(descs);
+    /// The depth routes of the routing table (#453).
+    #[doc(hidden)] pub fn set_depth_exchanges(&self, descs: Vec<DepthMktDataDescription>) {
+        *self.depth_exchanges_cache.lock().unwrap() = descs;
     }
 
     #[doc(hidden)] pub fn notify_depth_exchanges(&self) {
@@ -641,12 +1239,50 @@ impl ReferenceState {
 
     // ── Gateway-local init data ──
 
-    pub fn smart_components(&self) -> Vec<crate::types::SmartComponent> {
-        self.smart_components.lock().unwrap().clone()
+    /// The exchange map of a BBO exchange code (ibx#441), as the reference
+    /// finds it: by code and security type id, or with no security type
+    /// the first map of that code.
+    pub fn exchange_map(&self, code: &str, sec_type_id: Option<u8>) -> ExchangeMapState {
+        let maps = self.exchange_maps.lock().unwrap();
+        let found = maps.iter().find(|((c, t), _)| c == code && sec_type_id.is_none_or(|id| id == *t));
+        match found {
+            None => ExchangeMapState::Unknown,
+            Some((_, None)) => ExchangeMapState::Waiting,
+            Some((_, Some(map))) => ExchangeMapState::Ready(map.clone()),
+        }
+    }
+
+    /// The exchange map of a contract's BBO exchange, once received
+    /// (ibx#441).
+    pub fn instrument_exchange_map(&self, instrument: InstrumentId) -> Option<Vec<crate::types::SmartComponent>> {
+        self.instrument_exchange_map_at(instrument, u64::MAX)
+    }
+
+    /// The exchange map of a contract's BBO exchange as known at a step of
+    /// the market data queue: None for a step written before it came
+    /// (ibx#446).
+    pub fn instrument_exchange_map_at(&self, instrument: InstrumentId, seq: u64) -> Option<Vec<crate::types::SmartComponent>> {
+        let key = {
+            let keys = self.instrument_exchange_maps.lock().unwrap();
+            let keys = keys.get(&instrument)?;
+            keys.iter().rev().find(|(at, _)| *at <= seq).or(keys.first()).map(|(_, k)| k.clone())?
+        };
+        if self.exchange_maps_at.lock().unwrap().get(&key).is_some_and(|&at| at > seq) {
+            return None;
+        }
+        match self.exchange_map(&key.0, Some(key.1)) {
+            ExchangeMapState::Ready(map) => Some(map),
+            _ => None,
+        }
     }
 
     pub fn news_providers(&self) -> Vec<crate::types::NewsProvider> {
         self.news_providers.lock().unwrap().clone()
+    }
+
+    /// Subscribed API news source codes of the logon (ibx#460).
+    pub fn news_sources(&self) -> Vec<String> {
+        self.news_sources.lock().unwrap().clone()
     }
 
     pub fn soft_dollar_tiers(&self) -> Vec<crate::types::SoftDollarTier> {
@@ -659,6 +1295,42 @@ impl ReferenceState {
 
     pub fn white_branding_id(&self) -> String {
         self.white_branding_id.lock().unwrap().clone()
+    }
+
+    /// The account ids of the logon's account list, in logon order
+    /// (ibx#420).
+    pub fn managed_accounts(&self) -> Vec<String> {
+        self.managed_accounts.lock().unwrap().clone()
+    }
+
+    /// The text of the managed accounts callback (ibx#420): every account
+    /// of the logon's list, comma separated; `logon_account` when the
+    /// logon had no list.
+    pub fn managed_accounts_text(&self, logon_account: &str) -> String {
+        let accounts = self.managed_accounts.lock().unwrap();
+        if accounts.is_empty() {
+            logon_account.to_string()
+        } else {
+            crate::control::logon::managed_accounts_text(&accounts)
+        }
+    }
+
+    /// Whether `account`'s application is not approved yet (8092,
+    /// ibx#421; `jextend.bi.g(String)`).
+    pub fn account_pending(&self, account: &str) -> bool {
+        self.pending_accounts.lock().unwrap().iter().any(|a| a == account)
+    }
+
+    /// The accounts of the logon's list whose application is not
+    /// approved, in list order (ibx#421).
+    pub fn pending_managed_accounts(&self) -> Vec<String> {
+        let pending = self.pending_accounts.lock().unwrap();
+        self.managed_accounts.lock().unwrap().iter().filter(|a| pending.contains(a)).cloned().collect()
+    }
+
+    /// True when the logon says this is an FA session (tag 6108, ibx#481).
+    pub fn fa_session(&self) -> bool {
+        self.fa_session.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Session ID surfaced to webapp REST clients as the `x-ccp-session-id` header.
@@ -679,12 +1351,67 @@ impl ReferenceState {
         self.misc_urls.lock().unwrap().get(key).cloned()
     }
 
-    #[doc(hidden)] pub fn set_smart_components(&self, components: Vec<crate::types::SmartComponent>) {
-        *self.smart_components.lock().unwrap() = components;
+    /// A contract's BBO exchange came (ibx#441): its key is kept for the
+    /// contract, and the key is known from now on. True when the key is
+    /// new (its map is then to be asked).
+    #[doc(hidden)] pub fn observe_exchange_map(&self, instrument: InstrumentId, code: &str, sec_type_id: u8) -> bool {
+        self.observe_exchange_map_at(instrument, code, sec_type_id, 0)
+    }
+
+    /// [`Self::observe_exchange_map`] when the engine was to write the step
+    /// `at` of the market data queue (ibx#446).
+    #[doc(hidden)] pub fn observe_exchange_map_at(&self, instrument: InstrumentId, code: &str, sec_type_id: u8, at: u64) -> bool {
+        const KEPT: usize = 4;
+        let key: ExchangeMapKey = (code.to_string(), sec_type_id);
+        {
+            let mut keys = self.instrument_exchange_maps.lock().unwrap();
+            let keys = keys.entry(instrument).or_default();
+            if keys.last().is_none_or(|(_, k)| *k != key) {
+                if keys.len() >= KEPT {
+                    keys.remove(0);
+                }
+                keys.push((at, key.clone()));
+            }
+        }
+        let mut maps = self.exchange_maps.lock().unwrap();
+        if maps.iter().any(|(k, _)| *k == key) {
+            return false;
+        }
+        maps.push((key, None));
+        true
+    }
+
+    /// The exchange map of a BBO exchange arrived (ibx#441).
+    #[doc(hidden)] pub fn set_exchange_map(&self, code: &str, sec_type_id: u8, map: Vec<crate::types::SmartComponent>) {
+        self.set_exchange_map_at(code, sec_type_id, map, 0);
+    }
+
+    /// The exchange map of a BBO exchange arrived when the engine was to
+    /// write the step `at` of the market data queue (ibx#446).
+    #[doc(hidden)] pub fn set_exchange_map_at(&self, code: &str, sec_type_id: u8, map: Vec<crate::types::SmartComponent>, at: u64) {
+        let key: ExchangeMapKey = (code.to_string(), sec_type_id);
+        // The first one counts: a map asked again is the same map.
+        self.exchange_maps_at.lock().unwrap().entry(key.clone()).or_insert(at);
+        let mut maps = self.exchange_maps.lock().unwrap();
+        match maps.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, slot)) => *slot = Some(map),
+            None => maps.push((key, Some(map))),
+        }
+    }
+
+    /// Forget a key whose map was asked and never came (its farm was
+    /// lost), so the next acknowledgement asks it again.
+    #[doc(hidden)] pub fn forget_waiting_exchange_map(&self, code: &str, sec_type_id: u8) {
+        let key: ExchangeMapKey = (code.to_string(), sec_type_id);
+        self.exchange_maps.lock().unwrap().retain(|(k, map)| *k != key || map.is_some());
     }
 
     #[doc(hidden)] pub fn set_news_providers(&self, providers: Vec<crate::types::NewsProvider>) {
         *self.news_providers.lock().unwrap() = providers;
+    }
+
+    #[doc(hidden)] pub fn set_news_sources(&self, codes: Vec<String>) {
+        *self.news_sources.lock().unwrap() = codes;
     }
 
     #[doc(hidden)] pub fn set_soft_dollar_tiers(&self, tiers: Vec<crate::types::SoftDollarTier>) {
@@ -697,6 +1424,152 @@ impl ReferenceState {
 
     #[doc(hidden)] pub fn set_white_branding_id(&self, id: String) {
         *self.white_branding_id.lock().unwrap() = id;
+    }
+
+    #[doc(hidden)] pub fn set_managed_accounts(&self, accounts: Vec<String>) {
+        *self.managed_accounts.lock().unwrap() = accounts;
+    }
+
+    #[doc(hidden)] pub fn set_pending_accounts(&self, accounts: Vec<String>) {
+        *self.pending_accounts.lock().unwrap() = accounts;
+    }
+
+    /// The account's feature list from the account config (6542), None
+    /// until the config is known (ibx#425).
+    pub fn account_features(&self) -> Option<Vec<String>> {
+        self.account_config.lock().unwrap().as_ref().map(|(f, _)| f.clone())
+    }
+
+    #[doc(hidden)] pub fn set_account_config(&self, features: Vec<String>, mifid_config_id: String) {
+        *self.account_config.lock().unwrap() = Some((features, mifid_config_id));
+    }
+
+    /// Tick-by-tick limits of the session (ibx#455): the most contracts at
+    /// once (None until the logon is read) and whether the logon turns it
+    /// off.
+    pub fn tick_by_tick_limits(&self) -> (Option<usize>, bool) {
+        let limit = self.tick_by_tick_limit.load(Ordering::Relaxed);
+        ((limit != u64::MAX).then_some(limit as usize), self.tick_by_tick_off.load(Ordering::Relaxed))
+    }
+
+    /// Most snapshot requests per second (ibx#446).
+    pub fn snapshot_rate_limit(&self) -> u32 {
+        self.snapshot_rate_limit.load(Ordering::Relaxed)
+    }
+
+    /// The API ticker limit of the logon; 0 or less keeps 100, as the
+    /// reference's limiter does.
+    #[doc(hidden)] pub fn set_snapshot_rate_limit(&self, limit: u32) {
+        self.snapshot_rate_limit.store(if limit > 0 { limit } else { 100 }, Ordering::Relaxed);
+    }
+
+    #[doc(hidden)] pub fn set_tick_by_tick_limits(&self, limit: usize, off: bool) {
+        self.tick_by_tick_limit.store(limit as u64, Ordering::Relaxed);
+        self.tick_by_tick_off.store(off, Ordering::Relaxed);
+    }
+
+    #[doc(hidden)] pub fn set_fa_session(&self, fa: bool) {
+        self.fa_session.store(fa, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// The server clock offset of the session (ibx#421).
+    pub fn clock(&self) -> &crate::control::logon::ClockOffset {
+        &self.clock
+    }
+
+    /// Current server time in seconds, as the reference answers the
+    /// current time request: the local clock plus the offset of the logon
+    /// (ibx#421).
+    pub fn server_time_secs(&self) -> i64 {
+        self.clock.now_ms().div_euclid(1000)
+    }
+
+    /// Whether the logon feature list allows matching symbols requests
+    /// (SECDEFTA, ibx#421).
+    pub fn matching_symbols_allowed(&self) -> bool {
+        self.matching_symbols_allowed.load(Ordering::Relaxed)
+    }
+
+    /// The feature tokens of a logon that gate API requests (ibx#421).
+    #[doc(hidden)] pub fn set_api_features(&self, features: crate::control::logon::ApiFeatures) {
+        self.matching_symbols_allowed.store(features.matching_symbols, Ordering::Relaxed);
+        self.nightly.store(features.nightly, Ordering::Relaxed);
+        self.no_magnifier_fix.store(features.no_magnifier_fix, Ordering::Relaxed);
+        self.island_to_nasdaq.store(features.island_to_nasdaq, Ordering::Relaxed);
+        self.bond_api.store(features.bond_api, Ordering::Relaxed);
+        self.ev_api.store(features.ev_api, Ordering::Relaxed);
+    }
+
+    /// The contract details features of the logon (ibx#436): BONDAPI and
+    /// EVAPI.
+    pub fn contract_details_features(&self) -> (bool, bool) {
+        (self.bond_api.load(Ordering::Relaxed), self.ev_api.load(Ordering::Relaxed))
+    }
+
+    /// The option chain features of the logon (ibx#440): NOMAGNFIX and
+    /// ISLAND2NASDAQ.
+    pub fn option_chain_features(&self) -> (bool, bool) {
+        (self.no_magnifier_fix.load(Ordering::Relaxed), self.island_to_nasdaq.load(Ordering::Relaxed))
+    }
+
+    #[doc(hidden)] pub fn set_max_backfill_years(&self, years: i32) {
+        self.max_backfill_years.store(years.max(0) as u32, Ordering::Relaxed);
+    }
+
+    /// Most years of a historical data request; None when not checked:
+    /// before the logon, or with the NIGHTLY feature (ibx#421).
+    pub fn backfill_years_limit(&self) -> Option<i32> {
+        let years = self.max_backfill_years.load(Ordering::Relaxed);
+        (years > 0 && !self.nightly.load(Ordering::Relaxed)).then_some(years as i32)
+    }
+
+    /// The logon's super user and omnibus flags (ibx#417).
+    pub fn short_sale_flags(&self) -> (bool, bool) {
+        (self.super_user.load(Ordering::Relaxed), self.omnibus.load(Ordering::Relaxed))
+    }
+
+    /// The refusal of an algo order by the algo definitions the server
+    /// sent (ibx#263); None when it passes or no definition came yet.
+    /// The warnings 2174 of the time parameters with no zone go to
+    /// `warnings`.
+    pub fn algo_refusal(&self, algorithm: &str, values: &[(&str, &str)], overnight: bool,
+        warnings: &mut Vec<(i64, String)>) -> Option<(i64, String)>
+    {
+        crate::control::algo::check(&self.algo_definitions.lock().unwrap(), algorithm, values, overnight, warnings)
+    }
+
+    /// Keep one algo definition answer (ibx#263).
+    pub fn add_algo_definitions(&self, xml: &str) {
+        self.algo_definitions.lock().unwrap().add(xml);
+    }
+
+    /// The API client id the new orders carry (ibx#466).
+    pub fn api_client_id(&self) -> i64 {
+        self.api_client_id.load(Ordering::Relaxed)
+    }
+
+    #[doc(hidden)] pub fn set_api_client_id(&self, client_id: i64) {
+        self.api_client_id.store(client_id, Ordering::Relaxed);
+    }
+
+    /// The smart combo conId of a currency, from logon tag 6611 (ibx#470);
+    /// None when the logon has none for it.
+    pub fn smart_combo_con_id(&self, currency: &str) -> Option<i64> {
+        self.smart_combo_con_ids.lock().unwrap().get(currency).copied()
+    }
+
+    /// Keep logon tag 6611, `CUR:conId,...` (ibx#470).
+    #[doc(hidden)] pub fn set_smart_combo_con_ids(&self, raw: &str) {
+        let table = raw.split(',').filter_map(|entry| {
+            let (currency, con_id) = entry.split_once(':')?;
+            Some((currency.trim().to_string(), con_id.trim().parse::<i64>().ok().filter(|&c| c > 0)?))
+        }).collect();
+        *self.smart_combo_con_ids.lock().unwrap() = table;
+    }
+
+    #[doc(hidden)] pub fn set_short_sale_flags(&self, super_user: bool, omnibus: bool) {
+        self.super_user.store(super_user, Ordering::Relaxed);
+        self.omnibus.store(omnibus, Ordering::Relaxed);
     }
 
     #[doc(hidden)] pub fn set_ccp_session_id(&self, id: String) {
@@ -772,6 +1645,28 @@ pub struct AccountSummaryEvent {
     pub ledger: bool,
     /// The server's end marker of a batch.
     pub end: bool,
+    /// The rows of a ledger frame, as numbers (ibx#486); empty for the
+    /// other frames.
+    pub ledgers: Vec<LedgerRow>,
+}
+
+/// One row of a ledger frame (`35=RL`, a `LedgerList` row) as the
+/// reference reads it into its ledger record (`jfix.aL`, ibx#486): the
+/// account of the frame, the row currency (8002), the currency of tag 15,
+/// and each numeric tag with its value. A value that is not a number
+/// (`8174=nan`) is not set.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LedgerRow {
+    pub account: String,
+    pub currency: String,
+    pub real_currency: String,
+    pub values: Vec<(u32, f64)>,
+}
+
+impl LedgerRow {
+    pub fn value(&self, tag: u32) -> Option<f64> {
+        self.values.iter().find(|(t, _)| *t == tag).map(|(_, v)| *v)
+    }
 }
 
 pub struct PortfolioState {
@@ -1003,6 +1898,9 @@ pub struct SharedState {
     /// (ibx#242). The `Event::Disconnected` channel path is optional; this
     /// flag is always populated.
     connection_lost: AtomicBool,
+    /// Link status messages for every client, as errors with id -1: link
+    /// lost / restored and farm broken (ibx#399). (code, message).
+    connection_notices: Mutex<Vec<(i64, String)>>,
     /// Notifier for waking consumers (e.g. Python event loop) when data arrives.
     notify_mutex: Mutex<bool>,
     notify_condvar: Condvar,
@@ -1017,6 +1915,7 @@ impl SharedState {
             portfolio: PortfolioState::new(),
             ccp_rtt_ns: AtomicU64::new(0),
             connection_lost: AtomicBool::new(false),
+            connection_notices: Mutex::new(Vec::new()),
             notify_mutex: Mutex::new(false),
             notify_condvar: Condvar::new(),
         }
@@ -1035,6 +1934,18 @@ impl SharedState {
     #[inline]
     pub fn take_connection_lost(&self) -> bool {
         self.connection_lost.swap(false, Ordering::AcqRel)
+    }
+
+    /// Queue a link status message for the clients (ibx#399). Hot-loop side.
+    #[doc(hidden)]
+    pub fn push_connection_notice(&self, code: i64, message: String) {
+        self.connection_notices.lock().unwrap().push((code, message));
+        self.notify();
+    }
+
+    /// Link status messages since the last call: (code, message), in order.
+    pub fn drain_connection_notices(&self) -> Vec<(i64, String)> {
+        std::mem::take(&mut *self.connection_notices.lock().unwrap())
     }
 
     /// Record an auth-connection RTT sample (ibx#158). Hot-loop side.
@@ -1229,5 +2140,74 @@ mod tests {
 
         writer.join().unwrap();
         reader.join().unwrap();
+    }
+
+    /// One writer and several readers hammer one slot. Every field of a
+    /// written quote derives from the same sequence number, so a torn
+    /// snapshot shows up as fields from two writes; a reader must also never
+    /// see the sequence go backwards.
+    #[test]
+    fn seqquote_stress_one_writer_many_readers() {
+        use std::sync::atomic::AtomicBool;
+        use std::sync::Arc;
+        use std::thread;
+
+        fn quote_for(n: i64) -> Quote {
+            Quote {
+                bid: n, ask: n + 1, last: n + 2,
+                bid_size: n + 3, ask_size: n + 4, last_size: n + 5, volume: n + 6,
+                open: n + 7, high: n + 8, low: n + 9, close: n + 10,
+                timestamp_ns: (n + 11) as u64,
+                bid_exch_mask: n + 12, ask_exch_mask: n + 13, last_exch_mask: !n,
+            }
+        }
+
+        const WRITES: i64 = 1_000_000;
+        const READERS: usize = 4;
+        let sq = Arc::new(SeqQuote::new());
+        let done = Arc::new(AtomicBool::new(false));
+
+        let readers: Vec<_> = (0..READERS).map(|_| {
+            let sq = sq.clone();
+            let done = done.clone();
+            thread::spawn(move || {
+                let mut last_seen = 0i64;
+                let mut reads = 0u64;
+                loop {
+                    let finished = done.load(Ordering::Acquire);
+                    let q = sq.read();
+                    let n = q.bid;
+                    let expect = if n == 0 { Quote::default() } else { quote_for(n) };
+                    assert!(
+                        q.ask == expect.ask && q.last == expect.last
+                            && q.bid_size == expect.bid_size && q.ask_size == expect.ask_size
+                            && q.last_size == expect.last_size && q.volume == expect.volume
+                            && q.open == expect.open && q.high == expect.high
+                            && q.low == expect.low && q.close == expect.close
+                            && q.timestamp_ns == expect.timestamp_ns
+                            && q.bid_exch_mask == expect.bid_exch_mask
+                            && q.ask_exch_mask == expect.ask_exch_mask
+                            && q.last_exch_mask == expect.last_exch_mask,
+                        "torn quote at sequence {n}"
+                    );
+                    assert!(n >= last_seen, "sequence went back: {n} after {last_seen}");
+                    last_seen = n;
+                    reads += 1;
+                    if finished { break; }
+                }
+                (last_seen, reads)
+            })
+        }).collect();
+
+        for n in 1..=WRITES {
+            sq.write(&quote_for(n));
+        }
+        done.store(true, Ordering::Release);
+
+        for r in readers {
+            let (last_seen, reads) = r.join().unwrap();
+            assert_eq!(last_seen, WRITES, "a read after the last write sees it");
+            assert!(reads > 0);
+        }
     }
 }

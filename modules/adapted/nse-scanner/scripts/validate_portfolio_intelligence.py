@@ -40,7 +40,9 @@ from src.portfolio_review.review_validator import validate_review
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate Portfolio Intelligence deployment readiness")
+    parser = argparse.ArgumentParser(
+        description="Validate Portfolio Intelligence deployment readiness"
+    )
     parser.add_argument("--portfolio", default="portfolio.json")
     parser.add_argument("--scanner", default="telegram_last_scan.json")
     parser.add_argument("--reports-root", default="reports/portfolio")
@@ -53,15 +55,21 @@ def main() -> int:
     checks: list[dict[str, object]] = []
 
     portfolio_path = Path(args.portfolio)
-    checks.append({"check": "portfolio_exists", "ok": portfolio_path.exists(), "detail": str(portfolio_path)})
+    checks.append(
+        {"check": "portfolio_exists", "ok": portfolio_path.exists(), "detail": str(portfolio_path)}
+    )
     try:
         active = load_active_positions(portfolio_path) if portfolio_path.exists() else []
-        checks.append({"check": "portfolio_readable", "ok": True, "detail": f"{len(active)} active positions"})
+        checks.append(
+            {"check": "portfolio_readable", "ok": True, "detail": f"{len(active)} active positions"}
+        )
     except Exception as exc:
         checks.append({"check": "portfolio_readable", "ok": False, "detail": str(exc)})
 
     scanner_path = Path(args.scanner)
-    checks.append({"check": "scanner_snapshot", "ok": scanner_path.exists(), "detail": str(scanner_path)})
+    checks.append(
+        {"check": "scanner_snapshot", "ok": scanner_path.exists(), "detail": str(scanner_path)}
+    )
 
     reports_root = Path(args.reports_root)
     invalid_reviews = 0
@@ -94,7 +102,9 @@ def main() -> int:
         ".github/workflows/monthly_portfolio_review.yml",
     ]
     missing = [path for path in required_files if not Path(path).exists()]
-    checks.append({"check": "generated_and_workflow_files", "ok": not missing, "detail": f"missing={missing}"})
+    checks.append(
+        {"check": "generated_and_workflow_files", "ok": not missing, "detail": f"missing={missing}"}
+    )
 
     failed = [item for item in checks if not item["ok"]]
     result = {"ready": not failed, "checks": checks, "failed_count": len(failed)}

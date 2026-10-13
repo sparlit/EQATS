@@ -69,8 +69,7 @@ def test_agent_executes_tool_then_answers():
     )  # ollama/ prefix stripped
     assert seen_bodies[0]["tools"] == TOOLS
     tool_msgs = [m for m in seen_bodies[1]["messages"] if m["role"] == "tool"]
-    assert tool_msgs
-    assert "2251.1" in tool_msgs[0]["content"]
+    assert tool_msgs and "2251.1" in tool_msgs[0]["content"]  # tool result fed back to the model
 
 
 def test_agent_survives_tool_errors_and_caps_rounds():
@@ -107,7 +106,10 @@ def test_agent_works_with_litellm_openai_shaped_tool_calls():
                         "role": "assistant",
                         "content": None,
                         "tool_calls": [
-                            {"id": "call_abc", "function": {"name": "get_price", "arguments": '{"symbol": "TCS"}'}}
+                            {
+                                "id": "call_abc",
+                                "function": {"name": "get_price", "arguments": '{"symbol": "TCS"}'},
+                            }
                         ],
                     }
                 }
@@ -125,12 +127,16 @@ def test_agent_works_with_litellm_openai_shaped_tool_calls():
 
     llm._post = fake_post
     impls = {"get_price": lambda symbol: {"price": 2251.1}}
-    reply = llm.run_agent([{"role": "user", "content": "price of TCS?"}], TOOLS, impls, "litellm/gpt-4o-mini")
+    reply = llm.run_agent(
+        [{"role": "user", "content": "price of TCS?"}], TOOLS, impls, "litellm/gpt-4o-mini"
+    )
 
     assert reply == "TCS trades at ₹2,251."
     assert seen[0]["model"] == "gpt-4o-mini"  # litellm/ prefix stripped
     tool_msgs = [m for m in seen[1]["messages"] if m["role"] == "tool"]
-    assert tool_msgs[0]["tool_call_id"] == "call_abc"  # OpenAI-style results need the id echoed back
+    assert (
+        tool_msgs[0]["tool_call_id"] == "call_abc"
+    )  # OpenAI-style results need the id echoed back
     assert "2251.1" in tool_msgs[0]["content"]
     llm.configure_litellm(None)  # reset module-level config for other tests
 
@@ -145,7 +151,7 @@ def _stub_prices(latest, signal):
     sync appends to; `signal` is what the EMA reads once a sync has happened."""
     synced = []
     agent.db.latest_price_date = lambda symbol: latest
-    agent.prices.sync_symbol = synced.append
+    agent.prices.sync_symbol = lambda symbol: synced.append(symbol)
     agent.prices.ema_crossover = lambda symbol, short, long: signal if synced else None
     return synced
 
@@ -173,8 +179,7 @@ def test_ema_crossover_always_answers_with_the_symbol():
     _stub_prices(None, None)  # the sync runs, but there still aren't enough bars
     result = agent._tool_ema_crossover("FSL", short=20, long=50)
 
-    assert result["symbol"] == "FSL"
-    assert result["crossover"] is None
+    assert result["symbol"] == "FSL" and result["crossover"] is None
     assert "52 daily bars" in result["error"], "says what is missing, as data rather than prose"
 
 
@@ -188,8 +193,7 @@ def _models(*failing):
     def fake(prompt, model):
         asked.append(model)
         if model in failing:
-            msg = f"{model} request failed via LiteLLM: Connection error."
-            raise RuntimeError(msg)
+            raise RuntimeError(f"{model} request failed via LiteLLM: Connection error.")
         return f"[{model}] {prompt}"
 
     llm._generate = fake
@@ -221,8 +225,7 @@ def test_generate_says_what_to_do_when_there_is_no_fallback():
         except RuntimeError as e:
             assert "Settings → Model" in str(e), str(e)
         else:
-            msg = "a model that cannot answer must fail the step"
-            raise AssertionError(msg)
+            raise AssertionError("a model that cannot answer must fail the step")
 
 
 def test_generate_reports_both_when_the_fallback_fails_too():
@@ -230,10 +233,11 @@ def test_generate_reports_both_when_the_fallback_fails_too():
     try:
         llm.generate("hi", "litellm/gpt-4o-mini", "ollama/local")
     except RuntimeError as e:
-        assert "litellm/gpt-4o-mini failed" in str(e) and "ollama/local failed too" in str(e), str(e)
+        assert "litellm/gpt-4o-mini failed" in str(e) and "ollama/local failed too" in str(e), str(
+            e
+        )
     else:
-        msg = "both models gone is a failure"
-        raise AssertionError(msg)
+        raise AssertionError("both models gone is a failure")
 
 
 if __name__ == "__main__":

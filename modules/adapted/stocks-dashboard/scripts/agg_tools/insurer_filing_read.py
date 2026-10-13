@@ -158,7 +158,9 @@ def _legs(lines, cols, sc):
                 pol = vals
     if not (prem and pol and sh):
         return {}
-    return {qe: round((prem[qe] + pol[qe] + sh[qe]) / sc, 2) for qe in prem if qe in pol and qe in sh}
+    return {
+        qe: round((prem[qe] + pol[qe] + sh[qe]) / sc, 2) for qe in prem if qe in pol and qe in sh
+    }
 
 
 def read_page(page):
@@ -216,7 +218,7 @@ def main():
         doc = fitz.open(p)
         std_pages, con_pages = {}, {}
         for i, page in enumerate(doc):
-            basis, _sc, vals = read_page(page)
+            basis, sc, vals = read_page(page)
             if not vals:
                 continue
             (std_pages if basis == "std" else con_pages)[i] = vals
@@ -228,11 +230,20 @@ def main():
                 for q, v in vals.items()
                 if q in stored_s and abs(v - stored_s[q]) <= max(0.05, stored_s[q] * CTRL_TOL)
             ]
-            bad = [(q, v, stored_s[q]) for q, v in vals.items() if q in stored_s and (q, v, stored_s[q]) not in ok]
+            bad = [
+                (q, v, stored_s[q])
+                for q, v in vals.items()
+                if q in stored_s and (q, v, stored_s[q]) not in ok
+            ]
             if len(ok) >= 1 and not bad:
                 ctrl = {"page": i, "matches": ok}
                 break
-        rec = {"att": att, "std_pages": sorted(std_pages), "con_pages": sorted(con_pages), "control": ctrl}
+        rec = {
+            "att": att,
+            "std_pages": sorted(std_pages),
+            "con_pages": sorted(con_pages),
+            "control": ctrl,
+        }
         if not ctrl:
             rec["state"] = "NO-CONTROL (needs vision)"
             diag.append(rec)
@@ -257,7 +268,13 @@ def main():
         rec["state"] = "OK"
         diag.append(rec)
 
-    json.dump({"sym": a.sym, "reads": results, "diag": diag}, open(a.out, "w"), indent=1, sort_keys=True, default=str)
+    json.dump(
+        {"sym": a.sym, "reads": results, "diag": diag},
+        open(a.out, "w"),
+        indent=1,
+        sort_keys=True,
+        default=str,
+    )
     print("%s: %d consolidated quarters read with a passing control" % (a.sym, len(results)))
     for qe in sorted(results):
         r = results[qe]

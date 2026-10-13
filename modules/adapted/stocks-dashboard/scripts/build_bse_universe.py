@@ -43,15 +43,14 @@ Run: python -X utf8 scripts/build_bse_universe.py [--sector-budget N]
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
+import csv
+import datetime
+import io
+import json
 import os
 import sys
-import json
-import io
-import csv
 import time
-import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -96,8 +95,7 @@ def nse_isin_set():
             print(f"NSE list fetch failed ({str(ex)[:60]}), trying next/cache")
     if os.path.exists(NSE_CACHE):
         return set(json.load(open(NSE_CACHE))["isin"])
-    msg = "no NSE ISIN set available"
-    raise SystemExit(msg)
+    raise SystemExit("no NSE ISIN set available")
 
 
 def bse_active_equity(op):
@@ -115,7 +113,9 @@ def sector_of(op, code, cache):
         return cache[k]
     try:
         r = B.get(
-            op, f"https://api.bseindia.com/BseIndiaAPI/api/ComHeadernew/w?quotetype=EQ&scripcode={code}&seriesid="
+            op,
+            "https://api.bseindia.com/BseIndiaAPI/api/ComHeadernew/w"
+            f"?quotetype=EQ&scripcode={code}&seriesid=",
         )
         j = json.loads(r if isinstance(r, str) else r.decode("utf8", "ignore"))
         sec = (j.get("Industry") or "").strip() or "Other"
@@ -198,7 +198,9 @@ def main():
     nse = nse_isin_set()
     allbse = bse_active_equity(op)
     bse_only = [
-        x for x in allbse if (x.get("ISIN_NUMBER") or "").strip() and (x.get("ISIN_NUMBER") or "").strip() not in nse
+        x
+        for x in allbse
+        if (x.get("ISIN_NUMBER") or "").strip() and (x.get("ISIN_NUMBER") or "").strip() not in nse
     ]
     extra = seen_extra(allbse, nse)
     bse_only += extra
@@ -214,7 +216,9 @@ def main():
     for x in bse_only:
         code = x["SCRIP_CD"]
         sec = cache.get(str(code), "")
-        if not sec and spent < budget and (mcap(x) > 0 or x.get("_seen")):  # enrich biggest-first within budget
+        if (
+            not sec and spent < budget and (mcap(x) > 0 or x.get("_seen"))
+        ):  # enrich biggest-first within budget
             sec = sector_of(op, code, cache)
             spent += 1
             if spent % 50 == 0:

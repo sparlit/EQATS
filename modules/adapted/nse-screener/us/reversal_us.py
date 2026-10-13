@@ -32,9 +32,7 @@ disqualified for a strategy that buys multi-year losers.
 """
 import sys
 import zipfile
-from pathlib import Path
 
-import pandas as pd
 import requests
 from us.engine_audit import FRENCH, _monthly_section, load_french
 
@@ -54,7 +52,9 @@ def fetch():
         dst = FRENCH / f
         if dst.exists():
             continue
-        r = requests.get(FF.format(f=f), timeout=180, headers={"User-Agent": "research contact@deshpanda.dev"})
+        r = requests.get(
+            FF.format(f=f), timeout=180, headers={"User-Agent": "research contact@deshpanda.dev"}
+        )
         r.raise_for_status()
         dst.write_bytes(r.content)
         print(f"fetched {f} ({len(r.content) // 1024} KB)")
@@ -74,8 +74,7 @@ def sections(zip_name):
                 return _monthly_section(txt, v)
             except StopIteration:
                 continue
-        msg = f"no section among {variants} in {zip_name}"
-        raise KeyError(msg)
+        raise KeyError(f"no section among {variants} in {zip_name}")
 
     vw = grab("Average Value Weighted Returns -- Monthly", "Value Weight Returns -- Monthly")
     ew = grab("Average Equal Weighted Returns -- Monthly", "Equal Weight Returns -- Monthly")

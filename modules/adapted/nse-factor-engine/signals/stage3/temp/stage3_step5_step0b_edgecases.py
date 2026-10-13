@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 Stage 3 Step 5 — Step 0b: Clarify edge cases before writing metric
 """
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"

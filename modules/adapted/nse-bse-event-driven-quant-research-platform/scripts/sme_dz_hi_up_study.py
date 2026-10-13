@@ -122,8 +122,12 @@ def evaluate_signal(frames: list[pd.DataFrame], signal_name: str, horizon: int) 
         "std_bps": round(std * 10_000, 1),
         "best_trade_bps": round(float(np.max(vals)) * 10_000, 1),
         "worst_trade_bps": round(float(np.min(vals)) * 10_000, 1),
-        "first_half_mean_bps": round(float(np.mean(list(vals[:half]))) * 10_000, 1) if half > 0 else None,
-        "second_half_mean_bps": round(float(np.mean(list(vals[half:]))) * 10_000, 1) if len(vals[half:]) > 0 else None,
+        "first_half_mean_bps": round(float(np.mean(list(vals[:half]))) * 10_000, 1)
+        if half > 0
+        else None,
+        "second_half_mean_bps": round(float(np.mean(list(vals[half:]))) * 10_000, 1)
+        if len(vals[half:]) > 0
+        else None,
         "per_symbol": sorted_symbols(sorted_vals),
     }
 
@@ -147,7 +151,9 @@ def sorted_symbols(rows: list[dict]) -> list[dict]:
     return out
 
 
-def random_baseline(frames: list[pd.DataFrame], horizon: int, n_signals: int, seed: int = 42) -> dict:
+def random_baseline(
+    frames: list[pd.DataFrame], horizon: int, n_signals: int, seed: int = 42
+) -> dict:
     """Control group: random entries with same horizon."""
     rng = np.random.default_rng(seed)
     all_vals = []

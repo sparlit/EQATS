@@ -47,7 +47,9 @@ async def symbol_loop(exchange, symbol):
 
 async def exchange_loop(exchange_id, symbols):
     print("Starting the", exchange_id, "exchange loop with", symbols)
-    exchange = getattr(ccxt.pro, exchange_id)(
+    exchange = getattr(
+        ccxt.pro, exchange_id
+    )(
         {
             "newUpdates": True,  # https://github.com/ccxt/ccxt/wiki/ccxt.pro.manual#incremental-data-structures
         }

@@ -78,7 +78,10 @@ def month_chunks(from_d: date, to_d: date) -> list[tuple[date, date]]:
     chunks: list[tuple[date, date]] = []
     cur = from_d
     while cur <= to_d:
-        first_next = date(cur.year + 1, 1, 1) if cur.month == 12 else date(cur.year, cur.month + 1, 1)
+        if cur.month == 12:
+            first_next = date(cur.year + 1, 1, 1)
+        else:
+            first_next = date(cur.year, cur.month + 1, 1)
         end = min(first_next - timedelta(days=1), to_d)
         chunks.append((cur, end))
         cur = end + timedelta(days=1)
@@ -112,7 +115,10 @@ def main() -> int:
     chunks = month_chunks(from_d, to_d)
 
     ranked = liquidity_ranking(settings, args.top)
-    print(f"liquidity-ranked symbols: {len(ranked)} (median notional top: {ranked[0][0]} ₹{ranked[0][1]:,.0f})")
+    print(
+        f"liquidity-ranked symbols: {len(ranked)} "
+        f"(median notional top: {ranked[0][0]} ₹{ranked[0][1]:,.0f})"
+    )
 
     client = NseBseMcpClient(
         settings.mcp.base_url,
@@ -170,10 +176,13 @@ def main() -> int:
         save_manifest(settings, manifest)
         if (si + 1) % 10 == 0:
             print(
-                f"[{si + 1}/{len(ranked)}] {symbol}: cumulative announcements {total_ann:,} ({time.time() - t0:.0f}s)"
+                f"[{si + 1}/{len(ranked)}] {symbol}: cumulative announcements {total_ann:,} "
+                f"({time.time() - t0:.0f}s)"
             )
 
-    print(f"DONE in {time.time() - t0:.0f}s: {total_ann:,} announcements across {len(ranked)} symbols")
+    print(
+        f"DONE in {time.time() - t0:.0f}s: {total_ann:,} announcements across {len(ranked)} symbols"
+    )
     return 0
 
 

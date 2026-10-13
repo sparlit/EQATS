@@ -93,7 +93,12 @@ def main():
         sym, qe = t["sym"], t["qe"]
         stored = t["live_rev"] if t.get("live_rev") is not None else t.get("fill_rev")
         frow = next((r for r in fund.get(sym, []) if r and r[0] == qe), None)
-        rec = {"sym": sym, "qe": qe, "stored_rev": stored, "np_stored": frow[1] if frow and len(frow) > 1 else None}
+        rec = {
+            "sym": sym,
+            "qe": qe,
+            "stored_rev": stored,
+            "np_stored": frow[1] if frow and len(frow) > 1 else None,
+        }
         code = codes.get(sym)
         if not code:
             rec["verdict"] = "no-scrip"
@@ -156,7 +161,13 @@ def main():
         out[k] = rec
         print(
             "%-28s %-15s stored=%-10s detres=%s np:%s"
-            % (k, rec["verdict"], stored, {n: round(v2, 2) for n, v2 in rec["detres"].items()}, rec["np_anchor"]),
+            % (
+                k,
+                rec["verdict"],
+                stored,
+                {n: round(v2, 2) for n, v2 in rec["detres"].items()},
+                rec["np_anchor"],
+            ),
             flush=True,
         )
         json.dump(out, open(OUT, "w", encoding="utf-8"), indent=1)

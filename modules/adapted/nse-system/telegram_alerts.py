@@ -27,7 +27,7 @@ New code should `import alerts` directly.
 """
 from alerts import report, send, send_photo
 
-__all__ = ["report", "send", "send_photo"]
+__all__ = ["send", "send_photo", "report"]
 
 
 if __name__ == "__main__":

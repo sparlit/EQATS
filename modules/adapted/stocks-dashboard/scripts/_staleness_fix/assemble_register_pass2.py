@@ -26,7 +26,6 @@ unmapped. Inputs are the scratch evidence files produced in that session (archiv
 NSE delisted.csv, suspension pages, results.jsp names, Nifty/Junior change-page joins, BSE master). Kept for the record;
 re-run needs those scratch inputs rebuilt from the sources listed in register_names_pass2.json["routes_tried"]."""
 import collections
-import csv
 import datetime
 import json
 import os
@@ -53,7 +52,11 @@ def cur(s):
 
 def strict(x):
     x = (x or "").lower().replace("&", "and")
-    x = re.sub(r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile|merger)\s*$", "", x)
+    x = re.sub(
+        r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile|merger)\s*$",
+        "",
+        x,
+    )
     x = re.sub(r"\(\s*erstwhile\s*\)", "", x)
     x = re.sub(r"[\(\)]", " ", x)
     x = re.sub(r"[^a-z0-9 ]", " ", x)
@@ -61,7 +64,9 @@ def strict(x):
     return re.sub(r"\s+", " ", x).strip()
 
 
-ev = collections.defaultdict(lambda: collections.defaultdict(set))  # strict name -> sym -> {source:date}
+ev = collections.defaultdict(
+    lambda: collections.defaultdict(set)
+)  # strict name -> sym -> {source:date}
 
 
 def add(name, sym, src):
@@ -157,7 +162,10 @@ def lookup(name):
         [
             kk
             for kk in ev
-            if len(k) >= 8 and abs(len(kk) - len(k)) <= 1 and k.split()[0] == kk.split()[0] and lev1(k, kk)
+            if len(k) >= 8
+            and abs(len(kk) - len(k)) <= 1
+            and k.split()[0] == kk.split()[0]
+            and lev1(k, kk)
         ]
         if len(k) >= 8
         else []
@@ -179,7 +187,11 @@ def lookup(name):
 
 
 def loose(x):
-    x = re.sub(r"\b(india|indian|the|corporation|corp|of|and|ltd|limited|company|co|pvt|private|inc)\b", " ", x)
+    x = re.sub(
+        r"\b(india|indian|the|corporation|corp|of|and|ltd|limited|company|co|pvt|private|inc)\b",
+        " ",
+        x,
+    )
     return re.sub(r"[^a-z0-9]", "", x)
 
 
@@ -204,7 +216,11 @@ for cls, name, events in rows:
                     abs(
                         (
                             datetime.date.fromisoformat(
-                                x.split(":")[-1][:4] + "-" + x.split(":")[-1][4:6] + "-" + x.split(":")[-1][6:8]
+                                x.split(":")[-1][:4]
+                                + "-"
+                                + x.split(":")[-1][4:6]
+                                + "-"
+                                + x.split(":")[-1][6:8]
                             )
                             - datetime.date.fromisoformat(d)
                         )

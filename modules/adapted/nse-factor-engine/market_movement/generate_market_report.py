@@ -32,11 +32,11 @@ import io
 import sys
 from pathlib import Path
 
-import matplotlib as mpl
+import matplotlib
 import numpy as np
 import pandas as pd
 
-mpl.use("Agg")
+matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
@@ -46,7 +46,14 @@ try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
-    from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import (
+        HRFlowable,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
 except ImportError:
     sys.exit("ERROR: reportlab not installed.\nRun: pip3 install reportlab --break-system-packages")
 
@@ -198,7 +205,13 @@ RED = colors.HexColor("#F85149")
 
 # ── Styles ────────────────────────────────────────
 def S(name, **kw):
-    base = {"fontName": "Helvetica", "fontSize": 11, "textColor": TEXT, "leading": 15, "alignment": TA_LEFT}
+    base = {
+        "fontName": "Helvetica",
+        "fontSize": 11,
+        "textColor": TEXT,
+        "leading": 15,
+        "alignment": TA_LEFT,
+    }
     base.update(kw)
     return ParagraphStyle(name, **base)
 
@@ -208,11 +221,29 @@ S_SUB = S("s", fontSize=10, textColor=MUTED, leading=13)
 S_SEC = S("sc", fontName="Helvetica-Bold", fontSize=11, textColor=ACCENT, leading=14)
 S_NAME = S("n", fontName="Helvetica-Bold", fontSize=11, textColor=TEXT, leading=14)
 S_DESC = S("d", fontSize=10, textColor=MUTED, leading=13)
-S_PILL = S("pl", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white, leading=11, alignment=TA_CENTER)
-S_RIGHT = S("r", fontName="Helvetica-Bold", fontSize=11, textColor=TEXT, leading=14, alignment=TA_RIGHT)
+S_PILL = S(
+    "pl",
+    fontName="Helvetica-Bold",
+    fontSize=9,
+    textColor=colors.white,
+    leading=11,
+    alignment=TA_CENTER,
+)
+S_RIGHT = S(
+    "r", fontName="Helvetica-Bold", fontSize=11, textColor=TEXT, leading=14, alignment=TA_RIGHT
+)
 S_RMUT = S("rm", fontSize=10, textColor=MUTED, leading=13, alignment=TA_RIGHT)
-S_COMBO = S("cb", fontName="Helvetica-Bold", fontSize=15, textColor=colors.white, leading=19, alignment=TA_CENTER)
-S_CDSUB = S("cs", fontSize=10, textColor=colors.HexColor("#CCCCCC"), leading=13, alignment=TA_CENTER)
+S_COMBO = S(
+    "cb",
+    fontName="Helvetica-Bold",
+    fontSize=15,
+    textColor=colors.white,
+    leading=19,
+    alignment=TA_CENTER,
+)
+S_CDSUB = S(
+    "cs", fontSize=10, textColor=colors.HexColor("#CCCCCC"), leading=13, alignment=TA_CENTER
+)
 S_FOOT = S("ft", fontSize=8, textColor=MUTED, alignment=TA_CENTER, leading=10)
 
 
@@ -273,10 +304,20 @@ def breadth_row(label, value_str, signal_str, desc_str):
     inner = Table(
         [
             [
-                Paragraph(label, S("bl", fontName="Helvetica-Bold", fontSize=10, textColor=TEXT, leading=13)),
+                Paragraph(
+                    label,
+                    S("bl", fontName="Helvetica-Bold", fontSize=10, textColor=TEXT, leading=13),
+                ),
                 Paragraph(
                     value_str,
-                    S("bv", fontName="Helvetica-Bold", fontSize=10, textColor=TEXT, leading=13, alignment=TA_RIGHT),
+                    S(
+                        "bv",
+                        fontName="Helvetica-Bold",
+                        fontSize=10,
+                        textColor=TEXT,
+                        leading=13,
+                        alignment=TA_RIGHT,
+                    ),
                 ),
                 pill(signal_str.replace("_", " "), sig_color),
                 Paragraph(desc_str, S_DESC),
@@ -300,7 +341,9 @@ def breadth_row(label, value_str, signal_str, desc_str):
     return outer
 
 
-def make_breadth_chart(chart_df, y_cols, colors_list, labels, hlines=None, fill_zero=False, width_mm=174, height_mm=38):
+def make_breadth_chart(
+    chart_df, y_cols, colors_list, labels, hlines=None, fill_zero=False, width_mm=174, height_mm=38
+):
     """
     Render a breadth trend chart as a reportlab Image (in-memory PNG).
 
@@ -407,7 +450,12 @@ def index_row(sym, name):
 
 # ── Build PDF ─────────────────────────────────────
 doc = SimpleDocTemplate(
-    str(OUT_PATH), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=14 * mm, bottomMargin=12 * mm
+    str(OUT_PATH),
+    pagesize=A4,
+    leftMargin=18 * mm,
+    rightMargin=18 * mm,
+    topMargin=14 * mm,
+    bottomMargin=12 * mm,
 )
 
 
@@ -508,7 +556,13 @@ sub_row = Table(
                     [
                         Paragraph(
                             "VIX",
-                            S("vl", fontSize=9, textColor=colors.HexColor("#AAAAAA"), leading=11, alignment=TA_CENTER),
+                            S(
+                                "vl",
+                                fontSize=9,
+                                textColor=colors.HexColor("#AAAAAA"),
+                                leading=11,
+                                alignment=TA_CENTER,
+                            ),
                         ),
                         Paragraph(
                             vix_5tier.replace("_", " "),
@@ -530,7 +584,13 @@ sub_row = Table(
                     [
                         Paragraph(
                             "MARKET",
-                            S("ml", fontSize=9, textColor=colors.HexColor("#AAAAAA"), leading=11, alignment=TA_CENTER),
+                            S(
+                                "ml",
+                                fontSize=9,
+                                textColor=colors.HexColor("#AAAAAA"),
+                                leading=11,
+                                alignment=TA_CENTER,
+                            ),
                         ),
                         Paragraph(
                             f"{mkt_3tier.replace('_', ' ')}  ({fmt_ret(mkt_ret)})",
@@ -620,9 +680,20 @@ if breadth_latest is not None:
     b_score = int(bl["breadth_score"])
     b_narrative = str(bl["breadth_narrative"])
     b_color = BREADTH_LABEL_COLOR.get(b_label, MUTED)
-    S_BN = S("bn", fontName="Helvetica-Bold", fontSize=13, textColor=colors.white, leading=16, alignment=TA_CENTER)
-    S_BND = S("bnd", fontSize=9, textColor=colors.HexColor("#CCCCCC"), leading=12, alignment=TA_CENTER)
-    S_BSC = S("bsc", fontSize=9, textColor=colors.HexColor("#AAAAAA"), leading=11, alignment=TA_CENTER)
+    S_BN = S(
+        "bn",
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        textColor=colors.white,
+        leading=16,
+        alignment=TA_CENTER,
+    )
+    S_BND = S(
+        "bnd", fontSize=9, textColor=colors.HexColor("#CCCCCC"), leading=12, alignment=TA_CENTER
+    )
+    S_BSC = S(
+        "bsc", fontSize=9, textColor=colors.HexColor("#AAAAAA"), leading=11, alignment=TA_CENTER
+    )
     banner = Table(
         [
             [Paragraph(f"{b_label.replace('_', ' ')}  ({b_score:+d} / 7)", S_BN)],
@@ -657,7 +728,12 @@ if breadth_latest is not None:
     ]
     story += [
         make_breadth_chart(
-            chart_df, ["ad_line"], ["#58A6FF"], ["A/D Line"], hlines=[(0, "#8B949E", "--")], fill_zero=True
+            chart_df,
+            ["ad_line"],
+            ["#58A6FF"],
+            ["A/D Line"],
+            hlines=[(0, "#8B949E", "--")],
+            fill_zero=True,
         ),
         SP(1.5),
     ]
@@ -747,7 +823,11 @@ if breadth_latest is not None:
     ]
 
     p50 = bl["pct_above_50sma"]
-    p50_sig = "BULLISH" if (pd.notna(p50) and p50 > 60) else ("BEARISH" if (pd.notna(p50) and p50 < 40) else "NEUTRAL")
+    p50_sig = (
+        "BULLISH"
+        if (pd.notna(p50) and p50 > 60)
+        else ("BEARISH" if (pd.notna(p50) and p50 < 40) else "NEUTRAL")
+    )
     story += [
         breadth_row(
             "% > 50-day SMA",
@@ -793,7 +873,10 @@ if breadth_latest is not None:
 
 story += [
     SP(2),
-    Paragraph("NSE Factor Engine  ·  Stage 8  ·  market_movement/  ·  Signal only. Not investment advice.", S_FOOT),
+    Paragraph(
+        "NSE Factor Engine  ·  Stage 8  ·  market_movement/  ·  Signal only. Not investment advice.",
+        S_FOOT,
+    ),
 ]
 
 doc.build(story, onFirstPage=on_page, onLaterPages=on_page)

@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from pathlib import Path
-from typing import Tuple
 
 import click
 import numpy as np
@@ -78,14 +77,18 @@ def main(config_file):
         )
         return
 
-    print(f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}")
+    print(
+        f"Finished loading {len(df)} records with {len(df.columns)} columns from the source file {file_path}"
+    )
 
     # Select only the data necessary for analysis
     if window_size:
         df = df.tail(window_size)
         df = df.reset_index(drop=True)
 
-    print(f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]")
+    print(
+        f"Input data size {len(df)} records. Range: [{df.iloc[0][time_column]}, {df.iloc[-1][time_column]}]"
+    )
 
     #
     # Generate derived features
@@ -115,7 +118,7 @@ def main(config_file):
     print("Finished generating features.")
 
     # Handle NULLs
-    df = df.replace([np.inf, -np.inf], np.nan)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     na_df = df[df[all_features].isna().any(axis=1)]
     if len(na_df) > 0:
         print(f"WARNING: There exist {len(na_df)} rows with NULLs in some feature columns")
@@ -129,7 +132,9 @@ def main(config_file):
     out_file_name = config.get("feature_file_name")
     out_path = (data_path / out_file_name).resolve()
 
-    print(f"Storing features with {len(df)} records and {len(df.columns)} columns in output file {out_path}...")
+    print(
+        f"Storing features with {len(df)} records and {len(df.columns)} columns in output file {out_path}..."
+    )
     if out_path.suffix == ".parquet":
         df.to_parquet(out_path, index=False)
     elif out_path.suffix == ".csv":

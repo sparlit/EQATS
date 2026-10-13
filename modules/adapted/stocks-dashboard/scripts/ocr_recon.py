@@ -42,7 +42,9 @@ from rapidocr_onnxruntime import RapidOCR
 HERE = os.path.dirname(os.path.abspath(__file__))
 OCR = RapidOCR()
 D = json.load(open(os.path.join(HERE, "..", "docs", "sf_fundamentals.json")))
-recon = {"%s|%d" % (r["sym"], r["qe"]): r for r in json.load(open(os.path.join(HERE, "_reconcand.json")))}
+recon = {
+    "%s|%d" % (r["sym"], r["qe"]): r for r in json.load(open(os.path.join(HERE, "_reconcand.json")))
+}
 
 
 def stored(s, q, idx=3):
@@ -96,13 +98,17 @@ def find_results_page(doc):
             continue
         imgs = doc[p].get_images()
         big = any((im[2] > 900 and im[3] > 900) for im in imgs)
-        if (big and len(t) < 500) or (len(re.findall(r"\d[\d,]*\.\d\d", t)) > 25 and ("profit" in low)):
+        if big and len(t) < 500 or len(re.findall(r"\d[\d,]*\.\d\d", t)) > 25 and ("profit" in low):
             cands.append(p)
     out = []
     for p in cands[:12]:
         pm = doc[p].get_pixmap(dpi=300)
         im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-        im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        im = (
+            cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+            if pm.n == 3
+            else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        )
         rows = ocr_rows(im)
         blob = " ".join(t for r in rows for _, t in r).lower()
         score = (
@@ -153,7 +159,8 @@ def main():
         for r in rows:
             txt = " ".join(t for _, t in r).lower()
             if (
-                "profit" in txt and ("owner" in txt or "for the" in txt or "after tax" in txt or "period" in txt)
+                "profit" in txt
+                and ("owner" in txt or "for the" in txt or "after tax" in txt or "period" in txt)
             ) or "attributable to" in txt:
                 nums = [v for v in (tonum(t) for _, t in r) if v is not None]
                 if len(nums) >= 4:
@@ -161,8 +168,12 @@ def main():
         # try to find a row whose values include the prev and/or yago anchors
         match = None
         for txt, nums in profrows:
-            hasprev = a_prev is not None and any(abs(v - a_prev) <= max(0.05, abs(a_prev) * 0.01) for v in nums)
-            hasyago = a_yago is not None and any(abs(v - a_yago) <= max(0.05, abs(a_yago) * 0.01) for v in nums)
+            hasprev = a_prev is not None and any(
+                abs(v - a_prev) <= max(0.05, abs(a_prev) * 0.01) for v in nums
+            )
+            hasyago = a_yago is not None and any(
+                abs(v - a_yago) <= max(0.05, abs(a_yago) * 0.01) for v in nums
+            )
             if hasprev or hasyago:
                 match = {"row": txt, "nums": nums, "hasprev": hasprev, "hasyago": hasyago}
                 break

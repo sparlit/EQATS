@@ -58,7 +58,7 @@ pub(super) fn apply_mimocode(model_info: &ModelInfo) -> ApplyResult {
     let mut config = read_jsonc_file(&config_path).unwrap_or(serde_json::json!({}));
 
     if config.get("$schema").is_none() {
-        config["$schema"] = serde_json::json!("https://mimo.xiaomi.com/config.json");
+        config["$schema"] = serde_json::json!("https://mimo.xiaomi.com/mimocode/config.json");
     }
     if !config
         .get("provider")

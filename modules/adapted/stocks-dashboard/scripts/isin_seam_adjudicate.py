@@ -72,7 +72,6 @@ import csv
 import json
 import os
 import re
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EV = os.path.join(HERE, "_isin_seam_evidence.json")
@@ -107,7 +106,7 @@ def live_symbols():
 
 def eq_field(seam, sym, field):
     """The field's value for `sym` from whichever staged list holds it (live wins, then newest)."""
-    for tag in ["live", *sorted((t for t in seam["equityL"] if t != "live"), reverse=True)]:
+    for tag in ["live"] + sorted((t for t in seam["equityL"] if t != "live"), reverse=True):
         row = seam["equityL"].get(tag, {}).get(sym)
         if row and row.get(field):
             return row[field], tag
@@ -166,7 +165,9 @@ def adjudicate(seam, live, keyrec=None):
     if seam["symchg"]:
         pair = {(r["old"], r["new"]) for r in seam["symchg"]}
         legs.append("symchg")
-        notes["symchg"] = sorted("{}->{} {}".format(r["old"], r["new"], r["date"]) for r in seam["symchg"])
+        notes["symchg"] = sorted(
+            "{}->{} {}".format(r["old"], r["new"], r["date"]) for r in seam["symchg"]
+        )
         notes["symchgDirect"] = (seam["old"], seam["new"]) in pair
     if seam["prevcloseFactors"]:
         legs.append("prevclose")
@@ -235,7 +236,9 @@ def main():
                     r["new"],
                     r["gapDays"],
                     ",".join(r["legs"]) or "-",
-                    "REFUSED:" + ",".join(r["refusals"]) if r["refusals"] else (r["notes"].get("face") or ""),
+                    "REFUSED:" + ",".join(r["refusals"])
+                    if r["refusals"]
+                    else (r["notes"].get("face") or ""),
                 )
             )
         print()

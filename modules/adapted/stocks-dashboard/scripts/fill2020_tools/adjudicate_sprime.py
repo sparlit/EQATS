@@ -96,12 +96,16 @@ def std_annual_link(sym, fy):
 
     if sym not in _ANN:
         rows = []
-        for s in [sym, *NAR.aliases(sym)]:
-            lp = os.path.join(NAR.CACHE, "annlist_{}.json".format(re.sub(r"[^A-Z0-9]", "_", s.upper())))
+        for s in [sym] + NAR.aliases(sym):
+            lp = os.path.join(
+                NAR.CACHE, "annlist_{}.json".format(re.sub(r"[^A-Z0-9]", "_", s.upper()))
+            )
             try:
                 raw = NAR.get(
                     "https://www.nseindia.com/api/corporates-financial-results"
-                    "?index=equities&symbol={}&period=Annual".format(urllib.parse.quote(s, safe="")),
+                    "?index=equities&symbol={}&period=Annual".format(
+                        urllib.parse.quote(s, safe="")
+                    ),
                     lp,
                 )
                 got = json.loads(raw)
@@ -120,7 +124,9 @@ def std_annual_link(sym, fy):
             continue
         if fr_qe is None:
             continue
-        months = (to_qe // 10000 - fr_qe // 10000) * 12 + ((to_qe // 100) % 100 - (fr_qe // 100) % 100)
+        months = (to_qe // 10000 - fr_qe // 10000) * 12 + (
+            (to_qe // 100) % 100 - (fr_qe // 100) % 100
+        )
         if 10 <= months <= 13:  # a real 12-month span, §53d's declared-span gate
             return row["resultDetailedDataLink"], months
     return None, None
@@ -162,7 +168,12 @@ def main():
     for sym, qe, rec in work:
         stored = {r[0]: r[1] for r in fund.get(sym, [])}
         fy = OWN.fy_of(qe)
-        quarters = [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+        quarters = [
+            (fy - 1) * 10000 + 630,
+            (fy - 1) * 10000 + 930,
+            (fy - 1) * 10000 + 1231,
+            fy * 10000 + 331,
+        ]
         links = std_pages(sym, (fy - 1) * 10000 + 401, fy * 10000 + 331)
         print("=" * 100)
         print("%-12s %d  (FY%d)  stored_std=%s" % (sym, qe, fy, stored.get(qe)))
@@ -196,7 +207,9 @@ def main():
             for q, v in sorted(stored.items()):
                 if v is None or q == qe:
                     continue
-                if abs(q // 10000 - qe // 10000) <= 1 and abs(page[qe] - v) <= max(0.05, abs(v) * 0.005):
+                if abs(q // 10000 - qe // 10000) <= 1 and abs(page[qe] - v) <= max(
+                    0.05, abs(v) * 0.005
+                ):
                     mis = q
                     break
         # the §45 test itself
@@ -217,7 +230,11 @@ def main():
         ssum = sum(stored[q] for q in quarters) if have_stored else None
 
         def hit(total):
-            return total is not None and ann is not None and abs(total - ann) <= max(FY_ABS, abs(ann) * FY_REL)
+            return (
+                total is not None
+                and ann is not None
+                and abs(total - ann) <= max(FY_ABS, abs(ann) * FY_REL)
+            )
 
         verdict = "inconclusive"
         if mis is not None:
@@ -245,14 +262,17 @@ def main():
         # wrong documents" (GITANJALI: 0 of 4 exact) from "one quarter was later revised"
         # (BLISSGVS/NOIDATOLL: 3 of 4 exact to the paisa).
         exact = sum(
-            1 for q in quarters if q in page and stored.get(q) is not None and q != qe and OWN.near(page[q], stored[q])
+            1
+            for q in quarters
+            if q in page and stored.get(q) is not None and q != qe and OWN.near(page[q], stored[q])
         )
         rel = None
         if qe in page and stored.get(qe):
             rel = abs(page[qe] - stored[qe]) / abs(stored[qe])
         print(
             "   sibling quarters of FY%d reproduced exactly by the archive: %d of 3 | "
-            "disputed quarter off by %s" % (fy, exact, "%.2f%%" % (rel * 100) if rel is not None else "n/a")
+            "disputed quarter off by %s"
+            % (fy, exact, "%.2f%%" % (rel * 100) if rel is not None else "n/a")
         )
         out["%s|%d" % (sym, qe)] = {
             "fy": fy,

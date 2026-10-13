@@ -49,7 +49,6 @@ import pandas as pd
 warnings.filterwarnings("ignore")
 sys.path.insert(0, "/home/ec2-user/nse-factor-engine")
 
-from backtest.metrics.compute_metrics import compute_benchmark_metrics
 from backtest.metrics.compute_metrics import run as compute_metrics
 from backtest.simulation.portfolio import PortfolioState
 from backtest.strategies.config import CELLS
@@ -103,7 +102,9 @@ if os.path.exists(WR_PATH) and os.path.exists(ACT_PATH):
     activity_df = pd.read_parquet(ACT_PATH)
 else:
     print("Indexing close prices by date ...")
-    prices_by_date = {date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")}
+    prices_by_date = {
+        date: grp.set_index("symbol")["close"].to_dict() for date, grp in prices.groupby("date")
+    }
 
     bench = pd.read_parquet(BENCH_PATH).set_index("date")["close"]
 
@@ -121,7 +122,9 @@ else:
             cell_id = f"{gate_id}_{score_id}"
             # incumbents = symbols currently held by this cell (from prior week)
             incumbent_symbols = set(cell_states[cell_id].holdings.keys())
-            port_df = get_portfolio(gate_id, score_id, signals, verbose=False, incumbent_symbols=incumbent_symbols)
+            port_df = get_portfolio(
+                gate_id, score_id, signals, verbose=False, incumbent_symbols=incumbent_symbols
+            )
             top25 = port_df["symbol"].tolist() if not port_df.empty else []
             pv, act = cell_states[cell_id].rebalance(top25, px_T, pd.Timestamp(T), cell_id)
             portfolio_values[cell_id].append((T, pv))
@@ -139,7 +142,7 @@ else:
             )
 
     # assemble weekly returns
-    friday_dates = [t for t, _ in portfolio_values[next(iter(cell_states.keys()))]]
+    friday_dates = [t for t, _ in portfolio_values[list(cell_states.keys())[0]]]
     weekly_df = pd.DataFrame({"friday_date": friday_dates})
 
     for cell_id, vals in portfolio_values.items():
@@ -220,5 +223,8 @@ top5 = results_df[results_df["cell_id"] != "BENCHMARK"].nlargest(5, "sharpe")
 print(top5[["cell_id", "cagr", "sharpe", "sortino", "max_dd", "alpha"]].to_string(index=False))
 print()
 print("Benchmark:")
-print(f"  CAGR={bench_metrics['cagr']:.2%} Sharpe={bench_metrics['sharpe']:.2f} MaxDD={bench_metrics['max_dd']:.2%}")
+print(
+    f"  CAGR={bench_metrics['cagr']:.2%} Sharpe={bench_metrics['sharpe']:.2f} "
+    f"MaxDD={bench_metrics['max_dd']:.2%}"
+)
 print("=" * 60)

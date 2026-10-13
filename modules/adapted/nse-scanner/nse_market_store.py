@@ -83,7 +83,9 @@ def restore_prices(db_path: str | Path, min_days: int = 1) -> int:
     try:
         for path in paths[-KEEP_DAYS:]:
             day = path.stem
-            existing = conn.execute("SELECT 1 FROM load_log WHERE date = ? AND status = 'ok'", (day,)).fetchone()
+            existing = conn.execute(
+                "SELECT 1 FROM load_log WHERE date = ? AND status = 'ok'", (day,)
+            ).fetchone()
             if existing:
                 continue
 
@@ -92,22 +94,30 @@ def restore_prices(db_path: str | Path, min_days: int = 1) -> int:
                 continue
             missing = [column for column in PRICE_COLUMNS if column not in frame.columns]
             if missing:
-                msg = f"Invalid market snapshot {path}: missing {missing}"
-                raise ValueError(msg)
+                raise ValueError(f"Invalid market snapshot {path}: missing {missing}")
 
             frame[PRICE_COLUMNS].to_sql("daily_prices", conn, if_exists="append", index=False)
             conn.execute(
                 """INSERT OR REPLACE INTO load_log
                    (date, loaded_at, prices_rows, status, notes)
                    VALUES (?, ?, ?, 'ok', ?)""",
-                (day, datetime.utcnow().isoformat(), len(frame), "Restored from market_data snapshot"),
+                (
+                    day,
+                    datetime.utcnow().isoformat(),
+                    len(frame),
+                    "Restored from market_data snapshot",
+                ),
             )
             restored += 1
         if INDEX_HISTORY_PATH.exists():
             indices = pd.read_csv(INDEX_HISTORY_PATH)
             required = ["index_name", "date", "open", "high", "low", "close"]
             if not indices.empty and all(column in indices for column in required):
-                optional = [column for column in ("change_pct", "volume", "pe", "pb", "div_yield") if column in indices]
+                optional = [
+                    column
+                    for column in ("change_pct", "volume", "pe", "pb", "div_yield")
+                    if column in indices
+                ]
                 columns = [*required, *optional]
                 conn.executemany(
                     f"INSERT OR REPLACE INTO index_perf ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",
@@ -120,7 +130,9 @@ def restore_prices(db_path: str | Path, min_days: int = 1) -> int:
                     "INSERT OR IGNORE INTO blacklist (symbol, date) VALUES (?, ?)",
                     [
                         tuple(row)
-                        for row in blacklist[["symbol", "date"]].drop_duplicates().itertuples(index=False, name=None)
+                        for row in blacklist[["symbol", "date"]]
+                        .drop_duplicates()
+                        .itertuples(index=False, name=None)
                     ],
                 )
         conn.commit()
@@ -146,8 +158,7 @@ def export_price_snapshot(db_path: str | Path, trade_date: date | str) -> Path:
         conn.close()
 
     if frame.empty:
-        msg = f"Cannot create snapshot for {day}: no daily_prices rows"
-        raise ValueError(msg)
+        raise ValueError(f"Cannot create snapshot for {day}: no daily_prices rows")
     frame.to_csv(snapshot_path, index=False, lineterminator="\n")
     return snapshot_path
 
@@ -158,7 +169,9 @@ def export_all_price_snapshots(db_path: str | Path, keep_days: int = KEEP_DAYS) 
     try:
         dates = [
             row[0]
-            for row in conn.execute("SELECT DISTINCT date FROM daily_prices ORDER BY date DESC LIMIT ?", (keep_days,))
+            for row in conn.execute(
+                "SELECT DISTINCT date FROM daily_prices ORDER BY date DESC LIMIT ?", (keep_days,)
+            )
         ]
     finally:
         conn.close()
@@ -182,7 +195,9 @@ def export_all_price_snapshots(db_path: str | Path, keep_days: int = KEEP_DAYS) 
 def export_index_history(db_path: str | Path, keep_sessions: int = KEEP_DAYS) -> int:
     """Persist official NSE index rows for regime and relative-strength replay."""
     with sqlite3.connect(str(db_path)) as conn:
-        exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='index_perf'").fetchone()
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='index_perf'"
+        ).fetchone()
         if not exists:
             return 0
         frame = pd.read_sql_query("SELECT * FROM index_perf ORDER BY date,index_name", conn)
@@ -198,7 +213,9 @@ def export_index_history(db_path: str | Path, keep_sessions: int = KEEP_DAYS) ->
 def export_blacklist_snapshot(db_path: str | Path) -> int:
     """Persist surveillance exclusions once for all downstream read-only scanners."""
     with sqlite3.connect(str(db_path)) as conn:
-        exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='blacklist'").fetchone()
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='blacklist'"
+        ).fetchone()
         if not exists:
             return 0
         frame = pd.read_sql_query("SELECT symbol, date FROM blacklist ORDER BY date, symbol", conn)

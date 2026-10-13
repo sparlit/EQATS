@@ -68,9 +68,7 @@ def is_genuine_result(desc: str, attchmnt_text: str) -> bool:
     combined = (desc + " " + text).lower()
     if "result" in combined:
         return True
-    if text == "" or GENERIC_OUTCOME_RE.match(text):
-        return True
-    return False
+    return bool(text == "" or GENERIC_OUTCOME_RE.match(text))
 
 
 FLAG_QUERY = """
@@ -144,7 +142,8 @@ def main():
             if is_genuine_result(match.get("desc", ""), match.get("attchmntText", "")):
                 new_result_date = ist_dt.date()
                 break
-            bad_ids.append(row_id)
+            else:
+                bad_ids.append(row_id)
 
         if bad_ids and new_result_date:
             print(
@@ -167,16 +166,22 @@ def main():
 
     old_dates = {}
     for symbol, (bad_ids, new_result_date) in fixes.items():
-        db.execute("SELECT DISTINCT result_date FROM presentation_keyword_analysis WHERE symbol = %s", (symbol,))
+        db.execute(
+            "SELECT DISTINCT result_date FROM presentation_keyword_analysis WHERE symbol = %s",
+            (symbol,),
+        )
         old_dates[symbol] = [r[0] for r in db.fetchall()]
 
     for symbol, (bad_ids, new_result_date) in fixes.items():
-        print(f"\nFixing {symbol} -> new result_date {new_result_date} (deleting {len(bad_ids)} bad row(s)) …")
+        print(
+            f"\nFixing {symbol} -> new result_date {new_result_date} (deleting {len(bad_ids)} bad row(s)) …"
+        )
         for row_id in bad_ids:
             db.execute("DELETE FROM pead_announcements WHERE id = %s", (row_id,))
         for old_date in old_dates[symbol]:
             db.execute(
-                "DELETE FROM presentation_keyword_analysis WHERE symbol = %s AND result_date = %s", (symbol, old_date)
+                "DELETE FROM presentation_keyword_analysis WHERE symbol = %s AND result_date = %s",
+                (symbol, old_date),
             )
         db.commit()
 

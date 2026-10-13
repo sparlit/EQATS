@@ -65,7 +65,8 @@ for sym, ds, oldv, newv in wrong:
     else:
         skipped_elsewhere += 1
 print(
-    "wrong-company corrections: %d applied in-ledger, %d not-from-this-ledger (left alone)" % (fixed, skipped_elsewhere)
+    "wrong-company corrections: %d applied in-ledger, %d not-from-this-ledger (left alone)"
+    % (fixed, skipped_elsewhere)
 )
 
 old["_meta"]["built"] = "2026-08-11"

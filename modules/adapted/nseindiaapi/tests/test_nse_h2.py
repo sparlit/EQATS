@@ -21,6 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
+import shutil
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -29,240 +30,250 @@ from context import NSE
 
 
 class TestNseApiH2(unittest.TestCase):
-    """Test nse class with http2 using httpx library"""
+    """Test nse class with http v2"""
 
     @classmethod
     def setUpClass(cls):
         DIR = Path(__file__).parent
-        cls.nse = NSE(DIR, server=True)
-        print("\nRunning tests using httpx library.\n")
+        cls.nse = NSE(DIR, use_http2=True)
+        print("\nRunning tests using http v2.\n")
 
     @classmethod
     def tearDownClass(cls):
         cls.nse.exit()
+        cls.nse._transport.cookie_store.clear()
+        shutil.rmtree(cls.nse.opt_cache_dir)
 
     def test_status(self):
         response = self.nse.status()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+
+    def test_lookup(self):
+        response = self.nse.lookup(query="hdfcbank")
+
+        self.assertIsInstance(response, dict)
+        self.assertIsInstance(response["data"], list)
 
     def test_holidays(self):
         response = self.nse.holidays()
 
-        assert isinstance(response, dict)
-        assert "CM" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("CM" in response)
 
-    def test_blockdeals(self):
-        response = self.nse.blockDeals()
+    def test_block_deals(self):
+        response = self.nse.block_deals()
 
-        assert isinstance(response, dict)
-        assert "timestamp" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("timestamp" in response)
 
-    def test_bulkdeals(self):
+    def test_bulk_deals(self):
         today = datetime.now()
 
-        response = self.nse.bulkdeals(option_type="bulk_deals", fromdate=today - timedelta(3), todate=today)
+        response = self.nse.bulk_deals(
+            option_type="bulk_deals", from_date=today - timedelta(3), to_date=today
+        )
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "BD_DT_DATE" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("BD_DT_DATE" in response[0])
 
-    def test_equityMetaInfo(self):
-        response = self.nse.equityMetaInfo("reliance")
+    def test_equity_meta_info(self):
+        response = self.nse.equity_meta_info("reliance")
 
-        assert isinstance(response, dict)
-        assert "symbol" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("symbol" in response)
 
     def test_quote(self):
         response = self.nse.quote(symbol="reliance", series="EQ")
 
-        assert isinstance(response, dict)
-        assert "priceInfo" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("priceInfo" in response)
 
     def test_live_volume_gainers(self):
-        response = self.nse.liveVolumeGainers()
+        response = self.nse.live_volume_gainers()
 
-        assert isinstance(response, dict)
-        assert isinstance(response["data"], list)
+        self.assertIsInstance(response, dict)
+        self.assertIsInstance(response["data"], list)
 
         if response["data"]:
             dct = response["data"][0]
-            assert isinstance(dct, dict)
-            assert "symbol" in dct
-            assert "volume" in dct
+            self.assertIsInstance(dct, dict)
+            self.assertTrue("symbol" in dct)
+            self.assertTrue("volume" in dct)
 
     def test_gainers(self):
         test_data = {"data": [{"pChange": i} for i in range(10)]}
         response = self.nse.gainers(test_data)
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert response[0]["pChange"] == 9
-        assert response[-1]["pChange"] == 1
-        assert len(response) == 9
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertEqual(response[0]["pChange"], 9)
+        self.assertEqual(response[-1]["pChange"], 1)
+        self.assertEqual(len(response), 9)
 
         response = self.nse.gainers(test_data, count=3)
 
-        assert len(response) == 3
-        assert response[0]["pChange"] == 9
-        assert response[-1]["pChange"] == 7
+        self.assertEqual(len(response), 3)
+        self.assertEqual(response[0]["pChange"], 9)
+        self.assertEqual(response[-1]["pChange"], 7)
 
     def test_losers(self):
         test_data = {"data": [{"pChange": i} for i in range(-1, -10, -1)]}
         response = self.nse.losers(test_data)
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert response[0]["pChange"] == -9
-        assert response[-1]["pChange"] == -1
-        assert len(response) == 9
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertEqual(response[0]["pChange"], -9)
+        self.assertEqual(response[-1]["pChange"], -1)
+        self.assertEqual(len(response), 9)
 
         response = self.nse.losers(test_data, count=3)
 
-        assert len(response) == 3
-        assert response[0]["pChange"] == -9
-        assert response[-1]["pChange"] == -7
+        self.assertEqual(len(response), 3)
+        self.assertEqual(response[0]["pChange"], -9)
+        self.assertEqual(response[-1]["pChange"], -7)
 
-    def test_listEquityStocksByIndex(self):
-        response = self.nse.listEquityStocksByIndex(index="NIFTY 50")
+    def test_list_equity_stocks_by_index(self):
+        response = self.nse.list_equity_stocks_by_index(index="nifty 50")
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert "pChange" in response["data"][0]
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertTrue("pChange" in response["data"][0])
 
-    def test_listIndices(self):
-        response = self.nse.listIndices()
+    def test_list_indices(self):
+        response = self.nse.list_indices()
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert isinstance(response["data"], list)
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertIsInstance(response["data"], list)
 
-    def test_listSme(self):
-        response = self.nse.listSme()
+    def test_list_sme(self):
+        response = self.nse.list_sme()
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert "pChange" in response["data"][0]
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertTrue("pChange" in response["data"][0])
 
-    def test_listEtf(self):
-        response = self.nse.listEtf()
+    def test_list_etf(self):
+        response = self.nse.list_etf()
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert "symbol" in response["data"][0]
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertTrue("symbol" in response["data"][0])
 
-    def test_listSgb(self):
-        response = self.nse.listSgb()
+    def test_list_sgb(self):
+        response = self.nse.list_sgb()
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert "symbol" in response["data"][0]
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertTrue("symbol" in response["data"][0])
 
-    def test_listCurrentIPO(self):
-        response = self.nse.listCurrentIPO()
+    def test_list_current_ipo(self):
+        response = self.nse.list_current_ipo()
 
-        assert isinstance(response, list)
-
-        if len(response):
-            assert isinstance(response[0], dict)
-            assert "symbol" in response[0]
-
-    def test_listUpcomingIPO(self):
-        response = self.nse.listUpcomingIPO()
-
-        assert isinstance(response, list)
+        self.assertIsInstance(response, list)
 
         if len(response):
-            assert isinstance(response[0], dict)
-            assert "symbol" in response[0]
+            self.assertIsInstance(response[0], dict)
+            self.assertTrue("symbol" in response[0])
 
-    def test_listPastIPO(self):
-        response = self.nse.listPastIPO()
+    def test_list_upcoming_ipo(self):
+        response = self.nse.list_upcoming_ipo()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "symbol" in response[0]
+        self.assertIsInstance(response, list)
+
+        if len(response):
+            self.assertIsInstance(response[0], dict)
+            self.assertTrue("symbol" in response[0])
+
+    def test_list_past_ipo(self):
+        response = self.nse.list_past_ipo()
+
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("symbol" in response[0])
 
     def test_circulars(self):
         response = self.nse.circulars()
 
-        assert isinstance(response, dict)
-        assert "data" in response
-        assert isinstance(response["data"], list)
+        self.assertIsInstance(response, dict)
+        self.assertTrue("data" in response)
+        self.assertIsInstance(response["data"], list)
 
         response = self.nse.circulars(subject="holidays")
-        assert isinstance(response, dict)
+        self.assertIsInstance(response, dict)
 
     def test_actions(self):
         response = self.nse.actions()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "symbol" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("symbol" in response[0])
 
     def test_announcements(self):
         response = self.nse.announcements()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "symbol" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("symbol" in response[0])
 
-    def test_boardMeetings(self):
-        response = self.nse.boardMeetings()
+    def test_board_meetings(self):
+        response = self.nse.board_meetings()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "bm_symbol" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("bm_symbol" in response[0])
 
-    def test_getFuturesExpiry(self):
-        response = self.nse.getFuturesExpiry()
+    def test_get_futures_expiry(self):
+        response = self.nse.get_futures_expiry()
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], str)
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], str)
 
-    def test_fnoLots(self):
-        response = self.nse.fnoLots()
+    def test_fno_lots(self):
+        response = self.nse.fno_lots()
 
-        assert isinstance(response, dict)
+        self.assertIsInstance(response, dict)
 
-    def test_optionChain(self):
-        response = self.nse.optionChain(symbol="nifty")
+    def test_option_chain(self):
+        response = self.nse.option_chain(symbol="nifty")
 
-        assert isinstance(response, dict)
-        assert "records" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("records" in response)
 
     def test_fetch_historical_vix_data(self):
         response = self.nse.fetch_historical_vix_data()
 
-        assert isinstance(response, list)
-        assert "VIX_PERC_CHG" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertTrue("VIX_PERC_CHG" in response[0])
 
     def test_fetch_historical_fno_data(self):
         response = self.nse.fetch_historical_fno_data(instrument="FUTIDX", symbol="NIFTY")
 
-        assert isinstance(response, list)
-        assert "FH_OPEN_INT" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertTrue("FH_OPEN_INT" in response[0])
 
     def test_fetch_historical_index_data(self):
-        response = self.nse.fetch_historical_index_data(index="NIFTY 50")
+        response = self.nse.fetch_historical_index_data(index="nifty 50")
 
-        assert isinstance(response, list)
-        assert isinstance(response[0], dict)
-        assert "EOD_TIMESTAMP" in response[0]
+        self.assertIsInstance(response, list)
+        self.assertIsInstance(response[0], dict)
+        self.assertTrue("EOD_TIMESTAMP" in response[0])
 
     def test_fetch_fno_underlying(self):
         response = self.nse.fetch_fno_underlying()
 
-        assert isinstance(response, dict)
-        assert "IndexList" in response
+        self.assertIsInstance(response, dict)
+        self.assertTrue("IndexList" in response)
 
-    def test_getDetailedScripData(self):
-        response = self.nse.getDetailedScripData(symbol="ETERNAL", series="EQ")
+    def test_get_detailed_scrip_data(self):
+        response = self.nse.get_detailed_scrip_data(symbol="eternal", series="eq")
 
-        assert isinstance(response, dict)
-        assert "equityResponse" in response
-        assert response["equityResponse"][0]["metaData"]["symbol"] == "ETERNAL"
+        self.assertIsInstance(response, dict)
+        self.assertTrue("equityResponse" in response)
+        self.assertEqual(response["equityResponse"][0]["metaData"]["symbol"], "ETERNAL")
 
 
 if __name__ == "__main__":

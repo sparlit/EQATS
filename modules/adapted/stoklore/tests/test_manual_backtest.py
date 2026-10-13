@@ -89,7 +89,11 @@ def test_manual_backtest_settings_roundtrip():
     original = db.get_manual_backtest_settings()
     try:
         db.set_manual_backtest_settings(
-            {"setups": ["Breakout", "Reversal"], "risk_deviation_tolerance_pct": 15, "opening_balance": 100000}
+            {
+                "setups": ["Breakout", "Reversal"],
+                "risk_deviation_tolerance_pct": 15,
+                "opening_balance": 100000,
+            }
         )
         settings = db.get_manual_backtest_settings()
         assert settings["setups"] == ["Breakout", "Reversal"]
@@ -148,25 +152,24 @@ def test_review_fields_survive_a_put_that_omits_them():
     )["id"]
     try:
         t = db.get_manual_trade(trade_id)
-        assert t["mistakes"] == ["Stop"]
-        assert t["execution_score"] == 7
-        assert t["execution_checks"] == checks
-        assert t["pre_trade_checks"] == {"entry_rules": True}
+        assert t["mistakes"] == ["Stop"] and t["execution_score"] == 7
+        assert t["execution_checks"] == checks and t["pre_trade_checks"] == {"entry_rules": True}
 
         router.update_manual_trade(trade_id, ManualTradeRequest(**base, setup="Breakout"))
         t = db.get_manual_trade(trade_id)
         assert t["setup"] == "Breakout", t["setup"]
         assert t["mistakes"] == ["Stop"] and t["execution_score"] == 7, "omitted review was wiped"
 
-        router.update_manual_trade(trade_id, ManualTradeRequest(**base, mistakes=[], execution_score=None))
+        router.update_manual_trade(
+            trade_id, ManualTradeRequest(**base, mistakes=[], execution_score=None)
+        )
         t = db.get_manual_trade(trade_id)
         assert t["mistakes"] == [] and t["execution_score"] is None, "explicit clear ignored"
         assert t["execution_checks"] == checks, "an unsent field was touched"
 
         db.update_manual_trade_image(trade_id, "entry.png", entry=True)
         t = db.get_manual_trade(trade_id)
-        assert t["image_filename_entry"] == "entry.png"
-        assert t["image_filename"] is None
+        assert t["image_filename_entry"] == "entry.png" and t["image_filename"] is None
     finally:
         db.delete_manual_trade(trade_id)
     assert db.get_manual_trade(trade_id) is None
@@ -182,8 +185,7 @@ def test_review_fields_survive_a_put_that_omits_them():
     )["id"]
     try:
         r = next(r for r in db.list_trade_reviews() if r["id"] == review_id)
-        assert r["keep"] is None
-        assert r["change"] == "No trades before 9:45"
+        assert r["keep"] is None and r["change"] == "No trades before 9:45"
         assert str(r["change_from"]) == "2026-09-21"
     finally:
         db.delete_trade_review(review_id)

@@ -72,7 +72,9 @@ class coincheck(ccxt.async_support.coincheck):
             },
         )
 
-    async def watch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def watch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         watches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -98,7 +100,7 @@ class coincheck(ccxt.async_support.coincheck):
         orderbook = await self.watch(url, messageHash, message, messageHash)
         return orderbook.limit()
 
-    def handle_order_book(self, client: object, message: object):
+    def handle_order_book(self, client: Client, message: list[object]):
         #
         #     [
         #         "btc_jpy",
@@ -120,7 +122,7 @@ class coincheck(ccxt.async_support.coincheck):
         #     ]
         #
         symbol = self.symbol(self.safe_string(message, 0))
-        data = self.safe_value(message, 1, {})
+        data = self.safe_dict(message, 1, {})
         timestamp = self.safe_timestamp(data, "last_update_at")
         snapshot = self.parse_order_book(data, symbol, timestamp)
         orderbook = self.safe_value(self.orderbooks, symbol)
@@ -133,7 +135,9 @@ class coincheck(ccxt.async_support.coincheck):
         messageHash = "orderbook:" + symbol
         client.resolve(orderbook, messageHash)
 
-    async def watch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def watch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         watches information on multiple trades made in a market
 
@@ -150,7 +154,7 @@ class coincheck(ccxt.async_support.coincheck):
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        symbol = market["symbol"]
+        symbolValue = market["symbol"]
         messageHash = "trade:" + market["symbol"]
         url = self.urls["api"]["ws"]
         request = {
@@ -159,50 +163,51 @@ class coincheck(ccxt.async_support.coincheck):
         }
         message = self.extend(request, params)
         trades = await self.watch(url, messageHash, message, messageHash)
+        limitResolved = limit
         if self.newUpdates:
-            limit = trades.getLimit(symbol, limit)
-        return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
+            limitResolved = trades.getLimit(symbolValue, limit)
+        return self.filter_by_since_limit(trades, since, limitResolved, "timestamp", True)
 
-    def handle_trades(self, client: Client, message: object):
+    def handle_trades(self, client: Client, message: list[object]):
         #
         #     [
         #         [
-        #             "1663318663",  # transaction timestamp(unix time)
-        #             "2357062",  # transaction ID
-        #             "btc_jpy",  # pair
-        #             "2820896.0",  # transaction rate
-        #             "5.0",  # transaction amount
-        #             "sell",  # order side
-        #             "1193401",  # ID of the Taker
-        #             "2078767"  # ID of the Maker
+        #             "1663318663", // transaction timestamp (unix time)
+        #             "2357062", // transaction ID
+        #             "btc_jpy", // pair
+        #             "2820896.0", // transaction rate
+        #             "5.0", // transaction amount
+        #             "sell", // order side
+        #             "1193401", // ID of the Taker
+        #             "2078767" // ID of the Maker
         #         ]
         #     ]
         #
-        first = self.safe_value(message, 0, [])
+        first = self.safe_list(message, 0, [])
         symbol = self.symbol(self.safe_string(first, 2))
         stored = self.safe_value(self.trades, symbol)
         if stored is None:
             limit = self.safe_integer(self.options, "tradesLimit", 1000)
             stored = ArrayCache(limit)
             self.trades[symbol] = stored
-        for i in range(len(message)):
+        for i in range(0, len(message)):
             data = self.safe_value(message, i)
             trade = self.parse_ws_trade(data)
             stored.append(trade)
         messageHash = "trade:" + symbol
         client.resolve(stored, messageHash)
 
-    def parse_ws_trade(self, trade: dict, market: Market = None) -> Trade:
+    def parse_ws_trade(self, trade: list, market: Market = None) -> Trade:
         #
         #     [
-        #         "1663318663",  # transaction timestamp(unix time)
-        #         "2357062",  # transaction ID
-        #         "btc_jpy",  # pair
-        #         "2820896.0",  # transaction rate
-        #         "5.0",  # transaction amount
-        #         "sell",  # order side
-        #         "1193401",  # ID of the Taker
-        #         "2078767"  # ID of the Maker
+        #         "1663318663", // transaction timestamp (unix time)
+        #         "2357062", // transaction ID
+        #         "btc_jpy", // pair
+        #         "2820896.0", // transaction rate
+        #         "5.0", // transaction amount
+        #         "sell", // order side
+        #         "1193401", // ID of the Taker
+        #         "2078767" // ID of the Maker
         #     ]
         #
         symbol = self.symbol(self.safe_string(trade, 2))
@@ -229,7 +234,7 @@ class coincheck(ccxt.async_support.coincheck):
             market,
         )
 
-    def handle_message(self, client: Client, message: object):
+    def handle_message(self, client: Client, message: list[object]):
         data = self.safe_value(message, 0)
         if not isinstance(data, list):
             self.handle_order_book(client, message)

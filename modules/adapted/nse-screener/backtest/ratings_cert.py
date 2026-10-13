@@ -30,7 +30,7 @@ windows; upgrades/reaffirms serve as direction controls.
 from pathlib import Path
 
 import pandas as pd
-from backtest import features, monthly
+from backtest import features
 from backtest.events17 import report as _rep
 from backtest.events17 import run_kind
 from ingest import etf_list, renames
@@ -52,12 +52,18 @@ def main():
     d["an_dt"] = pd.to_datetime(d["an_dt"], errors="coerce")
     d = d.dropna(subset=["an_dt"])
 
-    ann = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")), ignore_index=True)
+    ann = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")),
+        ignore_index=True,
+    )
     ann["symbol"] = renames.canonical(ann["symbol"])
     ann["an_dt"] = pd.to_datetime(ann["an_dt"], errors="coerce")
     base_pool = ann.dropna(subset=["an_dt"]).sample(n=60000, random_state=7)
 
-    for label, lo, hi in (("IS 2023-26", "2023-01-01", "2027-01-01"), ("OOS 2018-22", "2018-01-01", "2023-01-01")):
+    for label, lo, hi in (
+        ("IS 2023-26", "2023-01-01", "2027-01-01"),
+        ("OOS 2018-22", "2018-01-01", "2023-01-01"),
+    ):
         print(f"=== {label} ===")
 
         def W(x):
@@ -65,10 +71,17 @@ def main():
 
         nb = run_kind(W(base_pool), *args, gap_days=0)
         nm = nb["excess"].mean()
-        print(f"  random-announcement null: mean={nm:+.2f} median={nb['excess'].median():+.2f} (n={len(nb)})")
+        print(
+            f"  random-announcement null: mean={nm:+.2f} "
+            f"median={nb['excess'].median():+.2f} (n={len(nb)})"
+        )
         for kind in ("downgrade", "upgrade", "reaffirm"):
             _rep(f"{kind} 63d", run_kind(W(d[d["direction"] == kind]), *args, gap_days=63), nm)
-        _rep("downgrade 126d", run_kind(W(d[d["direction"] == "downgrade"]), *args, hold=126, gap_days=63), nm)
+        _rep(
+            "downgrade 126d",
+            run_kind(W(d[d["direction"] == "downgrade"]), *args, hold=126, gap_days=63),
+            nm,
+        )
 
 
 if __name__ == "__main__":

@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_ohlcv,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_ohlcv  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_ohlcv(exchange, skipped_properties, symbol):
@@ -55,7 +55,7 @@ async def test_fetch_ohlcv(exchange, skipped_properties, symbol):
     ohlcvs = await exchange.fetch_ohlcv(symbol, chosen_timeframe_key, since, limit)
     test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, ohlcvs, symbol)
     now = exchange.milliseconds()
-    for i in range(len(ohlcvs)):
+    for i in range(0, len(ohlcvs)):
         test_ohlcv(exchange, skipped_properties, method, ohlcvs[i], symbol, now)
-    # TODO: sorted timestamps check
+    # todo: sorted timestamps check
     return True

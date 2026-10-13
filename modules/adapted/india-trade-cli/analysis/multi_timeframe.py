@@ -42,13 +42,10 @@ Usage:
 
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 console = Console()
 
@@ -99,9 +96,16 @@ class MultiTimeframeResult:
 
         console.print(table)
 
-        conf_style = "green" if "BUY" in self.confluence else "red" if "SELL" in self.confluence else "yellow"
+        conf_style = (
+            "green"
+            if "BUY" in self.confluence
+            else "red"
+            if "SELL" in self.confluence
+            else "yellow"
+        )
         console.print(
-            f"\n  Confluence : [{conf_style}]{self.confluence}[/{conf_style}] (score: {self.confluence_score:+.1f})"
+            f"\n  Confluence : [{conf_style}]{self.confluence}[/{conf_style}] "
+            f"(score: {self.confluence_score:+.1f})"
         )
         console.print(f"  Alignment  : {self.alignment}")
         console.print(f"  Action     : {self.recommendation}\n")
@@ -153,7 +157,9 @@ def multi_timeframe_analysis(
             rsi=snap.rsi,
             macd_signal="BULLISH_CROSS" if snap.macd_hist > 0 else "BEARISH_CROSS",
             ema_trend="ABOVE" if snap.ema20 > snap.ema50 else "BELOW",
-            key_points=[s.description for s in snap.signals[:3]] if hasattr(snap, "signals") else [],
+            key_points=[s.description for s in snap.signals[:3]]
+            if hasattr(snap, "signals")
+            else [],
         )
         signals.append(daily)
     except Exception:

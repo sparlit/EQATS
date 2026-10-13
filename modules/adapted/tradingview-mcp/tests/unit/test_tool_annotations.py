@@ -45,19 +45,33 @@ def _all_tools():
 
 
 def test_every_tool_has_annotations_with_title():
-    missing = [t.name for t in _all_tools() if t.annotations is None or not (t.annotations.title or "").strip()]
-    assert not missing, f"tools missing annotations/title (directory submissions reject these): {missing}"
+    missing = [
+        t.name
+        for t in _all_tools()
+        if t.annotations is None or not (t.annotations.title or "").strip()
+    ]
+    assert not missing, (
+        f"tools missing annotations/title (directory submissions reject these): {missing}"
+    )
 
 
 def test_every_tool_is_declared_read_only():
-    not_ro = [t.name for t in _all_tools() if t.annotations is None or t.annotations.readOnlyHint is not True]
+    not_ro = [
+        t.name
+        for t in _all_tools()
+        if t.annotations is None or t.annotations.readOnlyHint is not True
+    ]
     assert not_ro == [], f"tools not declared read-only: {not_ro}"
 
 
 def test_every_tool_explicitly_declares_non_destructive():
     # OpenAI's plugin scanner requires an EXPLICIT true/false for
     # destructiveHint on every tool — omitting it fails the MCP scan step.
-    missing = [t.name for t in _all_tools() if t.annotations is None or t.annotations.destructiveHint is not False]
+    missing = [
+        t.name
+        for t in _all_tools()
+        if t.annotations is None or t.annotations.destructiveHint is not False
+    ]
     assert missing == [], f"tools without explicit destructiveHint=False: {missing}"
 
 
@@ -66,5 +80,7 @@ def test_titles_are_unique_and_human_readable():
     titles = [t.annotations.title for t in tools]
     assert len(set(titles)) == len(titles), "duplicate tool titles confuse directory listings"
     for title in titles:
-        assert title != title.lower(), f"title looks like an identifier, not a human title: {title!r}"
+        assert title != title.lower(), (
+            f"title looks like an identifier, not a human title: {title!r}"
+        )
         assert "_" not in title, f"title contains underscores: {title!r}"

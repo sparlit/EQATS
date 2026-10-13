@@ -75,7 +75,10 @@ if not INDEX_PARQUET.exists():
 
 index_mtime = date.fromtimestamp(INDEX_PARQUET.stat().st_mtime)
 if index_mtime < date.today():
-    sys.exit(f"ERROR: {INDEX_PARQUET} is stale (last modified {index_mtime}).\nRun data/fetch_index_data.py first.")
+    sys.exit(
+        f"ERROR: {INDEX_PARQUET} is stale (last modified {index_mtime}).\n"
+        "Run data/fetch_index_data.py first."
+    )
 
 # ── Risk-free rate schedule ───────────────────────
 RFR_SCHEDULE = [
@@ -89,7 +92,9 @@ RFR_SCHEDULE = [
 def build_rfr_series(index):
     rfr = pd.Series(np.nan, index=index, name="rfr_monthly")
     for start, end, annual_rate in RFR_SCHEDULE:
-        mask = (index >= pd.Period(start, "M").to_timestamp()) & (index <= pd.Period(end, "M").to_timestamp(how="end"))
+        mask = (index >= pd.Period(start, "M").to_timestamp()) & (
+            index <= pd.Period(end, "M").to_timestamp(how="end")
+        )
         rfr[mask] = annual_rate / 12
     n_missing = rfr.isna().sum()
     if n_missing > 0:
@@ -138,7 +143,7 @@ def main():
     monthly["excess_return"] = monthly["monthly_return"] - monthly["rfr_monthly"]
 
     monthly = monthly.dropna(subset=HMM_FEATURES)
-    monthly = monthly[[*HMM_FEATURES, "monthly_return", "rfr_monthly"]]
+    monthly = monthly[HMM_FEATURES + ["monthly_return", "rfr_monthly"]]
 
     print(f"  Monthly rows  : {monthly.index[0].date()} -> {monthly.index[-1].date()}")
     print(f"  Null counts   : {monthly.isna().sum().to_dict()}")

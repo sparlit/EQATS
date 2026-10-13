@@ -33,7 +33,7 @@ import pandas as pd
 _DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def load_config(path: str | None = None) -> dict:
+def load_config(path: str = None) -> dict:
     with open(path or os.path.join(_DIR, "config.json"), encoding="utf-8") as f:
         return json.load(f)
 

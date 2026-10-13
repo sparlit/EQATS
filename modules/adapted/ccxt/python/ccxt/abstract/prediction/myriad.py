@@ -58,8 +58,12 @@ class ImplicitAPI:
     myriad_public_get_markets_id_referrals = myriadPublicGetMarketsIdReferrals = Entry[_Dict](
         "markets/{id}/referrals", ["myriad", "public"], "GET", {"cost": 1}
     )
-    myriad_public_get_events = myriadPublicGetEvents = Entry[_Dict]("events", ["myriad", "public"], "GET", {"cost": 1})
-    myriad_public_get_orders = myriadPublicGetOrders = Entry[_Dict]("orders", ["myriad", "public"], "GET", {"cost": 1})
+    myriad_public_get_events = myriadPublicGetEvents = Entry[_Dict](
+        "events", ["myriad", "public"], "GET", {"cost": 1}
+    )
+    myriad_public_get_orders = myriadPublicGetOrders = Entry[_Dict](
+        "orders", ["myriad", "public"], "GET", {"cost": 1}
+    )
     myriad_public_get_orders_hash = myriadPublicGetOrdersHash = Entry[_Dict](
         "orders/{hash}", ["myriad", "public"], "GET", {"cost": 1}
     )
@@ -75,8 +79,12 @@ class ImplicitAPI:
     myriad_public_get_users_address_markets = myriadPublicGetUsersAddressMarkets = Entry[_Dict](
         "users/{address}/markets", ["myriad", "public"], "GET", {"cost": 1}
     )
-    myriad_public_get_tags = myriadPublicGetTags = Entry[_Dict]("tags", ["myriad", "public"], "GET", {"cost": 1})
-    myriad_public_get_topics = myriadPublicGetTopics = Entry[_Dict]("topics", ["myriad", "public"], "GET", {"cost": 1})
+    myriad_public_get_tags = myriadPublicGetTags = Entry[_Dict](
+        "tags", ["myriad", "public"], "GET", {"cost": 1}
+    )
+    myriad_public_get_topics = myriadPublicGetTopics = Entry[_Dict](
+        "topics", ["myriad", "public"], "GET", {"cost": 1}
+    )
     myriad_public_post_markets_quote = myriadPublicPostMarketsQuote = Entry[_Dict](
         "markets/quote", ["myriad", "public"], "POST", {"cost": 1}
     )
@@ -101,18 +109,18 @@ class ImplicitAPI:
     myriad_public_post_positions_redeem = myriadPublicPostPositionsRedeem = Entry[_Dict](
         "positions/redeem", ["myriad", "public"], "POST", {"cost": 1}
     )
-    myriad_public_post_positions_redeem_voided = myriadPublicPostPositionsRedeemVoided = Entry[_Dict](
-        "positions/redeem-voided", ["myriad", "public"], "POST", {"cost": 1}
-    )
-    myriad_public_post_positions_neg_risk_split = myriadPublicPostPositionsNegRiskSplit = Entry[_Dict](
-        "positions/neg-risk/split", ["myriad", "public"], "POST", {"cost": 1}
-    )
-    myriad_public_post_positions_neg_risk_merge = myriadPublicPostPositionsNegRiskMerge = Entry[_Dict](
-        "positions/neg-risk/merge", ["myriad", "public"], "POST", {"cost": 1}
-    )
+    myriad_public_post_positions_redeem_voided = myriadPublicPostPositionsRedeemVoided = Entry[
+        _Dict
+    ]("positions/redeem-voided", ["myriad", "public"], "POST", {"cost": 1})
+    myriad_public_post_positions_neg_risk_split = myriadPublicPostPositionsNegRiskSplit = Entry[
+        _Dict
+    ]("positions/neg-risk/split", ["myriad", "public"], "POST", {"cost": 1})
+    myriad_public_post_positions_neg_risk_merge = myriadPublicPostPositionsNegRiskMerge = Entry[
+        _Dict
+    ]("positions/neg-risk/merge", ["myriad", "public"], "POST", {"cost": 1})
     myriad_public_delete_orders_hash = myriadPublicDeleteOrdersHash = Entry[_Dict](
         "orders/{hash}", ["myriad", "public"], "DELETE", {"cost": 1}
     )
-    myriad_private_post_markets_quote_with_fee = myriadPrivatePostMarketsQuoteWithFee = Entry[_Dict](
-        "markets/quote_with_fee", ["myriad", "private"], "POST", {"cost": 1}
-    )
+    myriad_private_post_markets_quote_with_fee = myriadPrivatePostMarketsQuoteWithFee = Entry[
+        _Dict
+    ]("markets/quote_with_fee", ["myriad", "private"], "POST", {"cost": 1})

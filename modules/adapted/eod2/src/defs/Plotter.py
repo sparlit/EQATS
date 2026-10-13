@@ -24,13 +24,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import pickle
-import sys
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import mplfinance as mpl
 import numpy as np
 import pandas as pd
@@ -46,7 +46,6 @@ from defs.utils import (
     relativeStrength,
     writeJson,
 )
-from matplotlib import ticker
 from matplotlib.collections import LineCollection
 
 HELP = """                                           ## Help ##
@@ -87,7 +86,7 @@ def format_coords(x, _):
     s = " " * 5
 
     if df is None:
-        return None
+        return
 
     if not x or round(x) >= df.shape[0]:
         return ""
@@ -140,7 +139,7 @@ class Plotter:
         self.key = None
 
         if args.preset and args.preset_save:
-            sys.exit("plot.py: error: argument --preset: not allowed with argument --preset_save")
+            exit("plot.py: error: argument --preset: not allowed with argument --preset_save")
 
         if args.preset:
             args = self._loadPreset(args.preset)
@@ -165,10 +164,11 @@ class Plotter:
 
         if args.period:
             self.period = args.period
-        elif self.tf == "weekly":
-            self.period = config.PLOT_WEEKS
         else:
-            self.period = config.PLOT_DAYS
+            if self.tf == "weekly":
+                self.period = config.PLOT_WEEKS
+            else:
+                self.period = config.PLOT_DAYS
 
         self.plot_args = {
             "type": config.PLOT_CHART_TYPE,
@@ -218,7 +218,7 @@ class Plotter:
             idx_path = self.daily_dir / f"{self.config.PLOT_RS_INDEX}.csv"
 
             if not idx_path.is_file():
-                sys.exit(f"Index file not found: {idx_path}")
+                exit(f"Index file not found: {idx_path}")
 
             self.idx_cl = getDataFrame(
                 idx_path,
@@ -244,7 +244,7 @@ class Plotter:
         if df is None:
             self.key = "n"
             print(f"WARN: Could not find symbol - {sym.upper()}")
-            return None
+            return
 
         self._prepArguments(sym, df, meta)
 
@@ -334,7 +334,6 @@ class Plotter:
                 lines_path.parent.mkdir(parents=True)
 
             lines_path.write_bytes(pickle.dumps(self.lines))
-        return None
 
     def _on_pick(self, event):
         if event.mouseevent.button == 3:
@@ -353,7 +352,7 @@ class Plotter:
 
     def _on_button_press(self, event):
         if df is None:
-            return None
+            return
 
         # right mouse click to delete lines
         if event.button == 3:
@@ -362,7 +361,7 @@ class Plotter:
         # add horizontal line
         # return if data is out of bounds
         if event.xdata is None or event.xdata > df.shape[0]:
-            return None
+            return
 
         x = round(event.xdata)
         y = round(event.ydata, 2)
@@ -374,7 +373,7 @@ class Plotter:
             self._add_hline(event.inaxes, y)
 
         if event.key not in ("control", "shift", "ctrl+shift"):
-            return None
+            return
 
         # shift + mouse click to assign coord for trend line
         # Draw trendline
@@ -405,7 +404,7 @@ class Plotter:
         if event.key == "shift":
             # Cannot draw a line through identical points
             if len(self.line) == 1 and y == self.line[0][1]:
-                return None
+                return
 
             self.line.append((x, y))
 
@@ -413,7 +412,6 @@ class Plotter:
                 self._add_tline(event.inaxes, self.line)
                 self.line.clear()
                 self.main_ax.set_title("DRAW MODE", **self.title_args)
-        return None
 
     def _on_key_press(self, event):
         if event.key in ("n", "p", "q", "d", "h", "a"):
@@ -435,18 +433,17 @@ class Plotter:
                 else:
                     self.helpText.remove()
                     self.helpText = None
-                return None
+                return
 
             # artists are not json serializable
             self.lines["artists"].clear()
 
             if event.key == "p" and self.idx == 0:
                 print("\nAt first Chart")
-                return None
+                return
 
             self.key = event.key
             plt.close("all")
-        return None
 
     def _toggleDrawMode(self):
         if self.draw_mode:
@@ -459,9 +456,13 @@ class Plotter:
             self.draw_mode = True
             self.main_ax.set_title("DRAW MODE", **self.title_args)
 
-            self.events.append(self.fig.canvas.mpl_connect("key_release_event", self._on_key_release))
+            self.events.append(
+                self.fig.canvas.mpl_connect("key_release_event", self._on_key_release)
+            )
 
-            self.events.append(self.fig.canvas.mpl_connect("button_press_event", self._on_button_press))
+            self.events.append(
+                self.fig.canvas.mpl_connect("button_press_event", self._on_button_press)
+            )
 
             self.events.append(self.fig.canvas.mpl_connect("pick_event", self._on_pick))
 
@@ -613,7 +614,7 @@ class Plotter:
 
     def _getClosestPrice(self, x, y):
         if df is None:
-            return None
+            return
 
         _open, high, low, close, *_ = df.iloc[x]
 
@@ -769,7 +770,10 @@ class Plotter:
             df.loc[:, "RS"] = relativeStrength(df["Close"], self.idx_cl)
 
         if self.args.m_rs:
-            rs_period = self.config.PLOT_M_RS_LEN_W if self.tf == "weekly" else self.config.PLOT_M_RS_LEN_D
+            if self.tf == "weekly":
+                rs_period = self.config.PLOT_M_RS_LEN_W
+            else:
+                rs_period = self.config.PLOT_M_RS_LEN_D
 
             # prevent crash if plot period is less than RS period
             if df_len < rs_period:
@@ -816,23 +820,26 @@ class Plotter:
     def _list(self):
         watch_lst = [i.lower() for i in self.config.WATCH] if hasattr(self.config, "WATCH") else []
 
-        preset_lst = [i.lower() for i in self.config.PRESET] if hasattr(self.config, "PRESET") else []
+        if hasattr(self.config, "PRESET"):
+            preset_lst = [i.lower() for i in self.config.PRESET]
+        else:
+            preset_lst = []
 
-        if not watch_lst:
+        if not len(watch_lst):
             print("No Watchlists")
         else:
             print("WatchLists:", ", ".join(watch_lst))
 
-        if not preset_lst:
+        if not len(preset_lst):
             print("No Presets")
         else:
             print("Preset:", ", ".join(preset_lst))
 
-        sys.exit()
+        exit()
 
     def _loadPreset(self, preset):
         if preset not in self.config.PRESET:
-            sys.exit(f"Error: No preset named '{preset}'")
+            exit(f"Error: No preset named '{preset}'")
 
         args_dct = self.config.PRESET[preset]
 
@@ -843,7 +850,7 @@ class Plotter:
 
     def _savePreset(self, preset):
         if self.args.watch and self.args.watch.upper() not in self.config.WATCH:
-            sys.exit(f"Error: No watchlist named '{self.args.watch}'")
+            exit(f"Error: No watchlist named '{self.args.watch}'")
 
         data = loadJson(self.configPath) if self.configPath.is_file() else {}
 
@@ -861,31 +868,31 @@ class Plotter:
 
     def _removePreset(self, preset):
         if preset not in self.config.PRESET:
-            sys.exit(f"Error: No preset named: '{preset}'")
+            exit(f"Error: No preset named: '{preset}'")
 
         if not self.configPath.is_file():
-            sys.exit(f"File not found: {self.configPath}")
+            exit(f"File not found: {self.configPath}")
 
         data = loadJson(self.configPath)
 
         if "PRESET" not in data or preset not in data["PRESET"]:
-            sys.exit(f"Error: No preset named: '{preset}'")
+            exit(f"Error: No preset named: '{preset}'")
 
         del data["PRESET"][preset]
 
         writeJson(self.configPath, data)
-        sys.exit(f"Preset '{preset}' removed.")
+        exit(f"Preset '{preset}' removed.")
 
     def _loadWatchList(self, watch):
         watch = watch.upper()
         if watch not in self.config.WATCH:
-            sys.exit(f"Error: No watchlist named '{watch}'")
+            exit(f"Error: No watchlist named '{watch}'")
 
         file = Path(self.config.WATCH[watch]).expanduser()
 
         if not file.is_file():
             print(self.config.WATCH[watch])
-            sys.exit(f"Error: File not found {file}")
+            exit(f"Error: File not found {file}")
 
         return file.read_text().strip("\n").split("\n")
 
@@ -899,37 +906,40 @@ class Plotter:
 
         data["WATCH"][name.upper()] = fpath
         writeJson(self.configPath, data)
-        sys.exit(f"Added watchlist '{name}' with value '{fpath}'")
+        exit(f"Added watchlist '{name}' with value '{fpath}'")
 
     def _removeWatch(self, name):
         if name.upper() not in self.config.WATCH:
-            sys.exit(f"Error: No watchlist named: '{name}'")
+            exit(f"Error: No watchlist named: '{name}'")
 
         if not self.configPath.is_file():
-            sys.exit("No config file")
+            exit("No config file")
 
         data = loadJson(self.configPath)
 
         if "WATCH" not in data or name.upper() not in data["WATCH"]:
-            sys.exit(f"Error: No watchlist named: '{name}'")
+            exit(f"Error: No watchlist named: '{name}'")
 
         del data["WATCH"][name.upper()]
 
         writeJson(self.configPath, data)
-        sys.exit(f"Watchlist '{name}' removed.")
+        exit(f"Watchlist '{name}' removed.")
 
     def _getMaxPeriod(self):
         dlv_len = self.config.DLV_AVG_LEN if self.args.dlv else 0
 
         if self.args.m_rs:
-            m_rs_len = self.config.PLOT_M_RS_LEN_W if self.tf == "weekly" else self.config.PLOT_M_RS_LEN_D
+            if self.tf == "weekly":
+                m_rs_len = self.config.PLOT_M_RS_LEN_W
+            else:
+                m_rs_len = self.config.PLOT_M_RS_LEN_D
         else:
             m_rs_len = 0
 
         if self.args.sma or self.args.ema or self.args.vol_sma:
-            sma = self.args.sma or []
-            ema = self.args.ema or []
-            vsma = self.args.vol_sma or []
+            sma = self.args.sma if self.args.sma else []
+            ema = self.args.ema if self.args.ema else []
+            vsma = self.args.vol_sma if self.args.vol_sma else []
 
             add_period = max(*sma, *ema, *vsma, m_rs_len, dlv_len)
             return add_period + self.period

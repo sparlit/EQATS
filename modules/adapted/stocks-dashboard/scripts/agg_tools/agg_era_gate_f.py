@@ -98,9 +98,11 @@ def rename_target(sym):
         import re
 
         js = open(os.path.join(ROOT, "docs", "backtest-engine.js"), encoding="utf8").read()
-        _ALIAS = json.loads(re.search(r"const FUND_ALIAS = (\{.*?\});", js, re.DOTALL).group(1))
+        _ALIAS = json.loads(re.search(r"const FUND_ALIAS = (\{.*?\});", js, re.S).group(1))
         with contextlib.suppress(Exception):
-            _ALIAS = dict(json.load(open(os.path.join(ROOT, "scripts", "_rename_map.json"))), **_ALIAS)
+            _ALIAS = dict(
+                json.load(open(os.path.join(ROOT, "scripts", "_rename_map.json"))), **_ALIAS
+            )
     return _ALIAS.get(sym)
 
 
@@ -132,7 +134,7 @@ def annual_independent(q, ann, cand):
         # Skip it rather than crash: it is not evidence either way about the annual's independence.
         if (fyend // 100) % 100 not in EG._LASTDAY:
             continue
-        v, _d = EG.site_fy(q, ann, cand, fyend)
+        v, d = EG.site_fy(q, ann, cand, fyend)
         if v == "RESTATED":
             seen += 1
     return seen > 0, seen
@@ -194,11 +196,19 @@ def check_f(sym, qe, ident, q, ann, cand="pat_total", require_isin=True):
         bad = [t for t, (v2, _) in nb.items() if v2 == "RESTATED"]
         if bad:
             rep["state"] = "REJECT-F1b"
-            rep["why"] = "neighbour FY restated on the site ({}) and nothing else proves identity".format(",".join(bad))
+            rep["why"] = (
+                "neighbour FY restated on the site ({}) and nothing else proves identity".format(
+                    ",".join(bad)
+                )
+            )
             return None, rep
 
     indep, nrest = annual_independent(q, ann, cand)
-    rep["annual_independent"] = {"ok": indep, "fys_where_annual_differs": nrest, "fys_tested": len(ann)}
+    rep["annual_independent"] = {
+        "ok": indep,
+        "fys_where_annual_differs": nrest,
+        "fys_tested": len(ann),
+    }
     if not indep:
         rep["state"] = "REJECT-F2"
         rep["why"] = (
@@ -319,7 +329,9 @@ def main():
         anchors = [
             x
             for x in q
-            if x in ours and q[x].get("pat_total") is not None and G._agree(ours[x], q[x]["pat_total"]) != "no"
+            if x in ours
+            and q[x].get("pat_total") is not None
+            and G._agree(ours[x], q[x]["pat_total"]) != "no"
         ]
         if len(anchors) >= MAX_ANCHORS_FOR_SOLO:
             for qe in by[sym]:
@@ -380,7 +392,12 @@ def main():
                     ),
                 }
     json.dump(
-        {"generated": time.strftime("%Y-%m-%d %H:%M IST"), "gate": "F-solo", "proposals": props, "reports": reports},
+        {
+            "generated": time.strftime("%Y-%m-%d %H:%M IST"),
+            "gate": "F-solo",
+            "proposals": props,
+            "reports": reports,
+        },
         open(a.out, "w"),
         indent=1,
         sort_keys=True,

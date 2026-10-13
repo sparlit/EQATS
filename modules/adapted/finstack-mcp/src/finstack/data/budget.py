@@ -36,7 +36,7 @@ Data: public speech transcript + hardcoded sector-keyword-to-stock mapping.
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.budget")
 
@@ -199,7 +199,16 @@ BUDGET_SECTOR_MAP = {
         "bias": "bullish",
     },
     "Steel/Metals": {
-        "keywords": ["steel", "metal", "mining", "iron ore", "coal", "aluminium", "anti-dumping", "import duty"],
+        "keywords": [
+            "steel",
+            "metal",
+            "mining",
+            "iron ore",
+            "coal",
+            "aluminium",
+            "anti-dumping",
+            "import duty",
+        ],
         "stocks": ["JSWSTEEL", "TATASTEEL", "HINDALCO", "COALINDIA", "NMDC", "SAIL"],
         "bias": "neutral",
     },
@@ -273,7 +282,16 @@ def _analyze_text(text: str) -> list[dict]:
 
         # Determine if context is positive or negative
         negative_context = any(
-            phrase in lower for phrase in ["cut", "reduce", "hike duty", "increase tax", "ban", "restrict", "penalty"]
+            phrase in lower
+            for phrase in [
+                "cut",
+                "reduce",
+                "hike duty",
+                "increase tax",
+                "ban",
+                "restrict",
+                "penalty",
+            ]
         )
         # Check if the keyword is near negative words
         bias = "bearish" if (negative_context and data["bias"] != "bearish") else data["bias"]

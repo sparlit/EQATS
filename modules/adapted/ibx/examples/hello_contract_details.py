@@ -63,8 +63,7 @@ c.connect(
 )
 threading.Thread(target=c.run, daemon=True).start()
 if not w.connected.wait(timeout=15):
-    msg = "connect failed"
-    raise RuntimeError(msg)
+    raise RuntimeError("connect failed")
 
 aapl = Contract()
 aapl.symbol = "AAPL"
@@ -74,8 +73,7 @@ aapl.currency = "USD"
 c.req_contract_details(1, aapl)
 
 if not w.done.wait(timeout=15):
-    msg = "contract_details_end not received"
-    raise RuntimeError(msg)
+    raise RuntimeError("contract_details_end not received")
 
 print(f"matches: {len(w.rows)}")
 for d in w.rows:

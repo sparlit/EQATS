@@ -33,13 +33,13 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
-from mcp import types
+import mcp.types as types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import EmbeddedResource, ImageContent, LoggingLevel, Resource, TextContent, Tool
+from mcp.types import Tool
 
 from .config import Config
 
@@ -60,9 +60,13 @@ class ISEClient:
 
     def __init__(self, base_url: str = Config.BASE_URL):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=Config.REQUEST_TIMEOUT, headers=Config.get_headers())
+        self.client = httpx.AsyncClient(
+            timeout=Config.REQUEST_TIMEOUT, headers=Config.get_headers()
+        )
 
-    async def _make_request(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _make_request(
+        self, endpoint: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Make HTTP request to the API with x-api-key header"""
         try:
             url = f"{self.base_url}{endpoint}"
@@ -80,13 +84,11 @@ class ISEClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            logger.exception(f"HTTP error occurred: {e}")
-            msg = f"API request failed: {e!s}"
-            raise Exception(msg)
+            logger.error(f"HTTP error occurred: {e}")
+            raise Exception(f"API request failed: {str(e)}")
         except Exception as e:
-            logger.exception(f"Unexpected error: {e}")
-            msg = f"Unexpected error: {e!s}"
-            raise Exception(msg)
+            logger.error(f"Unexpected error: {e}")
+            raise Exception(f"Unexpected error: {str(e)}")
 
     async def close(self):
         """Close the HTTP client"""
@@ -107,7 +109,10 @@ async def handle_list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Company name, shortened name, or search term"}
+                    "name": {
+                        "type": "string",
+                        "description": "Company name, shortened name, or search term",
+                    }
                 },
                 "required": ["name"],
             },
@@ -126,7 +131,9 @@ async def handle_list_tools() -> list[Tool]:
             description="Search for mutual funds",
             inputSchema={
                 "type": "object",
-                "properties": {"query": {"type": "string", "description": "Mutual fund search term"}},
+                "properties": {
+                    "query": {"type": "string", "description": "Mutual fund search term"}
+                },
                 "required": ["query"],
             },
         ),
@@ -202,11 +209,25 @@ async def handle_list_tools() -> list[Tool]:
                         ],
                         "description": "Measure code for forecast",
                     },
-                    "period_type": {"type": "string", "enum": ["Annual", "Interim"], "description": "Period type"},
-                    "data_type": {"type": "string", "enum": ["Actuals", "Estimates"], "description": "Data type"},
+                    "period_type": {
+                        "type": "string",
+                        "enum": ["Annual", "Interim"],
+                        "description": "Period type",
+                    },
+                    "data_type": {
+                        "type": "string",
+                        "enum": ["Actuals", "Estimates"],
+                        "description": "Data type",
+                    },
                     "age": {
                         "type": "string",
-                        "enum": ["OneWeekAgo", "ThirtyDaysAgo", "SixtyDaysAgo", "NinetyDaysAgo", "Current"],
+                        "enum": [
+                            "OneWeekAgo",
+                            "ThirtyDaysAgo",
+                            "SixtyDaysAgo",
+                            "NinetyDaysAgo",
+                            "Current",
+                        ],
                         "description": "Data age",
                     },
                 },
@@ -276,7 +297,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "search_industry":
+        elif name == "search_industry":
             data = await ise_client._make_request("/industry_search", {"query": arguments["query"]})
             return [
                 types.TextContent(
@@ -285,8 +306,10 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "search_mutual_funds":
-            data = await ise_client._make_request("/mutual_fund_search", {"query": arguments["query"]})
+        elif name == "search_mutual_funds":
+            data = await ise_client._make_request(
+                "/mutual_fund_search", {"query": arguments["query"]}
+            )
             return [
                 types.TextContent(
                     type="text",
@@ -294,64 +317,73 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_trending_stocks":
+        elif name == "get_trending_stocks":
             data = await ise_client._make_request("/trending")
             return [
                 types.TextContent(
-                    type="text", text=f"Trending Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Trending Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_52_week_high_low":
+        elif name == "get_52_week_high_low":
             data = await ise_client._make_request("/fetch_52_week_high_low_data")
             return [
                 types.TextContent(
-                    type="text", text=f"52 Week High/Low Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"52 Week High/Low Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_nse_most_active":
+        elif name == "get_nse_most_active":
             data = await ise_client._make_request("/NSE_most_active")
             return [
                 types.TextContent(
-                    type="text", text=f"NSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"NSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_bse_most_active":
+        elif name == "get_bse_most_active":
             data = await ise_client._make_request("/BSE_most_active")
             return [
                 types.TextContent(
-                    type="text", text=f"BSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"BSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_mutual_funds":
+        elif name == "get_mutual_funds":
             data = await ise_client._make_request("/mutual_funds")
             return [
                 types.TextContent(
-                    type="text", text=f"Mutual Funds Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Mutual Funds Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_price_shockers":
+        elif name == "get_price_shockers":
             data = await ise_client._make_request("/price_shockers")
             return [
                 types.TextContent(
-                    type="text", text=f"Price Shockers:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Price Shockers:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_commodities":
+        elif name == "get_commodities":
             data = await ise_client._make_request("/commodities")
             return [
                 types.TextContent(
-                    type="text", text=f"Commodity Futures Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Commodity Futures Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_analyst_recommendations":
-            data = await ise_client._make_request("/stock_target_price", {"stock_id": arguments["stock_id"]})
+        elif name == "get_analyst_recommendations":
+            data = await ise_client._make_request(
+                "/stock_target_price", {"stock_id": arguments["stock_id"]}
+            )
             return [
                 types.TextContent(
                     type="text",
@@ -359,7 +391,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_stock_forecasts":
+        elif name == "get_stock_forecasts":
             params = {
                 "stock_id": arguments["stock_id"],
                 "measure_code": arguments["measure_code"],
@@ -375,7 +407,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_historical_data":
+        elif name == "get_historical_data":
             params = {"stock_name": arguments["stock_name"]}
             if "period" in arguments:
                 params["period"] = arguments["period"]
@@ -390,7 +422,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_historical_stats":
+        elif name == "get_historical_stats":
             params = {"stock_name": arguments["stock_name"], "stats": arguments["stats"]}
             data = await ise_client._make_request("/historical_stats", params)
             return [
@@ -400,12 +432,12 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        msg = f"Unknown tool: {name}"
-        raise ValueError(msg)
+        else:
+            raise ValueError(f"Unknown tool: {name}")
 
     except Exception as e:
-        logger.exception(f"Error in tool {name}: {e!s}")
-        return [types.TextContent(type="text", text=f"Error executing {name}: {e!s}")]
+        logger.error(f"Error in tool {name}: {str(e)}")
+        return [types.TextContent(type="text", text=f"Error executing {name}: {str(e)}")]
 
 
 async def main():
@@ -422,12 +454,12 @@ async def main():
             await app.run(read_stream, write_stream, app.create_initialization_options())
 
     except ValueError as e:
-        logger.exception(f"Configuration error: {e}")
+        logger.error(f"Configuration error: {e}")
         sys.exit(1)
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
-        logger.exception(f"Server error: {e}")
+        logger.error(f"Server error: {e}")
         sys.exit(1)
     finally:
         await ise_client.close()

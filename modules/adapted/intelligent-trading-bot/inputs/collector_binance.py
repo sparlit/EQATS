@@ -21,26 +21,17 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import argparse
 import asyncio
 import logging
-import math
-import os
-import sys
-import time
-from collections.abc import Coroutine
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import *
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 from binance import Client
 from binance.enums import *
 from binance.exceptions import *
-from binance.helpers import date_to_milliseconds, interval_to_milliseconds
 from common.utils import *
-from dateutil import parser
 from inputs.utils_binance import *
 from service.App import *
 
@@ -51,7 +42,9 @@ client = None
 #
 # Parameters
 #
-append_overlap_records = 5  # How many records to request in addition to the missing data (overlap length)
+append_overlap_records = (
+    5  # How many records to request in addition to the missing data (overlap length)
+)
 
 # Binance-specific columns name corresponding to the values returned from API
 column_names = [
@@ -177,7 +170,7 @@ async def request_symbol_klines(symbol, freq, limit: int):
     klines_per_request = 400  # Limitation of API
 
     now_ts = now_timestamp()
-    start_ts, _end_ts = pandas_get_interval(freq)
+    start_ts, end_ts = pandas_get_interval(freq)
 
     binance_freq = binance_freq_from_pandas(freq)
     interval_length_ms = pandas_interval_length_ms(freq)
@@ -188,7 +181,9 @@ async def request_symbol_klines(symbol, freq, limit: int):
             # - startTime: include all intervals (ids) with same or greater id: if within interval then excluding this interval; if is equal to open time then include this interval
             # - endTime: include all intervals (ids) with same or smaller id: if equal to left border then return this interval, if within interval then return this interval
             # - It will return also incomplete current interval (in particular, we could collect approximate klines for higher frequencies by requesting incomplete intervals)
-            klines = client.get_klines(symbol=symbol, interval=binance_freq, limit=limit, endTime=now_ts)
+            klines = client.get_klines(
+                symbol=symbol, interval=binance_freq, limit=limit, endTime=now_ts
+            )
             # Return: list of lists, that is, one kline is a list (not dict) with items ordered: timestamp, open, high, low, close etc.
         else:
             # https://sammchardy.github.io/binance/2018/01/08/historical-data-download-binance.html
@@ -200,14 +195,14 @@ async def request_symbol_klines(symbol, freq, limit: int):
             )
     except BinanceRequestException as bre:
         # {"code": 1103, "msg": "An unknown parameter was sent"}
-        log.exception(f"BinanceRequestException while requesting klines: {bre}")
+        log.error(f"BinanceRequestException while requesting klines: {bre}")
         return {}
     except BinanceAPIException as bae:
         # {"code": 1002, "msg": "Invalid API call"}
-        log.exception(f"BinanceAPIException while requesting klines: {bae}")
+        log.error(f"BinanceAPIException while requesting klines: {bae}")
         return {}
     except Exception as e:
-        log.exception(f"Exception while requesting klines: {e}")
+        log.error(f"Exception while requesting klines: {e}")
         return {}
 
     #
@@ -281,12 +276,14 @@ def klines_to_df(klines: list):
     # df["tb_quote_av"] = pd.to_numeric(df["tb_quote_av"])
 
     # Set index by retaining the time column
-    df = df.set_index(time_column, drop=False)
+    df.set_index(time_column, inplace=True, drop=False)
 
     # Validate
     if df.isnull().any().any():
         null_columns = {k: v for k, v in df.isnull().any().to_dict().items() if v}
-        print(f"WARNING: Null in raw data found during conversion. Columns with Nulls: {null_columns}")
+        print(
+            f"WARNING: Null in raw data found during conversion. Columns with Nulls: {null_columns}"
+        )
 
     return df
 
@@ -350,10 +347,12 @@ def download_klines(config, data_sources):
             df = df.set_index("timestamp", inplace=False, drop=False)
 
             # oldest_point = parser.parse(data["timestamp"].iloc[-1])
-            oldest_point = df["timestamp"].iloc[-5]  # Use an older point so that new data will overwrite old data
+            oldest_point = df["timestamp"].iloc[
+                -5
+            ]  # Use an older point so that new data will overwrite old data
 
             print(
-                f"File found. Downloaded data for {quote} and {freq} since {latest_ts!s} will be appended to the existing file {file_name}"
+                f"File found. Downloaded data for {quote} and {freq} since {str(latest_ts)} will be appended to the existing file {file_name}"
             )
         else:
             # No existing data so we will download all available data and store as a new file

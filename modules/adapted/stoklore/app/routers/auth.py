@@ -49,13 +49,17 @@ def client_of(request: Request) -> str:
     from 127.0.0.1, so the forwarded address is used when present - and when it isn't, one shared
     bucket is still correct: this app has exactly one user."""
     forwarded = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for")
-    return (forwarded or "").split(",")[0].strip() or (request.client.host if request.client else "local")
+    return (forwarded or "").split(",")[0].strip() or (
+        request.client.host if request.client else "local"
+    )
 
 
 def proxied(request: Request) -> bool:
     """True when the request came through a tunnel or reverse proxy rather than from this machine.
     Setup refuses it, so an instance can only be claimed by someone at the keyboard."""
-    return any(h in request.headers for h in ("x-forwarded-for", "cf-connecting-ip", "x-forwarded-host"))
+    return any(
+        h in request.headers for h in ("x-forwarded-for", "cf-connecting-ip", "x-forwarded-host")
+    )
 
 
 def _cookie(request: Request, response: Response, name: str, token: str, max_age: int) -> None:
@@ -78,7 +82,9 @@ def _sign_in(request: Request, response: Response, *, trust_device: bool):
     _cookie(request, response, auth.COOKIE_NAME, token, int(auth.SESSION_MAX_AGE.total_seconds()))
     if trust_device:
         device, device_expires = auth.trust_device(request.headers.get("user-agent"))
-        _cookie(request, response, auth.DEVICE_COOKIE, device, int(auth.DEVICE_TRUST.total_seconds()))
+        _cookie(
+            request, response, auth.DEVICE_COOKIE, device, int(auth.DEVICE_TRUST.total_seconds())
+        )
     else:
         device_expires = auth.device_expires_at(request.cookies.get(auth.DEVICE_COOKIE))
     return {
@@ -149,7 +155,9 @@ def auth_unlock(req: UnlockRequest, request: Request, response: Response):
     guessing surface even for someone holding a stolen device cookie."""
     device = request.cookies.get(auth.DEVICE_COOKIE)
     if not auth.device_trusted(device):
-        raise HTTPException(status_code=403, detail="this browser isn't trusted - sign in with your password")
+        raise HTTPException(
+            status_code=403, detail="this browser isn't trusted - sign in with your password"
+        )
     client = client_of(request)
     wait = auth.locked_for(client)
     if wait:
@@ -158,7 +166,9 @@ def auth_unlock(req: UnlockRequest, request: Request, response: Response):
         auth.record_failure(client)
         if not auth.device_trusted(device):
             response.delete_cookie(auth.DEVICE_COOKIE, path="/")
-            raise HTTPException(status_code=403, detail="too many wrong PINs - sign in with your password")
+            raise HTTPException(
+                status_code=403, detail="too many wrong PINs - sign in with your password"
+            )
         raise HTTPException(status_code=401, detail="wrong PIN")
     auth.clear_failures(client)
     return _sign_in(request, response, trust_device=False)

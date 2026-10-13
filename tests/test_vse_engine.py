@@ -2,18 +2,18 @@
 Tests for Virtual Stock Exchange (VSE) Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
+
+from institutional_integrations.sebi_broker_adapter import (
+    IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
 from institutional_integrations.vse_engine import (
+    MAGIC_NUMBER_VSE,
     VirtualDematAccount,
     VSEBrokerAdapter,
-    round_tick_005,
-    MAGIC_NUMBER_VSE,
-)
-from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
-    IndianBrokerPluginRegistry,
 )
 
 

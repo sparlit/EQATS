@@ -92,7 +92,9 @@ def main() -> None:
         # Register a mock broker with passthrough_market_data=True
         # so market data methods raise → fallback chain goes to yfinance
         # Account methods (funds, holdings) still return demo data
-        console.print("[dim]  Running without broker (--no-broker). Using yfinance for market data.[/dim]")
+        console.print(
+            "[dim]  Running without broker (--no-broker). Using yfinance for market data.[/dim]"
+        )
         console.print("[dim]  To connect a real broker later, run 'login' in the REPL.[/dim]\n")
         from brokers.mock import MockBrokerAPI
         from brokers.session import register_broker
@@ -109,7 +111,9 @@ def main() -> None:
             sys.exit(0)
         except Exception as e:
             console.print(f"\n[red]Login failed: {e}[/red]")
-            console.print("[yellow]Dropping into REPL with mock broker so you can fix credentials.[/yellow]")
+            console.print(
+                "[yellow]Dropping into REPL with mock broker so you can fix credentials.[/yellow]"
+            )
             console.print("[dim]  Run 'credentials list' to see saved credentials[/dim]")
             console.print("[dim]  Run 'credentials clear' to wipe all and start fresh[/dim]")
             console.print("[dim]  Run 'login' to try again[/dim]\n")
@@ -154,7 +158,9 @@ if __name__ == "__main__":
         import threading
 
         non_daemon = [
-            t for t in threading.enumerate() if t.is_alive() and not t.daemon and t != threading.main_thread()
+            t
+            for t in threading.enumerate()
+            if t.is_alive() and not t.daemon and t != threading.main_thread()
         ]
         if non_daemon:
             # Non-daemon threads exist (e.g. WebSocket SDK) — wait up to

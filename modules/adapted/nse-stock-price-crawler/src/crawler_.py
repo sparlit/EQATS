@@ -25,8 +25,8 @@ import csv
 import datetime
 import logging
 import os
+import urllib.error as error
 import urllib.request as rq
-from urllib import error
 
 from bs4 import BeautifulSoup
 
@@ -54,7 +54,7 @@ class Crawler:
             now = datetime.datetime.now()
             errorMessage = str(now) + " - " + str(e) + " Date: " + str(self.date)
             print("Please check error log file in errorlog directory")
-            logging.exception(errorMessage)
+            logging.error(errorMessage)
 
     # Extract the data from the page requested
     def extractURLData(self):
@@ -131,7 +131,7 @@ class Crawler:
                 "Closing Price",
                 "Previous Day Closing Price",
                 "Volume Traded",
-            ]
+            ],
         )
         writeFile.writerows(self.dailyShares)
         myFile.close()

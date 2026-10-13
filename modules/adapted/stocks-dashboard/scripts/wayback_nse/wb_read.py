@@ -26,7 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import gzip
 import html
 import io
-import json
 import re
 import time
 import urllib.request
@@ -51,7 +50,9 @@ def fetch(ts, original, tries=3):
     url = f"https://web.archive.org/web/{ts}id_/{original}"
     for a in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "gzip"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "gzip"}
+            )
             with urllib.request.urlopen(req, timeout=60) as r:
                 b = r.read()
                 if r.headers.get("Content-Encoding") == "gzip":
@@ -78,7 +79,9 @@ def parse(t):
     out["symbol"] = m.group(1) if m else None
     m = re.search(r"Company\s+(.+?)\s+NSE Symbol", txt)
     out["company"] = m.group(1).strip() if m else None
-    m = re.search(r"Result Period\s+(\d{2}-[A-Z]{3}-\d{4})\s+to\s+(\d{2}-[A-Z]{3}-\d{4})\s*\(([^)]*)\)", txt)
+    m = re.search(
+        r"Result Period\s+(\d{2}-[A-Z]{3}-\d{4})\s+to\s+(\d{2}-[A-Z]{3}-\d{4})\s*\(([^)]*)\)", txt
+    )
     if not m:
         return None
     out["from"], out["to"], out["period_role"] = m.group(1), m.group(2), m.group(3).strip()
@@ -88,7 +91,9 @@ def parse(t):
     # cumulative (found 2026-09-05 by wb_rev.py; wbgate never used this field, it tests the token itself).
     rt_ = out["result_type"] or ""
     out["cumulative"] = bool("Cumulative" in rt_ and "Non-Cumulative" not in rt_)
-    out["bank"] = ("Non Banking Financial Results" not in txt) and ("Banking Financial Results" in txt)
+    out["bank"] = ("Non Banking Financial Results" not in txt) and (
+        "Banking Financial Results" in txt
+    )
     m = re.search(r"Financial Results\s+\(Rs\.\s*([a-zA-Z]+)\)", txt)
     out["scale"] = m.group(1).lower() if m else None
 
@@ -106,9 +111,14 @@ def parse(t):
     a = (int(df[7:11]), MON[df[3:6]])
     b = (int(dt[7:11]), MON[dt[3:6]])
     out["months"] = (b[0] - a[0]) * 12 + (b[1] - a[1]) + 1
-    div = {"lakhs": 100.0, "lakh": 100.0, "crores": 1.0, "crore": 1.0, "million": 10.0, "millions": 10.0}.get(
-        out["scale"]
-    )
+    div = {
+        "lakhs": 100.0,
+        "lakh": 100.0,
+        "crores": 1.0,
+        "crore": 1.0,
+        "million": 10.0,
+        "millions": 10.0,
+    }.get(out["scale"])
     out["div"] = div
     out["pat_cr"] = (out["net_profit"] / div) if (out["net_profit"] is not None and div) else None
     return out

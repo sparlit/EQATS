@@ -37,7 +37,6 @@ current volatility (using current-window vol would self-dampen exactly
 the spike we want to detect). Do not assume ~N(0,1) or apply z-score
 conventions (e.g. +/-3 clipping) to these columns downstream.
 """
-import numpy as np
 import pandas as pd
 
 
@@ -55,8 +54,12 @@ def compute(prices: pd.DataFrame, signals: pd.DataFrame, T, all_dates) -> pd.Dat
     T_7 = all_dates[-8]
 
     close_T = prices[prices["date"] == T][["symbol", "close"]].rename(columns={"close": "close_T"})
-    close_T21 = prices[prices["date"] == T_21][["symbol", "close"]].rename(columns={"close": "close_T21"})
-    close_T7 = prices[prices["date"] == T_7][["symbol", "close"]].rename(columns={"close": "close_T7"})
+    close_T21 = prices[prices["date"] == T_21][["symbol", "close"]].rename(
+        columns={"close": "close_T21"}
+    )
+    close_T7 = prices[prices["date"] == T_7][["symbol", "close"]].rename(
+        columns={"close": "close_T7"}
+    )
 
     out = close_T.merge(close_T21, on="symbol", how="outer")
     out = out.merge(close_T7, on="symbol", how="outer")
@@ -76,4 +79,13 @@ def compute(prices: pd.DataFrame, signals: pd.DataFrame, T, all_dates) -> pd.Dat
     out["stpb_zscore_21d"] = out["stpb_ret_21d"] / out["vol_231"]
     out["stpb_zscore_7d"] = out["stpb_ret_7d"] / out["vol_231"]
 
-    return out[["symbol", "stpb_ret_21d", "stpb_ret_7d", "stpb_zscore_21d", "stpb_zscore_7d", "stpb_ma_distance_21d"]]
+    return out[
+        [
+            "symbol",
+            "stpb_ret_21d",
+            "stpb_ret_7d",
+            "stpb_zscore_21d",
+            "stpb_zscore_7d",
+            "stpb_ma_distance_21d",
+        ]
+    ]

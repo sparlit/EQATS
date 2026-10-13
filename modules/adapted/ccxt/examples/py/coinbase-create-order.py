@@ -56,6 +56,7 @@ stop_params = {"triggerPrice": 15000}
 try:
     limit_order = exchange.create_order(symbol, order_type, side, amount, order_price)
     # stop_order = exchange.create_order(symbol, order_type, side, amount, order_price, stop_params)
+    pprint(limit_order)
     # pprint(stop_order)
 except Exception as err:
     print(err)

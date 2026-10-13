@@ -228,7 +228,9 @@ def fetch_shareholding(scripcode: str) -> dict[str, Any] | None:
     return parse_shareholding_html(html)
 
 
-def fetch_shareholding_batch(scripcodes: list[str], delay: float = 0.5) -> dict[str, dict[str, Any]]:
+def fetch_shareholding_batch(
+    scripcodes: list[str], delay: float = 0.5
+) -> dict[str, dict[str, Any]]:
     """Fetch shareholding for multiple stocks with rate limiting.
 
     Args:

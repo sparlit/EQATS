@@ -56,7 +56,8 @@ def sector_perf(conn):
     )
     g = g[g.n >= MIN_STOCKS_PER_SECTOR]
     g["score"] = 0.6 * g.p1 + 0.4 * g.p3
-    return g.sort_values("score", ascending=False)
+    g = g.sort_values("score", ascending=False)
+    return g
 
 
 def allowed_sectors(top=TOP_N):
@@ -95,5 +96,6 @@ if __name__ == "__main__":
     for _, r in g.head(8).iterrows():
         mark = "✅" if r["sector"] in allowed_sectors() else "  "
         print(
-            f"{mark} {r['sector']:<22} score {r['score']:+.2f} (1M {r['p1']:+.1%}, 3M {r['p3']:+.1%}, n={int(r['n'])})"
+            f"{mark} {r['sector']:<22} score {r['score']:+.2f} "
+            f"(1M {r['p1']:+.1%}, 3M {r['p3']:+.1%}, n={int(r['n'])})"
         )

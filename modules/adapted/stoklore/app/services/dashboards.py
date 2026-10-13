@@ -39,7 +39,17 @@ from app.core.config import IST
 from app.services import dashboard_query as dq
 from app.services import journal_math as jm
 
-PANEL_TYPES = ("timeseries", "stat", "table", "bar", "pie", "heatmap", "treemap", "health", "notifications")
+PANEL_TYPES = (
+    "timeseries",
+    "stat",
+    "table",
+    "bar",
+    "pie",
+    "heatmap",
+    "treemap",
+    "health",
+    "notifications",
+)
 #: What each panel type asks the query layer for.
 TYPE_SHAPE = {
     "timeseries": "timeseries",
@@ -74,7 +84,10 @@ def _series_rows(params, since, until):
     if not series:
         return []
     rows = db.read_series(workflow_id, series, limit=dq.MAX_LIMIT, since=since, until=until)
-    return [{"collected_at": _iso(r["collected_at"]), "run_id": r["run_id"], **(r["row"] or {})} for r in rows]
+    return [
+        {"collected_at": _iso(r["collected_at"]), "run_id": r["run_id"], **(r["row"] or {})}
+        for r in rows
+    ]
 
 
 def _run_rows(params, since, until):
@@ -97,7 +110,9 @@ def _run_rows(params, since, until):
 
 def _notification_rows(params, since, until):
     names = _names()
-    rows = db.workflow_notifications_between(params.get("workflow_id") or None, since, until, limit=1000)
+    rows = db.workflow_notifications_between(
+        params.get("workflow_id") or None, since, until, limit=1000
+    )
     out = []
     for r in rows:
         meta = r.get("meta") or {}
@@ -137,9 +152,10 @@ def _movers_payload():
 
     try:
         return market_movers()
-    except Exception as e:
-        msg = f"NSE's movers aren't available right now: {getattr(e, 'detail', e)}"
-        raise ValueError(msg) from e
+    except Exception as e:  # noqa: BLE001 - an HTTPException or an NSE outage; the panel says so
+        raise ValueError(
+            f"NSE's movers aren't available right now: {getattr(e, 'detail', e)}"
+        ) from e
 
 
 def _mover_rows(params, since, until):
@@ -152,7 +168,10 @@ def _mover_rows(params, since, until):
     for group in groups:
         if group["key"] != wanted:
             continue
-        for side, rows in (("gainer", group.get("gainers") or []), ("loser", group.get("losers") or [])):
+        for side, rows in (
+            ("gainer", group.get("gainers") or []),
+            ("loser", group.get("losers") or []),
+        ):
             for r in rows:
                 out.append(
                     {
@@ -367,7 +386,9 @@ def _journal_rows(params, since, until):
                 "mae_r": ctx.get("mae_r"),
                 "mfe_r": ctx.get("mfe_r"),
                 "account_equity": equity.get(name) if closed else None,
-                "account_drawdown": round(equity[name] - peak[name], 2) if closed and name in equity else None,
+                "account_drawdown": round(equity[name] - peak[name], 2)
+                if closed and name in equity
+                else None,
                 "trade_id": t["id"],
             }
         )
@@ -446,7 +467,9 @@ SOURCES = {
         "description": "NSE's top gainers and losers for one index cut - the day's snapshot.",
         "time_field": "fetched_at",
         "snapshot": True,
-        "params": [{"name": "bucket", "label": "Index cut (blank = all securities)", "required": False}],
+        "params": [
+            {"name": "bucket", "label": "Index cut (blank = all securities)", "required": False}
+        ],
         "rows": _mover_rows,
     },
     "watchlist_prices": {
@@ -511,8 +534,7 @@ def catalogue():
 def param_options(source, params):
     """Choices for each parameter, given the ones already picked - the editor's dropdowns."""
     if source not in SOURCES:
-        msg = f"unknown source '{source}'"
-        raise ValueError(msg)
+        raise ValueError(f"unknown source '{source}'")
     params = params or {}
     names = {p["name"] for p in SOURCES[source]["params"]}
     option = lambda values: [{"value": v, "label": label} for v, label in values]  # noqa: E731
@@ -525,14 +547,20 @@ def param_options(source, params):
         lists = [n if isinstance(n, str) else n.get("name") for n in db.list_watchlist_names()]
         out["list_name"] = option((n, n) for n in lists if n)
     if "symbol" in names:
-        out["symbol"] = option((s, s) for s in sorted(db.watchlist_symbols(params.get("list_name") or None)))
+        out["symbol"] = option(
+            (s, s) for s in sorted(db.watchlist_symbols(params.get("list_name") or None))
+        )
     if "bucket" in names:
         try:
-            out["bucket"] = option((g["key"], g["label"]) for g in _movers_payload().get("groups") or [])
+            out["bucket"] = option(
+                (g["key"], g["label"]) for g in _movers_payload().get("groups") or []
+            )
         except ValueError:
             out["bucket"] = []
     if "category" in names:
-        out["category"] = option((g["key"], g["key"].title()) for g in _indices_payload().get("groups") or [])
+        out["category"] = option(
+            (g["key"], g["key"].title()) for g in _indices_payload().get("groups") or []
+        )
     return out
 
 
@@ -544,8 +572,7 @@ def _window(time_from, time_to, now=None):
 def _fetch(query, variables, time_from, time_to):
     source = SOURCES.get((query or {}).get("source"))
     if not source:
-        msg = f"unknown source '{(query or {}).get('source')}'"
-        raise ValueError(msg)
+        raise ValueError(f"unknown source '{(query or {}).get('source')}'")
     # A snapshot - today's movers, the latest close - is what it is whatever the range says; filtering
     # it by "last hour" would only ever blank the panel.
     since, until = (None, None) if source.get("snapshot") else _window(time_from, time_to)
@@ -587,7 +614,11 @@ def validate(panels, variables):
         ids.add(p["id"])
         layout = p.get("layout") or {}
         try:
-            if not (int(layout["x"]) >= 0 and int(layout["w"]) >= 1 and int(layout["x"]) + int(layout["w"]) <= 12):
+            if not (
+                int(layout["x"]) >= 0
+                and int(layout["w"]) >= 1
+                and int(layout["x"]) + int(layout["w"]) <= 12
+            ):
                 return f"panel '{p.get('title')}' doesn't fit the 12-column grid"
             if int(layout["y"]) < 0 or int(layout["h"]) < 1:
                 return f"panel '{p.get('title')}' has an invalid height"
@@ -598,7 +629,9 @@ def validate(panels, variables):
     if not isinstance(variables, list):
         return "variables must be a list"
     names = [v.get("name") for v in variables]
-    if any(not n or not n.replace("_", "").isalnum() for n in names) or len(set(names)) != len(names):
+    if any(not n or not n.replace("_", "").isalnum() for n in names) or len(set(names)) != len(
+        names
+    ):
         return "variable names must be unique letters, digits or _"
     return None
 
@@ -664,8 +697,19 @@ def _workflow_health():
         "variables": [],
         "panels": [
             panel("stat", "Runs", _runs(bucket="day"), 0, 0, 3, 4, unit=""),
-            panel("stat", "Failed runs", _runs(bucket="day", filters=FAILED), 3, 0, 3, 4, tone="bad"),
-            panel("stat", "Avg duration", _runs(value="seconds", agg="avg", bucket="day"), 6, 0, 3, 4, unit="s"),
+            panel(
+                "stat", "Failed runs", _runs(bucket="day", filters=FAILED), 3, 0, 3, 4, tone="bad"
+            ),
+            panel(
+                "stat",
+                "Avg duration",
+                _runs(value="seconds", agg="avg", bucket="day"),
+                6,
+                0,
+                3,
+                4,
+                unit="s",
+            ),
             panel("pie", "Outcomes", _runs(group_by="status"), 9, 0, 3, 8),
             panel(
                 "timeseries",
@@ -677,7 +721,15 @@ def _workflow_health():
                 8,
                 unit="s",
             ),
-            panel("bar", "Failures by workflow", _runs(group_by="workflow", filters=FAILED, limit=10), 9, 8, 3, 8),
+            panel(
+                "bar",
+                "Failures by workflow",
+                _runs(group_by="workflow", filters=FAILED, limit=10),
+                9,
+                8,
+                3,
+                8,
+            ),
             panel("health", "Every run", _runs(limit=120), 0, 12, 9, 4),
             panel("notifications", "Latest notifications", _notes(limit=30), 0, 16, 6, 9),
             panel("table", "Recent failures", _runs(filters=FAILED, limit=50), 6, 16, 6, 9),
@@ -713,7 +765,15 @@ def _notifications_overview():
             ),
             panel("bar", "By workflow", _notes(group_by="workflow", limit=10), 0, 4, 6, 8),
             panel("pie", "By kind", _notes(group_by="event"), 6, 4, 6, 8),
-            panel("heatmap", "Per workflow per day", _notes(group_by="workflow", bucket="day"), 0, 12, 12, 8),
+            panel(
+                "heatmap",
+                "Per workflow per day",
+                _notes(group_by="workflow", bucket="day"),
+                0,
+                12,
+                12,
+                8,
+            ),
             panel("notifications", "Latest", _notes(limit=50), 0, 20, 12, 9),
         ],
     }
@@ -741,7 +801,14 @@ def _market_pulse():
         "settings": {"refresh": 300},
         "panels": [
             panel(
-                "stat", "NIFTY 50", idx(filters=[_eq("name", "NIFTY 50")], value="percentChange"), 0, 0, 3, 4, unit="%"
+                "stat",
+                "NIFTY 50",
+                idx(filters=[_eq("name", "NIFTY 50")], value="percentChange"),
+                0,
+                0,
+                3,
+                4,
+                unit="%",
             ),
             panel(
                 "stat",
@@ -753,7 +820,15 @@ def _market_pulse():
                 4,
                 unit="%",
             ),
-            panel("stat", "NIFTY 500 advancing", idx(filters=[_eq("name", "NIFTY 500")], value="advances"), 6, 0, 3, 4),
+            panel(
+                "stat",
+                "NIFTY 500 advancing",
+                idx(filters=[_eq("name", "NIFTY 500")], value="advances"),
+                6,
+                0,
+                3,
+                4,
+            ),
             panel(
                 "stat",
                 "NIFTY 500 declining",
@@ -822,7 +897,9 @@ def _market_movers():
             panel("stat", "Gainers", mov(filters=[_eq("side", "gainer")]), 0, 0, 3, 4),
             panel("stat", "Losers", mov(filters=[_eq("side", "loser")]), 3, 0, 3, 4, tone="bad"),
             panel("stat", "Best move", mov(value="changePercent", agg="max"), 6, 0, 3, 4, unit="%"),
-            panel("stat", "Worst move", mov(value="changePercent", agg="min"), 9, 0, 3, 4, unit="%"),
+            panel(
+                "stat", "Worst move", mov(value="changePercent", agg="min"), 9, 0, 3, 4, unit="%"
+            ),
             panel(
                 "treemap",
                 "Movers by turnover",
@@ -836,7 +913,12 @@ def _market_movers():
             panel(
                 "bar",
                 "Top gainers",
-                mov(filters=[_eq("side", "gainer")], group_by="symbol", value="changePercent", limit=15),
+                mov(
+                    filters=[_eq("side", "gainer")],
+                    group_by="symbol",
+                    value="changePercent",
+                    limit=15,
+                ),
                 8,
                 4,
                 4,
@@ -846,14 +928,28 @@ def _market_movers():
             panel(
                 "bar",
                 "Top losers",
-                mov(filters=[_eq("side", "loser")], group_by="symbol", value="changePercent", sort="asc", limit=15),
+                mov(
+                    filters=[_eq("side", "loser")],
+                    group_by="symbol",
+                    value="changePercent",
+                    sort="asc",
+                    limit=15,
+                ),
                 0,
                 16,
                 4,
                 10,
                 unit="%",
             ),
-            panel("bar", "Highest turnover", mov(group_by="symbol", value="turnover", limit=15), 4, 16, 4, 10),
+            panel(
+                "bar",
+                "Highest turnover",
+                mov(group_by="symbol", value="turnover", limit=15),
+                4,
+                16,
+                4,
+                10,
+            ),
             panel(
                 "table",
                 "Corporate actions behind moves",
@@ -887,7 +983,13 @@ def _watchlist_heatmap():
         "settings": {"from": "now-30d"},
         "panels": [
             panel(
-                "stat", "Advancing", prices(filters=[{"field": "changePercent", "op": "gt", "value": "0"}]), 0, 0, 3, 4
+                "stat",
+                "Advancing",
+                prices(filters=[{"field": "changePercent", "op": "gt", "value": "0"}]),
+                0,
+                0,
+                3,
+                4,
             ),
             panel(
                 "stat",
@@ -899,9 +1001,36 @@ def _watchlist_heatmap():
                 4,
                 tone="bad",
             ),
-            panel("stat", "Average move", prices(value="changePercent", agg="avg"), 6, 0, 3, 4, unit="%"),
-            panel("stat", "Biggest volume surge", prices(value="volume_ratio", agg="max"), 9, 0, 3, 4, unit="× avg"),
-            panel("treemap", "Today's move", prices(group_by="symbol", value="changePercent"), 0, 4, 8, 12, unit="%"),
+            panel(
+                "stat",
+                "Average move",
+                prices(value="changePercent", agg="avg"),
+                6,
+                0,
+                3,
+                4,
+                unit="%",
+            ),
+            panel(
+                "stat",
+                "Biggest volume surge",
+                prices(value="volume_ratio", agg="max"),
+                9,
+                0,
+                3,
+                4,
+                unit="× avg",
+            ),
+            panel(
+                "treemap",
+                "Today's move",
+                prices(group_by="symbol", value="changePercent"),
+                0,
+                4,
+                8,
+                12,
+                unit="%",
+            ),
             panel(
                 "bar",
                 "Best and worst",
@@ -963,8 +1092,19 @@ def _stock_deep_dive():
         ],
         "settings": {"from": "now-90d"},
         "panels": [
-            panel("stat", "Close", bars(value="close", agg="last", bucket="day"), 0, 0, 3, 4, unit="₹"),
-            panel("stat", "Day's move", bars(value="changePercent", agg="avg", bucket="day"), 3, 0, 3, 4, unit="%"),
+            panel(
+                "stat", "Close", bars(value="close", agg="last", bucket="day"), 0, 0, 3, 4, unit="₹"
+            ),
+            panel(
+                "stat",
+                "Day's move",
+                bars(value="changePercent", agg="avg", bucket="day"),
+                3,
+                0,
+                3,
+                4,
+                unit="%",
+            ),
             panel("stat", "Events in range", events(bucket="day"), 6, 0, 3, 4),
             panel("stat", "Volume", bars(value="volume", agg="sum", bucket="day"), 9, 0, 3, 4),
             panel(
@@ -979,7 +1119,13 @@ def _stock_deep_dive():
             ),
             panel("pie", "Events by type", events(group_by="event_type"), 8, 4, 4, 10),
             panel(
-                "timeseries", "Volume", bars(group_by="symbol", value="volume", agg="last", bucket="day"), 0, 14, 8, 8
+                "timeseries",
+                "Volume",
+                bars(group_by="symbol", value="volume", agg="last", bucket="day"),
+                0,
+                14,
+                8,
+                8,
             ),
             panel(
                 "bar",
@@ -1024,8 +1170,24 @@ def _events_radar():
                 4,
                 tone="bad",
             ),
-            panel("stat", "Positive headlines", ev(bucket="day", filters=[_eq("sentiment", "positive")]), 8, 0, 4, 4),
-            panel("heatmap", "Events per stock per day", ev(group_by="symbol", bucket="day"), 0, 4, 12, 10),
+            panel(
+                "stat",
+                "Positive headlines",
+                ev(bucket="day", filters=[_eq("sentiment", "positive")]),
+                8,
+                0,
+                4,
+                4,
+            ),
+            panel(
+                "heatmap",
+                "Events per stock per day",
+                ev(group_by="symbol", bucket="day"),
+                0,
+                4,
+                12,
+                10,
+            ),
             panel(
                 "treemap",
                 "Where the news is (colour = avg sentiment)",
@@ -1072,13 +1234,45 @@ def _trading_journal():
         ],
         "settings": {"from": "now-90d"},
         "panels": [
-            panel("stat", "Net P&L this week", trades(value="net_pnl", agg="sum", bucket="week"), 0, 0, 2, 4, unit="₹"),
-            panel("stat", "Net P&L in range", trades(value="net_pnl", agg="sum", bucket="all"), 2, 0, 2, 4, unit="₹"),
             panel(
-                "stat", "Win rate this month", trades(value="win_pct", agg="avg", bucket="month"), 4, 0, 2, 4, unit="%"
+                "stat",
+                "Net P&L this week",
+                trades(value="net_pnl", agg="sum", bucket="week"),
+                0,
+                0,
+                2,
+                4,
+                unit="₹",
             ),
             panel(
-                "stat", "Avg R this month", trades(value="r_multiple", agg="avg", bucket="month"), 6, 0, 2, 4, unit="R"
+                "stat",
+                "Net P&L in range",
+                trades(value="net_pnl", agg="sum", bucket="all"),
+                2,
+                0,
+                2,
+                4,
+                unit="₹",
+            ),
+            panel(
+                "stat",
+                "Win rate this month",
+                trades(value="win_pct", agg="avg", bucket="month"),
+                4,
+                0,
+                2,
+                4,
+                unit="%",
+            ),
+            panel(
+                "stat",
+                "Avg R this month",
+                trades(value="r_multiple", agg="avg", bucket="month"),
+                6,
+                0,
+                2,
+                4,
+                unit="R",
             ),
             panel("stat", "Trades this week", trades(closed_only=False, bucket="week"), 8, 0, 2, 4),
             panel(
@@ -1104,7 +1298,14 @@ def _trading_journal():
             ),
             panel("pie", "Results", trades(group_by="result"), 8, 4, 4, 10),
             panel(
-                "bar", "Net P&L by setup", trades(group_by="setup", value="net_pnl", agg="sum"), 0, 14, 4, 9, unit="₹"
+                "bar",
+                "Net P&L by setup",
+                trades(group_by="setup", value="net_pnl", agg="sum"),
+                0,
+                14,
+                4,
+                9,
+                unit="₹",
             ),
             panel(
                 "bar",
@@ -1149,7 +1350,10 @@ def _trading_journal():
             panel(
                 "treemap",
                 "Symbols - size by turnover, colour by net return",
-                {**trades(group_by="symbol", value="net_return_pct", agg="avg"), "size": "turnover"},
+                {
+                    **trades(group_by="symbol", value="net_return_pct", agg="avg"),
+                    "size": "turnover",
+                },
                 0,
                 33,
                 6,
@@ -1248,7 +1452,11 @@ def from_workflow(workflow):
                 }
             )
         for i, number in enumerate(numbers):
-            panels.append(panel("stat", f"{number} (latest, avg)", data(value=number, agg="avg"), i * 4, y, 4, 4))
+            panels.append(
+                panel(
+                    "stat", f"{number} (latest, avg)", data(value=number, agg="avg"), i * 4, y, 4, 4
+                )
+            )
         y += 4 if numbers else 0
         if numbers:
             panels.append(
@@ -1274,16 +1482,21 @@ def from_workflow(workflow):
                 )
             )
             y += 9
-        panels.append(panel("table", f"{series} rows", data(limit=500), 0, y, 8 if group else 12, 9))
+        panels.append(
+            panel("table", f"{series} rows", data(limit=500), 0, y, 8 if group else 12, 9)
+        )
         if group:
-            panels.append(panel("pie", f"Rows by {group}", data(group_by=group, limit=12), 8, y, 4, 9))
+            panels.append(
+                panel("pie", f"Rows by {group}", data(group_by=group, limit=12), 8, y, 4, 9)
+            )
         y += 9
         if numbers and group:
             size = next(
                 (
                     c["name"]
                     for c in cols
-                    if c["type"] == "number" and any(w in c["name"].lower() for w in ("cap", "turnover", "volume"))
+                    if c["type"] == "number"
+                    and any(w in c["name"].lower() for w in ("cap", "turnover", "volume"))
                 ),
                 None,
             )
@@ -1315,7 +1528,16 @@ def from_workflow(workflow):
     panels.append(panel("health", "Runs", {**runs, "limit": 120}, 0, y, 12, 4))
     y += 4
     panels.append(
-        panel("stat", "Avg duration", {**runs, "value": "seconds", "agg": "avg", "bucket": "day"}, 0, y, 4, 4, unit="s")
+        panel(
+            "stat",
+            "Avg duration",
+            {**runs, "value": "seconds", "agg": "avg", "bucket": "day"},
+            0,
+            y,
+            4,
+            4,
+            unit="s",
+        )
     )
     panels.append(panel("notifications", "Notifications", {**notes, "limit": 30}, 4, y, 8, 8))
     return {

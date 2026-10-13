@@ -1,11 +1,18 @@
 """
 Integration and Unit Tests for Batch 2 Prop Firm Risk Guard Engines and ArkoRisk Modules.
 """
-from typing import Any
 from datetime import datetime, time, timedelta
-import pytest
-from institutional_integrations.propfirm_risk_guard_engine import PropFirmRiskGuardEngine, RiskTick, RiskSeverity, TrailingDDConfig, DailyLossConfig, CutoffConfig, ConsistencyConfig, NewsWindow
-from institutional_integrations.arkorisk_guard import ArkoRiskGuard, RiskProfilePreset, PROP_FIRM_DATABASE, MarketType, DrawdownTaxonomy
+
+from institutional_integrations.arkorisk_guard import PROP_FIRM_DATABASE, ArkoRiskGuard
+from institutional_integrations.propfirm_risk_guard_engine import (
+    ConsistencyConfig,
+    CutoffConfig,
+    PropFirmRiskGuardEngine,
+    RiskSeverity,
+    RiskTick,
+    TrailingDDConfig,
+)
+
 
 def test_trailing_intraday_drawdown_breach() -> None:
     engine = PropFirmRiskGuardEngine(initial_balance=100000.0, trailing_config=TrailingDDConfig(max_drawdown=5000.0, mode='intraday_peak'))
@@ -18,7 +25,7 @@ def test_trailing_intraday_drawdown_breach() -> None:
     events = engine.on_tick(RiskTick(now + timedelta(minutes=5), 99500.0, position_size=1.0))
     snap = engine.snapshot()
     assert snap.breached
-    assert any((e.severity == RiskSeverity.BREACH for e in events))
+    assert any(e.severity == RiskSeverity.BREACH for e in events)
 
 def test_session_cutoff_scrambler() -> None:
     engine = PropFirmRiskGuardEngine(initial_balance=100000.0, cutoff_config=CutoffConfig(cutoff_time=time(17, 0, 0), warning_seconds=300.0, flatten_buffer_seconds=60.0))

@@ -152,7 +152,10 @@ def do_list(nse):
             d = j.get("data", []) if isinstance(j, dict) else j
             for r in d or []:
                 xb = r.get("xbrl") or ""
-                if xb.lower().endswith(".xml") and "governance" not in (r.get("type") or "").lower():
+                if (
+                    xb.lower().endswith(".xml")
+                    and "governance" not in (r.get("type") or "").lower()
+                ):
                     rows.setdefault(
                         xb,
                         {
@@ -203,7 +206,9 @@ def do_fetch(nse, rows):
         have.add(fn)
         new += 1
         if new % 100 == 0:
-            print("  fetched %d (%d/%d listed, %d failed)" % (new, i + 1, len(rows), fail), flush=True)
+            print(
+                "  fetched %d (%d/%d listed, %d failed)" % (new, i + 1, len(rows), fail), flush=True
+            )
             json.dump(sorted(ledger), open(LEDGER, "w"), indent=0)
         time.sleep(0.8)
     json.dump(sorted(ledger), open(LEDGER, "w"), indent=0)

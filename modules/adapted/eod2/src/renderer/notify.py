@@ -21,12 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from matplotlib.axes import Axes
-
-if TYPE_CHECKING:
-    from matplotlib.text import Text
+from matplotlib.text import Text
 
 HELP = """
                     ## Navigation ##
@@ -77,8 +75,7 @@ class Notify:
 
     def add(self, message: str, level: Literal["success", "error"] = "success") -> None:
         if self._ax is None:
-            msg = "Axes not set"
-            raise RuntimeError(msg)
+            raise RuntimeError("Axes not set")
 
         self.remove()
 
@@ -116,8 +113,7 @@ class Notify:
 
     def toggle_help(self):
         if self._ax is None:
-            msg = "Axes not set"
-            raise RuntimeError(msg)
+            raise RuntimeError("Axes not set")
 
         if self.help_text is None:
             self.help_text = self._ax.text(

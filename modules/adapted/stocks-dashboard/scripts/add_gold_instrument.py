@@ -113,7 +113,10 @@ def main():
     if fresh:
         json.dump({"series": fresh}, open(CACHE, "w"))
         series = fresh
-        print("  gold series refreshed from Yahoo: %d points (%s..%s)" % (len(series), series[0][0], series[-1][0]))
+        print(
+            "  gold series refreshed from Yahoo: %d points (%s..%s)"
+            % (len(series), series[0][0], series[-1][0])
+        )
     else:
         series = load_cache()
         if not series:
@@ -136,7 +139,7 @@ def main():
     paise = []
     for i in range(start, len(dates)):
         v = gprior(dates[i])
-        paise.append(round(v * 100))
+        paise.append(int(round(v * 100)))
     # pack: [startIdx, firstPaise, delta1, delta2, ...]
     packed = [start, paise[0]]
     for i in range(1, len(paise)):
@@ -148,15 +151,25 @@ def main():
     funds = json.load(open(FUNDS))
     funds = [f for f in funds if str(f.get("code")) != GOLD_CODE]
     yrs = round(
-        (dates[-1] // 10000 - dates[start] // 10000) + ((dates[-1] // 100 % 100) - (dates[start] // 100 % 100)) / 12.0,
+        (dates[-1] // 10000 - dates[start] // 10000)
+        + ((dates[-1] // 100 % 100) - (dates[start] // 100 % 100)) / 12.0,
         1,
     )
     funds.append(
-        {"code": GOLD_CODE, "short": GOLD_SHORT, "plan": "Regular", "category": GOLD_CAT, "years": yrs, "amc": GOLD_AMC}
+        {
+            "code": GOLD_CODE,
+            "short": GOLD_SHORT,
+            "plan": "Regular",
+            "category": GOLD_CAT,
+            "years": yrs,
+            "amc": GOLD_AMC,
+        }
     )
     json.dump(funds, open(FUNDS, "w"), separators=(",", ":"))
 
-    print(f"  injected {GOLD_CODE} into mf_history.bin (axis {dates[start]}..{dates[-1]}) + mf_funds.json ({yrs:.1f}y)")
+    print(
+        f"  injected {GOLD_CODE} into mf_history.bin (axis {dates[start]}..{dates[-1]}) + mf_funds.json ({yrs:.1f}y)"
+    )
 
 
 if __name__ == "__main__":

@@ -31,28 +31,25 @@ Universe: ₹100-500, NSE EQ, ₹1Cr+ turnover, cluster entries
 """
 
 
-from typing import TYPE_CHECKING
-
 import numpy as np
+import pandas as pd
 
 from indian_quant.features.delivery import (
     add_features,
     cluster_entry_mask,
-    conviction_score,
     prepare_frame,
     signal_mask,
 )
 from indian_quant.hypotheses.base import BaseHypothesis, Signal
 from indian_quant.hypotheses.registry import register_hypothesis
 
-if TYPE_CHECKING:
-    import pandas as pd
-
 
 @register_hypothesis
 class DeliveryMomentum(BaseHypothesis):
     name = "delivery_momentum"
-    description = "Delivery z-score spike with positive returns — high-delivery days predict continuation"
+    description = (
+        "Delivery z-score spike with positive returns — high-delivery days predict continuation"
+    )
     max_positions = 7
     default_stop_pct = 0.07
     default_horizon_days = 10
@@ -112,7 +109,8 @@ class DeliveryMomentum(BaseHypothesis):
                 min(row.get("deliv_z", 0), 5) * 15
                 + min(row.get("ret_1d", 0) * 1000, 10)
                 + min(row.get("turnover_z", 0), 3) * 10
-                + min(row.get("conviction_score", 0) if "conviction_score" in row.index else 0, 1) * 20
+                + min(row.get("conviction_score", 0) if "conviction_score" in row.index else 0, 1)
+                * 20
             )
             strength = max(0, min(100, strength))
 
@@ -124,7 +122,9 @@ class DeliveryMomentum(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=row.get("symbol", ""),
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="dz_hi_up",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),
@@ -136,7 +136,9 @@ class DeliveryMomentum(BaseHypothesis):
                     rsi=round(row.get("rsi", 0), 2),
                     macd_hist=round(row.get("macd", 0) - row.get("macd_signal", 0), 4),
                     turnover=round(row.get("turnover_val", 0), 0),
-                    market_cap_cr=round(row.get("market_cap_cr", 0), 0) if "market_cap_cr" in row.index else 0,
+                    market_cap_cr=round(row.get("market_cap_cr", 0), 0)
+                    if "market_cap_cr" in row.index
+                    else 0,
                 )
             )
 

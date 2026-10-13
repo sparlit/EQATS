@@ -78,8 +78,7 @@ def from_csv(source):
     df = pd.read_csv(io.StringIO(text))
     sym_col = pick(df, ["Symbol"])
     if sym_col is None:
-        msg = "No Symbol column found"
-        raise ValueError(msg)
+        raise ValueError("No Symbol column found")
     name_col = pick(df, ["Company Name", "Name"])
     sec_col = pick(df, ["Industry", "Sector"])
     out = []

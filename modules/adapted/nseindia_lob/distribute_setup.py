@@ -54,13 +54,13 @@ try:
     import subprocess
 
     def _python_cmd(*args):
-        args = (sys.executable, *args)
+        args = (sys.executable,) + args
         return subprocess.call(args) == 0
 
 except ImportError:
     # will be used for python 2.3
     def _python_cmd(*args):
-        args = (sys.executable, *args)
+        args = (sys.executable,) + args
         # quoting arguments if windows
         if sys.platform == "win32":
 
@@ -140,12 +140,13 @@ def _build_egg(egg, tarball, to_dir):
     # returning the result
     log.warn(egg)
     if not os.path.exists(egg):
-        msg = "Could not build the egg."
-        raise OSError(msg)
+        raise OSError("Could not build the egg.")
 
 
 def _do_download(version, download_base, to_dir, download_delay):
-    egg = os.path.join(to_dir, "distribute-%s-py%d.%d.egg" % (version, sys.version_info[0], sys.version_info[1]))
+    egg = os.path.join(
+        to_dir, "distribute-%s-py%d.%d.egg" % (version, sys.version_info[0], sys.version_info[1])
+    )
     if not os.path.exists(egg):
         tarball = download_setuptools(version, download_base, to_dir, download_delay)
         _build_egg(egg, tarball, to_dir)
@@ -156,7 +157,11 @@ def _do_download(version, download_base, to_dir, download_delay):
 
 
 def use_setuptools(
-    version=DEFAULT_VERSION, download_base=DEFAULT_URL, to_dir=os.curdir, download_delay=15, no_fake=True
+    version=DEFAULT_VERSION,
+    download_base=DEFAULT_URL,
+    to_dir=os.curdir,
+    download_delay=15,
+    no_fake=True,
 ):
     # making sure we use the absolute path
     to_dir = os.path.abspath(to_dir)
@@ -173,7 +178,7 @@ def use_setuptools(
             return _do_download(version, download_base, to_dir, download_delay)
         try:
             pkg_resources.require("distribute>=" + version)
-            return None
+            return
         except pkg_resources.VersionConflict:
             e = sys.exc_info()[1]
             if was_imported:
@@ -195,7 +200,9 @@ def use_setuptools(
             _create_fake_setuptools_pkg_info(to_dir)
 
 
-def download_setuptools(version=DEFAULT_VERSION, download_base=DEFAULT_URL, to_dir=os.curdir, delay=15):
+def download_setuptools(
+    version=DEFAULT_VERSION, download_base=DEFAULT_URL, to_dir=os.curdir, delay=15
+):
     """Download distribute from a specified location and return its filename
 
     `version` should be a valid distribute version number that is available
@@ -301,11 +308,14 @@ def _remove_flat_installation(placeholder):
             break
     if not found:
         log.warn("Could not locate setuptools*.egg-info")
-        return None
+        return
 
     log.warn("Removing elements out of the way...")
     pkg_info = os.path.join(placeholder, file)
-    patched = _patch_egg_dir(pkg_info) if os.path.isdir(pkg_info) else _patch_file(pkg_info, SETUPTOOLS_PKG_INFO)
+    if os.path.isdir(pkg_info):
+        patched = _patch_egg_dir(pkg_info)
+    else:
+        patched = _patch_file(pkg_info, SETUPTOOLS_PKG_INFO)
 
     if not patched:
         log.warn("%s already patched.", pkg_info)
@@ -365,10 +375,9 @@ _create_fake_setuptools_pkg_info = _no_sandbox(_create_fake_setuptools_pkg_info)
 def _patch_egg_dir(path):
     # let's check if it's already patched
     pkg_info = os.path.join(path, "EGG-INFO", "PKG-INFO")
-    if os.path.exists(pkg_info):
-        if _same_content(pkg_info, SETUPTOOLS_PKG_INFO):
-            log.warn("%s already patched.", pkg_info)
-            return False
+    if os.path.exists(pkg_info) and _same_content(pkg_info, SETUPTOOLS_PKG_INFO):
+        log.warn("%s already patched.", pkg_info)
+        return False
     _rename_path(path)
     os.mkdir(path)
     os.mkdir(os.path.join(path, "EGG-INFO"))
@@ -398,7 +407,7 @@ def _under_prefix(location):
             if arg.startswith(f"{option}="):
                 top_dir = arg.split("root=")[-1]
                 return location.startswith(top_dir)
-            if arg == option:
+            elif arg == option:
                 if len(args) > index:
                     top_dir = args[index + 1]
                     return location.startswith(top_dir)
@@ -463,7 +472,7 @@ def _relaunch():
     _cmd = ["-c", "install", "--single-version-externally-managed"]
     if sys.argv[:3] == _cmd:
         sys.argv[0] = "setup.py"
-    args = [sys.executable, *sys.argv]
+    args = [sys.executable] + sys.argv
     sys.exit(subprocess.call(args))
 
 
@@ -505,7 +514,8 @@ def _extractall(self, path=".", members=None):
             e = sys.exc_info()[1]
             if self.errorlevel > 1:
                 raise
-            self._dbg(1, f"tarfile: {e}")
+            else:
+                self._dbg(1, f"tarfile: {e}")
 
 
 def _build_install_args(argv):

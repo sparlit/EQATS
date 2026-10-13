@@ -17,6 +17,15 @@ impl EClient {
     /// `cancel_positions`. What is ready now is sent through `wrapper`; the
     /// rest comes through `process_msgs`. No wait in the caller's thread.
     pub fn req_positions(&self, wrapper: &mut impl Wrapper) {
+        // Accounts whose application is not approved (ibx#421).
+        match crate::client_core::ClientCore::positions_pending_check(&self.shared.reference) {
+            Err((code, message)) => {
+                self.shared.orders.push_order_error(-1, code, message);
+                return;
+            }
+            Ok(Some((code, message))) => self.shared.orders.push_order_error(-1, code, message),
+            Ok(None) => {}
+        }
         self.core.subscribe_positions();
         self.dispatch_positions(wrapper);
     }
@@ -49,32 +58,36 @@ impl EClient {
     /// Several requests can run; an empty or unknown account gives 321, a
     /// request id already running gives 102 (ibx#478).
     pub fn req_pnl(&self, req_id: i64, account: &str, _model_code: &str) {
+        if !crate::client_core::ClientCore::ids_fit("req_pnl", &[req_id]) { return; }
         if let Err((code, message)) = self.core.request_pnl(req_id, account, &self.account_id) {
-            self.shared.orders.push_order_error(req_id as u64, code, message);
+            self.shared.orders.push_order_error(req_id, code, message);
         }
     }
 
     /// Cancel PnL subscription. Matches `cancelPnL` in C++.
     /// A request id not running gives 10185 (ibx#478).
     pub fn cancel_pnl(&self, req_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("cancel_pnl", &[req_id]) { return; }
         if let Some((code, message)) = self.core.cancel_pnl_request(req_id) {
-            self.shared.orders.push_order_error(req_id as u64, code, message);
+            self.shared.orders.push_order_error(req_id, code, message);
         }
     }
 
     /// Subscribe to single-position PnL updates. Matches `reqPnLSingle` in C++.
     /// Same checks as `req_pnl` (ibx#478).
     pub fn req_pnl_single(&self, req_id: i64, account: &str, _model_code: &str, con_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("req_pnl_single", &[req_id, con_id]) { return; }
         if let Err((code, message)) = self.core.request_pnl_single(req_id, account, &self.account_id, con_id) {
-            self.shared.orders.push_order_error(req_id as u64, code, message);
+            self.shared.orders.push_order_error(req_id, code, message);
         }
     }
 
     /// Cancel single-position PnL subscription. Matches `cancelPnLSingle` in C++.
     /// A request id not running gives 10186 (ibx#478).
     pub fn cancel_pnl_single(&self, req_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("cancel_pnl_single", &[req_id]) { return; }
         if let Some((code, message)) = self.core.cancel_pnl_single_request(req_id) {
-            self.shared.orders.push_order_error(req_id as u64, code, message);
+            self.shared.orders.push_order_error(req_id, code, message);
         }
     }
 
@@ -84,6 +97,7 @@ impl EClient {
     /// A server subscription: the rows come as the server sends them, each
     /// batch ends with account_summary_end, until the cancel (ibx#479).
     pub fn req_account_summary(&self, req_id: i64, group: &str, tags: &str) {
+        if !crate::client_core::ClientCore::ids_fit("req_account_summary", &[req_id]) { return; }
         match self.core.subscribe_account_summary(req_id, group, tags) {
             Ok(plan) => {
                 if let Some(sr_id) = plan.cancel_sr_id {
@@ -93,12 +107,13 @@ impl EClient {
                     sr_id: plan.sr_id, tags: plan.wire_tags, group: plan.group,
                 });
             }
-            Err((code, message)) => self.shared.orders.push_order_error(req_id as u64, code, message),
+            Err((code, message)) => self.shared.orders.push_order_error(req_id, code, message),
         }
     }
 
     /// Cancel account summary. Matches `cancelAccountSummary` in C++.
     pub fn cancel_account_summary(&self, req_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("cancel_account_summary", &[req_id]) { return; }
         if let Some(sr_id) = self.core.unsubscribe_account_summary(req_id) {
             let _ = self.control_tx.send(ControlCommand::CancelAccountSummary { sr_id });
         }
@@ -107,10 +122,17 @@ impl EClient {
     // ── Account Updates ──
 
     /// Subscribe to account updates. Matches `reqAccountUpdates` in C++.
-    pub fn req_account_updates(&self, subscribe: bool, _acct_code: &str) {
+    pub fn req_account_updates(&self, subscribe: bool, acct_code: &str) {
+        // An account whose application is not approved: a warning, the
+        // request goes on (ibx#421).
+        if let Some((code, message)) = crate::client_core::ClientCore::account_updates_pending_warning(
+            acct_code, &self.shared.reference, &self.account_id)
+        {
+            self.shared.orders.push_order_error(-1, code, message);
+        }
         // An unsubscribe answers error 2100 with id -1 (ibx#475).
         if let Some((code, message)) = self.core.subscribe_account_updates(subscribe) {
-            self.shared.orders.push_order_error(-1i64 as u64, code, message);
+            self.shared.orders.push_order_error(-1, code, message);
         }
     }
 
@@ -120,8 +142,11 @@ impl EClient {
     }
 
     /// Request managed accounts. Matches `reqManagedAccts` in C++.
+    /// Every account of the logon's account list, in logon order, comma
+    /// separated, as the reference (ibx#420); the logon account when the
+    /// logon had no list.
     pub fn req_managed_accts(&self, wrapper: &mut impl Wrapper) {
-        wrapper.managed_accounts(&self.account_id);
+        wrapper.managed_accounts(&self.shared.reference.managed_accounts_text(&self.account_id));
     }
 
     /// Request account updates for multiple accounts/models. Matches `reqAccountUpdatesMulti` in C++.
@@ -137,6 +162,7 @@ impl EClient {
         &self, req_id: i64, account: &str, model_code: &str, ledger_and_nlv: bool,
         wrapper: &mut impl Wrapper,
     ) {
+        if !crate::client_core::ClientCore::ids_fit("req_account_updates_multi", &[req_id]) { return; }
         if let Err((code, message)) = self.core.subscribe_account_multi(req_id, account, model_code, ledger_and_nlv) {
             wrapper.error(req_id, code, &message, "");
             return;
@@ -146,6 +172,7 @@ impl EClient {
 
     /// Cancel multi-account updates. Matches `cancelAccountUpdatesMulti` in C++.
     pub fn cancel_account_updates_multi(&self, req_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("cancel_account_updates_multi", &[req_id]) { return; }
         self.core.unsubscribe_account_multi(req_id);
     }
 
@@ -159,12 +186,21 @@ impl EClient {
         &self, req_id: i64, account: &str, model_code: &str,
         wrapper: &mut impl Wrapper,
     ) {
+        if !crate::client_core::ClientCore::ids_fit("req_positions_multi", &[req_id]) { return; }
+        // An account whose application is not approved (ibx#421).
+        if let Some((code, message)) = crate::client_core::ClientCore::positions_multi_pending_refusal(
+            account, &self.shared.reference, &self.account_id)
+        {
+            self.shared.orders.push_order_error(req_id, code, message);
+            return;
+        }
         self.core.subscribe_positions_multi(req_id, account, model_code);
         self.dispatch_multi(wrapper);
     }
 
     /// Cancel multi-account positions. Matches `cancelPositionsMulti` in C++.
     pub fn cancel_positions_multi(&self, req_id: i64) {
+        if !crate::client_core::ClientCore::ids_fit("cancel_positions_multi", &[req_id]) { return; }
         self.core.unsubscribe_positions_multi(req_id);
     }
 

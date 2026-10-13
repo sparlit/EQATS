@@ -107,8 +107,7 @@ def score_from_nse(idea):
     hist = bse.nse_bhav_history([sym], call - datetime.timedelta(days=10))
     rows = hist.get(sym) or []
     if not rows:
-        msg = f"no NSE bhavcopy rows for {sym}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"no NSE bhavcopy rows for {sym}")
     rows, events = bse.apply_adjustments(rows, [])
     out = row_from(idea, rows, events, "nse-bhavcopy")
     out["adj_note"] = (
@@ -152,7 +151,9 @@ def previous_rows():
         old = json.load(open(fn))
     except Exception:
         return {}, None
-    return {r["idea_id"]: r for r in (old.get("rows") or []) if r.get("idea_id")}, old.get("updated")
+    return {r["idea_id"]: r for r in (old.get("rows") or []) if r.get("idea_id")}, old.get(
+        "updated"
+    )
 
 
 def carry_forward(prev, reason, updated):
@@ -183,7 +184,9 @@ def main():
     fallback = 0
     retry = [it for it in retry if not nse_only(it)]
     if retry:
-        print(f"{len(retry)} idea(s) could not be priced from api.bseindia.com; trying the bhavcopy route")
+        print(
+            f"{len(retry)} idea(s) could not be priced from api.bseindia.com; trying the bhavcopy route"
+        )
         try:
             got = score_from_bhavcopy(retry)
         except Exception as e:

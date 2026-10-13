@@ -111,38 +111,40 @@ def cached_pdf(sess, att):
 
 # ---- P&L row labels (Schedule III wording varies a little across filers) ----------------
 ROW_PATS = {
-    "rev": re.compile(r"(?:total\s+)?(?:revenue|income)\s+from\s+operations?", re.IGNORECASE),
-    "oi": re.compile(r"^other\s+income", re.IGNORECASE),
-    "fc": re.compile(r"finance\s+costs?", re.IGNORECASE),
+    "rev": re.compile(r"(?:total\s+)?(?:revenue|income)\s+from\s+operations?", re.I),
+    "oi": re.compile(r"^other\s+income", re.I),
+    "fc": re.compile(r"finance\s+costs?", re.I),
     "dep": re.compile(
-        r"depreciation(?:\s*(?:,|and|&)?\s*(?:depletion\s*(?:and|&)?\s*)?amorti[sz]ation)?", re.IGNORECASE
+        r"depreciation(?:\s*(?:,|and|&)?\s*(?:depletion\s*(?:and|&)?\s*)?amorti[sz]ation)?", re.I
     ),
     "pbet": re.compile(
         r"profit\s*/?\s*\(?\s*loss\s*\)?\s*(?:from\s+\w+\s+activities\s+)?before\s+exceptional"
         r"|profit\s+before\s+exceptional",
-        re.IGNORECASE,
+        re.I,
     ),
     "pbt": re.compile(
         r"profit\s*/?\s*\(?\s*loss\s*\)?\s*(?:from\s+\w+\s+activities\s+)?before\s+tax"
         r"|profit\s+before\s+tax",
-        re.IGNORECASE,
+        re.I,
     ),
-    "tax": re.compile(r"^(?:total\s+)?tax\s+expenses?", re.IGNORECASE),
+    "tax": re.compile(r"^(?:total\s+)?tax\s+expenses?", re.I),
     # NOTE '(?:/?\s*\(?\s*loss\s*\)?)?' is OPTIONAL: plain 'Profit for the period' (Eternal/Zomato
     # style) must match too — requiring the literal 'loss' silently skipped every such filer.
     "pat": re.compile(
         r"(?:net\s+)?profit\s*(?:/?\s*\(?\s*loss\s*\)?)?\s*(?:after\s+tax\s*)?for\s+the\s+"
         r"(?:period|quarter|year)|profit\s+after\s+tax",
-        re.IGNORECASE,
+        re.I,
     ),
-    "own": re.compile(r"attributable\s+to\s*:?\s*(?:the\s+)?(?:owners?|equity\s+holders|shareholders)", re.IGNORECASE),
+    "own": re.compile(
+        r"attributable\s+to\s*:?\s*(?:the\s+)?(?:owners?|equity\s+holders|shareholders)", re.I
+    ),
     # 'Total Income' (= rev + other income) — validation row only, NOT 'Total income from operations'
-    "ti": re.compile(r"^total\s+income(?!\s+from)", re.IGNORECASE),
+    "ti": re.compile(r"^total\s+income(?!\s+from)", re.I),
 }
-PL_PAGE = re.compile(r"revenue\s+from\s+operations?|income\s+from\s+operations?", re.IGNORECASE)
-CON_HDR = re.compile(r"consolidated", re.IGNORECASE)
-STD_HDR = re.compile(r"standalone|stand\s*alone", re.IGNORECASE)
-BANKISH = re.compile(r"interest\s+earned|premium.{0,12}earned|net\s+premium", re.IGNORECASE)
+PL_PAGE = re.compile(r"revenue\s+from\s+operations?|income\s+from\s+operations?", re.I)
+CON_HDR = re.compile(r"consolidated", re.I)
+STD_HDR = re.compile(r"standalone|stand\s*alone", re.I)
+BANKISH = re.compile(r"interest\s+earned|premium.{0,12}earned|net\s+premium", re.I)
 
 TOL_ABS = 0.06  # crore — vision fills were rounded to 2dp; PDFs print 2dp
 SCALES = (100.0, 1.0, 10.0)  # lakh (commonest for these small/mid caps), crore, million
@@ -194,7 +196,11 @@ def page_lines(page):
         nums = []
         for w in lw:
             v = FI._tv(w[4])
-            if v is not None and re.search(r"\d", w[4]) and not re.fullmatch(r"[0-9]{1,2}[\.\)]?", w[4]):
+            if (
+                v is not None
+                and re.search(r"\d", w[4])
+                and not re.fullmatch(r"[0-9]{1,2}[\.\)]?", w[4])
+            ):
                 nums.append((w[2], v))  # right edge x — results columns are right-aligned
         out.append((y, txt, nums))
     return out
@@ -226,7 +232,7 @@ def extract_rows(page):
             # component rows must be the EXPENSE/INCOME line itself, never a profit sub-header
             # like "Profit from operations before other income, finance costs and exceptional
             # items" — which contains 'finance costs'/'other income' and would hijack the row.
-            if key in ("oi", "fc", "dep", "tax", "ti") and re.search(r"profit|loss", low, re.IGNORECASE):
+            if key in ("oi", "fc", "dep", "tax", "ti") and re.search(r"profit|loss", low, re.I):
                 continue
             if key in ("oi", "tax", "ti"):
                 # anchored at label start — 'other income' inside e.g. 'total income' lines,
@@ -240,7 +246,11 @@ def extract_rows(page):
                 rows[key] = nums
         # owners split rows: label line often carries no number; the 'Owners of the Company'
         # sub-line holds them
-        if "own" not in rows and nums and re.search(r"owners?\s+of\s+the\s+(company|parent)", low, re.IGNORECASE):
+        if (
+            "own" not in rows
+            and nums
+            and re.search(r"owners?\s+of\s+the\s+(company|parent)", low, re.I)
+        ):
             rows["own"] = nums
     return rows
 
@@ -269,7 +279,9 @@ def anchor_columns(rows, stored, basis):
         return None
     for scale in SCALES:
         colmap = {}
-        for qe in sorted(stored, reverse=True):  # newest first: the current quarter claims its column
+        for qe in sorted(
+            stored, reverse=True
+        ):  # newest first: the current quarter claims its column
             pv = stored[qe]
             if pv is None:
                 continue
@@ -298,9 +310,15 @@ def metrics_at(rows, x, scale):
     rev = val_at(rows.get("rev", []), x)
     if rev is None:
         return None
-    oi = val_at(rows.get("oi", []), x) or 0.0
-    fc = val_at(rows.get("fc", []), x) or 0.0
-    dep = val_at(rows.get("dep", []), x) or 0.0
+    # ★ A ROW THE PAGE DID NOT YIELD AT THIS COLUMN IS UNKNOWN, NOT 0 (runbook §209, 2026-09-28). These three
+    # used to read `or 0.0`, so a missed depreciation row gave op == ebit and a missed finance-cost / other-income
+    # row put PBT itself in both slots: 47 main-board cells written 2026-07-21..08-05 (EXIDEIND Mar-25 std op
+    # 355.97 = PBT 342.99 + finance costs 12.98; the filing's op is 466.69, EBIT 339.92). op/ebit are now derived
+    # only when all three rows carry a value at the anchored column; revenue is unaffected.
+    oi = val_at(rows.get("oi", []), x)
+    fc = val_at(rows.get("fc", []), x)
+    dep = val_at(rows.get("dep", []), x)
+    missing = [k for k, v in (("oi", oi), ("fc", fc), ("dep", dep)) if v is None]
     # Decimal-integrity check via Schedule III's identity: Total Income = rev + other income.
     # A decimal-dropped REVENUE cell (MCX printed 197.47 as 19747) shows up as rev > total income,
     # which is impossible -> reject. But if rev <= ti yet rev+oi != ti, it's the OTHER-INCOME cell
@@ -311,13 +329,13 @@ def metrics_at(rows, x, scale):
     if ti is not None:
         if rev > ti * 1.02 + 1:
             return None  # revenue can't exceed total income
-        if abs((rev + oi) - ti) > max(0.6, 0.006 * abs(ti)):
+        if abs((rev + (oi or 0.0)) - ti) > max(0.6, 0.006 * abs(ti)):
             comp_ok = False  # a component (oi) mis-read -> op unreliable
     pbet = val_at(rows.get("pbet", []), x)
     if pbet is None:
         pbet = val_at(rows.get("pbt", []), x)
     op = ebit = None
-    if comp_ok and pbet is not None:
+    if comp_ok and pbet is not None and not missing:
         op = pbet + fc + dep - oi
         ebit = op - dep
         # Operating profit (≈EBITDA) can NEVER exceed revenue from operations for these filers — if
@@ -364,7 +382,9 @@ def main():
     # FILL-2020 campaign's Jun-2022 pass: that ONE quarter is absent from the XBRL cache for 134 of
     # 142 affected N500 members (verified by scanning all 104k cached filings), so it needs a
     # surgical sweep instead of the multi-hour full-history one.
-    qe_filter = {int(q) for q in args[args.index("--qe") + 1].split(",")} if "--qe" in args else None
+    qe_filter = (
+        {int(q) for q in args[args.index("--qe") + 1].split(",")} if "--qe" in args else None
+    )
     if qe_filter:
         all_q = True
 
@@ -416,7 +436,11 @@ def main():
         """True when con PAT == std PAT (to the paisa) for every overlapping quarter (>=3): the
         stored con is the no-sub auto-copy, no consolidated statements exist to extract from."""
         if sym not in _nosub_cache:
-            pairs = [(r[1], r[3]) for r in fund.get(sym, []) if len(r) > 3 and r[1] is not None and r[3] is not None]
+            pairs = [
+                (r[1], r[3])
+                for r in fund.get(sym, [])
+                if len(r) > 3 and r[1] is not None and r[3] is not None
+            ]
             _nosub_cache[sym] = len(pairs) >= 3 and all(abs(c - s) <= 0.01 for s, c in pairs)
         return _nosub_cache[sym]
 
@@ -572,7 +596,11 @@ def main():
             return []  # bank/insurer format — different rows
         is_con = bool(CON_HDR.search(text[:1200]))
         is_std = bool(STD_HDR.search(text[:1200]))
-        bases = ["con"] if (is_con and not is_std) else (["std"] if (is_std and not is_con) else ["std", "con"])
+        bases = (
+            ["con"]
+            if (is_con and not is_std)
+            else (["std"] if (is_std and not is_con) else ["std", "con"])
+        )
         rows = extract_rows(page)
         if "rev" not in rows or ("pat" not in rows and "own" not in rows):
             return []
@@ -617,7 +645,9 @@ def main():
                 if basis == "con" and not is_nosub(sym):
                     std_rev = (revop.get(sym, {}).get(str(qe)) or [None])[0]
                     if std_rev and std_rev > 0 and rev < 0.5 * std_rev:
-                        skips["%s|%d" % (sym, qe)] = f"con-rev-far-below-std:{rev:.2f}-vs-{std_rev:.2f}"
+                        skips["%s|%d" % (sym, qe)] = (
+                            f"con-rev-far-below-std:{rev:.2f}-vs-{std_rev:.2f}"
+                        )
                         continue
                 put_cell(sym, qe, basis, rev, op, ebit, src)
                 put_pnl(sym, qe, basis, rows, x, scale, op, ebit, src)
@@ -629,7 +659,13 @@ def main():
         file lock (AV/indexer) once raised EINVAL straight from open(...,'w') at a checkpoint and
         killed a 6-hour sweep at 130/485 — an interim save failure must never be fatal, and a
         direct 'w' open can truncate the file if it dies mid-write. os.replace is all-or-nothing."""
-        for obj, path in ((revop, REVOP_DOCS), (revop_scr, REVOP_SCR), (done, DONE), (skips, SKIPS), (pnl, PNL)):
+        for obj, path in (
+            (revop, REVOP_DOCS),
+            (revop_scr, REVOP_SCR),
+            (done, DONE),
+            (skips, SKIPS),
+            (pnl, PNL),
+        ):
             for attempt in range(3):
                 try:
                     tmp = path + ".tmp"
@@ -687,14 +723,20 @@ def main():
                     rann = (rr[2] or (rr[4] if len(rr) > 4 else None)) if rr else None
                     if rann:
                         d1 = datetime.datetime.strptime(str(rann), "%Y%m%d").date()
-                        wins.append((d1 - datetime.timedelta(days=6), d1 + datetime.timedelta(days=6)))
+                        wins.append(
+                            (d1 - datetime.timedelta(days=6), d1 + datetime.timedelta(days=6))
+                        )
                     else:
                         dr = datetime.datetime.strptime(str(rq), "%Y%m%d").date()
-                        wins.append((dr + datetime.timedelta(days=10), dr + datetime.timedelta(days=75)))
+                        wins.append(
+                            (dr + datetime.timedelta(days=10), dr + datetime.timedelta(days=75))
+                        )
             fils, err, seen_f = [], None, set()
             for lo, hi in wins:
                 try:
-                    got_f = FI.datebound(op_sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d"))
+                    got_f = FI.datebound(
+                        op_sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d")
+                    )
                 except Exception as ex:
                     err = f"ann-list-err:{type(ex).__name__}"
                     got_f = []
@@ -735,7 +777,11 @@ def main():
             else:
                 skips.pop("%s|%d" % (sym, qe), None)
         if (si + 1) % 10 == 0 or si + 1 == len(syms):
-            print("  [%d/%d] %s — filled %d cells, %d PDFs" % (si + 1, len(syms), sym, filled, fetched), flush=True)
+            print(
+                "  [%d/%d] %s — filled %d cells, %d PDFs"
+                % (si + 1, len(syms), sym, filled, fetched),
+                flush=True,
+            )
             if not dry:
                 save_all()
 
@@ -744,7 +790,14 @@ def main():
     print(
         "DONE: filled %d basis-cells (%d re-extractions were already stored, not counted) via %d PDF fetches "
         "(cache: %s); skips ledger %d entries; pnl rows %d"
-        % (filled, dup, fetched, os.path.basename(PDFCACHE), len(skips), sum(len(v) for v in pnl.values())),
+        % (
+            filled,
+            dup,
+            fetched,
+            os.path.basename(PDFCACHE),
+            len(skips),
+            sum(len(v) for v in pnl.values()),
+        ),
         flush=True,
     )
 

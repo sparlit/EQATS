@@ -32,7 +32,7 @@ sys.path.append(root)
 
 import contextlib
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 # ----------------------------------------------------------------------------
 # hand-written python-only test (not transpiled) - regression test for
@@ -106,8 +106,7 @@ def build_session_leak_exchange(base_url, enable_rate_limit):
 
 async def session_leak_failing_sibling(delay):
     await asyncio.sleep(delay)
-    msg = "sibling request failed"
-    raise ValueError(msg)
+    raise ValueError("sibling request failed")
 
 
 async def drain_session_leak_tasks(tasks):
@@ -132,8 +131,12 @@ async def test_close_session_leak_queued_orphans():
             await asyncio.gather(*tasks)
         await exchange.close()
         await asyncio.sleep(ORPHAN_GRACE_S)
-        assert exchange.session is None, "an orphaned request recreated the aiohttp session after close()"
-        assert exchange.tcp_connector is None, "an orphaned request recreated the aiohttp tcp_connector after close()"
+        assert exchange.session is None, (
+            "an orphaned request recreated the aiohttp session after close()"
+        )
+        assert exchange.tcp_connector is None, (
+            "an orphaned request recreated the aiohttp tcp_connector after close()"
+        )
     finally:
         await drain_session_leak_tasks(tasks)
         await exchange.close()
@@ -150,8 +153,12 @@ async def test_close_session_leak_unstarted_orphan():
         tasks.append(asyncio.ensure_future(exchange.request("slow", "public", "GET")))
         await exchange.close()
         await asyncio.sleep(ORPHAN_GRACE_S)
-        assert exchange.session is None, "an orphaned request recreated the aiohttp session after close()"
-        assert exchange.tcp_connector is None, "an orphaned request recreated the aiohttp tcp_connector after close()"
+        assert exchange.session is None, (
+            "an orphaned request recreated the aiohttp session after close()"
+        )
+        assert exchange.tcp_connector is None, (
+            "an orphaned request recreated the aiohttp tcp_connector after close()"
+        )
     finally:
         await drain_session_leak_tasks(tasks)
         await exchange.close()

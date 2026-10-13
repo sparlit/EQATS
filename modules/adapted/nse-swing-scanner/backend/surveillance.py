@@ -38,17 +38,13 @@ SPA, so we probe a few known internal JSON shapes. If they all 404, the BSE
 fallback kicks in.
 """
 
-import io
-import json
 import re
-import time
-from typing import Dict, List, Optional
 
 import requests
-from cache import DEFAULT_CACHE_DIR, read_cache, write_cache
-from nse_client import NSE_ARCHIVES_BASE, NSE_BASE, nse_get, nse_get_json
+from cache import read_cache, write_cache
+from nse_client import nse_get
 from settings import SURVEILLANCE_CACHE_TTL_SECONDS
-from source_status import make_status, worst_status
+from source_status import make_status
 
 # --- NSE endpoint candidates (probed in order) ---
 # These are best-guess internal endpoints behind the SPA at
@@ -168,7 +164,8 @@ def fetch_surveillance_list(timeout: int = 10) -> dict:
     if nse is not None:
         symbols = _extract_nse_restricted(nse)
         per_symbol = {
-            s: {"t_group": True, "gsm": False, "suspended": False, "source": nse["_endpoint"]} for s in symbols
+            s: {"t_group": True, "gsm": False, "suspended": False, "source": nse["_endpoint"]}
+            for s in symbols
         }
         result = make_status(
             source=f"nse:{nse['_endpoint']}",
@@ -191,7 +188,8 @@ def fetch_surveillance_list(timeout: int = 10) -> dict:
             write_cache(cache_key, result)
             return result
         per_symbol = {
-            c: {"t_group": True, "gsm": False, "suspended": False, "source": "bse_surveillance"} for c in codes
+            c: {"t_group": True, "gsm": False, "suspended": False, "source": "bse_surveillance"}
+            for c in codes
         }
         result = make_status(
             source=f"bse:{bse['_endpoint']}",

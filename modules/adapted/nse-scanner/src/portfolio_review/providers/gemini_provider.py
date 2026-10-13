@@ -35,14 +35,16 @@ class GeminiProvider(LLMProvider):
 
     def __init__(self, api_key: str, model: str, timeout: int = 90):
         if not api_key:
-            msg = "GEMINI_API_KEY is not configured"
-            raise ProviderError(msg)
+            raise ProviderError("GEMINI_API_KEY is not configured")
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
 
     def generate_review(self, prompt: str) -> ProviderResponse:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent?key={self.api_key}"
+        )
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -50,10 +52,11 @@ class GeminiProvider(LLMProvider):
                 "responseMimeType": "application/json",
             },
         }
-        data = post_json(url, headers={"Content-Type": "application/json"}, body=body, timeout=self.timeout)
+        data = post_json(
+            url, headers={"Content-Type": "application/json"}, body=body, timeout=self.timeout
+        )
         try:
             text = data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError) as exc:
-            msg = "Gemini response did not contain generated text"
-            raise ProviderError(msg) from exc
+            raise ProviderError("Gemini response did not contain generated text") from exc
         return ProviderResponse(decode_json_object(text), self.name, self.model)

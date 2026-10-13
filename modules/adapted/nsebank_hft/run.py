@@ -50,11 +50,8 @@ import argparse
 import logging
 import sys
 import time
-from pathlib import Path
-from typing import Dict
 
 import numpy as np
-import pandas as pd
 import yaml
 
 
@@ -63,7 +60,10 @@ def _setup_logging(log_level: str = "INFO") -> None:
     log_fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
     date_fmt = "%Y-%m-%d %H:%M:%S"
     logging.basicConfig(
-        level=getattr(logging, log_level.upper(), logging.INFO), format=log_fmt, datefmt=date_fmt, stream=sys.stdout
+        level=getattr(logging, log_level.upper(), logging.INFO),
+        format=log_fmt,
+        datefmt=date_fmt,
+        stream=sys.stdout,
     )
     # Suppress noisy third-party loggers
     for noisy in ["yfinance", "urllib3", "peewee", "requests"]:
@@ -154,7 +154,7 @@ def run(config_path: str, override_horizon: int | None = None, no_plots: bool = 
 
     # ── Determine primary horizon ─────────────────────────────────────────────
     horizons = cfg["simulation"]["horizons"]
-    primary_horizon = override_horizon or horizons[-1]  # default 1Y
+    primary_horizon = override_horizon if override_horizon else horizons[-1]  # default 1Y
 
     n_paths = cfg["simulation"]["n_paths"]
     seed = cfg["simulation"]["seed"]
@@ -171,7 +171,7 @@ def run(config_path: str, override_horizon: int | None = None, no_plots: bool = 
     logger.info("STEP 1/7 — Data pipeline")
     from .data_pipeline import run_pipeline
 
-    _raw_df, processed_df, params = run_pipeline(cfg)
+    raw_df, processed_df, params = run_pipeline(cfg)
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 2: Simulation
@@ -250,18 +250,18 @@ def run(config_path: str, override_horizon: int | None = None, no_plots: bool = 
     # STEP 5: Charts
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("STEP 5/7 — Generating charts")
-    import matplotlib as mpl
+    import matplotlib
 
     if not cfg["reporting"].get("show_plots", True):
-        mpl.use("Agg")  # non-interactive backend
+        matplotlib.use("Agg")  # non-interactive backend
     else:
         try:
-            mpl.use("TkAgg")
+            matplotlib.use("TkAgg")
         except Exception:
             try:
-                mpl.use("MacOSX")
+                matplotlib.use("MacOSX")
             except Exception:
-                mpl.use("Agg")
+                matplotlib.use("Agg")
 
     from .plotting import plot_all
 
@@ -287,7 +287,14 @@ def run(config_path: str, override_horizon: int | None = None, no_plots: bool = 
     # STEP 7: Console summary
     # ─────────────────────────────────────────────────────────────────────────
     logger.info("STEP 7/7 — Run summary")
-    _print_summary(params, all_metrics, backtest_results, output_paths, primary_horizon, time.perf_counter() - t_start)
+    _print_summary(
+        params,
+        all_metrics,
+        backtest_results,
+        output_paths,
+        primary_horizon,
+        time.perf_counter() - t_start,
+    )
 
 
 def _print_summary(params, all_metrics, backtest_results, output_paths, horizon, elapsed):

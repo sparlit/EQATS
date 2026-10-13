@@ -141,7 +141,13 @@ def _yf_gainers_losers(top_n: int) -> dict:
 
         tickers = [s + ".NS" for s in NIFTY50]
         data = yf.download(
-            tickers, period="2d", interval="1d", group_by="ticker", auto_adjust=True, progress=False, threads=True
+            tickers,
+            period="2d",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
         )
         rows = []
         for s, t in zip(NIFTY50, tickers, strict=False):
@@ -228,5 +234,7 @@ def fetch_gainers_losers(category: str = "NIFTY", top_n: int = 5) -> dict:
             return _yf_gainers_losers(top_n)
         return {"available": True, "category": category, "gainers": gainers, "losers": losers}
     except Exception as exc:
-        logger.warning("NSE gainers/losers blocked ({}); using yfinance fallback", type(exc).__name__)
+        logger.warning(
+            "NSE gainers/losers blocked ({}); using yfinance fallback", type(exc).__name__
+        )
         return _yf_gainers_losers(top_n)

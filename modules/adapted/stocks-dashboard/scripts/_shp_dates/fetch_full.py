@@ -72,7 +72,10 @@ def main():
         conv = [
             q[0]
             for q in rows
-            if isinstance(q, list) and len(q) > 3 and q[0] >= 20160101 and SD.is_convention(q[0], q[3])
+            if isinstance(q, list)
+            and len(q) > 3
+            and q[0] >= 20160101
+            and SD.is_convention(q[0], q[3])
         ]
         if conv:
             targets[sym] = sorted(conv)
@@ -93,7 +96,12 @@ def main():
             try:
                 table = json.loads(m.get(API + str(sc), timeout=30))["Table"]
                 with open(raw_p, "a") as f:
-                    f.write(json.dumps({"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":")) + "\n")
+                    f.write(
+                        json.dumps(
+                            {"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":")
+                        )
+                        + "\n"
+                    )
                 res = SD.resolve_rows(table)
                 entry["resolved"] = {str(k): v for k, v in res.items()}
             except Exception as e:

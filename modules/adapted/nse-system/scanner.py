@@ -62,10 +62,22 @@ class Screener:
     def evaluate(cls, df: pd.DataFrame, symbol: str) -> ScreenerResult:
         if len(df) < cls.MIN_HISTORY:
             return ScreenerResult(
-                symbol, False, None, None, False, 0, 0, False, False, True, "IPO watchlist (<200 sessions, manual)"
+                symbol,
+                False,
+                None,
+                None,
+                False,
+                0,
+                0,
+                False,
+                False,
+                True,
+                "IPO watchlist (<200 sessions, manual)",
             )
         if len(df) < max(cls.EMA200, 252) + 20:
-            return ScreenerResult(symbol, False, None, None, False, 0, 0, False, False, False, "insufficient history")
+            return ScreenerResult(
+                symbol, False, None, None, False, 0, 0, False, False, False, "insufficient history"
+            )
         c = df["Close"].values
         h = df["High"].values
         v = df["Volume"].values

@@ -21,15 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
 import traceback
 from datetime import datetime
-from io import StringIO
-from typing import Union
 
-import pandas as pd
-
-from nsemine import fno, historical, live, nse
+from nsemine import live
 
 
 class NSEStock:

@@ -21,14 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import asyncio
 import io
 import logging
-import os
-import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import pandas as pd
 import pandas.api.types as ptypes
 import requests
 from common.model_store import *
@@ -52,12 +48,13 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
     df = df.copy()  # Since the dataframe can be changed in-place in this function
 
     # Ensure that timestamp is in index. It is needed for visualization
-    if not ptypes.is_datetime64_any_dtype(df.index):  # Alternatively df.index.inferred_type == "datetime64"
+    if not ptypes.is_datetime64_any_dtype(
+        df.index
+    ):  # Alternatively df.index.inferred_type == "datetime64"
         if time_column in df.columns:
             df = df.set_index("timestamp", inplace=False)
         else:
-            msg = f"Neither index nor time columns '{time_column}' are of datetime type"
-            raise ValueError(msg)
+            raise ValueError(f"Neither index nor time columns '{time_column}' are of datetime type")
 
     notification_freq = model.get("notification_freq")
     if notification_freq:
@@ -70,12 +67,16 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
         score_column_names = [score_column_names]
     elif isinstance(score_column_names, list) and len(score_column_names) > 1:
         score_column_names = [score_column_names[0]]
-        log.warning("Parameter 'score_column_names' should be one column. Only the first column will be visualized.")
+        log.warning(
+            "Parameter 'score_column_names' should be one column. Only the first column will be visualized."
+        )
 
     score_thresholds = model.get("score_thresholds")
 
     resampling_freq = model.get("resampling_freq")  # Resampling (aggregation) frequency
-    nrows = model.get("nrows")  # Time range (x axis) of the diagram, for example, 1 week 168 hours, 2 weeks 336 hours
+    nrows = model.get(
+        "nrows"
+    )  # Time range (x axis) of the diagram, for example, 1 week 168 hours, 2 weeks 336 hours
 
     df.iloc[-1]  # Last row stores the latest values we need
 
@@ -92,7 +93,9 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
         score_mas = [score_mas]
     for ma in score_mas:
         if not isinstance(ma, int):
-            log.error(f"Parameter 'score_ma' {ma} have to be an integer or a list of integers. Ignore")
+            log.error(
+                f"Parameter 'score_ma' {ma} have to be an integer or a list of integers. Ignore"
+            )
             continue
         ma_column_name = f"{score_col}_{ma}"
         df[ma_column_name] = df[score_col].rolling(window=ma).mean()
@@ -119,7 +122,9 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
     else:
         df_t["buy_long"] = df_t["status"].apply(lambda x: bool(isinstance(x, str) and x == "BUY"))
         df_t["sell_long"] = df_t["status"].apply(lambda x: bool(isinstance(x, str) and x == "SELL"))
-        df_t = df_t[df_t.timestamp >= df_ohlc.timestamp.min()]  # select only transactions for the last time
+        df_t = df_t[
+            df_t.timestamp >= df_ohlc.timestamp.min()
+        ]  # select only transactions for the last time
         if len(df_t) > 0:
             transactions_exist = True
             df_t = resample_transaction_data(df_t, resampling_freq, 0, "buy_long", "sell_long")
@@ -141,12 +146,14 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
         title,
         buy_signal_column="buy_long" if transactions_exist else None,
         sell_signal_column="sell_long" if transactions_exist else None,
-        score_column=score_column_names or None,
+        score_column=score_column_names if score_column_names else None,
         thresholds=score_thresholds,
     )
 
     with io.BytesIO() as buf:
-        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.1)  # Convert and save in buffer
+        fig.savefig(
+            buf, format="png", bbox_inches="tight", pad_inches=0.1
+        )  # Convert and save in buffer
         im_bytes = buf.getvalue()  # Get complete content (while read returns from current position)
     img_data = im_bytes
 
@@ -168,7 +175,7 @@ async def send_diagram(df, model: dict, config: dict, model_store: ModelStore):
         req = requests.post(url=url, data=payload, files=files)
         req.json()
     except Exception as e:
-        log.exception(f"Error sending notification: {e}")
+        log.error(f"Error sending notification: {e}")
 
 
 def resample_ohlc_data(df, freq, nrows, score_columns, buy_signal_column, sell_signal_column):
@@ -189,7 +196,11 @@ def resample_ohlc_data(df, freq, nrows, score_columns, buy_signal_column, sell_s
     for col in score_columns:
         # Add to aggregations
         ohlc[col] = lambda x: (
-            max(x) if len(x) > 0 and all(x > 0.0) else min(x) if len(x) > 0 and all(x < 0.0) else np.mean(x)
+            max(x)
+            if len(x) > 0 and all(x > 0.0)
+            else min(x)
+            if len(x) > 0 and all(x < 0.0)
+            else np.mean(x)
         )
 
     if buy_signal_column:
@@ -202,7 +213,7 @@ def resample_ohlc_data(df, freq, nrows, score_columns, buy_signal_column, sell_s
 
     df_out = df.resample(freq, on="timestamp").apply(ohlc)
     del df_out["timestamp"]
-    df_out = df_out.reset_index()
+    df_out.reset_index(inplace=True)
 
     if nrows:
         df_out = df_out.tail(nrows)
@@ -230,7 +241,7 @@ def resample_transaction_data(df, freq, nrows, buy_signal_column, sell_signal_co
 
     df_out = df.resample(freq, on="timestamp").apply(transactions)
     del df_out["timestamp"]
-    df_out = df_out.reset_index()
+    df_out.reset_index(inplace=True)
 
     if nrows:
         df_out = df_out.tail(nrows)
@@ -238,7 +249,9 @@ def resample_transaction_data(df, freq, nrows, buy_signal_column, sell_signal_co
     return df_out
 
 
-def generate_chart(df, title, buy_signal_column, sell_signal_column, score_column, thresholds: list):
+def generate_chart(
+    df, title, buy_signal_column, sell_signal_column, score_column, thresholds: list
+):
     """
     All columns in one input df with desired length and desired freq
     Visualize columns 1 (pre-defined): high, low, close
@@ -280,7 +293,9 @@ def generate_chart(df, title, buy_signal_column, sell_signal_column, score_colum
     )  # edgecolor='red',
 
     # Close price
-    sns.lineplot(data=df, x="timestamp", y="close", drawstyle="steps-mid", lw=0.5, color="blue", ax=ax1)
+    sns.lineplot(
+        data=df, x="timestamp", y="close", drawstyle="steps-mid", lw=0.5, color="blue", ax=ax1
+    )
     # sns.pointplot(data=df, x="timestamp", y="close", color='darkblue', ax=ax1)
 
     #
@@ -378,7 +393,13 @@ def generate_chart(df, title, buy_signal_column, sell_signal_column, score_colum
         # Primary score
         # ax2.plot(x, y1, 'o-', color="red" )
         sns.lineplot(
-            data=df, x="timestamp", y=main_score_column, drawstyle="steps-mid", lw=1.0, color="red", ax=ax2
+            data=df,
+            x="timestamp",
+            y=main_score_column,
+            drawstyle="steps-mid",
+            lw=1.0,
+            color="red",
+            ax=ax2,
         )  # marker="v" "^" , markersize=12
         ax2.set_ylabel("Intelligent Indicator", color="r", fontsize=16)
         # ax2.set_ylabel('Score', color='b')

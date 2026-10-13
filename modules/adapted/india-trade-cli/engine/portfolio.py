@@ -42,7 +42,6 @@ simultaneously connected brokers (e.g. Zerodha + Groww).
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 from brokers.base import Funds, Holding, Position
 from brokers.session import get_execution_broker
@@ -171,8 +170,7 @@ def get_multi_broker_summary() -> PortfolioSummary:
     all_brokers = get_all_brokers()
 
     if not all_brokers:
-        msg = "No brokers connected. Run login() first."
-        raise RuntimeError(msg)
+        raise RuntimeError("No brokers connected. Run login() first.")
 
     if len(all_brokers) == 1:
         return get_portfolio_summary()
@@ -458,7 +456,9 @@ def _compute_risk(
     true_total = deployed_cash + free_cash + used_margin
     total_capital = max(broker_reported, true_total)
 
-    deployment_pct = (deployed_cash + used_margin) / total_capital * 100 if total_capital > 0 else 0.0
+    deployment_pct = (
+        (deployed_cash + used_margin) / total_capital * 100 if total_capital > 0 else 0.0
+    )
 
     unrealised_pnl = sum(r.pnl for r in holding_rows) + sum(r.pnl for r in position_rows)
 
@@ -513,16 +513,18 @@ def print_portfolio_greeks() -> None:
 
     lines = [
         "  [bold]Net Portfolio Greeks[/bold]",
-        (
-            f"  Delta : [{delta_style}]{greeks.net_delta:+.2f}[/{delta_style}]"
-            f"  {'(net long)' if greeks.net_delta > 0 else '(net short)' if greeks.net_delta < 0 else '(delta neutral)'}"
-        ),
+        f"  Delta : [{delta_style}]{greeks.net_delta:+.2f}[/{delta_style}]"
+        f"  {'(net long)' if greeks.net_delta > 0 else '(net short)' if greeks.net_delta < 0 else '(delta neutral)'}",
         f"  Gamma : {greeks.net_gamma:+.4f}",
         f"  Theta : [{theta_style}]{greeks.net_theta:+.2f}[/{theta_style}] /day",
         f"  Vega  : {greeks.net_vega:+.2f}",
     ]
 
-    console.print(Panel("\n".join(lines), title="[bold cyan]Portfolio Greeks[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel(
+            "\n".join(lines), title="[bold cyan]Portfolio Greeks[/bold cyan]", border_style="cyan"
+        )
+    )
 
     # By underlying
     if greeks.by_underlying:

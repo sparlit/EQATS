@@ -52,7 +52,8 @@ def _max_drawdown(equity_curve: list[tuple[date, float]]) -> float:
     peak = 0.0
     max_dd = 0.0
     for _, val in equity_curve:
-        peak = max(peak, val)
+        if val > peak:
+            peak = val
         if peak > 0:
             max_dd = max(max_dd, (peak - val) / peak)
     return max_dd
@@ -93,12 +94,15 @@ def _yearly_breakdown(trades: list[ClosedTrade], equity_curve: list[tuple[date, 
         year_curve = [(dt, v) for dt, v in equity_curve if dt.year == y]
         peak, max_dd = 0.0, 0.0
         for _, v in year_curve:
-            peak = max(peak, v)
+            if v > peak:
+                peak = v
             if peak > 0:
                 max_dd = max(max_dd, (peak - v) / peak * 100)
 
         pf_str = f"{pf:.2f}" if pf != float("inf") else "  ∞"
-        print(f"  {y:<6} {ret:>+7.1f}%  {len(year_trades):>6}  {win_pct:>6.1f}%  {pf_str:>5}  {max_dd:>5.1f}%")
+        print(
+            f"  {y:<6} {ret:>+7.1f}%  {len(year_trades):>6}  {win_pct:>6.1f}%  {pf_str:>5}  {max_dd:>5.1f}%"
+        )
 
     print("=" * 57)
 
@@ -151,7 +155,9 @@ def _score_analysis(trades: list[ClosedTrade], all_scores: list[int]):
         win_pct = len(wins) / len(bucket) * 100
         avg_pnl = sum(t.pnl_pct for t in bucket) / len(bucket)
         avg_hold = sum((t.exit_date - t.entry_date).days for t in bucket) / len(bucket)
-        print(f"  {lo}-{hi:<3}    {len(bucket):>7} {win_pct:>7.1f} {avg_pnl:>+9.2f} {avg_hold:>9.1f}d")
+        print(
+            f"  {lo}-{hi:<3}    {len(bucket):>7} {win_pct:>7.1f} {avg_pnl:>+9.2f} {avg_hold:>9.1f}d"
+        )
     print("=" * 57)
 
 
@@ -195,7 +201,11 @@ def print_report(
     win_rate = len(wins) / len(completed) * 100 if completed else 0.0
     gross_loss = sum(t.pnl for t in losses)
     profit_factor = sum(t.pnl for t in wins) / abs(gross_loss) if gross_loss != 0 else float("inf")
-    avg_hold = sum((t.exit_date - t.entry_date).days for t in completed) / len(completed) if completed else 0.0
+    avg_hold = (
+        sum((t.exit_date - t.entry_date).days for t in completed) / len(completed)
+        if completed
+        else 0.0
+    )
 
     exit_counts: dict[str, int] = {}
     for t in completed:

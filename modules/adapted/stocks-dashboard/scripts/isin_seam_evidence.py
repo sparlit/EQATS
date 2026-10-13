@@ -68,7 +68,10 @@ CACHE = os.path.join(HERE, "_bhav_seam")
 SWEEP = os.path.join(HERE, "_isin_issuer_sweep.json")
 OUT = os.path.join(HERE, "_isin_seam_evidence.json")
 os.makedirs(CACHE, exist_ok=True)
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120 Safari/537.36"
+)
 MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 # The factors a face-value change can put between the two tapes. Tested exact to the paise;
 # a fitted or approximate match is not evidence (93c).
@@ -97,13 +100,12 @@ def fetch_day(ymd):
         except Exception:
             pass
     d = ymd_to_date(ymd)
-    new = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{}.csv".format(d.strftime("%d%m%Y"))
-    old = "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip" % (
-        d.year,
-        MON[d.month - 1],
-        d.day,
-        MON[d.month - 1],
-        d.year,
+    new = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{}.csv".format(
+        d.strftime("%d%m%Y")
+    )
+    old = (
+        "https://nsearchives.nseindia.com/content/historical/EQUITIES/%d/%s/cm%02d%s%dbhav.csv.zip"
+        % (d.year, MON[d.month - 1], d.day, MON[d.month - 1], d.year)
     )
     # sec_bhavdata_full has no ISIN column; the older cm*bhav.csv.zip carries one from 2011 until
     # NSE stopped publishing it in mid-2020. Inside that window prefer the ISIN-bearing file.
@@ -111,7 +113,9 @@ def fetch_day(ymd):
     op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(JAR))
     for url in order:
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+            )
             blob = op.open(req, timeout=40).read()
             if url.endswith(".zip"):
                 z = zipfile.ZipFile(io.BytesIO(blob))
@@ -255,7 +259,11 @@ def main():
             era_how = "isin" if era else None
             if not era:
                 bar = BIN["data"].get(new)
-                vol = bar["v"][bar["d"].index(s["newFirst"])] if bar and s["newFirst"] in bar["d"] else None
+                vol = (
+                    bar["v"][bar["d"].index(s["newFirst"])]
+                    if bar and s["newFirst"] in bar["d"]
+                    else None
+                )
                 if vol:
                     era = [r for r in rows_new if r[5] == vol]
                     era_how = "volume" if era else None
@@ -282,8 +290,14 @@ def main():
             "gapDays": s["gapDays"],
             "sameIsin": s["sameIsin"],
             "inRenameMap": rmap.get(old),
-            "symchg": [r for r in symchg if old in (r["old"], r["new"]) or new in (r["old"], r["new"])],
-            "equityL": {t: {k: d[k] for k in (old, new) if k in d} for t, d in lists.items() if old in d or new in d},
+            "symchg": [
+                r for r in symchg if old in (r["old"], r["new"]) or new in (r["old"], r["new"])
+            ],
+            "equityL": {
+                t: {k: d[k] for k in (old, new) if k in d}
+                for t, d in lists.items()
+                if old in d or new in d
+            },
             "bhavOld": {
                 "found": bool(r_old),
                 "series": r_old[1] if r_old else None,

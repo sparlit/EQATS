@@ -53,8 +53,16 @@ def _generate_candles(symbol: str) -> pd.DataFrame:
     seed = abs(hash(symbol)) % (2**32)
     rng = np.random.RandomState(seed)
     regime = _REGIMES[seed % len(_REGIMES)]
-    drift = {"strong_up": 0.00075, "mild_up": 0.0003, "flat": 0.0, "down": -0.0004, "choppy": 0.0001}[regime]
-    vol = {"strong_up": 0.018, "mild_up": 0.015, "flat": 0.012, "down": 0.02, "choppy": 0.028}[regime]
+    drift = {
+        "strong_up": 0.00075,
+        "mild_up": 0.0003,
+        "flat": 0.0,
+        "down": -0.0004,
+        "choppy": 0.0001,
+    }[regime]
+    vol = {"strong_up": 0.018, "mild_up": 0.015, "flat": 0.012, "down": 0.02, "choppy": 0.028}[
+        regime
+    ]
 
     start_price = rng.uniform(50, 3500)
     log_returns = rng.normal(drift, vol, N_DAYS)
@@ -88,7 +96,9 @@ def fake_fetch_daily_candles(symbol: str, days: int = 400) -> pd.DataFrame:
     return df.tail(days).copy()
 
 
-def fake_fetch_universe_candles(symbols: list[str], days: int = 400, pause: float = 0.0) -> dict[str, pd.DataFrame]:
+def fake_fetch_universe_candles(
+    symbols: list[str], days: int = 400, pause: float = 0.0
+) -> dict[str, pd.DataFrame]:
     return {s: fake_fetch_daily_candles(s, days) for s in symbols}
 
 
@@ -185,7 +195,15 @@ def fake_get_positions() -> pd.DataFrame:
     # positions only show up via get_holdings(), matching a realistic
     # calendar-entry momentum account with no same-day trading.
     return pd.DataFrame(
-        columns=["tradingsymbol", "quantity", "average_price", "last_price", "pnl", "product", "exchange"]
+        columns=[
+            "tradingsymbol",
+            "quantity",
+            "average_price",
+            "last_price",
+            "pnl",
+            "product",
+            "exchange",
+        ]
     )
 
 
@@ -221,7 +239,12 @@ _next_gtt_id = [80000]
 
 
 def fake_place_order(
-    symbol: str, qty: int, side: str, product: str = "CNC", order_type: str = "MARKET", price: float | None = None
+    symbol: str,
+    qty: int,
+    side: str,
+    product: str = "CNC",
+    order_type: str = "MARKET",
+    price: float | None = None,
 ) -> str:
     _next_order_id[0] += 1
     order_id = str(_next_order_id[0])
@@ -285,7 +308,13 @@ def fake_place_gtt_stoploss(symbol: str, qty: int, trigger_price: float, last_pr
     gtt_id = _next_gtt_id[0]
     _GTTS[symbol] = {"id": gtt_id, "trigger_price": trigger_price, "qty": qty}
     MOCK_CALLS.append(
-        {"fn": "place_gtt_stoploss", "symbol": symbol, "qty": qty, "trigger_price": trigger_price, "gtt_id": gtt_id}
+        {
+            "fn": "place_gtt_stoploss",
+            "symbol": symbol,
+            "qty": qty,
+            "trigger_price": trigger_price,
+            "gtt_id": gtt_id,
+        }
     )
     return gtt_id
 
@@ -318,10 +347,17 @@ def fake_get_active_gtts() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def fake_modify_gtt_trigger(trigger_id: int, symbol: str, qty: int, new_trigger_price: float, last_price: float) -> int:
+def fake_modify_gtt_trigger(
+    trigger_id: int, symbol: str, qty: int, new_trigger_price: float, last_price: float
+) -> int:
     _GTTS[symbol] = {"id": trigger_id, "trigger_price": new_trigger_price, "qty": qty}
     MOCK_CALLS.append(
-        {"fn": "modify_gtt_trigger", "symbol": symbol, "trigger_id": trigger_id, "new_trigger_price": new_trigger_price}
+        {
+            "fn": "modify_gtt_trigger",
+            "symbol": symbol,
+            "trigger_id": trigger_id,
+            "new_trigger_price": new_trigger_price,
+        }
     )
     return trigger_id
 
@@ -339,7 +375,9 @@ def fake_square_off_position(symbol: str) -> str | None:
         return None
     qty = h["quantity"]
     order_id = fake_place_order(symbol, qty, "SELL", product="CNC")
-    MOCK_CALLS.append({"fn": "square_off_position", "symbol": symbol, "qty": qty, "order_id": order_id})
+    MOCK_CALLS.append(
+        {"fn": "square_off_position", "symbol": symbol, "qty": qty, "order_id": order_id}
+    )
     return order_id
 
 

@@ -59,9 +59,12 @@ amount = 0.05
 price = last_price * 0.7
 order = exchange.create_order(symbol, "limit", "buy", amount, price, params)
 print("Created order:")
+pprint(order)
 
 fetched_order = exchange.fetch_order(order["id"])
 print("Fetched order:")
+pprint(fetched_order)
 
 canceled_order = exchange.cancel_order(order["id"])
 print("Canceled order:")
+pprint(canceled_order)

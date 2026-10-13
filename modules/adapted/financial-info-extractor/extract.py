@@ -64,7 +64,9 @@ for url in urls:
             with open(filenames[sub_counter], "w") as f:
                 wr = csv.writer(f)
                 wr.writerow(headers)
-                wr.writerows([[td.text for td in row.find_all("td")] for row in table.select("tr + tr")])
+                wr.writerows(
+                    [[td.text for td in row.find_all("td")] for row in table.select("tr + tr")]
+                )
             sub_counter += 1
         counter += 1
     print("Done")

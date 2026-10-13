@@ -60,7 +60,9 @@ def compute_indicators(df: pd.DataFrame, nifty_df: pd.DataFrame | None = None) -
 
     def _rsi(s: pd.Series, n: int) -> pd.Series:
         d = s.diff()
-        return 100 - 100 / (1 + _wilder(d.clip(lower=0), n) / _wilder((-d).clip(lower=0), n).replace(0, np.nan))
+        return 100 - 100 / (
+            1 + _wilder(d.clip(lower=0), n) / _wilder((-d).clip(lower=0), n).replace(0, np.nan)
+        )
 
     for n in (7, 9, 14, 21):
         cols[f"rsi{n}"] = _rsi(c, n)
@@ -99,7 +101,11 @@ def compute_indicators(df: pd.DataFrame, nifty_df: pd.DataFrame | None = None) -
     tp = (h + l + c) / 3
     mad = tp.rolling(20).apply(lambda x: np.mean(np.abs(x - x.mean())), raw=True)
     cols["cci20"] = (tp - tp.rolling(20).mean()) / (0.015 * mad.replace(0, np.nan))
-    cols["willr14"] = -100 * (h.rolling(14).max() - c) / (h.rolling(14).max() - l.rolling(14).min()).replace(0, np.nan)
+    cols["willr14"] = (
+        -100
+        * (h.rolling(14).max() - c)
+        / (h.rolling(14).max() - l.rolling(14).min()).replace(0, np.nan)
+    )
 
     # Supertrend (10, 3)
     atr10 = _wilder(tr, 10)
@@ -146,8 +152,12 @@ def compute_indicators(df: pd.DataFrame, nifty_df: pd.DataFrame | None = None) -
     body, full = (c - o).abs(), (h - l).replace(0, np.nan)
     cols["hammer"] = (body / full < 0.3) & ((c - l) / full > 0.6)
     cols["shooting_star"] = (body / full < 0.3) & ((h - c) / full > 0.6)
-    cols["bullish_engulf"] = (c > o) & (c.shift(1) < o.shift(1)) & (c > o.shift(1)) & (o < c.shift(1))
-    cols["bearish_engulf"] = (c < o) & (c.shift(1) > o.shift(1)) & (c < o.shift(1)) & (o > c.shift(1))
+    cols["bullish_engulf"] = (
+        (c > o) & (c.shift(1) < o.shift(1)) & (c > o.shift(1)) & (o < c.shift(1))
+    )
+    cols["bearish_engulf"] = (
+        (c < o) & (c.shift(1) > o.shift(1)) & (c < o.shift(1)) & (o > c.shift(1))
+    )
     cols["doji"] = body / full < 0.1
 
     if nifty_df is not None and not nifty_df.empty:
@@ -285,7 +295,9 @@ def _scan_one(sym: str, conditions: list[dict], nifty_df, fetch_fn) -> dict | No
         return None
 
 
-def run_builder(symbols: list[str], conditions: list[dict], fetch_fn, nifty_df=None, workers: int = 8) -> list[dict]:
+def run_builder(
+    symbols: list[str], conditions: list[dict], fetch_fn, nifty_df=None, workers: int = 8
+) -> list[dict]:
     """Scan symbols against conditions. fetch_fn(sym, period, interval) -> OHLCV df."""
     with ThreadPoolExecutor(max_workers=workers) as ex:
         out = list(ex.map(lambda s: _scan_one(s, conditions, nifty_df, fetch_fn), symbols))
@@ -388,7 +400,9 @@ def run_backtest(
 
     rows = []
     for sym, ind in prepped:
-        for t in _bt_one(sym, conditions, ind, from_date, to_date, stop_pct, exit_days, exit_rule, target_rr):
+        for t in _bt_one(
+            sym, conditions, ind, from_date, to_date, stop_pct, exit_days, exit_rule, target_rr
+        ):
             rows.append((t["exit_date"] or t["entry_date"], t))
     rows.sort(key=lambda x: x[0])
     for exit_date, t in rows:

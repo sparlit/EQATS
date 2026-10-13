@@ -60,13 +60,19 @@ MONTHS = {
 }
 DEC = re.compile(r"\(?-?[\d,]*\d\.\d\d\)?")
 PFT = re.compile(
-    r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)", re.IGNORECASE
+    r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)",
+    re.I,
 )
 
 
 def nextq(q):
     y, md = q // 10000, q % 10000
-    return {331: y * 10000 + 630, 630: y * 10000 + 930, 930: y * 10000 + 1231, 1231: (y + 1) * 10000 + 331}[md]
+    return {
+        331: y * 10000 + 630,
+        630: y * 10000 + 930,
+        930: y * 10000 + 1231,
+        1231: (y + 1) * 10000 + 331,
+    }[md]
 
 
 def qe_date_patterns(qe):

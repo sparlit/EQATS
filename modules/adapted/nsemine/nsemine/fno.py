@@ -22,13 +22,63 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import traceback
-from datetime import datetime
+from datetime import date, datetime
 
 import pandas as pd
 
 from nsemine import live
 from nsemine.bin import scraper
-from nsemine.utilities import urls
+from nsemine.utilities import urls, utils
+
+
+def get_option_chain(
+    symbol: str,
+    expiry_date: date,
+    underlying_type: str = "Equity",
+    raw: bool = False,
+) -> pd.DataFrame | dict | None:
+    """
+    Fetches option chain data for a given symbol and filters by expiry date.
+
+    Args:
+        symbol (str):  Stock or Index symbol (e.g., 'ADANIENT', 'NIFTY', 'BANKNIFTY')
+        expiry_date (date): Target expiry date object (e.g., date(2026, 10, 27)). If None, automatically defaults to the nearest active expiry.
+        underlying_type (str, optional) : Type of underlying: 'Equity' or 'Indices' (default is 'Equity')
+        raw (bool, optional): If True, returns the complete unparsed raw response dictionary.
+
+    Returns:
+        data (pd.DataFrame | dict | None): Full Available option chain of the given symbol for the given expiry.
+    """
+    try:
+        if not symbol or not isinstance(symbol, str):
+            raise ValueError("symbol must be a valid non-empty string.")
+
+        clean_symbol = symbol.upper().strip()
+
+        if underlying_type not in ["Equity", "Indices"]:
+            raise ValueError("underlying_type must be a string of either 'Equity' or 'Indices'.")
+
+        if not isinstance(expiry_date, date):
+            raise ValueError("expiry_date must be a valid datetime.date object.")
+
+        formatted_expiry = expiry_date.strftime("%d-%b-%Y")
+
+        params = {"type": underlying_type, "symbol": clean_symbol, "expiry": formatted_expiry}
+
+        response = scraper.get_request(url=urls.option_chain, params=params)
+        if response is None or response.status_code != 200:
+            return None
+
+        raw_data = response.json()
+        if raw:
+            return raw_data
+
+        return utils.process_option_chain_response(raw_data=raw_data)
+
+    except Exception as e:
+        print(f"ERROR! - {e}\n")
+        traceback.print_exc()
+        return None
 
 
 def get_oi_spurts(raw: bool = False, sentiment_analysis: bool = True) -> pd.DataFrame | dict | None:
@@ -54,8 +104,19 @@ def get_oi_spurts(raw: bool = False, sentiment_analysis: bool = True) -> pd.Data
             return data
 
         df = pd.DataFrame(data["data"])
-        df = df[["symbol", "underlyingValue", "latestOI", "prevOI", "changeInOI", "avgInOI", "volume", "futValue"]]
-        df = df.rename(
+        df = df[
+            [
+                "symbol",
+                "underlyingValue",
+                "latestOI",
+                "prevOI",
+                "changeInOI",
+                "avgInOI",
+                "volume",
+                "futValue",
+            ]
+        ]
+        df.rename(
             columns={
                 "latestOI": "latest_oi",
                 "prevOI": "previous_oi",
@@ -63,7 +124,8 @@ def get_oi_spurts(raw: bool = False, sentiment_analysis: bool = True) -> pd.Data
                 "avgInOI": "oi_changepct",
                 "underlyingValue": "ltp",
                 "futValue": "turnover",
-            }
+            },
+            inplace=True,
         )
 
         # converting the turnover from lakh to absolute value
@@ -77,7 +139,10 @@ def get_oi_spurts(raw: bool = False, sentiment_analysis: bool = True) -> pd.Data
 
         all_live_quotes = live.get_index_constituents_live_snapshot(index="NIFTY 500")
         final_df = pd.merge(
-            df, all_live_quotes[["symbol", "previous_close", "change", "changepct"]], on="symbol", how="left"
+            df,
+            all_live_quotes[["symbol", "previous_close", "change", "changepct"]],
+            on="symbol",
+            how="left",
         )
 
         def get_sentiment(row):
@@ -87,23 +152,30 @@ def get_oi_spurts(raw: bool = False, sentiment_analysis: bool = True) -> pd.Data
             # Handles cases where there is no change in OI or price
             if oi_change == 0 and price_change == 0:
                 return "Neutral", "Sideways"
-            if oi_change > 0 and price_change > 0:
+            elif oi_change > 0 and price_change > 0:
                 return "Long Buildup", "Bullish"
-            if oi_change > 0 and price_change < 0:
+            elif oi_change > 0 and price_change < 0:
                 return "Short Buildup", "Bearish"
-            if oi_change < 0 and price_change > 0:
+            elif oi_change < 0 and price_change > 0:
                 return "Short Covering", "Bullish"
-            if oi_change < 0 and price_change < 0:
+            elif oi_change < 0 and price_change < 0:
                 return "Long Unwinding", "Bearish"
-            if oi_change == 0 and price_change != 0:
+            elif oi_change == 0 and price_change != 0:
                 return "Neutral", "No OI change"
-            if oi_change != 0 and price_change == 0:
+            elif oi_change != 0 and price_change == 0:
                 return "Neutral", "No Price change"
-            return "N/A", "N/A"  # Fallback for any unexpected cases
+            else:
+                return "N/A", "N/A"  # Fallback for any unexpected cases
 
-        final_df[["market_action", "interpretation"]] = final_df.apply(get_sentiment, axis=1, result_type="expand")
+        final_df[["market_action", "interpretation"]] = final_df.apply(
+            get_sentiment, axis=1, result_type="expand"
+        )
 
-        return final_df.drop(columns=["previous_close", "change", "changepct"], errors="ignore")
+        final_df.drop(
+            columns=["previous_close", "change", "changepct"], inplace=True, errors="ignore"
+        )
+
+        return final_df
 
     except Exception as e:
         print(f"ERROR! - {e}\n")
@@ -134,7 +206,7 @@ def get_stock_option_details(
     try:
         resp = scraper.get_request(url=urls.stk_opt_url.format(symbol))
         if not resp:
-            return None
+            return
         fetched_data = resp.json()
         if raw:
             return fetched_data
@@ -150,6 +222,7 @@ def get_stock_option_details(
         if only_strikes:
             return strike_prices
         return {"expiry_dates": expiry_dates, "strike_prices": strike_prices}
+
     except Exception as e:
         print(f"ERROR! - {e}\n")
         traceback.print_exc()

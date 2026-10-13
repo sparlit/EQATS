@@ -69,7 +69,9 @@ VAPID_CLAIMS_EMAIL = os.getenv("VAPID_CLAIMS_EMAIL", "")
 PUSH_SERVER_PORT = os.getenv("PUSH_SERVER_PORT", "8503")
 
 
-def send_webpush_all(subscriptions: list[dict], title: str, message: str, url: str | None = None) -> list[str]:
+def send_webpush_all(
+    subscriptions: list[dict], title: str, message: str, url: str | None = None
+) -> list[str]:
     """Sends to every subscription in the pywebpush subscription_info shape
     (see state_db.get_push_subscriptions()). Returns the endpoints found
     dead (410 Gone / 404 -- the device uninstalled the app or revoked

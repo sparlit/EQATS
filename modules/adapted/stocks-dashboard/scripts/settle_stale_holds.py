@@ -190,7 +190,11 @@ def main():
     fmap = {s: {r[0]: r for r in rows} for s, rows in fund.items()}
 
     def live(payload, sym, qe, slot):
-        row = (revop.get(sym) or {}).get(str(qe)) if payload == "revop" else (fmap.get(sym) or {}).get(int(qe))
+        row = (
+            (revop.get(sym) or {}).get(str(qe))
+            if payload == "revop"
+            else (fmap.get(sym) or {}).get(int(qe))
+        )
         return row[slot] if row and len(row) > slot else None
 
     all_claims = list(claims())
@@ -211,7 +215,10 @@ def main():
         src = [b for b in backing.get(cell, []) if abs(b["value"] - cur) <= TOL]
         (settled if src else unsettled).append((c, src))
 
-    print("RESURRECTED cells: %d settleable from a filing-sourced ledger, %d NOT" % (len(settled), len(unsettled)))
+    print(
+        "RESURRECTED cells: %d settleable from a filing-sourced ledger, %d NOT"
+        % (len(settled), len(unsettled))
+    )
     # ★ ALL-OR-NOTHING. If anything is unsettled the run fails, and in CI that aborts before the commit
     # step — so writing the settleable ones anyway would be churn that never persists, while locally it
     # leaves a half-changed tree for the human who now has to adjudicate the rest. Either the whole
@@ -227,7 +234,11 @@ def main():
     touched = {}
     for c, src in settled:
         b = src[0]
-        print("\n  SETTLE  {}  {}  slot={}  value={}".format(c["ledger"], c["key"], c["slot"], c["value"]))
+        print(
+            "\n  SETTLE  {}  {}  slot={}  value={}".format(
+                c["ledger"], c["key"], c["slot"], c["value"]
+            )
+        )
         print("     outranked by {} ({})".format(b["ledger"], b["key"]))
         for pk in PROV_KEYS:
             if b["entry"].get(pk):
@@ -242,14 +253,20 @@ def main():
                     b["ledger"],
                     c["value"],
                     b["key"],
-                    " | ".join("{}={}".format(pk, str(b["entry"][pk])[:400]) for pk in PROV_KEYS if b["entry"].get(pk)),
+                    " | ".join(
+                        "{}={}".format(pk, str(b["entry"][pk])[:400])
+                        for pk in PROV_KEYS
+                        if b["entry"].get(pk)
+                    ),
                 )
             )
             c["entry"].pop("held")
             c["entry"]["fallback_check"] = note
             touched[c["path"]] = c["led"]
     for c, _ in unsettled:
-        print("\n  ★ UNSETTLED — NO filing-sourced ledger backs this value. This is the case the guard")
+        print(
+            "\n  ★ UNSETTLED — NO filing-sourced ledger backs this value. This is the case the guard"
+        )
         print("    exists for; a human must adjudicate it (runbook 56b/57).")
         print("    {}  {}  slot={}  value={}".format(c["ledger"], c["key"], c["slot"], c["value"]))
         print("    held because: {}".format(str(c["entry"]["held"])[:220]))

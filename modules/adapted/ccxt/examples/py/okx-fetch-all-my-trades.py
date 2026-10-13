@@ -63,7 +63,14 @@ while True:
         first_trade = trades[0]
         last_trade = trades[len(trades) - 1]
         after = first_trade["info"]["billId"]
-        print("Fetched", len(trades), "trades from", first_trade["datetime"], "till", last_trade["datetime"])
+        print(
+            "Fetched",
+            len(trades),
+            "trades from",
+            first_trade["datetime"],
+            "till",
+            last_trade["datetime"],
+        )
         fetched_new_trades = False
         for trade in trades:
             trade_id = trade["id"]
@@ -82,6 +89,6 @@ all_trades = list(all_trades.values())
 all_trades = exchange.sort_by(all_trades, "timestamp")
 
 print("Fetched", len(all_trades), "trades")
-for i in range(len(all_trades)):
+for i in range(0, len(all_trades)):
     trade = all_trades[i]
     print(i, trade["id"], trade["datetime"], trade["amount"])

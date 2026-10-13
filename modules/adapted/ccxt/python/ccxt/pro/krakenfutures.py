@@ -29,7 +29,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import hashlib
 
 import ccxt.async_support
-from ccxt.async_support.base.ws.cache import ArrayCache, ArrayCacheBySymbolById, ArrayCacheBySymbolBySide
+from ccxt.async_support.base.ws.cache import (
+    ArrayCache,
+    ArrayCacheBySymbolById,
+    ArrayCacheBySymbolBySide,
+)
 from ccxt.async_support.base.ws.client import Client
 from ccxt.base.errors import ArgumentsRequired, AuthenticationError, ExchangeError
 from ccxt.base.precise import Precise
@@ -74,7 +78,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                     "watchTrades": True,
                     "watchTradesForSymbols": True,
                     "watchBalance": True,
-                    # 'watchStatus': True,  # https://docs.kraken.com/exchange/api-reference/futures-websocket/heartbeat
+                    # 'watchStatus': true, // https://docs.kraken.com/exchange/api-reference/futures-websocket/heartbeat
                     "watchOrders": True,
                     "watchMyTrades": True,
                     "watchPositions": True,
@@ -103,7 +107,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             },
         )
 
-    async def authenticate(self, params=None):
+    async def authenticate(self, params: dict = None):
         """
         @ignore
                authenticates the user to access private web socket channels
@@ -133,7 +137,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             self.watch(url, messageHash, message, messageHash)
         return await future
 
-    async def watch_order_book_for_symbols(self, symbols: list[str], limit: Int = None, params=None) -> OrderBook:
+    async def watch_order_book_for_symbols(
+        self, symbols: list[str], limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         watches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -146,10 +152,12 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         """
         if params is None:
             params = {}
-        orderbook = await self.watch_multi_helper("orderbook", "book", symbols, {"limit": limit}, params)
+        orderbook = await self.watch_multi_helper(
+            "orderbook", "book", symbols, {"limit": limit}, params
+        )
         return orderbook.limit()
 
-    async def subscribe_public(self, name: str, symbols: list[str], params=None):
+    async def subscribe_public(self, name: str, symbols: list[str], params: dict = None):
         """
         @ignore
                Connects to a websocket channel
@@ -169,12 +177,11 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         }
         marketIds = []
         messageHash = name
-        if symbols is None:
-            symbols = []
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        symbolsValue = [] if (symbols is None) else symbols
+        for i in range(0, len(symbolsValue)):
+            symbol = symbolsValue[i]
             marketIds.append(self.market_id(symbol))
-        length = len(symbols)
+        length = len(symbolsValue)
         if length == 1:
             market = self.market(marketIds[0])
             messageHash = messageHash + ":" + market["symbol"]
@@ -182,7 +189,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         request = self.extend(subscribe, params)
         return await self.watch(url, messageHash, request, messageHash)
 
-    async def subscribe_private(self, name: str, messageHash: str, params=None):
+    async def subscribe_private(self, name: str, messageHash: str, params: dict = None):
         """
         @ignore
                Connects to a websocket channel
@@ -207,7 +214,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         request = self.extend(subscribe, params)
         return await self.watch(url, messageHash, request, messageHash)
 
-    async def watch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def watch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -221,11 +228,11 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbol = self.symbol(symbol)
-        tickers = await self.watch_tickers([symbol], params)
-        return tickers[symbol]
+        symbolValue = self.symbol(symbol)
+        tickers = await self.watch_tickers([symbolValue], params)
+        return tickers[symbolValue]
 
-    async def watch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    async def watch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -239,15 +246,17 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, False)
-        ticker = await self.watch_multi_helper("ticker", "ticker", symbols, None, params)
+        symbolsNormalized = self.market_symbols(symbols, None, False)
+        ticker = await self.watch_multi_helper("ticker", "ticker", symbolsNormalized, None, params)
         if self.newUpdates:
             result = {}
-            result[ticker["symbol"]] = ticker
+            tickerSymbol = self.safe_string(ticker, "symbol")
+            if tickerSymbol is not None:
+                result[tickerSymbol] = ticker
             return result
-        return self.filter_by_array(self.tickers, "symbol", symbols)
+        return self.filter_by_array(self.tickers, "symbol", symbolsNormalized)
 
-    async def watch_bids_asks(self, symbols: Strings = None, params=None) -> Tickers:
+    async def watch_bids_asks(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
 
         https://docs.kraken.com/exchange/api-reference/futures-websocket/ticker_lite
@@ -262,11 +271,15 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         ticker = await self.watch_multi_helper("bidask", "ticker_lite", symbols, None, params)
         if self.newUpdates:
             result = {}
-            result[ticker["symbol"]] = ticker
+            tickerSymbol = self.safe_string(ticker, "symbol")
+            if tickerSymbol is not None:
+                result[tickerSymbol] = ticker
             return result
         return self.filter_by_array(self.bidsasks, "symbol", symbols)
 
-    def watch_trades(self, symbol: Str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    def watch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -283,7 +296,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         return self.watch_trades_for_symbols([symbol], since, limit, params)
 
     async def watch_trades_for_symbols(
-        self, symbols: list[Str], since: Int = None, limit: Int = None, params=None
+        self, symbols: list[str], since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
 
@@ -299,13 +312,14 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         if params is None:
             params = {}
         trades = await self.watch_multi_helper("trade", "trade", symbols, None, params)
+        first = self.safe_list(trades, 0)
+        tradeSymbol = self.safe_string(first, "symbol")
+        limitResolved = limit
         if self.newUpdates:
-            first = self.safe_list(trades, 0)
-            tradeSymbol = self.safe_string(first, "symbol")
-            limit = trades.getLimit(tradeSymbol, limit)
-        return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
+            limitResolved = trades.getLimit(tradeSymbol, limit)
+        return self.filter_by_since_limit(trades, since, limitResolved, "timestamp", True)
 
-    def watch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    def watch_order_book(self, symbol: str, limit: Int = None, params: dict = None) -> OrderBook:
         """
         watches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -321,7 +335,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         return self.watch_order_book_for_symbols([symbol], limit, params)
 
     async def watch_positions(
-        self, symbols: Strings = None, since: Int = None, limit: Int = None, params=None
+        self, symbols: Strings = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Position]:
         """
 
@@ -339,16 +353,18 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         if self.markets is None:
             await self.load_markets()
         messageHash = ""
-        symbols = self.market_symbols(symbols)
-        if (symbols is not None) and not self.is_empty(symbols):
-            messageHash = "::" + ",".join(symbols)
+        symbolsNormalized = self.market_symbols(symbols)
+        if (symbolsNormalized is not None) and not self.is_empty(symbolsNormalized):
+            messageHash = "::" + ",".join(symbolsNormalized)
         messageHash = "positions" + messageHash
         newPositions = await self.subscribe_private("open_positions", messageHash, params)
         if self.newUpdates:
             return newPositions
-        return self.filter_by_symbols_since_limit(self.positions, symbols, since, limit, True)
+        return self.filter_by_symbols_since_limit(
+            self.positions, symbolsNormalized, since, limit, True
+        )
 
-    def handle_positions(self, client: object, message: object):
+    def handle_positions(self, client: Client, message: dict):
         #
         #    {
         #        feed: 'open_positions',
@@ -376,19 +392,19 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #    }
         #
         if self.positions is None:
-            # krakenfutures positions carry no id(parseWsPosition always sets
-            # 'id': None), so key by symbol + side instead of by-id, see
+            # krakenfutures positions carry no id (parseWsPosition always sets
+            # 'id': undefined), so key by symbol + side instead of by-id, see
             # https://github.com/ccxt/ccxt/issues/29709
             self.positions = ArrayCacheBySymbolBySide()
         cache = self.positions
         rawPositions = self.safe_list(message, "positions")
         if rawPositions is None:
-            # an open_positions frame without the positions key is malformed
-            # do not resolve with a fabricated empty list(the caller cannot
+            # an open_positions frame without the positions key is malformed;
+            # do not resolve with a fabricated empty list (the caller cannot
             # distinguish it from a genuinely flat account)
             return
         newPositions = []
-        for i in range(len(rawPositions)):
+        for i in range(0, len(rawPositions)):
             rawPosition = rawPositions[i]
             position = self.parse_ws_position(rawPosition)
             timestamp = self.safe_integer(message, "timestamp")
@@ -397,7 +413,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             newPositions.append(position)
             cache.append(position)
         messageHashes = self.find_message_hashes(client, "positions::")
-        for i in range(len(messageHashes)):
+        for i in range(0, len(messageHashes)):
             messageHash = messageHashes[i]
             parts = messageHash.split("::")
             symbolsString = parts[1]
@@ -407,7 +423,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 client.resolve(positions, messageHash)
         client.resolve(newPositions, "positions")
 
-    def parse_ws_position(self, position: object, market: Market = None):
+    def parse_ws_position(self, position: dict, market: Market = None) -> Position:
         #
         #        {
         #            instrument: 'PF_LTCUSD',
@@ -462,7 +478,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             }
         )
 
-    async def watch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None) -> list[Order]:
+    async def watch_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
         watches information on multiple orders made by the user
 
@@ -480,14 +498,15 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        verbose = False
-        verbose, params = self.handle_option_and_params(params, "watchOrders", "verbose", False)
+        verbose, paramsVerbose = self.handle_option_bool_and_params(
+            params, "watchOrders", "verbose", False
+        )
         name = "open_orders"
         messageHash = "orders"
         if verbose:
             name = "open_orders_verbose"
             messageHash = "orders:verbose"
-        feed = self.safe_string(params, "feed")
+        feed = self.safe_string(paramsVerbose, "feed")
         if feed is not None:
             name = feed
             messageHash = "orders"
@@ -496,13 +515,14 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         if symbol is not None:
             market = self.market(symbol)
             messageHash += ":" + market["symbol"]
-        orders = await self.subscribe_private(name, messageHash, params)
+        orders = await self.subscribe_private(name, messageHash, paramsVerbose)
+        limitResolved = limit
         if self.newUpdates:
-            limit = orders.getLimit(symbol, limit)
-        return self.filter_by_since_limit(orders, since, limit, "timestamp", True)
+            limitResolved = orders.getLimit(symbol, limit)
+        return self.filter_by_since_limit(orders, since, limitResolved, "timestamp", True)
 
     async def watch_my_trades(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         watches information on multiple trades made by the user
@@ -525,11 +545,12 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             market = self.market(symbol)
             messageHash += ":" + market["symbol"]
         trades = await self.subscribe_private(name, messageHash, params)
+        limitResolved = limit
         if self.newUpdates:
-            limit = trades.getLimit(symbol, limit)
-        return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
+            limitResolved = trades.getLimit(symbol, limit)
+        return self.filter_by_since_limit(trades, since, limitResolved, "timestamp", True)
 
-    async def watch_balance(self, params=None) -> Balances:
+    async def watch_balance(self, params: dict = None) -> Balances:
         """
         watches information on the user's account balance
 
@@ -545,15 +566,18 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             await self.load_markets()
         name = "balances"
         messageHash = name
-        account = None
-        account, params = self.handle_option_and_params(params, "watchBalance", "account")
+        account, paramsAccount = self.handle_option_string_and_params(
+            params, "watchBalance", "account"
+        )
         if account is not None:
-            if account not in {"futures", "flex_futures"}:
-                raise ArgumentsRequired(self.id + " watchBalance account must be either 'futures' or 'flex_futures'")
+            if account != "futures" and account != "flex_futures":
+                raise ArgumentsRequired(
+                    self.id + " watchBalance account must be either 'futures' or 'flex_futures'"
+                )
             messageHash += ":" + account
-        return await self.subscribe_private(name, messageHash, params)
+        return await self.subscribe_private(name, messageHash, paramsAccount)
 
-    def handle_trade(self, client: Client, message: object):
+    def handle_trade(self, client: Client, message: dict):
         #
         # snapshot
         #
@@ -603,7 +627,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             if channel == "trade_snapshot":
                 trades = self.safe_list(message, "trades", [])
                 length = len(trades)
-                for i in range(length):
+                for i in range(0, length):
                     index = length - 1 - i  # need reverse to correct chronology
                     item = trades[index]
                     trade = self.parse_ws_trade(item)
@@ -613,7 +637,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 tradesArray.append(trade)
             client.resolve(tradesArray, messageHash)
 
-    def parse_ws_trade(self, trade: object, market: Market = None):
+    def parse_ws_trade(self, trade: dict, market: Market = None) -> Trade:
         #
         #    {
         #        "feed": "trade",
@@ -639,17 +663,17 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #         "type": "limit",
         #         "order_id": "a1c3803c-8f3d-4317-a085-8d06e11b1d36",
         #         "direction": 0,
-        #         "reduce_only": False
+        #         "reduce_only": false
         #     }
         #
         marketId = self.safe_string(trade, "product_id")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_integer(trade, "time")
         return self.safe_trade(
             {
                 "info": trade,
                 "id": self.safe_string(trade, "uid"),
-                "symbol": self.safe_string(market, "symbol"),
+                "symbol": self.safe_string(marketResolved, "symbol"),
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
                 "order": None,
@@ -665,10 +689,10 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                     "currency": None,
                 },
             },
-            market,
+            marketResolved,
         )
 
-    def parse_ws_order_trade(self, trade: dict, market: Market = None):
+    def parse_ws_order_trade(self, trade: dict, market: Market = None) -> Trade:
         #
         #    {
         #        "symbol": "BTC_USDT",
@@ -722,9 +746,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             market,
         )
 
-    def handle_order(self, client: Client, message: object):
+    def handle_order(self, client: Client, message: dict) -> dict:
         #
-        #  update(verbose)
+        #  update (verbose)
         #
         #    {
         #        "feed": "open_orders_verbose",
@@ -739,9 +763,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #            "type": "limit",
         #            "order_id": "fa9806c9-cba9-4661-9f31-8c5fd045a95d",
         #            "direction": 0,
-        #            "reduce_only": False
+        #            "reduce_only": false
         #        },
-        #        "is_cancel": True,
+        #        "is_cancel": true,
         #        "reason": "post_order_failed_because_it_would_be_filled"
         #    }
         #
@@ -760,15 +784,15 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #          "type": "limit",
         #          "order_id": "59302619-41d2-4f0b-941f-7e7914760ad3",
         #          "direction": 1,
-        #          "reduce_only": True
+        #          "reduce_only": true
         #        },
-        #        "is_cancel": False,
+        #        "is_cancel": false,
         #        "reason": "new_placed_order_by_user"
         #    }
         #    {
         #        "feed": "open_orders",
         #        "order_id": "ea8a7144-37db-449b-bb4a-b53c814a0f43",
-        #        "is_cancel": True,
+        #        "is_cancel": true,
         #        "reason": "cancelled_by_user"
         #    }
         #
@@ -785,9 +809,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #         "type": 'limit',
         #         "order_id": '0eaf02b0-855d-4451-a3b7-e2b3070c1fa4',
         #         "direction": 0,
-        #         "reduce_only": False
+        #         "reduce_only": false
         #         },
-        #         "is_cancel": False,
+        #         "is_cancel": false,
         #         "reason": 'edited_by_user'
         #     }
         #
@@ -796,7 +820,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             limit = self.safe_integer(self.options, "ordersLimit")
             orders = ArrayCacheBySymbolById(limit)
             self.orders = orders
-        order = self.safe_value(message, "order")
+        order = self.safe_dict(message, "order")
         if order is not None:
             marketId = self.safe_string(order, "instrument")
             feed = self.safe_string(message, "feed")
@@ -805,8 +829,8 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 messageHash = "orders:verbose"
             symbol = self.safe_symbol(marketId)
             orderId = self.safe_string(order, "order_id")
-            previousOrders = self.safe_value(orders.hashmap, symbol, {})
-            previousOrder = self.safe_value(previousOrders, orderId)
+            previousOrders = self.safe_dict(orders.hashmap, symbol, {})
+            previousOrder = self.safe_dict(previousOrders, orderId)
             reason = self.safe_string(message, "reason")
             if (previousOrder is None) or (reason == "edited_by_user"):
                 parsed = self.parse_ws_order(order)
@@ -822,10 +846,14 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 totalCost = "0"
                 totalAmount = "0"
                 trades = previousOrder["trades"]
-                for i in range(len(trades)):
+                for i in range(0, len(trades)):
                     currentTrade = trades[i]
-                    totalCost = Precise.string_add(totalCost, self.number_to_string(currentTrade["cost"]))
-                    totalAmount = Precise.string_add(totalAmount, self.number_to_string(currentTrade["amount"]))
+                    totalCost = Precise.string_add(
+                        totalCost, self.number_to_string(currentTrade["cost"])
+                    )
+                    totalAmount = Precise.string_add(
+                        totalAmount, self.number_to_string(currentTrade["amount"])
+                    )
                 if Precise.string_gt(totalAmount, "0"):
                     previousOrder["average"] = Precise.string_div(totalCost, totalAmount)
                 previousOrder["cost"] = totalCost
@@ -840,18 +868,24 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                     previousOrder["fee"] = {
                         "rate": None,
                         "cost": "0",
-                        "currency": self.number_to_string(self.safe_string(trade["fee"], "currency")),
+                        "currency": self.number_to_string(
+                            self.safe_string(trade["fee"], "currency")
+                        ),
                     }
-                if (previousOrder["fee"]["cost"] is not None) and (self.safe_number(trade["fee"], "cost") is not None):
+                if (previousOrder["fee"]["cost"] is not None) and (
+                    self.safe_number(trade["fee"], "cost") is not None
+                ):
                     stringOrderCost = self.number_to_string(previousOrder["fee"]["cost"])
                     stringTradeCost = self.number_to_string(self.safe_number(trade["fee"], "cost"))
-                    previousOrder["fee"]["cost"] = Precise.string_add(stringOrderCost, stringTradeCost)
+                    previousOrder["fee"]["cost"] = Precise.string_add(
+                        stringOrderCost, stringTradeCost
+                    )
                 # update the newUpdates count
                 orders.append(self.safe_order(previousOrder))
                 client.resolve(orders, messageHash + ":" + symbol)
                 client.resolve(orders, messageHash)
         else:
-            isCancel = self.safe_value(message, "is_cancel")
+            isCancel = self.safe_bool(message, "is_cancel")
             if isCancel is True:
                 # Kraken documents is_cancel as "fully filled, cancelled, or
                 # rejected". Derive unified status from `reason` instead of
@@ -866,7 +900,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 if feed == "open_orders_verbose":
                     messageHash = "orders:verbose"
                 # get order without symbol
-                for i in range(len(orders)):
+                for i in range(0, len(orders)):
                     currentOrder = orders[i]
                     if currentOrder["id"] == message["order_id"]:
                         info = self.extend(
@@ -887,7 +921,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                         break
         return message
 
-    def handle_order_snapshot(self, client: Client, message: object):
+    def handle_order_snapshot(self, client: Client, message: dict):
         #
         # verbose
         #
@@ -906,7 +940,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #                "type": "limit",
         #                "order_id": "566942c8-a3b5-4184-a451-622b09493129",
         #                "direction": 0,
-        #                "reduce_only": False
+        #                "reduce_only": false
         #            },
         #            ...
         #        ]
@@ -929,13 +963,13 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #                "type": "stop",
         #                "order_id": "723ba95f-13b7-418b-8fcf-ab7ba6620555",
         #                "direction": 1,
-        #                "reduce_only": False,
+        #                "reduce_only": false,
         #                "triggerSignal": "last"
         #            },
         #            ...
         #        ]
         #    }
-        orders = self.safe_value(message, "orders", [])
+        orders = self.safe_list(message, "orders", [])
         limit = self.safe_integer(self.options, "ordersLimit")
         self.orders = ArrayCacheBySymbolById(limit)
         feed = self.safe_string(message, "feed")
@@ -944,7 +978,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             messageHash = "orders:verbose"
         symbols = {}
         cachedOrders = self.orders
-        for i in range(len(orders)):
+        for i in range(0, len(orders)):
             order = orders[i]
             parsed = self.parse_ws_order(order)
             symbol = parsed["symbol"]
@@ -955,12 +989,12 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         if length > 0:
             client.resolve(self.orders, messageHash)
             keys = list(symbols.keys())
-            for i in range(len(keys)):
+            for i in range(0, len(keys)):
                 symbol = keys[i]
                 symbolMessageHash = messageHash + ":" + symbol
                 client.resolve(self.orders, symbolMessageHash)
 
-    def parse_ws_order(self, order: object, market: Market = None):
+    def parse_ws_order(self, order: dict, market: Market = None) -> Order:
         #
         # update
         #
@@ -977,9 +1011,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #            "type": "limit",
         #            "order_id": "fa9806c9-cba9-4661-9f31-8c5fd045a95d",
         #            "direction": 0,
-        #            "reduce_only": False
+        #            "reduce_only": false
         #        },
-        #        "is_cancel": True,
+        #        "is_cancel": true,
         #        "reason": "post_order_failed_because_it_would_be_filled"
         #    }
         #
@@ -996,10 +1030,10 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        "type": "limit",
         #        "order_id": "fa9806c9-cba9-4661-9f31-8c5fd045a95d",
         #        "direction": 0,
-        #        "reduce_only": False
+        #        "reduce_only": false
         #    }
         #
-        isCancelled = self.safe_value(order, "is_cancel")
+        isCancelled = self.safe_bool(order, "is_cancel")
         unparsedOrder = order
         status = None
         if isCancelled is not None:
@@ -1040,7 +1074,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             }
         )
 
-    def handle_ticker(self, client: Client, message: object):
+    def handle_ticker(self, client: Client, message: dict):
         #
         #    {
         #        "time": 1680811086487,
@@ -1062,13 +1096,13 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        "premium": 0,
         #        "last": 28053.5,
         #        "change": -0.7710945651981715,
-        #        "suspended": False,
+        #        "suspended": false,
         #        "tag": "perpetual",
         #        "pair": "XBT:USD",
         #        "openInterest": 28875946,
         #        "markPrice": 28064.92082724592,
         #        "maturityTime": 0,
-        #        "post_only": False,
+        #        "post_only": false,
         #        "volumeQuote": 19628180
         #    }
         #
@@ -1081,7 +1115,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             messageHash = self.get_message_hash("ticker", None, symbol)
             client.resolve(ticker, messageHash)
 
-    def handle_bid_ask(self, client: Client, message: object):
+    def handle_bid_ask(self, client: Client, message: dict):
         #
         #    {
         #        "feed": "ticker_lite",
@@ -1107,7 +1141,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             messageHash = self.get_message_hash("bidask", None, symbol)
             client.resolve(ticker, messageHash)
 
-    def parse_ws_ticker(self, ticker: dict, market: Market = None):
+    def parse_ws_ticker(self, ticker: dict, market: Market = None) -> Ticker:
         #
         #    {
         #        "time": 1680811086487,
@@ -1129,13 +1163,13 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        "premium": 0,
         #        "last": 28053.5,
         #        "change": -0.7710945651981715,
-        #        "suspended": False,
+        #        "suspended": false,
         #        "tag": "perpetual",
         #        "pair": "XBT:USD",
         #        "openInterest": 28875946,
         #        "markPrice": 28064.92082724592,
         #        "maturityTime": 0,
-        #        "post_only": False,
+        #        "post_only": false,
         #        "volumeQuote": 19628180
         #    }
         #
@@ -1158,7 +1192,6 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #
         marketId = self.safe_string(ticker, "product_id")
         marketResolved = self.safe_market(marketId, market)
-        market = marketResolved
         symbol = marketResolved["symbol"]
         timestamp = self.parse8601(self.safe_string(ticker, "lastTime"))
         last = self.safe_string(ticker, "last")
@@ -1189,7 +1222,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             }
         )
 
-    def handle_order_book_snapshot(self, client: Client, message: object):
+    def handle_order_book_snapshot(self, client: Client, message: dict):
         #
         #    {
         #        "feed": "book_snapshot",
@@ -1234,14 +1267,14 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         asks = self.safe_list(message, "asks")
         if asks is None:
             return
-        for i in range(len(bids)):
-            bid = bids[i]
+        for i in range(0, len(bids)):
+            bid = self.safe_dict(bids, i)
             price = self.safe_number(bid, "price")
             qty = self.safe_number(bid, "qty")
             bidsSide = orderbook["bids"]
             bidsSide.store(price, qty)
-        for i in range(len(asks)):
-            ask = asks[i]
+        for i in range(0, len(asks)):
+            ask = self.safe_dict(asks, i)
             price = self.safe_number(ask, "price")
             qty = self.safe_number(ask, "qty")
             asksSide = orderbook["asks"]
@@ -1251,7 +1284,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         orderbook["symbol"] = symbol
         client.resolve(orderbook, messageHash)
 
-    def handle_order_book(self, client: Client, message: object):
+    def handle_order_book(self, client: Client, message: dict):
         #
         #    {
         #        "feed": "book",
@@ -1282,7 +1315,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         orderbook["datetime"] = self.iso8601(timestamp)
         client.resolve(orderbook, messageHash)
 
-    def handle_balance(self, client: Client, message: object):
+    def handle_balance(self, client: Client, message: dict):
         #
         # snapshot
         #
@@ -1428,9 +1461,9 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        "seq": 2
         #    }
         #
-        holding = self.safe_value(message, "holding")
-        futures = self.safe_value(message, "futures")
-        flexFutures = self.safe_value(message, "flex_futures")
+        holding = self.safe_dict(message, "holding")
+        futures = self.safe_dict(message, "futures")
+        flexFutures = self.safe_dict(message, "flex_futures")
         messageHash = "balances"
         timestamp = self.safe_integer(message, "timestamp")
         if holding is not None:
@@ -1440,7 +1473,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
             }
-            for i in range(len(holdingKeys)):
+            for i in range(0, len(holdingKeys)):
                 key = holdingKeys[i]
                 code = self.safe_currency_code(key)
                 newAccount = self.account()
@@ -1457,11 +1490,11 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
             }
-            for i in range(len(futuresKeys)):
+            for i in range(0, len(futuresKeys)):
                 key = futuresKeys[i]
                 symbol = self.safe_symbol(key)
                 newAccount = self.account()
-                future = self.safe_value(futures, key)
+                future = self.safe_dict(futures, key)
                 currencyId = self.safe_string(future, "unit")
                 code = self.safe_currency_code(currencyId)
                 newAccount["free"] = self.safe_string(future, "available")
@@ -1474,16 +1507,16 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             self.balance["margin"] = self.safe_balance(self.balance["margin"])
             client.resolve(self.balance["margin"], messageHash + "futures")
         if flexFutures is not None:
-            flexFutureCurrencies = self.safe_value(flexFutures, "currencies", {})
+            flexFutureCurrencies = self.safe_dict(flexFutures, "currencies", {})
             flexFuturesKeys = list(flexFutureCurrencies.keys())  # multi-collateral margin account
             flexFuturesResult = {
                 "info": message,
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
             }
-            for i in range(len(flexFuturesKeys)):
+            for i in range(0, len(flexFuturesKeys)):
                 key = flexFuturesKeys[i]
-                flexFuture = self.safe_value(flexFutureCurrencies, key)
+                flexFuture = self.safe_dict(flexFutureCurrencies, key)
                 code = self.safe_currency_code(key)
                 newAccount = self.account()
                 newAccount["free"] = self.safe_string(flexFuture, "available")
@@ -1496,7 +1529,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             client.resolve(self.balance["flex"], messageHash + "flex_futures")
         client.resolve(self.balance, messageHash)
 
-    def handle_my_trades(self, client: Client, message: object):
+    def handle_my_trades(self, client: Client, message: dict):
         #
         #    {
         #        "feed": "fills_snapshot",
@@ -1507,10 +1540,10 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #                "time": 1600256910739,
         #                "price": 10937.5,
         #                "seq": 36,
-        #                "buy": True,
+        #                "buy": true,
         #                "qty": 5000.0,
         #                "order_id": "9e30258b-5a98-4002-968a-5b0e149bcfbf",
-        #                "cli_ord_id": "8b58d9da-fcaf-4f60-91bc-9973a3eba48d",  # only on update, not on snapshot
+        #                "cli_ord_id": "8b58d9da-fcaf-4f60-91bc-9973a3eba48d", // only on update, not on snapshot
         #                "fill_id": "cad76f07-814e-4dc6-8478-7867407b6bff",
         #                "fill_type": "maker",
         #                "fee_paid": -0.00009142857,
@@ -1522,37 +1555,37 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        ]
         #    }
         #
-        trades = self.safe_value(message, "fills", [])
+        trades = self.safe_list(message, "fills", [])
         stored = self.myTrades
         if stored is None:
             limit = self.safe_integer(self.options, "tradesLimit", 1000)
             stored = ArrayCacheBySymbolById(limit)
             self.myTrades = stored
         tradeSymbols = {}
-        for i in range(len(trades)):
+        for i in range(0, len(trades)):
             trade = trades[i]
             parsedTrade = self.parse_ws_my_trade(trade)
             if parsedTrade["symbol"] is not None:
                 tradeSymbols[parsedTrade["symbol"]] = True
             stored.append(parsedTrade)
         tradeSymbolKeys = list(tradeSymbols.keys())
-        for i in range(len(tradeSymbolKeys)):
+        for i in range(0, len(tradeSymbolKeys)):
             symbol = tradeSymbolKeys[i]
             messageHash = "myTrades:" + symbol
             client.resolve(stored, messageHash)
         client.resolve(stored, "myTrades")
 
-    def parse_ws_my_trade(self, trade: object, market: Market = None):
+    def parse_ws_my_trade(self, trade: dict, market: Market = None) -> Trade:
         #
         #    {
         #        "instrument": "FI_XBTUSD_200925",
         #        "time": 1600256910739,
         #        "price": 10937.5,
         #        "seq": 36,
-        #        "buy": True,
+        #        "buy": true,
         #        "qty": 5000.0,
         #        "order_id": "9e30258b-5a98-4002-968a-5b0e149bcfbf",
-        #        "cli_ord_id": "8b58d9da-fcaf-4f60-91bc-9973a3eba48d",  # only on update, not on snapshot
+        #        "cli_ord_id": "8b58d9da-fcaf-4f60-91bc-9973a3eba48d", // only on update, not on snapshot
         #        "fill_id": "cad76f07-814e-4dc6-8478-7867407b6bff",
         #        "fill_type": "maker",
         #        "fee_paid": -0.00009142857,
@@ -1563,8 +1596,8 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #
         timestamp = self.safe_integer(trade, "time")
         marketId = self.safe_string(trade, "instrument")
-        market = self.safe_market(marketId, market)
-        isBuy = self.safe_value(trade, "buy")
+        marketResolved = self.safe_market(marketId, market)
+        isBuy = self.safe_bool(trade, "buy")
         feeCurrencyId = self.safe_string(trade, "fee_currency")
         return self.safe_trade(
             {
@@ -1572,7 +1605,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 "id": self.safe_string(trade, "fill_id"),
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
-                "symbol": self.safe_string(market, "symbol"),
+                "symbol": self.safe_string(marketResolved, "symbol"),
                 "order": self.safe_string(trade, "order_id"),
                 "type": self.safe_string(trade, "type"),
                 "side": "buy" if (isBuy is True) else "sell",
@@ -1589,7 +1622,12 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         )
 
     async def watch_multi_helper(
-        self, unifiedName: str, channelName: str, symbols: object = None, subscriptionArgs: object = None, params=None
+        self,
+        unifiedName: str,
+        channelName: str,
+        symbols: object = None,
+        subscriptionArgs: object = None,
+        params: dict = None,
     ):
         if params is None:
             params = {}
@@ -1597,13 +1635,15 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             await self.load_markets()
         url = self.urls["api"]["ws"]
         # symbols are required
-        symbols = self.market_symbols(symbols, None, False, True, False)
+        symbolsNormalized = self.market_symbols(symbols, None, False, True, False)
         messageHashes = []
         rawSubs = []
-        for i in range(len(symbols)):
-            messageHash = self.get_message_hash(unifiedName, None, self.symbol(symbols[i]))
+        for i in range(0, len(symbolsNormalized)):
+            messageHash = self.get_message_hash(
+                unifiedName, None, self.symbol(symbolsNormalized[i])
+            )
             messageHashes.append(messageHash)
-            market = self.market(symbols[i])
+            market = self.market(symbolsNormalized[i])
             if not self.subscription_exists_for_hash(url, messageHash):
                 rawSubs.append(market["id"])
         request = {}
@@ -1618,13 +1658,15 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             url, messageHashes, self.extend(request, params), messageHashes, subscriptionArgs
         )
 
-    def subscription_exists_for_hash(self, url: str, hash: str):
+    def subscription_exists_for_hash(self, url: str, hash: str) -> bool:
         client = self.client(url)
         return hash in client.subscriptions
 
-    def get_message_hash(self, unifiedElementName: str, subChannelName: Str = None, symbol: Str = None):
+    def get_message_hash(
+        self, unifiedElementName: str, subChannelName: Str = None, symbol: Str = None
+    ) -> str:
         # unifiedElementName can be : orderbook, trade, ticker, bidask ...
-        # subChannelName only applies to channel that needs specific variation(i.e. depth_50, depth_100..) to be selected
+        # subChannelName only applies to channel that needs specific variation (i.e. depth_50, depth_100..) to be selected
         withSymbol = symbol is not None
         messageHash = unifiedElementName
         if not withSymbol:
@@ -1635,7 +1677,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             messageHash += "#" + subChannelName
         return messageHash
 
-    def handle_error_message(self, client: Client, message: object) -> Bool:
+    def handle_error_message(self, client: Client, message: dict) -> Bool:
         #
         #    {
         #        event: 'alert',
@@ -1648,7 +1690,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #
         errMsg = self.safe_string(message, "message")
         # Benign "already subscribed" notice: the original subscription is still
-        # active and delivering data on self socket. The generic client.reject
+        # active and delivering data on this socket. The generic client.reject
         # below rejects every pending future on the connection, so a stray
         # re-subscribe warning would kill unrelated in-flight watch* calls —
         # mirrors the bitmart 90008 fix.
@@ -1660,7 +1702,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             client.reject(error)
             return False
 
-    def handle_message(self, client: object, message: object):
+    def handle_message(self, client: Client, message: dict):
         event = self.safe_string(message, "event")
         if event == "challenge":
             self.handle_authenticate(client, message)
@@ -1675,7 +1717,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
                 "ticker_lite": self.handle_bid_ask,
                 "trade": self.handle_trade,
                 "trade_snapshot": self.handle_trade,
-                # 'heartbeat': self.handleStatus,
+                # 'heartbeat': this.handleStatus,
                 "book": self.handle_order_book,
                 "book_snapshot": self.handle_order_book_snapshot,
                 "open_orders_verbose": self.handle_order,
@@ -1692,7 +1734,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
             if method is not None:
                 method(client, message)
 
-    def handle_authenticate(self, client: Client, message: object):
+    def handle_authenticate(self, client: Client, message: dict) -> dict:
         """
         @ignore
                https://docs.kraken.com/exchange/api-reference/futures-websocket/challenge
@@ -1703,7 +1745,7 @@ class krakenfutures(ccxt.async_support.krakenfutures):
         #        "message": "226aee50-88fc-4618-a42a-34f7709570b2"
         #    }
         #
-        event = self.safe_value(message, "event")
+        event = self.safe_string(message, "event")
         messageHash = "challenge"
         if event != "error":
             challenge = self.safe_value(message, "message")

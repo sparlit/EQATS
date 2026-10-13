@@ -32,21 +32,22 @@ through the Model Context Protocol (MCP).
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+import mcp.types as types
 from aiohttp import web
 from aiohttp.web import Application, Request, Response, middleware
-from mcp import types
 from mcp.server import Server
-from mcp.types import EmbeddedResource, ImageContent, LoggingLevel, Resource, TextContent, Tool
+from mcp.types import Tool
 
 from .config import Config
 
 # Configure logging
 logging.basicConfig(
-    level=getattr(logging, Config.LOG_LEVEL.upper()), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=getattr(logging, Config.LOG_LEVEL.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("ise-mcp-server")
 
@@ -58,9 +59,13 @@ class ISEClient:
 
     def __init__(self, base_url: str = Config.BASE_URL):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=Config.REQUEST_TIMEOUT, headers=Config.get_headers())
+        self.client = httpx.AsyncClient(
+            timeout=Config.REQUEST_TIMEOUT, headers=Config.get_headers()
+        )
 
-    async def _make_request(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _make_request(
+        self, endpoint: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Make HTTP request to the API with x-api-key header"""
         try:
             url = f"{self.base_url}{endpoint}"
@@ -76,13 +81,11 @@ class ISEClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            logger.exception(f"HTTP error occurred: {e}")
-            msg = f"API request failed: {e!s}"
-            raise Exception(msg)
+            logger.error(f"HTTP error occurred: {e}")
+            raise Exception(f"API request failed: {str(e)}")
         except Exception as e:
-            logger.exception(f"Unexpected error: {e}")
-            msg = f"Unexpected error: {e!s}"
-            raise Exception(msg)
+            logger.error(f"Unexpected error: {e}")
+            raise Exception(f"Unexpected error: {str(e)}")
 
     async def close(self):
         """Close the HTTP client"""
@@ -103,7 +106,10 @@ async def handle_list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Company name, shortened name, or search term"}
+                    "name": {
+                        "type": "string",
+                        "description": "Company name, shortened name, or search term",
+                    }
                 },
                 "required": ["name"],
             },
@@ -122,7 +128,9 @@ async def handle_list_tools() -> list[Tool]:
             description="Search for mutual funds",
             inputSchema={
                 "type": "object",
-                "properties": {"query": {"type": "string", "description": "Mutual fund search term"}},
+                "properties": {
+                    "query": {"type": "string", "description": "Mutual fund search term"}
+                },
                 "required": ["query"],
             },
         ),
@@ -198,11 +206,25 @@ async def handle_list_tools() -> list[Tool]:
                         ],
                         "description": "Measure code for forecast",
                     },
-                    "period_type": {"type": "string", "enum": ["Annual", "Interim"], "description": "Period type"},
-                    "data_type": {"type": "string", "enum": ["Actuals", "Estimates"], "description": "Data type"},
+                    "period_type": {
+                        "type": "string",
+                        "enum": ["Annual", "Interim"],
+                        "description": "Period type",
+                    },
+                    "data_type": {
+                        "type": "string",
+                        "enum": ["Actuals", "Estimates"],
+                        "description": "Data type",
+                    },
                     "age": {
                         "type": "string",
-                        "enum": ["OneWeekAgo", "ThirtyDaysAgo", "SixtyDaysAgo", "NinetyDaysAgo", "Current"],
+                        "enum": [
+                            "OneWeekAgo",
+                            "ThirtyDaysAgo",
+                            "SixtyDaysAgo",
+                            "NinetyDaysAgo",
+                            "Current",
+                        ],
                         "description": "Data age",
                     },
                 },
@@ -272,7 +294,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "search_industry":
+        elif name == "search_industry":
             data = await ise_client._make_request("/industry_search", {"query": arguments["query"]})
             return [
                 types.TextContent(
@@ -281,8 +303,10 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "search_mutual_funds":
-            data = await ise_client._make_request("/mutual_fund_search", {"query": arguments["query"]})
+        elif name == "search_mutual_funds":
+            data = await ise_client._make_request(
+                "/mutual_fund_search", {"query": arguments["query"]}
+            )
             return [
                 types.TextContent(
                     type="text",
@@ -290,64 +314,73 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_trending_stocks":
+        elif name == "get_trending_stocks":
             data = await ise_client._make_request("/trending")
             return [
                 types.TextContent(
-                    type="text", text=f"Trending Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Trending Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_52_week_high_low":
+        elif name == "get_52_week_high_low":
             data = await ise_client._make_request("/fetch_52_week_high_low_data")
             return [
                 types.TextContent(
-                    type="text", text=f"52 Week High/Low Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"52 Week High/Low Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_nse_most_active":
+        elif name == "get_nse_most_active":
             data = await ise_client._make_request("/NSE_most_active")
             return [
                 types.TextContent(
-                    type="text", text=f"NSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"NSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_bse_most_active":
+        elif name == "get_bse_most_active":
             data = await ise_client._make_request("/BSE_most_active")
             return [
                 types.TextContent(
-                    type="text", text=f"BSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"BSE Most Active Stocks:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_mutual_funds":
+        elif name == "get_mutual_funds":
             data = await ise_client._make_request("/mutual_funds")
             return [
                 types.TextContent(
-                    type="text", text=f"Mutual Funds Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Mutual Funds Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_price_shockers":
+        elif name == "get_price_shockers":
             data = await ise_client._make_request("/price_shockers")
             return [
                 types.TextContent(
-                    type="text", text=f"Price Shockers:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Price Shockers:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_commodities":
+        elif name == "get_commodities":
             data = await ise_client._make_request("/commodities")
             return [
                 types.TextContent(
-                    type="text", text=f"Commodity Futures Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                    type="text",
+                    text=f"Commodity Futures Data:\n\n{json.dumps(data, indent=2, ensure_ascii=False)}",
                 )
             ]
 
-        if name == "get_analyst_recommendations":
-            data = await ise_client._make_request("/stock_target_price", {"stock_id": arguments["stock_id"]})
+        elif name == "get_analyst_recommendations":
+            data = await ise_client._make_request(
+                "/stock_target_price", {"stock_id": arguments["stock_id"]}
+            )
             return [
                 types.TextContent(
                     type="text",
@@ -355,7 +388,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_stock_forecasts":
+        elif name == "get_stock_forecasts":
             params = {
                 "stock_id": arguments["stock_id"],
                 "measure_code": arguments["measure_code"],
@@ -371,7 +404,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_historical_data":
+        elif name == "get_historical_data":
             params = {"stock_name": arguments["stock_name"]}
             if "period" in arguments:
                 params["period"] = arguments["period"]
@@ -386,7 +419,7 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        if name == "get_historical_stats":
+        elif name == "get_historical_stats":
             params = {"stock_name": arguments["stock_name"], "stats": arguments["stats"]}
             data = await ise_client._make_request("/historical_stats", params)
             return [
@@ -396,12 +429,12 @@ async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent
                 )
             ]
 
-        msg = f"Unknown tool: {name}"
-        raise ValueError(msg)
+        else:
+            raise ValueError(f"Unknown tool: {name}")
 
     except Exception as e:
-        logger.exception(f"Error in tool {name}: {e!s}")
-        return [types.TextContent(type="text", text=f"Error executing {name}: {e!s}")]
+        logger.error(f"Error in tool {name}: {str(e)}")
+        return [types.TextContent(type="text", text=f"Error executing {name}: {str(e)}")]
 
 
 class JSONRPCHandler:
@@ -443,7 +476,8 @@ class JSONRPCHandler:
 
                 logger.error(f"Missing method field in request: {data}")
                 return self._create_error_response(
-                    {"code": -32600, "message": "Invalid Request - method field is required"}, request_id=request_id
+                    {"code": -32600, "message": "Invalid Request - method field is required"},
+                    request_id=request_id,
                 )
 
             # Handle requests vs notifications
@@ -518,8 +552,8 @@ class JSONRPCHandler:
                     error = {"code": -32601, "message": f"Method not found: {method}"}
 
             except Exception as e:
-                logger.error(f"Error handling method {method}: {e!s}", exc_info=True)
-                error = {"code": -32603, "message": f"Internal error: {e!s}"}
+                logger.error(f"Error handling method {method}: {str(e)}", exc_info=True)
+                error = {"code": -32603, "message": f"Internal error: {str(e)}"}
 
             # For notifications, don't send a response unless there's an error
             if is_notification and not error:
@@ -532,17 +566,22 @@ class JSONRPCHandler:
             # Create JSON-RPC response
             if error:
                 return self._create_error_response(error, request_id)
-            return self._create_success_response(result, request_id)
+            else:
+                return self._create_success_response(result, request_id)
 
         except json.JSONDecodeError as e:
-            logger.exception(f"📤 JSON Parse Error: {e!s}")
-            return self._create_error_response({"code": -32700, "message": "Parse error"}, request_id=None, status=400)
+            logger.error(f"📤 JSON Parse Error: {str(e)}")
+            return self._create_error_response(
+                {"code": -32700, "message": "Parse error"}, request_id=None, status=400
+            )
 
         except Exception as e:
-            logger.error(f"📤 Unexpected error in JSON-RPC handler: {e!s}", exc_info=True)
+            logger.error(f"📤 Unexpected error in JSON-RPC handler: {str(e)}", exc_info=True)
             request_id = data.get("id") if "data" in locals() else None
             return self._create_error_response(
-                {"code": -32603, "message": f"Internal error: {e!s}"}, request_id=request_id, status=500
+                {"code": -32603, "message": f"Internal error: {str(e)}"},
+                request_id=request_id,
+                status=500,
             )
 
     def _get_cors_headers(self) -> dict:
@@ -564,7 +603,10 @@ class JSONRPCHandler:
         response_text = json.dumps(response_data, ensure_ascii=False, separators=(",", ":"))
 
         return Response(
-            text=response_text, content_type="application/json", charset="utf-8", headers=self._get_cors_headers()
+            text=response_text,
+            content_type="application/json",
+            charset="utf-8",
+            headers=self._get_cors_headers(),
         )
 
     def _create_error_response(self, error: dict, request_id: Any, status: int = 200) -> Response:
@@ -599,7 +641,9 @@ class JSONRPCHandler:
     async def handle_health(self, request: Request) -> Response:
         """Health check endpoint"""
         return Response(
-            text=json.dumps({"status": "healthy", "server": Config.SERVER_NAME, "version": "1.0.0"}),
+            text=json.dumps(
+                {"status": "healthy", "server": Config.SERVER_NAME, "version": "1.0.0"}
+            ),
             content_type="application/json",
         )
 
@@ -613,7 +657,9 @@ class JSONRPCHandler:
                     "version": "1.0.0",
                     "description": "Indian Stock Exchange MCP Server",
                     "capabilities": {"tools": len(tools)},
-                    "tools": [{"name": tool.name, "description": tool.description} for tool in tools],
+                    "tools": [
+                        {"name": tool.name, "description": tool.description} for tool in tools
+                    ],
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -652,7 +698,7 @@ async def cors_middleware(request: Request, handler):
         )
         return response
     except Exception as e:
-        logger.exception(f"Request handler error: {e}")
+        logger.error(f"Request handler error: {e}")
         # Return error with CORS headers
         return web.Response(
             text=json.dumps({"error": str(e)}),
@@ -692,7 +738,7 @@ async def main():
         Config.validate_config()
         logger.info("Configuration validated successfully")
     except ValueError as e:
-        logger.exception(f"Configuration error: {e}")
+        logger.error(f"Configuration error: {e}")
         return
 
     logger.info(f"Server will listen on {Config.HTTP_HOST}:{Config.HTTP_PORT}")
@@ -737,7 +783,7 @@ def cli_main():
     except KeyboardInterrupt:
         logger.info("Server stopped.")
     except Exception as e:
-        logger.exception(f"Server error: {e}")
+        logger.error(f"Server error: {e}")
 
 
 if __name__ == "__main__":

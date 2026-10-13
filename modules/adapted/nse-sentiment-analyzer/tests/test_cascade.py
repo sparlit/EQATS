@@ -48,7 +48,9 @@ class TestDetectCascade:
         news = [
             {
                 "title": "Crude oil prices surge on OPEC supply cuts",
-                "body": ("Brent crude jumped above $85 per barrel after OPEC+ announced production cuts."),
+                "body": (
+                    "Brent crude jumped above $85 per barrel after OPEC+ announced production cuts."
+                ),
             },
         ]
         results = detect_cascade(news)
@@ -77,7 +79,7 @@ class TestDetectCascade:
         results = detect_cascade(news)
         drivers = [r["driver"] for r in results]
         assert "Rupee / USD" in drivers
-        rupee_effect = next(r for r in results if r["driver"] == "Rupee / USD")
+        rupee_effect = [r for r in results if r["driver"] == "Rupee / USD"][0]
         tickers = [a["ticker"] for a in rupee_effect["affects"]]
         assert "INFY" in tickers
         assert "TCS" in tickers
@@ -144,7 +146,7 @@ class TestDetectCascade:
         results = detect_cascade(news)
         drivers = [r["driver"] for r in results]
         assert "Natural Gas" in drivers
-        gas_effect = next(r for r in results if r["driver"] == "Natural Gas")
+        gas_effect = [r for r in results if r["driver"] == "Natural Gas"][0]
         tickers = [a["ticker"] for a in gas_effect["affects"]]
         assert "IGL" in tickers
         assert "GUJGASLTD" in tickers
@@ -201,7 +203,7 @@ class TestDetectCascade:
             {"title": "Brent crude falls on demand concerns", "body": ""},
         ]
         results = detect_cascade(news)
-        crude = next(r for r in results if r["driver"] == "Crude Oil")
+        crude = [r for r in results if r["driver"] == "Crude Oil"][0]
         # 1 up + 1 down = tie → fall back to CASCADE_MAP +1 default
         assert crude["direction"] == 1
         assert crude["impact"] == 1
@@ -255,14 +257,14 @@ class TestDetectCascade:
         """When crude crashes, reason should reflect lower costs (good for OMCs)."""
         news = [{"title": "Crude oil prices crash on demand fears", "body": ""}]
         results = detect_cascade(news)
-        bpcl = next(a for a in results[0]["affects"] if a["ticker"] == "BPCL")
+        bpcl = [a for a in results[0]["affects"] if a["ticker"] == "BPCL"][0]
         assert "lower" in bpcl["reason"].lower() or "expand" in bpcl["reason"].lower()
 
     def test_direction_aware_reason_gold_surge_is_bullish(self):
         """When gold surges, reason should reflect benefits for gold holders."""
         news = [{"title": "Gold prices rally to new record high", "body": ""}]
         results = detect_cascade(news)
-        goldbees = next(a for a in results[0]["affects"] if a["ticker"] == "GOLDBEES")
+        goldbees = [a for a in results[0]["affects"] if a["ticker"] == "GOLDBEES"][0]
         assert "rally" in goldbees["reason"].lower() or "benefits" in goldbees["reason"].lower()
 
     def test_matched_articles_count(self):

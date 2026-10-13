@@ -56,7 +56,7 @@ class BaseCache(list):
         # truthiness guard in ts/src/base/ws/Cache.ts - a max_size of 0 arises
         # from .filter() copy-construction, and deque(maxlen=0) would silently
         # discard every appended row while getLimit still reports new updates
-        self._deque = collections.deque(maxlen=max_size or None)
+        self._deque = collections.deque([], max_size or None)
 
     def __eq__(self, other: object) -> bool:
         return list(self) == other
@@ -73,7 +73,8 @@ class BaseCache(list):
         if isinstance(item, slice):
             start, stop, step = item.indices(len(deque))
             return [deque[i] for i in range(start, stop, step)]
-        return deque[item]
+        else:
+            return deque[item]
 
     # subclasses extend this to also reset their own bookkeeping - clearing only
     # the deque would leave the hashmap/index sidecars pointing at rows that no
@@ -128,9 +129,10 @@ class ArrayCache(BaseCache):
 
         if new_updates_value is None:
             return limit
-        if limit is not None:
+        elif limit is not None:
             return min(new_updates_value, limit)
-        return new_updates_value
+        else:
+            return new_updates_value
 
     def append(self, item: dict) -> None:
         # the deque evicts from the left on its own when max_size is truthy
@@ -203,7 +205,7 @@ class ArrayCacheBySymbolById(ArrayCache):
         self._nested_new_updates_by_symbol = True
         self._key_field = "symbol"  # first nesting level (overridden by ArrayCacheByOutcomeById)
         self.hashmap = {}
-        self._index = collections.deque(maxlen=max_size or None)
+        self._index = collections.deque([], max_size or None)
 
     def clear(self) -> None:
         super().clear()
@@ -246,7 +248,9 @@ class ArrayCacheBySymbolById(ArrayCache):
             symbol_seen = self._seen_updates_by_symbol.get(delete_key)
             if symbol_seen is not None and delete_item["id"] in symbol_seen:
                 symbol_seen.discard(delete_item["id"])
-                self._new_updates_by_symbol[delete_key] = self._new_updates_by_symbol[delete_key] - 1
+                self._new_updates_by_symbol[delete_key] = (
+                    self._new_updates_by_symbol[delete_key] - 1
+                )
                 if not symbol_seen:
                     del self._seen_updates_by_symbol[delete_key]
             all_seen = self._seen_updates_all.get(delete_key)
@@ -342,4 +346,6 @@ class ArrayCacheBySymbolBySide(ArrayCache):
         all_side_set = self._seen_updates_all[symbol]
         before_all_length = len(all_side_set)
         all_side_set.add(side)
-        self._all_new_updates = (self._all_new_updates or 0) + (len(all_side_set) - before_all_length)
+        self._all_new_updates = (self._all_new_updates or 0) + (
+            len(all_side_set) - before_all_length
+        )

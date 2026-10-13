@@ -46,21 +46,16 @@ class DecisionInput:
 
     def __post_init__(self) -> None:
         if not self.decision_id.strip():
-            msg = "decision_id is required"
-            raise ValueError(msg)
+            raise ValueError("decision_id is required")
         if self.scope not in _ALLOWED_SCOPES:
-            msg = f"Unsupported decision scope: {self.scope}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported decision scope: {self.scope}")
         date.fromisoformat(self.as_of_date)
         if not self.subject.strip():
-            msg = "subject is required"
-            raise ValueError(msg)
+            raise ValueError("subject is required")
         if len(set(self.evidence_references)) != len(self.evidence_references):
-            msg = "evidence_references must be unique"
-            raise ValueError(msg)
+            raise ValueError("evidence_references must be unique")
         if len(set(self.source_modules)) != len(self.source_modules):
-            msg = "source_modules must be unique"
-            raise ValueError(msg)
+            raise ValueError("source_modules must be unique")
 
 
 @dataclass(frozen=True)
@@ -79,48 +74,34 @@ class DecisionRecommendation:
 
     def __post_init__(self) -> None:
         if not self.decision_id.strip():
-            msg = "decision_id is required"
-            raise ValueError(msg)
+            raise ValueError("decision_id is required")
         date.fromisoformat(self.generated_date)
         if self.status not in _ALLOWED_STATUSES:
-            msg = f"Unsupported decision status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported decision status: {self.status}")
         if self.action not in _ALLOWED_ACTIONS:
-            msg = f"Unsupported decision action: {self.action}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported decision action: {self.action}")
         if self.confidence not in _ALLOWED_CONFIDENCE:
-            msg = f"Unsupported confidence: {self.confidence}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported confidence: {self.confidence}")
         if self.score is not None and not 0 <= self.score <= 100:
-            msg = "score must be between 0 and 100"
-            raise ValueError(msg)
+            raise ValueError("score must be between 0 and 100")
         for name, value in self.component_scores.items():
             if not name.strip():
-                msg = "component score names cannot be blank"
-                raise ValueError(msg)
+                raise ValueError("component score names cannot be blank")
             if not 0 <= value <= 100:
-                msg = "component scores must be between 0 and 100"
-                raise ValueError(msg)
+                raise ValueError("component scores must be between 0 and 100")
         if len(set(self.evidence_references)) != len(self.evidence_references):
-            msg = "evidence_references must be unique"
-            raise ValueError(msg)
+            raise ValueError("evidence_references must be unique")
         if self.status == "READY":
             if not self.evidence_references:
-                msg = "READY decisions require evidence references"
-                raise ValueError(msg)
+                raise ValueError("READY decisions require evidence references")
             if not self.rationale:
-                msg = "READY decisions require rationale"
-                raise ValueError(msg)
+                raise ValueError("READY decisions require rationale")
             if self.score is None:
-                msg = "READY decisions require a deterministic score"
-                raise ValueError(msg)
+                raise ValueError("READY decisions require a deterministic score")
         if self.status in {"INSUFFICIENT_DATA", "CONFLICTING_EVIDENCE"}:
             if self.action not in {"WATCH", "NO_ACTION"}:
-                msg = "Unresolved decisions cannot recommend portfolio-changing actions"
-                raise ValueError(msg)
+                raise ValueError("Unresolved decisions cannot recommend portfolio-changing actions")
             if not self.limitations:
-                msg = "Unresolved decisions require limitations"
-                raise ValueError(msg)
+                raise ValueError("Unresolved decisions require limitations")
         if self.action in {"BUY", "ADD", "REDUCE", "EXIT"} and self.status != "READY":
-            msg = "Portfolio-changing actions require READY status"
-            raise ValueError(msg)
+            raise ValueError("Portfolio-changing actions require READY status")

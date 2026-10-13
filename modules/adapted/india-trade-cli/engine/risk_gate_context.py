@@ -41,10 +41,7 @@ Usage:
 """
 
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from engine.risk_gate import AllowedAction
+from engine.risk_gate import AllowedAction
 
 
 def format_risk_gate_for_llm(allowed: AllowedAction) -> str:
@@ -97,10 +94,13 @@ def format_risk_gate_for_llm(allowed: AllowedAction) -> str:
     lines.append("These limits are HARD CONSTRAINTS. Your recommendation must not exceed them.")
     if allowed.allowed and allowed.direction in ("BUY_ONLY", "SELL_ONLY"):
         blocked_dir = "SELL" if allowed.direction == "BUY_ONLY" else "BUY"
-        lines.append(f"Do NOT recommend a {blocked_dir} — direction is restricted to {allowed.direction}.")
+        lines.append(
+            f"Do NOT recommend a {blocked_dir} — direction is restricted to {allowed.direction}."
+        )
     if allowed.allowed:
         lines.append(
-            f"Do not recommend a position larger than {allowed.max_qty} shares or ₹{allowed.max_capital:,.0f}."
+            f"Do not recommend a position larger than {allowed.max_qty} shares "
+            f"or ₹{allowed.max_capital:,.0f}."
         )
 
     return "\n".join(lines)

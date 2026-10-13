@@ -31,9 +31,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.core import auth, backup, classifier, db, live, llm, paper
+from app.core import auth, backup, classifier, db, live, llm, minute_data, paper
 from app.core.config import UPLOAD_DIR
 from app.routers import router
+from app.services import engine_jobs
 from app.services.jobs import (
     _auto_event_scan_loop,
     _auto_shareholding_loop,
@@ -73,6 +74,10 @@ def _startup():
     # Alerts run whether or not live trading is switched on; the mirror only runs when it is and
     # credentials exist - see app/core/live.py.
     live.start(paper_price)
+    # The algo engine's background queue (queued jobs survive restarts; running ones are marked
+    # interrupted) and the bar cache's 2-week sliding TTL - see engine_jobs.py and minute_data.py.
+    engine_jobs.start()
+    minute_data.start_ttl_sweeper()
 
 
 # --- the login gate ------------------------------------------------------------------------------
@@ -145,7 +150,9 @@ app.include_router(router)
 #
 # Absent in development: `npm run dev` serves the frontend and proxies /api here, so there is no
 # dist/ to mount and this block is skipped entirely.
-_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+_DIST = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist"
+)
 if os.path.isdir(_DIST):
     from fastapi.responses import FileResponse
 

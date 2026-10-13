@@ -287,21 +287,13 @@ pub async fn switch(id: &str, locale: &str) -> Result<Account, String> {
 async fn close_app() -> Result<(), String> {
     #[cfg(windows)]
     {
-        let script = "$ErrorActionPreference='Stop'; Get-Process -Name 'DeepSeek Harness' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $end=(Get-Date).AddSeconds(10); while(Get-Process -Name 'DeepSeek Harness' -ErrorAction SilentlyContinue) { if((Get-Date) -ge $end){exit 1}; Start-Sleep -Milliseconds 100 }; exit 0";
-        let status = tokio::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", script])
-            .creation_flags(0x08000000)
-            .status()
+        super::cursor_auth::close_windows_client("DeepSeek Harness", true)
             .await
-            .map_err(|_| "accountError.failed")?;
-        if !status.success() {
-            return Err("accountError.failed".into());
-        }
-        Ok(())
+            .map_err(|_| "accountError.failed".into())
     }
     #[cfg(target_os = "macos")]
     {
-        let status = tokio::process::Command::new("osascript").args(["-e", "tell application \"System Events\"\nif exists (processes whose bundle identifier is \"com.deepseek.dsh\") then\ntell application id \"com.deepseek.dsh\" to quit\nrepeat 100 times\nif not (exists (processes whose bundle identifier is \"com.deepseek.dsh\")) then return\ndelay 0.2\nend repeat\nerror \"DeepSeek Harness is still running\"\nend if\nend tell"])
+        let status = crate::utils::process::async_command("osascript").args(["-e", "tell application \"System Events\"\nif exists (processes whose bundle identifier is \"com.deepseek.dsh\") then\ntell application id \"com.deepseek.dsh\" to quit\nrepeat 100 times\nif not (exists (processes whose bundle identifier is \"com.deepseek.dsh\")) then return\ndelay 0.2\nend repeat\nerror \"DeepSeek Harness is still running\"\nend if\nend tell"])
             .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().await.map_err(|_| "accountError.failed")?;
         if !status.success() {
             return Err("accountError.failed".into());

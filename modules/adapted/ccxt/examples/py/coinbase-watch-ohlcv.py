@@ -63,10 +63,10 @@ async def main():
                     "V",
                     candle[5],
                 )
-            except Exception:
+            except Exception as e:
                 # stop
                 await exchange.close()
-                raise
+                raise e
                 # or retry
                 # pass
     else:

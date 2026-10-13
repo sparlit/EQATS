@@ -36,7 +36,11 @@ from datetime import timedelta as td
 
 import bs4
 import requests
-from tickerplot.sql.sqlalchemy_wrapper import create_or_get_nse_indices_hist_data, execute_many_insert, get_metadata
+from tickerplot.sql.sqlalchemy_wrapper import (
+    create_or_get_nse_indices_hist_data,
+    execute_many_insert,
+    get_metadata,
+)
 from tickerplot.utils.logger import get_logger
 
 module_logger = get_logger(os.path.basename(__file__))
@@ -89,7 +93,7 @@ def download_and_save_index(idx, db_meta, start_date=None, end_date=None):
     if idx not in _INDICES_DICT:
         module_logger.error("Index %s not found or not supported yet.", idx)
         module_logger.error("supported Indices are: %s", (", ".join(_INDICES_DICT.keys())))
-        return
+        return None
 
     start_dt = start_date or _INDICES_DICT[idx][1]
     s = dt.strptime(start_dt, _DATE_FMT)
@@ -97,7 +101,8 @@ def download_and_save_index(idx, db_meta, start_date=None, end_date=None):
     e = dt.now() if not end_date else dt.strptime(end_date, _DATE_FMT)
 
     e2 = s + td(days=_PREF_DAYS)
-    e2 = min(e2, e)
+    if e2 > e:
+        e2 = e
 
     all_data = []
     while e > s:
@@ -113,7 +118,8 @@ def download_and_save_index(idx, db_meta, start_date=None, end_date=None):
         time.sleep(random.randint(1, 5))
         s = e2 + td(days=1)
         e2 = s + td(days=_PREF_DAYS)
-        e2 = min(e2, e)
+        if e2 > e:
+            e2 = e
 
     tbl = create_or_get_nse_indices_hist_data(metadata=db_meta)
 
@@ -160,7 +166,7 @@ def _do_get_index(idx, start_dt, end_dt):
     for i, row in enumerate(rows):
         if i <= 2:
             continue
-        if i == len(rows) - 1:
+        elif i == len(rows) - 1:
             pass  # previously this used to give href, now we ignore this
             # anchor = row.find('a')
             # csv_link = anchor['href']
@@ -203,26 +209,38 @@ def main(args):
     parser = argparse.ArgumentParser()
 
     # -l or --list (list all indices)
-    parser.add_argument("--list", help="List all supported indices.", dest="list_indices", action="store_true")
+    parser.add_argument(
+        "--list", help="List all supported indices.", dest="list_indices", action="store_true"
+    )
 
     # --full option
     parser.add_argument("--full-to", help="download full data from 1 Jan 2002", action="store_true")
 
     # --from option
     parser.add_argument(
-        "--from", help="From Date in DD-MM-YYYY format. Default is 01-01-2002", dest="fromdate", default=""
+        "--from",
+        help="From Date in DD-MM-YYYY format. Default is 01-01-2002",
+        dest="fromdate",
+        default="",
     )
 
     # --to option
     parser.add_argument(
-        "--to", help="From Date in DD-MM-YYYY format. Default is Today.", dest="todate", default="today"
+        "--to",
+        help="From Date in DD-MM-YYYY format. Default is Today.",
+        dest="todate",
+        default="today",
     )
 
     # --yes option
-    parser.add_argument("--yes", help="Answer yes to all questions.", dest="sure", action="store_true")
+    parser.add_argument(
+        "--yes", help="Answer yes to all questions.", dest="sure", action="store_true"
+    )
 
     # --all option
-    parser.add_argument("--all", help="Download all indices.", dest="all_indices", action="store_true")
+    parser.add_argument(
+        "--all", help="Download all indices.", dest="all_indices", action="store_true"
+    )
 
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")
@@ -263,7 +281,9 @@ def main(args):
             if args.sure:
                 sure = True
             else:
-                sure = input("Tatal number of days for download is %1d. Are you Sure?[y|N] " % num_days.days)
+                sure = input(
+                    "Tatal number of days for download is %1d. Are you Sure?[y|N] " % num_days.days
+                )
                 sure = sure.lower() in ("y", "ye", "yes")
         else:
             sure = True

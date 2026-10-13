@@ -168,7 +168,9 @@ def get_activity_settings():
 @router.put("/api/settings/activity")
 def set_activity_settings(req: ActivitySettingsRequest):
     if not any(req.qualifiers.values()):
-        raise HTTPException(status_code=422, detail="at least one qualifying action must stay enabled")
+        raise HTTPException(
+            status_code=422, detail="at least one qualifying action must stay enabled"
+        )
     if req.daily_goal_minutes <= 0:
         raise HTTPException(status_code=422, detail="daily_goal_minutes must be positive")
     db.set_activity_qualifiers(req.qualifiers)

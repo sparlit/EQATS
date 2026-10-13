@@ -106,7 +106,7 @@ def _do_process_purpose(action):
         # r = re.compile(r'(?:.*?)(?P<div>(?:(?:div.*?)(\\d+%)|(?:div.*?(rs\\.?)?)\\s*(\\d+\\.?\\d*)))')
 
         for x in _div_regex.finditer(purpose):
-            for v in x.groupdict().values():
+            for _, v in x.groupdict().items():
                 v = re.sub(_rsr_regex, "", v)
                 for y in _num_per_r.finditer(v):
                     z = y.group()
@@ -220,7 +220,9 @@ def main(args):
         action="store_true",
     )
 
-    group.add_argument("--from", help="Download data from this data. Date Format 'DD-MM-YYYY'.", dest="from_date")
+    group.add_argument(
+        "--from", help="Download data from this data. Date Format 'DD-MM-YYYY'.", dest="from_date"
+    )
 
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")

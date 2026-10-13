@@ -39,7 +39,6 @@ from datetime import datetime
 import sqlalchemy as sa
 
 from indian_quant.config.connections import get_engine
-from indian_quant.utils import safe_float
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +103,10 @@ def _upsert_sector_map(engine, symbol: str, data: dict) -> None:
     cols = ", ".join(values.keys())
     phs = ", ".join(f":{k}" for k in values)
     updates = ", ".join(f"{k} = EXCLUDED.{k}" for k in values if k != "symbol")
-    sql = sa.text(f"INSERT INTO sector_map ({cols}) VALUES ({phs}) ON CONFLICT (symbol) DO UPDATE SET {updates}")
+    sql = sa.text(
+        f"INSERT INTO sector_map ({cols}) VALUES ({phs}) "
+        f"ON CONFLICT (symbol) DO UPDATE SET {updates}"
+    )
     with engine.begin() as conn:
         conn.execute(sql, values)
 
@@ -113,7 +115,9 @@ def _get_universe_symbols(engine) -> list[str]:
     """Get all symbols from cached_signals or instruments."""
     with engine.connect() as conn:
         try:
-            result = conn.execute(sa.text("SELECT DISTINCT symbol FROM cached_signals ORDER BY symbol"))
+            result = conn.execute(
+                sa.text("SELECT DISTINCT symbol FROM cached_signals ORDER BY symbol")
+            )
             symbols = [r[0] for r in result.fetchall()]
             if symbols:
                 return symbols
@@ -178,7 +182,10 @@ def ingest_all_sectors(
             elapsed = time.time() - start
             rate = (i + 1) / elapsed if elapsed > 0 else 0
             eta = (len(symbols) - i - 1) / rate if rate > 0 else 0
-            log.info(f"  [{i + 1}/{len(symbols)}] success={success} failed={failed} rate={rate:.1f}/s ETA={eta:.0f}s")
+            log.info(
+                f"  [{i + 1}/{len(symbols)}] success={success} failed={failed} "
+                f"rate={rate:.1f}/s ETA={eta:.0f}s"
+            )
             time.sleep(sleep)
 
     elapsed = time.time() - start

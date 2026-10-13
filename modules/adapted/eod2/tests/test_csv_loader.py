@@ -29,7 +29,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import pandas as pd
-import pytest
 from context import utils
 
 
@@ -98,7 +97,9 @@ class Test_csv_loader(unittest.TestCase):
             chunk_size=size // 2,
         )
 
-        expected_df = pd.read_csv(io.StringIO(self.partial_2), index_col="Date", parse_dates=["Date"])
+        expected_df = pd.read_csv(
+            io.StringIO(self.partial_2), index_col="Date", parse_dates=["Date"]
+        )
 
         pd.testing.assert_frame_equal(df, expected_df)
 
@@ -107,7 +108,7 @@ class Test_csv_loader(unittest.TestCase):
 
         size = os.path.getsize(self.fname)
 
-        with pytest.raises(IndexError):
+        with self.assertRaises(IndexError):
             utils.csv_loader(
                 self.fname,
                 end_date=datetime(2023, 12, 15),
@@ -126,7 +127,9 @@ class Test_csv_loader(unittest.TestCase):
             chunk_size=size // 2,
         )
 
-        expected_df = pd.read_csv(io.StringIO(self.partial_3), index_col="Date", parse_dates=["Date"])
+        expected_df = pd.read_csv(
+            io.StringIO(self.partial_3), index_col="Date", parse_dates=["Date"]
+        )
 
         pd.testing.assert_frame_equal(df, expected_df)
 

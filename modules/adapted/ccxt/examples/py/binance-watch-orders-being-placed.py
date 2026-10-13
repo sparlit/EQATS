@@ -35,8 +35,9 @@ from pprint import pprint
 async def place_delayed_order(exchange, symbol, amount, price):
     try:
         await exchange.sleep(5000)  # wait a bit
-        await exchange.create_limit_buy_order(symbol, amount, price)
+        order = await exchange.create_limit_buy_order(symbol, amount, price)
         print(exchange.iso8601(exchange.milliseconds()), "place_delayed_order")
+        pprint(order)
         print("---------------------------------------------------------------")
     except Exception as e:
         # break
@@ -47,7 +48,12 @@ async def watch_orders_loop(exchange, symbol):
     while True:
         try:
             orders = await exchange.watch_orders(symbol)
-            print(exchange.iso8601(exchange.milliseconds()), "watch_orders_loop", len(orders), " last orders cached")
+            print(
+                exchange.iso8601(exchange.milliseconds()),
+                "watch_orders_loop",
+                len(orders),
+                " last orders cached",
+            )
             print("---------------------------------------------------------------")
         except Exception as e:
             # break
@@ -57,8 +63,9 @@ async def watch_orders_loop(exchange, symbol):
 async def watch_balance_loop(exchange):
     while True:
         try:
-            await exchange.watch_balance()
+            balance = await exchange.watch_balance()
             print(exchange.iso8601(exchange.milliseconds()), "watch_balance_loop")
+            pprint(balance)
             print("---------------------------------------------------------------")
         except Exception as e:
             # break

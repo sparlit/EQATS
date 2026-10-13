@@ -34,14 +34,18 @@ def run(limit=600, min_mcap=1000, max_mcap=8000):
     syms = [
         r[0]
         for r in conn.execute(
-            "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN ? AND ? ORDER BY mcap_cr DESC LIMIT ?",
+            "SELECT symbol FROM universe_broad "
+            "WHERE mcap_cr BETWEEN ? AND ? "
+            "ORDER BY mcap_cr DESC LIMIT ?",
             (min_mcap, max_mcap, limit),
         )
     ]
     print(f"ingesting {len(syms)} smallcaps...")
     done = 0
     for sym in syms:
-        have = conn.execute("SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (sym,)).fetchone()[0]
+        have = conn.execute("SELECT COUNT(*) FROM prices_daily WHERE symbol=?", (sym,)).fetchone()[
+            0
+        ]
         if have >= 250:
             done += 1
             continue

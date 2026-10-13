@@ -171,7 +171,9 @@ def main():
                 "evidence": (
                     "printed comparative; row 1(a) 'Revenue from operations' {} Rs million = "
                     "{} crore (statement declares '(Rs. in Million)', 1 crore = 10 million). "
-                    "Scanned page, no text layer — rendered at 230 dpi and read.".format(c["mn"], c["rev"])
+                    "Scanned page, no text layer — rendered at 230 dpi and read.".format(
+                        c["mn"], c["rev"]
+                    )
                 ),
                 "anchor": c["anchors"],
                 "identity": IDENTITY,

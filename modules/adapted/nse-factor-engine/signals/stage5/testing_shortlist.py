@@ -32,7 +32,6 @@ validated by backtest before being canonized.
 import glob
 import os
 import re
-import sys
 
 import pandas as pd
 

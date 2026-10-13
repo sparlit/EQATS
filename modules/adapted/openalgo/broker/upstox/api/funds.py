@@ -1,0 +1,153 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# api/funds.py
+
+import json
+import os
+
+import httpx
+from broker.upstox.api.order_api import get_positions
+from broker.upstox.api.rate_limiter import apply_rate_limit
+from broker.upstox.mapping.order_data import map_order_data
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def get_margin_data(auth_token):
+    """Fetch margin data from Upstox's API using the provided auth token with httpx connection pooling."""
+    logger.debug("Attempting to fetch margin data...")
+    try:
+        api_key = os.getenv("BROKER_API_KEY")
+        if not api_key:
+            logger.error("BROKER_API_KEY environment variable not set.")
+            return {}
+
+        client = get_httpx_client()
+        headers = {
+            "Authorization": f"Bearer {auth_token}",
+            "Accept": "application/json",
+            "Api-Version": "3.0",
+        }
+
+        # V3 (not V2's "available_margin"/"notional_cash"/holdings-haircut
+        # collateral estimate). V2's available_margin is a total-margin
+        # figure that includes pledge, and notional_cash does not reflect
+        # the actual free cash balance -- both produced wrong values (see
+        # GitHub issue #1582 discussion). V3 gives a broker-computed,
+        # unified breakdown of cash vs pledge directly, with no segment
+        # split and no need to estimate collateral from holdings.
+        url = "https://api.upstox.com/v3/user/get-funds-and-margin"
+        logger.debug(f"Requesting funds and margin data from {url}")
+
+        # Funds is a Standard API (04-rate-limits.md lists it alongside
+        # holdings/positions), so it shares the standard budget with data.py
+        # and the order-book reads rather than getting an unpaced pass. The
+        # get_positions() call further down paces itself through order_api.
+        apply_rate_limit("standard")
+        response = client.get(url, headers=headers)
+        response.raise_for_status()
+
+        margin_data = response.json()
+        logger.info(f"Received funds and margin data: {margin_data}")
+
+        if margin_data.get("status") == "error":
+            error_details = margin_data.get("errors", "Unknown error")
+            logger.error(f"API error fetching margin data: {error_details}")
+            return {}
+
+        available_to_trade = margin_data["data"]["available_to_trade"]
+        cash_bucket = available_to_trade["cash_available_to_trade"]
+        pledge_bucket = available_to_trade["pledge_available_to_trade"]
+
+        # pledge_available_to_trade has no top-level "total" (unlike
+        # cash_available_to_trade) -- verified against a live response.
+        # Available pledge margin = granted margin_from_pledge minus what's
+        # already deployed in margin_used.
+        pledge_used = pledge_bucket["margin_used"]["total"]
+        total_available_margin = cash_bucket["total"]
+        total_collateral = pledge_bucket["margin_from_pledge"]["total"] - pledge_used
+        total_used_margin = cash_bucket["margin_used"]["total"] + pledge_used
+
+        total_realised = 0.0
+        total_unrealised = 0.0
+        try:
+            position_book = get_positions(auth_token)
+            if (
+                position_book
+                and position_book.get("status") == "success"
+                and "data" in position_book
+            ):
+                position_book = map_order_data(position_book)
+                total_realised = sum(position.get("realised", 0) for position in position_book)
+                total_unrealised = sum(position.get("unrealised", 0) for position in position_book)
+        except Exception as e:
+            logger.warning(f"Failed to fetch positions for margin calc: {e}")
+
+        # Construct and return the processed margin data
+        processed_margin_data = {
+            "availablecash": f"{total_available_margin:.2f}",
+            "collateral": f"{total_collateral:.2f}",
+            "m2munrealized": f"{total_unrealised:.2f}",
+            "m2mrealized": f"{total_realised:.2f}",
+            "utiliseddebits": f"{total_used_margin:.2f}",
+        }
+        logger.debug(f"Successfully processed margin data: {processed_margin_data}")
+        return processed_margin_data
+
+    except httpx.HTTPStatusError as e:
+        response_text = e.response.text
+
+        # Check if it's a service hours error (423 Locked)
+        if e.response.status_code == 423:
+            try:
+                error_data = json.loads(response_text)
+                if error_data.get("status") == "error":
+                    errors = error_data.get("errors", [])
+                    for error in errors:
+                        if error.get("errorCode") == "UDAPI100072":
+                            # Return default values for service hours error
+                            logger.info(
+                                "Upstox funds service is outside operating hours (5:30 AM to 12:00 AM IST). Returning default values."
+                            )
+                            return {
+                                "availablecash": "0.00",
+                                "collateral": "0.00",
+                                "m2munrealized": "0.00",
+                                "m2mrealized": "0.00",
+                                "utiliseddebits": "0.00",
+                            }
+            except json.JSONDecodeError:
+                pass
+
+        # Log the full error only if it's not a service hours issue
+        logger.exception(f"HTTP error occurred while fetching margin data: {response_text}")
+        return {}
+    except (KeyError, TypeError) as e:
+        logger.exception(f"Error processing margin data structure: {e}")
+        return {}
+    except Exception:
+        logger.exception("An unexpected error occurred while fetching margin data")
+        return {}

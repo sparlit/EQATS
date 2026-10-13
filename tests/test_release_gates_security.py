@@ -7,7 +7,6 @@ This test validates the fix for the security vulnerability where ReleaseGateRunn
 could accept a live-capable connector and execute real broker orders during G11
 validation.
 """
-from typing import Any
 import unittest
 from typing import Any
 from unittest.mock import Mock, patch
@@ -15,6 +14,7 @@ from unittest.mock import Mock, patch
 import connector
 import database
 import release_gates
+
 
 class MockLiveConnector(connector.TradingConnector):
     """Mock connector that simulates a live broker connection (unsafe for testing)."""

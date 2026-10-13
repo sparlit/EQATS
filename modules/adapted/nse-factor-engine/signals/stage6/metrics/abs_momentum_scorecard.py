@@ -151,11 +151,12 @@ def _metric_volume(row):
 def _assign_tier(score):
     if score == 6:
         return "Tier1_Perfect"
-    if score >= 4:
+    elif score >= 4:
         return "Tier2_Strong"
-    if score >= 2:
+    elif score >= 2:
         return "Tier3_Moderate"
-    return "Skip"
+    else:
+        return "Skip"
 
 
 # ── ROC gate helper ───────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ def score_momentum(df: pd.DataFrame) -> pd.DataFrame:
     Missing input columns are handled gracefully (metric returns FAIL).
     """
     if df.empty:
-        for col in [*METRIC_COLS, "Score", "AbsMom_Tier"]:
+        for col in METRIC_COLS + ["Score", "AbsMom_Tier"]:
             df[col] = pd.NA
         return df
 
@@ -250,7 +251,11 @@ def score_momentum(df: pd.DataFrame) -> pd.DataFrame:
     # NaN return values are treated as failed (no data = no positive return).
     roc_cols_present = all(c in df.columns for c in ["ret_12m1m", "ret_6m1m", "ret_3m1m"])
     if roc_cols_present:
-        roc_pass = df["ret_12m1m"].fillna(0).gt(0) & df["ret_6m1m"].fillna(0).gt(0) & df["ret_3m1m"].fillna(0).gt(0)
+        roc_pass = (
+            df["ret_12m1m"].fillna(0).gt(0)
+            & df["ret_6m1m"].fillna(0).gt(0)
+            & df["ret_3m1m"].fillna(0).gt(0)
+        )
         if (~roc_pass).any():
             df.loc[~roc_pass, "AbsMom_Tier"] = df.loc[~roc_pass].apply(_roc_skip_reason, axis=1)
             df.loc[~roc_pass, "Score"] = 0
@@ -350,7 +355,7 @@ def compute_fresh_signals(sym_df, as_of_date):
         curr_ma = float(ma30w.iloc[-1])
         prev_ma = float(ma30w.iloc[-2])
         curr_close = float(close.iloc[-1])
-        result["weinstein_stage2"] = 1 if (curr_close > curr_ma > prev_ma) else 0
+        result["weinstein_stage2"] = 1 if (curr_close > curr_ma and curr_ma > prev_ma) else 0
 
     # ── bb_pct_b: Bollinger Band %B (20 day, 2 std) ───────────────────────────
     if n >= 20:
@@ -389,6 +394,8 @@ def compute_fresh_signals(sym_df, as_of_date):
         price_up = float(close.iloc[-1]) > float(close.iloc[-2])
         avg_vol_20 = float(volume.iloc[-21:-1].mean())
         vol_today = float(volume.iloc[-1])
-        result["volume_price_pos_move_confirmed"] = 1 if (price_up and vol_today > avg_vol_20) else 0
+        result["volume_price_pos_move_confirmed"] = (
+            1 if (price_up and vol_today > avg_vol_20) else 0
+        )
 
     return result

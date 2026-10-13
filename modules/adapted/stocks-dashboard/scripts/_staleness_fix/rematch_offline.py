@@ -62,4 +62,7 @@ for shard in ("v3_raw0.jsonl", "v3_raw1.jsonl"):
         rematched += 1
 
 json.dump(results, open(os.path.join(HERE, "fetch_results.json"), "w"))
-print(f"rematched {rematched} symbols from raw cache ({len(seen)} raw records seen, {len(results)} total in results)")
+print(
+    f"rematched {rematched} symbols from raw cache "
+    f"({len(seen)} raw records seen, {len(results)} total in results)"
+)

@@ -143,14 +143,20 @@ class PortfolioStore:
                 conn.execute("ALTER TABLE v2_positions ADD COLUMN initial_stop REAL")
                 conn.execute("UPDATE v2_positions SET initial_stop=stop WHERE initial_stop IS NULL")
             if "realised_pnl" not in columns:
-                conn.execute("ALTER TABLE v2_positions ADD COLUMN realised_pnl REAL NOT NULL DEFAULT 0")
+                conn.execute(
+                    "ALTER TABLE v2_positions ADD COLUMN realised_pnl REAL NOT NULL DEFAULT 0"
+                )
             if "progression_stage" not in columns:
                 conn.execute(
                     "ALTER TABLE v2_positions ADD COLUMN progression_stage TEXT NOT NULL DEFAULT 'ENTRY_PENDING'"
                 )
 
     def save_position(
-        self, position: Position, event_type: str, previous_state: TradeState | None = None, price: float | None = None
+        self,
+        position: Position,
+        event_type: str,
+        previous_state: TradeState | None = None,
+        price: float | None = None,
     ) -> None:
         payload = asdict(position)
         payload["state"] = position.state.value
@@ -193,7 +199,9 @@ class PortfolioStore:
 
     def get_position(self, trade_id: str) -> Position | None:
         with self.connect() as conn:
-            row = conn.execute("SELECT * FROM v2_positions WHERE trade_id=?", (trade_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM v2_positions WHERE trade_id=?", (trade_id,)
+            ).fetchone()
         if row is None:
             return None
         data = dict(row)
@@ -233,7 +241,9 @@ class PortfolioStore:
 
     def all_positions(self) -> list[Position]:
         with self.connect() as conn:
-            rows = conn.execute("SELECT * FROM v2_positions ORDER BY created_date, trade_id").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM v2_positions ORDER BY created_date, trade_id"
+            ).fetchall()
         result = []
         for row in rows:
             data = dict(row)
@@ -267,10 +277,17 @@ class PortfolioStore:
 
     def latest_portfolio_snapshot(self) -> sqlite3.Row | None:
         with self.connect() as conn:
-            return conn.execute("SELECT * FROM v2_portfolio_snapshots ORDER BY portfolio_date DESC LIMIT 1").fetchone()
+            return conn.execute(
+                "SELECT * FROM v2_portfolio_snapshots ORDER BY portfolio_date DESC LIMIT 1"
+            ).fetchone()
 
     def remember_candidate(
-        self, symbol: str, horizon: str, trade_date: str, score: float, reason: str = "selected_candidate"
+        self,
+        symbol: str,
+        horizon: str,
+        trade_date: str,
+        score: float,
+        reason: str = "selected_candidate",
     ) -> None:
         with self.connect() as conn:
             conn.execute(
@@ -294,7 +311,9 @@ class PortfolioStore:
 
     def opportunity_state(self, symbol: str) -> sqlite3.Row | None:
         with self.connect() as conn:
-            return conn.execute("SELECT * FROM v2_opportunity_state WHERE symbol=?", (symbol,)).fetchone()
+            return conn.execute(
+                "SELECT * FROM v2_opportunity_state WHERE symbol=?", (symbol,)
+            ).fetchone()
 
     def remember_opportunity(self, candidate: object, scanner_rank: int | None = None) -> None:
         payload = candidate.to_dict()
@@ -305,7 +324,9 @@ class PortfolioStore:
         score = float(payload["score"])
         active = int(stage != "EXITED")
         with self.connect() as conn:
-            prior = conn.execute("SELECT * FROM v2_opportunity_state WHERE symbol=?", (symbol,)).fetchone()
+            prior = conn.execute(
+                "SELECT * FROM v2_opportunity_state WHERE symbol=?", (symbol,)
+            ).fetchone()
             first_seen = prior["first_seen_date"] if prior else trade_date
             previously_exited = int(
                 (prior and (prior["previously_exited"] or not prior["active"])) or stage == "EXITED"
@@ -319,7 +340,16 @@ class PortfolioStore:
                     opportunity_classification=excluded.opportunity_classification,
                     last_seen_date=excluded.last_seen_date,last_score=excluded.last_score,
                     active=excluded.active,previously_exited=excluded.previously_exited""",
-                (symbol, stage, classification, first_seen, trade_date, score, active, previously_exited),
+                (
+                    symbol,
+                    stage,
+                    classification,
+                    first_seen,
+                    trade_date,
+                    score,
+                    active,
+                    previously_exited,
+                ),
             )
             conn.execute(
                 """INSERT INTO v2_candidate_history
@@ -329,5 +359,13 @@ class PortfolioStore:
                     progression_stage=excluded.progression_stage,
                     opportunity_classification=excluded.opportunity_classification,
                     scanner_rank=excluded.scanner_rank,score=excluded.score,payload_json=excluded.payload_json""",
-                (symbol, trade_date, stage, classification, scanner_rank, score, json.dumps(payload, default=str)),
+                (
+                    symbol,
+                    trade_date,
+                    stage,
+                    classification,
+                    scanner_rank,
+                    score,
+                    json.dumps(payload, default=str),
+                ),
             )

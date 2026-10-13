@@ -2,17 +2,30 @@
 Unit and Integration Tests for Zipline Finance Engine.
 """
 from typing import Any
-import pytest
-from institutional_integrations.zipline_finance_engine import ZiplineSlippageModel, ZiplineCommissionModel, ZiplineRiskControlEngine, OrderSide
+
+from institutional_integrations.zipline_finance_engine import (
+    OrderSide,
+    ZiplineCommissionModel,
+    ZiplineRiskControlEngine,
+    ZiplineSlippageModel,
+)
+
 
 def test_zipline_slippage_models() -> None:
+    order_params: dict[str, Any] = {"quantity": 100.0, "volume": 1000.0, "price": 100.0}
     slippage_model = ZiplineSlippageModel(volume_limit_pct=0.05, price_impact_factor=0.1)
-    res_vol = slippage_model.calculate_volume_share_slippage(order_quantity=100.0, bar_volume=1000.0, bar_price=100.0, side=OrderSide.BUY)
+    res_vol = slippage_model.calculate_volume_share_slippage(
+        order_quantity=order_params["quantity"],
+        bar_volume=order_params["volume"],
+        bar_price=order_params["price"],
+        side=OrderSide.BUY,
+    )
     assert res_vol.fill_price > 100.0
     assert res_vol.volume_share == 0.05
     model_fixed = ZiplineSlippageModel(fixed_spread_pips=2.0, pip_size=0.0001)
     res_fixed = model_fixed.calculate_fixed_slippage(bar_price=1.08, side=OrderSide.BUY, order_quantity=1.0)
     assert res_fixed.fill_price == 1.0802
+
 
 def test_zipline_commission_models() -> None:
     comm = ZiplineCommissionModel()
@@ -22,6 +35,7 @@ def test_zipline_commission_models() -> None:
     assert res_dollar.commission_usd == 15.0
     res_trade = comm.per_trade(quantity=100.0, transaction_value_usd=1000.0, cost_per_unit=0.001, minimum_fee_per_trade=1.0)
     assert res_trade.commission_usd == 1.0
+
 
 def test_zipline_risk_controls() -> None:
     risk_controls = ZiplineRiskControlEngine(max_leverage=5.0, max_position_size_usd=20000.0, min_order_value_usd=10.0, max_order_value_usd=15000.0)

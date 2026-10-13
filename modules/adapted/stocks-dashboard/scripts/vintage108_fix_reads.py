@@ -50,7 +50,7 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SEQ = re.compile(r"financial_res_([A-Za-z0-9&._-]+)_(\d+)\.html", re.IGNORECASE)
+SEQ = re.compile(r"financial_res_([A-Za-z0-9&._-]+)_(\d+)\.html", re.I)
 STAMP = "2026-08-24"
 # Write each ledger the way ITS OWN writer does. vision_rev_fills.json is dumped by
 # _apply_reads.py as indent=0/sort_keys — rewriting it at indent=1 reformats all 175k lines, which
@@ -67,8 +67,12 @@ def vintages():
         if not os.path.exists(p):
             print(f"  (ledger {name} absent — {basis} entries cannot be checked)")
             continue
-        for v in json.load(open(p, encoding="utf-8")).values():
-            vs = [x for x in v.get("vintages", []) if x.get("pat") is not None and x.get("cumulative") != "Cumulative"]
+        for _k, v in json.load(open(p, encoding="utf-8")).items():
+            vs = [
+                x
+                for x in v.get("vintages", [])
+                if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
+            ]
             if len(vs) > 1:
                 out[(v["sym"], v["qe"], basis)] = vs
     return out
@@ -149,10 +153,15 @@ def main():
                         "vetoed-contradicting-reader",
                     ):
                         residue.append(
-                            "{} {}|{}|{} {}".format(os.path.basename(path), sym, qe, cell.get("basis"), note)
+                            "{} {}|{}|{} {}".format(
+                                os.path.basename(path), sym, qe, cell.get("basis"), note
+                            )
                         )
                     continue
-                print("  %-26s %s|%s|%s  %s" % (os.path.basename(path), sym, qe, cell.get("basis"), note))
+                print(
+                    "  %-26s %s|%s|%s  %s"
+                    % (os.path.basename(path), sym, qe, cell.get("basis"), note)
+                )
                 per[qe] = new
                 n += 1
         if n:
@@ -190,14 +199,21 @@ def main():
         if n:
             changed_files[vp] = (d, n)
 
-    print("\ncorrected entries: %d across %d files" % (sum(n for _, n in changed_files.values()), len(changed_files)))
+    print(
+        "\ncorrected entries: %d across %d files"
+        % (sum(n for _, n in changed_files.values()), len(changed_files))
+    )
     if residue:
         print("LEFT ALONE (all-or-nothing per entry): %d" % len(residue))
         for r in residue[:12]:
             print(f"   {r}")
     if apply:
         for path, (d, n) in changed_files.items():
-            json.dump(d, open(path, "w"), **(FMT.get(os.path.basename(path)) or {"indent": 1, "ensure_ascii": False}))
+            json.dump(
+                d,
+                open(path, "w"),
+                **(FMT.get(os.path.basename(path)) or {"indent": 1, "ensure_ascii": False}),
+            )
             print("  wrote %s (%d)" % (os.path.basename(path), n))
     else:
         print("\n(dry run — pass --apply to rewrite the reads ledgers)")

@@ -23,7 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import glob
 import os
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
@@ -33,7 +33,9 @@ import streamlit.components.v1 as components
 from main import bse_data
 
 # streamlit
-st.set_page_config(page_title="App", page_icon=":moneybag:", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="App", page_icon=":moneybag:", layout="wide", initial_sidebar_state="expanded"
+)
 st.sidebar.title(":newspaper:" + " Dashboard")
 
 

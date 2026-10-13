@@ -59,20 +59,30 @@ def audit(
     with sqlite3.connect(db_path) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         price_table = (
-            "daily_prices_v2" if "daily_prices_v2" in tables else "daily_prices" if "daily_prices" in tables else None
+            "daily_prices_v2"
+            if "daily_prices_v2" in tables
+            else "daily_prices"
+            if "daily_prices" in tables
+            else None
         )
         if not price_table:
-            return OperationalReadiness("BLOCKED", 0, 0, 0, 0, 0, 0.0, False, False, 0, ("price_table_missing",), ())
+            return OperationalReadiness(
+                "BLOCKED", 0, 0, 0, 0, 0, 0.0, False, False, 0, ("price_table_missing",), ()
+            )
         date_col = "trade_date" if price_table == "daily_prices_v2" else "date"
         prices = conn.execute(f"SELECT COUNT(DISTINCT {date_col}) FROM {price_table}").fetchone()[0]
         indices = (
-            conn.execute("SELECT COUNT(DISTINCT date) FROM index_perf").fetchone()[0] if "index_perf" in tables else 0
+            conn.execute("SELECT COUNT(DISTINCT date) FROM index_perf").fetchone()[0]
+            if "index_perf" in tables
+            else 0
         )
         eq = caps = promoter = fundamentals = 0
         shareholding_fresh = corporate_actions_fresh = False
         if "symbol_master_v2" in tables:
             columns = {r[1] for r in conn.execute("PRAGMA table_info(symbol_master_v2)")}
-            eq = conn.execute("SELECT COUNT(*) FROM symbol_master_v2 WHERE series='EQ' AND active=1").fetchone()[0]
+            eq = conn.execute(
+                "SELECT COUNT(*) FROM symbol_master_v2 WHERE series='EQ' AND active=1"
+            ).fetchone()[0]
             if {"market_cap_cr", "market_cap_as_of", "market_cap_source"}.issubset(columns):
                 cap_rows = conn.execute(
                     "SELECT market_cap_as_of,market_cap_source FROM symbol_master_v2 WHERE series='EQ' AND active=1 AND market_cap_cr IS NOT NULL"
@@ -82,7 +92,9 @@ def audit(
                     1
                     for cap_date, source in cap_rows
                     if cap_date
-                    and 0 <= (reference - pd.Timestamp(cap_date).normalize()).days <= market_cap_max_age_days(source)
+                    and 0
+                    <= (reference - pd.Timestamp(cap_date).normalize()).days
+                    <= market_cap_max_age_days(source)
                 )
         reference = pd.Timestamp(as_of or date.today().isoformat()).normalize()
         if "shareholding_patterns_v3" in tables:
@@ -123,7 +135,9 @@ def audit(
                 else:
                     corporate_actions_fresh = bool(valid)
         if "fundamental_snapshots_v3" in tables:
-            fundamentals = conn.execute("SELECT COUNT(DISTINCT symbol) FROM fundamental_snapshots_v3").fetchone()[0]
+            fundamentals = conn.execute(
+                "SELECT COUNT(DISTINCT symbol) FROM fundamental_snapshots_v3"
+            ).fetchone()[0]
     coverage = round(caps / eq * 100, 2) if eq else 0.0
     promoter_coverage = round(promoter / eq * 100, 2) if eq else 0.0
     if prices < min_sessions:

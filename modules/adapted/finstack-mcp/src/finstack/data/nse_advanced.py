@@ -117,8 +117,12 @@ def get_options_chain(symbol: str) -> dict:
                         "change": float(row.get("change", 0)),
                         "change_pct": float(row.get("percentChange", 0)),
                         "volume": int(row.get("volume", 0)) if pd.notna(row.get("volume")) else 0,
-                        "open_interest": int(row.get("openInterest", 0)) if pd.notna(row.get("openInterest")) else 0,
-                        "implied_volatility": round(float(row.get("impliedVolatility", 0)) * 100, 2),
+                        "open_interest": int(row.get("openInterest", 0))
+                        if pd.notna(row.get("openInterest"))
+                        else 0,
+                        "implied_volatility": round(
+                            float(row.get("impliedVolatility", 0)) * 100, 2
+                        ),
                         "in_the_money": bool(row.get("inTheMoney", False)),
                     }
                 )
@@ -135,8 +139,12 @@ def get_options_chain(symbol: str) -> dict:
                         "change": float(row.get("change", 0)),
                         "change_pct": float(row.get("percentChange", 0)),
                         "volume": int(row.get("volume", 0)) if pd.notna(row.get("volume")) else 0,
-                        "open_interest": int(row.get("openInterest", 0)) if pd.notna(row.get("openInterest")) else 0,
-                        "implied_volatility": round(float(row.get("impliedVolatility", 0)) * 100, 2),
+                        "open_interest": int(row.get("openInterest", 0))
+                        if pd.notna(row.get("openInterest"))
+                        else 0,
+                        "implied_volatility": round(
+                            float(row.get("impliedVolatility", 0)) * 100, 2
+                        ),
                         "in_the_money": bool(row.get("inTheMoney", False)),
                     }
                 )
@@ -157,7 +165,9 @@ def get_options_chain(symbol: str) -> dict:
                     "symbol": symbol.replace(".NS", "").replace(".BO", ""),
                     "expiry": nearest_expiry,
                     "all_expiries": list(expiry_dates[:6]),
-                    "underlying_price": float(ticker.info.get("regularMarketPrice", 0)) if ticker.info else None,
+                    "underlying_price": float(ticker.info.get("regularMarketPrice", 0))
+                    if ticker.info
+                    else None,
                     "pcr": pcr,
                     "pcr_signal": pcr_signal,
                     "total_call_oi": total_call_oi,
@@ -331,7 +341,7 @@ def get_corporate_actions(symbol: str) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching corporate actions for {symbol}: {e}")
+        logger.error(f"Error fetching corporate actions for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -358,7 +368,8 @@ def get_quarterly_results(symbol: str) -> dict:
 
             for item in q_income.index:
                 if any(
-                    k.lower() in str(item).lower() for k in ["revenue", "cost", "profit", "income", "ebitda", "eps"]
+                    k.lower() in str(item).lower()
+                    for k in ["revenue", "cost", "profit", "income", "ebitda", "eps"]
                 ):
                     key = str(item).replace(" ", "_").lower()
                     val = q_income.loc[item, col]
@@ -387,7 +398,7 @@ def get_quarterly_results(symbol: str) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching quarterly results for {symbol}: {e}")
+        logger.error(f"Error fetching quarterly results for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -415,7 +426,9 @@ def get_earnings_calendar(symbol: str = "") -> dict:
                 return clean_nan(
                     {
                         "symbol": symbol.replace(".NS", ""),
-                        "earnings_date": _format_calendar_value(cal.get("Earnings Date", ["Not available"])),
+                        "earnings_date": _format_calendar_value(
+                            cal.get("Earnings Date", ["Not available"])
+                        ),
                         "earnings_avg": _format_calendar_value(cal.get("Earnings Average")),
                         "earnings_low": _format_calendar_value(cal.get("Earnings Low")),
                         "earnings_high": _format_calendar_value(cal.get("Earnings High")),
@@ -423,13 +436,14 @@ def get_earnings_calendar(symbol: str = "") -> dict:
                         "timestamp": datetime.now().isoformat(),
                     }
                 )
-            return clean_nan(
-                {
-                    "symbol": symbol.replace(".NS", ""),
-                    "calendar": cal.to_dict() if hasattr(cal, "to_dict") else str(cal),
-                    "timestamp": datetime.now().isoformat(),
-                }
-            )
+            else:
+                return clean_nan(
+                    {
+                        "symbol": symbol.replace(".NS", ""),
+                        "calendar": cal.to_dict() if hasattr(cal, "to_dict") else str(cal),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
         except Exception as e:
             return {"error": True, "message": str(e)}
@@ -581,12 +595,15 @@ def get_mutual_fund_nav(query: str) -> dict[str, Any]:
                     "change_pct": change_pct,
                     "nav_history_7d": navs[:7],
                 },
-                "other_matches": [{"scheme_code": r["schemeCode"], "fund_name": r["schemeName"]} for r in results[1:5]],
+                "other_matches": [
+                    {"scheme_code": r["schemeCode"], "fund_name": r["schemeName"]}
+                    for r in results[1:5]
+                ],
                 "timestamp": datetime.now().isoformat(),
             }
 
     except Exception as e:
-        logger.exception(f"Error fetching mutual fund NAV for '{query}': {e}")
+        logger.error(f"Error fetching mutual fund NAV for '{query}': {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -829,13 +846,21 @@ def get_index_components(index_name: str = "nifty50") -> dict[str, Any]:
                 }
             )
         except Exception:
-            components.append({"symbol": sym, "price": None, "change_pct": None, "market_cap": None})
+            components.append(
+                {"symbol": sym, "price": None, "change_pct": None, "market_cap": None}
+            )
 
     # Sort by market cap descending (None goes last)
     components.sort(key=lambda x: x["market_cap"] or 0, reverse=True)
 
-    gainers = sorted([c for c in components if (c["change_pct"] or 0) > 0], key=lambda x: x["change_pct"], reverse=True)
-    losers = sorted([c for c in components if (c["change_pct"] or 0) < 0], key=lambda x: x["change_pct"])
+    gainers = sorted(
+        [c for c in components if (c["change_pct"] or 0) > 0],
+        key=lambda x: x["change_pct"],
+        reverse=True,
+    )
+    losers = sorted(
+        [c for c in components if (c["change_pct"] or 0) < 0], key=lambda x: x["change_pct"]
+    )
 
     return {
         "index": label,

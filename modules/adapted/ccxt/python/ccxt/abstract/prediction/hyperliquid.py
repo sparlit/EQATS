@@ -34,7 +34,15 @@ class ImplicitAPI:
         "POST",
         {
             "cost": 20,
-            "byType": {"l2Book": 2, "allMids": 2, "spotClearinghouseState": 2, "candleSnapshot": 4, "orderStatus": 2},
+            "byType": {
+                "l2Book": 2,
+                "allMids": 2,
+                "spotClearinghouseState": 2,
+                "candleSnapshot": 4,
+                "orderStatus": 2,
+            },
         },
     )
-    private_post_exchange = privatePostExchange = Entry[_Dict]("exchange", "private", "POST", {"cost": 1})
+    private_post_exchange = privatePostExchange = Entry[_Dict](
+        "exchange", "private", "POST", {"cost": 1}
+    )

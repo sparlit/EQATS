@@ -109,7 +109,7 @@ def rule_exit(listing):
 
 def main():
     # ---- bhavcopy series: every scrip ever in an SME group
-    ser, ndays, _dropped = BB.build_series()
+    ser, ndays, dropped = BB.build_series()
     cal = sorted({d for s in ser.values() for d in s["d"]})
 
     def on_or_after(d):
@@ -150,12 +150,21 @@ def main():
             if e:
                 events.append({"code": c, "action": a, "eff": e, "src": "notice " + no})
         unparsed += [
-            {"notice": no, "why": fl} for fl in flags if not fl.startswith(("narrative-only", "table/narrative"))
+            {"notice": no, "why": fl}
+            for fl in flags
+            if not fl.startswith(("narrative-only", "table/narrative"))
         ]
     # ---- Excel drops
     for eff, blk in json.load(open(EXCEL))["drops"].items():
         for c in blk["codes"]:
-            events.append({"code": c, "action": "drop", "eff": eff, "src": "excel " + blk["src"].split(" ")[0]})
+            events.append(
+                {
+                    "code": c,
+                    "action": "drop",
+                    "eff": eff,
+                    "src": "excel " + blk["src"].split(" ")[0],
+                }
+            )
     # de-duplicate (same code/action/date from two notices)
     seen = set()
     ev2 = []
@@ -175,11 +184,16 @@ def main():
     launch_members = [
         c
         for c, s in ser.items()
-        if (c.startswith("5") and s["first_sme"] and s["first_sme"] <= K(LAUNCH) and s["d"][0] == s["first_sme"])
+        if c.startswith("5")
+        and s["first_sme"]
+        and s["first_sme"] <= K(LAUNCH)
+        and s["d"][0] == s["first_sme"]
         or (c.startswith("5") and s["first_sme"] == first_day)
     ]
     codes = set(by) | {
-        c for c in launch_members if c in ser and ser[c]["first_sme"] and ser[c]["first_sme"] <= K(LAUNCH)
+        c
+        for c in launch_members
+        if c in ser and ser[c]["first_sme"] and ser[c]["first_sme"] <= K(LAUNCH)
     }
     for c in sorted(codes):
         s = ser.get(c)
@@ -211,9 +225,13 @@ def main():
                     if listing:
                         j = nxt(K(listing)) if listing > BASE else K(BASE)
                         j = max(j, K(BASE))
-                        cur = open_stint(j, "rule-listing+1" if listing > BASE else "base-2012-08-16")
+                        cur = open_stint(
+                            j, "rule-listing+1" if listing > BASE else "base-2012-08-16"
+                        )
                     else:
-                        runs.append({"join": None, "join_src": "unknown", "leave": d, "leave_src": e["src"]})
+                        runs.append(
+                            {"join": None, "join_src": "unknown", "leave": d, "leave_src": e["src"]}
+                        )
                         continue
                 cur["leave"] = d
                 cur["leave_src"] = e["src"]
@@ -228,10 +246,9 @@ def main():
                 leave, leave_src = nxt(s["last_sme"]), "migration (bhavcopy group left SME)"
             if listing:
                 rx, rsrc = rule_exit(listing)
-                rk = on_or_after(rx) or K(rx)
-                if leave is None or rk < leave:
-                    if rk <= cal[-1]:
-                        leave, leave_src = rk, rsrc
+                rk = on_or_after(rx) if on_or_after(rx) else K(rx)
+                if (leave is None or rk < leave) and rk <= cal[-1]:
+                    leave, leave_src = rk, rsrc
             cur["leave"], cur["leave_src"] = leave, leave_src
             runs.append(cur)
         m = M.get(c, {})
@@ -272,16 +289,21 @@ def main():
         ):
             x["leave"], x["leave_src"] = (
                 None,
-                "open (on BSE's official list {}; rule exit {} overruled)".format(offm0["asof"], x["leave"]),
+                "open (on BSE's official list {}; rule exit {} overruled)".format(
+                    offm0["asof"], x["leave"]
+                ),
             )
     n_before = len(stints)
     stints = [x for x in stints if x["leave"] is None or x["leave"] > K(START)]
     for x in stints:
         x["from_start"] = bool(x["join"] and x["join"] <= K(START))
-    print("scope %s→: %d stints kept, %d ended before" % (START, len(stints), n_before - len(stints)))
+    print(
+        "scope %s→: %d stints kept, %d ended before" % (START, len(stints), n_before - len(stints))
+    )
     # ---- snapshots on every change date
     change = sorted(
-        {max(x["join"], K(START)) for x in stints if x["join"]} | {x["leave"] for x in stints if x["leave"]}
+        {max(x["join"], K(START)) for x in stints if x["join"]}
+        | {x["leave"] for x in stints if x["leave"]}
     )
     snaps = []
     for d in change:
@@ -295,7 +317,11 @@ def main():
     off = json.load(open(os.path.join(DOCS, "bse_sme_ipo.json")))
     offm = json.load(open(os.path.join(OUTD, "members.json")))
     asof = K(datetime.date.fromisoformat(offm["asof"]))
-    ours = {x["code"] for x in stints if x["join"] and x["join"] <= asof and (x["leave"] is None or asof < x["leave"])}
+    ours = {
+        x["code"]
+        for x in stints
+        if x["join"] and x["join"] <= asof and (x["leave"] is None or asof < x["leave"])
+    }
     theirs = {m["code"] for m in offm["members"]}
     chk_a = {
         "asof": offm["asof"],
@@ -331,17 +357,27 @@ def main():
         for y, v in sorted(by_year.items())
     }
     bad_days = sorted(((d, r) for d, r in ratios.items() if abs(r - 1) > 0.10), key=lambda z: z[0])
-    srcs = collections.Counter((x["join_src"].split(" ")[0], (x["leave_src"] or "open").split(" ")[0]) for x in stints)
+    srcs = collections.Counter(
+        (x["join_src"].split(" ")[0], (x["leave_src"] or "open").split(" ")[0]) for x in stints
+    )
     os.makedirs(OUTD, exist_ok=True)
     out_st = [{**x, "join": iso(x["join"]), "leave": iso(x["leave"])} for x in stints]
     built = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     json.dump(
-        {"built": built, "bhav_days": ndays, "bhav_first": iso(cal[0]), "bhav_last": iso(cal[-1]), "stints": out_st},
+        {
+            "built": built,
+            "bhav_days": ndays,
+            "bhav_first": iso(cal[0]),
+            "bhav_last": iso(cal[-1]),
+            "stints": out_st,
+        },
         open(os.path.join(OUTD, "stints.json"), "w"),
         indent=0,
         ensure_ascii=False,
     )
-    json.dump({"BSE SME IPO": snaps}, open(os.path.join(OUTD, "history.json"), "w"), separators=(",", ":"))
+    json.dump(
+        {"BSE SME IPO": snaps}, open(os.path.join(OUTD, "history.json"), "w"), separators=(",", ":")
+    )
     json.dump(
         {
             "built": built,
@@ -360,7 +396,13 @@ def main():
     )
     print(
         "(a) roster on %s: official %d, rebuilt %d, missing %s, extra %s"
-        % (chk_a["asof"], chk_a["official"], chk_a["rebuilt"], chk_a["missing"][:10], chk_a["extra"][:10])
+        % (
+            chk_a["asof"],
+            chk_a["official"],
+            chk_a["rebuilt"],
+            chk_a["missing"][:10],
+            chk_a["extra"][:10],
+        )
     )
     for y, v in chk_b.items():
         print(

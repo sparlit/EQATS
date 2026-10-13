@@ -37,7 +37,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # rename map old->new (resolve chains)
 rename = {}
-for r in csv.reader(open(os.path.join(os.path.dirname(HERE), "..", "symchg.csv"), encoding="utf-8", errors="replace")):
+for r in csv.reader(
+    open(
+        os.path.join(os.path.dirname(HERE), "..", "symchg.csv"), encoding="utf-8", errors="replace"
+    )
+):
     if len(r) >= 3 and r[1].strip() and r[2].strip() and r[1].strip().upper() != "SYMBOL":
         rename[r[1].strip()] = r[2].strip()
 
@@ -54,7 +58,9 @@ DB = json.load(gzip.open(os.path.join(HERE, "sf_poc.json.gz")))
 DATA = DB["data"]
 END = DB["end"]
 end_date = datetime.datetime.strptime(END, "%Y-%m-%d").date()
-N500 = sorted(json.load(open(os.path.join(HERE, "n500_hist.json"))), key=lambda x: x["effectiveDate"])
+N500 = sorted(
+    json.load(open(os.path.join(HERE, "n500_hist.json"))), key=lambda x: x["effectiveDate"]
+)
 
 # merge renamed series into a single canonical series (rescale to connect at the rename)
 groups = {}
@@ -165,7 +171,9 @@ def bt(start, end, lb=30, freq=3, topn=10):
         for _, sym, p in picks:
             units[sym] = per / p
     final = eq[-1]
-    yrs = (datetime.datetime.strptime(end, "%Y-%m-%d") - datetime.datetime.strptime(start, "%Y-%m-%d")).days / 365.25
+    yrs = (
+        datetime.datetime.strptime(end, "%Y-%m-%d") - datetime.datetime.strptime(start, "%Y-%m-%d")
+    ).days / 365.25
     cagr = (final / cap) ** (1 / yrs) - 1 if final > 0 else -1
     peak = -1
     mdd = 0
@@ -177,10 +185,16 @@ def bt(start, end, lb=30, freq=3, topn=10):
 
 
 print("Renamed tickers stitched:", n_merged, "| dataset end:", END, "\n")
-ref = {("2021-01-01", "2024-01-01"): (312253, 46.2, 9.2), ("2019-01-01", "2024-01-01"): (216434, 16.7, 54.1)}
+ref = {
+    ("2021-01-01", "2024-01-01"): (312253, 46.2, 9.2),
+    ("2019-01-01", "2024-01-01"): (216434, 16.7, 54.1),
+}
 print("%-30s %14s %8s %8s" % ("", "Final Rs1L", "CAGR", "MaxDD"))
 for (s, e), sv in ref.items():
     f, c, dd = bt(s, e, lb=30)
     print("-" * 64)
-    print("%-30s %14s %7.1f%% %7.0f%%" % (s[:4] + "-" + e[:4] + " OUR (1mo+stitch+delist→0)", format(f, ",.0f"), c, dd))
+    print(
+        "%-30s %14s %7.1f%% %7.0f%%"
+        % (s[:4] + "-" + e[:4] + " OUR (1mo+stitch+delist→0)", format(f, ",.0f"), c, dd)
+    )
     print("%-30s %14s %7.1f%% %7.0f%%" % ("   StockView", format(sv[0], ",.0f"), sv[1], sv[2]))

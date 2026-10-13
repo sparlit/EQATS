@@ -97,7 +97,9 @@ class TestScoringWithNewData:
         from analysis.fundamental import _score
 
         score, flags = _score({"overall_risk": 10, "audit_risk": 9})
-        risk_flags = [f for f in flags if "risk" in f.metric.lower() or "governance" in f.metric.lower()]
+        risk_flags = [
+            f for f in flags if "risk" in f.metric.lower() or "governance" in f.metric.lower()
+        ]
         assert len(risk_flags) > 0
 
     def test_low_governance_risk_ok(self):

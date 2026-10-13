@@ -61,7 +61,9 @@ class MiniAppFeedTest(unittest.TestCase):
                 },
             )
             write_json(
-                root, "output/pine_hull_daily_run.json", {"trade_date": "2026-08-25", "created": [], "watch": []}
+                root,
+                "output/pine_hull_daily_run.json",
+                {"trade_date": "2026-08-25", "created": [], "watch": []},
             )
             write_json(
                 root,
@@ -69,7 +71,13 @@ class MiniAppFeedTest(unittest.TestCase):
                 {
                     "trade_date": "2026-08-25",
                     "dashboard_candidates": [
-                        {"symbol": "V3TEST", "timing_state": "READY", "score": 88, "entry": 100, "stop": 95}
+                        {
+                            "symbol": "V3TEST",
+                            "timing_state": "READY",
+                            "score": 88,
+                            "entry": 100,
+                            "stop": 95,
+                        }
                     ],
                 },
             )
@@ -78,7 +86,14 @@ class MiniAppFeedTest(unittest.TestCase):
                 "output/old_nse_hull_daily.json",
                 {
                     "as_of_date": "2026-08-25",
-                    "shortlist": [{"symbol": "LADDERTEST", "hull_state": "WATCH", "discovery_score": 75, "close": 50}],
+                    "shortlist": [
+                        {
+                            "symbol": "LADDERTEST",
+                            "hull_state": "WATCH",
+                            "discovery_score": 75,
+                            "close": 50,
+                        }
+                    ],
                 },
             )
             registry = root / "corporate_data/normalized/security_lifecycle_events.csv"
@@ -88,18 +103,20 @@ class MiniAppFeedTest(unittest.TestCase):
                 writer.writeheader()
                 writer.writerow({"symbol": "JBCHEPHARM", "terminal": "1"})
             with patch.object(module, "ROOT", root):
-                assert module.main() == 0
+                self.assertEqual(module.main(), 0)
             feed = json.loads((root / "docs/data/feed.json").read_text(encoding="utf-8"))
-            assert {row["symbol"] for row in feed["items"]} == {"VISIBLE", "V3TEST", "LADDERTEST"}
+            self.assertEqual(
+                {row["symbol"] for row in feed["items"]}, {"VISIBLE", "V3TEST", "LADDERTEST"}
+            )
             by_symbol = {row["symbol"]: row for row in feed["items"]}
-            assert by_symbol["VISIBLE"]["stage"] == "Watch for entry"
-            assert by_symbol["V3TEST"]["stage"] == "Watch for entry"
-            assert by_symbol["LADDERTEST"]["stage"] == "Watchlist—wait for confirmation"
-            assert all(scanner["available"] for scanner in feed["scanners"])
-            assert "JBCHEPHARM" not in json.dumps(feed)
-            assert "PVTBANIETF" not in json.dumps(feed)
-            assert "PHARMABEES" not in json.dumps(feed)
-            assert "HDFCNIFIT" not in json.dumps(feed)
+            self.assertEqual(by_symbol["VISIBLE"]["stage"], "Watch for entry")
+            self.assertEqual(by_symbol["V3TEST"]["stage"], "Watch for entry")
+            self.assertEqual(by_symbol["LADDERTEST"]["stage"], "Watchlist—wait for confirmation")
+            self.assertTrue(all(scanner["available"] for scanner in feed["scanners"]))
+            self.assertNotIn("JBCHEPHARM", json.dumps(feed))
+            self.assertNotIn("PVTBANIETF", json.dumps(feed))
+            self.assertNotIn("PHARMABEES", json.dumps(feed))
+            self.assertNotIn("HDFCNIFIT", json.dumps(feed))
 
     def test_each_scanner_is_limited_to_25_and_ladder_requires_75(self):
         rows = [
@@ -118,8 +135,8 @@ class MiniAppFeedTest(unittest.TestCase):
             for i in range(30)
         ]
         limited = module.limit_per_scanner(rows)
-        assert len(limited) == 25
-        assert limited[0]["symbol"] == "P29"
+        self.assertEqual(len(limited), 25)
+        self.assertEqual(limited[0]["symbol"], "P29")
         ladder = module.ladder_items(
             {
                 "shortlist": [
@@ -128,7 +145,7 @@ class MiniAppFeedTest(unittest.TestCase):
                 ]
             }
         )
-        assert [row["symbol"] for row in ladder] == ["SHOW"]
+        self.assertEqual([row["symbol"] for row in ladder], ["SHOW"])
 
 
 if __name__ == "__main__":

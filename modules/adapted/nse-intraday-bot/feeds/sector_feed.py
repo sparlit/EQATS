@@ -29,7 +29,6 @@ the stock is outperforming its sector over the last 5 trading days.
 """
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -193,7 +192,7 @@ SECTOR_MAP: dict[str, str] = {
 }
 
 FALLBACK_INDEX = "^NSEI"  # Nifty 50 for unmapped stocks
-ALL_SECTOR_TICKERS = [*list(set(SECTOR_MAP.values())), FALLBACK_INDEX]
+ALL_SECTOR_TICKERS = list(set(SECTOR_MAP.values())) + [FALLBACK_INDEX]
 
 
 def prefetch_sectors() -> dict:
@@ -203,7 +202,7 @@ def prefetch_sectors() -> dict:
     Call once per run, then pass to check_sector_momentum().
     """
     cache = {}
-    tickers = [*list(set(SECTOR_MAP.values())), FALLBACK_INDEX]
+    tickers = list(set(SECTOR_MAP.values())) + [FALLBACK_INDEX]
     for ticker in set(tickers):
         try:
             df = yf.download(ticker, period="60d", interval="1d", progress=False, auto_adjust=True)
@@ -252,8 +251,12 @@ def check_sector_momentum(symbol: str, df_stock: pd.DataFrame, sector_cache: dic
     sector_5d = 0.0
 
     if len(sector_close) >= 6 and len(df_stock) >= 6:
-        sector_5d = round((float(sector_close.iloc[-1]) / float(sector_close.iloc[-6]) - 1) * 100, 2)
-        stock_5d = round((float(df_stock["close"].iloc[-1]) / float(df_stock["close"].iloc[-6]) - 1) * 100, 2)
+        sector_5d = round(
+            (float(sector_close.iloc[-1]) / float(sector_close.iloc[-6]) - 1) * 100, 2
+        )
+        stock_5d = round(
+            (float(df_stock["close"].iloc[-1]) / float(df_stock["close"].iloc[-6]) - 1) * 100, 2
+        )
         outperforming = stock_5d > sector_5d
 
     # Sector name for display

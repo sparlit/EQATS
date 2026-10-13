@@ -81,24 +81,34 @@ def build_health_report(db_path: str | Path, as_of: date | str | None = None) ->
     warnings: list[str] = []
     with sqlite3.connect(str(path)) as conn:
         integrity_ok = conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        names = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         price_table = (
-            "daily_prices_v2" if "daily_prices_v2" in names else "daily_prices" if "daily_prices" in names else None
+            "daily_prices_v2"
+            if "daily_prices_v2" in names
+            else "daily_prices"
+            if "daily_prices" in names
+            else None
         )
         price_col = "trade_date" if price_table == "daily_prices_v2" else "date"
         latest_price = _latest(conn, price_table, price_col) if price_table else None
         latest_index = _latest(conn, "index_perf", "date")
         active = (
             int(
-                conn.execute("SELECT COUNT(*) FROM v2_positions WHERE state NOT IN ('CLOSED','CANCELLED')").fetchone()[
-                    0
-                ]
+                conn.execute(
+                    "SELECT COUNT(*) FROM v2_positions WHERE state NOT IN ('CLOSED','CANCELLED')"
+                ).fetchone()[0]
             )
             if "v2_positions" in names
             else 0
         )
         watches = (
-            int(conn.execute("SELECT COUNT(*) FROM v2_watchlist_memory WHERE active=1").fetchone()[0])
+            int(
+                conn.execute("SELECT COUNT(*) FROM v2_watchlist_memory WHERE active=1").fetchone()[
+                    0
+                ]
+            )
             if "v2_watchlist_memory" in names
             else 0
         )
@@ -133,7 +143,9 @@ def build_health_report(db_path: str | Path, as_of: date | str | None = None) ->
     )
 
 
-def write_health_report(report: HealthReport, output_path: str | Path = "output/v2_health.json") -> Path:
+def write_health_report(
+    report: HealthReport, output_path: str | Path = "output/v2_health.json"
+) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")

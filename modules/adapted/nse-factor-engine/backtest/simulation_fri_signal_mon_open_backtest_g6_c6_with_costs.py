@@ -66,7 +66,10 @@ def parse_date(fname):
 
 print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH)
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 print(f"  trading days indexed: {len(all_trading_days)}")
 del prices
@@ -88,7 +91,9 @@ print("\nBuilding Friday-signal -> Monday-open week pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 
 mon_pairs = []
@@ -114,7 +119,9 @@ for i, (sig_date, exec_date, sig_path) in enumerate(mon_pairs):
     signals = pd.read_parquet(sig_path)
     incumbent_symbols = set(state.holdings.keys())
 
-    port_df = get_portfolio(GATE_ID, SCORE_ID, signals, verbose=False, incumbent_symbols=incumbent_symbols)
+    port_df = get_portfolio(
+        GATE_ID, SCORE_ID, signals, verbose=False, incumbent_symbols=incumbent_symbols
+    )
     top25 = port_df["symbol"].tolist() if not port_df.empty else []
 
     meta_cols = [c for c in ["symbol", "final_rank", "composite_score"] if c in port_df.columns]
@@ -127,9 +134,13 @@ for i, (sig_date, exec_date, sig_path) in enumerate(mon_pairs):
     for row in activity:
         sym = row["symbol"]
         if not meta_df.empty and sym in meta_df.index:
-            row["final_rank"] = meta_df.loc[sym, "final_rank"] if "final_rank" in meta_df.columns else np.nan
+            row["final_rank"] = (
+                meta_df.loc[sym, "final_rank"] if "final_rank" in meta_df.columns else np.nan
+            )
             row["composite_score"] = (
-                meta_df.loc[sym, "composite_score"] if "composite_score" in meta_df.columns else np.nan
+                meta_df.loc[sym, "composite_score"]
+                if "composite_score" in meta_df.columns
+                else np.nan
             )
         else:
             row["final_rank"] = np.nan

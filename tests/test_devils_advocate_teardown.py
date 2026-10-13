@@ -2,12 +2,20 @@
 Comprehensive verification test suite for Devil's Advocate teardown audit remediation.
 Verifies fallbacks, exception handling, predictive EWMA forecasts, cross-asset graph propagation, and institutional integrations.
 """
-from typing import Any
 import pytest
-from institutional_integrations.comprehensive_suite import integrate_airflow, integrate_pytorch, integrate_xgboost
+
+from institutional_integrations.comprehensive_suite import (
+    integrate_airflow,
+    integrate_pytorch,
+    integrate_xgboost,
+)
 from institutional_integrations.data_science import calculate_portfolio_weights
 from institutional_integrations.databases import CrossAssetCorrelationGraph, insert_vector_embedding
-from institutional_integrations.machine_learning import ActorCriticPolicy, generate_multi_model_ensemble_prediction
+from institutional_integrations.machine_learning import (
+    ActorCriticPolicy,
+    generate_multi_model_ensemble_prediction,
+)
+
 
 def test_comprehensive_suite_fallbacks() -> None:
     """Verify that comprehensive_suite integrations return structured status dictionaries."""
@@ -74,7 +82,10 @@ def test_floor_pivot_points_calculation() -> None:
 
 def test_system_autotune_capabilities() -> None:
     """Verify system autotune detects capabilities and sets non-zero parameters."""
-    from institutional_integrations.system_autotune import auto_tune_system_parameters, detect_system_capabilities
+    from institutional_integrations.system_autotune import (
+        auto_tune_system_parameters,
+        detect_system_capabilities,
+    )
     caps = detect_system_capabilities()
     assert caps['cpu_logical_cores'] >= 1
     assert caps['ram_total_gb'] > 0

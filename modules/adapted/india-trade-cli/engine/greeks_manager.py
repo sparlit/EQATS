@@ -294,23 +294,30 @@ def build_dashboard(
     # Delta check
     if abs(net_delta) > DELTA_WARN:
         direction = "LONG" if net_delta > 0 else "SHORT"
-        warnings.append(f"High delta exposure: {net_delta:+.0f} ({direction}) — portfolio is directionally exposed")
+        warnings.append(
+            f"High delta exposure: {net_delta:+.0f} ({direction}) — "
+            f"portfolio is directionally exposed"
+        )
         actions.append(
-            f"Delta-hedge: {'sell' if net_delta > 0 else 'buy'} ~{abs(net_delta) / 25:.0f} NIFTY lots to neutralize"
+            f"Delta-hedge: {'sell' if net_delta > 0 else 'buy'} "
+            f"~{abs(net_delta) / 25:.0f} NIFTY lots to neutralize"
         )
         risk_score += 2
 
     # Theta check
     if net_theta < THETA_WARN:
         warnings.append(
-            f"Heavy theta decay: ₹{abs(net_theta):,.0f}/day — losing ₹{abs(net_theta) * 5:,.0f}/week in time value"
+            f"Heavy theta decay: ₹{abs(net_theta):,.0f}/day — "
+            f"losing ₹{abs(net_theta) * 5:,.0f}/week in time value"
         )
         actions.append("Close or roll short-dated positions to reduce theta bleed")
         risk_score += 2
 
     # Gamma check
     if abs(net_gamma) > GAMMA_WARN:
-        warnings.append(f"High gamma: {net_gamma:+.2f} — delta will change rapidly with price moves")
+        warnings.append(
+            f"High gamma: {net_gamma:+.2f} — delta will change rapidly with price moves"
+        )
         actions.append("Reduce gamma exposure before expiry — close or roll near-expiry options")
         risk_score += 3
 
@@ -395,7 +402,9 @@ def print_roll_suggestions(suggestions: list[RollSuggestion]) -> None:
     table.add_column("Reason")
 
     for s in suggestions:
-        rec_color = {"ROLL": "yellow", "LET EXPIRE": "dim", "CLOSE": "red"}.get(s.recommendation, "white")
+        rec_color = {"ROLL": "yellow", "LET EXPIRE": "dim", "CLOSE": "red"}.get(
+            s.recommendation, "white"
+        )
         table.add_row(
             s.current_symbol[:20],
             s.current_expiry[:10],

@@ -155,8 +155,7 @@ def generate_access_token() -> str:
     resp.raise_for_status()
     data = resp.json()
     if "accessToken" not in data:
-        msg = f"Dhan token generation failed: {data.get('message', data)}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Dhan token generation failed: {data.get('message', data)}")
     return data["accessToken"]
 
 
@@ -210,11 +209,10 @@ def fetch_dhan_history(
         if resp.status_code != 200:
             print(f"    HTTP {resp.status_code}: {resp.text[:300]}")
             if _is_invalid_token(resp):
-                msg = (
+                raise RuntimeError(
                     "Dhan access token invalid/expired mid-run (DH-906) - aborting "
                     "instead of silently failing every remaining request."
                 )
-                raise RuntimeError(msg)
             return pd.DataFrame()
         data = resp.json()
         if not data.get("timestamp"):
@@ -222,7 +220,9 @@ def fetch_dhan_history(
 
         df = pd.DataFrame(
             {
-                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True).tz_convert("Asia/Kolkata").date,
+                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                .tz_convert("Asia/Kolkata")
+                .date,
                 "open": data.get("open"),
                 "high": data.get("high"),
                 "low": data.get("low"),
@@ -233,14 +233,17 @@ def fetch_dhan_history(
         df["date"] = pd.to_datetime(df["date"])
         # Dhan occasionally returns two rows for the same calendar date (seen on
         # NIFTY SMALLCAP 250, 2024-09-18) - keep the later one (has real volume).
-        return df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        df = df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        return df
 
     print("    Giving up after repeated rate-limit errors")
     return pd.DataFrame()
 
 
 def upsert_index(session, symbol, name) -> int:
-    row = session.execute(text("SELECT id FROM indices WHERE symbol = :s"), {"s": symbol}).fetchone()
+    row = session.execute(
+        text("SELECT id FROM indices WHERE symbol = :s"), {"s": symbol}
+    ).fetchone()
     if row:
         return row[0]
     row = session.execute(
@@ -389,7 +392,9 @@ def main():
     session = db.Session()
     try:
         for security_id, symbol, name in DHAN_INDICES:
-            assert symbol not in US_ONLY_SYMBOLS, f"{symbol} belongs to sync_us_indices.py, not Dhan"
+            assert symbol not in US_ONLY_SYMBOLS, (
+                f"{symbol} belongs to sync_us_indices.py, not Dhan"
+            )
             print(f"\n{symbol} ({name}) [security_id={security_id}]")
             index_id = upsert_index(session, symbol, name)
             n = sync_prices(session, index_id, security_id, access_token)
@@ -397,7 +402,9 @@ def main():
             if n:
                 compute_performance(session, index_id)
                 row = session.execute(
-                    text("SELECT change_1w, change_1m, change_1y FROM index_performance WHERE index_id = :id"),
+                    text(
+                        "SELECT change_1w, change_1m, change_1y FROM index_performance WHERE index_id = :id"
+                    ),
                     {"id": index_id},
                 ).fetchone()
                 if row:

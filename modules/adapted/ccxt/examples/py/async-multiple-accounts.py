@@ -40,7 +40,7 @@ import ccxt.async_support as ccxt  # noqa: E402
 async def fetch_balance_n_times(code, account, n):
     exchange_class = getattr(ccxt, account["exchange_id"])
     exchange = exchange_class(account["params"])
-    for _i in range(n):
+    for _i in range(0, n):
         balance = await exchange.fetch_balance()
         print(exchange.id, code, "balance:", balance[code])
     await exchange.close()

@@ -32,7 +32,6 @@ SENSEX, sector indices, and a market posture helper.
 
 
 from dataclasses import dataclass
-from typing import Optional
 
 # ── Key instruments ──────────────────────────────────────────
 
@@ -83,15 +82,16 @@ def get_index(name: str) -> IndexSnapshot:
     """
     instrument = INDEX_INSTRUMENTS.get(name.upper())
     if not instrument:
-        msg = f"Unknown index: {name}. Valid: {list(INDEX_INSTRUMENTS)}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown index: {name}. Valid: {list(INDEX_INSTRUMENTS)}")
 
     from market.quotes import get_quote
 
     quotes = get_quote([instrument])
     q = quotes.get(instrument)
     if not q:
-        return IndexSnapshot(name=name, instrument=instrument, ltp=0, change=0, change_pct=0, open=0, high=0, low=0)
+        return IndexSnapshot(
+            name=name, instrument=instrument, ltp=0, change=0, change_pct=0, open=0, high=0, low=0
+        )
 
     return IndexSnapshot(
         name=name,
@@ -148,7 +148,7 @@ def get_market_snapshot() -> MarketSnapshot:
     try:
         from market.gift_nifty import get_gift_nifty
 
-        gift_nifty = get_gift_nifty(nifty_spot=nifty.ltp or None)
+        gift_nifty = get_gift_nifty(nifty_spot=nifty.ltp if nifty.ltp else None)
     except Exception:
         pass
 
@@ -189,9 +189,10 @@ def _market_posture(nifty: IndexSnapshot, vix: IndexSnapshot) -> tuple[str, str]
 
     if nifty_chg > 0.5:
         return "BULLISH", f"NIFTY {nifty_chg:+.2f}%, {vix_note}"
-    if nifty_chg < -0.5:
+    elif nifty_chg < -0.5:
         return "BEARISH", f"NIFTY {nifty_chg:+.2f}%, {vix_note}"
-    return "NEUTRAL", f"NIFTY {nifty_chg:+.2f}% (range-bound), {vix_note}"
+    else:
+        return "NEUTRAL", f"NIFTY {nifty_chg:+.2f}% (range-bound), {vix_note}"
 
 
 def get_vix() -> float:

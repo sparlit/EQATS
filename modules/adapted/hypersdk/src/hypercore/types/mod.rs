@@ -85,6 +85,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use flate2::read::DeflateDecoder;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error, ser::SerializeMap};
+use serde_json::Value;
 use serde_with::{DisplayFromStr, serde_as};
 
 use crate::hypercore::{Chain, Cloid, OidOrCloid, SpotToken};
@@ -97,8 +98,8 @@ pub(super) mod solidity;
 pub use api::{
     AbstractionMode, Action, ActionRequest, ApproveBuilderFee, GossipPriorityBid,
     Hip3LiquidatorTransferAction, MultiSigAction, MultiSigPayload, OkResponse, Response,
-    TokenDelegateAction, TwapOrderParams, UsdClassTransferAction, UserDexAbstractionAction,
-    UserSetAbstractionAction, Withdraw3Action,
+    TokenDelegateAction, TrailingStop, TrailingStopRetracement, TwapOrderParams,
+    UsdClassTransferAction, UserDexAbstractionAction, UserSetAbstractionAction, Withdraw3Action,
 };
 use api::{AgentSendAssetAction, SendAssetAction, SpotSendAction, UsdSendAction};
 
@@ -1791,6 +1792,14 @@ pub enum OrderType {
     TakeProfitMarket,
     #[serde(rename = "Take Profit Limit")]
     TakeProfitLimit,
+    #[serde(rename = "Trailing Stop Market")]
+    TrailingStopMarket,
+    #[serde(rename = "Twap Slice")]
+    TwapSlice,
+    #[serde(rename = "Vault Close")]
+    VaultClose,
+    #[serde(rename = "Spot Dust Conversion")]
+    SpotDustConversion,
 }
 
 /// Time‑in‑force.
@@ -1835,6 +1844,8 @@ pub enum TimeInForce {
     Gtc,
     /// Frontend market order type
     FrontendMarket,
+    /// Reported on liquidation orders in order history. Not accepted when placing an order.
+    LiquidationMarket,
 }
 
 /// Order status.
@@ -1927,8 +1938,12 @@ pub enum OrderStatus {
     DelistedCanceled,
     /// Position was liquidated
     LiquidatedCanceled,
+    /// Outcome market settled
+    OutcomeSettledCanceled,
     /// User-scheduled cancellation
     ScheduledCancel,
+    /// Cancelled by an internal error
+    InternalCancel,
     /// Price doesn't match tick size
     TickRejected,
     /// Order value below minimum
@@ -1959,6 +1974,8 @@ pub enum OrderStatus {
     OracleRejected,
     /// Would exceed max position
     PerpMaxPositionRejected,
+    /// Would exceed the open order limit
+    TooManyOpenOrdersRejected,
 }
 
 impl OrderStatus {
@@ -2017,7 +2034,9 @@ impl OrderStatus {
                 | OrderStatus::SiblingFilledCanceled
                 | OrderStatus::DelistedCanceled
                 | OrderStatus::LiquidatedCanceled
+                | OrderStatus::OutcomeSettledCanceled
                 | OrderStatus::ScheduledCancel
+                | OrderStatus::InternalCancel
                 | OrderStatus::IocCancelRejected
         )
     }
@@ -2052,6 +2071,7 @@ impl OrderStatus {
                 | OrderStatus::InsufficientSpotBalanceRejected
                 | OrderStatus::OracleRejected
                 | OrderStatus::PerpMaxPositionRejected
+                | OrderStatus::TooManyOpenOrdersRejected
         )
     }
 }
@@ -3411,6 +3431,248 @@ pub struct PerpDexStatus {
     pub total_net_deposit: Decimal,
 }
 
+/// Configuration of one HIP-3 perp DEX, as returned by the `perpDexs` info request.
+///
+/// [`Dex`] keeps only the name and index. This keeps the rest of the payload: who deployed
+/// the DEX, which addresses may sign each deployer action, where fees go, and the per-asset
+/// OI caps and funding settings. Deployer and monitoring tools need all of it.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexDetails {
+    /// Position in the `perpDexs` response, i.e. [`Dex::index`]. HIP-3 asset IDs are
+    /// derived from it, so it is kept even though the payload does not carry it.
+    #[serde(skip)]
+    pub index: usize,
+    /// Short name used as the coin prefix, e.g. `xyz` in `xyz:SP500`.
+    pub name: String,
+    /// Display name.
+    pub full_name: String,
+    /// Address that staked for and deployed the DEX.
+    pub deployer: Address,
+    /// Address allowed to push oracle prices besides the deployer, if one is set.
+    pub oracle_updater: Option<Address>,
+    /// Address the deployer's share of fees is paid to, if one is set.
+    pub fee_recipient: Option<Address>,
+    /// Notional OI cap per coin.
+    #[serde(default)]
+    pub asset_to_streaming_oi_cap: Vec<AssetSetting>,
+    /// Permissions delegated to sub-deployers. See [`Self::sub_deployers_for`].
+    #[serde(default)]
+    pub sub_deployers: Vec<SubDeployerGrant>,
+    /// Funding multiplier per coin.
+    #[serde(default)]
+    pub asset_to_funding_multiplier: Vec<AssetSetting>,
+    /// Funding interest rate per coin. Coins without an entry use the default.
+    #[serde(default)]
+    pub asset_to_funding_interest_rate: Vec<AssetSetting>,
+    /// Funding clamp per coin. Coins without an entry use the default.
+    #[serde(default)]
+    pub asset_to_funding_clamp: Vec<AssetSetting>,
+}
+
+impl PerpDexDetails {
+    /// Pairs each entry of a raw `perpDexs` response with its index. The first entry is the
+    /// validator-operated DEX, which the API returns as `null`.
+    pub(crate) fn from_response(dexes: Vec<Option<Self>>) -> Vec<Self> {
+        dexes
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, dex)| dex.map(|dex| Self { index, ..dex }))
+            .collect()
+    }
+
+    /// The [`Dex`] handle for this DEX, for use with requests such as
+    /// [`crate::hypercore::HttpClient::perps_from`].
+    #[must_use]
+    pub fn dex(&self) -> Dex {
+        Dex::new(self.name.clone(), self.index)
+    }
+
+    /// Addresses other than the deployer allowed to send the given `perpDeploy` action
+    /// variant, e.g. `"setOracle"` or `"haltTrading"`. Empty when none are delegated.
+    #[must_use]
+    pub fn sub_deployers_for(&self, variant: &str) -> &[Address] {
+        self.sub_deployers
+            .iter()
+            .find(|grant| {
+                matches!(&grant.permission, SubDeployerPermission::PerpDeploy(action) if action == variant)
+            })
+            .map_or(&[], |grant| grant.users.as_slice())
+    }
+}
+
+/// One per-coin setting of a HIP-3 DEX, such as an OI cap or a funding multiplier.
+///
+/// Sent by the API as a `[coin, value]` array.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AssetSetting {
+    /// Coin name, e.g. `xyz:SP500`.
+    pub coin: String,
+    /// The setting's value for this coin.
+    pub value: Decimal,
+}
+
+impl<'de> Deserialize<'de> for AssetSetting {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let (coin, value) = <(String, Decimal)>::deserialize(deserializer)?;
+        Ok(Self { coin, value })
+    }
+}
+
+/// A deployer permission and the sub-deployers allowed to use it.
+///
+/// Sent by the API as a `[permission, [address, ..]]` array.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubDeployerGrant {
+    /// The delegated permission.
+    pub permission: SubDeployerPermission,
+    /// Addresses other than the deployer allowed to use it.
+    pub users: Vec<Address>,
+}
+
+impl<'de> Deserialize<'de> for SubDeployerGrant {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let (permission, users) =
+            <(SubDeployerPermission, Vec<Address>)>::deserialize(deserializer)?;
+        Ok(Self { permission, users })
+    }
+}
+
+/// A deployer permission a HIP-3 DEX has delegated to sub-deployers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubDeployerPermission {
+    /// A deployer action variant sent as a string: a `perpDeploy` variant such as
+    /// `"setOracle"`, or, in HIP-4 sub-deployer grants, an outcome action such as
+    /// `"settleOutcome"`.
+    PerpDeploy(String),
+    /// A HIP-3\* proxy-operation grant, sent as exactly `{"hip3Star": "<operation>"}`, e.g.
+    /// `"order"` or `"modifyApproval"`. HIP-3\* venues are testnet-only.
+    Hip3Star {
+        /// The permitted operation.
+        action: String,
+    },
+    /// Any other shape, including a `hip3Star` object with extra fields, kept as raw JSON so
+    /// nothing is dropped.
+    Other(Value),
+}
+
+impl fmt::Display for SubDeployerPermission {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PerpDeploy(action) => formatter.write_str(action),
+            Self::Hip3Star { action } => write!(formatter, "hip3Star:{action}"),
+            Self::Other(raw) => write!(formatter, "{raw}"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SubDeployerPermission {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        // Only the exact `{"hip3Star": "<operation>"}` shape is a HIP-3* grant. An object with
+        // any other key, or with more than one, goes to `Other` so no field is lost.
+        let hip3_star = match &value {
+            Value::Object(map) if map.len() == 1 => map
+                .get("hip3Star")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            _ => None,
+        };
+        Ok(match (value, hip3_star) {
+            (Value::String(action), _) => Self::PerpDeploy(action),
+            (_, Some(action)) => Self::Hip3Star { action },
+            (value, None) => Self::Other(value),
+        })
+    }
+}
+
+impl Serialize for SubDeployerPermission {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::PerpDeploy(action) => serializer.serialize_str(action),
+            Self::Hip3Star { action } => {
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("hip3Star", action)?;
+                map.end()
+            }
+            Self::Other(raw) => raw.serialize(serializer),
+        }
+    }
+}
+
+impl From<&str> for SubDeployerPermission {
+    fn from(action: &str) -> Self {
+        Self::PerpDeploy(action.to_owned())
+    }
+}
+
+impl From<String> for SubDeployerPermission {
+    fn from(action: String) -> Self {
+        Self::PerpDeploy(action)
+    }
+}
+
+/// A user's state on every HIP-3\* venue that has approved them, from the `userStarState`
+/// info request. HIP-3\* venues are testnet-only.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserStarState {
+    /// One entry per venue that has approved the user, including venues that have since
+    /// removed the approval.
+    #[serde(deserialize_with = "deserialize_star_venues")]
+    pub dex_to_state: Vec<StarVenueState>,
+}
+
+/// A user's approval on one HIP-3\* venue.
+///
+/// Sent by the API as a `[dex, flags]` array.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StarVenueState {
+    /// Perp DEX name.
+    pub dex: String,
+    /// The user's flags on the venue, or `None` if the venue has since removed the user's
+    /// approval.
+    pub flags: Option<StarUserFlags>,
+}
+
+impl<'de> Deserialize<'de> for StarVenueState {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let (dex, flags) = <(String, Option<StarUserFlags>)>::deserialize(deserializer)?;
+        Ok(Self { dex, flags })
+    }
+}
+
+/// What an approved user may do on a HIP-3\* venue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StarUserFlags {
+    /// Whether the user may only reduce positions.
+    pub is_reduce_only: bool,
+    /// Whether the user may deposit into and withdraw from the venue's backstop liquidator.
+    pub is_backstop_liquidator_deposit_allowed: bool,
+}
+
+/// The docs show `dexToState` as an object keyed by DEX name, but the exchange sends a list
+/// of `[dex, flags]` pairs. Both are accepted.
+fn deserialize_star_venues<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<StarVenueState>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Venues {
+        List(Vec<StarVenueState>),
+        Map(std::collections::BTreeMap<String, Option<StarUserFlags>>),
+    }
+
+    Ok(match Venues::deserialize(deserializer)? {
+        Venues::List(venues) => venues,
+        Venues::Map(venues) => venues
+            .into_iter()
+            .map(|(dex, flags)| StarVenueState { dex, flags })
+            .collect(),
+    })
+}
+
 /// Token details from `tokenDetails` info request.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -4175,6 +4437,10 @@ pub(super) enum InfoRequest {
     /// Total net deposit for a HIP-3 DEX.
     PerpDexStatus {
         dex: String,
+    },
+    /// A user's approval state on every HIP-3* venue that has approved them.
+    UserStarState {
+        user: Address,
     },
     /// All DEXs' meta + asset contexts.
     AllPerpMetas,
@@ -5041,6 +5307,52 @@ mod tests {
         }
     }
 
+    /// Values mainnet `historicalOrders` reports that the SDK used to reject. One such order
+    /// anywhere in a user's history failed the whole response.
+    #[test]
+    fn test_historical_orders_with_rarer_values() {
+        let order = |order_type: &str, tif: &str, status: &str| {
+            let json = format!(
+                r#"{{
+                    "order":{{
+                        "coin":"XRP","side":"A","limitPx":"1.3716","sz":"0.0","oid":552268017772,
+                        "timestamp":1790038701396,"triggerCondition":"N/A","isTrigger":false,
+                        "triggerPx":"0.0","children":[],"isPositionTpsl":false,"reduceOnly":true,
+                        "orderType":"{order_type}","origSz":"100000.0","tif":"{tif}","cloid":null
+                    }},
+                    "status":"{status}",
+                    "statusTimestamp":1790038701396
+                }}"#
+            );
+            serde_json::from_str::<OrderUpdate<BasicOrder>>(&json).unwrap()
+        };
+
+        let trailing_stop = order("Trailing Stop Market", "Gtc", "filled");
+        assert!(matches!(
+            trailing_stop.order.order_type,
+            OrderType::TrailingStopMarket
+        ));
+
+        let liquidation = order("Market", "LiquidationMarket", "filled");
+        assert!(matches!(
+            liquidation.order.tif,
+            Some(TimeInForce::LiquidationMarket)
+        ));
+
+        let vault_close = order("Vault Close", "Ioc", "filled");
+        assert!(matches!(
+            vault_close.order.order_type,
+            OrderType::VaultClose
+        ));
+
+        let outcome_settled = order("Limit", "Gtc", "outcomeSettledCanceled");
+        assert!(matches!(
+            outcome_settled.status,
+            OrderStatus::OutcomeSettledCanceled
+        ));
+        assert!(outcome_settled.status.is_cancelled());
+    }
+
     #[test]
     fn test_signature_from_str_invalid_length() {
         let hex_sig = "0x1234"; // Too short
@@ -5163,6 +5475,190 @@ mod tests {
 
         // Check timestamp
         assert_eq!(state.time, 1768397010203);
+    }
+
+    #[test]
+    fn perp_dex_details_keep_indices_and_permissions() {
+        // Representative `perpDexs` response. Index 0 is the validator-operated DEX.
+        let json = r#"[
+            null,
+            {
+                "name": "mock",
+                "fullName": "Mock DEX",
+                "deployer": "0x0000000000000000000000000000000000000001",
+                "oracleUpdater": null,
+                "feeRecipient": "0x0000000000000000000000000000000000000002",
+                "assetToStreamingOiCap": [["mock:ALPHA", "200000000.0"], ["mock:BETA", "1000000000.0"]],
+                "subDeployers": [
+                    ["haltTrading", ["0x0000000000000000000000000000000000000003"]],
+                    ["setOracle", ["0x0000000000000000000000000000000000000004"]],
+                    [{"hip3Star": "order"}, ["0x0000000000000000000000000000000000000005"]],
+                    [{"somethingNew": 1}, []]
+                ],
+                "assetToFundingMultiplier": [["mock:ALPHA", "0.5"]],
+                "assetToFundingInterestRate": [["mock:GAMMA", "0.0"]],
+                "assetToFundingClamp": []
+            },
+            {
+                "name": "sample",
+                "fullName": "Sample DEX",
+                "deployer": "0x0000000000000000000000000000000000000011",
+                "oracleUpdater": "0x0000000000000000000000000000000000000012",
+                "feeRecipient": null,
+                "assetToStreamingOiCap": [],
+                "subDeployers": [],
+                "assetToFundingMultiplier": [],
+                "assetToFundingInterestRate": [],
+                "assetToFundingClamp": [["sample:INDEX", "0.01"]]
+            }
+        ]"#;
+        let dexes = PerpDexDetails::from_response(serde_json::from_str(json).unwrap());
+
+        assert_eq!(dexes.len(), 2);
+        let (mock, sample) = (&dexes[0], &dexes[1]);
+        assert_eq!((mock.index, mock.name.as_str()), (1, "mock"));
+        assert_eq!((sample.index, sample.name.as_str()), (2, "sample"));
+        assert_eq!(mock.dex().index(), 1);
+
+        assert_eq!(
+            mock.sub_deployers_for("setOracle"),
+            ["0x0000000000000000000000000000000000000004"
+                .parse::<Address>()
+                .unwrap()]
+        );
+        assert!(mock.sub_deployers_for("setDeployerFees").is_empty());
+        // HIP-3* venues on testnet grant proxy operations as objects. They parse, and never
+        // match a perpDeploy action name.
+        assert_eq!(
+            mock.sub_deployers[2].permission,
+            SubDeployerPermission::Hip3Star {
+                action: "order".into()
+            }
+        );
+        assert!(matches!(
+            mock.sub_deployers[3].permission,
+            SubDeployerPermission::Other(_)
+        ));
+        assert!(mock.sub_deployers_for("order").is_empty());
+        assert!(mock.oracle_updater.is_none());
+        assert!(sample.fee_recipient.is_none());
+        assert!(sample.oracle_updater.is_some());
+
+        assert_eq!(
+            mock.asset_to_streaming_oi_cap[1],
+            AssetSetting {
+                coin: "mock:BETA".into(),
+                value: Decimal::from(1_000_000_000),
+            }
+        );
+        assert_eq!(
+            sample.asset_to_funding_clamp,
+            [AssetSetting {
+                coin: "sample:INDEX".into(),
+                value: Decimal::new(1, 2),
+            }]
+        );
+    }
+
+    #[test]
+    fn sub_deployer_permission_serializes_to_its_wire_shape() {
+        let to_json = |permission: SubDeployerPermission| serde_json::to_value(permission).unwrap();
+
+        assert_eq!(to_json("setOracle".into()), serde_json::json!("setOracle"));
+        assert_eq!(
+            to_json(SubDeployerPermission::Hip3Star {
+                action: "order".into()
+            }),
+            serde_json::json!({"hip3Star": "order"})
+        );
+        let raw = serde_json::json!({"somethingNew": [1, 2]});
+        assert_eq!(to_json(SubDeployerPermission::Other(raw.clone())), raw);
+    }
+
+    #[test]
+    fn user_star_state_accepts_the_live_and_documented_shapes() {
+        let flags = StarUserFlags {
+            is_reduce_only: false,
+            is_backstop_liquidator_deposit_allowed: true,
+        };
+        let expected = [
+            StarVenueState {
+                dex: "mock".into(),
+                flags: Some(flags),
+            },
+            StarVenueState {
+                dex: "sample".into(),
+                flags: None,
+            },
+        ];
+
+        // What the exchange sends: `[dex, flags]` pairs, where flags may be null.
+        let live: UserStarState = serde_json::from_str(
+            r#"{"dexToState": [
+                ["mock", {"isReduceOnly": false, "isBackstopLiquidatorDepositAllowed": true}],
+                ["sample", null]
+            ]}"#,
+        )
+        .unwrap();
+        assert_eq!(live.dex_to_state, expected);
+
+        // What the docs show: an object keyed by DEX name.
+        let documented: UserStarState = serde_json::from_str(
+            r#"{"dexToState": {
+                "mock": {"isReduceOnly": false, "isBackstopLiquidatorDepositAllowed": true},
+                "sample": null
+            }}"#,
+        )
+        .unwrap();
+        assert_eq!(documented.dex_to_state, expected);
+
+        let none: UserStarState = serde_json::from_str(r#"{"dexToState": []}"#).unwrap();
+        assert!(none.dex_to_state.is_empty());
+    }
+
+    #[test]
+    fn sub_deployer_permission_keeps_unknown_shapes_intact() {
+        let parse = |json: &str| serde_json::from_str::<SubDeployerPermission>(json).unwrap();
+
+        assert_eq!(
+            parse(r#""setOracle""#),
+            SubDeployerPermission::PerpDeploy("setOracle".into())
+        );
+        assert_eq!(
+            parse(r#"{"hip3Star":"order"}"#),
+            SubDeployerPermission::Hip3Star {
+                action: "order".into()
+            }
+        );
+
+        // Anything but the exact known shape is preserved as-is instead of losing fields.
+        for json in [
+            r#"{"hip3Star":"order","scope":"future"}"#,
+            r#"{"hip3Star":5}"#,
+            r#"{"somethingNew":"order"}"#,
+            r#"["setOracle"]"#,
+        ] {
+            assert_eq!(
+                parse(json),
+                SubDeployerPermission::Other(serde_json::from_str(json).unwrap()),
+                "{json}"
+            );
+        }
+    }
+
+    #[test]
+    fn sub_deployer_permission_display() {
+        assert_eq!(
+            SubDeployerPermission::PerpDeploy("setOracle".into()).to_string(),
+            "setOracle"
+        );
+        assert_eq!(
+            SubDeployerPermission::Hip3Star {
+                action: "order".into(),
+            }
+            .to_string(),
+            "hip3Star:order"
+        );
     }
 
     #[test]
@@ -5516,6 +6012,7 @@ mod tests {
             InfoRequest::PerpDexStatus {
                 dex: "flx".to_string(),
             },
+            InfoRequest::UserStarState { user: USER },
             InfoRequest::AllPerpMetas,
             InfoRequest::PerpAnnotation {
                 coin: "BTC".to_string(),
@@ -6067,6 +6564,14 @@ mod tests {
             assert_json(
                 InfoRequest::UserVaultEquities { user: USER },
                 serde_json::json!({"type": "userVaultEquities", "user": "0x0000000000000000000000000000000000001234"}),
+            );
+        }
+
+        #[test]
+        fn user_star_state() {
+            assert_json(
+                InfoRequest::UserStarState { user: USER },
+                serde_json::json!({"type": "userStarState", "user": "0x0000000000000000000000000000000000001234"}),
             );
         }
 

@@ -77,9 +77,9 @@ VARIANTS = [
 def apply_gate(df, use_g6_gate):
     if use_g6_gate == 0:
         return df
-    if use_g6_gate == 2:  # Weinstein only
+    elif use_g6_gate == 2:  # Weinstein only
         return df[df["weinstein_stage2"]].copy()
-    if use_g6_gate == 7:  # Lottery excluded only
+    elif use_g6_gate == 7:  # Lottery excluded only
         return df[~df["lottery_class"].isin(G6_EXCLUDED_LOTTERY)].copy()
     return df
 
@@ -89,7 +89,9 @@ def compute_mr_scores(signals_df, use_g6_gate):
     df = signals_df[signals_df["in_universe"]].copy()
     df = apply_gate(df, use_g6_gate)
 
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
 
     if len(df) < 10:
@@ -100,7 +102,9 @@ def compute_mr_scores(signals_df, use_g6_gate):
     df["z_12"] = (df["mr_12"] - df["mr_12"].mean()) / df["mr_12"].std(ddof=1)
     df["z_6"] = (df["mr_6"] - df["mr_6"].mean()) / df["mr_6"].std(ddof=1)
     df["weighted_z"] = 0.5 * df["z_12"] + 0.5 * df["z_6"]
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
     return df.sort_values("mr_rank").reset_index(drop=True)
 
@@ -217,7 +221,10 @@ prices = pd.read_parquet(PRICES_PATH)
 print(f"  shape      : {prices.shape}")
 print(f"  date range : {prices['date'].min().date()} -> {prices['date'].max().date()}")
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 print(f"  trading days indexed: {len(all_trading_days)}")
 del prices
@@ -244,7 +251,9 @@ print("Building Friday -> Monday pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 
 mon_pairs = []
@@ -283,7 +292,9 @@ for use_g6_gate, prefix, desc in VARIANTS:
         top25_symbols, action_map = reconstitute(ranked_df, current_holdings)
         top25 = list(top25_symbols)
 
-        port_value_post, port_value_pre, activity = state.rebalance(top25, exec_px, exec_date, prefix)
+        port_value_post, port_value_pre, activity = state.rebalance(
+            top25, exec_px, exec_date, prefix
+        )
 
         mr_meta = {}
         if not ranked_df.empty:
@@ -377,11 +388,29 @@ bm_cagr_str = "%0.2f%%" % (all_metrics[0]["BM CAGR"] * 100)
 weeks_str = str(all_metrics[0]["Weeks"])
 
 print("\n" + "=" * 90)
-print("COMBINED PERFORMANCE SUMMARY  |  Benchmark CAGR: " + bm_cagr_str + "  |  " + weeks_str + " weeks")
+print(
+    "COMBINED PERFORMANCE SUMMARY  |  Benchmark CAGR: "
+    + bm_cagr_str
+    + "  |  "
+    + weeks_str
+    + " weeks"
+)
 print("=" * 90)
 print(
     "%-10s %-34s %7s %7s %7s %7s %7s %6s %6s %5s %8s"
-    % ("Variant", "Description", "CAGR", "Alpha", "Sharpe", "Calmar", "MaxDD", "Hit%", "Turn%", "AvgN", "NAV(M)")
+    % (
+        "Variant",
+        "Description",
+        "CAGR",
+        "Alpha",
+        "Sharpe",
+        "Calmar",
+        "MaxDD",
+        "Hit%",
+        "Turn%",
+        "AvgN",
+        "NAV(M)",
+    )
 )
 print("-" * 90)
 for r in all_metrics:

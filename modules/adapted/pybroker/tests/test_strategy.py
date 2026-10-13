@@ -90,7 +90,7 @@ from pybroker.strategy import (
     _rotation_candidates,
 )
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 
 @pytest.fixture(params=[200, 202])
@@ -103,7 +103,7 @@ def lookahead(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def dates():
     dates = pd.date_range(start="1/1/2018", end="1/1/2019").tolist()
     return sorted(dates + dates.copy())
@@ -430,7 +430,9 @@ class TestSymbolSelector:
         aaa_trades = result.trades[result.trades["symbol"] == "AAA"]
         assert not aaa_trades.empty
         assert pd.notna(aaa_trades.iloc[-1]["exit_date"])
-        aaa_sells = result.orders[(result.orders["symbol"] == "AAA") & (result.orders["type"] == "sell")]
+        aaa_sells = result.orders[
+            (result.orders["symbol"] == "AAA") & (result.orders["type"] == "sell")
+        ]
         assert not aaa_sells.empty
         assert result.portfolio.iloc[-1]["cash"] > 0
 
@@ -465,7 +467,9 @@ class TestSymbolSelector:
 
         strategy = Strategy(df, "2020-01-01", "2020-01-08")
         strategy.add_execution(exec_fn, pick_aaa, indicators=[sma])
-        with patch.object(strategy, "compute_indicators", wraps=strategy.compute_indicators) as mock_compute:
+        with patch.object(
+            strategy, "compute_indicators", wraps=strategy.compute_indicators
+        ) as mock_compute:
             strategy.walkforward(windows=1, train_size=0.5, lookahead=1)
             indicator_syms = mock_compute.call_args.kwargs["indicator_syms"]
             symbols_computed = {pair.symbol for pair in indicator_syms}
@@ -695,7 +699,9 @@ class TestSymbolSelector:
         strategy.add_execution(_buy_once, _rotating_selector([["AAA"], ["BBB"]]))
         result = strategy.walkforward(windows=2, train_size=0.5, lookahead=1)
         assert ("sell", "AAA") in calls
-        aaa_sell = result.orders[(result.orders["symbol"] == "AAA") & (result.orders["type"] == "sell")]
+        aaa_sell = result.orders[
+            (result.orders["symbol"] == "AAA") & (result.orders["type"] == "sell")
+        ]
         assert len(aaa_sell) == 1
         assert float(aaa_sell.iloc[0]["fill_price"]) == 109.0 / 2
 
@@ -724,14 +730,18 @@ class TestSymbolSelector:
 
 
 class TestWalkforwardMixin:
-    def test_walkforward_split_1(self, dates, dates_length, windows, lookahead, train_size, shuffle):
+    def test_walkforward_split_1(
+        self, dates, dates_length, windows, lookahead, train_size, shuffle
+    ):
         self._verify_windows(dates, dates_length, windows, lookahead, train_size, shuffle)
 
     @pytest.mark.parametrize(
-        ("dates_length", "windows", "lookahead"),
+        "dates_length, windows, lookahead",
         [(22, 5, 1), (20, 5, 1), (22, 2, 2), (20, 2, 2)],
     )
-    def test_walkforward_split_2(self, dates, dates_length, windows, lookahead, train_size, shuffle):
+    def test_walkforward_split_2(
+        self, dates, dates_length, windows, lookahead, train_size, shuffle
+    ):
         self._verify_windows(dates, dates_length, windows, lookahead, train_size, shuffle)
 
     def _verify_windows(self, dates, dates_length, windows, lookahead, train_size, shuffle):
@@ -745,17 +755,17 @@ class TestWalkforwardMixin:
             assert not (set(train_idx) & set(test_idx))
             assert len(train_idx) or len(test_idx)
             if len(train_idx) and len(test_idx):
-                train_end_index = max(train_idx) + lookahead * 2
-                test_start_index = min(test_idx)
+                train_end_index = sorted(train_idx)[-1] + lookahead * 2
+                test_start_index = sorted(test_idx)[0]
                 assert dates[train_end_index] == dates[test_start_index]
                 assert dates[train_end_index - 2] != dates[test_start_index]
             if train_size == 0.5:
                 assert len(train_idx) == len(test_idx)
             if len(test_idx) and i == len(results) - 1:
-                assert dates[dates_length - 1] == dates[max(test_idx)]
+                assert dates[dates_length - 1] == dates[sorted(test_idx)[-1]]
 
     @pytest.mark.parametrize(
-        ("dates_length", "windows", "lookahead", "train_size"),
+        "dates_length, windows, lookahead, train_size",
         [
             (11, -1, 1, 0.5),
             (11, 5, 0, 0.5),
@@ -830,7 +840,9 @@ class TestBacktestMixin:
             assert kwargs["date"] == date
             assert kwargs["symbol"] == "SPY"
             assert kwargs["shares"] == 200
-            assert kwargs["fill_price"] == Decimal(str(round(buy_df[buy_df["date"] == date]["close"].values[0], 2)))
+            assert kwargs["fill_price"] == Decimal(
+                str(round(buy_df[buy_df["date"] == date]["close"].values[0], 2))
+            )
             assert kwargs["limit_price"] == 100
         sell_df = data_source_df[data_source_df["symbol"] == "AAPL"]
         sell_dates = sell_df["date"].unique()[1:]
@@ -840,7 +852,9 @@ class TestBacktestMixin:
             assert kwargs["date"] == date
             assert kwargs["symbol"] == "AAPL"
             assert kwargs["shares"] == 100
-            assert kwargs["fill_price"] == Decimal(str(round(sell_df[sell_df["date"] == date]["close"].values[0], 2)))
+            assert kwargs["fill_price"] == Decimal(
+                str(round(sell_df[sell_df["date"] == date]["close"].values[0], 2))
+            )
             assert kwargs["limit_price"] == 50.5
 
     def test_backtest_executions_when_buy_delay(self, data_source_df):
@@ -879,7 +893,9 @@ class TestBacktestMixin:
             assert kwargs["date"] == date
             assert kwargs["symbol"] == "SPY"
             assert kwargs["shares"] == 200
-            assert kwargs["fill_price"] == Decimal(str(round(buy_df[buy_df["date"] == date]["close"].values[0], 2)))
+            assert kwargs["fill_price"] == Decimal(
+                str(round(buy_df[buy_df["date"] == date]["close"].values[0], 2))
+            )
             assert kwargs["limit_price"] == 100
 
     def test_backtest_executions_when_sell_delay(self, data_source_df):
@@ -918,7 +934,9 @@ class TestBacktestMixin:
             assert kwargs["date"] == date
             assert kwargs["symbol"] == "AAPL"
             assert kwargs["shares"] == 100
-            assert kwargs["fill_price"] == Decimal(str(round(sell_df[sell_df["date"] == date]["close"].values[0], 2)))
+            assert kwargs["fill_price"] == Decimal(
+                str(round(sell_df[sell_df["date"] == date]["close"].values[0], 2))
+            )
             assert kwargs["limit_price"] == 50.5
 
     def test_backtest_executions_when_invalid_buy_hold_bars_then_error(self, data_source_df):
@@ -1378,7 +1396,9 @@ class TestBacktestMixin:
         )
         short_entries = {order.symbol for order in portfolio.orders if order.type == "sell"}
         assert {"S1", "S2"}.issubset(short_entries)
-        cover_orders = [order for order in portfolio.orders if order.type == "buy" and order.symbol == "S1"]
+        cover_orders = [
+            order for order in portfolio.orders if order.type == "buy" and order.symbol == "S1"
+        ]
         assert len(cover_orders) == 1
         assert "S1" not in portfolio.short_positions
         assert "S2" in portfolio.short_positions
@@ -1595,7 +1615,9 @@ class TestBacktestMixin:
         mixin = BacktestMixin()
         with pytest.raises(
             ValueError,
-            match=("score cannot be used with rotation enabled; use long_score or short_score instead."),
+            match=(
+                "score cannot be used with rotation enabled; use long_score or short_score instead."
+            ),
         ):
             mixin.backtest_executions(
                 config=StrategyConfig(max_long_positions=2),
@@ -1650,7 +1672,9 @@ class TestBacktestMixin:
             portfolio=portfolio,
             exit_dates={},
         )
-        s1_sells = [order for order in portfolio.orders if order.type == "sell" and order.symbol == "S1"]
+        s1_sells = [
+            order for order in portfolio.orders if order.type == "sell" and order.symbol == "S1"
+        ]
         # S1 stays inside the hold band, so rotation keeps it and the sell
         # placed by the execution is discarded.
         assert user_sells == ["S1"]
@@ -1666,7 +1690,12 @@ class TestBacktestMixin:
 
         def after_rotation_fn(rotation: RotationContext):
             for sym, ctx in rotation.ctxs.items():
-                if ctx.buy_shares and not ctx.long_pos() and ctx.sell_shares is None and sym in weights:
+                if (
+                    ctx.buy_shares
+                    and not ctx.long_pos()
+                    and ctx.sell_shares is None
+                    and sym in weights
+                ):
                     ctx.buy_shares = ctx.calc_target_shares(weights[sym])
                     ctx.buy_fill_price = PriceType.CLOSE
 
@@ -1923,7 +1952,10 @@ class TestBacktestMixin:
         # second order and double the 25% target allocation.
         buy_orders = [order for order in portfolio.orders if order.type == "buy"]
         assert len(buy_orders) == 2
-        assert {sym: pos.shares for sym, pos in portfolio.long_positions.items()} == {"A": 250, "B": 250}
+        assert {sym: pos.shares for sym, pos in portfolio.long_positions.items()} == {
+            "A": 250,
+            "B": 250,
+        }
 
     def test_backtest_executions_when_rotation_fills_free_slots_only(self):
         symbols = ["S1", "S2", "S3", "S4", "S5", "S6"]
@@ -1935,7 +1967,11 @@ class TestBacktestMixin:
 
         def rotation_sizer(rotation: RotationContext):
             entries_per_bar.append(
-                sum(1 for ctx in rotation.ctxs.values() if ctx.buy_shares is not None or ctx.sell_shares is not None)
+                sum(
+                    1
+                    for ctx in rotation.ctxs.values()
+                    if ctx.buy_shares is not None or ctx.sell_shares is not None
+                )
             )
 
         _run_rotation(
@@ -1972,7 +2008,12 @@ class TestBacktestMixin:
             worst_rank_held=2,
         )
         # Pyramiding is discarded, so every fill is a full rotation entry.
-        assert [order.shares for order in portfolio.orders if order.type == "buy"] == [500, 500, 500, 500]
+        assert [order.shares for order in portfolio.orders if order.type == "buy"] == [
+            500,
+            500,
+            500,
+            500,
+        ]
         assert set(portfolio.long_positions) == {"C", "D"}
 
     def test_backtest_executions_when_rotation_ignores_user_short(self):
@@ -2067,7 +2108,12 @@ class TestBacktestMixin:
 
         def after_rotation_fn(rotation: RotationContext):
             for sym, ctx in rotation.ctxs.items():
-                if ctx.buy_shares and not ctx.long_pos() and ctx.sell_shares is None and sym in weights:
+                if (
+                    ctx.buy_shares
+                    and not ctx.long_pos()
+                    and ctx.sell_shares is None
+                    and sym in weights
+                ):
                     ctx.buy_shares = ctx.calc_target_shares(weights[sym])
                     ctx.buy_fill_price = PriceType.CLOSE
 
@@ -2243,8 +2289,9 @@ class TestBacktestMixin:
                     ctx.sell_shares = 200
                 elif ctx.bars == 2:
                     ctx.cover_all_shares()
-            elif ctx.bars == 2:
-                ctx.sell_shares = 100
+            else:
+                if ctx.bars == 2:
+                    ctx.sell_shares = 100
 
         exec = Execution(
             id=1,
@@ -2324,7 +2371,7 @@ class TestBacktestMixin:
         assert len(list(filter(lambda t: t.symbol == "AAPL", trades))) == len(dates) - 1
 
     @pytest.mark.parametrize(
-        ("price_type", "expected_fill_price"),
+        "price_type, expected_fill_price",
         [
             (50, 50),
             (Decimal("111.1"), Decimal("111.1")),
@@ -2535,7 +2582,7 @@ class TestBacktestMixin:
         assert not len(portfolio.orders)
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_train_only():
     return [
         {
@@ -2549,7 +2596,7 @@ def executions_train_only():
     ]
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_only(executions_train_only):
     def exec_fn_1(ctx):
         if ctx.long_pos():
@@ -2568,7 +2615,7 @@ def executions_only(executions_train_only):
     return executions_train_only
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_indicators(executions_only, hhv_ind, llv_ind):
     def exec_fn_1(ctx):
         assert len(ctx.indicator(hhv_ind.name))
@@ -2584,7 +2631,7 @@ def executions_with_indicators(executions_only, hhv_ind, llv_ind):
     return executions_only
 
 
-@pytest.fixture
+@pytest.fixture()
 def exec_model_source(scope, data_source_df, indicators):
     return model(
         MODEL_NAME,
@@ -2597,7 +2644,7 @@ def exec_model_source(scope, data_source_df, indicators):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_models(executions_only, exec_model_source):
     def exec_fn(ctx):
         assert isinstance(ctx.model(exec_model_source.name), FakeModel)
@@ -2607,7 +2654,7 @@ def executions_with_models(executions_only, exec_model_source):
     return executions_only
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_models_and_indicators(executions_only, exec_model_source, hhv_ind, llv_ind):
     def exec_fn_1(ctx):
         assert len(ctx.indicator(llv_ind.name))
@@ -2729,7 +2776,7 @@ def _pooled_predict_fn(_model, df):
     return np.full(len(df), float(df["close"].iloc[0]))
 
 
-@pytest.fixture
+@pytest.fixture()
 def exec_pooled_model_source(scope, indicators):
     _pooled_train_calls.clear()
     return model(
@@ -2741,7 +2788,7 @@ def exec_pooled_model_source(scope, indicators):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def exec_picklable_pooled_model_source(scope, indicators):
     return model(
         POOLED_MODEL_NAME,
@@ -2752,7 +2799,7 @@ def exec_picklable_pooled_model_source(scope, indicators):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_pooled_models(executions_train_only, exec_pooled_model_source):
     def exec_fn(ctx):
         preds = ctx.preds(exec_pooled_model_source.name)
@@ -2764,8 +2811,10 @@ def executions_with_pooled_models(executions_train_only, exec_pooled_model_sourc
     return executions_train_only
 
 
-@pytest.fixture
-def executions_with_picklable_pooled_models(executions_train_only, exec_picklable_pooled_model_source):
+@pytest.fixture()
+def executions_with_picklable_pooled_models(
+    executions_train_only, exec_picklable_pooled_model_source
+):
     def exec_fn(ctx):
         preds = ctx.preds(exec_picklable_pooled_model_source.name)
         assert len(preds) > 0
@@ -2776,7 +2825,7 @@ def executions_with_picklable_pooled_models(executions_train_only, exec_picklabl
     return executions_train_only
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_two_picklable_pooled_groups(
     exec_picklable_pooled_model_source,
 ):
@@ -2799,8 +2848,10 @@ def executions_with_two_picklable_pooled_groups(
     ]
 
 
-@pytest.fixture
-def executions_with_picklable_pooled_and_non_pooled_models(exec_picklable_pooled_model_source, indicators):
+@pytest.fixture()
+def executions_with_picklable_pooled_and_non_pooled_models(
+    exec_picklable_pooled_model_source, indicators
+):
     non_pooled = model(
         MODEL_NAME,
         _picklable_train_non_pooled_fake_model,
@@ -2830,7 +2881,7 @@ def executions_with_picklable_pooled_and_non_pooled_models(exec_picklable_pooled
     ]
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_two_pooled_groups(executions_train_only, exec_pooled_model_source):
     def exec_fn(ctx):
         assert isinstance(ctx.model(exec_pooled_model_source.name), PooledFakeModel)
@@ -2851,7 +2902,7 @@ def executions_with_two_pooled_groups(executions_train_only, exec_pooled_model_s
     ]
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_pooled_and_non_pooled_models(exec_pooled_model_source, indicators):
     non_pooled = model(
         MODEL_NAME,
@@ -2885,7 +2936,7 @@ def executions_with_pooled_and_non_pooled_models(exec_pooled_model_source, indic
     ]
 
 
-@pytest.fixture
+@pytest.fixture()
 def ray_backend():
     ray = pytest.importorskip("ray")
     from ray.util.joblib import register_ray
@@ -2896,7 +2947,7 @@ def ray_backend():
     ray.shutdown()
 
 
-@pytest.fixture
+@pytest.fixture()
 def exec_picklable_model_source(scope, indicators):
     return model(
         MODEL_NAME,
@@ -2906,7 +2957,7 @@ def exec_picklable_model_source(scope, indicators):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def executions_with_picklable_models(executions_only, exec_picklable_model_source):
     def exec_fn(ctx):
         assert isinstance(ctx.model(exec_picklable_model_source.name), FakeModel)
@@ -3102,7 +3153,9 @@ class TestStrategy:
         assert len(_pooled_train_calls) == 2
         assert saw_weekly_preds
 
-    def test_walkforward_pooled_parallel_models(self, data_source_df, executions_with_picklable_pooled_models):
+    def test_walkforward_pooled_parallel_models(
+        self, data_source_df, executions_with_picklable_pooled_models
+    ):
         _parallel_mod = import_module("pybroker.parallel")
         saved = get_parallel_config()
         try:
@@ -3222,7 +3275,9 @@ class TestStrategy:
             _parallel_mod._config = saved
 
     @pytest.mark.xdist_group(name="loky")
-    def test_walkforward_parallel_models_loky(self, data_source_df, executions_with_picklable_models):
+    def test_walkforward_parallel_models_loky(
+        self, data_source_df, executions_with_picklable_models
+    ):
         _parallel_mod = import_module("pybroker.parallel")
         saved = get_parallel_config()
         try:
@@ -3254,7 +3309,9 @@ class TestStrategy:
             _parallel_mod._config = saved
 
     @pytest.mark.xdist_group(name="ray")
-    def test_walkforward_parallel_models_ray(self, data_source_df, executions_with_picklable_models, ray_backend):
+    def test_walkforward_parallel_models_ray(
+        self, data_source_df, executions_with_picklable_models, ray_backend
+    ):
         _parallel_mod = import_module("pybroker.parallel")
         saved = get_parallel_config()
         try:
@@ -3303,7 +3360,9 @@ class TestStrategy:
         strategy.add_execution(exec_fn, ["AAPL", "SPY"])
         result = strategy.walkforward(windows=3, calc_bootstrap=False)
         dates = set()
-        for _, test_idx in strategy.walkforward_split(data_source_df, windows=3, lookahead=1, train_size=0.5):
+        for _, test_idx in strategy.walkforward_split(
+            data_source_df, windows=3, lookahead=1, train_size=0.5
+        ):
             df = data_source_df.iloc[test_idx]
             df = df[df["symbol"].isin(["AAPL", "SPY"])]
             dates.update(df["date"].values)
@@ -3398,7 +3457,7 @@ class TestStrategy:
             strategy.walkforward(windows=3, lookahead=1)
 
     @pytest.mark.parametrize(
-        ("start_date_1", "end_date_1", "start_date_2", "end_date_2", "expected_msg"),
+        "start_date_1, end_date_1, start_date_2, end_date_2, expected_msg",
         [
             (
                 "2020-03-01",
@@ -3537,7 +3596,9 @@ class TestStrategy:
         payload = result.to_json(include=include)
         records = payload["signals"]["AAPL"]
         assert records
-        assert all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", record["earnings_date"]) for record in records)
+        assert all(
+            re.fullmatch(r"\d{4}-\d{2}-\d{2}", record["earnings_date"]) for record in records
+        )
         assert "index" not in records[0]
         json.loads(result.to_json_str(include=include))
 
@@ -3548,7 +3609,9 @@ class TestStrategy:
         proba_model = model(
             "proba_model",
             lambda sym, train_data, test_data: object(),
-            predict_fn=lambda _model, df: np.column_stack((np.full(len(df), 0.4), np.full(len(df), 0.6))),
+            predict_fn=lambda _model, df: np.column_stack(
+                (np.full(len(df), 0.4), np.full(len(df), 0.6))
+            ),
         )
 
         def exec_fn(ctx):
@@ -3640,7 +3703,9 @@ class TestStrategy:
         strategy.add_execution(exec_fn, ["AAPL"], indicators=colliding, models=prob)
         with pytest.raises(
             ValueError,
-            match=re.escape("Model prediction column(s) collide with existing column(s): ['prob_pred']"),
+            match=re.escape(
+                "Model prediction column(s) collide with existing column(s): ['prob_pred']"
+            ),
         ):
             strategy.backtest()
 
@@ -3661,7 +3726,9 @@ class TestStrategy:
         strategy.add_execution(exec_fn, ["AAPL"], indicators=colliding, models=prob)
         with pytest.raises(
             ValueError,
-            match=re.escape("Model prediction column(s) collide with existing column(s): ['prob_pred_0']"),
+            match=re.escape(
+                "Model prediction column(s) collide with existing column(s): ['prob_pred_0']"
+            ),
         ):
             strategy.backtest()
 
@@ -3763,11 +3830,11 @@ class TestStrategy:
 
     @pytest.mark.parametrize("tz", ["UTC", None])
     @pytest.mark.parametrize(
-        ("between_time", "expected_hour"),
+        "between_time, expected_hour",
         [(None, None), (("10:00", "1:00"), (10, 13))],
     )
     @pytest.mark.parametrize(
-        ("days", "expected_days"),
+        "days, expected_days",
         [
             (None, None),
             ("tues", {1}),
@@ -3824,7 +3891,10 @@ class TestStrategy:
         end_date = pd.to_datetime("12/1/2021").to_pydatetime()
         with pytest.raises(
             ValueError,
-            match=re.escape("between_time must be a tuple[str, str] of start time and end time, received '9:00'."),
+            match=re.escape(
+                "between_time must be a tuple[str, str] of start time and end"
+                " time, received '9:00'."
+            ),
         ):
             strategy._filter_dates(
                 data_source_df,
@@ -3855,15 +3925,8 @@ class TestStrategy:
             strategy.add_execution(exec_fn_2, "AAPL")
 
     @pytest.mark.parametrize(
-        (
-            "initial_cash",
-            "max_long_positions",
-            "max_short_positions",
-            "buy_delay",
-            "sell_delay",
-            "bootstrap_samples",
-            "expected_msg",
-        ),
+        "initial_cash, max_long_positions, max_short_positions, buy_delay,"
+        "sell_delay, bootstrap_samples, expected_msg",
         [
             (
                 -1,
@@ -3944,25 +4007,25 @@ class TestStrategy:
             Strategy(data_source_df, START_DATE, END_DATE, config)
 
     @pytest.mark.parametrize(
-        ("setup_fn", "expected_msg"),
+        "setup_fn, expected_msg",
         [
             (
                 lambda s: s.enable_rotation(5),
-                ("worst_rank_held requires max_long_positions or max_short_positions to be set."),
+                "worst_rank_held requires max_long_positions or max_short_positions to be set.",
             ),
             (
                 lambda s: (
                     s.set_max_long_positions(2),
                     s.enable_rotation(1),
                 ),
-                ("worst_rank_held must be greater than or equal to max_long_positions."),
+                "worst_rank_held must be greater than or equal to max_long_positions.",
             ),
             (
                 lambda s: (
                     s.set_max_short_positions(2),
                     s.enable_rotation(1),
                 ),
-                ("worst_rank_held must be greater than or equal to max_short_positions."),
+                "worst_rank_held must be greater than or equal to max_short_positions.",
             ),
         ],
     )
@@ -3983,7 +4046,7 @@ class TestStrategy:
         assert settings.max_long_positions == 2
 
     @pytest.mark.parametrize(
-        ("leverage", "expected_msg"),
+        "leverage, expected_msg",
         [
             (0, "leverage must be greater than or equal to 1."),
             (0.5, "leverage must be greater than or equal to 1."),
@@ -4188,7 +4251,8 @@ class TestStrategy:
         assert not strategy._executions
 
     @pytest.mark.parametrize(
-        ("enable_fractional_shares", "expected_shares_type", "expected_short_shares", "expected_long_shares"),
+        "enable_fractional_shares, expected_shares_type,"
+        "expected_short_shares, expected_long_shares",
         [(True, np.float64, 0.1, 3.14), (False, np.int_, 0, 3)],
     )
     def test_to_test_result_when_fractional_shares(
@@ -4510,7 +4574,9 @@ class TestStrategy:
         strategy.add_execution(exec_fn, ["AAPL", "SPY"])
         with pytest.raises(
             ValueError,
-            match=re.escape("For each symbol, only one of buy_shares or sell_shares can be set per bar."),
+            match=re.escape(
+                "For each symbol, only one of buy_shares or sell_shares can be set per bar."
+            ),
         ):
             strategy.backtest()
 
@@ -4846,7 +4912,9 @@ class TestStrategy:
             return strategy
 
         backtest_result = make_strategy().backtest(calc_bootstrap=False)
-        walkforward_result = make_strategy().walkforward(windows=1, train_size=0, calc_bootstrap=False)
+        walkforward_result = make_strategy().walkforward(
+            windows=1, train_size=0, calc_bootstrap=False
+        )
         pd.testing.assert_frame_equal(
             backtest_result.orders.reset_index(drop=True),
             walkforward_result.orders.reset_index(drop=True),
@@ -4877,7 +4945,9 @@ class TestStrategy:
         "bad_shares",
         [lambda shares: shares + 1, lambda shares: Decimal(-1)],
     )
-    def test_backtest_when_slippage_returns_invalid_shares_then_error(self, data_source_df, bad_shares):
+    def test_backtest_when_slippage_returns_invalid_shares_then_error(
+        self, data_source_df, bad_shares
+    ):
         # A fill-time model may only reduce shares (a partial fill). An
         # increase used to be honored unclamped -- on an exit order it could
         # even flip the position, since the can't-sell-more-than-held clamp
@@ -4990,7 +5060,9 @@ class TestStrategy:
         orders = result.orders
         assert len(orders)
         sym_df = data_source_df[data_source_df["symbol"] == "SPY"]
-        sym_df = sym_df[(sym_df["date"] >= START_DATE) & (sym_df["date"] <= END_DATE)].sort_values("date")
+        sym_df = sym_df[(sym_df["date"] >= START_DATE) & (sym_df["date"] <= END_DATE)].sort_values(
+            "date"
+        )
         from pybroker.vect import atr as vect_atr
 
         atr_values = vect_atr(
@@ -5218,7 +5290,7 @@ class TestStrategy:
                 ctx.buy_shares = 100
                 ctx.stop_loss = 10
             elif ctx.bars == 10:
-                entry = next(iter(ctx.long_pos().entries))
+                entry = tuple(ctx.long_pos().entries)[0]
                 stop = next(iter(entry.stops))
                 assert ctx.cancel_stop(stop_id=stop.id)
 
@@ -5384,9 +5456,8 @@ class TestStrategy:
     def test_backtest_when_warmup(self, data_source_df):
         def exec_fn(ctx):
             if ctx.bars <= 10:
-                msg = "Warmup failed."
-                raise AssertionError(msg)
-            if not ctx.long_pos():
+                raise AssertionError("Warmup failed.")
+            elif not ctx.long_pos():
                 ctx.buy_shares = 100
 
         strategy = Strategy(data_source_df, START_DATE, END_DATE)
@@ -5547,7 +5618,7 @@ class TestStrategyIntervals:
             strategy.walkforward(windows=1, timeframe="1d")
 
     @pytest.mark.parametrize(
-        ("interval", "match"),
+        "interval,match",
         [
             ("daily", "Cannot compress daily bars"),
             ("1m", "Cannot compress daily bars"),
@@ -6117,7 +6188,7 @@ class TestStrategyIntervals:
             strategy.add_execution(lambda ctx: None, "SPY", intervals=[])
 
     @pytest.mark.parametrize(
-        ("intervals", "expected"),
+        "intervals,expected",
         [
             ("weekly", frozenset({"weekly"})),
             (5, frozenset({5})),
@@ -6231,7 +6302,9 @@ class TestStrategyIntervals:
             run_fn(strategy)
             return self._interval_gaps(wk_dates, calls)
 
-        wf_gaps = run(lambda s: s.walkforward(windows=1, lookahead=3, train_size=0.5, timeframe="1d"))
+        wf_gaps = run(
+            lambda s: s.walkforward(windows=1, lookahead=3, train_size=0.5, timeframe="1d")
+        )
         bt_gaps = run(lambda s: s.backtest(lookahead=3, train_size=0.5, timeframe="1d"))
         assert wf_gaps
         assert bt_gaps == wf_gaps

@@ -36,11 +36,9 @@ Kite provides:
 import contextlib
 from collections.abc import Callable
 from datetime import datetime
-from typing import List, Optional
-
-from utils.logger import get_logger
 
 from config.settings import KITE_ACCESS_TOKEN, KITE_API_KEY
+from utils.logger import get_logger
 
 logger = get_logger("market_stream")
 
@@ -73,9 +71,11 @@ class KiteStream:
             self._ticker.connect(threaded=True)
 
         except ImportError:
-            logger.warning("kiteconnect not installed or not configured. Live Kite stream unavailable.")
+            logger.warning(
+                "kiteconnect not installed or not configured. Live Kite stream unavailable."
+            )
         except Exception as e:
-            logger.exception(f"Kite WebSocket connection failed: {e}")
+            logger.error(f"Kite WebSocket connection failed: {e}")
 
     def _on_connect(self, ws, response):
         logger.info("Kite WebSocket connected.")
@@ -91,7 +91,7 @@ class KiteStream:
                 try:
                     cb(tick)
                 except Exception as e:
-                    logger.exception(f"Tick callback error: {e}")
+                    logger.error(f"Tick callback error: {e}")
 
     def _on_close(self, ws, code, reason):
         logger.warning(f"Kite WebSocket closed: {code} – {reason}")

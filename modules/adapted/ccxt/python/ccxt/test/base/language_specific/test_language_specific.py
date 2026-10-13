@@ -36,21 +36,13 @@ sys.path.append(root)
 # -*- coding: utf-8 -*-
 
 
-from ccxt.test.base.language_specific.test_close_session_leak import (
-    test_close_session_leak,  # hand-written python-only
-)
-from ccxt.test.base.language_specific.test_extend_slow_path import (
-    test_extend_slow_path,  # hand-written python-only
-)
-from ccxt.test.base.language_specific.test_precise_instance import (
-    test_precise_instance,  # hand-written python-only
-)
-from ccxt.test.base.language_specific.test_sort_by_fallback import (
-    test_sort_by_2_fallback,  # hand-written python-only
-    test_sort_by_fallback,  # hand-written python-only
-)
-from ccxt.test.base.language_specific.test_throttler_performance import test_throttler_performance  # noqa: E402
-from ccxt.test.base.test_deep_extend import test_deep_extend  # noqa: E402
+from ccxt.test.base.test_deep_extend import test_deep_extend  # noqa E402
+from ccxt.test.base.language_specific.test_throttler_performance import test_throttler_performance  # noqa E402
+from ccxt.test.base.language_specific.test_close_session_leak import test_close_session_leak  # noqa E402  # hand-written python-only
+from ccxt.test.base.language_specific.test_precise_instance import test_precise_instance  # noqa E402  # hand-written python-only
+from ccxt.test.base.language_specific.test_sort_by_fallback import test_sort_by_fallback  # noqa E402  # hand-written python-only
+from ccxt.test.base.language_specific.test_sort_by_fallback import test_sort_by_2_fallback  # noqa E402  # hand-written python-only
+from ccxt.test.base.language_specific.test_extend_slow_path import test_extend_slow_path  # noqa E402  # hand-written python-only
 
 
 async def test_language_specific():

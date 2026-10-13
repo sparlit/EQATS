@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -37,10 +39,10 @@ sys.path.append(root)
 
 import asyncio
 
-from ccxt.base.errors import ArgumentsRequired  # noqa: E402
+from ccxt.base.errors import ArgumentsRequired  # noqa E402
 from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_ticker,
+    test_shared_methods,  # noqa E402
+    test_ticker,  # noqa E402
 )
 
 
@@ -70,13 +72,15 @@ async def test_watch_tickers_helper(exchange, skipped_properties, arg_symbols, a
             # to "all tickers" itself, and it requires symbols to be set
             # so, in such case, if it's arguments-required exception, we don't
             # mark tests as failed, but just skip them
-            if (isinstance(e, ArgumentsRequired)) and (arg_symbols is None or len(arg_symbols) == 0):
-                # TODO: provide random symbols to try
+            if (isinstance(e, ArgumentsRequired)) and (
+                arg_symbols is None or len(arg_symbols) == 0
+            ):
+                # todo: provide random symbols to try
                 # return;
                 # return false;
                 should_return = True
             elif not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             success = False
         now = exchange.milliseconds()
         if should_return:
@@ -95,19 +99,23 @@ async def test_watch_tickers_helper(exchange, skipped_properties, arg_symbols, a
             checked_symbol = None
             if arg_symbols is not None and len(arg_symbols) == 1:
                 checked_symbol = arg_symbols[0]
-            test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, values, checked_symbol)
-            for i in range(len(values)):
+            test_shared_methods.assert_non_emtpy_array(
+                exchange, skipped_properties, method, values, checked_symbol
+            )
+            for i in range(0, len(values)):
                 ticker = values[i]
                 try:
                     test_ticker(exchange, skipped_properties, method, ticker, checked_symbol)
                 except Exception as ex:
                     ohlcv = None
                     ticker_symbol = ticker["symbol"]
-                    if (ticker_symbol is not None) and test_shared_methods.ticker_exception_needs_ohlcv(
-                        ex, exchange, ticker
-                    ):
+                    if (
+                        ticker_symbol is not None
+                    ) and test_shared_methods.ticker_exception_needs_ohlcv(ex, exchange, ticker):
                         ohlcv = await exchange.fetch_ohlcv(ticker_symbol, "1d", None, 5)
-                    test_shared_methods.validate_ticker_exception_for_percentage(ex, exchange, ticker, ohlcv)
+                    test_shared_methods.validate_ticker_exception_for_percentage(
+                        ex, exchange, ticker, ohlcv
+                    )
             if (now - start_time) > max_idle_time:
                 idle = True
     return True

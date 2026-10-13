@@ -62,7 +62,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 state_db.ensure_kite_credentials_seeded(
-    os.getenv("KITE_API_KEY", ""), os.getenv("KITE_API_SECRET", ""), os.getenv("KITE_ACCESS_TOKEN", "")
+    os.getenv("KITE_API_KEY", ""),
+    os.getenv("KITE_API_SECRET", ""),
+    os.getenv("KITE_ACCESS_TOKEN", ""),
 )
 _kite_creds = state_db.get_kite_credentials()
 
@@ -95,7 +97,11 @@ UNIVERSE_OVERRIDE: list[str] = []  # non-empty = use this instead
 
 
 def get_universe(refresh: bool = False) -> list[str]:
-    base = UNIVERSE_OVERRIDE or _fno.tradable_on_kite(_fno.get_fno_universe(force_refresh=refresh))
+    base = (
+        UNIVERSE_OVERRIDE
+        if UNIVERSE_OVERRIDE
+        else _fno.tradable_on_kite(_fno.get_fno_universe(force_refresh=refresh))
+    )
     skipped = set(state_db.get_skipped_symbols())
     return [s for s in base if s not in skipped]
 

@@ -22,11 +22,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import argparse
-import sys
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import animation, style
 from playsound import playsound
 from utilities import *
 
@@ -40,9 +39,16 @@ parser.add_argument(
     help="Link of the required Derivative",
 )
 parser.add_argument(
-    "-p", "--pointsnum", type=int, default=7, metavar="", help="Number of points required on either side"
+    "-p",
+    "--pointsnum",
+    type=int,
+    default=7,
+    metavar="",
+    help="Number of points required on either side",
 )
-parser.add_argument("-q", "--quantity", type=str, default="OI", metavar="", help="What you want to plot")
+parser.add_argument(
+    "-q", "--quantity", type=str, default="OI", metavar="", help="What you want to plot"
+)
 args = parser.parse_args()
 ##style.use('fivethirtyeight')
 
@@ -81,7 +87,9 @@ def animate(i):
     ax1.bar(indices + bar_width, y2, bar_width, color="r", label="Puts")
     ax1.set_xlabel("Strike Prices")
     ax1.set_ylabel(args.quantity)
-    ax1.set_title("Live Bar Graph for " + args.quantity + " with Spot Price : " + str(web_data["Price"]))
+    ax1.set_title(
+        "Live Bar Graph for " + args.quantity + " with Spot Price : " + str(web_data["Price"])
+    )
     ax1.set_xticks(indices + bar_width / 2)
     ax1.set_xticklabels(strike_prices, rotation=90)
     ax1.legend()

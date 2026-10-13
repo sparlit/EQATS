@@ -81,7 +81,10 @@ TARGETS = os.path.join(HERE, "_rev2020_targets.json")
 # whatever _rev2020_targets.json currently holds), so `--ledger <name>` keeps one campaign's
 # anchor chains out of another's file. Default unchanged, so existing invocations still work.
 FILLS = os.path.join(
-    SCRIPTS, sys.argv[sys.argv.index("--ledger") + 1] if "--ledger" in sys.argv else "deoverlay_rev_fills2019.json"
+    SCRIPTS,
+    sys.argv[sys.argv.index("--ledger") + 1]
+    if "--ledger" in sys.argv
+    else "deoverlay_rev_fills2019.json",
 )
 SKIPS = os.path.join(HERE, "_deoverlay_skips.json")
 REVOP_DOCS = os.path.join(ROOT, "docs", "sf_revop.json")
@@ -129,7 +132,7 @@ def deoverlay_words(words):
     """One token per position bucket, by MAJORITY vote. No strict majority -> the bucket is
     dropped, so a disputed figure can never reach the anchor or the store."""
     out = []
-    for ws in buckets(words).values():
+    for _key, ws in buckets(words).items():
         if len(ws) == 1:
             out.append(ws[0])
             continue
@@ -204,7 +207,10 @@ OWN_TOLERANT = BG.re.compile(
 )
 
 MONTHS = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 RE_DAY = BG.re.compile(r"^(\d{1,2})(?:st|nd|rd|th)?[-,]?$", BG.re.I)
 RE_YEAR = BG.re.compile(r"^((?:19|20)\d{2})[.,]?$")
@@ -271,7 +277,11 @@ def header_dates(words):
                     # the year token repeats on an overlaid render — take the RIGHTMOST copy
                     xr = ws[k][2]
                     kk = k + 1
-                    while kk < len(ws) and RE_YEAR.match(ws[kk][4].strip()) and abs(ws[kk][0] - ws[k][0]) < 6:
+                    while (
+                        kk < len(ws)
+                        and RE_YEAR.match(ws[kk][4].strip())
+                        and abs(ws[kk][0] - ws[k][0]) < 6
+                    ):
                         xr = max(xr, ws[kk][2])
                         kk += 1
                     out.append((xr, yr * 10000 + mon * 100 + day, (ws[k][1] + ws[k][3]) / 2))
@@ -344,7 +354,7 @@ def date_column(rows, hdates, target_qe, guard_row=None):
     cols = sorted({x for x, _ in rows.get("rev", [])})
     if not cols:
         return None, "no revenue columns"
-    guard_row or rows.get("rev", [])
+    guard_row if guard_row else rows.get("rev", [])
 
     def nearest(xd):
         best = min(cols, key=lambda c: abs(c - xd))
@@ -425,7 +435,10 @@ def main():
             lo = qe_date(qe) + datetime.timedelta(days=8)
             hi = qe_date(qe) + datetime.timedelta(days=160)
             try:
-                fils = FI.datebound(sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d")) or []
+                fils = (
+                    FI.datebound(sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d"))
+                    or []
+                )
             except Exception as ex:
                 skips[key] = f"ann-list-error:{type(ex).__name__}"
                 continue
@@ -466,7 +479,9 @@ def main():
                     head = txt[:1200]
                     is_con, is_std = bool(BG.CON_HDR.search(head)), bool(BG.STD_HDR.search(head))
                     bases = (
-                        ["con"] if (is_con and not is_std) else (["std"] if (is_std and not is_con) else ["std", "con"])
+                        ["con"]
+                        if (is_con and not is_std)
+                        else (["std"] if (is_std and not is_con) else ["std", "con"])
                     )
                     if basis not in bases:
                         continue
@@ -477,7 +492,9 @@ def main():
                         for k, pat in BG.ROW_PATS.items():
                             if k in rows or not nums:
                                 continue
-                            if k in ("oi", "fc", "dep", "tax", "ti") and BG.re.search(r"profit|loss", low, BG.re.I):
+                            if k in ("oi", "fc", "dep", "tax", "ti") and BG.re.search(
+                                r"profit|loss", low, BG.re.I
+                            ):
                                 continue
                             if k in ("oi", "tax", "ti"):
                                 if pat.match(BG.re.sub(r"^[0-9ivxIVX\.\)\(\s]+", "", low)):
@@ -492,7 +509,7 @@ def main():
                             and BG.re.search(r"owners?\s+of\s+the\s+(company|parent)", low, BG.re.I)
                         ):
                             rows["own"] = nums
-                    rev_row, _rev_rank = pick_rev_row(merged)
+                    rev_row, rev_rank = pick_rev_row(merged)
                     if rev_row is not None:
                         rows["rev"] = rev_row
                     if bank_mode:
@@ -568,9 +585,15 @@ def main():
                         continue
                     # COLUMN IDENTITY comes from the printed header date (§55b) — independent of
                     # anything we store, so it also settles which quarter a comparative column is.
-                    words = deoverlay_words(page.get_text("words")) if was_overlaid else page.get_text("words")
+                    words = (
+                        deoverlay_words(page.get_text("words"))
+                        if was_overlaid
+                        else page.get_text("words")
+                    )
                     hd = header_dates(words)
-                    base_pat_row = rows.get("own") if (basis == "con" and rows.get("own")) else rows.get("pat")
+                    base_pat_row = (
+                        rows.get("own") if (basis == "con" and rows.get("own")) else rows.get("pat")
+                    )
                     cand_cols, colwhy = date_column(rows, hd, qe, guard_row=base_pat_row)
                     if not cand_cols:
                         if not why_sticky:
@@ -605,7 +628,7 @@ def main():
                                         chosen = (d, xc, v, sc, cand_row)
                     scale = None
                     if chosen is not None:
-                        _, xcol, pv_raw, scale, _pat_row = chosen
+                        _, xcol, pv_raw, scale, pat_row = chosen
                     else:
                         xcol = cand_cols[0]
                         pv_raw = BG.val_at(base_pat_row or [], xcol)
@@ -627,7 +650,9 @@ def main():
                     # revS exactly (con/std ratio 1.0000). The PAT anchor alone cannot tell the two
                     # apart when the bases are close. Require the anchored value to match the
                     # TARGET basis STRICTLY BETTER than the other one.
-                    other_pat = (fmap.get(sym, {}).get(qe) or [None] * 4)[3 if basis == "std" else 1]
+                    other_pat = (fmap.get(sym, {}).get(qe) or [None] * 4)[
+                        3 if basis == "std" else 1
+                    ]
                     if other_pat is not None:
                         d_target = abs(pv_raw / scale - stored_pat)
                         d_other = abs(pv_raw / scale - other_pat)
@@ -695,7 +720,11 @@ def main():
                         "method": (
                             "printed-date column (§55b) + stored-PAT anchor + "
                             "rev+other-income==total-income identity"
-                            + ("; text layer de-overlaid by majority vote over stacked renders" if was_overlaid else "")
+                            + (
+                                "; text layer de-overlaid by majority vote over stacked renders"
+                                if was_overlaid
+                                else ""
+                            )
                         ),
                     }
                     break
@@ -705,17 +734,22 @@ def main():
             if not got:
                 # report the ACTUAL last failure; `overlaid_seen` only records whether the
                 # de-overlay path fired, since this reader also reads normal pages.
-                skips[key] = "{}{}".format(why, " [no overlaid page seen]" if not overlaid_seen else "")
+                skips[key] = "{}{}".format(
+                    why, " [no overlaid page seen]" if not overlaid_seen else ""
+                )
                 continue
             if got["identity"] is not None and not got["identity"]["ok"]:
                 skips[key] = "identity-failed rev+oi {:.2f} vs printed total income {:.2f}".format(
-                    got["identity"]["rev_plus_other_income"], got["identity"]["total_income_printed"]
+                    got["identity"]["rev_plus_other_income"],
+                    got["identity"]["total_income_printed"],
                 )
                 continue
             if basis == "con":
                 std_rev = ((revop.get(sym) or {}).get(str(qe)) or [None])[0]
                 if std_rev and std_rev > 0 and got["rev"] < 0.5 * std_rev:
-                    skips[key] = "con-rev-far-below-std {:.2f} vs {:.2f}".format(got["rev"], std_rev)
+                    skips[key] = "con-rev-far-below-std {:.2f} vs {:.2f}".format(
+                        got["rev"], std_rev
+                    )
                     continue
             fills[key] = got
             nread += 1
@@ -729,7 +763,9 @@ def main():
                     got["op"],
                     got["pat_at_column"],
                     got["stored_pat"],
-                    "n/a" if got["identity"] is None else ("OK" if got["identity"]["ok"] else "FAIL"),
+                    "n/a"
+                    if got["identity"] is None
+                    else ("OK" if got["identity"]["ok"] else "FAIL"),
                     "  [de-overlaid]" if got["deoverlaid"] else "",
                 ),
                 flush=True,

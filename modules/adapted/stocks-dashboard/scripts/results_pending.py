@@ -75,7 +75,9 @@ def classify(qe=None, unknown=True):
     CO = qr["co"]
     feed = (_load("results_feed.json") or {"rows": []})["rows"]
     # keyed the way the feed files a BSE-only company: 'GSTL-BSE' when GSTL is an unrelated NSE symbol
-    univ = {bse_resolve.bse_key(r[1]): r for r in (_load("bse_universe.json") or {"rows": []})["rows"]}
+    univ = {
+        bse_resolve.bse_key(r[1]): r for r in (_load("bse_universe.json") or {"rows": []})["rows"]
+    }
     bf = (_load("bse_fundamentals.json") or {}).get("px", {})
     sf = _load("sf_fundamentals.json") or {}
     vf = _load("vision_fills.json") or {}
@@ -85,7 +87,10 @@ def classify(qe=None, unknown=True):
         s
         for s, qs in sf.items()
         if any(
-            isinstance(r, list) and r and int(r[0]) == qe and (r[1] is not None or (len(r) > 3 and r[3] is not None))
+            isinstance(r, list)
+            and r
+            and int(r[0]) == qe
+            and (r[1] is not None or (len(r) > 3 and r[3] is not None))
             for r in rows_of(qs)
         )
     }
@@ -207,7 +212,11 @@ def classify(qe=None, unknown=True):
 def find_unknown_qe(limit=12):
     """qe==0 feed rows for bse_vision_prep's quarter-resolution pass — biggest-mcap first."""
     _, rows = classify()
-    un = [(e["sym"], e["name"], e["mcap"], e["pdf"], e["ann"], e["scrip"]) for e in rows if e["status"] == "unknown_qe"]
+    un = [
+        (e["sym"], e["name"], e["mcap"], e["pdf"], e["ann"], e["scrip"])
+        for e in rows
+        if e["status"] == "unknown_qe"
+    ]
     un.sort(key=lambda x: -(x[2] or 0))
     return un[:limit]
 
@@ -219,7 +228,12 @@ def _split(rows, limit):
         if e["status"] == "pending" and e["exch"] == "NSE"
     ]
     bse = [
-        (e["scrip"], (e["sym"], e["name"], e["mcap"])) for e in rows if e["status"] == "pending" and e["exch"] == "BSE"
+        (
+            e["scrip"],
+            (e["sym"], e["name"], e["mcap"], e["pdf"]),
+        )  # pdf = the feed row's own attachment (§218b)
+        for e in rows
+        if e["status"] == "pending" and e["exch"] == "BSE"
     ]
     nse.sort(key=lambda x: -(x[2] or 0))
     bse.sort(key=lambda kv: -(kv[1][2] or 0))
@@ -233,10 +247,44 @@ def find_pending(limit):
     return qe, nse, bse
 
 
-def find_pending_late(limit, depth=2):
+def find_pending_ahead(limit):
+    """[(qe, nse, bse)] for quarters NEWER than the page's current one that the feed shows already filed —
+    newest first. The current quarter only advances once some company's numbers are stored, so a season's
+    first filers were never read (HIIL, Sep-2026 filed 2026-10-03 while quarters[0] was still Jun) — §218."""
+    import datetime
+
+    qr = _load("quarterly_results.json") or {}
+    cur = int((qr.get("quarters") or [0])[0])
+    today = int(
+        (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y%m%d")
+    )  # IST day
+    feed = (_load("results_feed.json") or {"rows": []})["rows"]
+    ahead = sorted(
+        {
+            int(r[3])
+            for r in feed
+            if isinstance(r[3], int)
+            and cur < r[3] < today
+            and r[3] % 10000 in (331, 630, 930, 1231)
+        },
+        reverse=True,
+    )
+    out = []
+    for qe in ahead:
+        _, rows = classify(qe, unknown=False)
+        nse, bse = _split(rows, limit)
+        if nse or bse:
+            out.append((qe, nse, bse))
+    return out
+
+
+def find_pending_late(limit, depth=12):
     """[(qe, nse, bse)] for the `depth` quarters BEFORE the current one: late filers. When the newest
     quarter flips (Jun -> Sep), every Jun filing still unread used to fall off the vision to-do list,
-    because only quarters[0] was ever classified (2026-09-27: 18 older-quarter feed rows unqueued)."""
+    because only quarters[0] was ever classified (2026-09-27: 18 older-quarter feed rows unqueued).
+    depth 12 = every older quarter on the page (§218): at depth 2 catch-up filers for older quarters
+    (CMICABLES Jun/Sep/Dec-2025, FUTURAPOLY Dec-2024, filed Sep-2026) were filed to the right quarter but
+    never read. Each filing stays in ITS OWN stated quarter; a late Jun result is never read as Sep."""
     qr = _load("quarterly_results.json") or {}
     out = []
     for qe in (qr.get("quarters") or [])[1 : 1 + depth]:

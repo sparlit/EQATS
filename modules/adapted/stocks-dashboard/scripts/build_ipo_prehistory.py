@@ -76,7 +76,9 @@ import fetch_ipos as FI  # reuse the NSE public-issues session + iso()
 
 OUT = os.path.join(DOCS, "ipo_prehistory.json")
 SF_FUND = os.path.join(DOCS, "sf_fundamentals.json")  # [[qe, npStd, annStd, npCon, annCon]]
-LOOKBACK_DAYS = 1095  # seed the backlog from IPOs of the last ~3 years (older names already covered)
+LOOKBACK_DAYS = (
+    1095  # seed the backlog from IPOs of the last ~3 years (older names already covered)
+)
 PER_RUN = 120  # cap names attempted per run so the daily job stays well under CI timeout
 DORMANT_AFTER = 45  # pending attempts with no annual data -> check occasionally, not daily
 DORMANT_EVERY = 7  # ...retry a dormant name only every Nth day (by tries count)
@@ -169,10 +171,14 @@ def screener_annuals(sym):
         req = urllib.request.Request(url, headers={"User-Agent": SCR_UA})
         t = urllib.request.urlopen(req, timeout=25).read().decode("utf-8", "replace")
     except urllib.error.HTTPError as ex:
-        return [], "", f"screener: HTTP {ex.code}"  # 404 = no page; 429 = rate-limited (retry next run)
+        return (
+            [],
+            "",
+            f"screener: HTTP {ex.code}",
+        )  # 404 = no page; 429 = rate-limited (retry next run)
     except Exception as ex:
         return [], "", f"screener: {ex}"
-    m = re.search(r'id="profit-loss".*?</section>', t, re.DOTALL)
+    m = re.search(r'id="profit-loss".*?</section>', t, re.S)
     if not m:
         return [], "", "screener: no P&L section"
     sec = m.group(0)
@@ -182,15 +188,17 @@ def screener_annuals(sym):
 
     def row(lbl):
         mm = re.search(
-            r'<td[^>]*class="text"[^>]*>\s*(?:<button[^>]*>)?\s*' + re.escape(lbl) + r".*?</td>(.*?)</tr>",
+            r'<td[^>]*class="text"[^>]*>\s*(?:<button[^>]*>)?\s*'
+            + re.escape(lbl)
+            + r".*?</td>(.*?)</tr>",
             sec,
-            re.DOTALL,
+            re.S,
         )
         if not mm:
             return []
         return [
             html.unescape(re.sub(r"<[^>]+>", "", c)).strip().replace(",", "")
-            for c in re.findall(r"<td[^>]*>(.*?)</td>", mm.group(1), re.DOTALL)
+            for c in re.findall(r"<td[^>]*>(.*?)</td>", mm.group(1), re.S)
         ]
 
     sales, nps = row("Sales"), row("Net Profit")
@@ -205,13 +213,16 @@ def screener_annuals(sym):
         pat = _num(nps[i]) if i < len(nps) else None
         if rev is None and pat is None:
             continue
-        if rev is not None and pat is not None and abs(pat) > max(3 * abs(rev), 50):  # outlier guard
+        if (
+            rev is not None and pat is not None and abs(pat) > max(3 * abs(rev), 50)
+        ):  # outlier guard
             pat = None
         rows.append([int(yr), rev, pat])
     return (
         rows,
         name,
-        "screener: %d FYs %s..%s" % (len(rows), rows[0][0] if rows else "-", rows[-1][0] if rows else "-"),
+        "screener: %d FYs %s..%s"
+        % (len(rows), rows[0][0] if rows else "-", rows[-1][0] if rows else "-"),
     )
 
 
@@ -221,7 +232,11 @@ def seed_universe():
     jar = FI.B.nse_jar()
     try:
         past = (
-            FI.get(jar, "public-past-issues", "https://www.nseindia.com/market-data/new-stock-exchange-listings-recent")
+            FI.get(
+                jar,
+                "public-past-issues",
+                "https://www.nseindia.com/market-data/new-stock-exchange-listings-recent",
+            )
             or []
         )
     except Exception as e:
@@ -238,7 +253,12 @@ def seed_universe():
         if not (ld and sym) or ld < lo:
             continue
         uni.setdefault(
-            sym, {"name": str(r.get("company") or "").strip(), "listed": ld, "board": "SME" if "SME" in st else "Main"}
+            sym,
+            {
+                "name": str(r.get("company") or "").strip(),
+                "listed": ld,
+                "board": "SME" if "SME" in st else "Main",
+            },
         )
     return uni
 
@@ -268,11 +288,9 @@ def main():
     def due(e):
         if e.get("status") == "filled":
             return False
-        if e.get("status") == "dormant" and (e.get("tries", 0) % DORMANT_EVERY):
-            return False
-        return True
+        return not (e.get("status") == "dormant" and e.get("tries", 0) % DORMANT_EVERY)
 
-    todo = [s for s, e in led.items() if due(e)]
+    todo = [s for s, e in led.items() if due(led[s])]
     todo.sort(key=lambda s: led[s].get("last") or "")  # oldest attempt first
     todo = todo[: max(1, args.limit)]
 
@@ -301,7 +319,11 @@ def main():
                 else:
                     note = na
             else:
-                note = "MC id name mismatch ({})".format(ident.get("name")) if ident else "no MoneyControl page"
+                note = (
+                    "MC id name mismatch ({})".format(ident.get("name"))
+                    if ident
+                    else "no MoneyControl page"
+                )
             # 2) Screener FALLBACK — keyed by ticker, reaches the SME names MoneyControl lacks.
             if rows is None:
                 sr, sname, sn = screener_annuals(sym)

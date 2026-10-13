@@ -164,7 +164,11 @@ def index_instrument_map() -> dict:
     above, which explicitly filters to tradeable equities only."""
     kite = get_kite()
     instruments = kite.instruments("NSE")
-    return {row["tradingsymbol"]: row["instrument_token"] for row in instruments if row["segment"] == "INDICES"}
+    return {
+        row["tradingsymbol"]: row["instrument_token"]
+        for row in instruments
+        if row["segment"] == "INDICES"
+    }
 
 
 _MAX_DAY_INTERVAL_SPAN = 2000  # Kite's historical API hard limit for "day" candles
@@ -219,8 +223,7 @@ def fetch_daily_candles(symbol: str, days: int = 400) -> pd.DataFrame:
     """Daily OHLCV for `symbol` covering the last `days` calendar days."""
     token = instrument_map().get(symbol)
     if token is None:
-        msg = f"Unknown NSE symbol: {symbol}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown NSE symbol: {symbol}")
     return _fetch_chunked(token, days)
 
 
@@ -242,18 +245,21 @@ _MAX_INTRADAY_INTERVAL_SPAN = {
 }
 
 
-def _fetch_chunked_intraday(token: int, days: int, interval: str) -> pd.DataFrame:
+def _fetch_chunked_intraday_range(
+    token: int, from_date: dt.date, to_date: dt.date, interval: str
+) -> pd.DataFrame:
     """Same chunking idea as _fetch_chunked(), for an intraday interval
     whose max span is far smaller than "day"'s 2000 -- the intraday
     strategy's continuous EMA21/ATR14 warmup (Spec.md §1: "a minimum of
     several weeks... before these indicators are trustworthy") routinely
-    needs more history than one request covers."""
+    needs more history than one request covers. Unlike _fetch_chunked_
+    intraday() below, `to_date` is an explicit caller-supplied date, not
+    always `dt.date.today()` -- this is what makes a historical (not
+    just "last N days from now") intraday backtest possible at all."""
     max_span = _MAX_INTRADAY_INTERVAL_SPAN.get(interval, 100)
     kite = get_kite()
-    to_date = dt.date.today()
-    from_date = to_date - dt.timedelta(days=days)
 
-    if days <= max_span:
+    if (to_date - from_date).days <= max_span:
         candles = kite.historical_data(token, from_date, to_date, interval)
     else:
         candles = []
@@ -273,6 +279,13 @@ def _fetch_chunked_intraday(token: int, days: int, interval: str) -> pd.DataFram
     return df.set_index("date")
 
 
+def _fetch_chunked_intraday(token: int, days: int, interval: str) -> pd.DataFrame:
+    """`days` calendar days ending today -- see _fetch_chunked_intraday_range()."""
+    to_date = dt.date.today()
+    from_date = to_date - dt.timedelta(days=days)
+    return _fetch_chunked_intraday_range(token, from_date, to_date, interval)
+
+
 def fetch_intraday_candles(symbol: str, days: int = 120, interval: str = "5minute") -> pd.DataFrame:
     """Intraday OHLCV for `symbol` covering the last `days` calendar
     days -- used by the intraday strategy's continuous EMA21/ATR14
@@ -280,12 +293,27 @@ def fetch_intraday_candles(symbol: str, days: int = 120, interval: str = "5minut
     day, per Spec.md §1)."""
     token = instrument_map().get(symbol)
     if token is None:
-        msg = f"Unknown NSE symbol: {symbol}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown NSE symbol: {symbol}")
     return _fetch_chunked_intraday(token, days, interval)
 
 
-def fetch_universe_candles(symbols: list[str], days: int = 400, pause: float = 0.35) -> dict[str, pd.DataFrame]:
+def fetch_intraday_candles_range(
+    symbol: str, from_date: dt.date, to_date: dt.date, interval: str = "5minute"
+) -> pd.DataFrame:
+    """Intraday OHLCV for `symbol` over an explicit [from_date, to_date]
+    historical window, chunked the same way as fetch_intraday_candles()
+    but not anchored to "today" -- used by intraday_backtest.py to
+    replay a past date range rather than only ever watching the last
+    `days` calendar days up to now."""
+    token = instrument_map().get(symbol)
+    if token is None:
+        raise ValueError(f"Unknown NSE symbol: {symbol}")
+    return _fetch_chunked_intraday_range(token, from_date, to_date, interval)
+
+
+def fetch_universe_candles(
+    symbols: list[str], days: int = 400, pause: float = 0.35
+) -> dict[str, pd.DataFrame]:
     """Fetch candles for many symbols, respecting Kite's ~3 req/s historical
     API rate limit."""
     out = {}
@@ -307,8 +335,7 @@ def fetch_index_candles(tradingsymbol: str, days: int = 400) -> pd.DataFrame:
     levels, not just today's snapshot."""
     token = index_instrument_map().get(tradingsymbol)
     if token is None:
-        msg = f"Unknown NSE index: {tradingsymbol}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown NSE index: {tradingsymbol}")
     return _fetch_chunked(token, days)
 
 
@@ -467,7 +494,9 @@ def get_active_gtts() -> pd.DataFrame:
     return pd.DataFrame(kite.get_gtts())
 
 
-def modify_gtt_trigger(trigger_id: int, symbol: str, qty: int, new_trigger_price: float, last_price: float) -> int:
+def modify_gtt_trigger(
+    trigger_id: int, symbol: str, qty: int, new_trigger_price: float, last_price: float
+) -> int:
     """Raise an existing GTT's trigger price -- mirrors place_gtt_stoploss's
     order shape exactly, just targeting an existing trigger_id instead of
     creating a new one."""

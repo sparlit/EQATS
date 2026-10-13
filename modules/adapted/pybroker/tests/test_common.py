@@ -155,7 +155,7 @@ def test_bars_to_df_when_optional_cols_none():
 
 
 @pytest.mark.parametrize(
-    ("tf", "expected"),
+    "tf, expected",
     [
         ("1day 2h 3min", [(1, "day"), (2, "hour"), (3, "min")]),
         ("10week", [(10, "week")]),
@@ -194,7 +194,7 @@ def test_parse_timeframe_invalid(tf):
 
 
 @pytest.mark.parametrize(
-    ("tf", "expected"),
+    "tf, expected",
     [
         ("1day 2h 3min", 24 * 60 * 60 + 2 * 60 * 60 + 3 * 60),
         ("10week", 10 * 7 * 24 * 60 * 60),
@@ -208,7 +208,7 @@ def test_to_seconds(tf, expected):
 
 
 @pytest.mark.parametrize(
-    ("date", "expected"),
+    "date, expected",
     [
         ("2022-02-02", datetime.strptime("2022-02-02", "%Y-%m-%d")),
         (
@@ -279,7 +279,7 @@ def test_quantize_when_column_not_found_then_error():
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
+    "value, expected",
     [
         (1.22222, Decimal("1.22222")),
         (1, Decimal(1)),
@@ -325,7 +325,7 @@ def test_json_safe_when_nat_then_null():
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
+    "value, expected",
     [
         (Decimal("NaN"), None),
         (Decimal("Infinity"), "Infinity"),
@@ -347,7 +347,7 @@ def test_json_safe_non_finite_decimal(value, expected):
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
+    "value, expected",
     [
         (PriceType.CLOSE, "close"),
         (StopType.LOSS, "loss"),

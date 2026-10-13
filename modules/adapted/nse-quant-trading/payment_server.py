@@ -26,7 +26,7 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -449,7 +449,9 @@ async def create_subscription(request: Request):
         )
 
     try:
-        existing = supabase.table("subscriptions").select("*").eq("user_id", user_id).limit(1).execute()
+        existing = (
+            supabase.table("subscriptions").select("*").eq("user_id", user_id).limit(1).execute()
+        )
         if existing.data:
             current = existing.data[0]
             if current.get("status") in ["active", "authenticated", "pending"]:
@@ -491,7 +493,9 @@ async def create_subscription(request: Request):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=(f"Subscription was created in Razorpay but could not be stored in Supabase: {exc}"),
+            detail=(
+                f"Subscription was created in Razorpay but could not be stored in Supabase: {exc}"
+            ),
         )
 
     return {
@@ -530,7 +534,7 @@ async def razorpay_webhook(request: Request):
 
     if event_name == "subscription.authenticated":
         await process_subscription_event(event, "authenticated")
-    elif event_name in {"subscription.activated", "subscription.charged"}:
+    elif event_name == "subscription.activated" or event_name == "subscription.charged":
         await process_subscription_event(event, "active")
     elif event_name == "subscription.cancelled":
         await process_subscription_event(event, "cancelled")
@@ -551,7 +555,11 @@ async def process_subscription_event(event, new_status):
         return
 
     result = (
-        supabase.table("subscriptions").select("*").eq("razorpay_subscription_id", subscription_id).limit(1).execute()
+        supabase.table("subscriptions")
+        .select("*")
+        .eq("razorpay_subscription_id", subscription_id)
+        .limit(1)
+        .execute()
     )
     if not result.data:
         return

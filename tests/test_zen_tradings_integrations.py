@@ -63,6 +63,10 @@ from institutional_integrations.zen_rft_engine import (
 
 
 def test_zen_coding_engine():
+    ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+    assert ist_tz is not None
+    assert datetime.now(ist_tz) is not None
+
     engine = ZenCodingEngine()
     is_safe, v = engine.inspect_code_guardrails("import numpy as np\nx = np.mean([1, 2, 3])")
     assert is_safe

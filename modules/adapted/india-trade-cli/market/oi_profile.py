@@ -37,8 +37,6 @@ Usage:
 """
 
 
-from typing import Optional
-
 from rich.console import Console
 from rich.table import Table
 
@@ -52,11 +50,12 @@ def classify_oi_change(price_up: bool, oi_up: bool) -> str:
     """Classify futures/options OI change using 4-quadrant model."""
     if price_up and oi_up:
         return "LONG_BUILDUP"  # Bullish — new longs entering
-    if price_up and not oi_up:
+    elif price_up and not oi_up:
         return "SHORT_COVERING"  # Bullish but weak — shorts exiting
-    if not price_up and oi_up:
+    elif not price_up and oi_up:
         return "SHORT_BUILDUP"  # Bearish — new shorts entering
-    return "LONG_UNWINDING"  # Bearish but weak — longs exiting
+    else:
+        return "LONG_UNWINDING"  # Bearish but weak — longs exiting
 
 
 def find_max_oi_strikes(chain_data: list[dict]) -> tuple[float, float]:

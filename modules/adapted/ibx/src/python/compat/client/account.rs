@@ -1,41 +1,42 @@
 //! Account-related methods: positions, PnL, account summary/updates.
 
-use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 
 use crate::types::*;
-use super::EClient;
+use super::{send_cmd, EClient};
+use crate::client_core::ClientCore;
 use super::super::super::types::PRICE_SCALE_F;
 
 #[pymethods]
 impl EClient {
     /// Request P&L updates for the account.
     #[pyo3(signature = (req_id, account, model_code=""))]
-    fn req_pnl(&self, req_id: i64, account: &str, model_code: &str) -> PyResult<()> {
+    fn req_pnl(&self, py: Python<'_>, req_id: i64, account: &str, model_code: &str) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_pnl", &[req_id]) { return Ok(()); }
         // Several requests can run; an empty or unknown account gives 321, a
         // request id already running gives 102 (ibx#478).
         if let Err((code, message)) = self.core.request_pnl(req_id, account, &self.account()) {
-            self.shared_state()?.orders.push_order_error(req_id as u64, code, message);
+            self.shared_state()?.orders.push_order_error(req_id, code, message);
             return Ok(());
         }
         let tx = self.tx()?;
-        tx.send(ControlCommand::SubscribePnl { req_id, account: account.to_string() })
-            .map_err(|e| PyRuntimeError::new_err(format!("Engine stopped: {}", e)))?;
+        send_cmd(py, &tx, ControlCommand::SubscribePnl { req_id, account: account.to_string() })?;
         let _ = model_code;
         Ok(())
     }
 
     /// Cancel P&L subscription.
-    fn cancel_pnl(&self, req_id: i64) -> PyResult<()> {
+    fn cancel_pnl(&self, py: Python<'_>, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("cancel_pnl", &[req_id]) { return Ok(()); }
         // A request id not running gives 10185 (ibx#478).
         if let Some((code, message)) = self.core.cancel_pnl_request(req_id) {
-            self.shared_state()?.orders.push_order_error(req_id as u64, code, message);
+            self.shared_state()?.orders.push_order_error(req_id, code, message);
             return Ok(());
         }
         let tx = self.tx()?;
-        let _ = tx.send(ControlCommand::CancelPnl { req_id });
+        let _ = send_cmd(py, &tx, ControlCommand::CancelPnl { req_id });
         Ok(())
     }
 
@@ -43,9 +44,10 @@ impl EClient {
     #[pyo3(signature = (req_id, account, model_code, con_id))]
     fn req_pnl_single(&self, req_id: i64, account: &str, model_code: &str, con_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_pnl_single", &[req_id, con_id]) { return Ok(()); }
         // Same checks as req_pnl (ibx#478).
         if let Err((code, message)) = self.core.request_pnl_single(req_id, account, &self.account(), con_id) {
-            self.shared_state()?.orders.push_order_error(req_id as u64, code, message);
+            self.shared_state()?.orders.push_order_error(req_id, code, message);
         }
         let _ = model_code;
         Ok(())
@@ -54,39 +56,42 @@ impl EClient {
     /// Cancel single-position P&L subscription.
     fn cancel_pnl_single(&self, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("cancel_pnl_single", &[req_id]) { return Ok(()); }
         // A request id not running gives 10186 (ibx#478).
         if let Some((code, message)) = self.core.cancel_pnl_single_request(req_id) {
-            self.shared_state()?.orders.push_order_error(req_id as u64, code, message);
+            self.shared_state()?.orders.push_order_error(req_id, code, message);
         }
         Ok(())
     }
 
     /// Request account summary.
     #[pyo3(signature = (req_id, group_name, tags))]
-    fn req_account_summary(&self, req_id: i64, group_name: &str, tags: &str) -> PyResult<()> {
+    fn req_account_summary(&self, py: Python<'_>, req_id: i64, group_name: &str, tags: &str) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_account_summary", &[req_id]) { return Ok(()); }
         // A server subscription: the rows come as the server sends them, each
         // batch ends with account_summary_end, until the cancel (ibx#479).
         match self.core.subscribe_account_summary(req_id, group_name, tags) {
             Ok(plan) => {
                 let tx = self.tx()?;
                 if let Some(sr_id) = plan.cancel_sr_id {
-                    let _ = tx.send(ControlCommand::CancelAccountSummary { sr_id });
+                    let _ = send_cmd(py, &tx, ControlCommand::CancelAccountSummary { sr_id });
                 }
-                let _ = tx.send(ControlCommand::SubscribeAccountSummary {
+                let _ = send_cmd(py, &tx, ControlCommand::SubscribeAccountSummary {
                     sr_id: plan.sr_id, tags: plan.wire_tags, group: plan.group,
                 });
             }
-            Err((code, message)) => self.shared_state()?.orders.push_order_error(req_id as u64, code, message),
+            Err((code, message)) => self.shared_state()?.orders.push_order_error(req_id, code, message),
         }
         Ok(())
     }
 
     /// Cancel account summary.
-    fn cancel_account_summary(&self, req_id: i64) -> PyResult<()> {
+    fn cancel_account_summary(&self, py: Python<'_>, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("cancel_account_summary", &[req_id]) { return Ok(()); }
         if let Some(sr_id) = self.core.unsubscribe_account_summary(req_id) {
-            let _ = self.tx()?.send(ControlCommand::CancelAccountSummary { sr_id });
+            let _ = send_cmd(py, &self.tx()?, ControlCommand::CancelAccountSummary { sr_id });
         }
         Ok(())
     }
@@ -94,10 +99,19 @@ impl EClient {
     /// Request all positions.
     fn req_positions(&self, py: Python<'_>) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        let shared = self.shared_state()?;
+        // Accounts whose application is not approved (ibx#421).
+        match ClientCore::positions_pending_check(&shared.reference) {
+            Err((code, message)) => {
+                shared.orders.push_order_error(-1, code, message);
+                return Ok(());
+            }
+            Ok(Some((code, message))) => shared.orders.push_order_error(-1, code, message),
+            Ok(None) => {}
+        }
         // A subscription, as the reference (ibx#477): the snapshot and
         // position_end once the data is in, then a row on each change.
         self.core.subscribe_positions();
-        let shared = self.shared_state()?;
         self.dispatch_positions(py, &shared)
     }
 
@@ -112,17 +126,24 @@ impl EClient {
     #[pyo3(signature = (subscribe, _acct_code=""))]
     fn req_account_updates(&self, subscribe: bool, _acct_code: &str) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        // An account whose application is not approved: a warning, the
+        // request goes on (ibx#421).
+        let shared = self.shared_state()?;
+        if let Some((code, message)) = ClientCore::account_updates_pending_warning(_acct_code, &shared.reference, &self.account()) {
+            shared.orders.push_order_error(-1, code, message);
+        }
         // An unsubscribe answers error 2100 with id -1 (ibx#475).
         if let Some((code, message)) = self.core.subscribe_account_updates(subscribe) {
-            self.shared_state()?.orders.push_order_error(-1i64 as u64, code, message);
+            self.shared_state()?.orders.push_order_error(-1, code, message);
         }
         Ok(())
     }
 
-    /// Request managed accounts list.
+    /// Request managed accounts list: every account of the logon's
+    /// account list, in logon order, comma separated (ibx#420).
     fn req_managed_accts(&self, py: Python<'_>) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
-        self.wrapper.call_method1(py, "managed_accounts", (self.account().as_str(),))?;
+        self.wrapper.call_method1(py, "managed_accounts", (self.managed_accounts_text().as_str(),))?;
         Ok(())
     }
 
@@ -133,10 +154,11 @@ impl EClient {
     fn req_account_updates_multi(
         &self, py: Python<'_>, req_id: i64, account: &str, model_code: &str, ledger_and_nlv: bool,
     ) -> PyResult<()> {
-        if let Some(r) = self.not_connected(req_id as i64) { return r; }
+        if let Some(r) = self.not_connected(req_id) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_account_updates_multi", &[req_id]) { return Ok(()); }
         let shared = self.shared_state()?;
         if let Err((code, message)) = self.core.subscribe_account_multi(req_id, account, model_code, ledger_and_nlv) {
-            shared.orders.push_order_error(req_id as u64, code, message);
+            shared.orders.push_order_error(req_id, code, message);
             return Ok(());
         }
         self.dispatch_multi(py, &shared)
@@ -145,6 +167,7 @@ impl EClient {
     /// Cancel multi-account updates.
     fn cancel_account_updates_multi(&self, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("cancel_account_updates_multi", &[req_id]) { return Ok(()); }
         self.core.unsubscribe_account_multi(req_id);
         Ok(())
     }
@@ -154,14 +177,21 @@ impl EClient {
     #[pyo3(signature = (req_id, account, model_code))]
     fn req_positions_multi(&self, py: Python<'_>, req_id: i64, account: &str, model_code: &str) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
-        self.core.subscribe_positions_multi(req_id, account, model_code);
+        if !crate::client_core::ClientCore::ids_fit("req_positions_multi", &[req_id]) { return Ok(()); }
         let shared = self.shared_state()?;
+        // An account whose application is not approved (ibx#421).
+        if let Some((code, message)) = ClientCore::positions_multi_pending_refusal(account, &shared.reference, &self.account()) {
+            shared.orders.push_order_error(req_id, code, message);
+            return Ok(());
+        }
+        self.core.subscribe_positions_multi(req_id, account, model_code);
         self.dispatch_multi(py, &shared)
     }
 
     /// Cancel multi-account positions.
     fn cancel_positions_multi(&self, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("cancel_positions_multi", &[req_id]) { return Ok(()); }
         self.core.unsubscribe_positions_multi(req_id);
         Ok(())
     }

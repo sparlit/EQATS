@@ -90,7 +90,7 @@ class TestAdaptiveClusterLearner:
         """One update creates a cluster with that headline."""
         self.learner.update("Reliance beats Q1 estimates", 1.5, 2.0)
         assert len(self.learner.clusters) == 1
-        cluster = next(iter(self.learner.clusters.values()))
+        cluster = list(self.learner.clusters.values())[0]
         assert cluster["count"] == 1
         assert cluster["reactions_1h"] == [1.5]
         assert cluster["reactions_4h"] == [2.0]
@@ -101,7 +101,7 @@ class TestAdaptiveClusterLearner:
         self.learner.update("Reliance beats Q1 estimates", 1.2, 1.8)
         # Identical headline should go to same cluster
         assert len(self.learner.clusters) == 1
-        cluster = next(iter(self.learner.clusters.values()))
+        cluster = list(self.learner.clusters.values())[0]
         assert cluster["count"] == 2
         assert len(cluster["reactions_1h"]) == 2
 
@@ -136,7 +136,7 @@ class TestAdaptiveClusterLearner:
 
         self.learner.calibrate(headlines, moves_1h, moves_4h, force=True)
 
-        cluster = next(iter(self.learner.clusters.values()))
+        cluster = list(self.learner.clusters.values())[0]
         # High positive correlation -> weight near 1
         assert cluster["weight"] > 0.8
 
@@ -153,7 +153,7 @@ class TestAdaptiveClusterLearner:
 
         self.learner.calibrate(headlines, moves_1h, moves_4h, force=True)
 
-        cluster = next(iter(self.learner.clusters.values()))
+        cluster = list(self.learner.clusters.values())[0]
         # Negative correlation -> weight = 0
         assert cluster["weight"] == 0.0
 
@@ -266,7 +266,9 @@ class TestIntegrationWithMockedData:
             direction = np.random.choice(["surges", "falls"])
             action = np.random.choice(["hikes", "cuts"])
 
-            headline = tpl.format(company=company, quarter=quarter, value=value, direction=direction, action=action)
+            headline = tpl.format(
+                company=company, quarter=quarter, value=value, direction=direction, action=action
+            )
 
             # Add noise to actual moves
             move_1h = base_1h + np.random.normal(0, 0.5)
@@ -309,7 +311,12 @@ class TestIntegrationWithMockedData:
 
         # Simulate major event covered by 5 sources
         articles = [
-            {"title": f"RELIANCE beats Q2 - {src}", "body": "Profit jumps", "source": src, "ticker": "RELIANCE"}
+            {
+                "title": f"RELIANCE beats Q2 - {src}",
+                "body": "Profit jumps",
+                "source": src,
+                "ticker": "RELIANCE",
+            }
             for src in ["ET", "MC", "LM", "NDTV", "Google"]
         ]
 
@@ -358,7 +365,9 @@ class TestAdaptiveLearnerEdgeCases:
                 from adaptive_sentiment import _serialize_cluster
 
                 data = {
-                    "clusters": {str(k): _serialize_cluster(v) for k, v in learner.clusters.items()},
+                    "clusters": {
+                        str(k): _serialize_cluster(v) for k, v in learner.clusters.items()
+                    },
                     "last_calibration": learner._last_calibration,
                     "saved_at": datetime.now().isoformat(),
                 }
@@ -376,7 +385,9 @@ class TestAdaptiveLearnerEdgeCases:
                 data = json.load(f)
             from adaptive_sentiment import _deserialize_cluster
 
-            learner2.clusters = {int(k): _deserialize_cluster(v) for k, v in data.get("clusters", {}).items()}
+            learner2.clusters = {
+                int(k): _deserialize_cluster(v) for k, v in data.get("clusters", {}).items()
+            }
             learner2._last_calibration = data.get("last_calibration", 0.0)
             learner2._fitted = True
 

@@ -23,22 +23,19 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import mplfinance as mpf
 import pandas as pd
 from defs.config import config
+from matplotlib.artist import Artist
+from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
+from matplotlib.figure import Figure
 from renderer.dtypes import PanelAssignment
 
+from .annotations import Drawing
 from .util import debounce, setup_xaxis
-
-if TYPE_CHECKING:
-    from matplotlib.artist import Artist
-    from matplotlib.axes import Axes
-    from matplotlib.figure import Figure
-
-    from .annotations import Drawing
 
 
 class CandlestickRenderer:
@@ -129,10 +126,14 @@ class CandlestickRenderer:
         for col in df.columns:
             if col.startswith("SMA_"):
                 period = col.replace("SMA_", "")
-                added_plots.append(mpf.make_addplot(df[col], label=f"SM{period}", secondary_y=False))
+                added_plots.append(
+                    mpf.make_addplot(df[col], label=f"SM{period}", secondary_y=False)
+                )
             elif col.startswith("EMA_"):
                 period = col.replace("EMA_", "")
-                added_plots.append(mpf.make_addplot(df[col], label=f"EM{period}", secondary_y=False))
+                added_plots.append(
+                    mpf.make_addplot(df[col], label=f"EM{period}", secondary_y=False)
+                )
             elif col.startswith("VMA_"):
                 period = col.replace("VMA_", "")
                 assignment = self._assignment("vol_sma")

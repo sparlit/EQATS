@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -37,10 +39,10 @@ sys.path.append(root)
 
 import asyncio
 
-from ccxt.base.errors import ArgumentsRequired  # noqa: E402
+from ccxt.base.errors import ArgumentsRequired  # noqa E402
 from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_ticker,
+    test_shared_methods,  # noqa E402
+    test_ticker,  # noqa E402
 )
 
 
@@ -69,12 +71,14 @@ async def test_watch_bids_asks_helper(exchange, skipped_properties, arg_symbols,
             # for some exchanges, multi symbol methods might require symbols array to be present, so
             # so, if method throws "arguments-required" exception, we don't fail test, but just skip silently,
             # because tests will make a second call of this method with symbols array
-            if (isinstance(e, ArgumentsRequired)) and (arg_symbols is None or len(arg_symbols) == 0):
-                # TODO: provide random symbols to try
+            if (isinstance(e, ArgumentsRequired)) and (
+                arg_symbols is None or len(arg_symbols) == 0
+            ):
+                # todo: provide random symbols to try
                 # return false;
                 should_return = True
             elif not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             success = False
         now = exchange.milliseconds()
         if should_return:
@@ -93,8 +97,10 @@ async def test_watch_bids_asks_helper(exchange, skipped_properties, arg_symbols,
             checked_symbol = None
             if arg_symbols is not None and len(arg_symbols) == 1:
                 checked_symbol = arg_symbols[0]
-            test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, values, checked_symbol)
-            for i in range(len(values)):
+            test_shared_methods.assert_non_emtpy_array(
+                exchange, skipped_properties, method, values, checked_symbol
+            )
+            for i in range(0, len(values)):
                 ticker = values[i]
                 test_ticker(exchange, skipped_properties, method, ticker, checked_symbol)
             if (now - start_time) > max_idle_time:

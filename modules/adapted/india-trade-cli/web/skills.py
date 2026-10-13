@@ -67,7 +67,6 @@ Manifest:
 
 import asyncio
 import json
-from typing import Optional
 from uuid import uuid4
 
 from agent.tools import _serialise
@@ -181,9 +180,8 @@ async def skill_quote(req: SymbolRequest):
         instrument = req.symbol if ":" in req.symbol else f"{req.exchange}:{req.symbol}"
         quotes = get_quote([instrument])
         if not quotes:
-            msg = f"No quote found for {req.symbol}"
-            raise _err(msg, 404)
-        return _ok(next(iter(quotes.values())))
+            raise _err(f"No quote found for {req.symbol}", 404)
+        return _ok(list(quotes.values())[0])
     except HTTPException:
         raise
     except Exception as e:
@@ -263,7 +261,9 @@ async def skill_backtest(req: BacktestRequest):
         if req.fast:
             from engine.backtest_vectorized import run_vectorized_backtest
 
-            result = run_vectorized_backtest(req.symbol.upper(), req.strategy, period=req.period, exchange=req.exchange)
+            result = run_vectorized_backtest(
+                req.symbol.upper(), req.strategy, period=req.period, exchange=req.exchange
+            )
         else:
             from engine.backtest import run_backtest
 
@@ -604,8 +604,7 @@ async def skill_alerts_add(req: AlertAddRequest):
         # Technical alert
         elif req.indicator:
             if req.condition is None or req.threshold is None:
-                msg = "Technical alerts require condition and threshold"
-                raise _err(msg, 400)
+                raise _err("Technical alerts require condition and threshold", 400)
             alert = alert_manager.add_technical_alert(
                 symbol=sym,
                 indicator=req.indicator,
@@ -626,12 +625,9 @@ async def skill_alerts_add(req: AlertAddRequest):
             )
 
         else:
-            msg = (
-                "Provide condition+threshold (price), indicator+condition+threshold "
-                "(technical), or conditions list (conditional)."
-            )
             raise _err(
-                msg,
+                "Provide condition+threshold (price), indicator+condition+threshold "
+                "(technical), or conditions list (conditional).",
                 400,
             )
 
@@ -665,8 +661,7 @@ async def skill_alerts_remove(req: AlertRemoveRequest):
 
         removed = alert_manager.remove_alert(req.alert_id)
         if not removed:
-            msg = f"Alert {req.alert_id} not found"
-            raise _err(msg, 404)
+            raise _err(f"Alert {req.alert_id} not found", 404)
         return {"status": "ok", "data": {"alert_id": req.alert_id, "removed": True}}
     except HTTPException:
         raise
@@ -1130,8 +1125,7 @@ async def skill_strategy(req: StrategyRequest):
 
         spot = get_ltp(f"NSE:{req.symbol.upper()}")
         if spot <= 0:
-            msg = f"Could not get spot price for {req.symbol}"
-            raise _err(msg)
+            raise _err(f"Could not get spot price for {req.symbol}")
         report = recommend(
             symbol=req.symbol.upper(),
             view=req.view.upper(),
@@ -1335,8 +1329,7 @@ async def skill_provider_switch(req: ProviderSwitchRequest):
             "openai_subscription",
         }
         if req.provider not in valid:
-            msg = f"Unknown provider '{req.provider}'. Valid: {', '.join(sorted(valid))}"
-            raise _err(msg, 400)
+            raise _err(f"Unknown provider '{req.provider}'. Valid: {', '.join(sorted(valid))}", 400)
         os.environ["AI_PROVIDER"] = req.provider
         if req.model:
             os.environ["AI_MODEL"] = req.model
@@ -1385,7 +1378,9 @@ async def analyze_followup(req: AnalyzeFollowupRequest):
         # If new analysis context is provided, always create a fresh session
         # so a second analyze of the same symbol gets fresh context (not stale)
         has_new_context = bool(
-            req.context.get("analysts") or req.context.get("synthesis_text") or req.context.get("report")
+            req.context.get("analysts")
+            or req.context.get("synthesis_text")
+            or req.context.get("report")
         )
         if session_key not in _chat_sessions or has_new_context:
             # Build a system message from the primed context
@@ -1396,10 +1391,8 @@ async def analyze_followup(req: AnalyzeFollowupRequest):
             ctx_lines = [
                 f"You are a trading analysis assistant in follow-up mode for {req.symbol} ({req.exchange}).",
                 f"All follow-up questions are about {req.symbol} unless the user explicitly names another stock.",
-                (
-                    f"Interpret all industry terms, product names, and business concepts in the context of {req.symbol}'s business — "
-                    f"for example, 'AI deals' means {req.symbol}'s AI contracts and partnerships, not a stock ticker called AI."
-                ),
+                f"Interpret all industry terms, product names, and business concepts in the context of {req.symbol}'s business — "
+                f"for example, 'AI deals' means {req.symbol}'s AI contracts and partnerships, not a stock ticker called AI.",
                 f"Be concise, direct, and always ground your answer in {req.symbol}'s specific situation.",
             ]
             if analysts or synthesis_text or report:
@@ -1418,7 +1411,9 @@ async def analyze_followup(req: AnalyzeFollowupRequest):
                 if synthesis_text:
                     ctx_lines.append(f"\nFund Manager Synthesis:\n{synthesis_text}")
                 if report:
-                    ctx_lines.append(f"\nFull Report:\n{report[:3000]}")  # cap to avoid token overflow
+                    ctx_lines.append(
+                        f"\nFull Report:\n{report[:3000]}"
+                    )  # cap to avoid token overflow
                 ctx_lines.append("\nUse the analysis above as your primary source of truth.")
 
             system_msg = "\n".join(ctx_lines)

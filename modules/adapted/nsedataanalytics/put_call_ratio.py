@@ -41,7 +41,8 @@ sql = (
 def get_put_call_ratio(symbol):
     db = MySQLdb.connect(config.host, config.user, config.password, "NSE")
     data = pd.read_sql(sql % symbol, db)
-    return data.set_index("TIMESTAMP")
+    data = data.set_index("TIMESTAMP")
+    return data
 
 
 if __name__ == "__main__":

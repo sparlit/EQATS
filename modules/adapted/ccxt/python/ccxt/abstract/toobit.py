@@ -28,17 +28,27 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    common_get_api_v1_time = commonGetApiV1Time = Entry[_Dict]("api/v1/time", "common", "GET", {"cost": 1})
-    common_get_api_v1_ping = commonGetApiV1Ping = Entry[_Dict]("api/v1/ping", "common", "GET", {"cost": 1})
+    common_get_api_v1_time = commonGetApiV1Time = Entry[_Dict](
+        "api/v1/time", "common", "GET", {"cost": 1}
+    )
+    common_get_api_v1_ping = commonGetApiV1Ping = Entry[_Dict](
+        "api/v1/ping", "common", "GET", {"cost": 1}
+    )
     common_get_api_v1_exchangeinfo = commonGetApiV1ExchangeInfo = Entry[_Dict](
         "api/v1/exchangeInfo", "common", "GET", {"cost": 1}
     )
-    common_get_quote_v1_depth = commonGetQuoteV1Depth = Entry[_Dict]("quote/v1/depth", "common", "GET", {"cost": 1})
+    common_get_quote_v1_depth = commonGetQuoteV1Depth = Entry[_Dict](
+        "quote/v1/depth", "common", "GET", {"cost": 1}
+    )
     common_get_quote_v1_depth_merged = commonGetQuoteV1DepthMerged = Entry[_Dict](
         "quote/v1/depth/merged", "common", "GET", {"cost": 1}
     )
-    common_get_quote_v1_trades = commonGetQuoteV1Trades = Entry[_List]("quote/v1/trades", "common", "GET", {"cost": 1})
-    common_get_quote_v1_klines = commonGetQuoteV1Klines = Entry[_List]("quote/v1/klines", "common", "GET", {"cost": 1})
+    common_get_quote_v1_trades = commonGetQuoteV1Trades = Entry[_List](
+        "quote/v1/trades", "common", "GET", {"cost": 1}
+    )
+    common_get_quote_v1_klines = commonGetQuoteV1Klines = Entry[_List](
+        "quote/v1/klines", "common", "GET", {"cost": 1}
+    )
     common_get_quote_v1_index_klines = commonGetQuoteV1IndexKlines = Entry[_List](
         "quote/v1/index/klines", "common", "GET", {"cost": 1}
     )
@@ -51,7 +61,9 @@ class ImplicitAPI:
     common_get_quote_v1_markprice = commonGetQuoteV1MarkPrice = Entry[_Dict](
         "quote/v1/markPrice", "common", "GET", {"cost": 10}
     )
-    common_get_quote_v1_index = commonGetQuoteV1Index = Entry[_Dict]("quote/v1/index", "common", "GET", {"cost": 1})
+    common_get_quote_v1_index = commonGetQuoteV1Index = Entry[_Dict](
+        "quote/v1/index", "common", "GET", {"cost": 1}
+    )
     common_get_quote_v1_ticker_24hr = commonGetQuoteV1Ticker24hr = Entry[_List](
         "quote/v1/ticker/24hr", "common", "GET", {"cost": 40}
     )
@@ -67,19 +79,21 @@ class ImplicitAPI:
     common_get_quote_v1_ticker_bookticker = commonGetQuoteV1TickerBookTicker = Entry[_List](
         "quote/v1/ticker/bookTicker", "common", "GET", {"cost": 1}
     )
-    common_get_quote_v1_contract_ticker_bookticker = commonGetQuoteV1ContractTickerBookTicker = Entry[_List](
-        "quote/v1/contract/ticker/bookTicker", "common", "GET", {"cost": 1}
+    common_get_quote_v1_contract_ticker_bookticker = commonGetQuoteV1ContractTickerBookTicker = (
+        Entry[_List]("quote/v1/contract/ticker/bookTicker", "common", "GET", {"cost": 1})
     )
     common_get_api_v1_futures_fundingrate = commonGetApiV1FuturesFundingRate = Entry[_List](
         "api/v1/futures/fundingRate", "common", "GET", {"cost": 1}
     )
-    common_get_api_v1_futures_historyfundingrate = commonGetApiV1FuturesHistoryFundingRate = Entry[_List](
-        "api/v1/futures/historyFundingRate", "common", "GET", {"cost": 1}
-    )
+    common_get_api_v1_futures_historyfundingrate = commonGetApiV1FuturesHistoryFundingRate = Entry[
+        _List
+    ]("api/v1/futures/historyFundingRate", "common", "GET", {"cost": 1})
     common_get_api_v1_futures_risklimits = commonGetApiV1FuturesRiskLimits = Entry[_List](
         "api/v1/futures/riskLimits", "common", "GET", {"cost": 1}
     )
-    private_get_api_v1_account = privateGetApiV1Account = Entry[_Dict]("api/v1/account", "private", "GET", {"cost": 5})
+    private_get_api_v1_account = privateGetApiV1Account = Entry[_Dict](
+        "api/v1/account", "private", "GET", {"cost": 5}
+    )
     private_get_api_v1_account_checkapikey = privateGetApiV1AccountCheckApiKey = Entry[_Dict](
         "api/v1/account/checkApiKey", "private", "GET", {"cost": 1}
     )
@@ -110,9 +124,9 @@ class ImplicitAPI:
     private_get_api_v1_account_withdraworders = privateGetApiV1AccountWithdrawOrders = Entry[_List](
         "api/v1/account/withdrawOrders", "private", "GET", {"cost": 5}
     )
-    private_get_api_v1_account_deposit_address = privateGetApiV1AccountDepositAddress = Entry[_Dict](
-        "api/v1/account/deposit/address", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_account_deposit_address = privateGetApiV1AccountDepositAddress = Entry[
+        _Dict
+    ]("api/v1/account/deposit/address", "private", "GET", {"cost": 1})
     private_get_api_v1_subaccount = privateGetApiV1SubAccount = Entry[_List](
         "api/v1/subAccount", "private", "GET", {"cost": 5}
     )
@@ -122,18 +136,18 @@ class ImplicitAPI:
     private_get_api_v1_subaccount_list = privateGetApiV1SubAccountList = Entry[_List](
         "api/v1/subAccount/list", "private", "GET", {"cost": 5}
     )
-    private_get_api_v1_futures_accountleverage = privateGetApiV1FuturesAccountLeverage = Entry[_List](
-        "api/v1/futures/accountLeverage", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_futures_accountleverage = privateGetApiV1FuturesAccountLeverage = Entry[
+        _List
+    ]("api/v1/futures/accountLeverage", "private", "GET", {"cost": 1})
     private_get_api_v1_futures_order = privateGetApiV1FuturesOrder = Entry[_Dict](
         "api/v1/futures/order", "private", "GET", {"cost": 1.67}
     )
     private_get_api_v1_futures_positions = privateGetApiV1FuturesPositions = Entry[_List](
         "api/v1/futures/positions", "private", "GET", {"cost": 8.35}
     )
-    private_get_api_v1_futures_historypositions = privateGetApiV1FuturesHistoryPositions = Entry[_List](
-        "api/v1/futures/historyPositions", "private", "GET", {"cost": 5}
-    )
+    private_get_api_v1_futures_historypositions = privateGetApiV1FuturesHistoryPositions = Entry[
+        _List
+    ]("api/v1/futures/historyPositions", "private", "GET", {"cost": 5})
     private_get_api_v1_futures_balance = privateGetApiV1FuturesBalance = Entry[_List](
         "api/v1/futures/balance", "private", "GET", {"cost": 5}
     )
@@ -149,39 +163,39 @@ class ImplicitAPI:
     private_get_api_v1_futures_todaypnl = privateGetApiV1FuturesTodayPnl = Entry[_Dict](
         "api/v1/futures/todayPnl", "private", "GET", {"cost": 5}
     )
-    private_get_api_v1_account_download_detail = privateGetApiV1AccountDownloadDetail = Entry[_Dict](
-        "api/v1/account/download/detail", "private", "GET", {"cost": 10}
-    )
+    private_get_api_v1_account_download_detail = privateGetApiV1AccountDownloadDetail = Entry[
+        _Dict
+    ]("api/v1/account/download/detail", "private", "GET", {"cost": 10})
     private_get_api_v1_agent_inviteuserlist = privateGetApiV1AgentInviteUserList = Entry[_Dict](
         "api/v1/agent/inviteUserList", "private", "GET", {"cost": 1}
     )
-    private_get_api_v1_agent_commissiondatalist = privateGetApiV1AgentCommissionDataList = Entry[_Dict](
-        "api/v1/agent/commissionDataList", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_agent_commissiondatainfo = privateGetApiV1AgentCommissionDataInfo = Entry[_Dict](
-        "api/v1/agent/commissionDataInfo", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_agent_inviterelationcheck = privateGetApiV1AgentInviteRelationCheck = Entry[_Dict](
-        "api/v1/agent/inviteRelationCheck", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_agent_depositdetaillist = privateGetApiV1AgentDepositDetailList = Entry[_Dict](
-        "api/v1/agent/depositDetailList", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_agent_querysubagentdata = privateGetApiV1AgentQuerySubAgentData = Entry[_Dict](
-        "api/v1/agent/querySubAgentData", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_agent_commissiondatalist = privateGetApiV1AgentCommissionDataList = Entry[
+        _Dict
+    ]("api/v1/agent/commissionDataList", "private", "GET", {"cost": 1})
+    private_get_api_v1_agent_commissiondatainfo = privateGetApiV1AgentCommissionDataInfo = Entry[
+        _Dict
+    ]("api/v1/agent/commissionDataInfo", "private", "GET", {"cost": 1})
+    private_get_api_v1_agent_inviterelationcheck = privateGetApiV1AgentInviteRelationCheck = Entry[
+        _Dict
+    ]("api/v1/agent/inviteRelationCheck", "private", "GET", {"cost": 1})
+    private_get_api_v1_agent_depositdetaillist = privateGetApiV1AgentDepositDetailList = Entry[
+        _Dict
+    ]("api/v1/agent/depositDetailList", "private", "GET", {"cost": 1})
+    private_get_api_v1_agent_querysubagentdata = privateGetApiV1AgentQuerySubAgentData = Entry[
+        _Dict
+    ]("api/v1/agent/querySubAgentData", "private", "GET", {"cost": 1})
     private_get_api_v1_agent_spotorderslist = privateGetApiV1AgentSpotOrdersList = Entry[_Dict](
         "api/v1/agent/spotOrdersList", "private", "GET", {"cost": 1}
     )
-    private_get_api_v1_agent_futuresorderslist = privateGetApiV1AgentFuturesOrdersList = Entry[_Dict](
-        "api/v1/agent/futuresOrdersList", "private", "GET", {"cost": 1}
+    private_get_api_v1_agent_futuresorderslist = privateGetApiV1AgentFuturesOrdersList = Entry[
+        _Dict
+    ]("api/v1/agent/futuresOrdersList", "private", "GET", {"cost": 1})
+    private_get_api_v1_agent_futurespositionslist = privateGetApiV1AgentFuturesPositionsList = (
+        Entry[_Dict]("api/v1/agent/futuresPositionsList", "private", "GET", {"cost": 1})
     )
-    private_get_api_v1_agent_futurespositionslist = privateGetApiV1AgentFuturesPositionsList = Entry[_Dict](
-        "api/v1/agent/futuresPositionsList", "private", "GET", {"cost": 1}
-    )
-    private_get_api_v1_agent_invite_commission_detail = privateGetApiV1AgentInviteCommissionDetail = Entry[_Dict](
-        "api/v1/agent/invite-commission-detail", "private", "GET", {"cost": 1}
-    )
+    private_get_api_v1_agent_invite_commission_detail = (
+        privateGetApiV1AgentInviteCommissionDetail
+    ) = Entry[_Dict]("api/v1/agent/invite-commission-detail", "private", "GET", {"cost": 1})
     private_get_api_v1_agent_user_export = privateGetApiV1AgentUserExport = Entry[_Dict](
         "api/v1/agent/user/export", "private", "GET", {"cost": 1}
     )
@@ -190,6 +204,33 @@ class ImplicitAPI:
     )
     private_get_api_v1_agent_export_url = privateGetApiV1AgentExportUrl = Entry[_Dict](
         "api/v1/agent/export-url", "private", "GET", {"cost": 1}
+    )
+    private_get_api_v2_account_balance_flow = privateGetApiV2AccountBalanceFlow = Entry[_List](
+        "api/v2/account/balance-flow", "private", "GET", {"cost": 5}
+    )
+    private_get_api_v2_futures_order = privateGetApiV2FuturesOrder = Entry[_Dict](
+        "api/v2/futures/order", "private", "GET", {"cost": 1.67}
+    )
+    private_get_api_v2_futures_open_orders = privateGetApiV2FuturesOpenOrders = Entry[_List](
+        "api/v2/futures/open-orders", "private", "GET", {"cost": 1.67}
+    )
+    private_get_api_v2_futures_history_orders = privateGetApiV2FuturesHistoryOrders = Entry[_List](
+        "api/v2/futures/history-orders", "private", "GET", {"cost": 8.35}
+    )
+    private_get_api_v2_futures_user_trades = privateGetApiV2FuturesUserTrades = Entry[_List](
+        "api/v2/futures/user-trades", "private", "GET", {"cost": 8.35}
+    )
+    private_get_api_v2_futures_algo_order = privateGetApiV2FuturesAlgoOrder = Entry[_Dict](
+        "api/v2/futures/algo-order", "private", "GET", {"cost": 1.67}
+    )
+    private_get_api_v2_futures_open_algo_orders = privateGetApiV2FuturesOpenAlgoOrders = Entry[
+        _List
+    ]("api/v2/futures/open-algo-orders", "private", "GET", {"cost": 1.67})
+    private_get_api_v2_futures_history_algo_orders = privateGetApiV2FuturesHistoryAlgoOrders = (
+        Entry[_List]("api/v2/futures/history-algo-orders", "private", "GET", {"cost": 8.35})
+    )
+    private_get_api_v2_futures_voucher_list = privateGetApiV2FuturesVoucherList = Entry[_Dict](
+        "api/v2/futures/voucher/list", "private", "GET", {"cost": 5}
     )
     private_post_api_v1_spot_ordertest = privatePostApiV1SpotOrderTest = Entry[_Dict](
         "api/v1/spot/orderTest", "private", "POST", {"cost": 1.67}
@@ -218,12 +259,12 @@ class ImplicitAPI:
     private_post_api_v1_futures_batchorders = privatePostApiV1FuturesBatchOrders = Entry[_Dict](
         "api/v1/futures/batchOrders", "private", "POST", {"cost": 3.34}
     )
-    private_post_api_v1_futures_position_trading_stop = privatePostApiV1FuturesPositionTradingStop = Entry[_Dict](
-        "api/v1/futures/position/trading-stop", "private", "POST", {"cost": 5.01}
-    )
-    private_post_api_v1_futures_positionmargin = privatePostApiV1FuturesPositionMargin = Entry[_Dict](
-        "api/v1/futures/positionMargin", "private", "POST", {"cost": 1}
-    )
+    private_post_api_v1_futures_position_trading_stop = (
+        privatePostApiV1FuturesPositionTradingStop
+    ) = Entry[_Dict]("api/v1/futures/position/trading-stop", "private", "POST", {"cost": 5.01})
+    private_post_api_v1_futures_positionmargin = privatePostApiV1FuturesPositionMargin = Entry[
+        _Dict
+    ]("api/v1/futures/positionMargin", "private", "POST", {"cost": 1})
     private_post_api_v1_futures_order_update = privatePostApiV1FuturesOrderUpdate = Entry[_Dict](
         "api/v1/futures/order/update", "private", "POST", {"cost": 3.34}
     )
@@ -233,12 +274,12 @@ class ImplicitAPI:
     private_post_api_v1_futures_flashclose = privatePostApiV1FuturesFlashClose = Entry[_Dict](
         "api/v1/futures/flashClose", "private", "POST", {"cost": 1}
     )
-    private_post_api_v1_futures_reverseposition = privatePostApiV1FuturesReversePosition = Entry[_Dict](
-        "api/v1/futures/reversePosition", "private", "POST", {"cost": 5}
-    )
-    private_post_api_v1_account_download_apply = privatePostApiV1AccountDownloadApply = Entry[_Dict](
-        "api/v1/account/download/apply", "private", "POST", {"cost": 1000}
-    )
+    private_post_api_v1_futures_reverseposition = privatePostApiV1FuturesReversePosition = Entry[
+        _Dict
+    ]("api/v1/futures/reversePosition", "private", "POST", {"cost": 5})
+    private_post_api_v1_account_download_apply = privatePostApiV1AccountDownloadApply = Entry[
+        _Dict
+    ]("api/v1/account/download/apply", "private", "POST", {"cost": 1000})
     private_post_api_v1_userdatastream = privatePostApiV1UserDataStream = Entry[_Dict](
         "api/v1/userDataStream", "private", "POST", {"cost": 1}
     )
@@ -257,11 +298,11 @@ class ImplicitAPI:
     private_delete_api_v1_futures_batchorders = privateDeleteApiV1FuturesBatchOrders = Entry[_Dict](
         "api/v1/futures/batchOrders", "private", "DELETE", {"cost": 5.01}
     )
-    private_delete_api_v1_spot_cancelorderbyids = privateDeleteApiV1SpotCancelOrderByIds = Entry[_Dict](
-        "api/v1/spot/cancelOrderByIds", "private", "DELETE", {"cost": 8.35}
-    )
-    private_delete_api_v1_futures_cancelorderbyids = privateDeleteApiV1FuturesCancelOrderByIds = Entry[_Dict](
-        "api/v1/futures/cancelOrderByIds", "private", "DELETE", {"cost": 5.01}
+    private_delete_api_v1_spot_cancelorderbyids = privateDeleteApiV1SpotCancelOrderByIds = Entry[
+        _Dict
+    ]("api/v1/spot/cancelOrderByIds", "private", "DELETE", {"cost": 8.35})
+    private_delete_api_v1_futures_cancelorderbyids = privateDeleteApiV1FuturesCancelOrderByIds = (
+        Entry[_Dict]("api/v1/futures/cancelOrderByIds", "private", "DELETE", {"cost": 5.01})
     )
     private_delete_api_v1_userdatastream = privateDeleteApiV1UserDataStream = Entry[_Dict](
         "api/v1/userDataStream", "private", "DELETE", {"cost": 1}

@@ -29,10 +29,10 @@ Detection is intentionally wide. Entry authorization is intentionally strict.
 Scores never override a hard tradeability or executability gate.
 """
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from math import isfinite
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -41,9 +41,6 @@ from v2.tradeability import evaluate_tradeability
 from v2.tradeability import summarize as summarize_tradeability
 
 from .config import PennyConfig
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -109,7 +106,8 @@ def evaluate_symbol(
         return None, audit
     if (
         expected_as_of is not None
-        and pd.Timestamp(data["trade_date"].max()).normalize() != pd.Timestamp(expected_as_of).normalize()
+        and pd.Timestamp(data["trade_date"].max()).normalize()
+        != pd.Timestamp(expected_as_of).normalize()
     ):
         audit.update(
             reason_code="STALE_LATEST_ROW",
@@ -118,19 +116,36 @@ def evaluate_symbol(
         )
         return None, audit
     if len(data) < config.radar_history:
-        audit.update(reason_code="INSUFFICIENT_RADAR_HISTORY", actual=len(data), required=config.radar_history)
+        audit.update(
+            reason_code="INSUFFICIENT_RADAR_HISTORY",
+            actual=len(data),
+            required=config.radar_history,
+        )
         return None, audit
     for col in ("open", "high", "low", "close", "volume"):
         data[col] = pd.to_numeric(data[col], errors="coerce")
-    if data[["open", "high", "low", "close", "volume"]].tail(config.radar_history).isna().any().any():
+    if (
+        data[["open", "high", "low", "close", "volume"]]
+        .tail(config.radar_history)
+        .isna()
+        .any()
+        .any()
+    ):
         audit.update(reason_code="INVALID_OHLCV")
         return None, audit
     series = str(meta.get("series", "EQ") or "EQ").upper()
-    if series != "EQ" or (meta.get("active") is not None and not bool(meta.get("active"))):
-        audit.update(stage="TRADEABILITY", reason_code="NON_EQ_OR_INACTIVE", actual=series, required="ACTIVE_EQ")
+    if series != "EQ" or meta.get("active") is not None and not bool(meta.get("active")):
+        audit.update(
+            stage="TRADEABILITY",
+            reason_code="NON_EQ_OR_INACTIVE",
+            actual=series,
+            required="ACTIVE_EQ",
+        )
         return None, audit
     if restricted_reason:
-        audit.update(stage="REGULATORY", reason_code="RESTRICTED_SECURITY", actual=restricted_reason)
+        audit.update(
+            stage="REGULATORY", reason_code="RESTRICTED_SECURITY", actual=restricted_reason
+        )
         return None, audit
     close = float(data["close"].iloc[-1])
     if not config.min_price <= close <= config.max_price:
@@ -142,7 +157,9 @@ def evaluate_symbol(
         )
         return None, audit
 
-    turnover = pd.to_numeric(data.get("turnover_lacs", pd.Series(np.nan, index=data.index)), errors="coerce")
+    turnover = pd.to_numeric(
+        data.get("turnover_lacs", pd.Series(np.nan, index=data.index)), errors="coerce"
+    )
     if turnover.isna().all():
         turnover = data["close"] * data["volume"] / 100_000.0
         turnover_source = "CALCULATED_CLOSE_X_VOLUME"
@@ -163,7 +180,9 @@ def evaluate_symbol(
     ema14 = data["close"].ewm(span=14, adjust=False).mean()
     ema21 = data["close"].ewm(span=21, adjust=False).mean()
     crosses = (ema14 > ema21) & (ema14.shift(1) <= ema21.shift(1))
-    recent_cross = bool((ema14.iloc[-1] > ema21.iloc[-1]) and crosses.tail(config.crossover_window).any())
+    recent_cross = bool(
+        (ema14.iloc[-1] > ema21.iloc[-1]) and crosses.tail(config.crossover_window).any()
+    )
     changes = data["close"].diff()
     gains = changes.clip(lower=0).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
     losses = (-changes.clip(upper=0)).ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
@@ -179,7 +198,9 @@ def evaluate_symbol(
     turnover_5 = _num(turnover.tail(5).mean())
     volume_ratio = _num(data["volume"].iloc[-1] / volume_med20) if volume_med20 else 0.0
     participation_ratio = _num(data["volume"].iloc[-1] / volume_mean20) if volume_mean20 else 0.0
-    turnover_ratio = _num(turnover.tail(5).mean() / turnover_med_prior20) if turnover_med_prior20 else 0.0
+    turnover_ratio = (
+        _num(turnover.tail(5).mean() / turnover_med_prior20) if turnover_med_prior20 else 0.0
+    )
     ret5 = _num((close / data["close"].iloc[-6] - 1) * 100)
     ret20 = _num((close / data["close"].iloc[-21] - 1) * 100)
     ret60 = _num((close / data["close"].iloc[-61] - 1) * 100) if len(data) >= 61 else 0.0
@@ -190,8 +211,13 @@ def evaluate_symbol(
     near_breakout = bool(close >= prior_high * 0.97)
     range20_pct = _num((prior_high - base_low) / max(base_low, 0.01) * 100)
     compressed = range20_pct <= 18.0
-    delivery = pd.to_numeric(data.get("delivery_pct", pd.Series(np.nan, index=data.index)), errors="coerce")
-    delivery5, delivery20 = _num(delivery.tail(5).mean(), -1.0), _num(delivery.tail(20).mean(), -1.0)
+    delivery = pd.to_numeric(
+        data.get("delivery_pct", pd.Series(np.nan, index=data.index)), errors="coerce"
+    )
+    delivery5, delivery20 = (
+        _num(delivery.tail(5).mean(), -1.0),
+        _num(delivery.tail(20).mean(), -1.0),
+    )
     delivery_improving = delivery5 >= 0 and delivery20 >= 0 and delivery5 >= delivery20
     circuit_count, circuit_proxy = _circuit_features(data)
 
@@ -208,7 +234,12 @@ def evaluate_symbol(
     }
     interest_count = sum(early_flags.values())
     if not early_flags["POSITIVE_MOMENTUM"] or interest_count < 2:
-        audit.update(stage="EARLY_DETECTION", reason_code="NO_EARLY_INTEREST", actual=interest_count, required=2)
+        audit.update(
+            stage="EARLY_DETECTION",
+            reason_code="NO_EARLY_INTEREST",
+            actual=interest_count,
+            required=2,
+        )
         return None, audit
 
     score = 0.0
@@ -216,7 +247,15 @@ def evaluate_symbol(
     score += 10 if ret5 > 0 else 0
     score += 10 if ret20 > 0 else 0
     # Turnover expansion 20
-    score += 20 if turnover_ratio >= 2 else 15 if turnover_ratio >= 1.5 else 8 if turnover_ratio >= 1.1 else 0
+    score += (
+        20
+        if turnover_ratio >= 2
+        else 15
+        if turnover_ratio >= 1.5
+        else 8
+        if turnover_ratio >= 1.1
+        else 0
+    )
     # Trend 15
     score += 8 if above_ema20 else 0
     score += 7 if ema20_rising else 0
@@ -232,7 +271,9 @@ def evaluate_symbol(
 
     trigger = max(prior_high, close if breakout else prior_high)
     distance_atr = (close - prior_high) / atr14 if atr14 > 0 else 0.0
-    structural_stop = min(_num(data["low"].tail(10).min(), close), close - 1.5 * atr14) if atr14 else base_low
+    structural_stop = (
+        min(_num(data["low"].tail(10).min(), close), close - 1.5 * atr14) if atr14 else base_low
+    )
     risk_pct = max(0.0, (trigger - structural_stop) / max(trigger, 0.01) * 100)
     risk = trigger - structural_stop
     target1 = trigger + 1.5 * risk if risk > 0 else None
@@ -253,7 +294,8 @@ def evaluate_symbol(
         "READY_HISTORY": len(data) >= config.ready_history,
         "READY_TURNOVER": median_turnover20 >= config.ready_turnover_lacs
         and turnover_5 >= config.ready_recent_turnover_lacs,
-        "READY_DELIVERY": delivery5 >= config.ready_delivery_5 and delivery20 >= config.ready_delivery_20,
+        "READY_DELIVERY": delivery5 >= config.ready_delivery_5
+        and delivery20 >= config.ready_delivery_20,
         "READY_MARKET_CAP": cap_verified and float(market_cap) >= config.ready_market_cap_cr,
         "READY_TREND": trend_aligned and ema20_rising,
         "READY_BREAKOUT": breakout,
@@ -283,7 +325,12 @@ def evaluate_symbol(
     elif score >= config.radar_score:
         state = "EARLY_RADAR"
     else:
-        audit.update(stage="SCORING", reason_code="BELOW_RADAR_SCORE", actual=score, required=config.radar_score)
+        audit.update(
+            stage="SCORING",
+            reason_code="BELOW_RADAR_SCORE",
+            actual=score,
+            required=config.radar_score,
+        )
         return None, audit
 
     reasons = tuple(name for name, ok in early_flags.items() if ok)[:4]
@@ -307,7 +354,8 @@ def evaluate_symbol(
         "market_cap_verified": cap_verified,
         "circuit_proxy": circuit_proxy,
         "liquidity_tier": "HIGH"
-        if median_turnover20 >= config.high_liquidity_turnover_lacs and turnover_5 >= config.high_liquidity_recent_lacs
+        if median_turnover20 >= config.high_liquidity_turnover_lacs
+        and turnover_5 >= config.high_liquidity_recent_lacs
         else "STANDARD",
         "max_position_value_lacs": round(turnover_5 * 0.0025, 3),
         "consecutive_circuit_proxy": circuit_count,
@@ -317,7 +365,9 @@ def evaluate_symbol(
         "confirming_gates": confirming_gates,
     }
     entry_low = round(trigger, 2) if state in {"CONFIRMING", "READY"} else None
-    entry_high = round(trigger + min(0.5 * atr14, trigger * 0.03), 2) if entry_low is not None else None
+    entry_high = (
+        round(trigger + min(0.5 * atr14, trigger * 0.03), 2) if entry_low is not None else None
+    )
     candidate = Candidate(
         symbol,
         state,
@@ -331,7 +381,9 @@ def evaluate_symbol(
         reasons,
         metrics,
     )
-    audit.update(eligible=True, stage=state, reason_code=state, actual=score, required=config.radar_score)
+    audit.update(
+        eligible=True, stage=state, reason_code=state, actual=score, required=config.radar_score
+    )
     return candidate, audit
 
 
@@ -344,7 +396,12 @@ def scan_market(
     config: PennyConfig = PennyConfig(),
 ) -> dict:
     if prices.empty:
-        return {"system": "PENNY_MICROCAP_SHADOW", "state": "NO_DATA", "candidates": [], "audit": []}
+        return {
+            "system": "PENNY_MICROCAP_SHADOW",
+            "state": "NO_DATA",
+            "candidates": [],
+            "audit": [],
+        }
     prices = prices.copy()
     prices["trade_date"] = pd.to_datetime(prices["trade_date"])
     as_of = prices["trade_date"].max()
@@ -387,7 +444,9 @@ def scan_market(
     counts = {state: sum(row["state"] == state for row in candidates) for state in priority}
     return {
         "system": "PENNY_MICROCAP_SHADOW",
-        "strategy_version": "penny-ema14-21-research-v1" if config.ladder_inspired else config.strategy_version,
+        "strategy_version": "penny-ema14-21-research-v1"
+        if config.ladder_inspired
+        else config.strategy_version,
         "mode": "PAPER",
         "as_of_date": as_of.date().isoformat(),
         "generated_at": datetime.now().astimezone().isoformat(),

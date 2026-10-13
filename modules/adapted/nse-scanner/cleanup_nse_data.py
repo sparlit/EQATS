@@ -35,9 +35,7 @@ Usage:
 """
 
 import argparse
-import os
 import shutil
-import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -57,11 +55,12 @@ def safe_delete_directory(path, dry_run=True):
 
     if dry_run:
         return True, f"[DRY RUN] Would delete {path} ({size_mb:.2f} MB, {file_count} files)"
-    try:
-        shutil.rmtree(path)
-        return True, f"✅ Deleted {path} ({size_mb:.2f} MB, {file_count} files)"
-    except Exception as e:
-        return False, f"❌ Error deleting {path}: {e!s}"
+    else:
+        try:
+            shutil.rmtree(path)
+            return True, f"✅ Deleted {path} ({size_mb:.2f} MB, {file_count} files)"
+        except Exception as e:
+            return False, f"❌ Error deleting {path}: {str(e)}"
 
 
 def delete_year(year, dry_run=True):
@@ -98,7 +97,9 @@ def delete_months(year, months, dry_run=True):
 
         # Count files before deletion
         file_count = sum(1 for _ in month_path.rglob("*") if _.is_file())
-        size_mb = sum(f.stat().st_size for f in month_path.rglob("*") if f.is_file()) / (1024 * 1024)
+        size_mb = sum(f.stat().st_size for f in month_path.rglob("*") if f.is_file()) / (
+            1024 * 1024
+        )
 
         if dry_run:
             print(f"[DRY RUN] Would delete {year}/{month} ({size_mb:.2f} MB, {file_count} files)")
@@ -110,10 +111,12 @@ def delete_months(year, months, dry_run=True):
                 total_size += size_mb
                 total_files += file_count
             except Exception as e:
-                print(f"❌ Error deleting {year}/{month}: {e!s}")
+                print(f"❌ Error deleting {year}/{month}: {str(e)}")
 
     if not dry_run and deleted_count > 0:
-        print(f"\n✅ Total deleted: {deleted_count} months, {total_size:.2f} MB freed ({total_files} files)")
+        print(
+            f"\n✅ Total deleted: {deleted_count} months, {total_size:.2f} MB freed ({total_files} files)"
+        )
 
     return True
 
@@ -154,7 +157,9 @@ def keep_recent_months(keep_months=3, dry_run=True):
 
             if month_date < cutoff_date:
                 file_count = sum(1 for _ in month_dir.rglob("*") if _.is_file())
-                size_mb = sum(f.stat().st_size for f in month_dir.rglob("*") if f.is_file()) / (1024 * 1024)
+                size_mb = sum(f.stat().st_size for f in month_dir.rglob("*") if f.is_file()) / (
+                    1024 * 1024
+                )
 
                 if dry_run:
                     print(
@@ -163,11 +168,13 @@ def keep_recent_months(keep_months=3, dry_run=True):
                 else:
                     try:
                         shutil.rmtree(month_dir)
-                        print(f"✅ Deleted {year}/{month_dir.name:>2} ({size_mb:6.2f} MB, {file_count:4} files)")
+                        print(
+                            f"✅ Deleted {year}/{month_dir.name:>2} ({size_mb:6.2f} MB, {file_count:4} files)"
+                        )
                         total_deleted_size += size_mb
                         total_deleted_files += file_count
                     except Exception as e:
-                        print(f"❌ Error: {year}/{month_dir.name}: {e!s}")
+                        print(f"❌ Error: {year}/{month_dir.name}: {str(e)}")
 
     if not dry_run:
         print(f"\n✅ Total freed: {total_deleted_size:.2f} MB ({total_deleted_files} files)")
@@ -196,11 +203,17 @@ Examples:
     )
 
     parser.add_argument("--delete-year", type=int, help="Delete all data for a specific year")
-    parser.add_argument("--delete-months", type=str, help="Delete specific months (comma-separated, e.g., 01,02,03)")
-    parser.add_argument("--year", type=int, default=2026, help="Year for --delete-months option")
-    parser.add_argument("--keep-months", type=int, help="Keep only recent N months, delete older data")
     parser.add_argument(
-        "--confirm", action="store_true", help="Actually delete files (without this, only shows what would be deleted)"
+        "--delete-months", type=str, help="Delete specific months (comma-separated, e.g., 01,02,03)"
+    )
+    parser.add_argument("--year", type=int, default=2026, help="Year for --delete-months option")
+    parser.add_argument(
+        "--keep-months", type=int, help="Keep only recent N months, delete older data"
+    )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Actually delete files (without this, only shows what would be deleted)",
     )
     parser.add_argument("--help-storage", action="store_true", help="Show storage recommendations")
 

@@ -27,9 +27,9 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    base_public_get_v1_public_get_announcements = basePublicGetV1PublicGetAnnouncements = Entry[_Dict](
-        "v1/public/get-announcements", ["base", "public"], "GET", {"cost": 1}
-    )
+    base_public_get_v1_public_get_announcements = basePublicGetV1PublicGetAnnouncements = Entry[
+        _Dict
+    ]("v1/public/get-announcements", ["base", "public"], "GET", {"cost": 1})
     v1_public_get_public_auth = v1PublicGetPublicAuth = Entry[_Dict](
         "public/auth", ["v1", "public"], "GET", {"cost": 3.3333333333333335}
     )
@@ -51,7 +51,9 @@ class ImplicitAPI:
     v1_public_get_public_get_valuations = v1PublicGetPublicGetValuations = Entry[_Dict](
         "public/get-valuations", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_get_public_get_expired_settlement_price = v1PublicGetPublicGetExpiredSettlementPrice = Entry[_Dict](
+    v1_public_get_public_get_expired_settlement_price = (
+        v1PublicGetPublicGetExpiredSettlementPrice
+    ) = Entry[_Dict](
         "public/get-expired-settlement-price", ["v1", "public"], "GET", {"cost": 3.3333333333333335}
     )
     v1_public_get_public_get_insurance = v1PublicGetPublicGetInsurance = Entry[_Dict](
@@ -63,21 +65,31 @@ class ImplicitAPI:
     v1_public_get_public_get_risk_parameters = v1PublicGetPublicGetRiskParameters = Entry[_Dict](
         "public/get-risk-parameters", ["v1", "public"], "GET", {"cost": 1}
     )
-    v1_public_post_public_staking_get_conversion_rate = v1PublicPostPublicStakingGetConversionRate = Entry[_Dict](
-        "public/staking/get-conversion-rate", ["v1", "public"], "POST", {"cost": 2}
+    v1_public_post_public_staking_get_conversion_rate = (
+        v1PublicPostPublicStakingGetConversionRate
+    ) = Entry[_Dict]("public/staking/get-conversion-rate", ["v1", "public"], "POST", {"cost": 2})
+    v1_private_post_private_set_cancel_on_disconnect = v1PrivatePostPrivateSetCancelOnDisconnect = (
+        Entry[_Dict](
+            "private/set-cancel-on-disconnect",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v1_private_post_private_set_cancel_on_disconnect = v1PrivatePostPrivateSetCancelOnDisconnect = Entry[_Dict](
-        "private/set-cancel-on-disconnect", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v1_private_post_private_get_cancel_on_disconnect = v1PrivatePostPrivateGetCancelOnDisconnect = Entry[_Dict](
-        "private/get-cancel-on-disconnect", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_get_cancel_on_disconnect = v1PrivatePostPrivateGetCancelOnDisconnect = (
+        Entry[_Dict](
+            "private/get-cancel-on-disconnect",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
     v1_private_post_private_user_balance = v1PrivatePostPrivateUserBalance = Entry[_Dict](
         "private/user-balance", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_user_balance_history = v1PrivatePostPrivateUserBalanceHistory = Entry[_Dict](
-        "private/user-balance-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
-    )
+    v1_private_post_private_user_balance_history = v1PrivatePostPrivateUserBalanceHistory = Entry[
+        _Dict
+    ]("private/user-balance-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
     v1_private_post_private_get_positions = v1PrivatePostPrivateGetPositions = Entry[_Dict](
         "private/get-positions", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
@@ -114,17 +126,32 @@ class ImplicitAPI:
     v1_private_post_private_get_trades = v1PrivatePostPrivateGetTrades = Entry[_Dict](
         "private/get-trades", ["v1", "private"], "POST", {"cost": 100}
     )
-    v1_private_post_private_change_account_leverage = v1PrivatePostPrivateChangeAccountLeverage = Entry[_Dict](
-        "private/change-account-leverage", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_change_account_leverage = v1PrivatePostPrivateChangeAccountLeverage = (
+        Entry[_Dict](
+            "private/change-account-leverage",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
     v1_private_post_private_get_transactions = v1PrivatePostPrivateGetTransactions = Entry[_Dict](
         "private/get-transactions", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_create_subaccount_transfer = v1PrivatePostPrivateCreateSubaccountTransfer = Entry[_Dict](
-        "private/create-subaccount-transfer", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_create_subaccount_transfer = (
+        v1PrivatePostPrivateCreateSubaccountTransfer
+    ) = Entry[_Dict](
+        "private/create-subaccount-transfer",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    v1_private_post_private_get_subaccount_balances = v1PrivatePostPrivateGetSubaccountBalances = Entry[_Dict](
-        "private/get-subaccount-balances", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_get_subaccount_balances = v1PrivatePostPrivateGetSubaccountBalances = (
+        Entry[_Dict](
+            "private/get-subaccount-balances",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
     v1_private_post_private_get_order_list = v1PrivatePostPrivateGetOrderList = Entry[_Dict](
         "private/get-order-list", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
@@ -132,47 +159,89 @@ class ImplicitAPI:
     v1_private_post_private_create_withdrawal = v1PrivatePostPrivateCreateWithdrawal = Entry[_Dict](
         "private/create-withdrawal", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_get_currency_networks = v1PrivatePostPrivateGetCurrencyNetworks = Entry[_Dict](
-        "private/get-currency-networks", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v1_private_post_private_get_deposit_address = v1PrivatePostPrivateGetDepositAddress = Entry[_Dict](
-        "private/get-deposit-address", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
-    )
+    v1_private_post_private_get_currency_networks = v1PrivatePostPrivateGetCurrencyNetworks = Entry[
+        _Dict
+    ]("private/get-currency-networks", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
+    v1_private_post_private_get_deposit_address = v1PrivatePostPrivateGetDepositAddress = Entry[
+        _Dict
+    ]("private/get-deposit-address", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
     v1_private_post_private_get_accounts = v1PrivatePostPrivateGetAccounts = Entry[_Dict](
         "private/get-accounts", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_get_withdrawal_history = v1PrivatePostPrivateGetWithdrawalHistory = Entry[_Dict](
-        "private/get-withdrawal-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_get_withdrawal_history = v1PrivatePostPrivateGetWithdrawalHistory = (
+        Entry[_Dict](
+            "private/get-withdrawal-history",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v1_private_post_private_get_deposit_history = v1PrivatePostPrivateGetDepositHistory = Entry[_Dict](
-        "private/get-deposit-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
-    )
+    v1_private_post_private_get_deposit_history = v1PrivatePostPrivateGetDepositHistory = Entry[
+        _Dict
+    ]("private/get-deposit-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
     v1_private_post_private_get_fee_rate = v1PrivatePostPrivateGetFeeRate = Entry[_Dict](
         "private/get-fee-rate", ["v1", "private"], "POST", {"cost": 2}
     )
-    v1_private_post_private_get_instrument_fee_rate = v1PrivatePostPrivateGetInstrumentFeeRate = Entry[_Dict](
-        "private/get-instrument-fee-rate", ["v1", "private"], "POST", {"cost": 2}
+    v1_private_post_private_get_instrument_fee_rate = v1PrivatePostPrivateGetInstrumentFeeRate = (
+        Entry[_Dict]("private/get-instrument-fee-rate", ["v1", "private"], "POST", {"cost": 2})
     )
-    v1_private_post_private_fiat_fiat_deposit_info = v1PrivatePostPrivateFiatFiatDepositInfo = Entry[_Dict](
-        "private/fiat/fiat-deposit-info", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_get_fee_credit_balances = v1PrivatePostPrivateGetFeeCreditBalances = (
+        Entry[_Dict](
+            "private/get-fee-credit-balances",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v1_private_post_private_fiat_fiat_deposit_history = v1PrivatePostPrivateFiatFiatDepositHistory = Entry[_Dict](
+    v1_private_post_private_fiat_fiat_deposit_info = v1PrivatePostPrivateFiatFiatDepositInfo = (
+        Entry[_Dict](
+            "private/fiat/fiat-deposit-info",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
+    )
+    v1_private_post_private_fiat_fiat_deposit_history = (
+        v1PrivatePostPrivateFiatFiatDepositHistory
+    ) = Entry[_Dict](
         "private/fiat/fiat-deposit-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_fiat_fiat_withdraw_history = v1PrivatePostPrivateFiatFiatWithdrawHistory = Entry[_Dict](
-        "private/fiat/fiat-withdraw-history", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_fiat_fiat_withdraw_history = (
+        v1PrivatePostPrivateFiatFiatWithdrawHistory
+    ) = Entry[_Dict](
+        "private/fiat/fiat-withdraw-history",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    v1_private_post_private_fiat_fiat_create_withdraw = v1PrivatePostPrivateFiatFiatCreateWithdraw = Entry[_Dict](
+    v1_private_post_private_fiat_fiat_create_withdraw = (
+        v1PrivatePostPrivateFiatFiatCreateWithdraw
+    ) = Entry[_Dict](
         "private/fiat/fiat-create-withdraw", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v1_private_post_private_fiat_fiat_transaction_quota = v1PrivatePostPrivateFiatFiatTransactionQuota = Entry[_Dict](
-        "private/fiat/fiat-transaction-quota", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_fiat_fiat_transaction_quota = (
+        v1PrivatePostPrivateFiatFiatTransactionQuota
+    ) = Entry[_Dict](
+        "private/fiat/fiat-transaction-quota",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    v1_private_post_private_fiat_fiat_transaction_limit = v1PrivatePostPrivateFiatFiatTransactionLimit = Entry[_Dict](
-        "private/fiat/fiat-transaction-limit", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_fiat_fiat_transaction_limit = (
+        v1PrivatePostPrivateFiatFiatTransactionLimit
+    ) = Entry[_Dict](
+        "private/fiat/fiat-transaction-limit",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    v1_private_post_private_fiat_fiat_get_bank_accounts = v1PrivatePostPrivateFiatFiatGetBankAccounts = Entry[_Dict](
-        "private/fiat/fiat-get-bank-accounts", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    v1_private_post_private_fiat_fiat_get_bank_accounts = (
+        v1PrivatePostPrivateFiatFiatGetBankAccounts
+    ) = Entry[_Dict](
+        "private/fiat/fiat-get-bank-accounts",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
     v1_private_post_private_staking_stake = v1PrivatePostPrivateStakingStake = Entry[_Dict](
         "private/staking/stake", ["v1", "private"], "POST", {"cost": 2}
@@ -180,36 +249,91 @@ class ImplicitAPI:
     v1_private_post_private_staking_unstake = v1PrivatePostPrivateStakingUnstake = Entry[_Dict](
         "private/staking/unstake", ["v1", "private"], "POST", {"cost": 2}
     )
-    v1_private_post_private_staking_get_staking_position = v1PrivatePostPrivateStakingGetStakingPosition = Entry[_Dict](
-        "private/staking/get-staking-position", ["v1", "private"], "POST", {"cost": 2}
+    v1_private_post_private_staking_get_staking_position = (
+        v1PrivatePostPrivateStakingGetStakingPosition
+    ) = Entry[_Dict]("private/staking/get-staking-position", ["v1", "private"], "POST", {"cost": 2})
+    v1_private_post_private_staking_get_staking_instruments = (
+        v1PrivatePostPrivateStakingGetStakingInstruments
+    ) = Entry[_Dict](
+        "private/staking/get-staking-instruments", ["v1", "private"], "POST", {"cost": 2}
     )
-    v1_private_post_private_staking_get_staking_instruments = v1PrivatePostPrivateStakingGetStakingInstruments = Entry[
-        _Dict
-    ]("private/staking/get-staking-instruments", ["v1", "private"], "POST", {"cost": 2})
-    v1_private_post_private_staking_get_open_stake = v1PrivatePostPrivateStakingGetOpenStake = Entry[_Dict](
-        "private/staking/get-open-stake", ["v1", "private"], "POST", {"cost": 2}
+    v1_private_post_private_staking_get_open_stake = v1PrivatePostPrivateStakingGetOpenStake = (
+        Entry[_Dict]("private/staking/get-open-stake", ["v1", "private"], "POST", {"cost": 2})
     )
-    v1_private_post_private_staking_get_stake_history = v1PrivatePostPrivateStakingGetStakeHistory = Entry[_Dict](
-        "private/staking/get-stake-history", ["v1", "private"], "POST", {"cost": 2}
-    )
-    v1_private_post_private_staking_get_reward_history = v1PrivatePostPrivateStakingGetRewardHistory = Entry[_Dict](
-        "private/staking/get-reward-history", ["v1", "private"], "POST", {"cost": 2}
-    )
+    v1_private_post_private_staking_get_stake_history = (
+        v1PrivatePostPrivateStakingGetStakeHistory
+    ) = Entry[_Dict]("private/staking/get-stake-history", ["v1", "private"], "POST", {"cost": 2})
+    v1_private_post_private_staking_get_reward_history = (
+        v1PrivatePostPrivateStakingGetRewardHistory
+    ) = Entry[_Dict]("private/staking/get-reward-history", ["v1", "private"], "POST", {"cost": 2})
     v1_private_post_private_staking_convert = v1PrivatePostPrivateStakingConvert = Entry[_Dict](
         "private/staking/convert", ["v1", "private"], "POST", {"cost": 2}
     )
-    v1_private_post_private_staking_get_open_convert = v1PrivatePostPrivateStakingGetOpenConvert = Entry[_Dict](
-        "private/staking/get-open-convert", ["v1", "private"], "POST", {"cost": 2}
+    v1_private_post_private_staking_get_open_convert = v1PrivatePostPrivateStakingGetOpenConvert = (
+        Entry[_Dict]("private/staking/get-open-convert", ["v1", "private"], "POST", {"cost": 2})
     )
-    v1_private_post_private_staking_get_convert_history = v1PrivatePostPrivateStakingGetConvertHistory = Entry[_Dict](
-        "private/staking/get-convert-history", ["v1", "private"], "POST", {"cost": 2}
+    v1_private_post_private_staking_get_convert_history = (
+        v1PrivatePostPrivateStakingGetConvertHistory
+    ) = Entry[_Dict]("private/staking/get-convert-history", ["v1", "private"], "POST", {"cost": 2})
+    v1_private_post_private_create_isolated_margin_transfer = (
+        v1PrivatePostPrivateCreateIsolatedMarginTransfer
+    ) = Entry[_Dict](
+        "private/create-isolated-margin-transfer",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    v1_private_post_private_create_isolated_margin_transfer = v1PrivatePostPrivateCreateIsolatedMarginTransfer = Entry[
+    v1_private_post_private_change_isolated_margin_leverage = (
+        v1PrivatePostPrivateChangeIsolatedMarginLeverage
+    ) = Entry[_Dict](
+        "private/change-isolated-margin-leverage",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    v1_private_post_private_bot_create_trading_bot = v1PrivatePostPrivateBotCreateTradingBot = (
+        Entry[_Dict](
+            "private/bot/create-trading-bot",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
+    )
+    v1_private_post_private_bot_update_trading_bot = v1PrivatePostPrivateBotUpdateTradingBot = (
+        Entry[_Dict](
+            "private/bot/update-trading-bot",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
+    )
+    v1_private_post_private_bot_terminate_trading_bot = (
+        v1PrivatePostPrivateBotTerminateTradingBot
+    ) = Entry[_Dict](
+        "private/bot/terminate-trading-bot", ["v1", "private"], "POST", {"cost": 3.3333333333333335}
+    )
+    v1_private_post_private_bot_pause_trading_bot = v1PrivatePostPrivateBotPauseTradingBot = Entry[
         _Dict
-    ]("private/create-isolated-margin-transfer", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
-    v1_private_post_private_change_isolated_margin_leverage = v1PrivatePostPrivateChangeIsolatedMarginLeverage = Entry[
+    ]("private/bot/pause-trading-bot", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
+    v1_private_post_private_bot_resume_trading_bot = v1PrivatePostPrivateBotResumeTradingBot = (
+        Entry[_Dict](
+            "private/bot/resume-trading-bot",
+            ["v1", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
+    )
+    v1_private_post_private_bot_get_trading_bots = v1PrivatePostPrivateBotGetTradingBots = Entry[
         _Dict
-    ]("private/change-isolated-margin-leverage", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
+    ]("private/bot/get-trading-bots", ["v1", "private"], "POST", {"cost": 3.3333333333333335})
+    v1_private_post_private_bot_get_trading_bot_executions = (
+        v1PrivatePostPrivateBotGetTradingBotExecutions
+    ) = Entry[_Dict](
+        "private/bot/get-trading-bot-executions",
+        ["v1", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
     v2_public_get_public_auth = v2PublicGetPublicAuth = Entry[_Dict](
         "public/auth", ["v2", "public"], "GET", {"cost": 1}
     )
@@ -228,48 +352,78 @@ class ImplicitAPI:
     v2_public_get_public_get_trades = v2PublicGetPublicGetTrades = Entry[_Dict](
         "public/get-trades", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_public_margin_get_transfer_currencies = v2PublicGetPublicMarginGetTransferCurrencies = Entry[_Dict](
-        "public/margin/get-transfer-currencies", ["v2", "public"], "GET", {"cost": 1}
-    )
-    v2_public_get_public_margin_get_load_currenices = v2PublicGetPublicMarginGetLoadCurrenices = Entry[_Dict](
-        "public/margin/get-load-currenices", ["v2", "public"], "GET", {"cost": 1}
+    v2_public_get_public_margin_get_transfer_currencies = (
+        v2PublicGetPublicMarginGetTransferCurrencies
+    ) = Entry[_Dict]("public/margin/get-transfer-currencies", ["v2", "public"], "GET", {"cost": 1})
+    v2_public_get_public_margin_get_load_currenices = v2PublicGetPublicMarginGetLoadCurrenices = (
+        Entry[_Dict]("public/margin/get-load-currenices", ["v2", "public"], "GET", {"cost": 1})
     )
     v2_public_get_public_respond_heartbeat = v2PublicGetPublicRespondHeartbeat = Entry[_Dict](
         "public/respond-heartbeat", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_private_post_private_set_cancel_on_disconnect = v2PrivatePostPrivateSetCancelOnDisconnect = Entry[_Dict](
-        "private/set-cancel-on-disconnect", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    v2_private_post_private_set_cancel_on_disconnect = v2PrivatePostPrivateSetCancelOnDisconnect = (
+        Entry[_Dict](
+            "private/set-cancel-on-disconnect",
+            ["v2", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v2_private_post_private_get_cancel_on_disconnect = v2PrivatePostPrivateGetCancelOnDisconnect = Entry[_Dict](
-        "private/get-cancel-on-disconnect", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    v2_private_post_private_get_cancel_on_disconnect = v2PrivatePostPrivateGetCancelOnDisconnect = (
+        Entry[_Dict](
+            "private/get-cancel-on-disconnect",
+            ["v2", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
     v2_private_post_private_create_withdrawal = v2PrivatePostPrivateCreateWithdrawal = Entry[_Dict](
         "private/create-withdrawal", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v2_private_post_private_get_withdrawal_history = v2PrivatePostPrivateGetWithdrawalHistory = Entry[_Dict](
-        "private/get-withdrawal-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    v2_private_post_private_get_withdrawal_history = v2PrivatePostPrivateGetWithdrawalHistory = (
+        Entry[_Dict](
+            "private/get-withdrawal-history",
+            ["v2", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v2_private_post_private_get_currency_networks = v2PrivatePostPrivateGetCurrencyNetworks = Entry[_Dict](
-        "private/get-currency-networks", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_get_deposit_history = v2PrivatePostPrivateGetDepositHistory = Entry[_Dict](
-        "private/get-deposit-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_get_deposit_address = v2PrivatePostPrivateGetDepositAddress = Entry[_Dict](
-        "private/get-deposit-address", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_export_create_export_request = v2PrivatePostPrivateExportCreateExportRequest = Entry[_Dict](
-        "private/export/create-export-request", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_export_get_export_requests = v2PrivatePostPrivateExportGetExportRequests = Entry[_Dict](
-        "private/export/get-export-requests", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_export_download_export_output = v2PrivatePostPrivateExportDownloadExportOutput = Entry[
+    v2_private_post_private_get_currency_networks = v2PrivatePostPrivateGetCurrencyNetworks = Entry[
         _Dict
-    ]("private/export/download-export-output", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
-    v2_private_post_private_get_account_summary = v2PrivatePostPrivateGetAccountSummary = Entry[_Dict](
-        "private/get-account-summary", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    ]("private/get-currency-networks", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
+    v2_private_post_private_get_deposit_history = v2PrivatePostPrivateGetDepositHistory = Entry[
+        _Dict
+    ]("private/get-deposit-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
+    v2_private_post_private_get_deposit_address = v2PrivatePostPrivateGetDepositAddress = Entry[
+        _Dict
+    ]("private/get-deposit-address", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
+    v2_private_post_private_export_create_export_request = (
+        v2PrivatePostPrivateExportCreateExportRequest
+    ) = Entry[_Dict](
+        "private/export/create-export-request",
+        ["v2", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
+    v2_private_post_private_export_get_export_requests = (
+        v2PrivatePostPrivateExportGetExportRequests
+    ) = Entry[_Dict](
+        "private/export/get-export-requests",
+        ["v2", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    v2_private_post_private_export_download_export_output = (
+        v2PrivatePostPrivateExportDownloadExportOutput
+    ) = Entry[_Dict](
+        "private/export/download-export-output",
+        ["v2", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    v2_private_post_private_get_account_summary = v2PrivatePostPrivateGetAccountSummary = Entry[
+        _Dict
+    ]("private/get-account-summary", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
     v2_private_post_private_create_order = v2PrivatePostPrivateCreateOrder = Entry[_Dict](
         "private/create-order", ["v2", "private"], "POST", {"cost": 0.6666666666666666}
     )
@@ -297,44 +451,56 @@ class ImplicitAPI:
     v2_private_post_private_get_accounts = v2PrivatePostPrivateGetAccounts = Entry[_Dict](
         "private/get-accounts", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v2_private_post_private_get_subaccount_balances = v2PrivatePostPrivateGetSubaccountBalances = Entry[_Dict](
-        "private/get-subaccount-balances", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    v2_private_post_private_get_subaccount_balances = v2PrivatePostPrivateGetSubaccountBalances = (
+        Entry[_Dict](
+            "private/get-subaccount-balances",
+            ["v2", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    v2_private_post_private_create_subaccount_transfer = v2PrivatePostPrivateCreateSubaccountTransfer = Entry[_Dict](
-        "private/create-subaccount-transfer", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
+    v2_private_post_private_create_subaccount_transfer = (
+        v2PrivatePostPrivateCreateSubaccountTransfer
+    ) = Entry[_Dict](
+        "private/create-subaccount-transfer",
+        ["v2", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
     v2_private_post_private_otc_get_otc_user = v2PrivatePostPrivateOtcGetOtcUser = Entry[_Dict](
         "private/otc/get-otc-user", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    v2_private_post_private_otc_get_instruments = v2PrivatePostPrivateOtcGetInstruments = Entry[_Dict](
-        "private/otc/get-instruments", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
+    v2_private_post_private_otc_get_instruments = v2PrivatePostPrivateOtcGetInstruments = Entry[
+        _Dict
+    ]("private/otc/get-instruments", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
     v2_private_post_private_otc_request_quote = v2PrivatePostPrivateOtcRequestQuote = Entry[_Dict](
         "private/otc/request-quote", ["v2", "private"], "POST", {"cost": 100}
     )
     v2_private_post_private_otc_accept_quote = v2PrivatePostPrivateOtcAcceptQuote = Entry[_Dict](
         "private/otc/accept-quote", ["v2", "private"], "POST", {"cost": 100}
     )
-    v2_private_post_private_otc_get_quote_history = v2PrivatePostPrivateOtcGetQuoteHistory = Entry[_Dict](
-        "private/otc/get-quote-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    v2_private_post_private_otc_get_trade_history = v2PrivatePostPrivateOtcGetTradeHistory = Entry[_Dict](
-        "private/otc/get-trade-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
-    )
+    v2_private_post_private_otc_get_quote_history = v2PrivatePostPrivateOtcGetQuoteHistory = Entry[
+        _Dict
+    ]("private/otc/get-quote-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
+    v2_private_post_private_otc_get_trade_history = v2PrivatePostPrivateOtcGetTradeHistory = Entry[
+        _Dict
+    ]("private/otc/get-trade-history", ["v2", "private"], "POST", {"cost": 3.3333333333333335})
     v2_private_post_private_otc_create_order = v2PrivatePostPrivateOtcCreateOrder = Entry[_Dict](
         "private/otc/create-order", ["v2", "private"], "POST", {"cost": 3.3333333333333335}
     )
     derivatives_public_get_public_auth = derivativesPublicGetPublicAuth = Entry[_Dict](
         "public/auth", ["derivatives", "public"], "GET", {"cost": 3.3333333333333335}
     )
-    derivatives_public_get_public_get_instruments = derivativesPublicGetPublicGetInstruments = Entry[_Dict](
-        "public/get-instruments", ["derivatives", "public"], "GET", {"cost": 3.3333333333333335}
+    derivatives_public_get_public_get_instruments = derivativesPublicGetPublicGetInstruments = (
+        Entry[_Dict](
+            "public/get-instruments", ["derivatives", "public"], "GET", {"cost": 3.3333333333333335}
+        )
     )
     derivatives_public_get_public_get_book = derivativesPublicGetPublicGetBook = Entry[_Dict](
         "public/get-book", ["derivatives", "public"], "GET", {"cost": 1}
     )
-    derivatives_public_get_public_get_candlestick = derivativesPublicGetPublicGetCandlestick = Entry[_Dict](
-        "public/get-candlestick", ["derivatives", "public"], "GET", {"cost": 1}
+    derivatives_public_get_public_get_candlestick = derivativesPublicGetPublicGetCandlestick = (
+        Entry[_Dict]("public/get-candlestick", ["derivatives", "public"], "GET", {"cost": 1})
     )
     derivatives_public_get_public_get_trades = derivativesPublicGetPublicGetTrades = Entry[_Dict](
         "public/get-trades", ["derivatives", "public"], "GET", {"cost": 1}
@@ -342,87 +508,157 @@ class ImplicitAPI:
     derivatives_public_get_public_get_tickers = derivativesPublicGetPublicGetTickers = Entry[_Dict](
         "public/get-tickers", ["derivatives", "public"], "GET", {"cost": 1}
     )
-    derivatives_public_get_public_get_valuations = derivativesPublicGetPublicGetValuations = Entry[_Dict](
-        "public/get-valuations", ["derivatives", "public"], "GET", {"cost": 1}
-    )
-    derivatives_public_get_public_get_expired_settlement_price = derivativesPublicGetPublicGetExpiredSettlementPrice = (
-        Entry[_Dict](
-            "public/get-expired-settlement-price", ["derivatives", "public"], "GET", {"cost": 3.3333333333333335}
-        )
-    )
-    derivatives_public_get_public_get_insurance = derivativesPublicGetPublicGetInsurance = Entry[_Dict](
-        "public/get-insurance", ["derivatives", "public"], "GET", {"cost": 1}
-    )
-    derivatives_private_post_private_set_cancel_on_disconnect = derivativesPrivatePostPrivateSetCancelOnDisconnect = (
-        Entry[_Dict](
-            "private/set-cancel-on-disconnect", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
-        )
-    )
-    derivatives_private_post_private_get_cancel_on_disconnect = derivativesPrivatePostPrivateGetCancelOnDisconnect = (
-        Entry[_Dict](
-            "private/get-cancel-on-disconnect", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
-        )
-    )
-    derivatives_private_post_private_user_balance = derivativesPrivatePostPrivateUserBalance = Entry[_Dict](
-        "private/user-balance", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
-    )
-    derivatives_private_post_private_user_balance_history = derivativesPrivatePostPrivateUserBalanceHistory = Entry[
+    derivatives_public_get_public_get_valuations = derivativesPublicGetPublicGetValuations = Entry[
         _Dict
-    ]("private/user-balance-history", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335})
-    derivatives_private_post_private_get_positions = derivativesPrivatePostPrivateGetPositions = Entry[_Dict](
-        "private/get-positions", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+    ]("public/get-valuations", ["derivatives", "public"], "GET", {"cost": 1})
+    derivatives_public_get_public_get_expired_settlement_price = (
+        derivativesPublicGetPublicGetExpiredSettlementPrice
+    ) = Entry[_Dict](
+        "public/get-expired-settlement-price",
+        ["derivatives", "public"],
+        "GET",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_create_order = derivativesPrivatePostPrivateCreateOrder = Entry[_Dict](
-        "private/create-order", ["derivatives", "private"], "POST", {"cost": 0.6666666666666666}
+    derivatives_public_get_public_get_insurance = derivativesPublicGetPublicGetInsurance = Entry[
+        _Dict
+    ]("public/get-insurance", ["derivatives", "public"], "GET", {"cost": 1})
+    derivatives_private_post_private_set_cancel_on_disconnect = (
+        derivativesPrivatePostPrivateSetCancelOnDisconnect
+    ) = Entry[_Dict](
+        "private/set-cancel-on-disconnect",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_create_order_list = derivativesPrivatePostPrivateCreateOrderList = Entry[_Dict](
-        "private/create-order-list", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+    derivatives_private_post_private_get_cancel_on_disconnect = (
+        derivativesPrivatePostPrivateGetCancelOnDisconnect
+    ) = Entry[_Dict](
+        "private/get-cancel-on-disconnect",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_cancel_order = derivativesPrivatePostPrivateCancelOrder = Entry[_Dict](
-        "private/cancel-order", ["derivatives", "private"], "POST", {"cost": 0.6666666666666666}
+    derivatives_private_post_private_user_balance = derivativesPrivatePostPrivateUserBalance = (
+        Entry[_Dict](
+            "private/user-balance", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+        )
     )
-    derivatives_private_post_private_cancel_order_list = derivativesPrivatePostPrivateCancelOrderList = Entry[_Dict](
-        "private/cancel-order-list", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+    derivatives_private_post_private_user_balance_history = (
+        derivativesPrivatePostPrivateUserBalanceHistory
+    ) = Entry[_Dict](
+        "private/user-balance-history",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_cancel_all_orders = derivativesPrivatePostPrivateCancelAllOrders = Entry[_Dict](
-        "private/cancel-all-orders", ["derivatives", "private"], "POST", {"cost": 0.6666666666666666}
+    derivatives_private_post_private_get_positions = derivativesPrivatePostPrivateGetPositions = (
+        Entry[_Dict](
+            "private/get-positions",
+            ["derivatives", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
     )
-    derivatives_private_post_private_close_position = derivativesPrivatePostPrivateClosePosition = Entry[_Dict](
-        "private/close-position", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+    derivatives_private_post_private_create_order = derivativesPrivatePostPrivateCreateOrder = (
+        Entry[_Dict](
+            "private/create-order", ["derivatives", "private"], "POST", {"cost": 0.6666666666666666}
+        )
     )
-    derivatives_private_post_private_convert_collateral = derivativesPrivatePostPrivateConvertCollateral = Entry[_Dict](
-        "private/convert-collateral", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+    derivatives_private_post_private_create_order_list = (
+        derivativesPrivatePostPrivateCreateOrderList
+    ) = Entry[_Dict](
+        "private/create-order-list",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_get_order_history = derivativesPrivatePostPrivateGetOrderHistory = Entry[_Dict](
-        "private/get-order-history", ["derivatives", "private"], "POST", {"cost": 100}
+    derivatives_private_post_private_cancel_order = derivativesPrivatePostPrivateCancelOrder = (
+        Entry[_Dict](
+            "private/cancel-order", ["derivatives", "private"], "POST", {"cost": 0.6666666666666666}
+        )
     )
-    derivatives_private_post_private_get_open_orders = derivativesPrivatePostPrivateGetOpenOrders = Entry[_Dict](
+    derivatives_private_post_private_cancel_order_list = (
+        derivativesPrivatePostPrivateCancelOrderList
+    ) = Entry[_Dict](
+        "private/cancel-order-list",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    derivatives_private_post_private_cancel_all_orders = (
+        derivativesPrivatePostPrivateCancelAllOrders
+    ) = Entry[_Dict](
+        "private/cancel-all-orders",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 0.6666666666666666},
+    )
+    derivatives_private_post_private_close_position = derivativesPrivatePostPrivateClosePosition = (
+        Entry[_Dict](
+            "private/close-position",
+            ["derivatives", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
+        )
+    )
+    derivatives_private_post_private_convert_collateral = (
+        derivativesPrivatePostPrivateConvertCollateral
+    ) = Entry[_Dict](
+        "private/convert-collateral",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    derivatives_private_post_private_get_order_history = (
+        derivativesPrivatePostPrivateGetOrderHistory
+    ) = Entry[_Dict]("private/get-order-history", ["derivatives", "private"], "POST", {"cost": 100})
+    derivatives_private_post_private_get_open_orders = (
+        derivativesPrivatePostPrivateGetOpenOrders
+    ) = Entry[_Dict](
         "private/get-open-orders", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
     )
-    derivatives_private_post_private_get_order_detail = derivativesPrivatePostPrivateGetOrderDetail = Entry[_Dict](
+    derivatives_private_post_private_get_order_detail = (
+        derivativesPrivatePostPrivateGetOrderDetail
+    ) = Entry[_Dict](
         "private/get-order-detail", ["derivatives", "private"], "POST", {"cost": 0.3333333333333333}
     )
-    derivatives_private_post_private_get_trades = derivativesPrivatePostPrivateGetTrades = Entry[_Dict](
-        "private/get-trades", ["derivatives", "private"], "POST", {"cost": 100}
+    derivatives_private_post_private_get_trades = derivativesPrivatePostPrivateGetTrades = Entry[
+        _Dict
+    ]("private/get-trades", ["derivatives", "private"], "POST", {"cost": 100})
+    derivatives_private_post_private_change_account_leverage = (
+        derivativesPrivatePostPrivateChangeAccountLeverage
+    ) = Entry[_Dict](
+        "private/change-account-leverage",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_change_account_leverage = derivativesPrivatePostPrivateChangeAccountLeverage = (
-        Entry[_Dict](
-            "private/change-account-leverage", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
-        )
-    )
-    derivatives_private_post_private_get_transactions = derivativesPrivatePostPrivateGetTransactions = Entry[_Dict](
+    derivatives_private_post_private_get_transactions = (
+        derivativesPrivatePostPrivateGetTransactions
+    ) = Entry[_Dict](
         "private/get-transactions", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
     )
     derivatives_private_post_private_create_subaccount_transfer = (
         derivativesPrivatePostPrivateCreateSubaccountTransfer
     ) = Entry[_Dict](
-        "private/create-subaccount-transfer", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+        "private/create-subaccount-transfer",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
     )
-    derivatives_private_post_private_get_subaccount_balances = derivativesPrivatePostPrivateGetSubaccountBalances = (
+    derivatives_private_post_private_get_subaccount_balances = (
+        derivativesPrivatePostPrivateGetSubaccountBalances
+    ) = Entry[_Dict](
+        "private/get-subaccount-balances",
+        ["derivatives", "private"],
+        "POST",
+        {"cost": 3.3333333333333335},
+    )
+    derivatives_private_post_private_get_order_list = derivativesPrivatePostPrivateGetOrderList = (
         Entry[_Dict](
-            "private/get-subaccount-balances", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
+            "private/get-order-list",
+            ["derivatives", "private"],
+            "POST",
+            {"cost": 3.3333333333333335},
         )
-    )
-    derivatives_private_post_private_get_order_list = derivativesPrivatePostPrivateGetOrderList = Entry[_Dict](
-        "private/get-order-list", ["derivatives", "private"], "POST", {"cost": 3.3333333333333335}
     )

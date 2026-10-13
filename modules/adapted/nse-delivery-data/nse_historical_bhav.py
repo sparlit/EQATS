@@ -48,9 +48,7 @@ OUTPUT_ROOT = "./HistoricalBhavCopy/NSE"  # base output folder
 #  IMPORTS
 # ─────────────────────────────────────────────────────────────
 import argparse
-import io
 import logging
-import os
 import random
 import sys
 import time
@@ -80,7 +78,9 @@ log = logging.getLogger(__name__)
 #  USER-AGENT POOL  (rotated per request to avoid fingerprinting)
 # ─────────────────────────────────────────────────────────────
 USER_AGENTS = [
-    ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
     (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     ),
@@ -132,7 +132,9 @@ def warm_up_nse(session: requests.Session) -> bool:
         time.sleep(random.uniform(1.5, 2.5))
         session.headers["Referer"] = "https://www.nseindia.com/"
         r2 = session.get("https://www.nseindia.com/market-data/all-reports", timeout=30)
-        log.info("NSE warm-up done  (status %s | cookies: %d)", r2.status_code, len(session.cookies))
+        log.info(
+            "NSE warm-up done  (status %s | cookies: %d)", r2.status_code, len(session.cookies)
+        )
         return True
     except Exception as exc:
         log.warning("NSE warm-up failed (will still attempt downloads): %s", exc)
@@ -197,7 +199,7 @@ def download_day(session: requests.Session, d: date, output_root: str) -> str:
     try:
         resp = session.get(url, timeout=45, stream=True)
     except Exception as exc:
-        log.exception("  [ERROR]     Connection error for %s: %s", d, exc)
+        log.error("  [ERROR]     Connection error for %s: %s", d, exc)
         return DownloadResult.ERROR
 
     if resp.status_code == 404:
@@ -255,7 +257,13 @@ def run(start: date, end: date, output_root: str) -> None:
         return
 
     stats = dict.fromkeys(
-        (DownloadResult.DOWNLOADED, DownloadResult.SKIPPED, DownloadResult.HOLIDAY, DownloadResult.ERROR), 0
+        (
+            DownloadResult.DOWNLOADED,
+            DownloadResult.SKIPPED,
+            DownloadResult.HOLIDAY,
+            DownloadResult.ERROR,
+        ),
+        0,
     )
 
     session = make_session()
@@ -292,7 +300,9 @@ def run(start: date, end: date, output_root: str) -> None:
 
 
 def parse_args() -> tuple[date, date, str]:
-    parser = argparse.ArgumentParser(description="Download historical NSE Full Bhav Copy CSV files.")
+    parser = argparse.ArgumentParser(
+        description="Download historical NSE Full Bhav Copy CSV files."
+    )
     parser.add_argument("--start", default=START_DATE, help="Start date YYYY-MM-DD")
     parser.add_argument("--end", default=END_DATE, help="End date YYYY-MM-DD")
     parser.add_argument("--out", default=OUTPUT_ROOT, help="Output root folder")

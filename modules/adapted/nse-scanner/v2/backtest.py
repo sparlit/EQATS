@@ -30,19 +30,15 @@ execution reuses the production lifecycle processor and its conservative stop-fi
 collision policy.
 """
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
 from .candidates import evaluate_candidate
 from .indicators import atr
 from .lifecycle import Position, TradeState, new_position
 from .lifecycle_processor import process_daily_bar
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -105,8 +101,7 @@ def run_point_in_time_backtest(
     required = {"symbol", "trade_date", "open", "high", "low", "close", "volume"}
     missing = required - set(prices.columns)
     if missing:
-        msg = f"prices missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"prices missing columns: {sorted(missing)}")
     data = prices.copy()
     data["trade_date"] = pd.to_datetime(data["trade_date"])
     data = data.sort_values(["trade_date", "symbol"]).reset_index(drop=True)
@@ -133,7 +128,9 @@ def run_point_in_time_backtest(
             )
             if events:
                 item["position"] = events[-1].position
-                if item["entry_date"] is None and any(event.event_type == "ENTER" for event in events):
+                if item["entry_date"] is None and any(
+                    event.event_type == "ENTER" for event in events
+                ):
                     item["entry_date"] = date_text
                 item["holding_sessions"] += int(item["entry_date"] is not None)
             position = item["position"]
@@ -212,7 +209,9 @@ def run_point_in_time_backtest(
             if position.state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}:
                 from .lifecycle import transition
 
-                position = transition(position, "EXIT", final_date, price=exit_price, reason="backtest_end_exit")
+                position = transition(
+                    position, "EXIT", final_date, price=exit_price, reason="backtest_end_exit"
+                )
             completed.append(
                 BacktestTrade(
                     trade_id=position.trade_id,

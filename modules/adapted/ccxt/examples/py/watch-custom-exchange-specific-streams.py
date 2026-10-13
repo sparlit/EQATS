@@ -43,7 +43,8 @@ class MyBinance(ccxt.pro.binance):
         method = self.safe_value(handlers, e)
         if method:
             return method(client, message)
-        return super().handle_message(client, message)
+        else:
+            return super().handle_message(client, message)
 
 
 async def main():

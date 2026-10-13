@@ -35,7 +35,7 @@ lockout grows, the reply never says which field was wrong, and logout actually k
 """
 import os
 import sys
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -60,7 +60,9 @@ for junk in (None, "", "notahash", "scrypt$x$y$z$q$r", "md5$1$1$1$aa$bb"):
 
 assert auth.validate_new_credentials("k", "longenough", "123456") is None
 assert auth.validate_new_credentials(None, "longenough", "123456") is None, "recovery sets no name"
-assert auth.validate_new_credentials("", "longenough", "123456"), "a blank name is a typo, not a choice"
+assert auth.validate_new_credentials("", "longenough", "123456"), (
+    "a blank name is a typo, not a choice"
+)
 assert auth.validate_new_credentials("k", "short", "123456")
 assert auth.validate_new_credentials("k", "longenough", "1234"), "4 digits is below the minimum now"
 assert auth.validate_new_credentials("k", "longenough", "abcdef")
@@ -94,7 +96,9 @@ assert auth.locked_for("ip", t) == 0, "a correct login forgives the counter"
 # Guard, not a preference: this half writes credentials and sessions, and the default DATABASE_URL
 # is the real journal. A database named *scratch* or *test* is opt-in by construction.
 if not any(mark in (os.environ.get("DATABASE_URL") or "") for mark in ("scratch", "test")):
-    print("ok - auth: hashing, credential rules, lockout (point DATABASE_URL at a scratch/test db for the API half)")
+    print(
+        "ok - auth: hashing, credential rules, lockout (point DATABASE_URL at a scratch/test db for the API half)"
+    )
     raise SystemExit
 
 # --- the API (scratch database only) ----------------------------------------------------------------
@@ -121,8 +125,7 @@ c = TestClient(app)
 
 # Before setup: nothing is readable, not even with no account to check against.
 status = c.get("/api/auth/status").json()
-assert status["configured"] is False
-assert status["authenticated"] is False
+assert status["configured"] is False and status["authenticated"] is False
 assert status["pin_length"] == auth.MIN_PIN
 assert c.get("/api/manual-trades").status_code == 401
 assert c.post("/api/auth/login", json={"password": "y", "pin": PIN}).status_code == 409
@@ -134,19 +137,25 @@ proxied = c.post(
     headers={"x-forwarded-for": "203.0.113.9"},
 )
 assert proxied.status_code == 403, proxied.status_code
-assert c.post("/api/auth/setup", json={"username": "karthik", "password": "short", "pin": PIN}).status_code == 422
+assert (
+    c.post(
+        "/api/auth/setup", json={"username": "karthik", "password": "short", "pin": PIN}
+    ).status_code
+    == 422
+)
 
 setup = c.post("/api/auth/setup", json={"username": "karthik", "password": PASSWORD, "pin": PIN})
 assert setup.status_code == 200, setup.text
 recovery_code = setup.json()["recovery_code"]
 assert recovery_code, "the code is returned exactly once, here"
-assert auth.COOKIE_NAME in c.cookies and auth.DEVICE_COOKIE in c.cookies, "setup signs in and trusts"
+assert auth.COOKIE_NAME in c.cookies and auth.DEVICE_COOKIE in c.cookies, (
+    "setup signs in and trusts"
+)
 
 # Nothing reversible was stored - not the password, not the PIN, not the recovery code.
 for key in (auth.PASSWORD_KEY, auth.PIN_KEY, auth.RECOVERY_KEY):
     stored = db.get_setting_value(key)
-    assert PASSWORD not in stored
-    assert PIN not in stored
+    assert PASSWORD not in stored and PIN not in stored
     assert recovery_code.replace("-", "") not in stored
 
 assert c.get("/api/manual-trades").status_code == 200
@@ -154,13 +163,23 @@ assert c.get("/api/auth/status").json()["device_trusted"] is True
 
 # A stranger: no session, no device. Every surface closed, and the PIN is not an entry point.
 stranger = TestClient(app)
-for path in ("/api/manual-trades", "/api/stocks", "/uploads/anything.png", "/openapi.json", "/docs"):
+for path in (
+    "/api/manual-trades",
+    "/api/stocks",
+    "/uploads/anything.png",
+    "/openapi.json",
+    "/docs",
+):
     assert stranger.get(path).status_code == 401, path
-assert stranger.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, "PIN without a trusted device"
+assert stranger.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, (
+    "PIN without a trusted device"
+)
 stranger.cookies.set(auth.COOKIE_NAME, "not-a-real-token")
 stranger.cookies.set(auth.DEVICE_COOKIE, "not-a-real-device")
 assert stranger.get("/api/manual-trades").status_code == 401
-assert stranger.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, "a forged device cookie"
+assert stranger.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, (
+    "a forged device cookie"
+)
 
 # Both cookies are HttpOnly and SameSite=Strict.
 cookies_set = setup.headers.get_list("set-cookie")
@@ -202,8 +221,12 @@ auth.clear_failures("testclient")
 for _ in range(auth.DEVICE_PIN_ATTEMPTS):
     fresh.post("/api/auth/unlock", json={"pin": "000000"})
     auth.clear_failures("testclient")  # isolate the DEVICE counter from the per-client one
-assert fresh.get("/api/auth/status").json()["device_trusted"] is False, "the device should be demoted"
-assert fresh.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, "even the right PIN now"
+assert fresh.get("/api/auth/status").json()["device_trusted"] is False, (
+    "the device should be demoted"
+)
+assert fresh.post("/api/auth/unlock", json={"pin": PIN}).status_code == 403, (
+    "even the right PIN now"
+)
 
 # Signing out with forget_device drops the trust deliberately.
 handing_back = TestClient(app)
@@ -223,7 +246,9 @@ assert db.get_auth_device(auth._digest(token)) is None, "and the row is cleaned 
 
 # An expired/idle SESSION is refused and cleaned up too.
 token, _ = auth.start_session("test")
-db.touch_auth_session(auth._digest(token), datetime.now(UTC) - auth.SESSION_IDLE - timedelta(minutes=1))
+db.touch_auth_session(
+    auth._digest(token), datetime.now(UTC) - auth.SESSION_IDLE - timedelta(minutes=1)
+)
 assert not auth.session_valid(token)
 assert db.get_auth_session(auth._digest(token)) is None
 
@@ -234,14 +259,19 @@ away = TestClient(app)
 auth.clear_failures("testclient")
 assert (
     away.post(
-        "/api/auth/recover", json={"code": "WRONG-CODE-HERE-XXXXX", "password": "newpassword1", "pin": "111222"}
+        "/api/auth/recover",
+        json={"code": "WRONG-CODE-HERE-XXXXX", "password": "newpassword1", "pin": "111222"},
     ).status_code
     == 401
 )
 auth.clear_failures("testclient")
 recovered = away.post(
     "/api/auth/recover",
-    json={"code": recovery_code.lower().replace("-", " "), "password": "newpassword1", "pin": "111222"},
+    json={
+        "code": recovery_code.lower().replace("-", " "),
+        "password": "newpassword1",
+        "pin": "111222",
+    },
     headers={"x-forwarded-for": "203.0.113.9"},
 )
 assert recovered.status_code == 200, recovered.text  # case and dashes don't matter when typing it
@@ -252,18 +282,32 @@ assert new_code and new_code != recovery_code, "a fresh code replaces the spent 
 assert c.get("/api/manual-trades").status_code == 401, "the setup session should be gone"
 auth.clear_failures("testclient")
 assert away.post("/api/auth/login", json={"password": PASSWORD, "pin": PIN}).status_code == 401
-assert away.post("/api/auth/login", json={"password": "newpassword1", "pin": "111222"}).status_code == 200
+assert (
+    away.post("/api/auth/login", json={"password": "newpassword1", "pin": "111222"}).status_code
+    == 200
+)
 # The spent code cannot be reused.
 auth.clear_failures("testclient")
 assert (
-    away.post("/api/auth/recover", json={"code": recovery_code, "password": "another1234", "pin": "333444"}).status_code
+    away.post(
+        "/api/auth/recover",
+        json={"code": recovery_code, "password": "another1234", "pin": "333444"},
+    ).status_code
     == 401
 )
 auth.clear_failures("testclient")
 
 # A new code needs the current password and PIN - an open laptop is not enough.
-assert away.post("/api/auth/recovery-code", json={"password": "wrong", "pin": "111222"}).status_code == 401
-assert away.post("/api/auth/recovery-code", json={"password": "newpassword1", "pin": "111222"}).status_code == 200
+assert (
+    away.post("/api/auth/recovery-code", json={"password": "wrong", "pin": "111222"}).status_code
+    == 401
+)
+assert (
+    away.post(
+        "/api/auth/recovery-code", json={"password": "newpassword1", "pin": "111222"}
+    ).status_code
+    == 200
+)
 
 # Changing credentials re-proves the old ones and throws every other browser out.
 other = TestClient(app)
@@ -295,7 +339,9 @@ assert (
     == 200
 )
 assert other.get("/api/manual-trades").status_code == 401, "other sessions dropped"
-assert other.post("/api/auth/unlock", json={"pin": "999888"}).status_code == 403, "and untrusted too"
+assert other.post("/api/auth/unlock", json={"pin": "999888"}).status_code == 403, (
+    "and untrusted too"
+)
 assert away.get("/api/manual-trades").status_code == 200
 
 # There is NO reset endpoint. One that needs no credentials would be reachable by any page the
@@ -303,7 +349,9 @@ assert away.get("/api/manual-trades").status_code == 200
 # `python -m app.reset_login` on the machine and nothing else.
 gone = away.post("/api/auth/local-reset").status_code
 assert gone in (404, 405), f"a credential-less reset must not exist (got {gone})"
-assert TestClient(app).post("/api/auth/local-reset").status_code == 401, "and not to a stranger either"
+assert TestClient(app).post("/api/auth/local-reset").status_code == 401, (
+    "and not to a stranger either"
+)
 
 # The remaining unauthenticated write, setup, can't be driven by a random page either: it needs a
 # JSON body, and Content-Type: application/json forces a CORS preflight this app refuses. The only
@@ -311,9 +359,15 @@ assert TestClient(app).post("/api/auth/local-reset").status_code == 401, "and no
 reset_account()
 drive_by = TestClient(app)
 claim = '{"username":"evil","password":"longenough1","pin":"654321"}'
-for content_type in ("text/plain;charset=UTF-8", "application/x-www-form-urlencoded", "multipart/form-data"):
+for content_type in (
+    "text/plain;charset=UTF-8",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+):
     r = drive_by.post(
-        "/api/auth/setup", content=claim, headers={"content-type": content_type, "origin": "https://evil.example"}
+        "/api/auth/setup",
+        content=claim,
+        headers={"content-type": content_type, "origin": "https://evil.example"},
     )
     assert r.status_code == 422, (content_type, r.status_code)
 assert not auth.configured(), "a drive-by page must not be able to claim the instance"

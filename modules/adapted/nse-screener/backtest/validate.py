@@ -27,7 +27,7 @@ Deflated Sharpe Ratio, and PBO via combinatorially symmetric CV.
     python -m backtest.validate      # retro-audit of v4 + family
 """
 from itertools import combinations
-from math import erf, exp, lgamma, sqrt
+from math import erf, sqrt
 
 import numpy as np
 import pandas as pd

@@ -26,14 +26,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Higher-horizon pullback classification for MIS candidate scoring."""
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from .horizon_scoring import HorizonScore
 from .indicators import atr, fixed_hybrid_hull_signals, kama
-
-if TYPE_CHECKING:
-    from .horizon_scoring import HorizonScore
 
 
 @dataclass(frozen=True)
@@ -87,18 +84,26 @@ def evaluate_pullback(frame: pd.DataFrame, scores: dict[str, HorizonScore]) -> P
 
     recent_low = float(data["low"].iloc[-10:].min())
     structural_low = float(data["low"].iloc[-60:].min())
-    volume_avg = float(data["volume"].shift(1).rolling(20).mean().iloc[-1]) if "volume" in data else 0.0
+    volume_avg = (
+        float(data["volume"].shift(1).rolling(20).mean().iloc[-1]) if "volume" in data else 0.0
+    )
     volume_multiple = float(last.get("volume", 0.0) / volume_avg) if volume_avg > 0 else 0.0
     bearish_breakdown = bool(
         float(last["close"]) < structural_low
-        or (float(last["close"]) < support - current_atr and float(last.get("volume", 0.0)) > 1.5 * volume_avg)
+        or (
+            float(last["close"]) < support - current_atr
+            and float(last.get("volume", 0.0)) > 1.5 * volume_avg
+        )
     )
-    bullish_reversal = bool(float(last["close"]) > float(last["open"]) and float(last["close"]) > float(prior["high"]))
+    bullish_reversal = bool(
+        float(last["close"]) > float(last["open"]) and float(last["close"]) > float(prior["high"])
+    )
     near_support = bool(-0.5 <= distance_atr <= 1.0)
     deep = bool(-1.5 <= distance_atr < -0.5)
     weekly_intact = any(scores[h].metrics.get("weekly_bullish", False) for h in qualified)
     rs_retained = any(
-        float(scores[h].metrics.get({"3M": "rs63", "6M": "rs126", "12M": "rs252"}[h], 0.0)) > 0 for h in qualified
+        float(scores[h].metrics.get({"3M": "rs63", "6M": "rs126", "12M": "rs252"}[h], 0.0)) > 0
+        for h in qualified
     )
 
     components = {
@@ -128,7 +133,9 @@ def evaluate_pullback(frame: pd.DataFrame, scores: dict[str, HorizonScore]) -> P
         [
             "weekly_structure_intact" if weekly_intact else "weekly_structure_failed",
             "relative_strength_retained" if rs_retained else "relative_strength_failed",
-            "near_support" if near_support else ("deep_pullback" if deep else "outside_pullback_zone"),
+            "near_support"
+            if near_support
+            else ("deep_pullback" if deep else "outside_pullback_zone"),
             "bullish_reversal_confirmed" if bullish_reversal else "reversal_not_confirmed",
         ]
     )

@@ -71,7 +71,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(enum_stringer_all)
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(unsafe_marshaler_all)
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(unsafe_unmarshaler_all)
-    google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(goproto_extensions_map_all)
+    google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(
+        goproto_extensions_map_all
+    )
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(goproto_unrecognized_all)
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(gogoproto_import)
     google_dot_protobuf_dot_descriptor__pb2.FileOptions.RegisterExtension(protosizer_all)
@@ -123,5 +125,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
     google_dot_protobuf_dot_descriptor__pb2.FieldOptions.RegisterExtension(castrepeated)
 
     DESCRIPTOR._options = None
-    DESCRIPTOR._serialized_options = b"\n\023com.google.protobufB\nGoGoProtosZ%github.com/cosmos/gogoproto/gogoproto"
+    DESCRIPTOR._serialized_options = (
+        b"\n\023com.google.protobufB\nGoGoProtosZ%github.com/cosmos/gogoproto/gogoproto"
+    )
 # @@protoc_insertion_point(module_scope)

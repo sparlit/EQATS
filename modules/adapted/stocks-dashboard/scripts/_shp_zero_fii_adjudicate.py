@@ -102,7 +102,9 @@ def get(url, tries=4, timeout=45):
     last = None
     for i in range(tries):
         try:
-            r = BH.get(url, headers={"Referer": "https://www.bseindia.com/"}, timeout=timeout)  # honest headers (§190)
+            r = BH.get(
+                url, headers={"Referer": "https://www.bseindia.com/"}, timeout=timeout
+            )  # honest headers (§190)
             if r.status_code == 200:
                 return r.content
             last = Exception("HTTP %d" % r.status_code)
@@ -241,7 +243,7 @@ def main():
     for t in targets:
         fetch[(t["sym"], t["qe"])] = "target"
     for t in targets:
-        for aqe, _afii in t["anchors"].values():
+        for _side, (aqe, _afii) in t["anchors"].items():
             if aqe >= "2016-06-30" and (t["sym"], aqe) not in fetch:
                 fetch[(t["sym"], aqe)] = "anchor"
     items = sorted(fetch.items())
@@ -288,7 +290,8 @@ def main():
         ev = {
             "code": code,
             "file": (r.get("XbrlFile") or "")[:70],
-            "sub": iso_day(r.get("revised_date_time") or r.get("filing_date_time")) or (qe[:8] + "21"),
+            "sub": iso_day(r.get("revised_date_time") or r.get("filing_date_time"))
+            or (qe[:8] + "21"),
             "revised": bool(r.get("revised_date_time")),
         }
         foreign_present = sorted(k for k in fx if k in FOREIGN)
@@ -298,7 +301,9 @@ def main():
         # avoid double-count when both MF spellings carry the same fact
         if "MutualFundsOrUTIMember" in fx and "MutualFundsOrUtiMember" not in fx:
             dom_sum += fx["MutualFundsOrUTIMember"]
-        govt = sum(v for k, v in fx.items() if k in GOVT) / max(1, len([k for k in fx if k in GOVT]))
+        govt = sum(v for k, v in fx.items() if k in GOVT) / max(
+            1, len([k for k in fx if k in GOVT])
+        )
         unknown = sorted(
             k
             for k in fx
@@ -354,13 +359,15 @@ def main():
         futs = {ex.submit(work, it): it for it in items}
         done = 0
         for fut in as_completed(futs):
-            sym, qe, _kind, ev = fut.result()
+            sym, qe, kind, ev = fut.result()
             with _lk:
                 out[f"{sym}|{qe}"] = ev
                 stats[ev["verdict"]] += 1
                 done += 1
                 if done % 100 == 0:
-                    print("  ... %d/%d (%.0fs) %s" % (done, len(items), time.time() - t0, dict(stats)))
+                    print(
+                        "  ... %d/%d (%.0fs) %s" % (done, len(items), time.time() - t0, dict(stats))
+                    )
     print(f"\nfetch pass done in {time.time() - t0:.0f}s: {dict(stats)}")
     json.dump(out, open(os.path.join(HERE, "adjudication_raw.json"), "w"), indent=1)
     print("-> adjudication_raw.json (pass 2 = chain gate, separate script)")

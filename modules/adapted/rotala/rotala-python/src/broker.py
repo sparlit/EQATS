@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import json
 import logging
-import sys
 from enum import Enum
 
 from src.http import HttpClient
@@ -54,12 +53,10 @@ class BrokerBuilder:
 
     def build(self):
         if not self.initial_cash:
-            msg = "BrokerBuilder needs cash"
-            raise ValueError(msg)
+            raise ValueError("BrokerBuilder needs cash")
 
         if not self.http:
-            msg = "BrokerBuilder needs http"
-            raise ValueError(msg)
+            raise ValueError("BrokerBuilder needs http")
 
         return Broker(self)
 
@@ -82,10 +79,9 @@ class Order:
         price: float | None,
         order_id_ref: float | None,
     ):
-        if order_type in (OrderType.MarketSell, OrderType.MarketBuy):
+        if order_type == OrderType.MarketSell or order_type == OrderType.MarketBuy:
             if price is not None:
-                msg = "Order price must be None for Market order"
-                raise ValueError(msg)
+                raise ValueError("Order price must be None for Market order")
 
         self.order_type = order_type
         self.symbol = symbol
@@ -97,7 +93,12 @@ class Order:
         return f"{self.order_type} {self.symbol} {self.qty} {self.price}"
 
     def is_transaction(self) -> bool:
-        return self.order_type in (OrderType.LimitBuy, OrderType.LimitSell, OrderType.MarketBuy, OrderType.MarketSell)
+        return (
+            self.order_type == OrderType.LimitBuy
+            or self.order_type == OrderType.LimitSell
+            or self.order_type == OrderType.MarketBuy
+            or self.order_type == OrderType.MarketSell
+        )
 
     def serialize(self):
         base = f'{{"order_type": "{self.order_type.name}", "symbol": "{self.symbol}", "qty": {self.qty}'
@@ -209,10 +210,10 @@ class Broker:
         self.latest_quotes = Broker._convert_depth_to_quotes(self.latest_depth)
         self.cached_quotes = {}
 
-    def _convert_depth_to_quotes(self):
+    def _convert_depth_to_quotes(depth):
         bbo = {}
-        for coin in self:
-            coin_depth = self[coin]
+        for coin in depth:
+            coin_depth = depth[coin]
             coin_bids = coin_depth["bids"]
             coin_asks = coin_depth["asks"]
 
@@ -226,21 +227,27 @@ class Broker:
 
         curr_position = self.holdings[position]
         new_position = curr_position + chg
-        logger.debug(f"{self.backtest_id}-{self.ts} POSITION CHG: {position} {curr_position} -> {new_position}")
+        logger.debug(
+            f"{self.backtest_id}-{self.ts} POSITION CHG: {position} {curr_position} -> {new_position}"
+        )
         self.holdings[position] = new_position
 
     def _process_order_result(self, result: OrderResult):
         logger.debug(f"{self.backtest_id}-{self.ts} EXECUTED: {result}")
 
-        if result.typ in (OrderResultType.Buy, OrderResultType.Sell):
+        if result.typ == OrderResultType.Buy or result.typ == OrderResultType.Sell:
             before_trade = self.cash
-            after_trade = self.cash - result.value if result.typ == OrderResultType.Buy else self.cash + result.value
+            after_trade = (
+                self.cash - result.value
+                if result.typ == OrderResultType.Buy
+                else self.cash + result.value
+            )
 
             logger.debug(f"{self.backtest_id}-{self.ts} CASH: {before_trade} -> {after_trade}")
             self.cash = after_trade
             if self.cash < 0:
                 logger.critical("Run out of cash. Stopping sim.")
-                sys.exit(1)
+                exit(1)
 
             signed_qty = result.quantity if result.typ == OrderResultType.Buy else -result.quantity
             self._update_holdings(result.symbol, signed_qty)
@@ -251,12 +258,13 @@ class Broker:
                     order["quantity"] -= result.quantity
                 else:
                     del self.unexecuted_orders[result.order_id]
-        elif result.typ == OrderResultType.Cancel:
-            del self.unexecuted_orders[result.order_id]
-            del self.unexecuted_orders[result.order_id_ref]
         else:
-            logger.critical("Unsupported order modification type")
-            sys.exit(1)
+            if result.typ == OrderResultType.Cancel:
+                del self.unexecuted_orders[result.order_id]
+                del self.unexecuted_orders[result.order_id_ref]
+            else:
+                logger.critical("Unsupported order modification type")
+                exit(1)
 
     def insert_order(self, order: Order):
         # Orders are only flushed when we call tick
@@ -280,8 +288,9 @@ class Broker:
                 quote = self.cached_quotes.get(symbol)
                 symbol_bid = quote["bid"]
                 if not symbol_bid:
-                    msg = "No cached values and no quotes so likely an application error somewhere"
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "No cached values and no quotes so likely an application error somewhere"
+                    )
             else:
                 symbol_bid = quote["bid"]
 
@@ -311,7 +320,7 @@ class Broker:
 
         if not tick_response["has_next"]:
             logger.critical("Sim finished")
-            sys.exit(0)
+            exit(0)
         else:
             self.latest_depth = tick_response["depth"]
             if self.latest_depth:

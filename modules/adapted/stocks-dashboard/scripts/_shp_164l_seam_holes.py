@@ -46,7 +46,9 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-PAGES = os.path.expanduser("~/stocks-cache/shp/holes")  # fetch_shp_bse_aspx cache dir (cache/<code>_<q>_<flag>.html.gz)
+PAGES = os.path.expanduser(
+    "~/stocks-cache/shp/holes"
+)  # fetch_shp_bse_aspx cache dir (cache/<code>_<q>_<flag>.html.gz)
 LISTS = os.path.expanduser("~/stocks-cache/shp/bse_all")
 
 
@@ -57,8 +59,6 @@ def qtrid(qe):
 
 
 def fetch(work, holes):
-    import bse_headers
-
     os.makedirs(os.path.join(work, "shpperent"), exist_ok=True)
     ok = bad = skip = 0
     for code in sorted({int(c) for s, q, c in holes}):
@@ -67,9 +67,9 @@ def fetch(work, holes):
             if os.path.exists(p):
                 skip += 1
                 continue
-            u = "https://www.bseindia.com/corporates/shpperent.aspx?scripcd=%d&qtrid=%d&CompName=X&QtrName=X" % (
-                code,
-                q,
+            u = (
+                "https://www.bseindia.com/corporates/shpperent.aspx?scripcd=%d&qtrid=%d&CompName=X&QtrName=X"
+                % (code, q)
             )
             body = b""
             for a in range(3):
@@ -93,7 +93,9 @@ def parse(work, holes):
     import types
 
     cc = types.ModuleType("curl_cffi")
-    cc.requests = types.SimpleNamespace(get=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network in parse")))
+    cc.requests = types.SimpleNamespace(
+        get=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network in parse"))
+    )
     sys.modules["curl_cffi"] = cc
     sys.modules["curl_cffi.requests"] = cc.requests
     os.makedirs(os.path.join(work, "aspx_pages"), exist_ok=True)
@@ -134,7 +136,9 @@ def parse(work, holes):
             rows = t.get("Table") if isinstance(t, dict) else t
         ctx = D.SymCtx(s, rows, verdicts)
         try:
-            r, why = A.reconstruct(s, code, q, ctx, verdicts, known_foreign=A.sibling_foreign_names(code))
+            r, why = A.reconstruct(
+                s, code, q, ctx, verdicts, known_foreign=A.sibling_foreign_names(code)
+            )
         except Exception as e:
             r, why = None, f"reconstruct error {e!r}"
         if r is None:
@@ -145,12 +149,16 @@ def parse(work, holes):
         nxt = [x for x in qs if x > qe][:1]
         nb = [hist[s][x][1] for x in prv + nxt if hist[s][x][1] is not None]
         if len(nb) < 2:
-            held[f"{s}|{qe}"] = "fewer than two neighbours to bound it (t_fii {:.2f})".format(r["t_fii"])
+            held[f"{s}|{qe}"] = "fewer than two neighbours to bound it (t_fii {:.2f})".format(
+                r["t_fii"]
+            )
             continue
         lo, hi = min(nb) - 3.0, max(nb) + 3.0
         if not (lo <= r["t_fii"] <= hi):
-            held[f"{s}|{qe}"] = "reconstructed fii {:.2f} outside neighbours {:.2f}..{:.2f} +-3".format(
-                r["t_fii"], min(nb), max(nb)
+            held[f"{s}|{qe}"] = (
+                "reconstructed fii {:.2f} outside neighbours {:.2f}..{:.2f} +-3".format(
+                    r["t_fii"], min(nb), max(nb)
+                )
             )
             continue
         # completeness: the >1% table lists only large holders, so FII hidden in the page's Any-Others lump is readable only
@@ -170,7 +178,11 @@ def parse(work, holes):
         new, why = seam_correct(
             list(cell),
             r,
-            gzip.open(os.path.join(work, "aspx_pages", "%d_%d.html.gz" % (code, q)), "rt", encoding="utf-8").read(),
+            gzip.open(
+                os.path.join(work, "aspx_pages", "%d_%d.html.gz" % (code, q)),
+                "rt",
+                encoding="utf-8",
+            ).read(),
         )
         if new is None:
             held[f"{s}|{qe}"] = f"seam_correct: {why}"
@@ -183,7 +195,8 @@ def parse(work, holes):
     import collections
 
     print(
-        "parse: %d cells ok, %d held" % (sum(1 for s in props for q in props[s] if "#" not in q), len(held)),
+        "parse: %d cells ok, %d held"
+        % (sum(1 for s in props for q in props[s] if "#" not in q), len(held)),
         collections.Counter(v.split(":")[0].split(" (")[0] for v in held.values()),
     )
 

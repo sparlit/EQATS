@@ -44,7 +44,6 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -99,10 +98,14 @@ def bs_premium(
 
         if option_type.upper() == "CE":
             return max(0.0, spot * norm.cdf(d1) - strike * math.exp(-rate * T) * norm.cdf(d2))
-        return max(0.0, strike * math.exp(-rate * T) * norm.cdf(-d2) - spot * norm.cdf(-d1))
+        else:
+            return max(0.0, strike * math.exp(-rate * T) * norm.cdf(-d2) - spot * norm.cdf(-d1))
     except Exception:
         # Fallback: intrinsic + rough time value
-        intrinsic = max(0.0, spot - strike) if option_type.upper() == "CE" else max(0.0, strike - spot)
+        if option_type.upper() == "CE":
+            intrinsic = max(0.0, spot - strike)
+        else:
+            intrinsic = max(0.0, strike - spot)
         time_value = spot * iv * math.sqrt(dte / 365.0) * 0.4
         return intrinsic + time_value
 
@@ -295,9 +298,7 @@ class StraddleStrategy(OptionsStrategy):
             return True
         if unrealised_pnl <= -self.stop_loss_pct:
             return True
-        if unrealised_pnl >= self.profit_target_pct:
-            return True
-        return False
+        return unrealised_pnl >= self.profit_target_pct
 
 
 class IronCondorStrategy(OptionsStrategy):
@@ -353,9 +354,7 @@ class IronCondorStrategy(OptionsStrategy):
             return True
         if unrealised_pnl <= -self.stop_loss_pct:
             return True
-        if unrealised_pnl >= self.profit_target_pct:
-            return True
-        return False
+        return unrealised_pnl >= self.profit_target_pct
 
 
 class CoveredCallStrategy(OptionsStrategy):
@@ -440,9 +439,7 @@ class ShortStraddleStrategy(OptionsStrategy):
             return True
         if unrealised_pnl <= -self.max_loss_pct:
             return True
-        if unrealised_pnl >= self.profit_target_pct:
-            return True
-        return False
+        return unrealised_pnl >= self.profit_target_pct
 
     def should_adjust(self, spot: float, entry_spot: float, adjust_points: int) -> bool:
         """Check if spot has moved enough to warrant re-centering the straddle."""
@@ -486,9 +483,7 @@ class ShortStrangleStrategy(OptionsStrategy):
             return True
         if unrealised_pnl <= -self.max_loss_pct:
             return True
-        if unrealised_pnl >= self.profit_target_pct:
-            return True
-        return False
+        return unrealised_pnl >= self.profit_target_pct
 
     def should_adjust(self, spot: float, entry_spot: float, adjust_points: int) -> bool:
         return abs(spot - entry_spot) >= adjust_points
@@ -589,8 +584,7 @@ class OptionsBacktester:
         # Spot data
         self._spot_data = get_ohlcv(self.underlying, days=days)
         if self._spot_data.empty:
-            msg = f"No historical data for {self.underlying}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"No historical data for {self.underlying}")
 
         # VIX data (India VIX from yfinance)
         with contextlib.suppress(Exception):
@@ -684,7 +678,9 @@ class OptionsBacktester:
                 days_held = (dt_date - date.fromisoformat(entry_date)).days if entry_date else 0
 
                 # Check exit
-                if strategy.should_exit(dt_date, spot, iv, dte, entry_spot, days_held, unrealised_pct):
+                if strategy.should_exit(
+                    dt_date, spot, iv, dte, entry_spot, days_held, unrealised_pct
+                ):
                     # Close all legs
                     trade_legs = []
                     combined_pnl = 0.0
@@ -808,8 +804,10 @@ def run_options_backtest(
     """Convenience function for running a named options strategy."""
     factory = OPTIONS_STRATEGIES.get(strategy_name.lower())
     if not factory:
-        msg = f"Unknown options strategy: {strategy_name}. Available: {', '.join(OPTIONS_STRATEGIES.keys())}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Unknown options strategy: {strategy_name}. "
+            f"Available: {', '.join(OPTIONS_STRATEGIES.keys())}"
+        )
 
     strategy = factory(strategy_args or [])
     bt = OptionsBacktester(underlying, period=period, capital=capital, lot_size=lot_size)

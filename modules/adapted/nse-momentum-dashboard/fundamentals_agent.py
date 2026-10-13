@@ -84,7 +84,11 @@ def fno_value_scan(
 
             prices = kite_client.get_ltp(symbols)
         except Exception as e:
-            print(f"[fno_value_scan] live price fetch failed, PEG will be unavailable for all symbols: {e}", flush=True)
+            print(
+                f"[fno_value_scan] live price fetch failed, PEG will be "
+                f"unavailable for all symbols: {e}",
+                flush=True,
+            )
 
     rows = []
     for i, sym in enumerate(symbols):
@@ -105,7 +109,11 @@ def fno_value_scan(
             elif taxonomy == "general":
                 score = xbrl_parser.value_score(bs, market_price=prices.get(sym))
             else:
-                score = {"total_score": None, "rubric": taxonomy, "missing_pillars": ["unsupported_taxonomy"]}
+                score = {
+                    "total_score": None,
+                    "rubric": taxonomy,
+                    "missing_pillars": ["unsupported_taxonomy"],
+                }
         except Exception as e:
             print(f"[fno_value_scan] {sym}: failed: {e}", flush=True)
             score = {"total_score": None, "rubric": "error", "missing_pillars": ["error"]}
@@ -116,7 +124,11 @@ def fno_value_scan(
                 q_sub, q_extra = xbrl_parser.quarterly_momentum_pillar(qdf)
                 score = xbrl_parser.add_quarterly_pillar(score, q_sub, q_extra)
             except Exception as e:
-                print(f"[fno_value_scan] {sym}: quarterly pillar failed (keeping annual-only score): {e}", flush=True)
+                print(
+                    f"[fno_value_scan] {sym}: quarterly pillar failed "
+                    f"(keeping annual-only score): {e}",
+                    flush=True,
+                )
 
         score["symbol"] = sym
         rows.append(score)
@@ -196,7 +208,11 @@ def build_fundamentals_history(
             try:
                 qdf = xbrl_parser.quarterly_financials(sym, max_quarters=12)
             except Exception as e:
-                print(f"[build_fundamentals_history] {sym}: quarterly fetch failed (annual-only): {e}", flush=True)
+                print(
+                    f"[build_fundamentals_history] {sym}: quarterly fetch "
+                    f"failed (annual-only): {e}",
+                    flush=True,
+                )
         history[sym] = {"taxonomy": taxonomy, "bs_years": bs, "quarterly": qdf}
         time.sleep(pause)  # be polite to NSE
     return history
@@ -236,7 +252,9 @@ def score_asof(history: dict, date, score_cache: dict | None = None) -> pd.DataF
     for sym, entry in history.items():
         filtered = xbrl_parser.fundamentals_asof(entry["bs_years"], date)
         q_filtered = xbrl_parser.quarterly_asof(entry.get("quarterly"), date)
-        q_qe_dates = tuple(q_filtered["qe_date"]) if q_filtered is not None and not q_filtered.empty else ()
+        q_qe_dates = (
+            tuple(q_filtered["qe_date"]) if q_filtered is not None and not q_filtered.empty else ()
+        )
         # Cache key includes the quarters actually knowable as of `date`,
         # not just the annual qe_dates -- annual filings change ~yearly but
         # quarterly ones change ~quarterly, so keying on annual alone would
@@ -253,7 +271,11 @@ def score_asof(history: dict, date, score_cache: dict | None = None) -> pd.DataF
                 elif taxonomy == "general":
                     score = xbrl_parser.value_score(filtered)
                 else:
-                    score = {"total_score": None, "rubric": taxonomy, "missing_pillars": ["unsupported_taxonomy"]}
+                    score = {
+                        "total_score": None,
+                        "rubric": taxonomy,
+                        "missing_pillars": ["unsupported_taxonomy"],
+                    }
                 if taxonomy in _KNOWN_TAXONOMIES:
                     q_sub, q_extra = xbrl_parser.quarterly_momentum_pillar(q_filtered)
                     score = xbrl_parser.add_quarterly_pillar(score, q_sub, q_extra)
@@ -308,7 +330,9 @@ def flatten_for_export(df: pd.DataFrame) -> pd.DataFrame:
         subs = df["sub_scores"].apply(lambda d: d if isinstance(d, dict) else {})
         out = out.join(subs.apply(pd.Series).add_prefix("sub_"))
     if "missing_pillars" in out.columns:
-        out["missing_pillars"] = out["missing_pillars"].apply(lambda v: ", ".join(v) if isinstance(v, list) else v)
+        out["missing_pillars"] = out["missing_pillars"].apply(
+            lambda v: ", ".join(v) if isinstance(v, list) else v
+        )
     return out
 
 
@@ -332,7 +356,8 @@ def main():
         result.to_pickle(VALUE_SCORE_CACHE)
         scored = result["total_score"].notna().sum() if "total_score" in result.columns else 0
         print(
-            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Done -- {scored}/{len(result)} scored, saved to {VALUE_SCORE_CACHE}"
+            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Done -- {scored}/{len(result)} "
+            f"scored, saved to {VALUE_SCORE_CACHE}"
         )
         jr["summary"] = f"{scored}/{len(result)} scored"
 

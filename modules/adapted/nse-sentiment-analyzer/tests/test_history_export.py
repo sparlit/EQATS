@@ -32,9 +32,24 @@ class TestSentimentHistoryExport:
         from persistence import history_to_csv
 
         data = [
-            {"date": "2026-06-18", "ticker": "RELIANCE", "smartscore": "72", "avg_compound": "0.45"},
-            {"date": "2026-06-19", "ticker": "RELIANCE", "smartscore": "65", "avg_compound": "0.20"},
-            {"date": "2026-06-20", "ticker": "RELIANCE", "smartscore": "80", "avg_compound": "0.60"},
+            {
+                "date": "2026-06-18",
+                "ticker": "RELIANCE",
+                "smartscore": "72",
+                "avg_compound": "0.45",
+            },
+            {
+                "date": "2026-06-19",
+                "ticker": "RELIANCE",
+                "smartscore": "65",
+                "avg_compound": "0.20",
+            },
+            {
+                "date": "2026-06-20",
+                "ticker": "RELIANCE",
+                "smartscore": "80",
+                "avg_compound": "0.60",
+            },
         ]
 
         csv_out = history_to_csv("RELIANCE", data)

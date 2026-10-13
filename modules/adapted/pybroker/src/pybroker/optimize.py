@@ -47,6 +47,7 @@ import json
 import math
 import warnings
 from collections import defaultdict
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -54,9 +55,7 @@ from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     Protocol,
-    Union,
     cast,
 )
 
@@ -68,9 +67,6 @@ from optuna.distributions import BaseDistribution, CategoricalDistribution
 from optuna.samplers import BaseSampler, GridSampler, RandomSampler, TPESampler
 
 from pybroker.scope import StaticScope
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
 
 
 @dataclass(frozen=True)
@@ -112,33 +108,34 @@ class Hyperparam:
             ("step", self.step),
         ):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
-                msg = f"Hyperparam {self.name!r}: {field_name} must be int or float, got {type(value).__name__}."
-                raise TypeError(msg)
+                raise TypeError(
+                    f"Hyperparam {self.name!r}: {field_name} must be int or "
+                    f"float, got {type(value).__name__}."
+                )
         value_types = {
             type(self.default),
             type(self.low),
             type(self.high),
             type(self.step),
         }
-        if value_types not in ({int}, {float}):
-            msg = f"Hyperparam {self.name!r}: default, low, high, and step must all be int or all be float."
-            raise TypeError(msg)
+        if value_types != {int} and value_types != {float}:
+            raise TypeError(
+                f"Hyperparam {self.name!r}: default, low, high, and step must "
+                "all be int or all be float."
+            )
         if self.step <= 0:
-            msg = f"Hyperparam {self.name!r}: step must be positive."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {self.name!r}: step must be positive.")
         if self.low > self.high:
-            msg = f"Hyperparam {self.name!r}: low cannot exceed high."
-            raise ValueError(msg)
+            raise ValueError(f"Hyperparam {self.name!r}: low cannot exceed high.")
         if self.low != self.high:
             span = Decimal(str(self.high)) - Decimal(str(self.low))
             if span % Decimal(str(self.step)) != 0:
-                msg = (
+                raise ValueError(
                     f"Hyperparam {self.name!r}: high - low "
                     f"({self.high} - {self.low}) must be a multiple of step "
                     f"({self.step}); otherwise the largest candidate value "
                     "falls short of high."
                 )
-                raise ValueError(msg)
 
     def _is_float(self) -> bool:
         return isinstance(self.default, float)
@@ -159,7 +156,7 @@ class Hyperparam:
             Decimal(str(self.step)),
         )
 
-    def _within_high(self, val: float) -> bool:
+    def _within_high(self, val: int | float) -> bool:
         if self._is_float():
             _, high, _ = self._decimals()
             return Decimal(str(val)) <= high
@@ -167,8 +164,7 @@ class Hyperparam:
 
     def _lattice_count(self) -> int:
         if self.low == self.high:
-            msg = f"Hyperparam {self.name!r} is fixed; lattice is undefined."
-            raise TypeError(msg)
+            raise TypeError(f"Hyperparam {self.name!r} is fixed; lattice is undefined.")
         if self._is_float():
             low, high, step = self._decimals()
             return int((high - low) // step) + 1
@@ -179,11 +175,12 @@ class Hyperparam:
 
     def _lattice_values(self) -> Iterator[int | float]:
         if self.low == self.high:
-            msg = f"Hyperparam {self.name!r} is fixed; lattice is undefined."
-            raise TypeError(msg)
+            raise TypeError(f"Hyperparam {self.name!r} is fixed; lattice is undefined.")
         if self._lattice_count() == 0:
-            msg = f"Hyperparam {self.name!r}: empty lattice for low={self.low}, high={self.high}, step={self.step}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Hyperparam {self.name!r}: empty lattice for "
+                f"low={self.low}, high={self.high}, step={self.step}."
+            )
         if self._is_float():
             low, high, step = self._decimals()
             val = low
@@ -209,10 +206,10 @@ class Hyperparam:
 def hyperparam(
     name: str,
     *,
-    default: float,
-    low: float,
-    high: float,
-    step: float,
+    default: int | float,
+    low: int | float,
+    high: int | float,
+    step: int | float,
 ) -> Hyperparam:
     """Creates and registers a :class:`Hyperparam`.
 
@@ -256,8 +253,7 @@ def _resolve_hyperparams(mapping: Mapping[str, Any], params: Mapping[str, Any]) 
     for key, value in mapping.items():
         if _is_hyperparam(value):
             if value.name not in params:
-                msg = f"Hyperparam {value.name!r} is not in the run hyperparams dict."
-                raise KeyError(msg)
+                raise KeyError(f"Hyperparam {value.name!r} is not in the run hyperparams dict.")
             resolved[key] = params[value.name]
         else:
             resolved[key] = value
@@ -310,8 +306,9 @@ def build_run_hyperparams(
     if overrides:
         for name, value in overrides.items():
             if name not in specs:
-                msg = f"Unknown hyperparam override {name!r}. Declared: {sorted(specs)}."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Unknown hyperparam override {name!r}. Declared: {sorted(specs)}."
+                )
             result[name] = value
     return result
 
@@ -411,8 +408,7 @@ def collect_hyperparams(strategy: _ExecutionsHost) -> dict[str, Hyperparam]:
     ):
         if isinstance(value, Hyperparam):
             if not scope.has_hyperparam(value.name):
-                msg = f"Hyperparam {value.name!r} was not registered."
-                raise ValueError(msg)
+                raise ValueError(f"Hyperparam {value.name!r} was not registered.")
             names.add(value.name)
             specs[value.name] = scope.get_hyperparam(value.name)
 
@@ -423,8 +419,7 @@ def collect_hyperparams(strategy: _ExecutionsHost) -> dict[str, Hyperparam]:
         ind = scope.get_indicator(base)
         for hp_name in ind.hyperparam_names:
             if not scope.has_hyperparam(hp_name):
-                msg = f"Hyperparam {hp_name!r} in indicator {base!r} is not registered."
-                raise ValueError(msg)
+                raise ValueError(f"Hyperparam {hp_name!r} in indicator {base!r} is not registered.")
             names.add(hp_name)
             specs[hp_name] = scope.get_hyperparam(hp_name)
 
@@ -446,8 +441,7 @@ def collect_hyperparams(strategy: _ExecutionsHost) -> dict[str, Hyperparam]:
 
         for hp_name in sorted(execution.hyperparam_names):
             if not scope.has_hyperparam(hp_name):
-                msg = f"Hyperparam {hp_name!r} was not registered."
-                raise ValueError(msg)
+                raise ValueError(f"Hyperparam {hp_name!r} was not registered.")
             names.add(hp_name)
             specs[hp_name] = scope.get_hyperparam(hp_name)
 
@@ -455,8 +449,10 @@ def collect_hyperparams(strategy: _ExecutionsHost) -> dict[str, Hyperparam]:
             base_name, _ = parse_model_interval_name(model_name)
             source = scope.get_model_source(base_name)
             if _find_hyperparam_names(source._kwargs):
-                msg = f"Model {base_name!r} has hyperparams in kwargs; models are excluded from optimize()."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Model {base_name!r} has hyperparams in kwargs; "
+                    "models are excluded from optimize()."
+                )
 
     for hp in scope.iter_hyperparams():
         if hp.name not in names:
@@ -467,8 +463,7 @@ def collect_hyperparams(strategy: _ExecutionsHost) -> dict[str, Hyperparam]:
             )
 
     if len(names) != len(specs):
-        msg = "Duplicate hyperparam names in search space."
-        raise ValueError(msg)
+        raise ValueError("Duplicate hyperparam names in search space.")
 
     return specs
 
@@ -512,7 +507,10 @@ def _trial_params(trial: optuna.Trial, search_space: SearchSpace) -> dict[str, A
     # the order of suggest_* calls decides which draw lands on which
     # hyperparam. Iterating the frozenset would vary with string hash
     # randomization and make ``seed`` fail to reproduce across processes.
-    return {name: _suggest_from_spec(trial, search_space.specs[name]) for name in sorted(search_space.hyperparams)}
+    return {
+        name: _suggest_from_spec(trial, search_space.specs[name])
+        for name in sorted(search_space.hyperparams)
+    }
 
 
 def _reseed_sampler(sampler: BaseSampler, seed: int, _depth: int = 0) -> None:
@@ -591,8 +589,10 @@ def _build_sampler(
         return TPESampler(seed=seed)
     if sampler == "random":
         return RandomSampler(seed=seed)
-    msg = f"Unknown sampler {sampler!r}; use 'grid', 'tpe', 'random', or a optuna.samplers.BaseSampler instance."
-    raise ValueError(msg)
+    raise ValueError(
+        f"Unknown sampler {sampler!r}; use 'grid', 'tpe', 'random', or a "
+        "optuna.samplers.BaseSampler instance."
+    )
 
 
 def _validate_grid_sampler(sampler: BaseSampler, search_space: SearchSpace) -> None:
@@ -602,8 +602,10 @@ def _validate_grid_sampler(sampler: BaseSampler, search_space: SearchSpace) -> N
     grid_space = getattr(sampler, "search_space", None) or getattr(sampler, "_search_space", {})
     for name in grid_space:
         if name not in declared:
-            msg = f"GridSampler param {name!r} is not in the declared search space: {sorted(declared)}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"GridSampler param {name!r} is not in the declared search "
+                f"space: {sorted(declared)}."
+            )
 
 
 def _validate_study_direction(study: optuna.Study, direction: str) -> None:
@@ -614,16 +616,14 @@ def _validate_study_direction(study: optuna.Study, direction: str) -> None:
     """
     expected = direction.strip().lower()
     if expected not in ("minimize", "maximize"):
-        msg = f"Unknown direction {direction!r}; use 'minimize' or 'maximize'."
-        raise ValueError(msg)
+        raise ValueError(f"Unknown direction {direction!r}; use 'minimize' or 'maximize'.")
     actual = study.direction.name.lower()
     if actual != expected:
-        msg = (
+        raise ValueError(
             f"study= has direction {actual!r} but direction={direction!r} was "
             "requested. Create the study with the matching direction, or omit "
             "direction."
         )
-        raise ValueError(msg)
 
 
 def _grid_trial_count(search_space: SearchSpace) -> int:
@@ -649,8 +649,7 @@ def _resolve_n_trials(
         return n_trials
     if isinstance(sampler, GridSampler):
         return search_space.grid_size()
-    msg = "n_trials is required for non-grid samplers."
-    raise ValueError(msg)
+    raise ValueError("n_trials is required for non-grid samplers.")
 
 
 def _log_optimize_trials(
@@ -698,7 +697,7 @@ def _require_completed_trials(study: optuna.Study) -> None:
     ``study.best_params`` fail with the actual cause instead of optuna's
     internal "No trials are completed yet" error."""
     if not study.get_trials(deepcopy=False, states=(optuna.trial.TrialState.COMPLETE,)):
-        msg = (
+        raise ValueError(
             f"All {len(study.trials)} optimize trial(s) failed: score_fn "
             "did not return a finite score for any combination searched. "
             "This happens when a metric is undefined for every trial, "
@@ -706,7 +705,6 @@ def _require_completed_trials(study: optuna.Study) -> None:
             "a finite fallback score (such as float('-inf')) from "
             "score_fn to rank such trials instead of failing them."
         )
-        raise ValueError(msg)
 
 
 def _frame_date_bounds(
@@ -930,12 +928,11 @@ def _run_study(
         # front on both.
         missing = sorted(set(bundle.search_space.hyperparams) - set(sampler._param_names))
         if missing:
-            msg = (
+            raise ValueError(
                 "GridSampler search space is missing declared "
                 f"hyperparameter(s): {missing}. Include them in the grid "
                 "passed to GridSampler, or let optimize() build the sampler."
             )
-            raise ValueError(msg)
     workers = _effective_n_jobs()
     if workers > 1 and not isinstance(sampler, (GridSampler, RandomSampler)):
         StaticScope.instance().logger.info_optimize_sequential_trials(type(sampler).__name__)
@@ -958,7 +955,10 @@ def _run_study(
         start = len(study.trials)
         combos = combos[start : start + n_trials]
         with parallel() as pool:
-            scores = pool(delayed(_run_scoped_task)(scope, bundle.score_overrides, params) for params in combos)
+            scores = pool(
+                delayed(_run_scoped_task)(scope, bundle.score_overrides, params)
+                for params in combos
+            )
         for params, score in zip(combos, scores, strict=False):
             if _is_failed_score(score):
                 # create_trial rejects NaN just as study.tell does. Record the
@@ -972,7 +972,9 @@ def _run_study(
                     )
                 )
                 continue
-            study.add_trial(optuna.trial.create_trial(params=params, distributions=dists, value=score))
+            study.add_trial(
+                optuna.trial.create_trial(params=params, distributions=dists, value=score)
+            )
         return
     remaining = n_trials
     stopped = False
@@ -981,7 +983,10 @@ def _run_study(
         trials = [study.ask() for _ in range(size)]
         overrides = [_trial_params(trial, bundle.search_space) for trial in trials]
         with parallel() as pool:
-            scores = pool(delayed(_run_scoped_task)(scope, bundle.score_overrides, params) for params in overrides)
+            scores = pool(
+                delayed(_run_scoped_task)(scope, bundle.score_overrides, params)
+                for params in overrides
+            )
         # A sampler may call Study.stop() from after_trial (BruteForceSampler
         # does once the space is exhausted). Outside Study.optimize that
         # raises instead of setting the stop flag, so declare the loop: this
@@ -1151,17 +1156,25 @@ class OptimizeMixin:
 
         def train_models(self, *args: Any, **kwargs: Any) -> dict[ModelSymbol, TrainedModel]: ...
 
-        def _fetch_indicators(self, *args: Any, **kwargs: Any) -> dict[IndicatorSymbol, pd.Series]: ...
+        def _fetch_indicators(
+            self, *args: Any, **kwargs: Any
+        ) -> dict[IndicatorSymbol, pd.Series]: ...
 
-        def _indicator_syms(self, executions: set[Execution] | None = None) -> set[IndicatorSymbol]: ...
+        def _indicator_syms(
+            self, executions: set[Execution] | None = None
+        ) -> set[IndicatorSymbol]: ...
 
         def _build_window_stores(self, *args: Any, **kwargs: Any) -> tuple[Any, Any, Any]: ...
 
-        def _build_exit_dates(self, df: pd.DataFrame, has_selector: bool) -> dict[str, np.datetime64]: ...
+        def _build_exit_dates(
+            self, df: pd.DataFrame, has_selector: bool
+        ) -> dict[str, np.datetime64]: ...
 
         def _indicator_memo_store(self) -> dict[Any, pd.Series]: ...
 
-        def _resolve_backtest_settings(self, run_hyperparams: dict[str, Any] | None = None) -> Any: ...
+        def _resolve_backtest_settings(
+            self, run_hyperparams: dict[str, Any] | None = None
+        ) -> Any: ...
 
         def _effective_config(self, settings: Any) -> StrategyConfig: ...
 
@@ -1169,7 +1182,9 @@ class OptimizeMixin:
 
         def _to_test_result(self, *args: Any, **kwargs: Any) -> TestResult: ...
 
-        def compute_indicators(self, *args: Any, **kwargs: Any) -> dict[IndicatorSymbol, pd.Series]: ...
+        def compute_indicators(
+            self, *args: Any, **kwargs: Any
+        ) -> dict[IndicatorSymbol, pd.Series]: ...
 
         def _fetch_data(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
 
@@ -1232,7 +1247,9 @@ class OptimizeMixin:
                     model_syms.add(ModelSymbol(model_name, sym))
         pooled_model_groups: dict[tuple[str, int], frozenset[str]] = {}
         for execution in window_executions:
-            exec_syms = frozenset(sym for sym in _static_symbols(execution.symbols) if sym in train_symbols)
+            exec_syms = frozenset(
+                sym for sym in _static_symbols(execution.symbols) if sym in train_symbols
+            )
             if not exec_syms:
                 continue
             for model_name in execution.model_names:
@@ -1541,28 +1558,23 @@ class OptimizeMixin:
                 :class:`pybroker.strategy.Strategy` constructor.
         """
         if not 0 < train_size < 1:
-            msg = (
+            raise ValueError(
                 f"optimize requires 0 < train_size < 1, got {train_size}. "
                 "train_size=0 leaves no data to score trials on, and "
                 "train_size=1 leaves no test window to evaluate on."
             )
-            raise ValueError(msg)
         if warmup is not None and warmup < 1:
-            msg = "warmup must be > 0."
-            raise ValueError(msg)
+            raise ValueError("warmup must be > 0.")
         if windows is not None and windows < 1:
-            msg = "windows must be > 0."
-            raise ValueError(msg)
+            raise ValueError("windows must be > 0.")
         if study is not None and windows is not None and windows > 1:
-            msg = (
+            raise ValueError(
                 "study= is not supported with windows > 1, which runs one "
                 "study per window. Inspect OptimizeResult.windows instead."
             )
-            raise ValueError(msg)
         _validate_optimize_models(self)
         if not self._executions:
-            msg = "No executions were added."
-            raise ValueError(msg)
+            raise ValueError("No executions were added.")
         if self._slippage_model is not None:
             self._slippage_model.validate(cast("Strategy", self))
         # Collected once: collect_hyperparams warns about registered but
@@ -1585,12 +1597,14 @@ class OptimizeMixin:
             )
             start_dt = self._start_date if start_date is None else to_datetime(start_date)
             if start_dt < self._start_date or start_dt > self._end_date:
-                msg = f"start_date must be between {self._start_date} and {self._end_date}."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"start_date must be between {self._start_date} and {self._end_date}."
+                )
             end_dt = self._end_date if end_date is None else to_datetime(end_date)
             if end_dt < self._start_date or end_dt > self._end_date:
-                msg = f"end_date must be between {self._start_date} and {self._end_date}."
-                raise ValueError(msg)
+                raise ValueError(
+                    f"end_date must be between {self._start_date} and {self._end_date}."
+                )
             verify_date_range(start_dt, end_dt)
             df = self._fetch_data(timeframe, adjust)
             day_ids = self._to_day_ids(days)
@@ -1663,7 +1677,9 @@ class OptimizeMixin:
             test_data = df.iloc[test_rows] if len(test_rows) else df.iloc[:0]
             selection_data = _selection_df(self._executions, train_data, test_data)
             window_executions = (
-                _resolve_executions(self._executions, selection_data) if has_selector else self._executions
+                _resolve_executions(self._executions, selection_data)
+                if has_selector
+                else self._executions
             )
             invariant_data = self._compute_invariant_indicators(
                 df=df,
@@ -1725,7 +1741,9 @@ class OptimizeMixin:
             if study is None:
                 built_sampler = _build_sampler(sampler, search_space, seed)
                 _validate_grid_sampler(built_sampler, search_space)
-                study = optuna.create_study(direction=direction, sampler=built_sampler, pruner=pruner)
+                study = optuna.create_study(
+                    direction=direction, sampler=built_sampler, pruner=pruner
+                )
             else:
                 # A supplied study owns its own sampler, direction and pruner.
                 # Deriving the trial budget or the _run_study branch from the
@@ -1943,7 +1961,9 @@ class OptimizeMixin:
                 train_exit_dates = self._build_exit_dates(train_data, has_selector)
                 selection_data = _selection_df(self._executions, train_data, test_data)
                 window_executions = (
-                    _resolve_executions(self._executions, selection_data) if has_selector else self._executions
+                    _resolve_executions(self._executions, selection_data)
+                    if has_selector
+                    else self._executions
                 )
                 invariant_data = self._compute_invariant_indicators(
                     df=df,
@@ -2004,7 +2024,9 @@ class OptimizeMixin:
                 )
                 this_seed = window_seed(index)
                 window_sampler = _build_sampler(sampler, search_space, this_seed)
-                window_study = optuna.create_study(direction=direction, sampler=window_sampler, pruner=pruner)
+                window_study = optuna.create_study(
+                    direction=direction, sampler=window_sampler, pruner=pruner
+                )
                 _run_study(window_study, bundle, window_n_trials, window_sampler)
                 _require_completed_trials(window_study)
                 best_params = build_run_hyperparams(hyperparams, window_study.best_params)
@@ -2019,7 +2041,9 @@ class OptimizeMixin:
                     test_start_date=test_start,
                     test_end_date=test_end,
                     execution_symbols=(
-                        {e.id: _static_symbols(e.symbols) for e in window_executions} if has_selector else None
+                        {e.id: _static_symbols(e.symbols) for e in window_executions}
+                        if has_selector
+                        else None
                     ),
                 )
 

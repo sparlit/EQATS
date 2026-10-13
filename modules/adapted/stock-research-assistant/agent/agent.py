@@ -55,7 +55,10 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "ticker": {"type": "string", "description": "NSE ticker symbol, e.g. 'TCS.NS'"},
-                    "days": {"type": "integer", "description": "Number of most recent trading days to return"},
+                    "days": {
+                        "type": "integer",
+                        "description": "Number of most recent trading days to return",
+                    },
                 },
                 "required": ["ticker"],
             },
@@ -104,7 +107,10 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": ["add", "remove", "list"]},
-                    "ticker": {"type": "string", "description": "Required for 'add'/'remove'; NSE ticker symbol"},
+                    "ticker": {
+                        "type": "string",
+                        "description": "Required for 'add'/'remove'; NSE ticker symbol",
+                    },
                 },
                 "required": ["action"],
             },

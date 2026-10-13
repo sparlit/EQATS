@@ -54,9 +54,13 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
     mt5_password = App.config.get("mt5_password")
     mt5_server = App.config.get("mt5_server")
     if mt5_account_id and mt5_password and mt5_server:
-        authorized = connect_mt5(int(mt5_account_id), password=str(mt5_password), server=str(mt5_server))
+        authorized = connect_mt5(
+            int(mt5_account_id), password=str(mt5_password), server=str(mt5_server)
+        )
         if not authorized:
-            log.error(f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}")
+            log.error(
+                f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}"
+            )
             return
 
     symbol = config["symbol"]
@@ -79,7 +83,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
     #
     status = App.status
 
-    if status in {"BUYING", "SELLING"}:
+    if status == "BUYING" or status == "SELLING":
         # We expect that an order was created before and now we need to check if it still exists or was executed
         # -----
         order_status = await update_order_status()
@@ -123,7 +127,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
             pass  # Wait further for execution
         else:
             pass  # Order still exists and is active
-    elif status in {"BOUGHT", "SOLD"}:
+    elif status == "BOUGHT" or status == "SOLD":
         pass  # Do nothing
     else:
         log.error(f"Wrong status value {status}.")
@@ -136,7 +140,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
     # If not sold for 1 minute, then kill and then a new order will be created below if there is signal
     # Essentially, this will mean price adjustment (if a new order of the same direction will be created)
     # In future, we might kill only after some timeout
-    if status in {"BUYING", "SELLING"}:  # Still not sold for 1 minute
+    if status == "BUYING" or status == "SELLING":  # Still not sold for 1 minute
         # -----
         order_status = await cancel_order()
         if not order_status:
@@ -212,7 +216,9 @@ async def update_trade_status():
         await update_account_balance()
 
         last_kline = App.analyzer.get_last_kline(symbol)
-        last_close_price = to_decimal(last_kline[4])  # Close price of kline has index 4 in the list (0-based)
+        last_close_price = to_decimal(
+            last_kline[4]
+        )  # Close price of kline has index 4 in the list (0-based)
 
         base_quantity = App.account_info.base_quantity  # BTC
         btc_assets_in_usd = base_quantity * last_close_price  # Cost of available BTC in USD
@@ -232,11 +238,11 @@ async def update_trade_status():
             App.status = "BUYING"
         else:
             log.error(f"Neither SELL nor BUY side of the order {order}.")
-            return
+            return None
 
     else:  # Many orders
         log.error("Wrong state. More than one open order. Fix manually.")
-        return
+        return None
 
 
 async def update_order_status():
@@ -292,6 +298,8 @@ async def update_account_balance():
     if positions is not None and len(positions) > 0:
         position = positions[0]
         App.account_info.base_quantity = Decimal(position.volume)  # BTC
+
+    pass
 
 
 #
@@ -418,9 +426,11 @@ def execute_order(order: dict):
 
     if trade_model.get("test_order_before_submit"):
         log.info(f"Submitting test order: {order}")
+        pass
 
     if trade_model.get("simulate_order_execution"):
         print(order)
+        pass
     else:
         # Submit order
         log.info(f"Submitting order: {order}")
@@ -430,7 +440,6 @@ def execute_order(order: dict):
             log.error(f"MT5 error in 'order_send' {mt5.last_error()}")
             return None
         return result._asdict()
-    return None
 
 
 class MT5OrderStatus(Enum):

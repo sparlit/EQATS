@@ -72,7 +72,9 @@ import indicators
 LOG_PATH = os.path.join("cache", "live_rebalance_log.txt")
 
 
-def _trailing_stop_candidate(df: pd.DataFrame, highest_close: float, atr_now: float, cfg: dict) -> float | None:
+def _trailing_stop_candidate(
+    df: pd.DataFrame, highest_close: float, atr_now: float, cfg: dict
+) -> float | None:
     """The ongoing ratchet's candidate stop -- the ATR chandelier formula,
     unless mad_stop_enabled, in which case the MAD volatility trail's own
     current lower band takes over (same precedence as backtest.py's
@@ -235,7 +237,9 @@ def get_live_holdings() -> pd.DataFrame:
     if combined.empty:
         return pd.DataFrame(columns=["quantity", "average_price"])
     combined["cost"] = combined["quantity"] * combined["average_price"]
-    grouped = combined.groupby("tradingsymbol").agg(quantity=("quantity", "sum"), cost=("cost", "sum"))
+    grouped = combined.groupby("tradingsymbol").agg(
+        quantity=("quantity", "sum"), cost=("cost", "sum")
+    )
     grouped["average_price"] = grouped["cost"] / grouped["quantity"]
     return grouped[["quantity", "average_price"]]
 
@@ -400,11 +404,15 @@ def compute_portfolio_value(cfg: dict | None = None) -> dict:
         holdings_value = float(
             sum(
                 qty * ltps.get(sym, avg_price)
-                for sym, qty, avg_price in zip(held.index, held["quantity"], held["average_price"], strict=False)
+                for sym, qty, avg_price in zip(
+                    held.index, held["quantity"], held["average_price"], strict=False
+                )
             )
         )
 
-    cash_sweep_value = get_cash_sweep_holding(cfg)[1] if cfg.get("cash_sweep_enabled", False) else 0.0
+    cash_sweep_value = (
+        get_cash_sweep_holding(cfg)[1] if cfg.get("cash_sweep_enabled", False) else 0.0
+    )
     return {
         "portfolio_value": available_cash + holdings_value + cash_sweep_value,
         "invested_amount": invested_amount,
@@ -477,7 +485,14 @@ def ensure_cash_for_buys(needed: float, cfg: dict | None = None) -> dict | None:
     dp_charge = cfg.get("dp_charge_per_scrip", 0.0)
     if dp_charge > 0:
         state_db.record_cash_flow(today, -dp_charge, f"DP charge -- {sym} sold")
-    return {"action": "redeem", "symbol": sym, "qty": qty_to_sell, "price": ltp, "amount": amount, "order_id": oid}
+    return {
+        "action": "redeem",
+        "symbol": sym,
+        "qty": qty_to_sell,
+        "price": ltp,
+        "amount": amount,
+        "order_id": oid,
+    }
 
 
 def sweep_idle_cash(cfg: dict | None = None) -> dict | None:
@@ -516,7 +531,14 @@ def sweep_idle_cash(cfg: dict | None = None) -> dict | None:
     amount = round(qty_to_buy * ltp, 2)
     today = dt.date.today().isoformat()
     state_db.record_cash_sweep(today, "buy", sym, qty_to_buy, ltp, amount, "Swept idle cash", oid)
-    return {"action": "sweep", "symbol": sym, "qty": qty_to_buy, "price": ltp, "amount": amount, "order_id": oid}
+    return {
+        "action": "sweep",
+        "symbol": sym,
+        "qty": qty_to_buy,
+        "price": ltp,
+        "amount": amount,
+        "order_id": oid,
+    }
 
 
 def get_unsettled_quantities() -> dict[str, int]:
@@ -562,11 +584,19 @@ def _holdings_value(held: pd.DataFrame, ranked: pd.DataFrame) -> float:
     if missing:
         with contextlib.suppress(Exception):
             prices.update(kite_client.get_ltp(missing))
-    return float(sum(held.loc[sym, "quantity"] * prices.get(sym, held.loc[sym, "average_price"]) for sym in held.index))
+    return float(
+        sum(
+            held.loc[sym, "quantity"] * prices.get(sym, held.loc[sym, "average_price"])
+            for sym in held.index
+        )
+    )
 
 
 def propose_rebalance(
-    available_cash: float, cfg: dict | None = None, fundamentals: pd.DataFrame | None = None, progress_cb=None
+    available_cash: float,
+    cfg: dict | None = None,
+    fundamentals: pd.DataFrame | None = None,
+    progress_cb=None,
 ) -> dict:
     """Returns {"run_time", "sells", "buys", "holdings", "open_slots"}.
     Nothing here executes an order -- see module docstring."""
@@ -590,7 +620,9 @@ def propose_rebalance(
     # ensure_cash_for_buys(), called from main()/the dashboard's manual
     # Execute buttons. 0.0 whenever the feature is off, byte-identical to
     # before this existed.
-    cash_sweep_value = get_cash_sweep_holding(cfg)[1] if cfg.get("cash_sweep_enabled", False) else 0.0
+    cash_sweep_value = (
+        get_cash_sweep_holding(cfg)[1] if cfg.get("cash_sweep_enabled", False) else 0.0
+    )
 
     # Market regime filter (backtest.py:817, 926-929): when NIFTY's own
     # close is below its own regime_ema_period EMA, caps how many NEW
@@ -611,11 +643,15 @@ def propose_rebalance(
         regime_ema = indicators.ema(bench_regime["close"], cfg.get("regime_ema_period", 200))
         regime_ok = bool(bench_regime["close"].iloc[-1] > regime_ema.iloc[-1])
         if not regime_ok:
-            effective_max_positions = max(1, int(cfg["max_positions"] * cfg.get("regime_position_multiplier", 0.5)))
+            effective_max_positions = max(
+                1, int(cfg["max_positions"] * cfg.get("regime_position_multiplier", 0.5))
+            )
 
     report("Scanning universe (screener pipeline)...", 0.10)
     ranked = screener.run_screen(
-        with_fundamentals=True, fundamentals=fundamentals, progress_cb=lambda s, f: report(s, 0.10 + f * 0.7)
+        with_fundamentals=True,
+        fundamentals=fundamentals,
+        progress_cb=lambda s, f: report(s, 0.10 + f * 0.7),
     )
 
     # Cache the same ranked table the Screener page's own "Run screen"
@@ -649,7 +685,9 @@ def propose_rebalance(
     sells = []
     if is_rebalance_day:
         for sym, row in held.iterrows():
-            reason = screener.sell_check(sym, ranked, candidates, keep_zone, cfg["max_positions"], cfg)
+            reason = screener.sell_check(
+                sym, ranked, candidates, keep_zone, cfg["max_positions"], cfg
+            )
             if reason:
                 sells.append(
                     {
@@ -686,7 +724,10 @@ def propose_rebalance(
     sell_proceeds = 0.0
     unsettled_proceeds = 0.0
     for sym, qty, avg_price in zip(
-        sells_df.get("symbol", []), sells_df.get("qty", []), sells_df.get("avg_price", []), strict=False
+        sells_df.get("symbol", []),
+        sells_df.get("qty", []),
+        sells_df.get("avg_price", []),
+        strict=False,
     ):
         price = float(ranked.loc[sym, "price"]) if sym in ranked.index else avg_price
         unsettled_qty = min(qty, unsettled_qtys.get(sym, 0))
@@ -737,7 +778,9 @@ def propose_rebalance(
         if is_rebalance_day:
             state_db.update_entry_confirm_streaks(confirm_syms_now, dt.date.today().isoformat())
         streaks = state_db.get_entry_confirm_streaks()
-        capped_new_candidates = {sym for sym in capped_new_candidates if streaks.get(sym, 0) >= confirm_days}
+        capped_new_candidates = {
+            sym for sym in capped_new_candidates if streaks.get(sym, 0) >= confirm_days
+        }
 
     buys = []
     top_ups = []
@@ -796,11 +839,17 @@ def propose_rebalance(
         # New candidates (not held), rank order, plus held-but-still-
         # gate-passing symbols (eligible for topping up, not for a fresh
         # entry -- allocate_equal_weight_buys() filters that itself).
-        new_candidate_syms = [sym for sym in candidates.index if sym not in still_held and sym in capped_new_candidates]
+        new_candidate_syms = [
+            sym
+            for sym in candidates.index
+            if sym not in still_held and sym in capped_new_candidates
+        ]
         held_still_candidates = [sym for sym in candidates.index if sym in still_held]
         allocator_syms = new_candidate_syms + held_still_candidates
         prices = {sym: float(candidates.loc[sym, "price"]) for sym in allocator_syms}
-        held_info = {sym: (int(held.loc[sym, "quantity"]), prices[sym]) for sym in held_still_candidates}
+        held_info = {
+            sym: (int(held.loc[sym, "quantity"]), prices[sym]) for sym in held_still_candidates
+        }
         alloc = screener.allocate_equal_weight_buys(
             allocator_syms,
             prices,
@@ -989,7 +1038,9 @@ def execute_sells(sells_df: pd.DataFrame) -> tuple[list[str], list[str], dict[st
     return log, succeeded, failed
 
 
-def execute_buys(buys_df: pd.DataFrame, place_gtt: bool = True) -> tuple[list[str], list[str], dict[str, str]]:
+def execute_buys(
+    buys_df: pd.DataFrame, place_gtt: bool = True
+) -> tuple[list[str], list[str], dict[str, str]]:
     """Market-buys every row (new candidates filling open slots), places a
     GTT stop-loss at the sizing-time stop unless place_gtt=False, and
     seeds this app's own trailing-stop bookkeeping + tradebook entry
@@ -1008,7 +1059,9 @@ def execute_buys(buys_df: pd.DataFrame, place_gtt: bool = True) -> tuple[list[st
         gtt_id = None
         if place_gtt:
             try:
-                gtt_id = kite_client.place_gtt_stoploss(r["symbol"], int(r["qty"]), r["stop"], r["price"])
+                gtt_id = kite_client.place_gtt_stoploss(
+                    r["symbol"], int(r["qty"]), r["stop"], r["price"]
+                )
                 msg += f", GTT {gtt_id} @ ₹{r['stop']:.1f}"
             except Exception as e:
                 msg += f" — ⚠️ BUY SUCCEEDED but GTT FAILED: {e} (no stop-loss in place)"
@@ -1056,7 +1109,11 @@ def execute_top_ups(top_ups_df: pd.DataFrame) -> tuple[list[str], list[str], dic
                 new_total_qty = (pos["qty"] + int(r["extra_qty"])) if pos else int(r["extra_qty"])
                 ltp = kite_client.get_ltp([r["symbol"]])[r["symbol"]]
                 kite_client.modify_gtt_trigger(
-                    int(gtt_id), r["symbol"], new_total_qty, pos["current_stop"] if pos else float(r["price"]), ltp
+                    int(gtt_id),
+                    r["symbol"],
+                    new_total_qty,
+                    pos["current_stop"] if pos else float(r["price"]),
+                    ltp,
                 )
                 msg += f", GTT updated to qty {new_total_qty}"
             except Exception as e:
@@ -1192,10 +1249,14 @@ def main_gap_check():
     the Job Log's "last run" should reflect the last day this genuinely
     tried to do something, not a misleading no-op entry."""
     if not nse_holidays.is_trading_day(dt.date.today()):
-        print(f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping gap-check -- NSE holiday or weekend.")
+        print(
+            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping gap-check -- NSE holiday or weekend."
+        )
         return
     os.makedirs("cache", exist_ok=True)
-    log_lines = [(f"\n{'=' * 60}\n{dt.datetime.now():%d %b %Y %H:%M:%S} (gap-down check)\n{'=' * 60}")]
+    log_lines = [
+        f"\n{'=' * 60}\n{dt.datetime.now():%d %b %Y %H:%M:%S} (gap-down check)\n{'=' * 60}"
+    ]
 
     def log(msg=""):
         print(msg)
@@ -1219,7 +1280,8 @@ def main_gap_check():
                 log(
                     f"🔴 {a['symbol']}: gapped to ₹{a['ltp']:.2f} (stop ₹{a['stop']:.2f}) -- "
                     f"already closed (GTT fired first, nothing left to sell), "
-                    f"GTT deleted: {a['gtt_deleted']}" + (f" -- {a['error']}" if a.get("error") else "")
+                    f"GTT deleted: {a['gtt_deleted']}"
+                    + (f" -- {a['error']}" if a.get("error") else "")
                 )
             else:
                 log(
@@ -1236,7 +1298,9 @@ def main_gap_check():
                 log(f"💰 Cash sweep: {sweep_result}")
         with open(LOG_PATH, "a") as f:
             f.write("\n".join(log_lines) + "\n")
-        jr["summary"] = f"{len(actions)} gap action(s)" if actions else "no positions gapped below stop"
+        jr["summary"] = (
+            f"{len(actions)} gap action(s)" if actions else "no positions gapped below stop"
+        )
 
 
 def correct_todays_exit_prices() -> list[str]:
@@ -1287,7 +1351,10 @@ def correct_todays_exit_prices() -> list[str]:
         avg_price = float((grp["average_price"] * grp["_qty"]).sum() / total_qty)
         n = state_db.correct_trade_exit_price(sym, today, avg_price)
         if n:
-            log.append(f"{sym}: exit_price corrected to Rs.{avg_price:.2f} from Kite's real order book ({n} row(s))")
+            log.append(
+                f"{sym}: exit_price corrected to Rs.{avg_price:.2f} "
+                f"from Kite's real order book ({n} row(s))"
+            )
     return log
 
 
@@ -1298,10 +1365,15 @@ def main_exit_price_correction():
     Job Log page has a persisted record. No-ops on an NSE trading holiday,
     same reasoning as main()/main_gap_check()."""
     if not nse_holidays.is_trading_day(dt.date.today()):
-        print(f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping exit-price correction -- NSE holiday or weekend.")
+        print(
+            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping exit-price "
+            f"correction -- NSE holiday or weekend."
+        )
         return
     os.makedirs("cache", exist_ok=True)
-    log_lines = [(f"\n{'=' * 60}\n{dt.datetime.now():%d %b %Y %H:%M:%S} (exit-price correction)\n{'=' * 60}")]
+    log_lines = [
+        f"\n{'=' * 60}\n{dt.datetime.now():%d %b %Y %H:%M:%S} (exit-price correction)\n{'=' * 60}"
+    ]
 
     def log(msg=""):
         print(msg)
@@ -1337,7 +1409,10 @@ def main_exit_price_correction():
             )
             log(f"\nEquity snapshot logged: Rs.{snapshot['portfolio_value']:,.2f}")
         else:
-            log("\nEquity snapshot skipped -- couldn't compute a valid portfolio value (Kite connection issue).")
+            log(
+                "\nEquity snapshot skipped -- couldn't compute a valid portfolio value "
+                "(Kite connection issue)."
+            )
 
         # Job Log retention -- keep only the last 30 days so job_runs
         # doesn't grow unbounded. Run once here, daily, alongside the
@@ -1348,7 +1423,9 @@ def main_exit_price_correction():
 
         with open(LOG_PATH, "a") as f:
             f.write("\n".join(log_lines) + "\n")
-        jr["summary"] = f"{len(corrected)} symbol(s) corrected" if corrected else "nothing to correct"
+        jr["summary"] = (
+            f"{len(corrected)} symbol(s) corrected" if corrected else "nothing to correct"
+        )
 
 
 def main():
@@ -1366,7 +1443,10 @@ def main():
     main_gap_check()'s docstring for why this doesn't create a job_run
     row for a skipped day."""
     if not nse_holidays.is_trading_day(dt.date.today()):
-        print(f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping rebalance scan -- NSE holiday or weekend.")
+        print(
+            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Skipping rebalance scan -- "
+            f"NSE holiday or weekend."
+        )
         return
 
     # Recurring charges (e.g. quarterly Demat AMC) -- checked once per
@@ -1471,7 +1551,9 @@ def main():
             # see ensure_cash_for_buys()'s own docstring. No-ops entirely
             # when cash_sweep_enabled is off.
             buy_cost = (
-                float((result["buys"]["qty"] * result["buys"]["price"]).sum()) if not result["buys"].empty else 0.0
+                float((result["buys"]["qty"] * result["buys"]["price"]).sum())
+                if not result["buys"].empty
+                else 0.0
             )
             topup_cost = (
                 float((result["top_ups"]["extra_qty"] * result["top_ups"]["price"]).sum())
@@ -1508,7 +1590,8 @@ def main():
         with open(LOG_PATH, "a") as f:
             f.write("\n".join(log_lines) + "\n")
         jr["summary"] = (
-            f"{len(result['buys'])} buys, {len(result['sells'])} sells, {len(result['stop_updates'])} stop updates"
+            f"{len(result['buys'])} buys, {len(result['sells'])} sells, "
+            f"{len(result['stop_updates'])} stop updates"
         )
 
     # propose_rebalance() already ran the full screener pipeline and cached

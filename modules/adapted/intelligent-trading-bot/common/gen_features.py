@@ -23,18 +23,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import importlib
 import itertools
-import json
-import os
 import sys
-from datetime import datetime, timedelta, timezone
-from typing import Union
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
 from common.gen_features_rolling_agg import *
 from common.gen_features_rolling_agg import _aggregate_last_rows
 from common.utils import *
-from scipy import stats
 
 """
 Feature generators.
@@ -55,8 +52,7 @@ def generate_features_tsfresh(df, config: dict, last_rows: int = 0):
     # Transform str/list and list to dict with argument names as keys and column names as values
     column_names = config.get("columns")
     if not column_names:
-        msg = f"No input column for feature generator 'stats': {column_names}"
-        raise ValueError(msg)
+        raise ValueError(f"No input column for feature generator 'stats': {column_names}")
 
     if isinstance(column_names, str):
         column_name = column_names
@@ -65,8 +61,9 @@ def generate_features_tsfresh(df, config: dict, last_rows: int = 0):
     elif isinstance(column_names, dict):
         column_name = next(iter(column_names.values()))
     else:
-        msg = f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
+        )
 
     column = df[column_name].interpolate()
 
@@ -94,7 +91,9 @@ def generate_features_tsfresh(df, config: dict, last_rows: int = 0):
         if not last_rows:
             df[feature_name] = ro.apply(tsf.kurtosis, raw=True)
         else:
-            df[feature_name] = _aggregate_last_rows(column, w, last_rows, tsf.kurtosis)  # OR kurtosis
+            df[feature_name] = _aggregate_last_rows(
+                column, w, last_rows, tsf.kurtosis
+            )  # OR kurtosis
         features.append(feature_name)
 
         # count_above_mean, benford_correlation, mean_changes
@@ -102,7 +101,9 @@ def generate_features_tsfresh(df, config: dict, last_rows: int = 0):
         if not last_rows:
             df[feature_name] = ro.apply(tsf.mean_second_derivative_central, raw=True)
         else:
-            df[feature_name] = _aggregate_last_rows(column, w, last_rows, tsf.mean_second_derivative_central)
+            df[feature_name] = _aggregate_last_rows(
+                column, w, last_rows, tsf.mean_second_derivative_central
+            )
         features.append(feature_name)
 
         #
@@ -113,14 +114,18 @@ def generate_features_tsfresh(df, config: dict, last_rows: int = 0):
         if not last_rows:
             df[feature_name] = ro.apply(tsf.longest_strike_below_mean, raw=True)
         else:
-            df[feature_name] = _aggregate_last_rows(column, w, last_rows, tsf.longest_strike_below_mean)
+            df[feature_name] = _aggregate_last_rows(
+                column, w, last_rows, tsf.longest_strike_below_mean
+            )
         features.append(feature_name)
 
         feature_name = column_name + "_fmax_" + str(w)
         if not last_rows:
             df[feature_name] = ro.apply(tsf.first_location_of_maximum, raw=True)
         else:
-            df[feature_name] = _aggregate_last_rows(column, w, last_rows, tsf.first_location_of_maximum)
+            df[feature_name] = _aggregate_last_rows(
+                column, w, last_rows, tsf.first_location_of_maximum
+            )
         features.append(feature_name)
 
     return features
@@ -177,8 +182,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
         try:
             talib_mod = importlib.import_module(mod_name)  # Try to import
         except Exception:
-            msg = f"Cannot import module {mod_name}. Check if talib is installed correctly"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Cannot import module {mod_name}. Check if talib is installed correctly"
+            )
 
     mod_name = "talib.stream"  # Functions which are applied to single window and return one value
     talib_mod_stream = sys.modules.get(mod_name)  # Try to load
@@ -186,8 +192,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
         try:
             talib_mod_stream = importlib.import_module(mod_name)  # Try to import
         except Exception:
-            msg = f"Cannot import module {mod_name}. Check if talib is installed correctly"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Cannot import module {mod_name}. Check if talib is installed correctly"
+            )
 
     mod_name = "talib.abstract"  # We need this to get function annotations, particularly, if they are unstable (support stream mode)
     talib_mod_abstract = sys.modules.get(mod_name)  # Try to load
@@ -195,8 +202,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
         try:
             talib_mod_abstract = importlib.import_module(mod_name)  # Try to import
         except Exception:
-            msg = f"Cannot import module {mod_name}. Check if talib is installed correctly"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Cannot import module {mod_name}. Check if talib is installed correctly"
+            )
 
     #
     # Process configuration parameters and prepare all needed for feature generation
@@ -209,12 +217,15 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
     elif isinstance(column_names, list) and len(column_names) == 1:
         column_names = {"real": column_names[0]}  # Single default input series
     elif isinstance(column_names, list):
-        column_names = {f"real{i}": col for i, col in enumerate(column_names)}  # Multiple default input series
+        column_names = {
+            f"real{i}": col for i, col in enumerate(column_names)
+        }  # Multiple default input series
     elif isinstance(column_names, dict):
         pass  # Do nothing
     else:
-        msg = f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
+        )
 
     # For each key, resolve name and interpolate data
     # Interpolate (we should always do it because one NaN in input can produce all NaNs in output)
@@ -245,9 +256,12 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
         try:
             fn = getattr(talib_mod_abstract, func_name)  # Resolve function name
         except AttributeError:
-            msg = f"Cannot resolve talib function name '{func_name}'. Check the (existence of) name of the function"
-            raise ValueError(msg)
-        is_streamable_function = fn.function_flags is None or "Function has an unstable period" not in fn.function_flags
+            raise ValueError(
+                f"Cannot resolve talib function name '{func_name}'. Check the (existence of) name of the function"
+            )
+        is_streamable_function = (
+            fn.function_flags is None or "Function has an unstable period" not in fn.function_flags
+        )
 
         is_streamable_function = False
 
@@ -261,8 +275,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
                 try:
                     fn = getattr(talib_mod, func_name)  # Resolve function name
                 except AttributeError:
-                    msg = f"Cannot resolve talib function name '{func_name}'. Check the (existence of) name of the function"
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Cannot resolve talib function name '{func_name}'. Check the (existence of) name of the function"
+                    )
 
                 args = columns.copy()
                 if w:
@@ -281,8 +296,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
                 try:
                     fn = getattr(talib_mod_stream, func_name)  # Resolve function name
                 except AttributeError:
-                    msg = f"Cannot resolve talib.stream function name '{func_name}'. Check the (existence of) name of the function"
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Cannot resolve talib.stream function name '{func_name}'. Check the (existence of) name of the function"
+                    )
 
                 # Here fn (function) is a different function from a different module (this function is applied to a single window rather than to rolling windows)
                 out_values = []
@@ -304,7 +320,9 @@ def generate_features_talib(df, config: dict, last_rows: int = 0):
 
                 # Then these values are transformed to a series
                 out = pd.Series(data=np.nan, index=df.index, dtype=float)
-                out.iloc[-last_rows:] = list(reversed(out_values))  # Assign values to the last elements
+                out.iloc[-last_rows:] = list(
+                    reversed(out_values)
+                )  # Assign values to the last elements
 
             #
             # Name of the output column
@@ -351,20 +369,19 @@ def _convert_to_relative(fn_outs: list, rel_base, rel_func, percentage):
     size = len(fn_outs)
     for i, feature in enumerate(fn_outs):
         if not rel_base:
-            rel_out = feature  # No change requested
-        elif (rel_base in {"next", "last"}) and i == size - 1:
-            rel_out = feature  # No change because it is the last (no next - it is the base)
-        elif (rel_base in {"prev", "first"}) and i == 0:
-            rel_out = feature  # No change because it is the first (no previous - it is the base)
+            rel_out = fn_outs[i]  # No change requested
+        elif (rel_base == "next" or rel_base == "last") and i == size - 1:
+            rel_out = fn_outs[i]  # No change because it is the last (no next - it is the base)
+        elif (rel_base == "prev" or rel_base == "first") and i == 0:
+            rel_out = fn_outs[i]  # No change because it is the first (no previous - it is the base)
 
-        elif rel_base in {"next", "last"}:
+        elif rel_base == "next" or rel_base == "last":
             if rel_base == "next":
                 base = fn_outs[i + 1]  # Relative to next
             elif rel_base == "last":
                 base = fn_outs[size - 1]  # Relative to last
             else:
-                msg = f"Unknown value of the 'rel_base' config parameter: {rel_base=}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown value of the 'rel_base' config parameter: {rel_base=}")
 
             if rel_func == "rel":
                 rel_out = feature / base
@@ -373,17 +390,15 @@ def _convert_to_relative(fn_outs: list, rel_base, rel_func, percentage):
             elif rel_func == "rel_diff":
                 rel_out = (feature - base) / base
             else:
-                msg = f"Unknown value of the 'rel_func' config parameter: {rel_func=}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown value of the 'rel_func' config parameter: {rel_func=}")
 
-        elif rel_base in {"prev", "first"}:
+        elif rel_base == "prev" or rel_base == "first":
             if rel_base == "prev":
                 base = fn_outs[i - 1]  # Relative to previous
             elif rel_base == "first":
                 base = fn_outs[size - 1]  # Relative to first
             else:
-                msg = f"Unknown value of the 'rel_base' config parameter: {rel_base=}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown value of the 'rel_base' config parameter: {rel_base=}")
 
             if rel_func == "rel":
                 rel_out = feature / base
@@ -392,13 +407,12 @@ def _convert_to_relative(fn_outs: list, rel_base, rel_func, percentage):
             elif rel_func == "rel_diff":
                 rel_out = (feature - base) / base
             else:
-                msg = f"Unknown value of the 'rel_func' config parameter: {rel_func=}"
-                raise ValueError(msg)
+                raise ValueError(f"Unknown value of the 'rel_func' config parameter: {rel_func=}")
 
         if percentage:
             rel_out = rel_out * 100.0
 
-        rel_out.name = feature.name
+        rel_out.name = fn_outs[i].name
         rel_outs.append(rel_out)
 
     return rel_outs
@@ -424,8 +438,7 @@ def generate_features_itbstats(df, config: dict, last_rows: int = 0):
     # Transform str/list and list to dict with argument names as keys and column names as values
     column_names = config.get("columns")
     if not column_names:
-        msg = f"No input column for feature generator 'stats': {column_names}"
-        raise ValueError(msg)
+        raise ValueError(f"No input column for feature generator 'stats': {column_names}")
 
     if isinstance(column_names, str):
         column_name = column_names
@@ -434,8 +447,9 @@ def generate_features_itbstats(df, config: dict, last_rows: int = 0):
     elif isinstance(column_names, dict):
         column_name = next(iter(column_names.values()))
     else:
-        msg = f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Columns are provided as a string, list or dict. Wrong type: {type(column_names)}"
+        )
 
     column = df[column_name].interpolate()
 
@@ -486,8 +500,7 @@ def generate_features_itbstats(df, config: dict, last_rows: int = 0):
         elif func_name.lower() == "slope":
             fn = slope_fn
         else:
-            msg = f"Unknown function '{func_name}' of feature generator {'itbstats'}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown function '{func_name}' of feature generator {'itbstats'}")
 
         fn_outs = []
         fn_out_names = []
@@ -518,7 +531,7 @@ def generate_features_itbstats(df, config: dict, last_rows: int = 0):
 
 
 def fmax_fn(x):
-    return np.argmax(x) / len(x) if len(x) > 0 else np.nan
+    return np.argmax(x) / len(x) if len(x) > 0 else np.NaN
 
 
 def lsbm_fn(x):
@@ -536,8 +549,9 @@ def lsbm_fn(x):
         # [0,True,0,0,1,True,1,0,0,True,0,1,True] -> [1, 3, 1, 2]
         if len(x) == 0:
             return [0]
-        res = [len(list(group)) for value, group in itertools.groupby(x) if value == 1]
-        return res if len(res) > 0 else [0]
+        else:
+            res = [len(list(group)) for value, group in itertools.groupby(x) if value == 1]
+            return res if len(res) > 0 else [0]
 
     return np.max(_get_length_sequences_where(x < np.mean(x))) if x.size > 0 else 0
 
@@ -576,12 +590,22 @@ def generate_features_itblib(df, config: dict, last_rows: int = 0):
             df, "close", weight_column_name, np.nanmean, base_window, suffix="", last_rows=last_rows
         )  # Base column
         features += add_past_weighted_aggregations(
-            df, "close", weight_column_name, np.nanmean, windows, "", to_drop[-1], 100.0, last_rows=last_rows
+            df,
+            "close",
+            weight_column_name,
+            np.nanmean,
+            windows,
+            "",
+            to_drop[-1],
+            100.0,
+            last_rows=last_rows,
         )
 
     # close rolling std. format: 'close_std_<window>'
     if not functions or "close_STD" in functions:
-        to_drop += add_past_aggregations(df, "close", np.nanstd, base_window, last_rows=last_rows)  # Base column
+        to_drop += add_past_aggregations(
+            df, "close", np.nanstd, base_window, last_rows=last_rows
+        )  # Base column
         features += add_past_aggregations(
             df, "close", np.nanstd, windows, "_std", to_drop[-1], 100.0, last_rows=last_rows
         )
@@ -602,7 +626,9 @@ def generate_features_itblib(df, config: dict, last_rows: int = 0):
         to_drop += add_past_aggregations(
             df, "span", np.nanmean, base_window, suffix="", last_rows=last_rows
         )  # Base column
-        features += add_past_aggregations(df, "span", np.nanmean, windows, "", to_drop[-1], 100.0, last_rows=last_rows)
+        features += add_past_aggregations(
+            df, "span", np.nanmean, windows, "", to_drop[-1], 100.0, last_rows=last_rows
+        )
 
     # Number of trades format: 'trades_<window>'
     if not functions or "trades_SMA" in functions:
@@ -634,20 +660,35 @@ def generate_features_itblib(df, config: dict, last_rows: int = 0):
     # Area over and under latest close price
     if not functions or "close_AREA" in functions:
         features += add_area_ratio(
-            df, is_future=False, column_name="close", windows=windows, suffix="_area", last_rows=last_rows
+            df,
+            is_future=False,
+            column_name="close",
+            windows=windows,
+            suffix="_area",
+            last_rows=last_rows,
         )
 
     # Linear trend
     if not functions or "close_SLOPE" in functions:
         features += add_linear_trends(
-            df, is_future=False, column_name="close", windows=windows, suffix="_trend", last_rows=last_rows
+            df,
+            is_future=False,
+            column_name="close",
+            windows=windows,
+            suffix="_trend",
+            last_rows=last_rows,
         )
     if not functions or "volume_SLOPE" in functions:
         features += add_linear_trends(
-            df, is_future=False, column_name="volume", windows=windows, suffix="_trend", last_rows=last_rows
+            df,
+            is_future=False,
+            column_name="volume",
+            windows=windows,
+            suffix="_trend",
+            last_rows=last_rows,
         )
 
-    df = df.drop(columns=to_drop)
+    df.drop(columns=to_drop, inplace=True)
 
     return features
 
@@ -684,51 +725,71 @@ def generate_features_depth(df, use_differences=False):
     # ['gap_2', 'gap_5', 'gap_10']
 
     # bids_1 mean
-    to_drop += add_past_aggregations(df, "bids_1", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "bids_1", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "bids_1", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['bids_1_2', 'bids_1_5', 'bids_1_10']
     # asks_1 mean
-    to_drop += add_past_aggregations(df, "asks_1", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "asks_1", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "asks_1", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['asks_1_2', 'asks_1_5', 'asks_1_10']
 
     # bids_2 mean
-    to_drop += add_past_aggregations(df, "bids_2", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "bids_2", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "bids_2", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['bids_2_2', 'bids_2_5', 'bids_2_10']
     # asks_2 mean
-    to_drop += add_past_aggregations(df, "asks_2", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "asks_2", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "asks_2", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['asks_2_2', 'asks_2_5', 'asks_2_10']
 
     # bids_5 mean
-    to_drop += add_past_aggregations(df, "bids_5", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "bids_5", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "bids_5", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['bids_5_2', 'bids_5_5', 'bids_5_10']
     # asks_5 mean
-    to_drop += add_past_aggregations(df, "asks_5", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "asks_5", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "asks_5", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['asks_5_2', 'asks_5_5', 'asks_5_10']
 
     # bids_10 mean
-    to_drop += add_past_aggregations(df, "bids_10", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "bids_10", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "bids_10", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['bids_10_2', 'bids_10_5', 'bids_10_10']
     # asks_10 mean
-    to_drop += add_past_aggregations(df, "asks_10", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "asks_10", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "asks_10", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['asks_10_2', 'asks_10_5', 'asks_10_10']
 
     # bids_20 mean
-    to_drop += add_past_aggregations(df, "bids_20", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "bids_20", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "bids_20", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['bids_20_2', 'bids_20_5', 'bids_20_10']
     # asks_20 mean
-    to_drop += add_past_aggregations(df, "asks_20", np.nanmean, base_window, suffix="")  # Base column
+    to_drop += add_past_aggregations(
+        df, "asks_20", np.nanmean, base_window, suffix=""
+    )  # Base column
     features += add_past_aggregations(df, "asks_20", np.nanmean, windows, "", to_drop[-1], 100.0)
     # ['asks_20_2', 'asks_20_5', 'asks_20_10']
 
-    df = df.drop(columns=to_drop)
+    df.drop(columns=to_drop, inplace=True)
 
     return features
 
@@ -747,13 +808,20 @@ def add_threshold_feature(df, column_name: str, thresholds: list, out_names: lis
         out_name = out_names[i]
         if threshold > 0.0:  # Max high
             if abs(threshold) >= 0.75:  # Large threshold
-                df[out_name] = df[column_name] >= threshold  # At least one high is greater than the threshold
+                df[out_name] = (
+                    df[column_name] >= threshold
+                )  # At least one high is greater than the threshold
             else:  # Small threshold
                 df[out_name] = df[column_name] <= threshold  # All highs are less than the threshold
-        elif abs(threshold) >= 0.75:  # Large negative threshold
-            df[out_name] = df[column_name] <= threshold  # At least one low is less than the (negative) threshold
-        else:  # Small threshold
-            df[out_name] = df[column_name] >= threshold  # All lows are greater than the (negative) threshold
+        else:  # Min low
+            if abs(threshold) >= 0.75:  # Large negative threshold
+                df[out_name] = (
+                    df[column_name] <= threshold
+                )  # At least one low is less than the (negative) threshold
+            else:  # Small threshold
+                df[out_name] = (
+                    df[column_name] >= threshold
+                )  # All lows are greater than the (negative) threshold
 
     return out_names
 

@@ -44,15 +44,12 @@ class MarketEvidence:
 
     def __post_init__(self) -> None:
         if not self.metric.strip():
-            msg = "metric is required"
-            raise ValueError(msg)
+            raise ValueError("metric is required")
         date.fromisoformat(self.as_of_date)
         if self.status not in _ALLOWED_STATUS:
-            msg = f"Unsupported market evidence status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported market evidence status: {self.status}")
         if self.status == "VERIFIED" and not self.source_reference.strip():
-            msg = "Verified evidence requires source_reference"
-            raise ValueError(msg)
+            raise ValueError("Verified evidence requires source_reference")
 
 
 @dataclass(frozen=True)
@@ -68,11 +65,8 @@ class MarketSnapshot:
     def __post_init__(self) -> None:
         date.fromisoformat(self.as_of_date)
         if self.regime not in _ALLOWED_REGIMES:
-            msg = f"Unsupported market regime: {self.regime}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported market regime: {self.regime}")
         if self.evidence_count < 0 or self.verified_evidence_count < 0:
-            msg = "Evidence counts cannot be negative"
-            raise ValueError(msg)
+            raise ValueError("Evidence counts cannot be negative")
         if self.verified_evidence_count > self.evidence_count:
-            msg = "verified_evidence_count cannot exceed evidence_count"
-            raise ValueError(msg)
+            raise ValueError("verified_evidence_count cannot exceed evidence_count")

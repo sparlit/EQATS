@@ -54,13 +54,13 @@ import ccxt.prediction as ccxt_prediction  # noqa: E402
 # from typing import Optional
 # from typing import List
 from ccxt.base.errors import (
-    AuthenticationError,
+    AuthenticationError,  # noqa: F401
     ExchangeError,
-    ExchangeNotAvailable,
-    InvalidProxySettings,
-    NotSupported,
-    OnMaintenance,
-    OperationFailed,
+    ExchangeNotAvailable,  # noqa: F401
+    InvalidProxySettings,  # noqa: F401
+    NotSupported,  # noqa: F401
+    OnMaintenance,  # noqa: F401
+    OperationFailed,  # noqa: F401
 )
 
 # ------------------------------------------------------------------------------
@@ -84,13 +84,16 @@ class Argv:
     sync = False
     baseTests = False
     exchangeTests = False
+    pass
 
 
 argv = Argv()
 parser = argparse.ArgumentParser()
 parser.add_argument("--sandbox", action="store_true", help="enable sandbox mode")
 parser.add_argument(
-    "--prediction", action="store_true", help="force the prediction-markets namespace for ids in both namespaces"
+    "--prediction",
+    action="store_true",
+    help="force the prediction-markets namespace for ids in both namespaces",
 )
 parser.add_argument("--fundedTests", action="store_true", help="run funded order-placement tests")
 parser.add_argument("--privateOnly", action="store_true", help="run private tests only")
@@ -117,8 +120,9 @@ parser.parse_args(namespace=argv)
 
 path = os.path.dirname(ccxt.__file__)
 if "site-packages" in os.path.dirname(ccxt.__file__):
-    msg = "You are running tests_async.py/test.py against a globally-installed version of the library! It was previously installed into your site-packages folder by pip or pip3. To ensure testing against the local folder uninstall it first with pip uninstall ccxt or pip3 uninstall ccxt"
-    raise Exception(msg)
+    raise Exception(
+        "You are running tests_async.py/test.py against a globally-installed version of the library! It was previously installed into your site-packages folder by pip or pip3. To ensure testing against the local folder uninstall it first with pip uninstall ccxt or pip3 uninstall ccxt"
+    )
 
 # ------------------------------------------------------------------------------
 
@@ -133,8 +137,13 @@ Error = Exception
 
 
 def handle_all_unhandled_exceptions(type, value, traceback):
-    dump("[TEST_FAILURE]", (type), (value), "\n<UNHANDLED EXCEPTION>\n" + ("\n".join(format_tb(traceback))))
-    sys.exit(1)  # unrecoverable crash
+    dump(
+        "[TEST_FAILURE]",
+        (type),
+        (value),
+        "\n<UNHANDLED EXCEPTION>\n" + ("\n".join(format_tb(traceback))),
+    )
+    exit(1)  # unrecoverable crash
 
 
 sys.excepthook = handle_all_unhandled_exceptions
@@ -199,7 +208,8 @@ def io_file_read(path, decode=True):
     content = fs.read()
     if decode:
         return json.loads(content)
-    return content
+    else:
+        return content
 
 
 def io_dir_read(path):
@@ -213,7 +223,9 @@ def call_method_sync(test_files, methodName, exchange, skippedProperties, args):
 
 async def call_method(test_files, methodName, exchange, skippedProperties, args):
     methodNameToCall = "test_" + convert_to_snake_case(methodName)
-    return await getattr(test_files[methodName], methodNameToCall)(exchange, skippedProperties, *args)
+    return await getattr(test_files[methodName], methodNameToCall)(
+        exchange, skippedProperties, *args
+    )
 
 
 async def call_exchange_method_dynamically(exchange, methodName, args):
@@ -230,7 +242,12 @@ async def call_overriden_method(exchange, methodName, args):
 
 
 def exception_message(exc):
-    message = "[" + type(exc).__name__ + "] " + "".join(format_exception(type(exc), exc, exc.__traceback__, limit=6))
+    message = (
+        "["
+        + type(exc).__name__
+        + "] "
+        + "".join(format_exception(type(exc), exc, exc.__traceback__, limit=6))
+    )
     if len(message) > LOG_CHARS_LENGTH:
         # Accessing out of range element causes error
         message = message[0:LOG_CHARS_LENGTH]
@@ -243,7 +260,7 @@ def get_root_exception(exc):
 
 
 def exit_script(code=0):
-    sys.exit(code)
+    exit(code)
 
 
 def get_exchange_prop(exchange, prop, defaultValue=None):
@@ -279,8 +296,8 @@ def init_exchange(exchangeId, args, is_ws=False):
 
 def get_test_files_sync(properties, ws=False):
     tests = {}
-    finalPropList = [*properties, PROXY_TEST_FILE_NAME, "features"]
-    for i in range(len(finalPropList)):
+    finalPropList = properties + [PROXY_TEST_FILE_NAME, "features"]
+    for i in range(0, len(finalPropList)):
         methodName = finalPropList[i]
         name_snake_case = convert_to_snake_case(methodName)
         prefix = "async" if not IS_SYNCHRONOUS else "sync"
@@ -326,6 +343,30 @@ def set_fetch_response(exchange: ccxt.Exchange, data):
     return exchange
 
 
+def set_fetch_response_by_url(exchange: ccxt.Exchange, responses_by_url):
+    # serves a body per url fragment for methods that call several endpoints;
+    # one shared body cannot cover two endpoints of different declared shapes
+    def pick(url):
+        for fragment, body in responses_by_url.items():
+            if fragment in url:
+                return body
+        return list(responses_by_url.values())[0]
+
+    if IS_SYNCHRONOUS:
+
+        def fetch(url, method="GET", headers=None, body=None):
+            return pick(url)
+
+        exchange.fetch = fetch
+        return exchange
+
+    async def fetch(url, method="GET", headers=None, body=None):
+        return pick(url)
+
+    exchange.fetch = fetch
+    return exchange
+
+
 class FakeWsConnection:
     # transport stub used by the static ws tests: everything above the socket
     # (subscriptions, futures, caches, message routing) runs unmodified
@@ -337,6 +378,7 @@ class FakeWsConnection:
     async def send_str(self, message):
         # record the outgoing frame so the test can assert it
         self.sent_messages.append(json.loads(message))
+        return None
 
     async def close(self, code=1000):
         return None
@@ -395,7 +437,10 @@ def reject_pending_ws_futures(exchange, url):
         future = client.futures[message_hash]
         if not future.done():
             client.reject(
-                ExchangeError("static ws test: the injected messages did not resolve the watch future"), message_hash
+                ExchangeError(
+                    "static ws test: the injected messages did not resolve the watch future"
+                ),
+                message_hash,
             )
 
 

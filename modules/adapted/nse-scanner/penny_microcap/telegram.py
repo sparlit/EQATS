@@ -35,7 +35,13 @@ from urllib.parse import quote
 import requests
 from telegram_dashboard import dashboard_keyboard, dashboard_url, status_label
 
-ICONS = {"READY": "🟢", "CONFIRMING": "🟡", "EARLY_RADAR": "🔵", "CIRCUIT_LOCKED": "🔴", "EXTENDED": "🟠"}
+ICONS = {
+    "READY": "🟢",
+    "CONFIRMING": "🟡",
+    "EARLY_RADAR": "🔵",
+    "CIRCUIT_LOCKED": "🔴",
+    "EXTENDED": "🟠",
+}
 
 
 @dataclass(frozen=True)
@@ -62,9 +68,16 @@ def _card(row: dict) -> str:
     if metrics.get("liquidity_tier") == "HIGH":
         lines.append("Liquidity: <b>High</b>")
     if state == "CIRCUIT_LOCKED":
-        lines.extend(["Current entry: <b>NOT EXECUTABLE</b>", "Next: Wait for normal two-way trading"])
+        lines.extend(
+            ["Current entry: <b>NOT EXECUTABLE</b>", "Next: Wait for normal two-way trading"]
+        )
     elif state == "EXTENDED":
-        lines.extend([f"Distance {metrics.get('distance_atr', 0):.1f} ATR", "Next: Do not chase; wait for reset"])
+        lines.extend(
+            [
+                f"Distance {metrics.get('distance_atr', 0):.1f} ATR",
+                "Next: Do not chase; wait for reset",
+            ]
+        )
     elif state == "READY":
         lines.extend(
             [
@@ -110,7 +123,9 @@ def _header(report: dict, title: str) -> str:
     )
 
 
-def render_topic_messages(report: dict, topic: str, *, limit: int = 3400, cards_per_page: int = 7) -> list[str]:
+def render_topic_messages(
+    report: dict, topic: str, *, limit: int = 3400, cards_per_page: int = 7
+) -> list[str]:
     if topic == "portfolio":
         if report.get("uniform_portfolio") is not None:
             from portfolio_accounting.render import render_messages as render_portfolio
@@ -143,8 +158,7 @@ def render_topic_messages(report: dict, topic: str, *, limit: int = 3400, cards_
         rows = [r for r in report.get("candidates", []) if r["state"] in TOPIC_STATES[topic]]
         header = _header(report, TOPIC_TITLES[topic])
     else:
-        msg = f"Unknown Penny topic: {topic}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown Penny topic: {topic}")
 
     footer = (
         f'\n\n<a href="{html.escape(dashboard_url("penny"), quote=True)}">📊 Open Penny dashboard</a>'
@@ -160,7 +174,9 @@ def render_topic_messages(report: dict, topic: str, *, limit: int = 3400, cards_
         return [header + empty + footer]
     for row in rows:
         card = _card(row)
-        if cards and (cards >= cards_per_page or len(current) + len(card) + len(footer) + 2 > limit):
+        if cards and (
+            cards >= cards_per_page or len(current) + len(card) + len(footer) + 2 > limit
+        ):
             pages.append(current + footer)
             current, cards = header, 0
         current += card + "\n"
@@ -169,20 +185,31 @@ def render_topic_messages(report: dict, topic: str, *, limit: int = 3400, cards_
     return pages
 
 
-def render_messages(report: dict, *, risk_only: bool = False, limit: int = 3400, cards_per_page: int = 7) -> list[str]:
+def render_messages(
+    report: dict, *, risk_only: bool = False, limit: int = 3400, cards_per_page: int = 7
+) -> list[str]:
     """Compatibility wrapper for callers using the original two-route API."""
     if risk_only:
-        return render_topic_messages(report, "circuit_risk", limit=limit, cards_per_page=cards_per_page)
+        return render_topic_messages(
+            report, "circuit_risk", limit=limit, cards_per_page=cards_per_page
+        )
     pages = []
     for topic in ("ready", "confirming", "early_radar"):
-        pages.extend(render_topic_messages(report, topic, limit=limit, cards_per_page=cards_per_page))
+        pages.extend(
+            render_topic_messages(report, topic, limit=limit, cards_per_page=cards_per_page)
+        )
     return pages
 
 
-def send_messages(messages: list[str], kind: str, *, enabled: bool, timeout: int = 20) -> DeliveryResult:
+def send_messages(
+    messages: list[str], kind: str, *, enabled: bool, timeout: int = 20
+) -> DeliveryResult:
     if not enabled:
         return DeliveryResult(False, "disabled")
-    token, chat_id = os.getenv("PENNY_TELEGRAM_BOT_TOKEN", "").strip(), os.getenv("PENNY_TELEGRAM_CHAT_ID", "").strip()
+    token, chat_id = (
+        os.getenv("PENNY_TELEGRAM_BOT_TOKEN", "").strip(),
+        os.getenv("PENNY_TELEGRAM_CHAT_ID", "").strip(),
+    )
     topic_names = {
         "early_radar": "PENNY_TOPIC_EARLY_RADAR",
         "confirming": "PENNY_TOPIC_CONFIRMING",
@@ -207,17 +234,23 @@ def send_messages(messages: list[str], kind: str, *, enabled: bool, timeout: int
         if index == len(messages) and kind != "system":
             payload["reply_markup"] = dashboard_keyboard("penny")
         try:
-            response = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout)
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout
+            )
             if getattr(response, "status_code", 200) == 400:
                 payload.pop("parse_mode", None)
                 payload["text"] = html.unescape(re.sub(r"<[^>]+>", "", message))
                 response = requests.post(
-                    f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json=payload,
+                    timeout=timeout,
                 )
             response.raise_for_status()
         except (requests.RequestException, ValueError) as exc:
             status = getattr(getattr(exc, "response", None), "status_code", None)
-            return DeliveryResult(False, f"page_{index}:telegram_http_{status or 'network'}:{type(exc).__name__}")
+            return DeliveryResult(
+                False, f"page_{index}:telegram_http_{status or 'network'}:{type(exc).__name__}"
+            )
         if index < len(messages):
             time.sleep(0.15)
     return DeliveryResult(True, "sent")

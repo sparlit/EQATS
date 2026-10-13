@@ -55,7 +55,9 @@ def cur(s):
 
 def strict(x):
     x = (x or "").lower().replace("&", "and")
-    x = re.sub(r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile)\s*$", "", x)
+    x = re.sub(
+        r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile)\s*$", "", x
+    )
     x = re.sub(r"[\(\)]", " ", x)
     x = re.sub(r"[^a-z0-9 ]", " ", x)
     x = re.sub(r"\b(ltd|limited|pvt|private|co|company|inc)\b", " ", x)
@@ -66,8 +68,14 @@ def loose(x):
     x = (x or "").lower()
     x = re.sub(r"\(.*?\)", " ", x)
     x = x.replace("pharmaceuticals", "pharma").replace("laboratories", "lab")
-    x = re.sub(r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile)\s*$", "", x)
-    x = re.sub(r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&|of)\b", " ", x)
+    x = re.sub(
+        r"\s*-\s*(old|delisted|merged|sus|new|suspended|merge|arrangement|erstwhile)\s*$", "", x
+    )
+    x = re.sub(
+        r"\b(ltd|limited|india|indian|the|company|co|corp|corporation|pvt|private|and|&|of)\b",
+        " ",
+        x,
+    )
     return re.sub(r"[^a-z0-9]", "", x)
 
 
@@ -84,12 +92,16 @@ for k, v in ES.items():
 span = json.load(open(f"{S}/sf_span.json"))
 seq = json.load(open(f"{S}/register_raw.json"))["seq"]
 src = open(os.path.join(SCRIPTS, "_staleness_fix", "gen_inclexcl_events.py")).read()
-MANUAL = set(re.findall(r"^\s*'([^']+)':\s*'[A-Z0-9&\-]+'", src, flags=re.MULTILINE))
+MANUAL = set(re.findall(r"^\s*'([^']+)':\s*'[A-Z0-9&\-]+'", src, flags=re.M))
 # names whose current mapping is a build_membership_v2.ERA_OVERRIDES target are date-handled there by hand
 # (FRETAIL->PANTALOONR, KPITTECH->KPIT, TIINDIA->TUBEINVEST, JSWISPL->JSWISPAT, DALBHARAT->DALMIACEM,
 # SHPRE->SPSL, SUMMITSEC->SUMMIT); the era map must not bypass them.
 _bsrc = open(os.path.join(SCRIPTS, "build_membership_v2.py")).read()
-_ov = set(re.findall(r'^\s*"([A-Z0-9&\-]+)":\s*\("[A-Z0-9&\-]+",\s*"\d{4}-\d{2}-\d{2}"\)', _bsrc, flags=re.MULTILINE))
+_ov = set(
+    re.findall(
+        r'^\s*"([A-Z0-9&\-]+)":\s*\("[A-Z0-9&\-]+",\s*"\d{4}-\d{2}-\d{2}"\)', _bsrc, flags=re.M
+    )
+)
 _prev = (
     json.load(open(os.path.join(SCRIPTS, "_n500_inclexcl_events.json"))).get("name_map", {})
     if os.path.exists(os.path.join(SCRIPTS, "_n500_inclexcl_events.json"))

@@ -78,7 +78,9 @@ def compute(closes, highs, lows, vols):
 def swing(symbol):
     conn = db.get_conn()
     rows = conn.execute(
-        "SELECT close, high, low, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 120", (symbol,)
+        "SELECT close, high, low, volume FROM prices_daily "
+        "WHERE symbol=? ORDER BY date DESC LIMIT 120",
+        (symbol,),
     ).fetchall()
     conn.close()
     rows = [r for r in rows if r[0] is not None]
@@ -86,8 +88,8 @@ def swing(symbol):
         return None
     rows = list(reversed(rows))
     closes = [r[0] for r in rows]
-    highs = [r[1] or r[0] for r in rows]
-    lows = [r[2] or r[0] for r in rows]
+    highs = [r[1] if r[1] else r[0] for r in rows]
+    lows = [r[2] if r[2] else r[0] for r in rows]
     vols = [r[3] or 0 for r in rows]
     ind = compute(closes, highs, lows, vols)
     price = closes[-1]

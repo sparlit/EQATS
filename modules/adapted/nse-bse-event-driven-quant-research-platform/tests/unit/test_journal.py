@@ -55,7 +55,12 @@ def pg_store():
 class TestJournalCRUD:
     def test_journal_record_on_entry(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTJOURNAL", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTJOURNAL",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         journal_id = pg_store.journal_record_on_entry(
             paper_trade_id=pid,
@@ -81,10 +86,19 @@ class TestJournalCRUD:
 
     def test_journal_record_on_exit(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTEXIT", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTEXIT",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
-            paper_trade_id=pid, symbol="TESTEXIT", entry_date="2026-09-01", entry_price=100.0, entry_signal="dz_hi_up"
+            paper_trade_id=pid,
+            symbol="TESTEXIT",
+            entry_date="2026-09-01",
+            entry_price=100.0,
+            entry_signal="dz_hi_up",
         )
 
         result = pg_store.journal_record_on_exit(
@@ -106,10 +120,19 @@ class TestJournalCRUD:
 
     def test_journal_add_review(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTREVIEW", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTREVIEW",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
-            paper_trade_id=pid, symbol="TESTREVIEW", entry_date="2026-09-01", entry_price=100.0, entry_signal="dz_hi_up"
+            paper_trade_id=pid,
+            symbol="TESTREVIEW",
+            entry_date="2026-09-01",
+            entry_price=100.0,
+            entry_signal="dz_hi_up",
         )
 
         result = pg_store.journal_add_review(
@@ -131,7 +154,12 @@ class TestJournalCRUD:
 
     def test_journal_list(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTLIST", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTLIST",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
             paper_trade_id=pid,
@@ -149,7 +177,12 @@ class TestJournalCRUD:
 
     def test_journal_list_by_setup(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTSETUP", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTSETUP",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
             paper_trade_id=pid,
@@ -171,10 +204,19 @@ class TestJournalCRUD:
 
     def test_journal_update_stop(self, pg_store):
         pid = pg_store.record_paper_signal(
-            symbol="TESTSTOP", close_at_signal=100.0, qty=10, horizon_days=10, stop_pct=0.07, segment="EQ"
+            symbol="TESTSTOP",
+            close_at_signal=100.0,
+            qty=10,
+            horizon_days=10,
+            stop_pct=0.07,
+            segment="EQ",
         )
         pg_store.journal_record_on_entry(
-            paper_trade_id=pid, symbol="TESTSTOP", entry_date="2026-09-01", entry_price=100.0, entry_signal="dz_hi_up"
+            paper_trade_id=pid,
+            symbol="TESTSTOP",
+            entry_date="2026-09-01",
+            entry_price=100.0,
+            entry_signal="dz_hi_up",
         )
 
         result = pg_store.journal_update_stop(

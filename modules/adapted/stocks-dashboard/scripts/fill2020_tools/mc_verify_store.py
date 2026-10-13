@@ -173,7 +173,8 @@ def main():
                         basis,
                         len(agree),
                         "; ".join(
-                            "%d ours %.2f vs mc %.2f (%+.1f%%)" % (d["qe"], d["ours"], d["mc"], d["gap_pct"])
+                            "%d ours %.2f vs mc %.2f (%+.1f%%)"
+                            % (d["qe"], d["ours"], d["mc"], d["gap_pct"])
                             for d in dis[:3]
                         ),
                     ),

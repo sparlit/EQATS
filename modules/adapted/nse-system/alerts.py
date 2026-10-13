@@ -33,7 +33,6 @@ Credentials resolution:
   1. env TELEGRAM_TOKEN + TELEGRAM_CHAT_ID
   2. data/tg_secret.txt (line 1 = token, line 2 = chat_id)
 """
-import datetime as dt
 import os
 
 import requests
@@ -64,7 +63,9 @@ def send(text):
         return False
     try:
         r = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat, "text": text}, timeout=15
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat, "text": text},
+            timeout=15,
         )
         print(f"[ALERTS] text -> {r.status_code}")
         return r.status_code == 200
@@ -107,7 +108,9 @@ def report():
                 "SELECT COUNT(*) FROM scan_results WHERE scan_date=? AND passed=1", (last,)
             ).fetchone()[0]
             lines.append(f"Passed gates: {passed}")
-        rec = conn.execute("SELECT symbol FROM pipeline WHERE status='Recommended' LIMIT 10").fetchall()
+        rec = conn.execute(
+            "SELECT symbol FROM pipeline WHERE status='Recommended' LIMIT 10"
+        ).fetchall()
         lines.append("RECOMMENDED: " + (", ".join(r[0] for r in rec) if rec else "none"))
         top = conn.execute(
             "SELECT symbol, final_ml_score FROM ml_predictions ORDER BY final_ml_score DESC LIMIT 5"
@@ -116,7 +119,9 @@ def report():
             lines.append("TOP ML: " + ", ".join(f"{s} {v:.0f}" for s, v in top))
         # swing summary
         try:
-            sw = conn.execute("SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome").fetchall()
+            sw = conn.execute(
+                "SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome"
+            ).fetchall()
             if sw:
                 lines.append("SWING: " + ", ".join(f"{k}={v}" for k, v in sw))
         except Exception:
@@ -135,7 +140,11 @@ def notify_setup(st):
 
         bad, why = fund_veto.vetoed(st.symbol)
         if bad:
-            send(f"🚫 FUND VETO {st.symbol} — setup suppressed\nreason: {why}\n(not tradeable under fundamental gate)")
+            send(
+                f"🚫 FUND VETO {st.symbol} — setup suppressed\n"
+                f"reason: {why}\n"
+                f"(not tradeable under fundamental gate)"
+            )
             print(f"[ALERTS] {st.symbol} vetoed: {why}")
             return False
     except Exception as e:
@@ -155,7 +164,8 @@ def notify_setup(st):
         import chart_img
 
         path = chart_img.render(
-            st.symbol, setup={"trigger": st.entry_price, "stop": st.stop_loss, "target": st.target_price}
+            st.symbol,
+            setup={"trigger": st.entry_price, "stop": st.stop_loss, "target": st.target_price},
         )
         if path:
             send_photo(path, caption=f"📊 {st.symbol} setup chart")
@@ -193,7 +203,9 @@ def notify_all_weather(sym, st):
     try:
         import chart_img
 
-        path = chart_img.render(sym, setup={"trigger": st["entry"], "stop": st["stop"], "target": st["target"]})
+        path = chart_img.render(
+            sym, setup={"trigger": st["entry"], "stop": st["stop"], "target": st["target"]}
+        )
         if path:
             send_photo(path, caption=f"📊 {sym} ALL-WEATHER chart")
     except Exception as e:

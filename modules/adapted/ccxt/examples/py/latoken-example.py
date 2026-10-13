@@ -35,7 +35,7 @@ import ccxt  # noqa: E402
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -57,6 +57,7 @@ exchange.load_markets()
 print("-------------------------------------------------------------------")
 
 print(exchange.id, "has:")
+pprint(exchange.has)
 
 # public API
 
@@ -80,16 +81,25 @@ print("Exchange time:", exchange.iso8601(time))
 print("-------------------------------------------------------------------")
 
 ticker = exchange.fetch_ticker(symbol)
+pprint(ticker)
 
 print("-------------------------------------------------------------------")
 
 tickers = exchange.fetch_tickers()
 tickers = tickers.values()
-print(table([exchange.omit(x, ["info", "bid", "ask", "bidVolume", "askVolume", "timestamp"]) for x in tickers]))
+print(
+    table(
+        [
+            exchange.omit(x, ["info", "bid", "ask", "bidVolume", "askVolume", "timestamp"])
+            for x in tickers
+        ]
+    )
+)
 
 print("-------------------------------------------------------------------")
 
 orderbook = exchange.fetch_order_book(symbol)
+pprint(orderbook)
 
 print("-------------------------------------------------------------------")
 
@@ -102,10 +112,12 @@ print("-------------------------------------------------------------------")
 
 if exchange.check_required_credentials(False):
     balance = exchange.fetch_balance()
+    pprint(exchange.omit(balance, ["info"]))
 
     print("-------------------------------------------------------------------")
 
     order = exchange.create_order(symbol, "limit", "buy", 0.001, 10000)
+    pprint(order)
 
     print("-------------------------------------------------------------------")
 
@@ -115,6 +127,7 @@ if exchange.check_required_credentials(False):
     print("-------------------------------------------------------------------")
 
     canceled = exchange.cancel_order(order["id"], order["symbol"])
+    pprint(canceled)
 
     print("-------------------------------------------------------------------")
 

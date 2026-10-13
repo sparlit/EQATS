@@ -53,7 +53,7 @@ Usage:
 import contextlib
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from agent.multi_agent import (
     AnalystReport,
@@ -61,10 +61,8 @@ from agent.multi_agent import (
     compute_scorecard,
     console,
 )
+from agent.tools import ToolRegistry
 from rich.table import Table
-
-if TYPE_CHECKING:
-    from agent.tools import ToolRegistry
 
 # ── LLM Analyst Prompts ──────────────────────────────────────
 
@@ -289,7 +287,9 @@ class DeepAnalyzer:
 
         t1 = time.time()
         # Create a temporary MultiAgentAnalyzer just for debate + synthesis
-        multi = MultiAgentAnalyzer(self.registry, self.llm, verbose=self.verbose, risk_debate=self.risk_debate)
+        multi = MultiAgentAnalyzer(
+            self.registry, self.llm, verbose=self.verbose, risk_debate=self.risk_debate
+        )
         # Inject inline context hint without blocking for input
         if self.context:
             multi.user_hints.put(self.context)
@@ -318,7 +318,9 @@ class DeepAnalyzer:
                     style="magenta",
                 )
             t_risk = time.time()
-            risk_debate_result = multi._run_risk_debate(symbol, exchange, scorecard, debate, reports)
+            risk_debate_result = multi._run_risk_debate(
+                symbol, exchange, scorecard, debate, reports
+            )
             risk_debate_time = time.time() - t_risk
             if self.verbose:
                 console.print(f"[dim]Risk debate completed in {risk_debate_time:.1f}s[/dim]")
@@ -475,15 +477,23 @@ class DeepAnalyzer:
                 tool_data_parts = []
                 for tool_name in tools:
                     args = {}
-                    if "symbol" in str(self.registry._tools.get(tool_name, {}).get("parameters", {})):
+                    if "symbol" in str(
+                        self.registry._tools.get(tool_name, {}).get("parameters", {})
+                    ):
                         args["symbol"] = symbol
-                    elif "underlying" in str(self.registry._tools.get(tool_name, {}).get("parameters", {})):
+                    elif "underlying" in str(
+                        self.registry._tools.get(tool_name, {}).get("parameters", {})
+                    ):
                         args["underlying"] = symbol
-                    elif "instruments" in str(self.registry._tools.get(tool_name, {}).get("parameters", {})):
+                    elif "instruments" in str(
+                        self.registry._tools.get(tool_name, {}).get("parameters", {})
+                    ):
                         args["instruments"] = [f"{exchange}:{symbol}"]
 
                     result = self.registry.execute(tool_name, args)
-                    tool_data_parts.append(f"[{tool_name}]\n{json.dumps(result, indent=2, default=str)}")
+                    tool_data_parts.append(
+                        f"[{tool_name}]\n{json.dumps(result, indent=2, default=str)}"
+                    )
 
                 tool_data = "\n\n".join(tool_data_parts)
 
@@ -575,7 +585,7 @@ class DeepAnalyzer:
                     score = float(score_match.group(1))
 
             # Collect key points
-            if stripped.startswith(("- ", "* ")):
+            if stripped.startswith("- ") or stripped.startswith("* "):
                 point = stripped.lstrip("-* ").strip()
                 if point and len(point) > 10:  # skip tiny fragments
                     points.append(point)

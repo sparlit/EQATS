@@ -50,9 +50,10 @@ async def main():
     amount = 1
     currency = exchange.currency(code)
     try:
-        await exchange.sapi_post_margin_loan(
+        response = await exchange.sapi_post_margin_loan(
             {"asset": currency["id"], "amount": exchange.currency_to_precision(code, amount)}
         )
+        pprint(response)
     except ccxt.InsufficientFunds as e:
         print("sapi_post_margin_loan() failed – not enough funds")
         print(e)

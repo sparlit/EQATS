@@ -48,7 +48,10 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "_live")
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120 Safari/537.36"
+)
 LIVE_URL = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
 CDX = (
     "http://web.archive.org/cdx/search/cdx?url=nseindia.com/content/equities/EQUITY_L.csv"
@@ -65,7 +68,9 @@ def get(url, jar=None, timeout=60):
         if jar is not None
         else urllib.request.build_opener()
     )
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     with op.open(req, timeout=timeout) as r:
         return r.read()
 

@@ -99,7 +99,10 @@ def content_ok(pdf, qe):
         low = t.lower()
         if "consolidated" not in low:
             continue
-        if not re.search(r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit", low):
+        if not re.search(
+            r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit",
+            low,
+        ):
             continue
         if len(re.findall(r"\(?-?[\d,]*\d\.\d\d\)?", t)) < 8:
             continue  # a real numeric table

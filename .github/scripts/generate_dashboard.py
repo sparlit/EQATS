@@ -26,7 +26,9 @@ def generate_dashboard():
     current_index = ledger.get("current_index", 0)
 
     completed = sum(1 for r in repos if r.get("status") in ("Completed", "Processed"))
-    skipped = sum(1 for r in repos if "Skipped" in r.get("status", "") or "Failed" in r.get("status", ""))
+    skipped = sum(
+        1 for r in repos if "Skipped" in r.get("status", "") or "Failed" in r.get("status", "")
+    )
     pending = total - completed - skipped
     progress_pct = round((current_index / total) * 100.0, 1) if total > 0 else 0.0
 
@@ -371,14 +373,22 @@ def generate_dashboard():
     for idx, r in enumerate(repos, start=1):
         st = r.get("status", "pending")
         pr = r.get("pr_url", "-")
-        pr_link = f'<a href="{pr}" target="_blank" style="color: var(--accent-cyan);">PR Link</a>' if pr and pr != "-" else "-"
+        pr_link = (
+            f'<a href="{pr}" target="_blank" style="color: var(--accent-cyan);">PR Link</a>'
+            if pr and pr != "-"
+            else "-"
+        )
 
-        cls_name = "status-completed" if "Completed" in st or "Processed" in st else ("status-skipped" if "Skipped" in st or "Failed" in st else "status-pending")
+        cls_name = (
+            "status-completed"
+            if "Completed" in st or "Processed" in st
+            else ("status-skipped" if "Skipped" in st or "Failed" in st else "status-pending")
+        )
 
         html_content += f"""
                         <tr>
                             <td>{idx}</td>
-                            <td><strong>{r.get('target', '-')}</strong></td>
+                            <td><strong>{r.get("target", "-")}</strong></td>
                             <td class="{cls_name}">{st}</td>
                             <td>{pr_link}</td>
                         </tr>

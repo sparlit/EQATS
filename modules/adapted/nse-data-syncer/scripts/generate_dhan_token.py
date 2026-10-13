@@ -89,7 +89,9 @@ def request_token():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", required=True, help="File path to write the access token to (mode 0600)")
+    parser.add_argument(
+        "--out", required=True, help="File path to write the access token to (mode 0600)"
+    )
     args = parser.parse_args()
 
     if not DHAN_CLIENT_ID or not DHAN_PIN or not DHAN_TOTP_SECRET:
@@ -98,9 +100,12 @@ def main():
 
     access_token = None
     last_error = None
-    for attempt, delay in enumerate([0, *RETRY_DELAYS_SECONDS], start=1):
+    for attempt, delay in enumerate([0] + RETRY_DELAYS_SECONDS, start=1):
         if delay:
-            print(f"Login attempt {attempt - 1} failed ({last_error}), retrying in {delay}s...", file=sys.stderr)
+            print(
+                f"Login attempt {attempt - 1} failed ({last_error}), retrying in {delay}s...",
+                file=sys.stderr,
+            )
             time.sleep(delay)
         try:
             access_token = request_token()

@@ -143,7 +143,10 @@ def get_holidays(force_refresh: bool = False, verbose: bool = True) -> set[str]:
             with open(CACHE_PATH) as f:
                 dates = json.load(f)["dates"]
             if verbose:
-                print(f"[nse_holidays] using stale cache ({len(dates)} dates, {_cache_age_days():.0f}d old)")
+                print(
+                    f"[nse_holidays] using stale cache ({len(dates)} dates, "
+                    f"{_cache_age_days():.0f}d old)"
+                )
             return set(dates)
         if verbose:
             print(f"[nse_holidays] using bundled fallback ({len(FALLBACK_HOLIDAYS_2026)} dates)")

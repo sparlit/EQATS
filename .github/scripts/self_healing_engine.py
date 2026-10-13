@@ -46,73 +46,108 @@ class StubDetector(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_function_stub(self, node):
-        body = [n for n in node.body if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str))]
+        body = [
+            n
+            for n in node.body
+            if not (
+                isinstance(n, ast.Expr)
+                and isinstance(n.value, ast.Constant)
+                and isinstance(n.value.value, str)
+            )
+        ]
         if not body:
-            self.stubs.append({
-                "type": "empty_function",
-                "name": node.name,
-                "line": node.lineno,
-                "file": str(self.filepath),
-                "reason": "Function contains only docstring or is completely empty."
-            })
+            self.stubs.append(
+                {
+                    "type": "empty_function",
+                    "name": node.name,
+                    "line": node.lineno,
+                    "file": str(self.filepath),
+                    "reason": "Function contains only docstring or is completely empty.",
+                }
+            )
             return
 
         if len(body) == 1:
             first = body[0]
             # pass statement
             if isinstance(first, ast.Pass):
-                self.stubs.append({
-                    "type": "pass_stub",
-                    "name": node.name,
-                    "line": node.lineno,
-                    "file": str(self.filepath),
-                    "reason": "Function body is a single 'pass' statement."
-                })
+                self.stubs.append(
+                    {
+                        "type": "pass_stub",
+                        "name": node.name,
+                        "line": node.lineno,
+                        "file": str(self.filepath),
+                        "reason": "Function body is a single 'pass' statement.",
+                    }
+                )
             # Ellipsis (...)
-            elif isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and first.value.value is Ellipsis:
-                self.stubs.append({
-                    "type": "ellipsis_stub",
-                    "name": node.name,
-                    "line": node.lineno,
-                    "file": str(self.filepath),
-                    "reason": "Function body is a single '...' (ellipsis)."
-                })
+            elif (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and first.value.value is Ellipsis
+            ):
+                self.stubs.append(
+                    {
+                        "type": "ellipsis_stub",
+                        "name": node.name,
+                        "line": node.lineno,
+                        "file": str(self.filepath),
+                        "reason": "Function body is a single '...' (ellipsis).",
+                    }
+                )
             # raise NotImplementedError
             elif isinstance(first, ast.Raise):
-                if isinstance(first.exc, ast.Call) and getattr(first.exc.func, "id", None) == "NotImplementedError":
-                    self.stubs.append({
-                        "type": "not_implemented_stub",
-                        "name": node.name,
-                        "line": node.lineno,
-                        "file": str(self.filepath),
-                        "reason": "Function raises NotImplementedError."
-                    })
+                if (
+                    isinstance(first.exc, ast.Call)
+                    and getattr(first.exc.func, "id", None) == "NotImplementedError"
+                ):
+                    self.stubs.append(
+                        {
+                            "type": "not_implemented_stub",
+                            "name": node.name,
+                            "line": node.lineno,
+                            "file": str(self.filepath),
+                            "reason": "Function raises NotImplementedError.",
+                        }
+                    )
                 elif isinstance(first.exc, ast.Name) and first.exc.id == "NotImplementedError":
-                    self.stubs.append({
-                        "type": "not_implemented_stub",
-                        "name": node.name,
-                        "line": node.lineno,
-                        "file": str(self.filepath),
-                        "reason": "Function raises NotImplementedError."
-                    })
+                    self.stubs.append(
+                        {
+                            "type": "not_implemented_stub",
+                            "name": node.name,
+                            "line": node.lineno,
+                            "file": str(self.filepath),
+                            "reason": "Function raises NotImplementedError.",
+                        }
+                    )
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler):
         # Detect bare except: pass
         if len(node.body) == 1 and isinstance(node.body[0], ast.Pass):
-            self.stubs.append({
-                "type": "silent_exception",
-                "name": node.name or "anonymous",
-                "line": node.lineno,
-                "file": str(self.filepath),
-                "reason": "Silent exception handling (except ...: pass) suppresses critical runtime errors."
-            })
+            self.stubs.append(
+                {
+                    "type": "silent_exception",
+                    "name": node.name or "anonymous",
+                    "line": node.lineno,
+                    "file": str(self.filepath),
+                    "reason": "Silent exception handling (except ...: pass) suppresses critical runtime errors.",
+                }
+            )
         self.generic_visit(node)
 
 
 def find_all_python_files(root: Path) -> List[Path]:
     """Finds all non-virtualenv python files."""
     py_files = []
-    excluded_dirs = {".git", ".venv", "venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache"}
+    excluded_dirs = {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+    }
     for p in root.rglob("*.py"):
         if not any(part in excluded_dirs for part in p.parts):
             py_files.append(p)
@@ -122,7 +157,9 @@ def find_all_python_files(root: Path) -> List[Path]:
 def scan_for_stubs(files: List[Path]) -> List[Dict]:
     """Scans all python files for AST stubs and placeholder text."""
     stubs = []
-    placeholder_regex = re.compile(r"\b(TODO|FIXME|XXX|REPLACE_ME|YOUR_API_KEY_HERE|PLACEHOLDER)\b", re.IGNORECASE)
+    placeholder_regex = re.compile(
+        r"\b(TODO|FIXME|XXX|REPLACE_ME|YOUR_API_KEY_HERE|PLACEHOLDER)\b", re.IGNORECASE
+    )
 
     for f in files:
         try:
@@ -137,33 +174,45 @@ def scan_for_stubs(files: List[Path]) -> List[Dict]:
             detector.visit(tree)
             stubs.extend(detector.stubs)
         except SyntaxError as e:
-            stubs.append({
-                "type": "syntax_error",
-                "name": "syntax",
-                "line": e.lineno or 0,
-                "file": str(f),
-                "reason": f"SyntaxError: {e.msg}"
-            })
+            stubs.append(
+                {
+                    "type": "syntax_error",
+                    "name": "syntax",
+                    "line": e.lineno or 0,
+                    "file": str(f),
+                    "reason": f"SyntaxError: {e.msg}",
+                }
+            )
 
         # 2. Text placeholders & TODO comments
         for idx, line in enumerate(content.splitlines(), start=1):
             match = placeholder_regex.search(line)
             if match:
-                stubs.append({
-                    "type": "text_placeholder",
-                    "name": match.group(0),
-                    "line": idx,
-                    "file": str(f),
-                    "reason": f"Placeholder token found: {match.group(0)}"
-                })
+                stubs.append(
+                    {
+                        "type": "text_placeholder",
+                        "name": match.group(0),
+                        "line": idx,
+                        "file": str(f),
+                        "reason": f"Placeholder token found: {match.group(0)}",
+                    }
+                )
 
     return stubs
 
 
-def run_command(cmd: List[str], cwd: Path) -> Tuple[int, str, str]:
+def run_command(
+    cmd: List[str], cwd: Path, env: Optional[Dict[str, str]] = None
+) -> Tuple[int, str, str]:
     """Executes a command safely, capturing returncode, stdout, and stderr."""
     try:
-        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+        cmd_env = os.environ.copy()
+        cmd_env["PYTHONPATH"] = "src"
+        if env:
+            cmd_env.update(env)
+        proc = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, check=False, env=cmd_env
+        )
         return proc.returncode, proc.stdout, proc.stderr
     except FileNotFoundError:
         return 127, "", f"Command not found: {cmd[0]}"
@@ -215,30 +264,38 @@ def call_remediation_llm(prompt: str) -> Optional[str]:
     if api_key_gemini:
         # Standard Gemini REST call
         import urllib.request
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key_gemini}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192}
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192},
         }
         headers = {"Content-Type": "application/json"}
     elif api_key_openai:
         import urllib.request
+
         url = "https://api.openai.com/v1/chat/completions"
         payload = {
             "model": "gpt-4o",
             "messages": [
-                {"role": "system", "content": "You are an autonomous senior software engineer. Fix the code completely. Return ONLY the complete, corrected raw code without markdown backticks or commentary."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are an autonomous senior software engineer. Fix the code completely. Return ONLY the complete, corrected raw code without markdown backticks or commentary.",
+                },
+                {"role": "user", "content": prompt},
             ],
-            "temperature": 0.1
+            "temperature": 0.1,
         }
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
     else:
-        print("  ⚠ No AI API key provided (GEMINI_API_KEY / OPENAI_API_KEY). Running deterministic fixes only.")
+        print(
+            "  ⚠ No AI API key provided (GEMINI_API_KEY / OPENAI_API_KEY). Running deterministic fixes only."
+        )
         return None
 
     try:
         import urllib.request
+
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -273,7 +330,9 @@ def remediate_stubs_and_errors(root: Path):
 
         # Step 3: Run Test Suite to catch live errors
         print("▶ Running test suite (pytest)...")
-        test_code, test_stdout, test_stderr = run_command(["pytest", "--maxfail=5", "-q"], root)
+        test_code, test_stdout, test_stderr = run_command(
+            [sys.executable, "-m", "pytest", "--maxfail=5", "-q"], root
+        )
         test_failed = test_code != 0
 
         if not stubs and not test_failed:
@@ -283,16 +342,28 @@ def remediate_stubs_and_errors(root: Path):
         # Group issues by file
         files_to_remediate: Set[Path] = set()
         for s in stubs:
-            files_to_remediate.add(Path(s["file"]))
+            try:
+                fpath = Path(s["file"]).resolve()
+                if fpath.exists() and fpath.is_relative_to(root):
+                    files_to_remediate.add(fpath)
+            except Exception:
+                continue
 
         if test_failed:
             print(f"  ❌ Test failures detected:\n{test_stdout[:1000]}")
             # Extract failing files from traceback
             failed_matches = re.findall(r"([\w/\.\-]+\.py):(\d+):", test_stdout)
             for file_str, _ in failed_matches:
-                fpath = root / file_str
-                if fpath.exists():
-                    files_to_remediate.add(fpath)
+                try:
+                    fpath = Path(file_str)
+                    if not fpath.is_absolute():
+                        fpath = (root / fpath).resolve()
+                    else:
+                        fpath = fpath.resolve()
+                    if fpath.exists() and fpath.is_relative_to(root):
+                        files_to_remediate.add(fpath)
+                except Exception:
+                    continue
 
         if not files_to_remediate:
             print("No actionable files found for remediation.")
@@ -300,7 +371,11 @@ def remediate_stubs_and_errors(root: Path):
 
         # Process each affected file
         for target_file in files_to_remediate:
-            print(f"🛠 Remediating: {target_file.relative_to(root)}")
+            try:
+                rel_display = target_file.relative_to(root)
+            except ValueError:
+                rel_display = target_file.name
+            print(f"🛠 Remediating: {rel_display}")
             try:
                 original_code = target_file.read_text(encoding="utf-8")
             except Exception as e:
@@ -332,7 +407,9 @@ def remediate_stubs_and_errors(root: Path):
             # AST pre-write validation
             is_valid, err = validate_python_syntax(target_file, repaired_code)
             if not is_valid:
-                print(f"  ❌ AI generated invalid syntax ({err}). Rejecting patch to preserve stability.")
+                print(
+                    f"  ❌ AI generated invalid syntax ({err}). Rejecting patch to preserve stability."
+                )
                 continue
 
             # Write patch

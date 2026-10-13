@@ -132,7 +132,9 @@ def main():
     def gate(d, minutes):
         """§12: at/after 15:30 or a non-trading day -> next trading day."""
         if d in tdset and (minutes is None or minutes < 15 * 60 + 30):
-            return d, "same-day(%s)" % ("%02d:%02d" % divmod(minutes, 60) if minutes is not None else "no-time")
+            return d, "same-day(%s)" % (
+                "%02d:%02d" % divmod(minutes, 60) if minutes is not None else "no-time"
+            )
         i = bisect.bisect_right(tdays, d)
         return (tdays[i] if i < len(tdays) else None), (
             "next-td(after 15:30 %02d:%02d)" % divmod(minutes, 60)
@@ -156,9 +158,13 @@ def main():
         era_of_key.setdefault(cur, set()).add(era)
     # first traded bar per bin ticker (builder --facts dump) -- earliest over every era name
     fp = (
-        sys.argv[sys.argv.index("--facts") + 1] if "--facts" in sys.argv else os.path.join(HERE, "_coverage_facts.json")
+        sys.argv[sys.argv.index("--facts") + 1]
+        if "--facts" in sys.argv
+        else os.path.join(HERE, "_coverage_facts.json")
     )
-    facts = json.load(open(fp))["series"]  # build_coverage_matrix.js --facts <path>: per-ticker first bar
+    facts = json.load(open(fp))[
+        "series"
+    ]  # build_coverage_matrix.js --facts <path>: per-ticker first bar
 
     def first_bar(key, names):
         cands = []
@@ -171,7 +177,9 @@ def main():
     def rows_for(names):
         out = []
         for n in names:
-            p = os.path.join(LIST_CACHE, "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", n.upper())))
+            p = os.path.join(
+                LIST_CACHE, "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", n.upper()))
+            )
             if os.path.exists(p):
                 try:
                     got = json.load(open(p))
@@ -197,7 +205,11 @@ def main():
             if not fd:
                 continue
             mins = to_min(r.get("filingDate") or r.get("broadCastDate") or "")
-            tgt = con_rows if (r.get("consolidated") or "").strip().lower().startswith("consolidated") else std_rows
+            tgt = (
+                con_rows
+                if (r.get("consolidated") or "").strip().lower().startswith("consolidated")
+                else std_rows
+            )
             cur = tgt.get(qe)
             if cur is None or (fd, mins or 0) < (cur[0], cur[1] or 0):
                 tgt[qe] = (fd, mins, r.get("filingDate") or r.get("broadCastDate"), r.get("symbol"))
@@ -238,7 +250,8 @@ def main():
             c = calib.setdefault(qe, [0, 0])
             c[0] += 1
             if (
-                dt.date(gd // 10000, gd // 100 % 100, gd % 100) - dt.date(a // 10000, a // 100 % 100, a % 100)
+                dt.date(gd // 10000, gd // 100 % 100, gd % 100)
+                - dt.date(a // 10000, a // 100 % 100, a % 100)
             ).days >= 4:
                 c[1] += 1
     lag_rate = {qe: (c[1] / c[0] if c[0] else None) for qe, c in calib.items()}
@@ -262,7 +275,15 @@ def main():
             if not (QE_LO <= qe <= QE_HI) or q[1] is None:
                 continue
             a = q[2] or 0
-            kind = "+45d" if a == plus(qe, 45) else "+60d" if a == plus(qe, 60) else "zero" if a == 0 else None
+            kind = (
+                "+45d"
+                if a == plus(qe, 45)
+                else "+60d"
+                if a == plus(qe, 60)
+                else "zero"
+                if a == 0
+                else None
+            )
             if kind is None:
                 continue  # an observed date: never touched
             stats["cells"] += 1
@@ -304,7 +325,11 @@ def main():
                 skips[k] = (
                     "nse-archive-lag-era(qe %d: archive later than observed std dates in %s of %d cells; "
                     "a later move is a lag, not a correction)"
-                    % (qe, ("%.0f%%" % (100 * lr)) if lr is not None else "n/a", calib.get(qe, [0, 0])[0])
+                    % (
+                        qe,
+                        ("%.0f%%" % (100 * lr)) if lr is not None else "n/a",
+                        calib.get(qe, [0, 0])[0],
+                    )
                 )
                 continue
             stats[direction if direction in stats else "same"] = stats.get(direction, 0) + 1

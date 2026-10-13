@@ -128,7 +128,9 @@ def precompute_mad_trail(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         # only close[i-1] and the prior bar's own band values)
         lower[i] = max(raw_lower[i], lower[i - 1]) if c[i - 1] > lower[i - 1] else raw_lower[i]
         upper[i] = min(raw_upper[i], upper[i - 1]) if c[i - 1] < upper[i - 1] else raw_upper[i]
-        regime[i] = (-1 if c[i] < lower[i] else 1) if regime[i - 1] == 1 else (1 if c[i] > upper[i] else -1)
+        regime[i] = (
+            (-1 if c[i] < lower[i] else 1) if regime[i - 1] == 1 else (1 if c[i] > upper[i] else -1)
+        )
 
     out = pd.DataFrame(
         {

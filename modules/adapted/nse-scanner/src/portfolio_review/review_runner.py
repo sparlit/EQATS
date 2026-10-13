@@ -29,18 +29,16 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 from .evidence_collector import collect_evidence
 from .prompt_builder import build_review_prompt
 from .providers import LLMProvider, ProviderError, build_provider
 from .review_repository import ReviewAlreadyExistsError, save_review
 from .review_validator import validate_review
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +76,11 @@ def run_review(
 
     evidence = collect_evidence(queue_item, scanner_path=scanner_path)
     prompt = build_review_prompt(evidence, review_period)
-    retries = max_retries if max_retries is not None else int(os.getenv("PORTFOLIO_REVIEW_MAX_RETRIES", "1"))
+    retries = (
+        max_retries
+        if max_retries is not None
+        else int(os.getenv("PORTFOLIO_REVIEW_MAX_RETRIES", "1"))
+    )
     delay = float(os.getenv("PORTFOLIO_REVIEW_RETRY_DELAY_SECONDS", "2"))
     errors: list[str] = []
 
@@ -108,7 +110,9 @@ def run_review(
                 return ReviewRunResult(symbol=symbol, status="SKIPPED", error=str(exc))
             except Exception as exc:
                 errors.append(f"{provider_name} attempt {attempt + 1}: {exc}")
-                log.warning("Review generation failed for %s using %s: %s", symbol, provider_name, exc)
+                log.warning(
+                    "Review generation failed for %s using %s: %s", symbol, provider_name, exc
+                )
                 if attempt < retries and delay > 0:
                     time.sleep(delay)
 

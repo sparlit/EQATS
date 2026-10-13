@@ -48,7 +48,7 @@ DEFAULT_RATIO = {".json": 0.5, ".bin": 0.9, ".html": 0.5}
 
 
 def git(*args):
-    return subprocess.run(["git", *list(args)], capture_output=True, text=True, cwd=ROOT)
+    return subprocess.run(["git"] + list(args), capture_output=True, text=True, cwd=ROOT)
 
 
 def main():
@@ -69,7 +69,9 @@ def main():
     checked = 0
     for path in sorted(changed):
         ext = os.path.splitext(path)[1]
-        if ext not in DEFAULT_RATIO or not (path.startswith(("docs/", "scripts/"))):
+        if ext not in DEFAULT_RATIO or not (
+            path.startswith("docs/") or path.startswith("scripts/")
+        ):
             continue
         full = os.path.join(ROOT, path)
         if not os.path.exists(full):

@@ -46,7 +46,9 @@ class SetupSignal:
     metrics: dict[str, float]
 
 
-def breakout_signal(frame: pd.DataFrame, lookback: int = 20, volume_multiple: float = 1.5) -> SetupSignal:
+def breakout_signal(
+    frame: pd.DataFrame, lookback: int = 20, volume_multiple: float = 1.5
+) -> SetupSignal:
     data = frame.sort_values("trade_date").copy()
     if len(data) < lookback + 1:
         return SetupSignal("BREAKOUT", False, 0.0, ("insufficient_history",), {})
@@ -65,7 +67,10 @@ def breakout_signal(frame: pd.DataFrame, lookback: int = 20, volume_multiple: fl
         price_break and volume_confirm,
         score,
         reasons,
-        {"prior_high": float(prior_high), "volume_multiple": float(last["volume"] / volume_avg) if volume_avg else 0.0},
+        {
+            "prior_high": float(prior_high),
+            "volume_multiple": float(last["volume"] / volume_avg) if volume_avg else 0.0,
+        },
     )
 
 
@@ -97,7 +102,9 @@ def pullback_signal(
     )
 
 
-def compression_signal(frame: pd.DataFrame, window: int = 20, threshold: float = 0.75) -> SetupSignal:
+def compression_signal(
+    frame: pd.DataFrame, window: int = 20, threshold: float = 0.75
+) -> SetupSignal:
     data = frame.sort_values("trade_date").copy()
     if len(data) < window * 2:
         return SetupSignal("COMPRESSION", False, 0.0, ("insufficient_history",), {})

@@ -32,8 +32,6 @@ Tests a wide set of column names against ~30 NSE mid-caps. Reports:
 
 Usage: python tv_column_probe.py
 """
-import json
-import time
 
 import requests
 

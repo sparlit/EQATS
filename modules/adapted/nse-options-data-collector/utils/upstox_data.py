@@ -153,8 +153,7 @@ def _get_session() -> requests.Session:
     if _session is None:
         token = os.environ.get("UPSTOX_ACCESS_TOKEN", "")
         if not token:
-            msg = "UPSTOX_ACCESS_TOKEN not set in environment"
-            raise RuntimeError(msg)
+            raise RuntimeError("UPSTOX_ACCESS_TOKEN not set in environment")
         _session = requests.Session()
         _session.headers.update(
             {
@@ -178,10 +177,10 @@ def is_available() -> bool:
 
 
 def _request(
-    method: str, url: str, params: dict | None = None, payload: dict | None = None, timeout: int = 10
+    method: str, url: str, params: dict = None, payload: dict = None, timeout: int = 10
 ) -> dict | None:
     """Base HTTP request with 401/429/5xx retry and network error backoff."""
-    tag = url.rsplit("upstox.com/", maxsplit=1)[-1]
+    tag = url.split("upstox.com/")[-1]
     max_retries = 3
     for attempt in range(max_retries + 1):
         try:
@@ -222,7 +221,9 @@ def _request(
         except requests.RequestException as e:
             if attempt < max_retries:
                 wait = min(2**attempt, 8)
-                log.warning("Upstox %s request failed: %s — retry %d in %ds", method, e, attempt + 1, wait)
+                log.warning(
+                    "Upstox %s request failed: %s — retry %d in %ds", method, e, attempt + 1, wait
+                )
                 time.sleep(wait)
                 continue
             log.warning("Upstox %s request failed after %d retries: %s", method, max_retries, e)
@@ -230,11 +231,11 @@ def _request(
     return None
 
 
-def _get(url: str, params: dict | None = None, timeout: int = 10) -> dict | None:
+def _get(url: str, params: dict = None, timeout: int = 10) -> dict | None:
     return _request("GET", url, params=params, timeout=timeout)
 
 
-def _get_v3(path: str, params: dict | None = None, timeout: int = 10) -> dict | None:
+def _get_v3(path: str, params: dict = None, timeout: int = 10) -> dict | None:
     return _get(f"{_BASE_V3}{path}", params, timeout)
 
 
@@ -251,7 +252,7 @@ def get_spot(symbol: str) -> dict | None:
 
     data = _get_v3("/market-quote/ohlc", {"instrument_key": key, "interval": "1d"})
     if data:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         ltp = float(entry.get("last_price", 0))
         live = entry.get("live_ohlc") or {}
         prev_ohlc = entry.get("prev_ohlc") or {}
@@ -259,7 +260,7 @@ def get_spot(symbol: str) -> dict | None:
         if not prev:
             v2 = _get(f"{_BASE}/market-quote/quotes", {"instrument_key": key})
             if v2:
-                v2e = next(iter(v2.values()))
+                v2e = list(v2.values())[0]
                 nc = float(v2e.get("net_change", 0) or 0)
                 prev = round(ltp - nc, 2) if nc else round(ltp, 2)
             else:
@@ -280,7 +281,7 @@ def get_spot(symbol: str) -> dict | None:
     data = _get(f"{_BASE}/market-quote/quotes", {"instrument_key": key})
     if not data:
         return None
-    entry = next(iter(data.values()))
+    entry = list(data.values())[0]
     ohlc = entry.get("ohlc", {})
     ltp = float(entry.get("last_price", 0))
     net_change = float(entry.get("net_change", 0) or 0)
@@ -306,12 +307,12 @@ def get_ltp(symbol: str) -> float | None:
         return None
     data = _get_v3("/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if data:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         return round(float(entry.get("last_price", 0)), 2)
     data = _get(f"{_BASE}/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if not data:
         return None
-    return round(float(next(iter(data.values())).get("last_price", 0)), 2)
+    return round(float(list(data.values())[0].get("last_price", 0)), 2)
 
 
 def get_vix() -> float:
@@ -322,7 +323,7 @@ def get_vix() -> float:
         data = _get(f"{_BASE}/market-quote/ltp", {"instrument_key": key}, timeout=5)
     if data:
         try:
-            return round(float(next(iter(data.values()))["last_price"]), 2)
+            return round(float(list(data.values())[0]["last_price"]), 2)
         except (KeyError, IndexError, TypeError):
             pass
     return 15.0
@@ -334,7 +335,7 @@ def get_ltp_detail(instrument_key: str) -> dict | None:
     if not data:
         return None
     try:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         return {
             "last_price": round(float(entry.get("last_price", 0)), 2),
             "ltq": int(entry.get("ltq", 0)),
@@ -368,7 +369,7 @@ def get_greeks(instrument_keys: list[str]) -> dict | None:
             "oi": int(entry.get("oi", 0)),
             "volume": int(entry.get("volume", 0)),
         }
-    return result or None
+    return result if result else None
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -434,7 +435,9 @@ def get_option_chain(symbol: str, expiry_date: str, num_strikes: int = 10) -> di
     key = INSTRUMENT_KEYS.get(symbol)
     if not key:
         return None
-    data = _get(f"{_BASE}/option/chain", {"instrument_key": key, "expiry_date": expiry_date}, timeout=10)
+    data = _get(
+        f"{_BASE}/option/chain", {"instrument_key": key, "expiry_date": expiry_date}, timeout=10
+    )
     if not data:
         return None
     raw = data if isinstance(data, list) else []
@@ -556,7 +559,8 @@ def _parse_candles(candles: list, include_oi: bool = False) -> pd.DataFrame:
     df = pd.DataFrame(rows).set_index("date").sort_index()
     if df.index.tz is not None:
         df.index = df.index.tz_localize(None)
-    return df[~df.index.duplicated(keep="last")]
+    df = df[~df.index.duplicated(keep="last")]
+    return df
 
 
 def fetch_daily_candles(symbol: str, days: int = 365) -> pd.DataFrame | None:
@@ -566,7 +570,10 @@ def fetch_daily_candles(symbol: str, days: int = 365) -> pd.DataFrame | None:
         return None
     end = date.today()
     start = end - timedelta(days=days + 30)
-    data = _get(f"{_BASE_V3}/historical-candle/{key}/days/1/{end.isoformat()}/{start.isoformat()}", timeout=15)
+    data = _get(
+        f"{_BASE_V3}/historical-candle/{key}/days/1/{end.isoformat()}/{start.isoformat()}",
+        timeout=15,
+    )
     if not data:
         return None
     candles = data.get("candles", [])
@@ -574,11 +581,15 @@ def fetch_daily_candles(symbol: str, days: int = 365) -> pd.DataFrame | None:
         return None
     df = _parse_candles(candles)
     df = df.tail(days)
-    log.info("Daily %s: %d candles (%s to %s)", symbol, len(df), df.index[0].date(), df.index[-1].date())
+    log.info(
+        "Daily %s: %d candles (%s to %s)", symbol, len(df), df.index[0].date(), df.index[-1].date()
+    )
     return df
 
 
-def fetch_intraday_candles(symbol: str, days: int = 20, interval_min: int = 15) -> pd.DataFrame | None:
+def fetch_intraday_candles(
+    symbol: str, days: int = 20, interval_min: int = 15
+) -> pd.DataFrame | None:
     """Intraday OHLCV candles via v3 API. Intervals: 1, 5, 15, 30 min."""
     key = INSTRUMENT_KEYS.get(symbol) or EQUITY_KEYS.get(symbol)
     if not key:
@@ -594,11 +605,14 @@ def fetch_intraday_candles(symbol: str, days: int = 20, interval_min: int = 15) 
     start = end - timedelta(days=days + 5)
     all_candles = []
     hist_data = _get(
-        f"{_BASE_V3}/historical-candle/{key}/minutes/{interval_min}/{end.isoformat()}/{start.isoformat()}", timeout=15
+        f"{_BASE_V3}/historical-candle/{key}/minutes/{interval_min}/{end.isoformat()}/{start.isoformat()}",
+        timeout=15,
     )
     if hist_data:
         all_candles.extend(hist_data.get("candles", []))
-    intra_data = _get(f"{_BASE_V3}/historical-candle/intraday/{key}/minutes/{interval_min}", timeout=10)
+    intra_data = _get(
+        f"{_BASE_V3}/historical-candle/intraday/{key}/minutes/{interval_min}", timeout=10
+    )
     if intra_data:
         all_candles.extend(intra_data.get("candles", []))
     if not all_candles:
@@ -606,7 +620,14 @@ def fetch_intraday_candles(symbol: str, days: int = 20, interval_min: int = 15) 
     df = _parse_candles(all_candles)
     bars_per_day = 375 // interval_min
     df = df.tail(days * bars_per_day)
-    log.info("%dm %s: %d bars (%s to %s)", interval_min, symbol, len(df), df.index[0].date(), df.index[-1].date())
+    log.info(
+        "%dm %s: %d bars (%s to %s)",
+        interval_min,
+        symbol,
+        len(df),
+        df.index[0].date(),
+        df.index[-1].date(),
+    )
     return df
 
 
@@ -615,7 +636,10 @@ def fetch_vix_history(days: int = 365) -> pd.DataFrame | None:
     key = INSTRUMENT_KEYS["VIX"]
     end = date.today()
     start = end - timedelta(days=days + 30)
-    data = _get(f"{_BASE_V3}/historical-candle/{key}/days/1/{end.isoformat()}/{start.isoformat()}", timeout=15)
+    data = _get(
+        f"{_BASE_V3}/historical-candle/{key}/days/1/{end.isoformat()}/{start.isoformat()}",
+        timeout=15,
+    )
     if not data:
         return None
     candles = data.get("candles", [])
@@ -677,7 +701,9 @@ def get_dii_activity() -> dict | None:
 # ══════════════════════════════════════════════════════════════════
 
 
-def get_pcr(symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15) -> dict | None:
+def get_pcr(
+    symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15
+) -> dict | None:
     """Put-Call Ratio with intraday insights."""
     key = INSTRUMENT_KEYS.get(symbol)
     if not key:
@@ -686,7 +712,12 @@ def get_pcr(symbol: str, expiry_date: str, data_date: str | None = None, bucket_
         data_date = date.today().isoformat()
     data = _get(
         f"{_BASE}/market/pcr",
-        {"instrument_key": key, "expiry": expiry_date, "date": data_date, "bucket_interval": bucket_interval},
+        {
+            "instrument_key": key,
+            "expiry": expiry_date,
+            "date": data_date,
+            "bucket_interval": bucket_interval,
+        },
     )
     if not data:
         return None
@@ -698,7 +729,9 @@ def get_pcr(symbol: str, expiry_date: str, data_date: str | None = None, bucket_
     }
 
 
-def get_max_pain(symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15) -> dict | None:
+def get_max_pain(
+    symbol: str, expiry_date: str, data_date: str | None = None, bucket_interval: int = 15
+) -> dict | None:
     """Max Pain with intraday insights."""
     key = INSTRUMENT_KEYS.get(symbol)
     if not key:
@@ -707,7 +740,12 @@ def get_max_pain(symbol: str, expiry_date: str, data_date: str | None = None, bu
         data_date = date.today().isoformat()
     data = _get(
         f"{_BASE}/market/max-pain",
-        {"instrument_key": key, "expiry": expiry_date, "date": data_date, "bucket_interval": bucket_interval},
+        {
+            "instrument_key": key,
+            "expiry": expiry_date,
+            "date": data_date,
+            "bucket_interval": bucket_interval,
+        },
     )
     if not data:
         return None
@@ -726,7 +764,9 @@ def get_oi(symbol: str, expiry_date: str, data_date: str | None = None) -> dict 
         return None
     if data_date is None:
         data_date = date.today().isoformat()
-    data = _get(f"{_BASE}/market/oi", {"instrument_key": key, "expiry": expiry_date, "date": data_date})
+    data = _get(
+        f"{_BASE}/market/oi", {"instrument_key": key, "expiry": expiry_date, "date": data_date}
+    )
     if not data:
         return None
     total_puts = int(data.get("total_puts", 0) or 0)
@@ -742,7 +782,9 @@ def get_oi(symbol: str, expiry_date: str, data_date: str | None = None) -> dict 
     }
 
 
-def get_oi_change(symbol: str, expiry_date: str, data_date: str | None = None, interval_days: int = 1) -> dict | None:
+def get_oi_change(
+    symbol: str, expiry_date: str, data_date: str | None = None, interval_days: int = 1
+) -> dict | None:
     """Change in OI per strike over N days."""
     key = INSTRUMENT_KEYS.get(symbol)
     if not key:
@@ -751,7 +793,12 @@ def get_oi_change(symbol: str, expiry_date: str, data_date: str | None = None, i
         data_date = date.today().isoformat()
     data = _get(
         f"{_BASE}/market/change-oi",
-        {"instrument_key": key, "expiry": expiry_date, "date": data_date, "interval": interval_days},
+        {
+            "instrument_key": key,
+            "expiry": expiry_date,
+            "date": data_date,
+            "interval": interval_days,
+        },
     )
     if not data:
         return None
@@ -775,7 +822,11 @@ def get_market_holidays() -> list[dict]:
     if not data:
         return []
     return [
-        {"date": h.get("date", ""), "description": h.get("description", ""), "holiday_type": h.get("holiday_type", "")}
+        {
+            "date": h.get("date", ""),
+            "description": h.get("description", ""),
+            "holiday_type": h.get("holiday_type", ""),
+        }
         for h in data
     ]
 
@@ -796,7 +847,7 @@ def get_market_timings(query_date: str | None = None) -> dict | None:
         elif exchange == "NFO":
             result["nfo_start"] = entry.get("start_time")
             result["nfo_end"] = entry.get("end_time")
-    return result or None
+    return result if result else None
 
 
 def get_market_depth(instrument_key: str) -> dict | None:
@@ -805,7 +856,7 @@ def get_market_depth(instrument_key: str) -> dict | None:
     if not data:
         return None
     try:
-        entry = next(iter(data.values()))
+        entry = list(data.values())[0]
         return entry.get("depth", None)
     except (KeyError, IndexError):
         return None

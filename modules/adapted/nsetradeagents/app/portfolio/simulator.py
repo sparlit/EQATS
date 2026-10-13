@@ -36,8 +36,14 @@ class PortfolioSimulator:
 
     def _compute_cash(self, db) -> float:
         """Cash available: starting capital, less what's invested, plus realised P&L."""
-        open_invested = sum(t.entry_value for t in db.query(Trade).filter(Trade.status == "open").all())
-        realised_pnl = sum(t.pnl for t in db.query(Trade).filter(Trade.status == "closed").all() if t.pnl is not None)
+        open_invested = sum(
+            t.entry_value for t in db.query(Trade).filter(Trade.status == "open").all()
+        )
+        realised_pnl = sum(
+            t.pnl
+            for t in db.query(Trade).filter(Trade.status == "closed").all()
+            if t.pnl is not None
+        )
         return settings.starting_capital - open_invested + realised_pnl
 
     def get_portfolio_state(self) -> dict:
@@ -196,7 +202,9 @@ class PortfolioSimulator:
                     price = open_prices.get(trade.ticker)
                     if price:
                         trade.current_price = price
-                market_value = sum(open_prices.get(t.ticker, t.entry_price) * t.quantity for t in open_trades)
+                market_value = sum(
+                    open_prices.get(t.ticker, t.entry_price) * t.quantity for t in open_trades
+                )
                 unrealised_pnl = round(market_value - invested, 2)
                 total_value = cash + market_value
             else:

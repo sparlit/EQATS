@@ -57,5 +57,6 @@ limit = None  # not used by coinbase
 try:
     # Max 300 Candles
     candles = exchange.fetch_ohlcv(symbol, timeframe, since, limit)
+    pprint(candles)
 except Exception as err:
     print(err)

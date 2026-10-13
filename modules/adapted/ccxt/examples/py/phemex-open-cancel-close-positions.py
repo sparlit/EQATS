@@ -54,18 +54,21 @@ symbol = "BTC/USD:USD"
 # Opening and Canceling a pending contract (limit) order
 order = exchange.create_order(symbol, "limit", "buy", amount, "20000")
 response = exchange.cancel_order(order["id"], symbol)
+pprint(response)
 
 # Opening and Canceling a pending contract (stop-market) order
 stopMarketOrder = exchange.create_order(
     symbol, "Stop", "buy", amount, None, {"stopPx": 70000}
 )  # default triggerType is ByMarkPrice
 stopMarketResponse = exchange.cancel_order(stopMarketOrder["id"], symbol)
+pprint(stopMarketResponse)
 
 # Opening and Canceling a pending contract (stop-limit) order
 stopLimitOrder = exchange.create_order(
     symbol, "StopLimit", "buy", amount, 20000, {"stopPx": 70000, "triggerType": "ByLastPrice"}
 )
 stopLimitResponse = exchange.cancel_order(stopLimitOrder["id"], symbol)
+pprint(stopLimitResponse)
 
 # Opening and exiting a filled contract position by issuing the exact same order but in the opposite direction
 order = exchange.create_order(symbol, "market", "buy", amount)
@@ -74,7 +77,9 @@ order = exchange.create_order(symbol, "market", "buy", amount)
 orderClose = exchange.create_order(symbol, "market", "sell", amount, None, {"reduceOnly": True})
 
 # Opening a contract position (market order) with TakeProfit and StopLoss prices defined
-order = exchange.create_order(symbol, "market", "buy", amount, None, {"stopLossPrice": 5000, "takeProfitPrice": 100000})
+order = exchange.create_order(
+    symbol, "market", "buy", amount, None, {"stopLossPrice": 5000, "takeProfitPrice": 100000}
+)
 
 # Opening a contract trailing (stop-limit) order
 ethSymbol = "ETH/USD:USD"
@@ -93,3 +98,4 @@ trailingOrder = exchange.create_order(
         "pegOffsetValueEp": 10000,  # needs to be scaled
     },  # default triggerType is ByMarkPrice
 )
+pprint(trailingOrder)

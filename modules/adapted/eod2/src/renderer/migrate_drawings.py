@@ -69,8 +69,7 @@ def get_kind(url: str) -> str:
     kind, _ = url.split(":")
 
     if kind not in {"aline", "axhline", "hline", "tline"}:
-        msg = f"Unknown drawing kind in url: {url!r}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown drawing kind in url: {url!r}")
 
     return kind
 
@@ -106,8 +105,7 @@ def convert_line(url: str, raw_line: Any) -> dict[str, Any]:
         ]
 
     else:
-        msg = f"Unsupported drawing kind: {kind!r}"
-        raise ValueError(msg)
+        raise ValueError(f"Unsupported drawing kind: {kind!r}")
 
     return {
         "kind": kind,
@@ -163,8 +161,7 @@ def migrate_all(
         The full migrated drawings JSON data.
     """
     if not lines_dir.is_dir():
-        msg = f"Folder not found or not a folder: {lines_dir}"
-        raise NotADirectoryError(msg)
+        raise NotADirectoryError(f"Folder not found or not a folder: {lines_dir}")
 
     drawings = load_json(drawings_path) if drawings_path.is_file() else {}
 

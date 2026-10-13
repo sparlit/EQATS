@@ -35,7 +35,10 @@ from ingest import nse
 
 import config
 
-OLD = "https://nsearchives.nseindia.com/content/historical/DERIVATIVES/{yyyy}/{mon}/fo{ddmonyyyy}bhav.csv.zip"
+OLD = (
+    "https://nsearchives.nseindia.com/content/historical/DERIVATIVES/"
+    "{yyyy}/{mon}/fo{ddmonyyyy}bhav.csv.zip"
+)
 NEW = "https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyymmdd}_F_0000.csv.zip"
 CUTOVER = date(2024, 7, 6)
 DIR = config.DATA_DIR / "futstk"
@@ -43,7 +46,11 @@ DIR = config.DATA_DIR / "futstk"
 
 def fetch(d: date) -> pd.DataFrame | None:
     if d < CUTOVER:
-        url = OLD.format(yyyy=d.strftime("%Y"), mon=d.strftime("%b").upper(), ddmonyyyy=d.strftime("%d%b%Y").upper())
+        url = OLD.format(
+            yyyy=d.strftime("%Y"),
+            mon=d.strftime("%b").upper(),
+            ddmonyyyy=d.strftime("%d%b%Y").upper(),
+        )
     else:
         url = NEW.format(yyyymmdd=d.strftime("%Y%m%d"))
     r = nse.get(url, timeout=config.TIMEOUT)

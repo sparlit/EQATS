@@ -153,7 +153,10 @@ def gate(series, ours, qe, field):
     )
     why = ""
     if bad_local:
-        why = "GATE-A: disagreement inside +-%dq beyond the print unit: %s" % (LOCAL_Q, "; ".join(bad_local[:3]))
+        why = "GATE-A: disagreement inside +-%dq beyond the print unit: %s" % (
+            LOCAL_Q,
+            "; ".join(bad_local[:3]),
+        )
     elif local < MIN_ANCHORS:
         why = "GATE-A: only %d anchor(s) inside +-%dq, need %d (%d matched overall)" % (
             local,
@@ -164,7 +167,10 @@ def gate(series, ours, qe, field):
     elif not near:
         why = "GATE-A2: no reproduced anchor within %dq of %d" % (NEAR_Q, qe)
     elif checked and nbad / float(checked + nbad) > GLOBAL_MAX_BAD:
-        why = "GATE-A4: %d/%d of the series disagrees -- different entity/basis" % (nbad, checked + nbad)
+        why = "GATE-A4: %d/%d of the series disagrees -- different entity/basis" % (
+            nbad,
+            checked + nbad,
+        )
     return {
         "ok": not why,
         "why": why,
@@ -203,7 +209,11 @@ def main():
                 cache[ck] = {}
                 reports[key] = {"state": "NOT-FOUND", "why": f"screener: {repr(e)[:90]}"}
         series = cache[ck]
-        note = "screener: %d quarters %s..%s" % (len(series), min(series, default="-"), max(series, default="-"))
+        note = "screener: %d quarters %s..%s" % (
+            len(series),
+            min(series, default="-"),
+            max(series, default="-"),
+        )
         if qe not in series:
             reports[key] = {"state": "NOT-FOUND", "why": note + "; target quarter absent"}
         else:
@@ -212,7 +222,10 @@ def main():
             other = ours_series(REV, sym, OTHER[field])
             v = gate(series, ours, qe, field)
             if val is None:
-                reports[key] = {"state": "NOT-FOUND", "why": note + "; row missing for this quarter"}
+                reports[key] = {
+                    "state": "NOT-FOUND",
+                    "why": note + "; row missing for this quarter",
+                }
             elif not v["ok"]:
                 reports[key] = {"state": "REJECT-GATE", "why": v["why"], "note": note}
             elif abs(val) < MIN_MAGNITUDE:
@@ -236,14 +249,22 @@ def main():
                     "why": f"GATE-C: equals stored {OTHER[field]} {other[qe]:.2f} (copied-con fingerprint)",
                 }
             else:
-                prec = "screener-exact" if v["worst"] <= EXACT_ABS else "screener-rounded({:.2f})".format(v["unit"])
+                prec = (
+                    "screener-exact"
+                    if v["worst"] <= EXACT_ABS
+                    else "screener-rounded({:.2f})".format(v["unit"])
+                )
                 props[key] = {
                     "value": val,
                     "state": "FILLED-EXACT" if v["worst"] <= EXACT_ABS else "FILLED-ROUNDED",
                     "chosen": {
                         "site": "sc",
-                        "cand": "Operating Profit" if field.startswith("op") else "Operating Profit - Depreciation",
-                        "row": "Operating Profit" if field.startswith("op") else "Operating Profit - Depreciation",
+                        "cand": "Operating Profit"
+                        if field.startswith("op")
+                        else "Operating Profit - Depreciation",
+                        "row": "Operating Profit"
+                        if field.startswith("op")
+                        else "Operating Profit - Depreciation",
                         "anchors": v["local"],
                         "worst_anchor": v["worst"],
                         "precision": prec,
@@ -251,12 +272,25 @@ def main():
                     "corroborated_by": [],
                     "sites": {"sc": note},
                 }
-                reports[key] = {"state": props[key]["state"], "note": note, "anchors": v["local"], "worst": v["worst"]}
-        print("[%4d/%4d] %-12s %-8d %-6s %s" % (i + 1, len(cells), sym, qe, field, reports[key]["state"]))
+                reports[key] = {
+                    "state": props[key]["state"],
+                    "note": note,
+                    "anchors": v["local"],
+                    "worst": v["worst"],
+                }
+        print(
+            "[%4d/%4d] %-12s %-8d %-6s %s"
+            % (i + 1, len(cells), sym, qe, field, reports[key]["state"])
+        )
         sys.stdout.flush()
 
     json.dump(
-        {"generated": time.strftime("%Y-%m-%d %H:%M IST"), "sites": ["sc"], "proposals": props, "reports": reports},
+        {
+            "generated": time.strftime("%Y-%m-%d %H:%M IST"),
+            "sites": ["sc"],
+            "proposals": props,
+            "reports": reports,
+        },
         open(a.out, "w"),
         indent=1,
         sort_keys=True,

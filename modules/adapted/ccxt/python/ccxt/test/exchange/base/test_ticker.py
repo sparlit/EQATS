@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,9 +37,9 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.decimal_to_precision import number_to_string  # noqa: E402
-from ccxt.base.precise import Precise  # noqa: E402
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.base.decimal_to_precision import number_to_string  # noqa E402
+from ccxt.base.precise import Precise  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_ticker(exchange, skipped_properties, method, entry, symbol):
@@ -79,7 +81,7 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
         "baseVolume": exchange.parse_number("1.234"),
         "quoteVolume": exchange.parse_number("1.234"),
     }
-    # TODO: atm, many exchanges fail, so temporarily decrease stict mode
+    # todo: atm, many exchanges fail, so temporarily decrease stict mode
     empty_allowed_for = [
         "timestamp",
         "datetime",
@@ -102,7 +104,9 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
     if "BidsAsks" not in str(method):
         empty_allowed_for.append("bid")
         empty_allowed_for.append("ask")
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
     test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry)
     log_text = test_shared_methods.log_template(exchange, method, entry)
     # check market
@@ -123,30 +127,48 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
         if market is None or (market["active"] is not True):
             return
     # only check "above zero" values if exchange is not supposed to have exotic index markets
-    is_standard_market = market is not None and exchange.in_array(market["type"], ["spot", "swap", "future", "option"])
-    values_should_be_positive = is_standard_market  # || (market === undefined) atm, no check for index markets
+    is_standard_market = market is not None and exchange.in_array(
+        market["type"], ["spot", "swap", "future", "option"]
+    )
+    values_should_be_positive = (
+        is_standard_market  # || (market === undefined) atm, no check for index markets
+    )
     if values_should_be_positive and "positiveValues" not in skipped_properties:
         test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "open", "0")
         test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "high", "0")
         test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "low", "0")
-        test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "close", "0")
+        test_shared_methods.assert_greater(
+            exchange, skipped_properties, method, entry, "close", "0"
+        )
         test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "ask", "0")
         test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "bid", "0")
-        test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "average", "0")
-        test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "vwap", "0")
+        test_shared_methods.assert_greater(
+            exchange, skipped_properties, method, entry, "average", "0"
+        )
+        test_shared_methods.assert_greater_or_equal(
+            exchange, skipped_properties, method, entry, "vwap", "0"
+        )
     # volume can not be negative
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "askVolume", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "bidVolume", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "baseVolume", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "quoteVolume", "0")
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "askVolume", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "bidVolume", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "baseVolume", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "quoteVolume", "0"
+    )
     #
     # close price
     #
     last_string = exchange.safe_string(entry, "last")
     close_string = exchange.safe_string(entry, "close")
-    assert ((close_string is None) and (last_string is None)) or Precise.string_eq(last_string, close_string), (
-        "`last` != `close`" + log_text
-    )
+    assert ((close_string is None) and (last_string is None)) or Precise.string_eq(
+        last_string, close_string
+    ), "`last` != `close`" + log_text
     open_price = exchange.safe_string(entry, "open")
     #
     # base & quote volumes
@@ -178,8 +200,12 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
             amount_precision = exchange.safe_string(m_precision, "amount")
             tolerance = "1.0001"
             if amount_precision is not None:
-                base_low = Precise.string_mul(Precise.string_sub(base_volume, amount_precision), low)
-                base_high = Precise.string_mul(Precise.string_add(base_volume, amount_precision), high)
+                base_low = Precise.string_mul(
+                    Precise.string_sub(base_volume, amount_precision), low
+                )
+                base_high = Precise.string_mul(
+                    Precise.string_add(base_volume, amount_precision), high
+                )
             else:
                 # if nothing found, as an exclusion, just add 0.001%
                 base_low = Precise.string_mul(Precise.string_div(base_volume, tolerance), low)
@@ -197,11 +223,70 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
             # each side - big enough to forgive rounding, far too small to
             # hide a real bug like mismatched units or a wrong-field parse
             quote_volume_decimals = exchange.precision_from_string(quote_volume)
-            quote_quantum = exchange.parse_precision(exchange.number_to_string(quote_volume_decimals))
+            quote_quantum = exchange.parse_precision(
+                exchange.number_to_string(quote_volume_decimals)
+            )
             base_low = Precise.string_sub(base_low, quote_quantum)
             base_high = Precise.string_add(base_high, quote_quantum)
-            assert Precise.string_ge(quote_volume, base_low), "quoteVolume should be => baseVolume * low" + log_text
-            assert Precise.string_le(quote_volume, base_high), "quoteVolume should be <= baseVolume * high" + log_text
+            assert Precise.string_ge(quote_volume, base_low), (
+                "quoteVolume should be => baseVolume * low" + log_text
+            )
+            assert Precise.string_le(quote_volume, base_high), (
+                "quoteVolume should be <= baseVolume * high" + log_text
+            )
+    #
+    # change & percentage
+    #
+    # the Manual defines both against open: change is `last - open`, and
+    # percentage is `(change/open) * 100`
+    change_string = exchange.safe_string(entry, "change")
+    percentage_string = exchange.safe_string(entry, "percentage")
+    if (
+        (change_string is not None)
+        and (open is not None)
+        and (close is not None)
+        and "compareChange" not in skipped_properties
+    ):
+        # the window is the larger of two roundings: float residue on a change
+        # safeTicker derived, which needs a part per million of the price, and an
+        # exchange's own rounding, which its reported decimals reveal
+        price_part = Precise.string_div(Precise.string_abs(close), "1000000")
+        change_decimals = exchange.precision_from_string(change_string)
+        # exponent notation ("1e4") makes `precisionFromString` return a negative
+        # count, which `parsePrecision` would turn into a step of 10000 - a string
+        # like that reveals no rounding at all, so fall back to the price part
+        # instead of letting it widen the window
+        change_window = price_part
+        if change_decimals >= 0:
+            change_quantum = exchange.parse_precision(exchange.number_to_string(change_decimals))
+            # a change of "0" prints no decimals, so its apparent step is a whole unit
+            # and accepts anything on a micro-priced asset. a per cent of the price
+            # caps it, and covers whole units on a price in the tens of thousands
+            quantum_cap = Precise.string_div(Precise.string_abs(close), "100")
+            change_quantum = Precise.string_min(change_quantum, quantum_cap)
+            change_window = Precise.string_max(price_part, change_quantum)
+        difference = Precise.string_abs(
+            Precise.string_sub(change_string, Precise.string_sub(close, open))
+        )
+        assert Precise.string_le(difference, change_window), (
+            "`change` should be `last - open`" + log_text
+        )
+    if (
+        (change_string is not None)
+        and (percentage_string is not None)
+        and (open is not None)
+        and "comparePercentage" not in skipped_properties
+    ):
+        derived = Precise.string_mul(Precise.string_div(change_string, open), "100")
+        # exchanges round the percentage, so allow one part in fifty of the derived
+        # value plus a floor for moves near zero. a ratio where a percentage
+        # belongs is out by a hundred and clears that by three orders of magnitude
+        relative = Precise.string_div(Precise.string_abs(derived), "50")
+        allowed = Precise.string_max(relative, "0.01")
+        gap = Precise.string_abs(Precise.string_sub(percentage_string, derived))
+        assert Precise.string_le(gap, allowed), (
+            "`percentage` should be `(change/open) * 100`" + log_text
+        )
     # open and close should be between High & Low
     if high is not None and low is not None and "compareOHLC" not in skipped_properties:
         if open is not None:
@@ -215,16 +300,22 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
     #
     vwap = exchange.safe_string(entry, "vwap")
     if vwap is not None:
-        # TODO
+        # todo
         # assert (high !== undefined, 'vwap is defined, but high is not' + logText);
         # assert (low !== undefined, 'vwap is defined, but low is not' + logText);
         # assert (vwap >= low && vwap <= high)
-        # TODO: calc compare
-        assert not values_should_be_positive or Precise.string_ge(vwap, "0"), "vwap is not greater than zero" + log_text
+        # todo: calc compare
+        assert not values_should_be_positive or Precise.string_ge(vwap, "0"), (
+            "vwap is not greater than zero" + log_text
+        )
         if base_volume is not None:
-            assert quote_volume is not None, "baseVolume & vwap is defined, but quoteVolume is not" + log_text
+            assert quote_volume is not None, (
+                "baseVolume & vwap is defined, but quoteVolume is not" + log_text
+            )
         if quote_volume is not None:
-            assert base_volume is not None, "quoteVolume & vwap is defined, but baseVolume is not" + log_text
+            assert base_volume is not None, (
+                "quoteVolume & vwap is defined, but baseVolume is not" + log_text
+            )
     ask_string = exchange.safe_string(entry, "ask")
     bid_string = exchange.safe_string(entry, "bid")
     if (ask_string is not None) and (bid_string is not None) and "spread" not in skipped_properties:
@@ -242,11 +333,15 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
         and "lastBetweenBidAsk" not in skipped_properties
     ):
         median_price = Precise.string_div(Precise.string_add(bid_string, ask_string), "2")
-        median_low = Precise.string_mul(median_price, Precise.string_sub("1", allowed_percentage_variation))
-        median_high = Precise.string_mul(median_price, Precise.string_add("1", allowed_percentage_variation))
-        assert Precise.string_ge(last_string, median_low) and Precise.string_le(last_string, median_high), (
-            "last price should be within 1% of the bid/ask median price" + log_text
+        median_low = Precise.string_mul(
+            median_price, Precise.string_sub("1", allowed_percentage_variation)
         )
+        median_high = Precise.string_mul(
+            median_price, Precise.string_add("1", allowed_percentage_variation)
+        )
+        assert Precise.string_ge(last_string, median_low) and Precise.string_le(
+            last_string, median_high
+        ), "last price should be within 1% of the bid/ask median price" + log_text
     percentage = exchange.safe_string(entry, "percentage")
     change = exchange.safe_string(entry, "change")
     # option markets are exempt from the UPPER percentage/change caps only:
@@ -263,7 +358,9 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
         max_increase = "1000"  # if the increase is more than 1000x the implementation is probably wrong - the bound needs to stay above real meme-coin pumps, which routinely exceed the old 100x cap (e.g. a legitimate +50000% daily move observed on poloniex MAME/USDT)
         if percentage is not None:
             # - should be above -100 and (for non-options) below MAX
-            assert Precise.string_ge(percentage, "-100"), "percentage should be above -100% " + log_text
+            assert Precise.string_ge(percentage, "-100"), (
+                "percentage should be above -100% " + log_text
+            )
             if is_option_market is not True:
                 assert Precise.string_le(percentage, Precise.string_mul("+100", max_increase)), (
                     "percentage should be below " + max_increase + "00% " + log_text
@@ -291,25 +388,25 @@ def test_ticker(exchange, skipped_properties, method, entry, symbol):
             # if one knows 'last' and 'percentage' values, then 'change', 'open' and 'average' values should be determinable.
             assert open_price is not None and change is not None, (
                 "open & change should be defined if last & percentage are defined" + log_text
-            )  # TODO : add average price too
+            )  # todo : add average price too
         elif change is not None:
             # if one knows 'last' and 'change' values, then 'percentage', 'open' and 'average' values should be determinable.
             assert open_price is not None and percentage is not None, (
                 "open & percentage should be defined if last & change are defined" + log_text
-            )  # TODO : add average price too
+            )  # todo : add average price too
     elif open_price is not None:
         if percentage is not None:
             # if one knows 'open' and 'percentage' values, then 'last', 'change' and 'average' values should be determinable.
             assert last_string is not None and change is not None, (
                 "last & change should be defined if open & percentage are defined" + log_text
-            )  # TODO : add average price too
+            )  # todo : add average price too
         elif change is not None:
             # if one knows 'open' and 'change' values, then 'last', 'percentage' and 'average' values should be determinable.
             assert last_string is not None and percentage is not None, (
                 "last & percentage should be defined if open & change are defined" + log_text
-            )  # TODO : add average price too
+            )  # todo : add average price too
     #
-    # TODO: rethink about this
+    # todo: rethink about this
     # else {
     #    assert ((askString === undefined) && (bidString === undefined), 'ask & bid should be both defined or both undefined' + logText);
     # }

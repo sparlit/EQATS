@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from concurrent import futures
 from datetime import datetime, timedelta
 from itertools import count
-from pprint import pprint
 
 import requests
 from models import Indicies, Script, Trade, User
@@ -105,7 +104,11 @@ def get_company_data(company, count):
         "https://priceapi.moneycontrol.com/pricefeed/nse/equitycash/" + company.code.upper()
     ).json()
 
-    if responseNse["code"] == "200" and responseNse["data"]["LP"] != "-" and responseNse["data"]["OPN"] != "-":
+    if (
+        responseNse["code"] == "200"
+        and responseNse["data"]["LP"] != "-"
+        and responseNse["data"]["OPN"] != "-"
+    ):
         company["priceObj"] = "nse"
         for key in str_fields:
             try:
@@ -122,7 +125,9 @@ def get_company_data(company, count):
                 print(type(e).__name__, company.code)
                 print(key, e)
         try:
-            company["lastupd"] = datetime.strptime(responseNse["data"]["lastupd"], "%Y-%m-%d %H:%M:%S")
+            company["lastupd"] = datetime.strptime(
+                responseNse["data"]["lastupd"], "%Y-%m-%d %H:%M:%S"
+            )
             company["NSEID"] = responseNse["data"]["NSEID"]
             company["nse"] = get_index_prices(responseNse["data"])
             company["SHRS"] = int(float(responseNse["data"]["SHRS"]))
@@ -156,7 +161,9 @@ def get_company_data(company, count):
                 print(type(e).__name__, company.code)
                 print(key, e)
         try:
-            company["lastupd"] = datetime.strptime(responseBse["data"]["lastupd"], "%Y-%m-%d %H:%M:%S")
+            company["lastupd"] = datetime.strptime(
+                responseBse["data"]["lastupd"], "%Y-%m-%d %H:%M:%S"
+            )
             company["BSEID"] = int(responseBse["data"]["BSEID"])
             company["bse"] = get_index_prices(responseBse["data"])
             company["SHRS"] = int(float(responseBse["data"]["SHRS"]))
@@ -174,9 +181,12 @@ def get_company_data(company, count):
 
 def update_index(index, count):
     response = requests.get(
-        "https://appfeeds.moneycontrol.com/jsonapi/market/indices&format=json&ind_id=" + str(index["ind_id"])
+        "https://appfeeds.moneycontrol.com/jsonapi/market/indices&format=json&ind_id="
+        + str(index["ind_id"])
     ).json()
-    if (datetime.now() - datetime.strptime(response["indices"]["lastupdated"], "%d %b, %Y %H:%M")).days > 5:
+    if (
+        datetime.now() - datetime.strptime(response["indices"]["lastupdated"], "%d %b, %Y %H:%M")
+    ).days > 5:
         return
 
     index["stkexchg"] = response["indices"]["stkexchg"]

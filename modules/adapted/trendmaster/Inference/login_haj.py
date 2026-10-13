@@ -23,12 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import datetime
 import logging
-import pdb
 import time
 import urllib.parse as urlparse
 
 import joblib
-import pandas as pd
 from kiteconnect import KiteConnect, KiteTicker
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -60,14 +58,16 @@ class ZerodhaAccessToken:
             driver = webdriver.Chrome(chrome_driver_path, options=options)
             driver.get(login_url)
             wait = WebDriverWait(driver, 20)
-            wait.until(EC.presence_of_element_located((By.XPATH, '//input[@type="text"]'))).send_keys(
-                self.accountUserName
-            )
-            wait.until(EC.presence_of_element_located((By.XPATH, '//input[@type="password"]'))).send_keys(
-                self.accountPassword
-            )
+            wait.until(
+                EC.presence_of_element_located((By.XPATH, '//input[@type="text"]'))
+            ).send_keys(self.accountUserName)
+            wait.until(
+                EC.presence_of_element_located((By.XPATH, '//input[@type="password"]'))
+            ).send_keys(self.accountPassword)
             wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]'))).submit()
-            wait.until(EC.presence_of_element_located((By.XPATH, '//input[@type="password"]'))).click()
+            wait.until(
+                EC.presence_of_element_located((By.XPATH, '//input[@type="password"]'))
+            ).click()
             time.sleep(20)
             driver.find_element_by_xpath('//input[@type="password"]').send_keys(self.securityPin)
             wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]'))).submit()

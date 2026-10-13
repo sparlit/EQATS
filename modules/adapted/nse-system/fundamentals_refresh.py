@@ -28,12 +28,15 @@ Modes:
   yahoo -> best-effort yfinance refresh for top-N symbols
   auto  -> csv if present, then yahoo
 """
+import datetime as dt
+import hashlib
 import os
 import sys
 import time
 
 import db
 import pandas as pd
+from fundamentals_store import merge
 
 CSV_PATH = "data/fundamentals.csv"
 
@@ -43,19 +46,23 @@ ALIASES = {
     "ticker": "symbol",
     "roce": "roce",
     "return_on_capital_employed": "roce",
-    "return_on_equity": "roce",
+    "roe": "roe",
+    "return_on_equity": "roe",
+    "roic": "roic",
+    "return_on_invested_capital": "roic",
     "pe": "pe",
     "p/e": "pe",
     "pe_ratio": "pe",
     "trailing_pe": "pe",
     "debt_to_equity": "debt_to_equity",
+    "debt_eq": "debt_to_equity",
     "d/e": "debt_to_equity",
     "de_ratio": "debt_to_equity",
     "promoter_holding": "promoter_holding",
     "promoter": "promoter_holding",
     "promoter_pct": "promoter_holding",
-    "mcap_cr": "mcap_cr",
-    "market_cap_cr": "mcap_cr",
+    "mcap_cr": "market_cap_cr",
+    "market_cap_cr": "market_cap_cr",
 }
 
 
@@ -66,7 +73,8 @@ def _norm(s):
 def _clean_symbol(x):
     s = str(x).strip().upper()
     for suf in (".NS", ".NSE", ".BO", ".BSE"):
-        s = s.removesuffix(suf)
+        if s.endswith(suf):
+            s = s[: -len(suf)]
     return s
 
 
@@ -74,11 +82,17 @@ def _table_cols(conn):
     return [r[1] for r in conn.execute("PRAGMA table_info(fundamentals)")]
 
 
-def _upsert(conn, vals):
-    keys = list(vals.keys())
-    ph = ", ".join("?" for _ in keys)
-    conn.execute("DELETE FROM fundamentals WHERE symbol=?", (vals["symbol"],))
-    conn.execute(f"INSERT INTO fundamentals({', '.join(keys)}) VALUES({ph})", [vals[k] for k in keys])
+def _sha256_file(path):
+    with open(path, "rb") as source:
+        return hashlib.sha256(source.read()).hexdigest()
+
+
+def _upsert(conn, vals, source, source_metadata=None):
+    vals = dict(vals)
+    vals["data_quality_flags"] = ["financial_period_end_unknown", "publication_time_unknown"]
+    if source_metadata is not None:
+        vals["source_metadata"] = source_metadata
+    return merge(conn, vals, source=source)
 
 
 def ingest_csv(path=CSV_PATH):
@@ -86,6 +100,16 @@ def ingest_csv(path=CSV_PATH):
         print(f"[FUND] no csv at {path}")
         return 0
     conn = db.get_conn()
+    import_metadata = {
+        "filename": os.path.basename(path),
+        "sha256": _sha256_file(path),
+        "source_modified_at": dt.datetime.fromtimestamp(os.path.getmtime(path))
+        .astimezone()
+        .isoformat(),
+        "imported_at": dt.datetime.now().astimezone().isoformat(),
+        "source_observation_date": None,
+        "financial_period_end": None,
+    }
     table_cols = set(_table_cols(conn))
     df = pd.read_csv(path)
     colmap = {}
@@ -106,13 +130,15 @@ def ingest_csv(path=CSV_PATH):
                 continue
             if key == "symbol":
                 vals[key] = _clean_symbol(v)
+            elif key in {"name", "sector"}:
+                vals[key] = str(v).strip()
             else:
                 try:
                     vals[key] = float(str(v).replace(",", "").replace("%", ""))
                 except Exception:
                     continue
         if vals.get("symbol"):
-            _upsert(conn, vals)
+            _upsert(conn, vals, "fundamentals_csv", import_metadata)
             n += 1
     conn.commit()
     conn.close()
@@ -125,7 +151,12 @@ def refresh_yahoo(limit=100):
 
     conn = db.get_conn()
     table_cols = set(_table_cols(conn))
-    syms = [r[0] for r in conn.execute("SELECT symbol FROM universe_broad ORDER BY mcap_cr DESC LIMIT ?", (limit,))]
+    syms = [
+        r[0]
+        for r in conn.execute(
+            "SELECT symbol FROM universe_broad ORDER BY mcap_cr DESC LIMIT ?", (limit,)
+        )
+    ]
     n = 0
     for sym in syms:
         try:
@@ -140,13 +171,22 @@ def refresh_yahoo(limit=100):
                 vals[col] = float(v) * scale
 
         put("pe", "trailingPE")
-        put("debt_eq", "debtToEquity", 0.01)
-        put("promoter", "heldPercentInsiders", 100.0)
-        put("roce", "returnOnEquity", 100.0)
-        put("mcap_cr", "marketCap", 1e-7)
+        put("debt_to_equity", "debtToEquity", 0.01)
+        put("promoter_holding", "heldPercentInsiders", 100.0)
+        put("roe", "returnOnEquity", 100.0)
+        put("market_cap_cr", "marketCap", 1e-7)
 
         if len(vals) > 1:
-            _upsert(conn, vals)
+            _upsert(
+                conn,
+                vals,
+                "yahoo_finance",
+                {
+                    "retrieved_at": dt.datetime.now().astimezone().isoformat(),
+                    "source_observation_date": None,
+                    "financial_period_end": None,
+                },
+            )
             n += 1
         time.sleep(0.3)
     conn.commit()

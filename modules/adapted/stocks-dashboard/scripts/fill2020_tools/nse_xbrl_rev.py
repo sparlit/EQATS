@@ -92,7 +92,10 @@ SKIPS = os.path.join(SCRIPTS, "_nse_xbrl_rev_skips.json")
 
 H = {"User-Agent": BF.UA, "Accept": "*/*", "Referer": "https://www.nseindia.com/"}
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 # sf_revop row: [revStd, revCon, opStd, opCon, patStd, patCon, fin, ebitStd, ebitCon]
 SLOT = {"std": {"rev": 0, "op": 2, "ebit": 7}, "con": {"rev": 1, "op": 3, "ebit": 8}}
@@ -127,7 +130,13 @@ def filing_key(r):
     """Sortable filing timestamp so the LATEST revision of a quarter wins (same rule as build_revop)."""
     m = re.search(r"(\d{2})-([A-Za-z]{3})-(\d{4})\s+(\d{2}):(\d{2})", r.get("filingDate") or "")
     if m and m.group(2).title() in MON:
-        return "%s%02d%s%s%s" % (m.group(3), MON[m.group(2).title()], m.group(1), m.group(4), m.group(5))
+        return "%s%02d%s%s%s" % (
+            m.group(3),
+            MON[m.group(2).title()],
+            m.group(1),
+            m.group(4),
+            m.group(5),
+        )
     return "0"
 
 
@@ -203,7 +212,9 @@ def main():
                 continue
             b = "con" if r.get("consolidated") == "Consolidated" else "std"
             idx.setdefault((qe, b), []).append(r)
-        want = [("std", q) for q in targets[sym]["revS"]] + [("con", q) for q in targets[sym]["revC"]]
+        want = [("std", q) for q in targets[sym]["revS"]] + [
+            ("con", q) for q in targets[sym]["revC"]
+        ]
         for basis, qe in want:
             key = "%s|%d|%s" % (sym, qe, basis)
             if key in fills:
@@ -211,7 +222,9 @@ def main():
             cands = sorted(idx.get((qe, basis), []), key=filing_key, reverse=True)
             if not cands:
                 skips[key] = (
-                    "nse-xbrl-placeholder (row listed, XBRL never published)" if placeholders else "no-nse-xbrl-row"
+                    "nse-xbrl-placeholder (row listed, XBRL never published)"
+                    if placeholders
+                    else "no-nse-xbrl-row"
                 )
                 nskip += 1
                 continue
@@ -243,10 +256,14 @@ def main():
                 if not side:
                     skips[key] = f"no-{basis}-context"
                     continue
-                stored_pat = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[1 if basis == "std" else 3]
+                stored_pat = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[
+                    1 if basis == "std" else 3
+                ]
                 hit, tag = anchored(side, stored_pat)  # G3
                 if hit is None:
-                    skips[key] = "pat-anchor {}/{} vs stored {}".format(side.get("owners"), side.get("pat"), stored_pat)
+                    skips[key] = "pat-anchor {}/{} vs stored {}".format(
+                        side.get("owners"), side.get("pat"), stored_pat
+                    )
                     continue
                 if side.get("rev") is None:
                     skips[key] = "no-rev-tag"
@@ -285,8 +302,10 @@ def main():
                     continue
                 got["neighbour_ratio"] = round(ratio, 3)
                 if not (REVIEW_LO <= ratio <= REVIEW_HI):
-                    got["review"] = "{:.2f} x the {}-basis neighbour median ({:.2f} vs {:.2f})".format(
-                        ratio, basis, got["rev"], med
+                    got["review"] = (
+                        "{:.2f} x the {}-basis neighbour median ({:.2f} vs {:.2f})".format(
+                            ratio, basis, got["rev"], med
+                        )
                     )
             fills[key] = got
             nread += 1

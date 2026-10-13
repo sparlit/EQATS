@@ -52,7 +52,6 @@ NEW EXPORTS:
   get_weekly_tier_label()
 """
 
-from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -65,10 +64,26 @@ WEEKLY_TIER_NEUTRAL = 2
 WEEKLY_TIER_BEARISH = 3
 
 CATEGORY_META = {
-    "rising": {"icon": "📈", "label": "Consistently Rising", "desc": "Steady momentum, early in the move"},
-    "uptrend": {"icon": "🚀", "label": "Clear Uptrend Confirmed", "desc": "Fresh cross, room to run, volume confirmed"},
-    "peak": {"icon": "🔝", "label": "Close to Their Peak", "desc": "Near 52-week highs — strong institutional demand"},
-    "recovering": {"icon": "📉", "label": "Recovering from a Fall", "desc": "Bouncing back — early recovery signal"},
+    "rising": {
+        "icon": "📈",
+        "label": "Consistently Rising",
+        "desc": "Steady momentum, early in the move",
+    },
+    "uptrend": {
+        "icon": "🚀",
+        "label": "Clear Uptrend Confirmed",
+        "desc": "Fresh cross, room to run, volume confirmed",
+    },
+    "peak": {
+        "icon": "🔝",
+        "label": "Close to Their Peak",
+        "desc": "Near 52-week highs — strong institutional demand",
+    },
+    "recovering": {
+        "icon": "📉",
+        "label": "Recovering from a Fall",
+        "desc": "Bouncing back — early recovery signal",
+    },
     "safer": {
         "icon": "🛡️",
         "label": "Safer Bets with Good Reward",
@@ -257,17 +272,21 @@ def _fixed_hybrid_hull_signals(grp):
     atr_now = last(atr14, 0.0)
     kama_now, kama_prev = last(kama30, close), last(kama30.iloc[:-1], close)
     distance_atr = (close - hull_now) / atr_now if atr_now > 0 else 0.0
-    daily_up = close > hull_now > hull_prev
+    daily_up = close > hull_now and hull_now > hull_prev
     hma_aligned = last(hma21, close) > last(hma51, close)
     kama_rising = kama_now > kama_prev and close > hull_now
 
     # The script's practical EOD read: low impulse + tight band is chop;
     # a tight ATR regime while structure is aligned is a compression setup.
     kama_slope = abs(kama_now - kama_prev) / atr_now if atr_now > 0 else 0.0
-    kama_band = ((kama30.rolling(20).max() - kama30.rolling(20).min()) / kama30.replace(0, np.nan)).iloc[-1]
+    kama_band = (
+        (kama30.rolling(20).max() - kama30.rolling(20).min()) / kama30.replace(0, np.nan)
+    ).iloc[-1]
     rotation = abs(distance_atr) < 0.4 and abs(hull_now - hull_prev) < (atr_now * 0.15)
-    chop = bool((kama_slope < 0.072 and (pd.notna(kama_band) and kama_band < 0.025)) or rotation)
-    atr_contracting = atr14.iloc[-1] < atr14.rolling(20).mean().iloc[-1] if len(atr14) >= 20 else False
+    chop = bool(kama_slope < 0.072 and (pd.notna(kama_band) and kama_band < 0.025) or rotation)
+    atr_contracting = (
+        atr14.iloc[-1] < atr14.rolling(20).mean().iloc[-1] if len(atr14) >= 20 else False
+    )
     compression = bool(atr_contracting and daily_up and hma_aligned and not chop)
 
     weekly_data = data[["date", "close"]].copy()
@@ -342,7 +361,9 @@ def _acc_days(closes, volumes, vol_ma, lookback=5):
     if len(closes) < lookback + 1:
         return 0
     return sum(
-        1 for i in range(-lookback, 0) if closes.iloc[i] > closes.iloc[i - 1] and volumes.iloc[i] > vol_ma.iloc[i] * 0.9
+        1
+        for i in range(-lookback, 0)
+        if closes.iloc[i] > closes.iloc[i - 1] and volumes.iloc[i] > vol_ma.iloc[i] * 0.9
     )
 
 
@@ -350,7 +371,9 @@ def _dist_days(closes, volumes, vol_ma, lookback=5):
     if len(closes) < lookback + 1:
         return 0
     return sum(
-        1 for i in range(-lookback, 0) if closes.iloc[i] < closes.iloc[i - 1] and volumes.iloc[i] > vol_ma.iloc[i] * 0.9
+        1
+        for i in range(-lookback, 0)
+        if closes.iloc[i] < closes.iloc[i - 1] and volumes.iloc[i] > vol_ma.iloc[i] * 0.9
     )
 
 
@@ -571,7 +594,19 @@ def _score_single_stock(symbol, grp, w52_map, scan_date, weekly_tier=WEEKLY_TIER
     pen_decel = -1 if _decelerating(hma55) else 0
 
     score = max(
-        0, min(10, pts_hma + pts_dist + pts_vol + pts_rsi + pts_macd + pts_sector + pts_rr + pen_overext + pen_decel)
+        0,
+        min(
+            10,
+            pts_hma
+            + pts_dist
+            + pts_vol
+            + pts_rsi
+            + pts_macd
+            + pts_sector
+            + pts_rr
+            + pen_overext
+            + pen_decel,
+        ),
     )
 
     conviction = TIER_HIGH_CONVICTION if score >= 7 else TIER_WATCHLIST if score >= 4 else ""
@@ -712,7 +747,9 @@ def assign_categories_bulk(scored_df, returns_df, w52_map=None):
         else:
             categories[sym] = "rising"
 
-    return pd.Series(scored_df.index.map(lambda s: categories.get(s, "rising")), index=scored_df.index)
+    return pd.Series(
+        scored_df.index.map(lambda s: categories.get(s, "rising")), index=scored_df.index
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -743,12 +780,22 @@ def format_score_breakdown(stock):
     dist = float(stock.get("dist_pct", 0))
     w_tier = int(stock.get("weekly_tier", WEEKLY_TIER_NEUTRAL))
 
-    parts.append(f"HMA{'✅' if stock.get('pts_hma', 0) == 2 else '🟡' if stock.get('pts_hma', 0) == 1 else '❌'}{ca}d")
+    parts.append(
+        f"HMA{'✅' if stock.get('pts_hma', 0) == 2 else '🟡' if stock.get('pts_hma', 0) == 1 else '❌'}{ca}d"
+    )
     parts.append(
         f"Rm{'✅' if stock.get('pts_dist', 0) >= 1 else '⚠️' if stock.get('pts_dist', 0) == 0 else '❌'}{dist:.0f}%"
     )
-    parts.append(f"Vol{'✅' if stock.get('pts_vol', 0) >= 2 else '🟡' if stock.get('pts_vol', 0) == 1 else '❌'}")
+    parts.append(
+        f"Vol{'✅' if stock.get('pts_vol', 0) >= 2 else '🟡' if stock.get('pts_vol', 0) == 1 else '❌'}"
+    )
     parts.append(f"RSI{'✅' if stock.get('pts_rsi', 0) else '❌'}")
     parts.append(f"MACD{'✅' if stock.get('pts_macd', 0) else '❌'}")
-    parts.append("W✅" if w_tier == WEEKLY_TIER_BULLISH else "W🟡" if w_tier == WEEKLY_TIER_NEUTRAL else "W❌")
+    parts.append(
+        "W✅"
+        if w_tier == WEEKLY_TIER_BULLISH
+        else "W🟡"
+        if w_tier == WEEKLY_TIER_NEUTRAL
+        else "W❌"
+    )
     return " | ".join(parts)

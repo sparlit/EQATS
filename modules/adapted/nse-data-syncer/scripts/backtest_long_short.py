@@ -347,11 +347,21 @@ def stock_return(stock_id, df_next, df_window, stock_map, score, side):
     stock_data = df_next[df_next["stock_id"] == stock_id].sort_values("date")
 
     if stock_data.empty:
-        return {"symbol": stock_map.get(stock_id, "UNK"), "return": 0.0, "score": round(score, 2), "side": side}
+        return {
+            "symbol": stock_map.get(stock_id, "UNK"),
+            "return": 0.0,
+            "score": round(score, 2),
+            "side": side,
+        }
 
     start_price = stock_data.iloc[0]["open_price"]
     if start_price is None or start_price == 0:
-        return {"symbol": stock_map.get(stock_id, "UNK"), "return": 0.0, "score": round(score, 2), "side": side}
+        return {
+            "symbol": stock_map.get(stock_id, "UNK"),
+            "return": 0.0,
+            "score": round(score, 2),
+            "side": side,
+        }
 
     end_price = stock_data.iloc[-1]["close_price"]
     raw_ret = (end_price - start_price) / start_price
@@ -399,7 +409,7 @@ def process_period(
         return None
 
     df_window = df_slice.reset_index()
-    df_window = df_window.set_index(["stock_id", "date"])
+    df_window.set_index(["stock_id", "date"], inplace=True)
 
     ranked = score_stocks(rebalance_date, df_window, futures_ids)
     if ranked.empty or len(ranked) < N_LONG + N_SHORT:
@@ -423,12 +433,16 @@ def process_period(
     score_map = ranked.set_index("stock_id")["weighted_z"].to_dict()
 
     for _, row in long_stocks.iterrows():
-        r = stock_return(row["stock_id"], df_next, df_window, stock_map, score_map[row["stock_id"]], "long")
+        r = stock_return(
+            row["stock_id"], df_next, df_window, stock_map, score_map[row["stock_id"]], "long"
+        )
         holdings.append(r)
         long_returns.append(r["return"] / 100)
 
     for _, row in short_stocks.iterrows():
-        r = stock_return(row["stock_id"], df_next, df_window, stock_map, score_map[row["stock_id"]], "short")
+        r = stock_return(
+            row["stock_id"], df_next, df_window, stock_map, score_map[row["stock_id"]], "short"
+        )
         holdings.append(r)
         short_returns.append(r["return"] / 100)
 
@@ -440,7 +454,7 @@ def process_period(
 
     bench_ret = get_benchmark_return(nifty, rebalance_date, next_rebalance_date)
 
-    month_label = label_date or next_rebalance_date.strftime("%Y-%m")
+    month_label = label_date if label_date else next_rebalance_date.strftime("%Y-%m")
     print(
         f"    Long: {avg_long:.2%}  Short(net): {avg_short:.2%}  Portfolio: {portfolio_return:.2%}  Bench: {bench_ret:.2%}"
     )
@@ -459,8 +473,18 @@ def calculate_comprehensive_metrics(monthly_results):
     if not monthly_results:
         return {
             "time_metrics": {"start": "-", "end": "-", "period": "-"},
-            "capital_metrics": {"start_value": 0, "end_value": 0, "total_fees_paid": 0, "open_trade_pnl": 0},
-            "return_metrics": {"total_return": 0, "benchmark_return": 0, "expectancy": 0, "net_return_after_fees": 0},
+            "capital_metrics": {
+                "start_value": 0,
+                "end_value": 0,
+                "total_fees_paid": 0,
+                "open_trade_pnl": 0,
+            },
+            "return_metrics": {
+                "total_return": 0,
+                "benchmark_return": 0,
+                "expectancy": 0,
+                "net_return_after_fees": 0,
+            },
             "risk_metrics": {
                 "max_drawdown": 0,
                 "max_drawdown_duration": 0,
@@ -509,7 +533,11 @@ def calculate_comprehensive_metrics(monthly_results):
             cur_dur = 0
 
     ann_ret = (1 + total_ret) ** (1 / years) - 1
-    sharpe = (np.mean(port_rets) * 12) / (np.std(port_rets) * np.sqrt(12)) if np.std(port_rets) > 0 else 0
+    sharpe = (
+        (np.mean(port_rets) * 12) / (np.std(port_rets) * np.sqrt(12))
+        if np.std(port_rets) > 0
+        else 0
+    )
     calmar = ann_ret / abs(max_dd) if max_dd != 0 else 0
     down_rets = port_rets[port_rets < 0]
     sortino = (
@@ -519,7 +547,11 @@ def calculate_comprehensive_metrics(monthly_results):
     )
     gains = port_rets[port_rets > 0]
     losses = port_rets[port_rets < 0]
-    omega = float(np.sum(gains)) / float(abs(np.sum(losses))) if len(losses) > 0 and np.sum(losses) != 0 else 0
+    omega = (
+        float(np.sum(gains)) / float(abs(np.sum(losses)))
+        if len(losses) > 0 and np.sum(losses) != 0
+        else 0
+    )
 
     wins = int(np.sum(port_rets > 0))
     win_rate = wins / n * 100 if n > 0 else 0
@@ -531,7 +563,7 @@ def calculate_comprehensive_metrics(monthly_results):
             "period": f"{n} months ({years:.1f} years)",
         },
         "capital_metrics": {
-            "start_value": start_val,
+            "start_value": round(start_val, 2),
             "end_value": round(end_val, 2),
             "total_fees_paid": 0,
             "open_trade_pnl": 0,
@@ -621,7 +653,7 @@ def run_backtest():
         else:
             if isinstance(nifty_raw.columns, pd.MultiIndex):
                 nifty_raw.columns = nifty_raw.columns.get_level_values(0)
-            nifty_raw = nifty_raw.reset_index()
+            nifty_raw.reset_index(inplace=True)
             nifty_raw.columns = [c.lower() for c in nifty_raw.columns]
             close_col = "close" if "close" in nifty_raw.columns else "adj close"
             nifty = nifty_raw[["date", close_col]].rename(columns={close_col: "close"})
@@ -635,7 +667,7 @@ def run_backtest():
     ).fetchall()
     master_df = pd.DataFrame(result, columns=["stock_id", "date", "close_price", "open_price"])
     master_df["date"] = pd.to_datetime(master_df["date"])
-    master_df = master_df.set_index("date")
+    master_df.set_index("date", inplace=True)
     print(f"Loaded {len(master_df):,} price records.")
 
     dates = get_month_ends()
@@ -664,7 +696,9 @@ def run_backtest():
             all_results.append(existing_map[month_label])
             continue
 
-        res = process_period(rebalance_date, next_rebalance_date, master_df, futures_ids, stock_map, nifty)
+        res = process_period(
+            rebalance_date, next_rebalance_date, master_df, futures_ids, stock_map, nifty
+        )
         if res:
             all_results.append(res)
 
@@ -674,7 +708,9 @@ def run_backtest():
     if today > last_date:
         cur_label = today.strftime("%Y-%m")
         all_results = [r for r in all_results if r["month"] != cur_label]
-        res = process_period(last_date, today, master_df, futures_ids, stock_map, nifty, label_date=cur_label)
+        res = process_period(
+            last_date, today, master_df, futures_ids, stock_map, nifty, label_date=cur_label
+        )
         if res:
             all_results.append(res)
 
@@ -697,10 +733,14 @@ def run_backtest():
     bt_metrics["return_metrics"]["net_return_after_fees"] = round(bt_net, 2)
 
     last_long = (
-        {h["symbol"] for h in backtest_results[-1]["holdings"] if h["side"] == "long"} if backtest_results else set()
+        {h["symbol"] for h in backtest_results[-1]["holdings"] if h["side"] == "long"}
+        if backtest_results
+        else set()
     )
     last_short = (
-        {h["symbol"] for h in backtest_results[-1]["holdings"] if h["side"] == "short"} if backtest_results else set()
+        {h["symbol"] for h in backtest_results[-1]["holdings"] if h["side"] == "short"}
+        if backtest_results
+        else set()
     )
     cur_txn, cur_fees, cur_net = calculate_stats_for_period(
         current_results, initial_long=last_long, initial_short=last_short

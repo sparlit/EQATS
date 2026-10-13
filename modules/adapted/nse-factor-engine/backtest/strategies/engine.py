@@ -29,7 +29,7 @@ run_all_cells(signals_df, current_holdings)                     → long-format 
 """
 
 import pandas as pd
-from backtest.strategies.config import CELLS, TIEBREAKER, TIEBREAKER_ASCENDING, N
+from backtest.strategies.config import CELLS, N
 from backtest.strategies.gates import apply_gate
 from backtest.strategies.scores import apply_score
 
@@ -60,7 +60,7 @@ def get_portfolio(
     signals: pd.DataFrame,
     n: int = N,
     verbose: bool = False,
-    incumbent_symbols: set | None = None,  # symbols held from prior week for this cell
+    incumbent_symbols: set = None,  # symbols held from prior week for this cell
 ) -> pd.DataFrame:
     """
     gate_id           : 'G2'–'G6'
@@ -104,7 +104,7 @@ def run_all_cells(
     signals: pd.DataFrame,
     n: int = N,
     verbose: bool = False,
-    current_holdings: dict | None = None,  # {cell_id: set(symbols)} from prior week
+    current_holdings: dict = None,  # {cell_id: set(symbols)} from prior week
 ) -> pd.DataFrame:
     """
     Runs all cells on a single Friday signals DataFrame.
@@ -123,7 +123,9 @@ def run_all_cells(
         cell_id = f"{gate_id}_{score_id}"
         incumbent_symbols = current_holdings.get(cell_id, set())
 
-        df = get_portfolio(gate_id, score_id, signals, n=n, verbose=verbose, incumbent_symbols=incumbent_symbols)
+        df = get_portfolio(
+            gate_id, score_id, signals, n=n, verbose=verbose, incumbent_symbols=incumbent_symbols
+        )
         if not df.empty:
             results.append(df)
         else:

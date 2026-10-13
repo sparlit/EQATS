@@ -79,7 +79,11 @@ def topic_id(kind: str) -> int | None:
 
 
 def _signal_cards(message: str) -> list[tuple[str, str]]:
-    starts = list(re.finditer(r"(?m)^(?:🥇|🥈|🥉|#\d+|\d+\.)\s+([A-Z0-9&-]+)(?:\s+—\s+READY LONG)?\s*$", message))
+    starts = list(
+        re.finditer(
+            r"(?m)^(?:🥇|🥈|🥉|#\d+|\d+\.)\s+([A-Z0-9&-]+)(?:\s+—\s+READY LONG)?\s*$", message
+        )
+    )
     cards: list[tuple[str, str]] = []
     for index, match in enumerate(starts[:30]):
         symbol = match.group(1)
@@ -90,7 +94,9 @@ def _signal_cards(message: str) -> list[tuple[str, str]]:
         target1 = re.search(r"(?m)^T1\s+[:]?\s*(₹[\d,]+(?:\.\d+)?)\s*$", block)
         target2 = re.search(r"(?m)^T2\s+[:]?\s*(₹[\d,]+(?:\.\d+)?)\s*$", block)
         if not (entry and stop):
-            pair = re.search(r"Entry:\s*(₹[\d,]+(?:\.\d+)?)\s*\|\s*SL:\s*(₹[\d,]+(?:\.\d+)?)", block)
+            pair = re.search(
+                r"Entry:\s*(₹[\d,]+(?:\.\d+)?)\s*\|\s*SL:\s*(₹[\d,]+(?:\.\d+)?)", block
+            )
             if pair:
                 entry, stop = pair, pair
         if not (target1 and target2):
@@ -111,7 +117,9 @@ def _signal_cards(message: str) -> list[tuple[str, str]]:
 
 def _action_link_keyboard(message: str) -> dict | None:
     is_v2_action = "ACTION CANDIDATES" in message or "ALL ACTIONABLE CANDIDATES" in message
-    is_pine_signal = "PINE HULL" in message and ("SIGNALS" in message or "OPPORTUNITY MAP" in message)
+    is_pine_signal = "PINE HULL" in message and (
+        "SIGNALS" in message or "OPPORTUNITY MAP" in message
+    )
     if not (is_v2_action or is_pine_signal):
         return None
     cards = _signal_cards(message)
@@ -122,8 +130,14 @@ def _action_link_keyboard(message: str) -> dict | None:
         encoded = quote(symbol, safe="")
         rows.append(
             [
-                {"text": f"📈 {symbol}", "url": f"https://www.tradingview.com/chart/?symbol=NSE%3A{encoded}"},
-                {"text": "🏛 NSE", "url": f"https://www.nseindia.com/get-quotes/equity?symbol={encoded}"},
+                {
+                    "text": f"📈 {symbol}",
+                    "url": f"https://www.tradingview.com/chart/?symbol=NSE%3A{encoded}",
+                },
+                {
+                    "text": "🏛 NSE",
+                    "url": f"https://www.nseindia.com/get-quotes/equity?symbol={encoded}",
+                },
                 {"text": "📋 Copy", "copy_text": {"text": copy_text}},
             ]
         )
@@ -160,8 +174,15 @@ def _post_message(endpoint: str, payload: dict, *, timeout: int) -> tuple[bool, 
     return True, "sent"
 
 
-def _plain_payload(chat_id: str, message: str, thread_id: int | None, keyboard: dict | None) -> dict:
-    payload: dict = {"chat_id": chat_id, "text": message, "parse_mode": "HTML", "disable_web_page_preview": True}
+def _plain_payload(
+    chat_id: str, message: str, thread_id: int | None, keyboard: dict | None
+) -> dict:
+    payload: dict = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
     if thread_id is not None:
         payload["message_thread_id"] = thread_id
     if keyboard:
@@ -213,7 +234,9 @@ def _send_one(
     # HTML rejection is retried exactly once with tags removed; no dynamic
     # values are reinterpreted as markup in the fallback.
     if "HTTP 400" in reason:
-        fallback_payload = _plain_payload(chat_id, unescape(re.sub(r"<[^>]+>", "", message)), message_thread_id, None)
+        fallback_payload = _plain_payload(
+            chat_id, unescape(re.sub(r"<[^>]+>", "", message)), message_thread_id, None
+        )
         fallback_payload.pop("parse_mode", None)
         ok, fallback_reason = _post_message(plain_endpoint, fallback_payload, timeout=timeout)
         if ok:
@@ -268,7 +291,11 @@ def _send_to_chat(
     routes: list[str] = []
     state = _state()
     for index, message in enumerate(clean, start=1):
-        key = fingerprint(scan_date, message_type, message_thread_id, index, message) if scan_date else ""
+        key = (
+            fingerprint(scan_date, message_type, message_thread_id, index, message)
+            if scan_date
+            else ""
+        )
         if key and state.get(key, {}).get("status") == "sent":
             sent += 1
             routes.append("skipped_idempotent")
@@ -278,7 +305,11 @@ def _send_to_chat(
         for _attempt, delay in enumerate((0, 2, 5), start=1):
             if delay:
                 time.sleep(delay)
-            keyboard = dashboard_keyboard("v3") if index == len(clean) and message_type != "system" else None
+            keyboard = (
+                dashboard_keyboard("v3")
+                if index == len(clean) and message_type != "system"
+                else None
+            )
             ok, reason = _send_one(
                 plain_endpoint,
                 rich_endpoint,
@@ -304,7 +335,9 @@ def _send_to_chat(
     if sent == len(clean):
         return DeliveryResult(True, sent, f"sent; routes={route_summary}")
     if sent > 0:
-        return DeliveryResult(True, sent, f"partial_delivery; routes={route_summary}: " + " | ".join(errors))
+        return DeliveryResult(
+            True, sent, f"partial_delivery; routes={route_summary}: " + " | ".join(errors)
+        )
     return DeliveryResult(False, 0, "delivery_failed: " + " | ".join(errors))
 
 
@@ -329,7 +362,9 @@ def send_messages(
     )
 
 
-def send_admin_messages(messages: list[str], enabled: bool = False, timeout: int = 20) -> DeliveryResult:
+def send_admin_messages(
+    messages: list[str], enabled: bool = False, timeout: int = 20
+) -> DeliveryResult:
     return _send_to_chat(
         messages,
         chat_id=_admin_chat_id(),

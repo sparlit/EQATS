@@ -25,15 +25,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Strict, auditable NSE-universe eligibility for the progressive scanner."""
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from .corporate_data import market_cap_max_age_days
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -74,7 +71,9 @@ def evaluate_eligibility(
     ordered = frame.sort_values("trade_date").copy()
     metadata = metadata or {}
 
-    def reject(stage: str, code: str, actual: object = None, required: object = None) -> EligibilityResult:
+    def reject(
+        stage: str, code: str, actual: object = None, required: object = None
+    ) -> EligibilityResult:
         return EligibilityResult(symbol, False, code, stage, actual, required)
 
     if ordered["trade_date"].duplicated().any():
@@ -89,8 +88,14 @@ def evaluate_eligibility(
         prices["low"] > prices[["open", "high", "close"]].min(axis=1)
     ).any():
         return reject("DATA_QUALITY", "INVALID_OHLC")
-    if "quality_status" in data and data["quality_status"].iloc[-1] not in {"VALID", "VALIDATED", "OK"}:
-        return reject("DATA_QUALITY", "UNVALIDATED_LATEST_ROW", data["quality_status"].iloc[-1], "VALIDATED")
+    if "quality_status" in data and data["quality_status"].iloc[-1] not in {
+        "VALID",
+        "VALIDATED",
+        "OK",
+    }:
+        return reject(
+            "DATA_QUALITY", "UNVALIDATED_LATEST_ROW", data["quality_status"].iloc[-1], "VALIDATED"
+        )
 
     series = str(metadata.get("series", "EQ") or "EQ").upper()
     if series != "EQ":
@@ -113,7 +118,9 @@ def evaluate_eligibility(
     turnover_cr = pd.to_numeric(data["turnover_lacs"], errors="coerce") / 100.0
     median_turnover = float(turnover_cr.tail(20).median())
     if pd.isna(median_turnover) or median_turnover < min_median_turnover_cr_20:
-        return reject("LIQUIDITY", "LOW_MEDIAN_TURNOVER", median_turnover, min_median_turnover_cr_20)
+        return reject(
+            "LIQUIDITY", "LOW_MEDIAN_TURNOVER", median_turnover, min_median_turnover_cr_20
+        )
 
     if "delivery_pct" not in data:
         return reject("PARTICIPATION", "DELIVERY_DATA_MISSING", None, min_delivery_20)
@@ -143,17 +150,32 @@ def evaluate_eligibility(
     promoter_available_date = metadata.get("promoter_holding_available_date")
     if require_promoter_holding:
         if promoter_holding is None or pd.isna(promoter_holding):
-            return reject("OWNERSHIP", "PROMOTER_HOLDING_DATA_MISSING", None, min_promoter_holding_pct)
+            return reject(
+                "OWNERSHIP", "PROMOTER_HOLDING_DATA_MISSING", None, min_promoter_holding_pct
+            )
         if promoter_available_date is None or pd.isna(promoter_available_date):
-            return reject("OWNERSHIP", "PROMOTER_HOLDING_DATE_MISSING", None, max_promoter_holding_age_days)
+            return reject(
+                "OWNERSHIP", "PROMOTER_HOLDING_DATE_MISSING", None, max_promoter_holding_age_days
+            )
         if as_of_date:
             promoter_age = (
-                pd.Timestamp(as_of_date).normalize() - pd.Timestamp(promoter_available_date).normalize()
+                pd.Timestamp(as_of_date).normalize()
+                - pd.Timestamp(promoter_available_date).normalize()
             ).days
             if promoter_age < 0 or promoter_age > max_promoter_holding_age_days:
-                return reject("OWNERSHIP", "STALE_PROMOTER_HOLDING", promoter_age, max_promoter_holding_age_days)
+                return reject(
+                    "OWNERSHIP",
+                    "STALE_PROMOTER_HOLDING",
+                    promoter_age,
+                    max_promoter_holding_age_days,
+                )
         if float(promoter_holding) < min_promoter_holding_pct:
-            return reject("OWNERSHIP", "LOW_PROMOTER_HOLDING", float(promoter_holding), min_promoter_holding_pct)
+            return reject(
+                "OWNERSHIP",
+                "LOW_PROMOTER_HOLDING",
+                float(promoter_holding),
+                min_promoter_holding_pct,
+            )
 
     pending_action = metadata.get("corporate_action_type")
     if require_corporate_action_safety and pending_action:

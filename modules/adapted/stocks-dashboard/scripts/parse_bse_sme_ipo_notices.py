@@ -47,14 +47,19 @@ import pypdf
 
 CACHE = os.path.expanduser("~/stocks-cache/bse_index_notices")
 MON = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 CODE = re.compile(r"(?<!\d)(5\d{5})(?!\d)")
 SME_NAME = re.compile(r"(?i)\bSME\s*IPO\b")
 OTHER_IDX = re.compile(
     r"(?i)^\W*(?:S&P\s+)?BSE\b(?!\s+SME)|^\W*S&P BSE|^\W*\?\s*S&P|SENSEX|BSE[- ]?\d{2,3}\b|small[- ]?cap|mid[- ]?cap|BSE IPO\b"
 )
-D1 = re.compile(r"(?i)\b(\d{1,2})\s*[-/ ]\s*([A-Za-z]{3,9})\s*[-/ ,]\s*(\d{4})\b")  # 15-Jan- 2013, 08/Feb/2013
+D1 = re.compile(
+    r"(?i)\b(\d{1,2})\s*[-/ ]\s*([A-Za-z]{3,9})\s*[-/ ,]\s*(\d{4})\b"
+)  # 15-Jan- 2013, 08/Feb/2013
 D2 = re.compile(
     r"(?i)\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})\s*,?\s*(\d{4})"
 )
@@ -66,17 +71,25 @@ OPEN = re.compile(
 
 
 def text_of(no):
-    t = "\n".join((p.extract_text() or "") for p in pypdf.PdfReader(os.path.join(CACHE, no + ".pdf")).pages)
-    return re.sub(r"(?i)SME\s*\n\s*IPO", "SME IPO", t)  # 2026 layout wraps "BSE SME" / "IPO" (20260410-28)
+    t = "\n".join(
+        (p.extract_text() or "") for p in pypdf.PdfReader(os.path.join(CACHE, no + ".pdf")).pages
+    )
+    return re.sub(
+        r"(?i)SME\s*\n\s*IPO", "SME IPO", t
+    )  # 2026 layout wraps "BSE SME" / "IPO" (20260410-28)
 
 
 def to_date(s):
     m = D2.search(s)
     if m:
-        return datetime.date(int(m.group(3)), MON[m.group(1)[:3].lower()], int(m.group(2))).isoformat()
+        return datetime.date(
+            int(m.group(3)), MON[m.group(1)[:3].lower()], int(m.group(2))
+        ).isoformat()
     m = D1.search(s)
     if m and m.group(2)[:3].lower() in MON:
-        return datetime.date(int(m.group(3)), MON[m.group(2)[:3].lower()], int(m.group(1))).isoformat()
+        return datetime.date(
+            int(m.group(3)), MON[m.group(2)[:3].lower()], int(m.group(1))
+        ).isoformat()
     return None
 
 
@@ -147,11 +160,17 @@ def parse(no, t, subject=""):
         if not has_code:
             words = list(ACT.findall(l))
             only_words = re.fullmatch(
-                r"(?i)[\s·•:]*(?:(?:exclusions?|drops?|deletions?|inclusions?|adds?|additions?)[\s:]*)+", l
+                r"(?i)[\s·•:]*(?:(?:exclusions?|drops?|deletions?|inclusions?|adds?|additions?)[\s:]*)+",
+                l,
             )
             if (
                 words
-                and (only_words or re.search(r"(?i)\b(INDICES|INDEX|CODE|EFFECTIVE|^DROPS?\b|^ADDS?\b|^Drop\b)", l))
+                and (
+                    only_words
+                    or re.search(
+                        r"(?i)\b(INDICES|INDEX|CODE|EFFECTIVE|^DROPS?\b|^ADDS?\b|^Drop\b)", l
+                    )
+                )
                 and len(l) < 80
             ):
                 c = []
@@ -164,7 +183,8 @@ def parse(no, t, subject=""):
                 if re.search(r"\bDROPS\b.*\bADDS\b", l.upper()) and not SME_NAME.search(l):
                     cols = ["drop", "add"]
         if SME_NAME.search(l) and not re.search(
-            r"(?i)announces|results for|reconstitution|notice|listed|platform|criteria|methodology|index is|please", l
+            r"(?i)announces|results for|reconstitution|notice|listed|platform|criteria|methodology|index is|please",
+            l,
         ):
             idx = "sme"
             mc = re.search(r"(?i)SME\s*IPO(?:\s*Index)?\s+(\d+)\s+(\d+)\s*$", l)
@@ -193,7 +213,9 @@ def parse(no, t, subject=""):
             ev += [(act_cols[0], codes[0], eff), (act_cols[1], codes[1], eff)]
         elif PLACE.match(rest):
             ev.append((act_cols[1], codes[0], eff))
-        elif re.search(r"(?i)(--|—|-\s+-|no\s+inclusion|no\s+exclusion)", rest[rest.find(codes[0]) + 6 :]):
+        elif re.search(
+            r"(?i)(--|—|-\s+-|no\s+inclusion|no\s+exclusion)", rest[rest.find(codes[0]) + 6 :]
+        ):
             ev.append((act_cols[0], codes[0], eff))
         else:
             flags.append("row-unclear: " + l[:120])
@@ -256,20 +278,26 @@ def main():
                 # the sentence's "effective at the open of" is the index date; a table row can carry the LISTING date
                 # (20250716-16 ASSTON: table 16-Jul = listing day, sentence 17-Jul) — the sentence wins, flagged
                 ev = [x for x in ev if not (x[0] == "add" and x[1] == c)] + [("add", c, e)]
-                flags.append(f"table/narrative date disagree {c} table={tab[c]} sentence={e} (sentence used)")
+                flags.append(
+                    f"table/narrative date disagree {c} table={tab[c]} sentence={e} (sentence used)"
+                )
         tabd = {c for a, c, e in ev if a == "drop"}
         for c, e in narrative_drops(t):
             if c not in tabd:
                 ev.append(("drop", c, e))
                 flags.append(f"narrative-only drop {c} {e}")
         for a, c, eff in ev:
-            out["events"].append({"notice": no, "notice_date": nd, "action": a, "code": c, "eff": eff})
+            out["events"].append(
+                {"notice": no, "notice_date": nd, "action": a, "code": c, "eff": eff}
+            )
         for fl in flags:
             (out["count_only"] if fl.startswith("count_only") else out["unparsed"]).append(
                 {"notice": no, "notice_date": nd, "subject": r.get("Subject"), "why": fl}
             )
         if not ev and not flags and re.search(r"(?i)SME\s*IPO", body(t)) and CODE.search(body(t)):
-            out["unparsed"].append({"notice": no, "notice_date": nd, "subject": r.get("Subject"), "why": "no events"})
+            out["unparsed"].append(
+                {"notice": no, "notice_date": nd, "subject": r.get("Subject"), "why": "no events"}
+            )
     dst = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else None
     s = json.dumps(out, indent=1)
     if dst:

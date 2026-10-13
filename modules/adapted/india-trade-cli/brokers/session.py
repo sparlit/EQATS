@@ -57,22 +57,18 @@ Usage:
 import contextlib
 import os
 import webbrowser
-from typing import TYPE_CHECKING, Optional
 
+# Lazy-import broker modules — their SDKs (kiteconnect, smartapi-python)
+# are optional and may not be installed.  Imported on first use in _get_broker_class().
+from config.credentials import get_credential
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-# Lazy-import broker modules — their SDKs (kiteconnect, smartapi-python)
-# are optional and may not be installed.  Imported on first use in _get_broker_class().
-from config.credentials import get_credential
-
+from .base import BrokerAPI
 from .mock import MockBrokerAPI
-
-if TYPE_CHECKING:
-    from .base import BrokerAPI
 
 console = Console()
 
@@ -134,7 +130,9 @@ _BROKER_MENU = [
 # ── Public accessors ──────────────────────────────────────────
 
 
-def register_broker(key: str, broker: BrokerAPI, *, primary: bool = False, role: str | None = None) -> None:
+def register_broker(
+    key: str, broker: BrokerAPI, *, primary: bool = False, role: str | None = None
+) -> None:
     """
     Register an externally-created broker instance.
 
@@ -185,8 +183,9 @@ def unregister_broker(key: str) -> None:
 def get_broker() -> BrokerAPI:
     """Return the primary broker. Raises if login() has not been called."""
     if not _primary_key or _primary_key not in _brokers:
-        msg = "No broker is connected. Run the 'login' command to connect your broker."
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            "No broker is connected. Run the 'login' command to connect your broker."
+        )
     return _brokers[_primary_key]
 
 
@@ -228,8 +227,7 @@ def set_broker_role(key: str, role: str) -> None:
     """
     global _data_key, _exec_key
     if role not in ("data", "execution", "both"):
-        msg = f"Invalid role {role!r}. Must be 'data', 'execution', or 'both'."
-        raise ValueError(msg)
+        raise ValueError(f"Invalid role {role!r}. Must be 'data', 'execution', or 'both'.")
     if role in ("data", "both"):
         _data_key = key
     elif _data_key == key:
@@ -318,7 +316,10 @@ def list_connected_brokers() -> None:
     # Footer: show the two independent routing pointers
     data_label = _data_key.title() if _data_key else "none"
     exec_label = _exec_key.title() if _exec_key else "none"
-    console.print(f"  [dim]Data:[/dim] [bold]{data_label}[/bold]  [dim]Execution:[/dim] [bold]{exec_label}[/bold]")
+    console.print(
+        f"  [dim]Data:[/dim] [bold]{data_label}[/bold]"
+        f"  [dim]Execution:[/dim] [bold]{exec_label}[/bold]"
+    )
     console.print()
 
 
@@ -369,14 +370,14 @@ def _make_broker(choice: str) -> tuple[str, BrokerAPI]:
         broker.complete_login()
         return key, broker
 
-    if key == "zerodha":
+    elif key == "zerodha":
         from .zerodha import ZerodhaAPI
 
         api_key = get_credential("KITE_API_KEY", "Zerodha API Key", secret=False)
         api_secret = get_credential("KITE_API_SECRET", "Zerodha API Secret", secret=True)
         return key, ZerodhaAPI(api_key=api_key, api_secret=api_secret)
 
-    if key == "groww":
+    elif key == "groww":
         from .groww import GrowwAPI
 
         client_id = get_credential("GROWW_CLIENT_ID", "Groww Client ID", secret=False)
@@ -388,13 +389,17 @@ def _make_broker(choice: str) -> tuple[str, BrokerAPI]:
             redirect_uri=redirect_uri,
         )
 
-    if key == "angelone":
+    elif key == "angelone":
         from .angelone import AngelOneAPI
 
         api_key = get_credential("ANGEL_API_KEY", "Angel One API Key", secret=False)
-        client_code = get_credential("ANGEL_CLIENT_CODE", "Angel One Client Code (Login ID)", secret=False)
+        client_code = get_credential(
+            "ANGEL_CLIENT_CODE", "Angel One Client Code (Login ID)", secret=False
+        )
         password = get_credential("ANGEL_PASSWORD", "Angel One Trading Password", secret=True)
-        totp_secret = get_credential("ANGEL_TOTP_SECRET", "Angel One TOTP Secret", secret=True, required=False)
+        totp_secret = get_credential(
+            "ANGEL_TOTP_SECRET", "Angel One TOTP Secret", secret=True, required=False
+        )
         return key, AngelOneAPI(
             api_key=api_key,
             client_code=client_code,
@@ -402,29 +407,31 @@ def _make_broker(choice: str) -> tuple[str, BrokerAPI]:
             totp_secret=totp_secret,
         )
 
-    if key == "upstox":
+    elif key == "upstox":
         from .upstox import UpstoxAPI
 
         api_key = get_credential("UPSTOX_API_KEY", "Upstox API Key", secret=False)
         api_secret = get_credential("UPSTOX_API_SECRET", "Upstox API Secret", secret=True)
-        redirect_uri = os.environ.get("UPSTOX_REDIRECT_URL", "http://localhost:8765/upstox/callback")
+        redirect_uri = os.environ.get(
+            "UPSTOX_REDIRECT_URL", "http://localhost:8765/upstox/callback"
+        )
         return key, UpstoxAPI(
             api_key=api_key,
             api_secret=api_secret,
             redirect_uri=redirect_uri,
         )
 
-    # fyers
-    from .fyers import FyersAPI
+    else:  # fyers
+        from .fyers import FyersAPI
 
-    app_id = get_credential("FYERS_APP_ID", "Fyers App ID", secret=False)
-    secret_key = get_credential("FYERS_SECRET_KEY", "Fyers Secret Key", secret=True)
-    redirect_uri = os.environ.get("FYERS_REDIRECT_URL", "http://127.0.0.1:8765/fyers/callback")
-    return key, FyersAPI(
-        app_id=app_id,
-        secret_key=secret_key,
-        redirect_uri=redirect_uri,
-    )
+        app_id = get_credential("FYERS_APP_ID", "Fyers App ID", secret=False)
+        secret_key = get_credential("FYERS_SECRET_KEY", "Fyers Secret Key", secret=True)
+        redirect_uri = os.environ.get("FYERS_REDIRECT_URL", "http://127.0.0.1:8765/fyers/callback")
+        return key, FyersAPI(
+            app_id=app_id,
+            secret_key=secret_key,
+            redirect_uri=redirect_uri,
+        )
 
 
 def _is_sidecar_running(port: int) -> bool:
@@ -543,7 +550,8 @@ def _oauth_local_server(
     threading.Thread(target=_serve, daemon=True).start()
 
     try:
-        return result.get(timeout=timeout)
+        values = result.get(timeout=timeout)
+        return values
     except queue.Empty:
         _done.set()  # stop the server loop
         return None
@@ -637,7 +645,7 @@ def _do_auth(key: str, broker: BrokerAPI) -> BrokerAPI:
             console.print("[yellow]  Token file not found — try again.[/yellow]")
             return broker
         return new_broker
-    if captured:
+    elif captured:
         # ── Auto-captured ─────────────────────────────────────────
         console.print("[dim]  Auth code received automatically.[/dim]")
         if key == "fyers":
@@ -653,11 +661,15 @@ def _do_auth(key: str, broker: BrokerAPI) -> BrokerAPI:
             "[dim]  Copy it from your browser's address bar:[/dim]"
         )
         if key == "fyers":
-            console.print("[dim]  http://127.0.0.1:8765/fyers/callback?[bold]auth_code=XXXXXX[/bold][/dim]\n")
+            console.print(
+                "[dim]  http://127.0.0.1:8765/fyers/callback?[bold]auth_code=XXXXXX[/bold][/dim]\n"
+            )
             code = Prompt.ask("[bold]Paste the [cyan]auth_code[/cyan] here[/bold]")
             broker.complete_login(auth_code=code)
         elif key == "zerodha":
-            console.print("[dim]  http://localhost:8765/...?[bold]request_token=XXXXXX[/bold]&status=success[/dim]\n")
+            console.print(
+                "[dim]  http://localhost:8765/...?[bold]request_token=XXXXXX[/bold]&status=success[/dim]\n"
+            )
             token = Prompt.ask("[bold]Paste the [cyan]request_token[/cyan] here[/bold]")
             broker.complete_login(request_token=token)
         else:
@@ -780,7 +792,10 @@ def login(choice: str | None = None) -> BrokerAPI:
         threading.Thread(target=_start_websocket, args=(broker,), daemon=True).start()
 
     if len(_brokers) > 1:
-        console.print(f"[dim]  {len(_brokers)} brokers now connected. Type [bold]brokers[/bold] to see all.[/dim]")
+        console.print(
+            f"[dim]  {len(_brokers)} brokers now connected. "
+            f"Type [bold]brokers[/bold] to see all.[/dim]"
+        )
     return broker
 
 
@@ -817,7 +832,10 @@ def connect_broker(choice: str | None = None) -> BrokerAPI:
     key, broker = _make_broker(choice)
 
     if key in _brokers:
-        console.print(f"[yellow]{key.title()} is already connected. Reconnecting with a fresh session…[/yellow]")
+        console.print(
+            f"[yellow]{key.title()} is already connected. "
+            f"Reconnecting with a fresh session…[/yellow]"
+        )
 
     if key != "mock":
         if broker.is_authenticated():
@@ -848,7 +866,9 @@ def disconnect_broker(choice: str | None = None) -> None:
 
     secondary = {k: v for k, v in _brokers.items() if k != _primary_key}
     if not secondary:
-        console.print("[dim]Only the primary broker is connected. Use 'logout' to disconnect it.[/dim]")
+        console.print(
+            "[dim]Only the primary broker is connected. Use 'logout' to disconnect it.[/dim]"
+        )
         return
 
     if choice is None:

@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_string_to_base16():
@@ -46,9 +46,14 @@ def test_string_to_base16():
     )
     result1 = exchange.string_to_base16("hello")
     expected1 = "0x68656c6c6f"
-    assert result1 == expected1, 'stringToBase16 failed for "hello", expected: ' + expected1 + ", got: " + result1
+    assert result1 == expected1, (
+        'stringToBase16 failed for "hello", expected: ' + expected1 + ", got: " + result1
+    )
     result2 = exchange.string_to_base16("world 1!@#$%^&*()")
     expected2 = "0x776f726c64203121402324255e262a2829"
     assert result2 == expected2, (
-        'stringToBase16 failed for "world 1!@#$%^&*()", expected: ' + expected2 + ", got: " + result2
+        'stringToBase16 failed for "world 1!@#$%^&*()", expected: '
+        + expected2
+        + ", got: "
+        + result2
     )

@@ -87,7 +87,9 @@ def load_json(name, default=None):
 
 # ---------- symbol <-> BSE scrip-code resolution ----------
 
-NAME_STOP = re.compile(r"\b(LIMITED|LTD|PRIVATE|PVT|COMPANY|COMPANIES|CO|CORPORATION|CORP|INDIA|INDUSTRIES|IND)\b\.?")
+NAME_STOP = re.compile(
+    r"\b(LIMITED|LTD|PRIVATE|PVT|COMPANY|COMPANIES|CO|CORPORATION|CORP|INDIA|INDUSTRIES|IND)\b\.?"
+)
 PUNCT = re.compile(r"[^A-Z0-9]+")
 
 
@@ -269,7 +271,9 @@ def main():
 
     # 3) resolve a BSE scrip code for every symbol that actually has an open cell
     symbols = sorted({g["sym"] for g in gaps})
-    code_of, method_of, chain_of, new_extra = resolve_codes(symbols, rmap, byid, scrip_extra, master)
+    code_of, method_of, chain_of, new_extra = resolve_codes(
+        symbols, rmap, byid, scrip_extra, master
+    )
 
     for g in gaps:
         sym = g["sym"]
@@ -283,7 +287,10 @@ def main():
     if new_extra:
         scrip_extra.update(new_extra)
         json.dump(
-            scrip_extra, open(os.path.join(HERE, "_scrip_extra.json"), "w", encoding="utf8"), indent=1, sort_keys=True
+            scrip_extra,
+            open(os.path.join(HERE, "_scrip_extra.json"), "w", encoding="utf8"),
+            indent=1,
+            sort_keys=True,
         )
 
     # ---- reachability / sanity report ----
@@ -293,10 +300,14 @@ def main():
     print(
         "OPEN gap cells:",
         len(gaps),
-        "  [of which %d already have std PAT and only need rev -- dual-form gaps]" % stored_pat_only,
+        "  [of which %d already have std PAT and only need rev -- dual-form gaps]"
+        % stored_pat_only,
     )
     pat_missing = sum(1 for g in gaps if "pat" in g["need"])
-    print("  PAT still missing (comparable to the campaign doc's 707/26,022/~25,300 baseline):", pat_missing)
+    print(
+        "  PAT still missing (comparable to the campaign doc's 707/26,022/~25,300 baseline):",
+        pat_missing,
+    )
     print()
     print("Ever-members per era (sanity check vs doc's 708 / 552 / 566):")
     for era in ("2008-14", "2005-07", "2002-04"):
@@ -311,7 +322,12 @@ def main():
             by_method[method_of[s]] = by_method.get(method_of[s], 0) + 1
         print(
             "  %s: %d/%d resolved  (%s)"
-            % (era, len(resolved), len(era_syms), ", ".join("%s=%d" % kv for kv in sorted(by_method.items())) or "-")
+            % (
+                era,
+                len(resolved),
+                len(era_syms),
+                ", ".join("%s=%d" % kv for kv in sorted(by_method.items())) or "-",
+            )
         )
     print()
     for era in ("2008-14", "2005-07", "2002-04"):
@@ -321,7 +337,10 @@ def main():
             print("  %s UNRESOLVED (%d): %s" % (era, len(unresolved), ", ".join(unresolved)))
     if new_extra:
         print()
-        print("New BSE codes folded into _scrip_extra.json: %d (%s)" % (len(new_extra), ", ".join(sorted(new_extra))))
+        print(
+            "New BSE codes folded into _scrip_extra.json: %d (%s)"
+            % (len(new_extra), ", ".join(sorted(new_extra)))
+        )
 
 
 if __name__ == "__main__":

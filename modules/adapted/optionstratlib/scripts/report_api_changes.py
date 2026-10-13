@@ -77,11 +77,11 @@ FIXTURES = ROOT / "tests" / "fixtures" / "semver-reports"
 
 
 # Report grammar of the pinned version.
-FAILURE_RE = re.compile(r"^--- failure ([a-z0-9_]+): ", re.MULTILINE)
-CHECKED_RE = re.compile(r"^\s*Checked \[[^\]]*\] (\d+) checks: (\d+) pass(?:, (\d+) fail)?", re.MULTILINE)
-SUMMARY_RE = re.compile(r"^\s*Summary ", re.MULTILINE)
+FAILURE_RE = re.compile(r"^--- failure ([a-z0-9_]+): ", re.M)
+CHECKED_RE = re.compile(r"^\s*Checked \[[^\]]*\] (\d+) checks: (\d+) pass(?:, (\d+) fail)?", re.M)
+SUMMARY_RE = re.compile(r"^\s*Summary ", re.M)
 IMPL_VERSION_RE = re.compile(r"cargo-semver-checks/tree/v([0-9.]+)/")
-TRUNCATION_RE = re.compile(r"^\s*(\.\.\.|and \d+ more|\[truncated\])", re.MULTILINE)
+TRUNCATION_RE = re.compile(r"^\s*(\.\.\.|and \d+ more|\[truncated\])", re.M)
 ANSI_ESCAPE_RE = re.compile(
     r"\x1B(?:"
     r"\[[0-?]*[ -/]*[@-~]"  # CSI
@@ -115,44 +115,46 @@ def known_lints(path: Path = LINTS) -> set[str]:
     could never reject an unknown one. Regenerate with
     `cargo semver-checks --list` when the pinned version changes.
     """
-    lints = {line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")}
+    lints = {
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    }
     if not lints:
-        msg = f"lint inventory {path} is empty"
-        raise ReportError(msg)
+        raise ReportError(f"lint inventory {path} is empty")
     return lints
 
 
 def parse_report(text: str, returncode: int, tool: str, lints: set[str]) -> set[tuple[str, str]]:
     """`(lint, item)` pairs, or raise. Never returns an empty set on doubt."""
     if returncode not in (0, 100):
-        msg = f"cargo-semver-checks exited {returncode}, report not usable:\n{text[-800:]}"
-        raise ReportError(msg)
+        raise ReportError(
+            f"cargo-semver-checks exited {returncode}, report not usable:\n{text[-800:]}"
+        )
     text = ANSI_ESCAPE_RE.sub("", text)
     checked = CHECKED_RE.search(text)
     if checked is None or not SUMMARY_RE.search(text):
-        msg = "incomplete or unrecognised report: no `Checked`/`Summary` line"
-        raise ReportError(msg)
+        raise ReportError("incomplete or unrecognised report: no `Checked`/`Summary` line")
     version = IMPL_VERSION_RE.search(text)
     if version is not None and f"cargo-semver-checks {version.group(1)}" != tool:
-        msg = f"report came from cargo-semver-checks {version.group(1)}, register pins {tool!r}"
-        raise ReportError(msg)
+        raise ReportError(
+            f"report came from cargo-semver-checks {version.group(1)}, register pins {tool!r}"
+        )
     if TRUNCATION_RE.search(text):
-        msg = "report contains a truncation marker; the finding list is not complete"
-        raise ReportError(msg)
+        raise ReportError("report contains a truncation marker; the finding list is not complete")
     expected_failures = int(checked.group(3) or 0)
     blocks = list(FAILURE_RE.finditer(text))
     if returncode == 0 and blocks:
-        msg = "report exited successfully but still contains failure blocks"
-        raise ReportError(msg)
+        raise ReportError("report exited successfully but still contains failure blocks")
     if len(blocks) != expected_failures:
-        msg = f"report announces {expected_failures} failing checks but contains {len(blocks)} failure blocks"
-        raise ReportError(msg)
+        raise ReportError(
+            f"report announces {expected_failures} failing checks but contains {len(blocks)} failure blocks"
+        )
     findings: set[tuple[str, str]] = set()
     for index, block in enumerate(blocks):
         lint = block.group(1)
         if lints and lint not in lints:
-            msg = f"unknown lint {lint!r}; the register cannot have approved it"
-            raise ReportError(msg)
+            raise ReportError(f"unknown lint {lint!r}; the register cannot have approved it")
         end = blocks[index + 1].start() if index + 1 < len(blocks) else len(text)
         body = text[block.end() : end]
         # The trailing `Summary`/`Finished` lines are indented too, so the
@@ -162,8 +164,7 @@ def parse_report(text: str, returncode: int, tool: str, lints: set[str]) -> set[
             body = body[: summary.start()]
         failed_in = body.split("Failed in:", 1)
         if len(failed_in) != 2:
-            msg = f"failure block for {lint!r} has no `Failed in:` list"
-            raise ReportError(msg)
+            raise ReportError(f"failure block for {lint!r} has no `Failed in:` list")
         items = 0
         for line in failed_in[1].splitlines():
             if not line.strip():
@@ -172,27 +173,27 @@ def parse_report(text: str, returncode: int, tool: str, lints: set[str]) -> set[
             if ITEM_RE.match(line):
                 item = LOCATION_RE.sub("", line.strip()).strip()
                 if not item:
-                    msg = f"failure block for {lint!r} has an item line with no item: {line!r}"
-                    raise ReportError(msg)
+                    raise ReportError(
+                        f"failure block for {lint!r} has an item line with no item: {line!r}"
+                    )
                 findings.add((lint, item))
                 items += 1
                 continue
             if PROGRESS_RE.match(line) or not line.startswith(" "):
                 # Cargo's own progress output, or the next section.
                 break
-            msg = f"failure block for {lint!r} has an unrecognised line: {line!r}"
-            raise ReportError(msg)
+            raise ReportError(f"failure block for {lint!r} has an unrecognised line: {line!r}")
         if items == 0:
-            msg = f"failure block for {lint!r} lists no item"
-            raise ReportError(msg)
+            raise ReportError(f"failure block for {lint!r} lists no item")
     if expected_failures and not findings:
-        msg = "report announces failures but no item could be parsed"
-        raise ReportError(msg)
+        raise ReportError("report announces failures but no item could be parsed")
     return findings
 
 
 def git(*args: str, cwd: Path = ROOT) -> str:
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 def assert_synthetic(base_sha: str, head_sha: str, cwd: Path = ROOT) -> str:
@@ -203,12 +204,11 @@ def assert_synthetic(base_sha: str, head_sha: str, cwd: Path = ROOT) -> str:
     """
     first, second = git("rev-parse", "HEAD^1", cwd=cwd), git("rev-parse", "HEAD^2", cwd=cwd)
     if first != base_sha or second != head_sha:
-        msg = (
+        raise ReportError(
             "the checked-out merge commit does not match the event: "
             f"HEAD^1={first[:12]} (base.sha={base_sha[:12]}), HEAD^2={second[:12]} (head.sha={head_sha[:12]}); "
             "re-run the job on a fresh merge"
         )
-        raise ReportError(msg)
     return first
 
 
@@ -242,7 +242,9 @@ def semver_command(baseline: str, surface: dict) -> list[str]:
 
 
 def run_semver(baseline: str, surface: dict, cwd: Path = ROOT) -> tuple[str, int]:
-    done = subprocess.run(semver_command(baseline, surface), cwd=cwd, capture_output=True, text=True, check=False)
+    done = subprocess.run(
+        semver_command(baseline, surface), cwd=cwd, capture_output=True, text=True, check=False
+    )
     return done.stdout + done.stderr, done.returncode
 
 
@@ -272,8 +274,16 @@ def self_test() -> int:
         text = (FIXTURES / fixture).read_text()
         try:
             got: object = parse_report(text, code, tool, lints)
-            ok = (isinstance(want, set) and got == want) or (isinstance(want, int) and len(got) == want)
-            detail = f"{len(got)} findings" if not isinstance(want, type) else "parsed (expected a failure)"
+            ok = (
+                isinstance(want, set)
+                and got == want
+                or (isinstance(want, int) and len(got) == want)
+            )
+            detail = (
+                f"{len(got)} findings"
+                if not isinstance(want, type)
+                else "parsed (expected a failure)"
+            )
         except ReportError as error:
             ok = want is ReportError
             detail = str(error).splitlines()[0][:70]
@@ -282,7 +292,10 @@ def self_test() -> int:
         print(f"self-test {'ok' if ok else 'FAIL'}: {name} -> {detail}")
     # Two changes on one type are two findings, keyed by (lint, item).
     pairs = parse_report((FIXTURES / "breaks.txt").read_text(), 100, tool, lints)
-    ok = {("enum_marked_non_exhaustive", "enum E"), ("enum_variant_missing", "variant E::B")} <= pairs
+    ok = {
+        ("enum_marked_non_exhaustive", "enum E"),
+        ("enum_variant_missing", "variant E::B"),
+    } <= pairs
     failures += 0 if ok else 1
     print(f"self-test {'ok' if ok else 'FAIL'}: two changes on one type are two findings")
     # The same item under two lints stays two findings.
@@ -291,13 +304,17 @@ def self_test() -> int:
     same = {lint for lint, item in both if item == "struct probe::TwiceAlias"}
     ok = len(same) == 2
     failures += 0 if ok else 1
-    print(f"self-test {'ok' if ok else 'FAIL'}: one item under two lints is two findings ({sorted(same)})")
+    print(
+        f"self-test {'ok' if ok else 'FAIL'}: one item under two lints is two findings ({sorted(same)})"
+    )
     # The executed command must carry the release-type override, or the
     # manifest version decides which lints run at all.
     command = semver_command("abc1234", SURFACES["default"])
     ok = command[command.index("--release-type") + 1] == "patch" and "--baseline-rev" in command
     failures += 0 if ok else 1
-    print(f"self-test {'ok' if ok else 'FAIL'}: the command forces --release-type patch ({' '.join(command[2:])})")
+    print(
+        f"self-test {'ok' if ok else 'FAIL'}: the command forces --release-type patch ({' '.join(command[2:])})"
+    )
     # `good` must parse to nothing at all.
     ok = parse_report(good, 0, tool, lints) == set()
     failures += 0 if ok else 1
@@ -330,13 +347,23 @@ TOOL = "cargo-semver-checks 0.50.0"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--surface", choices=sorted(SURFACES))
-    parser.add_argument("--baseline", help="the revision to compare against; on a pull request, its base")
-    parser.add_argument("--base-sha", help="pull request base.sha, to pin the synthetic merge commit")
-    parser.add_argument("--head-sha", help="pull request head.sha, to pin the synthetic merge commit")
-    parser.add_argument("--root", type=Path, default=ROOT, help="crate root to run the comparison in")
+    parser.add_argument(
+        "--baseline", help="the revision to compare against; on a pull request, its base"
+    )
+    parser.add_argument(
+        "--base-sha", help="pull request base.sha, to pin the synthetic merge commit"
+    )
+    parser.add_argument(
+        "--head-sha", help="pull request head.sha, to pin the synthetic merge commit"
+    )
+    parser.add_argument(
+        "--root", type=Path, default=ROOT, help="crate root to run the comparison in"
+    )
     args = parser.parse_args()
     if args.self_test:
         return self_test()
@@ -358,7 +385,9 @@ def main() -> int:
             f"against {args.baseline[:12]} (additions are shown by the public-api snapshot diff)"
         )
         return 0
-    print(f"api-changes: {args.surface} against {args.baseline[:12]}, {len(found)} item(s) for review")
+    print(
+        f"api-changes: {args.surface} against {args.baseline[:12]}, {len(found)} item(s) for review"
+    )
     for lint, item in sorted(found):
         print(f"  {lint}: {item}")
     return 0

@@ -55,9 +55,9 @@ Available commands:
 
 
 import contextlib
-from typing import TYPE_CHECKING
 
 from agent.core import ALL_PROVIDERS, get_agent
+from brokers.base import BrokerAPI
 from brokers.session import (
     connect_broker,
     disconnect_broker,
@@ -77,9 +77,6 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.table import Table
-
-if TYPE_CHECKING:
-    from brokers.base import BrokerAPI
 
 console = Console()
 
@@ -330,7 +327,7 @@ def cmd_quote(symbols: list[str]) -> None:
         upper = sym.upper()
         if ":" in upper:
             instruments.append(upper)
-        elif upper.endswith(("-INDEX", "-EQ")):
+        elif upper.endswith("-INDEX") or upper.endswith("-EQ"):
             instruments.append(f"NSE:{upper}")
         else:
             instruments.append(f"NSE:{upper}-EQ")
@@ -600,7 +597,8 @@ def _cmd_toggle_paper(args: list[str] | None = None) -> None:
         )
     else:
         console.print(
-            "\n[bold green]✓  Switched to PAPER mode.[/bold green]\n  Orders will simulate fills without real money.\n"
+            "\n[bold green]✓  Switched to PAPER mode.[/bold green]\n"
+            "  Orders will simulate fills without real money.\n"
         )
 
 
@@ -618,7 +616,9 @@ def _cmd_web(port: int = 8765) -> None:
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]uvicorn not installed.[/red]  Run: [bold]pip install uvicorn[standard][/bold]")
+        console.print(
+            "[red]uvicorn not installed.[/red]  Run: [bold]pip install uvicorn[standard][/bold]"
+        )
         return
 
     url = f"http://localhost:{port}"
@@ -872,7 +872,9 @@ def _handle_backtest_command(args: list[str]) -> None:
             report_path = generate_html_report([result])
             console.print(f"\n[green]HTML report saved:[/green] {report_path}")
         if wants_pdf or wants_explain:
-            handle_output_flags(_bt_summary, f"Backtest {symbol} {strategy_name}", wants_pdf, wants_explain)
+            handle_output_flags(
+                _bt_summary, f"Backtest {symbol} {strategy_name}", wants_pdf, wants_explain
+            )
     except Exception as e:
         console.print(f"[red]Backtest failed:[/red] {e}")
         console.print(
@@ -958,7 +960,9 @@ def _handle_memory_command(args: list[str]) -> None:
         try:
             from agent.core import ToolRegistry, get_deep_provider, get_fast_provider
 
-            llm_provider = get_fast_provider(ToolRegistry(), deep_provider=get_deep_provider(ToolRegistry()))
+            llm_provider = get_fast_provider(
+                ToolRegistry(), deep_provider=get_deep_provider(ToolRegistry())
+            )
         except Exception:
             pass
         console.print(f"[dim]Reflecting on trade {trade_id}...[/dim]")
@@ -1024,7 +1028,8 @@ def _handle_patterns_command() -> None:
         }.get(p.impact, "white")
 
         console.print(
-            f"  [{impact_style}]{p.impact:9s}[/{impact_style}] [bold]{p.name}[/bold] (confidence: {p.confidence}%)"
+            f"  [{impact_style}]{p.impact:9s}[/{impact_style}] "
+            f"[bold]{p.name}[/bold] (confidence: {p.confidence}%)"
         )
         console.print(f"             {p.description[:100]}")
         console.print(f"             [cyan]Action:[/cyan] {p.action}")
@@ -1053,7 +1058,9 @@ def _handle_alert_command(args: list[str]) -> None:
         args = args[1:]
 
     # Map operator aliases: > → above, < → below, >= → above, <= → below
-    args = ["above" if a in {">", ">="} else "below" if a in {"<", "<="} else a for a in args]
+    args = [
+        "above" if a == ">" or a == ">=" else "below" if a == "<" or a == "<=" else a for a in args
+    ]
 
     if args[0].lower() == "remove" and len(args) >= 2:
         removed = alert_manager.remove_alert(args[1])
@@ -1104,7 +1111,9 @@ def _handle_alert_command(args: list[str]) -> None:
                     {
                         "condition_type": "PRICE",
                         "condition": cond,
-                        "threshold": float(tokens[1] if tokens[0] in ("ABOVE", "BELOW") else tokens[-1]),
+                        "threshold": float(
+                            tokens[1] if tokens[0] in ("ABOVE", "BELOW") else tokens[-1]
+                        ),
                     }
                 )
 
@@ -1145,7 +1154,10 @@ def _handle_alert_command(args: list[str]) -> None:
             return
         alert = alert_manager.add_price_alert(symbol, condition, threshold)
 
-    console.print(f"[green]✓ Alert created:[/green] [bold]{alert.describe()}[/bold]  [dim](ID: {alert.id})[/dim]")
+    console.print(
+        f"[green]✓ Alert created:[/green] [bold]{alert.describe()}[/bold]"
+        f"  [dim](ID: {alert.id})[/dim]"
+    )
 
 
 # ── Main REPL loop ────────────────────────────────────────────
@@ -1171,7 +1183,9 @@ def run_repl(broker: BrokerAPI) -> None:
 
     console.print("\n[dim]Type [bold]help[/bold] for commands, [bold]quit[/bold] to exit.[/dim]")
     if is_multi_broker():
-        console.print("[dim]Multiple brokers connected. Use [bold]portfolio[/bold] for combined view.[/dim]")
+        console.print(
+            "[dim]Multiple brokers connected. Use [bold]portfolio[/bold] for combined view.[/dim]"
+        )
     console.print()
 
     # Auto-discover and register skill plugins from skills/ directory (#187)
@@ -1226,7 +1240,9 @@ def run_repl(broker: BrokerAPI) -> None:
 
     while True:
         try:
-            raw = session.prompt(_build_prompt, bottom_toolbar=_build_toolbar, refresh_interval=1.0).strip()
+            raw = session.prompt(
+                _build_prompt, bottom_toolbar=_build_toolbar, refresh_interval=1.0
+            ).strip()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[yellow]Use 'quit' to exit.[/yellow]")
             continue
@@ -1318,7 +1334,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     cmd_holdings(broker)
                 except Exception as e:
                     console.print(f"[red]Holdings fetch failed:[/red] {e}")
-                    console.print("[dim]Your broker session may have expired. Try: logout → login[/dim]")
+                    console.print(
+                        "[dim]Your broker session may have expired. Try: logout → login[/dim]"
+                    )
 
             elif command == "positions":
                 _warn_if_mock(broker)
@@ -1326,7 +1344,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     cmd_positions(broker)
                 except Exception as e:
                     console.print(f"[red]Positions fetch failed:[/red] {e}")
-                    console.print("[dim]Your broker session may have expired. Try: logout → login[/dim]")
+                    console.print(
+                        "[dim]Your broker session may have expired. Try: logout → login[/dim]"
+                    )
 
             elif command == "orders":
                 _warn_if_mock(broker)
@@ -1334,7 +1354,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     cmd_orders(broker)
                 except Exception as e:
                     console.print(f"[red]Orders fetch failed:[/red] {e}")
-                    console.print("[dim]Your broker session may have expired. Try: logout → login[/dim]")
+                    console.print(
+                        "[dim]Your broker session may have expired. Try: logout → login[/dim]"
+                    )
 
             elif command == "quote":
                 if not args:
@@ -1377,7 +1399,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     _cmd_portfolio(get_multi_broker_summary())
                 except Exception as e:
                     console.print(f"[red]Portfolio fetch failed:[/red] {e}")
-                    console.print("[dim]One or more broker sessions may have expired. Try: logout → login[/dim]")
+                    console.print(
+                        "[dim]One or more broker sessions may have expired. Try: logout → login[/dim]"
+                    )
 
             # ── AI-powered commands ───────────────────────────
             elif command == "morning-brief":
@@ -1553,7 +1577,11 @@ def run_repl(broker: BrokerAPI) -> None:
                 from engine.portfolio import get_position_greeks
 
                 pg = get_position_greeks()
-                target = float(args[0]) if args and args[0].replace("-", "").replace("+", "").isdigit() else 0.0
+                target = (
+                    float(args[0])
+                    if args and args[0].replace("-", "").replace("+", "").isdigit()
+                    else 0.0
+                )
                 suggestion = compute_delta_hedge(pg.net_delta, target_delta=target)
                 print_delta_hedge(suggestion)
 
@@ -1751,7 +1779,9 @@ def run_repl(broker: BrokerAPI) -> None:
                         if result.error:
                             console.print(f"  [red]Error:[/red] {result.error}")
                         else:
-                            v_style = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(result.verdict, "white")
+                            v_style = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(
+                                result.verdict, "white"
+                            )
                             console.print(
                                 f"\n  [bold]{result.symbol}[/bold] · "
                                 f"[{v_style}]{result.verdict}[/{v_style}] "
@@ -1781,7 +1811,9 @@ def run_repl(broker: BrokerAPI) -> None:
 
                         for sym in symbols:
                             result = scanner.scan(sym)
-                            v_style = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(result.verdict, "white")
+                            v_style = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(
+                                result.verdict, "white"
+                            )
                             table.add_row(
                                 result.symbol,
                                 f"₹{result.ltp:,.0f}" if result.ltp else "-",
@@ -1804,16 +1836,19 @@ def run_repl(broker: BrokerAPI) -> None:
                         run_setup_wizard()
                     except Exception as e:
                         console.print(f"[red]Telegram setup failed:[/red] {e}")
-                        console.print("[dim]Make sure you have a bot token from @BotFather on Telegram.[/dim]")
+                        console.print(
+                            "[dim]Make sure you have a bot token from @BotFather on Telegram.[/dim]"
+                        )
                         console.print("[dim]Run: credentials set TELEGRAM_BOT_TOKEN[/dim]")
                     continue
 
                 # ── telegram — start bot in background ───────
                 try:
-                    import telegram as _tg_check
+                    import telegram as _tg_check  # noqa: F401
                 except ImportError:
                     console.print(
-                        "[red]python-telegram-bot not installed.[/red]\n[dim]Run: pip install python-telegram-bot[/dim]"
+                        "[red]python-telegram-bot not installed.[/red]\n"
+                        "[dim]Run: pip install python-telegram-bot[/dim]"
                     )
                     continue
 
@@ -1823,7 +1858,8 @@ def run_repl(broker: BrokerAPI) -> None:
                     _get_bot_token()
                 except RuntimeError as e:
                     console.print(
-                        f"[red]{e}[/red]\n[dim]Run [bold]telegram setup[/bold] for step-by-step guided setup.[/dim]"
+                        f"[red]{e}[/red]\n"
+                        "[dim]Run [bold]telegram setup[/bold] for step-by-step guided setup.[/dim]"
                     )
                     continue
 
@@ -1846,12 +1882,16 @@ def run_repl(broker: BrokerAPI) -> None:
                         )
                 except Exception as e:
                     console.print(f"[red]Telegram bot failed:[/red] {e}")
-                    console.print("[dim]Run 'telegram setup' for guided configuration, or check your bot token.[/dim]")
+                    console.print(
+                        "[dim]Run 'telegram setup' for guided configuration, or check your bot token.[/dim]"
+                    )
 
             # ── Trade execution (live or paper, auto-detected) ───
             elif command in ("execute", "paper-execute"):
                 if not _last_trade_plans:
-                    console.print("[dim]No trade plans available. Run 'analyze <SYMBOL>' first.[/dim]")
+                    console.print(
+                        "[dim]No trade plans available. Run 'analyze <SYMBOL>' first.[/dim]"
+                    )
                 else:
                     profile_name = args[0].lower() if args else "neutral"
                     if profile_name not in ("aggressive", "neutral", "conservative"):
@@ -1863,7 +1903,9 @@ def run_repl(broker: BrokerAPI) -> None:
 
                             execute_trade_plan(plan, broker)
                         else:
-                            console.print(f"[dim]No {profile_name} plan available (verdict may be HOLD).[/dim]")
+                            console.print(
+                                f"[dim]No {profile_name} plan available (verdict may be HOLD).[/dim]"
+                            )
 
             # ── Exports management ────────────────────────────────
             elif command == "exports":
@@ -1908,12 +1950,16 @@ def run_repl(broker: BrokerAPI) -> None:
                         for ex in exports:
                             total_kb += ex["size_kb"]
                             size_str = (
-                                f"{ex['size_kb']:.0f} KB" if ex["size_kb"] < 1024 else f"{ex['size_kb'] / 1024:.1f} MB"
+                                f"{ex['size_kb']:.0f} KB"
+                                if ex["size_kb"] < 1024
+                                else f"{ex['size_kb'] / 1024:.1f} MB"
                             )
                             date_str = ex["modified"].strftime("%d %b %Y, %I:%M %p")
                             tbl.add_row(ex["name"], size_str, date_str)
 
-                        total_str = f"{total_kb:.0f} KB" if total_kb < 1024 else f"{total_kb / 1024:.1f} MB"
+                        total_str = (
+                            f"{total_kb:.0f} KB" if total_kb < 1024 else f"{total_kb / 1024:.1f} MB"
+                        )
                         tbl.caption = f"{len(exports)} files | {total_str} total | ~/.trading_platform/exports/"
                         console.print(tbl)
 
@@ -2144,19 +2190,24 @@ def run_repl(broker: BrokerAPI) -> None:
                         _open = [
                             o
                             for o in _orders
-                            if o.status.upper() in ("OPEN", "PENDING", "TRIGGER PENDING", "OPEN PENDING")
+                            if o.status.upper()
+                            in ("OPEN", "PENDING", "TRIGGER PENDING", "OPEN PENDING")
                         ]
                         if not _open:
                             console.print("[dim]No open orders to cancel.[/dim]")
                         elif args and args[0].lower() == "all":
                             from rich.prompt import Confirm as _Confirm
 
-                            console.print(f"  [yellow]Cancel all {len(_open)} open orders?[/yellow]")
+                            console.print(
+                                f"  [yellow]Cancel all {len(_open)} open orders?[/yellow]"
+                            )
                             if _Confirm.ask("  Confirm?", default=False):
                                 for _o in _open:
                                     try:
                                         _exec_broker.cancel_order(_o.order_id)
-                                        console.print(f"  [green]✓[/green] Cancelled {_o.symbol} {_o.order_id}")
+                                        console.print(
+                                            f"  [green]✓[/green] Cancelled {_o.symbol} {_o.order_id}"
+                                        )
                                     except Exception as _e:
                                         console.print(f"  [red]✗[/red] Failed {_o.order_id}: {_e}")
                         elif args:
@@ -2192,7 +2243,9 @@ def run_repl(broker: BrokerAPI) -> None:
                                     _idx = int(_pick) - 1
                                     _o = _open[_idx]
                                     _exec_broker.cancel_order(_o.order_id)
-                                    console.print(f"  [green]✓ Cancelled {_o.symbol} {_o.order_id}[/green]")
+                                    console.print(
+                                        f"  [green]✓ Cancelled {_o.symbol} {_o.order_id}[/green]"
+                                    )
                                 except (ValueError, IndexError):
                                     console.print("[red]Invalid selection.[/red]")
                                 except Exception as _e:
@@ -2209,8 +2262,12 @@ def run_repl(broker: BrokerAPI) -> None:
                     console.print(f"[dim]Usage: {command} SYMBOL QTY [LIMIT_PRICE][/dim]")
                     console.print(f"[dim]  {command} YESBANK 1 15   → limit order at ₹15[/dim]")
                     console.print(f"[dim]  {command} YESBANK 1      → market order[/dim]")
-                    console.print(f"[dim]  {command} INFY 5%        → 5% of capital at market[/dim]")
-                    console.print(f"[dim]  {command} INFY 5% 1400   → 5% of capital, limit ₹1400[/dim]")
+                    console.print(
+                        f"[dim]  {command} INFY 5%        → 5% of capital at market[/dim]"
+                    )
+                    console.print(
+                        f"[dim]  {command} INFY 5% 1400   → 5% of capital, limit ₹1400[/dim]"
+                    )
                 elif not broker:
                     console.print("[red]No broker connected. Run: broker connect[/red]")
                 else:
@@ -2250,7 +2307,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     from rich.prompt import Confirm as _Confirm
 
                     if _mode == "LIVE":
-                        console.print("  [red]⚠  This will place a REAL order with real money.[/red]")
+                        console.print(
+                            "  [red]⚠  This will place a REAL order with real money.[/red]"
+                        )
                     if _Confirm.ask("  Confirm?", default=False):
                         try:
                             from brokers.base import OrderRequest as _OR
@@ -2273,7 +2332,9 @@ def run_repl(broker: BrokerAPI) -> None:
                                 if _resp.message:
                                     console.print(f"    {_resp.message}")
                             else:
-                                console.print(f"  [red]✗ Order {_resp.status}:[/red] {_resp.message}")
+                                console.print(
+                                    f"  [red]✗ Order {_resp.status}:[/red] {_resp.message}"
+                                )
                         except Exception as e:
                             console.print(f"  [red]Order error:[/red] {e}")
                     else:
@@ -2290,7 +2351,9 @@ def run_repl(broker: BrokerAPI) -> None:
                     console.print("\n[dim]Trade cancelled.[/dim]")
                 except Exception as e:
                     console.print(f"[red]Trade builder error:[/red] {e}")
-                    console.print("[dim]Make sure you're logged in to a broker. Try: logout → login[/dim]")
+                    console.print(
+                        "[dim]Make sure you're logged in to a broker. Try: logout → login[/dim]"
+                    )
 
             elif command in ("paper", "mode"):
                 _cmd_toggle_paper(args)
@@ -2366,7 +2429,9 @@ def run_repl(broker: BrokerAPI) -> None:
             console.print("\n[dim]Command interrupted.[/dim]")
         except Exception as exc:
             console.print(f"[red]Error:[/red] {exc}")
-            console.print("[dim]If this keeps happening, try: logout → login, or run with DEBUG=1 for details.[/dim]")
+            console.print(
+                "[dim]If this keeps happening, try: logout → login, or run with DEBUG=1 for details.[/dim]"
+            )
             import os
 
             if os.environ.get("DEBUG"):
@@ -2397,7 +2462,7 @@ def run_repl(broker: BrokerAPI) -> None:
                             cmd_positions(broker)
                         elif exec_cmd == "orders" and broker:
                             cmd_orders(broker)
-                        elif exec_cmd == "alerts" or (
+                        elif exec_cmd in ("alerts",) or (
                             exec_cmd == "alert" and (not exec_args or exec_args[0] == "list")
                         ):
                             from engine.alerts import alert_manager
@@ -2432,6 +2497,8 @@ def run_repl(broker: BrokerAPI) -> None:
                 filepath = export_to_pdf(pdf_content, title=_pdf_title)
                 if filepath:
                     console.print(f"\n[green]PDF saved:[/green] {filepath}")
-                    console.print(f"[dim]Archived:[/dim] ~/.trading_platform/exports/{_archive_filename(_pdf_title)}")
+                    console.print(
+                        f"[dim]Archived:[/dim] ~/.trading_platform/exports/{_archive_filename(_pdf_title)}"
+                    )
             else:
                 console.print("[dim]No output to save as PDF.[/dim]")

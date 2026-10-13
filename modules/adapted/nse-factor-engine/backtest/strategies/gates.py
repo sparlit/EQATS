@@ -65,8 +65,7 @@ def apply_gate(gate_id: str, signals: pd.DataFrame) -> pd.DataFrame:
         elif op == "not_in":
             df = df[~df[col].isin(val)]
         else:
-            msg = f"Unknown operator: {op}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown operator: {op}")
 
         after = len(df)
         print(f"  [{gate_id}] {col} {op} {val}: {before} → {after}")

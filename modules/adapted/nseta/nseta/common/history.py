@@ -1,0 +1,505 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 24 11:23:30 2020.
+
+Originally adapted from @author: SW274998
+"""
+
+import datetime
+import inspect
+from datetime import timedelta
+
+import pandas as pd
+import six
+from bs4 import BeautifulSoup
+from nseta.archives.archiver import *
+from nseta.common.commons import *
+from nseta.common.constants import *
+from nseta.common.log import default_logger, tracelog
+from nseta.common.urls import *
+
+__all__ = ["historicaldata", "EQUITY_HEADERS", "INTRADAY_EQUITY_HEADERS"]
+
+dd_mmm_yyyy = StrDate.default_format(format="%d-%b-%Y")
+dd_mm_yyyy = StrDate.default_format(format="%d-%m-%Y")
+dd_mm_yyyy_H_M_S = StrDate.default_format(format="%d-%m-%Y %H:%M:%S")
+dd_mm_yyyy_H_M = StrDate.default_format(format="%d-%m-%Y %H:%M")
+
+EQUITY_SCHEMA = [
+    str,
+    str,
+    dd_mmm_yyyy,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    int,
+    float,
+    int,
+    int,
+    float,
+]
+EQUITY_HEADERS = [
+    "Symbol",
+    "Series",
+    "Date",
+    "Prev Close",
+    "open",
+    "high",
+    "low",
+    "Last",
+    "close",
+    "VWAP",
+    "Volume",
+    "Turnover",
+    "Trades",
+    "Deliverable Volume",
+    "%Deliverable",
+]
+EQUITY_SCALING = {"Turnover": 100000, "%Deliverable": 0.01}
+
+INTRADAY_EQUITY_SCHEMA = [dd_mm_yyyy_H_M_S, float, str, float, float]
+INTRADAY_EQUITY_HEADERS = [
+    "Date",
+    "open",
+    "high",
+    "low",
+    "close",
+]  # ["Date", "pltp", "nltp", "previousclose","allltp"]
+INTRADAY_EQUITY_SCALING = {}
+
+INTRADAY_EQUITY_SCHEMA_NEW = [dd_mm_yyyy_H_M, float, float, float, float, int, int, int]
+INTRADAY_EQUITY_HEADERS_NEW = [
+    "Date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "Volume",
+    "Cum_Volume",
+    "Cdl",
+    "Cnt_Cdl",
+]  # ["Date", "pltp", "nltp", "previousclose","allltp"]
+
+FUTURES_SCHEMA = [
+    str,
+    dd_mmm_yyyy,
+    dd_mmm_yyyy,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    int,
+    float,
+    int,
+    int,
+    float,
+]
+
+FUTURES_HEADERS = [
+    "Symbol",
+    "Date",
+    "Expiry",
+    "open",
+    "high",
+    "low",
+    "close",
+    "Last",
+    "Settle Price",
+    "Number of Contracts",
+    "Turnover",
+    "Open Interest",
+    "Change in OI",
+    "Underlying",
+]
+FUTURES_SCALING = {"Turnover": 100000}
+
+OPTION_SCHEMA = [
+    str,
+    dd_mmm_yyyy,
+    dd_mmm_yyyy,
+    str,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    int,
+    float,
+    float,
+    int,
+    int,
+    float,
+]
+OPTION_HEADERS = [
+    "Symbol",
+    "Date",
+    "Expiry",
+    "Option Type",
+    "Strike Price",
+    "open",
+    "high",
+    "low",
+    "close",
+    "Last",
+    "Settle Price",
+    "Number of Contracts",
+    "Turnover",
+    "Premium Turnover",
+    "Open Interest",
+    "Change in OI",
+    "Underlying",
+]
+OPTION_SCALING = {"Turnover": 100000, "Premium Turnover": 100000}
+
+
+INDEX_SCHEMA = [dd_mmm_yyyy, float, float, float, float, int, float]
+INDEX_HEADERS = ["Date", "open", "high", "low", "close", "Volume", "Turnover"]
+INDEX_SCALING = {"Turnover": 10000000}
+
+VIX_INDEX_SCHEMA = [dd_mmm_yyyy, float, float, float, float, float, float, float]
+VIX_INDEX_HEADERS = ["Date", "open", "high", "low", "close", "Previous", "Change", "%Change"]
+VIX_SCALING = {"%Change": 0.01}
+
+INDEX_PE_SCHEMA = [dd_mmm_yyyy, float, float, float]
+INDEX_PE_HEADERS = ["Date", "P/E", "P/B", "Div Yield"]
+
+RBI_REF_RATE_SCHEMA = [dd_mmm_yyyy, float, float, float, float]
+RBI_REF_RATE_HEADERS = ["Date", "1 USD", "1 GBP", "1 EURO", "100 YEN"]
+
+
+class historicaldata:
+    """
+    symbol = "SBIN" (stock name, index name and VIX)
+    start = date(yyyy,mm,dd)
+    end = date(yyyy,mm,dd)
+    index = True, False (True even for VIX)
+    ---------------
+    futures = True, False
+    option_type = "CE", "PE", "CA", "PA"
+    strike_price = integer number
+    expiry_date = date(yyyy,mm,dd)
+
+    """
+
+    @tracelog
+    def daily_ohlc_history(
+        self,
+        symbol,
+        start,
+        end,
+        periodicity="1",
+        series="EQ",
+        intraday=False,
+        type=ResponseType.Default,
+    ):
+        """This is the function to get the historical prices of any security (index,
+        stocks, derviatives, VIX) etc.
+
+        Args:
+          symbol (str): Symbol for stock, index or any security
+          start (datetime.date): start date
+          end (datetime.date): end date
+          index (boolean): False by default, True if its a index
+          futures (boolean): False by default, True for index and stock futures
+          expiry_date (datetime.date): Expiry date for derivatives, Compulsory for futures and options
+          option_type (str): It takes "CE", "PE", "CA", "PA" for European and American calls and puts
+          strike_price (int): Strike price, Compulsory for options
+          series (str): Defaults to "EQ", but can be "BE" etc (refer NSE website for details)
+
+        Returns:
+          pandas.DataFrame : A pandas dataframe object
+
+        Raises:
+          ValueError:
+                1. strike_price argument missing or not of type int when options_type is provided
+                2. If there's an Invalid value in option_type, valid values-'CE' or 'PE' or 'CA' or 'CE'
+                3. If both futures='True' and option_type='CE' or 'PE'
+        """
+        frame = inspect.currentframe()
+        args, _, _, kwargs = inspect.getargvalues(frame)
+        del kwargs["frame"]
+        del kwargs["self"]
+        start = kwargs["start"]
+        end = kwargs["end"]
+        if (not intraday) and ((end - start) > timedelta(130)):
+            kwargs1 = dict(kwargs)
+            kwargs2 = dict(kwargs)
+            kwargs1["end"] = start + timedelta(130)
+            kwargs2["start"] = kwargs1["end"] + timedelta(1)
+
+            t1 = ThreadReturns(target=self.daily_ohlc_history, kwargs=kwargs1)
+            t2 = ThreadReturns(target=self.daily_ohlc_history, kwargs=kwargs2)
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+            return concatenated_dataframe(t1.result, t2.result)
+        else:
+            return self.daily_ohlc_history_quanta(**kwargs)
+
+    """
+  #Not being used right now. TODO: Switch to new NSE site.
+  @tracelog
+  def get_intraday_history(self, symbol):
+    resp = nse_intraday_url_new(index=symbol.upper())
+    # print(resp)
+    data = resp.json()
+    print('name:', data['name'])
+    print('identifier:', data['identifier'])
+    print('close price:', data['closePrice'])
+
+    prices = data['grapthData'][:10]
+
+    for item in prices:
+      dt = datetime.datetime.utcfromtimestamp(item[0]/1000)
+      value = item[1]
+      print(dt, value)
+"""
+
+    @tracelog
+    def daily_ohlc_history_quanta(self, **kwargs):
+        symbol = kwargs["symbol"]
+        start = kwargs["start"]
+        end = kwargs["end"]
+        response_type = kwargs["type"]
+        df = self.unarchive_history(
+            symbol, start, end, response_type, periodicity=kwargs["periodicity"]
+        )
+        if df is not None and len(df) > 0:
+            return df
+        try:
+            url, params, schema, headers, scaling, csvnode = self.validate_params(**kwargs)
+            df = self.url_to_df(
+                url=url,
+                params=params,
+                schema=schema,
+                headers=headers,
+                scaling=scaling,
+                csvnode=csvnode,
+            )
+            if (df is not None and len(df) > 0) and ("Symbol" in headers and "Symbol" in df):
+                # Check if we received the correct Symbol in response what we expected
+                expected_symbol = symbol
+                received_symbol = df.loc[:, "Symbol"].iloc[0]
+                if received_symbol.upper() != expected_symbol.upper():
+                    default_logger().debug(df.to_string(index=False))
+                    default_logger().debug(
+                        f'Unexpected symbol "{received_symbol}" received. Retrying...'
+                    )
+                    params["symbolCount"] = get_symbol_count(expected_symbol, force_refresh=True)
+                    # We don't want to recursively call daily_ohlc_history_quanta and risk getting into an infinite loop
+                    # if the expected symbol is again not received.
+                    df = self.url_to_df(
+                        url=url,
+                        params=params,
+                        schema=schema,
+                        headers=headers,
+                        scaling=scaling,
+                        csvnode=csvnode,
+                    )
+        except Exception as e:
+            default_logger().debug(f"\nEncountered problem for symbol: {symbol}\n")
+            default_logger().debug(e, exc_info=True)
+        if df is not None and len(df) > 0:
+            self.archive_history(
+                df, symbol, start, end, response_type, periodicity=kwargs["periodicity"]
+            )
+        else:
+            default_logger().debug(
+                f"\nEmpty Dataframe. This symbol traded may be traded on BSE instead of NSE. Encountered problem for symbol: {symbol}\n"
+            )
+        return df
+
+    @tracelog
+    def url_to_df(self, url, params, schema, headers, scaling=None, csvnode=None):
+        if scaling is None:
+            scaling = {}
+        resp = url(params["symbol"])
+        default_logger().debug(resp.text)
+        # data = resp.json()
+        # prices = data['grapthData']
+        # # Convert the index to datetime
+        # df = pd.DataFrame(prices, columns = ['Date', 'LTP'])
+        # df["Date"] = df["Date"].apply(lambda x: datetime.datetime.utcfromtimestamp(x/1000))
+        # df.set_index('Date', inplace=True)
+        # default_logger().debug(df)
+        # # Resample LTP column to 15 mins bars using resample function from pandas
+        # resample_LTP = df.resample('1Min').ohlc()['LTP']
+        # resample_LTP = resample_LTP.reset_index(drop=False)
+        # # resample_LTP['Open','High','Low','Close'] = resample_LTP['open','high','low','close']
+        # default_logger().debug(resample_LTP)
+        # if resample_LTP is None or len(resample_LTP) == 0:
+        #   default_logger().debug('\nFor Symbol:{},URL:{}, incorrect/invalid or no response received from server:\n{}'.format(params['symbol'],url,resample_LTP))
+        # return resample_LTP
+
+    @tracelog
+    def validate_params(
+        self,
+        symbol,
+        start,
+        end,
+        periodicity="1",
+        series="[%22EQ%22]",
+        intraday=False,
+        type=ResponseType.Default,
+    ):
+        """
+        symbol = "SBIN" (stock name, index name and VIX)
+        start = date(yyyy,mm,dd)
+        end = date(yyyy,mm,dd)
+        index = True, False (True even for VIX)
+        ---------------
+        futures = True, False
+        option_type = "CE", "PE", "CA", "PA"
+        strike_price = integer number
+        expiry_date = date(yyyy,mm,dd)
+        """
+
+        params = {}
+        csvnode = None
+        if start > end:
+            raise ValueError("Please check start and end dates")
+
+        if not intraday:
+            params["symbol"] = symbol
+            params["from"] = start.strftime("%d-%m-%Y")
+            params["to"] = end.strftime("%d-%m-%Y")
+            url = equity_history_url
+            schema = EQUITY_SCHEMA
+            headers = EQUITY_HEADERS
+            scaling = EQUITY_SCALING
+        elif intraday:
+            params["symbol"] = symbol.upper()
+            params["index"] = f"{symbol.upper()}EQN"
+            params["preopen"] = "false"
+            url = nse_intraday_url_new
+            schema = INTRADAY_EQUITY_SCHEMA_NEW  # INTRADAY_EQUITY_SCHEMA
+            headers = INTRADAY_EQUITY_HEADERS_NEW  # INTRADAY_EQUITY_HEADERS
+            scaling = INTRADAY_EQUITY_SCALING
+            csvnode = "g2_CUMVOL"  # "data"
+
+        return url, params, schema, headers, scaling, csvnode
+
+    @tracelog
+    def get_index_pe_history(self, symbol, start, end):
+        frame = inspect.currentframe()
+        args, _, _, kwargs = inspect.getargvalues(frame)
+        del kwargs["frame"]
+        del kwargs["self"]
+        start = kwargs["start"]
+        end = kwargs["end"]
+        if (end - start) > timedelta(130):
+            kwargs1 = dict(kwargs)
+            kwargs2 = dict(kwargs)
+            kwargs1["end"] = start + timedelta(130)
+            kwargs2["start"] = kwargs1["end"] + timedelta(1)
+            t1 = ThreadReturns(target=self.get_index_pe_history, kwargs=kwargs1)
+            t2 = ThreadReturns(target=self.get_index_pe_history, kwargs=kwargs2)
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+            return pd.concat((t1.result, t2.result))
+        else:
+            return self.get_index_pe_history_quanta(**kwargs)
+
+    @tracelog
+    def get_index_pe_history_quanta(self, symbol, start, end):
+        """This function will fetch the P/E, P/B and dividend yield for a given index
+
+        Args:
+          symbol (str): Symbol for stock, index or any security
+          start (datetime.date): start date
+          end (datetime.date): end date
+
+        Returns:
+          pandas.DataFrame : A pandas dataframe object
+        """
+        index_name = DERIVATIVE_TO_INDEX.get(symbol, symbol)
+        resp = index_pe_history_url(
+            indexName=index_name,
+            fromDate=start.strftime("%d-%m-%Y"),
+            toDate=end.strftime("%d-%m-%Y"),
+        )
+        print(resp.text)
+        bs = BeautifulSoup(resp.text, "lxml")
+        tp = ParseTables(soup=bs, schema=INDEX_PE_SCHEMA, headers=INDEX_PE_HEADERS, index="Date")
+        df = tp.get_df()
+        return df
+
+    @tracelog
+    def get_price_list(self, dt, series="EQ"):
+        MMM = dt.strftime("%b").upper()
+        yyyy = dt.strftime("%Y")
+
+        """
+    1. YYYY
+    2. MMM
+    3. ddMMMyyyy
+    """
+        res = price_list_url(yyyy, MMM, dt.strftime("%d%b%Y").upper())
+        txt = unzip_str(res.content)
+        fp = six.StringIO(txt)
+        df = pd.read_csv(fp)
+        del df["Unnamed: 13"]
+        return df[df["SERIES"] == series]
+
+    @tracelog
+    def archive_history(
+        self, df, symbol, start_date, end_date, response_type=ResponseType.Default, periodicity=1
+    ):
+        symbol = (
+            f"{symbol}_{periodicity}"
+            if response_type == ResponseType.Intraday
+            else "{}_{}_{}".format(
+                symbol, start_date.strftime("%d-%m-%Y"), end_date.strftime("%d-%m-%Y")
+            )
+        )
+        arch = archiver()
+        arch.archive(df, symbol, response_type)
+
+    @tracelog
+    def unarchive_history(
+        self, symbol, start_date, end_date, response_type=ResponseType.Default, periodicity=1
+    ):
+        symbol = (
+            f"{symbol}_{periodicity}"
+            if response_type == ResponseType.Intraday
+            else "{}_{}_{}".format(
+                symbol, start_date.strftime("%d-%m-%Y"), end_date.strftime("%d-%m-%Y")
+            )
+        )
+        arch = archiver()
+        df = arch.restore(symbol, response_type)
+        return df

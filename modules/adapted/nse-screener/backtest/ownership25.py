@@ -39,7 +39,10 @@ import config
 
 
 def load_shareholding() -> pd.DataFrame:
-    df = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "shareholding").glob("*.parquet")), ignore_index=True)
+    df = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "shareholding").glob("*.parquet")),
+        ignore_index=True,
+    )
     df["symbol"] = renames.canonical(df["symbol"].astype(str).str.strip())
     df["qdate"] = pd.to_datetime(df["date"], format="%d-%b-%Y", errors="coerce")
     df["an_dt"] = pd.to_datetime(df["broadcastDate"], format="%d-%b-%Y %H:%M:%S", errors="coerce")
@@ -64,8 +67,13 @@ def main():
     e1 = sh[(sh["dprom"] >= 0.5) & (sh["prom"] > 0)]
     e2 = sh[(sh["dprom"] >= 2.0) & (sh["prom"] > 0)]
     e3 = sh[(sh["dprom"] <= -0.5) & (sh["prom"] > 0)]
-    e4 = sh[(sh["dprom"] > 0) & (sh["dprom_prev"] > 0) & (sh["qgap"] <= 100) & (sh["qgap_prev"] <= 100)]
-    print(f"events: E1={len(e1)} E2={len(e2)} E3={len(e3)} E4={len(e4)} (all-filings null pool: {len(sh)})")
+    e4 = sh[
+        (sh["dprom"] > 0) & (sh["dprom_prev"] > 0) & (sh["qgap"] <= 100) & (sh["qgap_prev"] <= 100)
+    ]
+    print(
+        f"events: E1={len(e1)} E2={len(e2)} E3={len(e3)} E4={len(e4)} "
+        f"(all-filings null pool: {len(sh)})"
+    )
 
     p = features._panel(None, None)
     close, open_ = p["close"], p["open"]

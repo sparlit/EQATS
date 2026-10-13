@@ -89,7 +89,9 @@ def judge(sym, b, F):
         if len(pre) < 2 or len(post) < 2:
             continue
         mp, mq = statistics.median(pre), statistics.median(post)
-        stable = all(abs(s / mp - 1) <= 0.05 for s in pre) and all(abs(s / mq - 1) <= 0.05 for s in post)
+        stable = all(abs(s / mp - 1) <= 0.05 for s in pre) and all(
+            abs(s / mq - 1) <= 0.05 for s in post
+        )
         cand = {
             "basis": basis,
             "pre_cr": [round(s, 3) for s in pre],
@@ -103,14 +105,18 @@ def judge(sym, b, F):
             break
         best = best or cand
     if not best:
-        return "UNRESOLVED", {"why": "fewer than 2 usable quarters (|EPS|>=0.5) on a side within 9 months"}
+        return "UNRESOLVED", {
+            "why": "fewer than 2 usable quarters (|EPS|>=0.5) on a side within 9 months"
+        }
     if not best["stable"]:
         return "UNRESOLVED", dict(best, why="share counts unstable within a side (>5%)")
     if abs(best["step"] * F - 1) <= 0.10:
         return "REAL_FILING", best
     if abs(best["step"] - 1) <= 0.10:
         return "PHANTOM_FILING", best
-    return "UNRESOLVED", dict(best, why="share-count step matches neither the split (1/F) nor no-change")
+    return "UNRESOLVED", dict(
+        best, why="share-count step matches neither the split (1/F) nor no-change"
+    )
 
 
 def tape(bins, todo):
@@ -128,7 +134,10 @@ def tape(bins, todo):
             if o:
                 for i, x in enumerate(o["d"]):
                     vol.setdefault(sname, {})[x] = o["v"][i]
-    E = {(e["sym"], e["b"]): e for e in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]}
+    E = {
+        (e["sym"], e["b"]): e
+        for e in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]
+    }
     out = {}
     for v in todo:
         F = v["F"]
@@ -139,11 +148,25 @@ def tape(bins, todo):
         j = ds.index(v["b"])
         pre = [m[x] for x in ds[max(0, j - 10) : j] if m[x]]
         post = [m[x] for x in ds[j + 1 : j + 11] if m[x]]
-        vr = statistics.median(post) / statistics.median(pre) if len(pre) >= 3 and len(post) >= 3 else None
+        vr = (
+            statistics.median(post) / statistics.median(pre)
+            if len(pre) >= 3 and len(post) >= 3
+            else None
+        )
         og = E[(v["sym"], v["b"])].get("open_over_prev_bhav")
         g = og / F if og else None
-        if (F <= 0.25 or F >= 4) and g is not None and 0.88 <= g <= 1.12 and vr is not None and 0.5 <= vr * F <= 2:
-            out[(v["sym"], v["b"])] = {"open_gate": round(g, 4), "vol_step": round(vr, 3), "expected": round(1 / F, 2)}
+        if (
+            (F <= 0.25 or F >= 4)
+            and g is not None
+            and 0.88 <= g <= 1.12
+            and vr is not None
+            and 0.5 <= vr * F <= 2
+        ):
+            out[(v["sym"], v["b"])] = {
+                "open_gate": round(g, 4),
+                "vol_step": round(vr, 3),
+                "expected": round(1 / F, 2),
+            }
     return out
 
 
@@ -160,20 +183,36 @@ def main():
         res.append((v, verdict, ev))
         print(
             "%-15s %-11s %d F=%.3f %s"
-            % (verdict, v["sym"], v["b"], v["F"], {k: ev[k] for k in ("step", "expected_split_step", "why") if k in ev})
+            % (
+                verdict,
+                v["sym"],
+                v["b"],
+                v["F"],
+                {k: ev[k] for k in ("step", "expected_split_step", "why") if k in ev},
+            )
         )
-    print({k: sum(1 for r in res if r[1] == k) for k in ("REAL_FILING", "PHANTOM_FILING", "REAL_TAPE", "UNRESOLVED")})
+    print(
+        {
+            k: sum(1 for r in res if r[1] == k)
+            for k in ("REAL_FILING", "PHANTOM_FILING", "REAL_TAPE", "UNRESOLVED")
+        }
+    )
     if "--apply" in sys.argv:
         H = json.load(open(os.path.join(HERE, "corp_actions_hist.json")))
         PC = json.load(open(os.path.join(HERE, "phantom_crashes.json")))
         for v, verdict, ev in res:
             if verdict == "UNRESOLVED":
-                v["evidence"].setdefault("missing", []).append("share-count witness: {}".format(ev.get("why")))
+                v["evidence"].setdefault("missing", []).append(
+                    "share-count witness: {}".format(ev.get("why"))
+                )
                 if "step" in ev:
                     v["evidence"]["share_count"] = ev
                 continue
             v["verdict"] = verdict
-            v["evidence"] = {("share_count" if verdict != "REAL_TAPE" else "tape"): ev, "earlier": v["evidence"]}
+            v["evidence"] = {
+                ("share_count" if verdict != "REAL_TAPE" else "tape"): ev,
+                "earlier": v["evidence"],
+            }
             if verdict in ("REAL_FILING", "REAL_TAPE"):
                 lst = H["factors"].setdefault(v["sym"], [])
                 if not any(abs(int(x[0]) - v["b"]) <= 3 for x in lst):
@@ -186,7 +225,11 @@ def main():
                     lst.sort()
         json.dump(VV, open(VP, "w"), indent=0)
         json.dump(H, open(os.path.join(HERE, "corp_actions_hist.json"), "w"), indent=0)
-        json.dump(dict(sorted(PC.items())), open(os.path.join(HERE, "phantom_crashes.json"), "w"), indent=0)
+        json.dump(
+            dict(sorted(PC.items())),
+            open(os.path.join(HERE, "phantom_crashes.json"), "w"),
+            indent=0,
+        )
         print("applied")
 
 

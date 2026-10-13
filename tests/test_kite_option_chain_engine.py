@@ -3,7 +3,8 @@ Unit & Integration Tests for Kite Option Chain Engine (anurag-roy/kite-option-ch
 """
 
 from datetime import datetime
-from institutional_integrations.kite_option_chain_engine import KiteOptionChainEngine, MAGIC_NUMBER
+
+from institutional_integrations.kite_option_chain_engine import MAGIC_NUMBER, KiteOptionChainEngine
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

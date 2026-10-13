@@ -308,8 +308,7 @@ def get_persona(persona_id: str) -> InvestorPersona:
     persona = PERSONAS.get(persona_id.lower())
     if persona is None:
         valid = ", ".join(sorted(PERSONAS.keys()))
-        msg = f"Unknown persona '{persona_id}'. Valid options: {valid}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown persona '{persona_id}'. Valid options: {valid}")
     return persona
 
 

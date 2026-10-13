@@ -47,14 +47,21 @@ def send_tg(text):
         print("Telegram not set, skipping")
         return
     r = requests.post(
-        "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage", data={"chat_id": TG_CHAT, "text": text}, timeout=15
+        "https://api.telegram.org/bot" + TG_TOKEN + "/sendMessage",
+        data={"chat_id": TG_CHAT, "text": text},
+        timeout=15,
     )
     print("Telegram", r.status_code)
 
 
 def get_df(sym):
     url = "https://query1.finance.yahoo.com/v8/finance/chart/" + sym + ".NS"
-    r = requests.get(url, params={"range": RANGE, "interval": "1d"}, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+    r = requests.get(
+        url,
+        params={"range": RANGE, "interval": "1d"},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
     if r.status_code != 200:
         return None
     res = r.json()["chart"]["result"][0]

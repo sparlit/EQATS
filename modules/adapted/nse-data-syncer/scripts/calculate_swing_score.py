@@ -128,8 +128,12 @@ def compute_strong_stock_scores(session, stock_ids):
             (current_close > sma_150 and current_close > sma_200)
             if (sma_150 is not None and sma_200 is not None)
             else False,  # cond1
-            (sma_150 > sma_200) if (sma_150 is not None and sma_200 is not None) else False,  # cond2
-            (sma_200 > sma_200_1m_ago) if (sma_200 is not None and sma_200_1m_ago is not None) else False,  # cond3
+            (sma_150 > sma_200)
+            if (sma_150 is not None and sma_200 is not None)
+            else False,  # cond2
+            (sma_200 > sma_200_1m_ago)
+            if (sma_200 is not None and sma_200_1m_ago is not None)
+            else False,  # cond3
             (sma_50 > sma_150 and sma_50 > sma_200)
             if (sma_50 is not None and sma_150 is not None and sma_200 is not None)
             else False,  # cond4
@@ -174,7 +178,9 @@ def calculate_swing_score():
             return
 
         stock_ids = universe_df["stock_id"].tolist()
-        sector_symbol_map = dict(zip(universe_df["stock_id"], universe_df["sector_symbol"], strict=False))
+        sector_symbol_map = dict(
+            zip(universe_df["stock_id"], universe_df["sector_symbol"], strict=False)
+        )
 
         print("Computing Strong Stock scores (Stage 2 trend template, partial credit)...")
         strong_stock_scores = compute_strong_stock_scores(session, stock_ids)
@@ -184,7 +190,9 @@ def calculate_swing_score():
         sector_symbols = sorted(set(SECTOR_INDEX_MAP.values()))
         sector_index_scores = compute_sector_scores(session, sector_symbols)
 
-        print("Loading RS rank and ADR% (must already be fresh from calculate_stage2.py / calculate_adr.py)...")
+        print(
+            "Loading RS rank and ADR% (must already be fresh from calculate_stage2.py / calculate_adr.py)..."
+        )
         rows = session.execute(
             text("""
             SELECT stock_id, stage2_rs_rank, adr_pct FROM stock_performance
@@ -195,11 +203,17 @@ def calculate_swing_score():
         rs_adr_df = pd.DataFrame(rows, columns=["stock_id", "rs_rank", "adr_pct"])
         adr_valid = rs_adr_df.dropna(subset=["adr_pct"])
         adr_score_map = dict(
-            zip(adr_valid["stock_id"], (adr_valid["adr_pct"].rank(pct=True) * 100).round(2), strict=False)
+            zip(
+                adr_valid["stock_id"],
+                (adr_valid["adr_pct"].rank(pct=True) * 100).round(2),
+                strict=False,
+            )
         )
         rs_score_map = dict(zip(rs_adr_df["stock_id"], rs_adr_df["rs_rank"], strict=False))
 
-        existing_perfs = session.execute(text("SELECT stock_id, id FROM stock_performance")).fetchall()
+        existing_perfs = session.execute(
+            text("SELECT stock_id, id FROM stock_performance")
+        ).fetchall()
         existing_map = {p[0]: p[1] for p in existing_perfs}
 
         updates = []
@@ -217,7 +231,9 @@ def calculate_swing_score():
             passes_gate = strong_stock_score is not None and strong_stock_score >= STRONG_STOCK_GATE
             components = [rs_score, sector_score, adr_score]
             swing_score = (
-                round(sum(components) / 3, 2) if passes_gate and all(c is not None for c in components) else None
+                round(sum(components) / 3, 2)
+                if passes_gate and all(c is not None for c in components)
+                else None
             )
 
             updates.append(

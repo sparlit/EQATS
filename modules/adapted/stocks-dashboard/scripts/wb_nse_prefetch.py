@@ -51,7 +51,7 @@ _done = {"n": 0, "ok": 0, "fail": 0}
 
 
 def one(job):
-    _s, _q, ts, u = job
+    s, q, ts, u = job
     t = W.fetch(ts, u, tries=2)
     with _lock:
         _done["n"] += 1

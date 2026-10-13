@@ -133,7 +133,9 @@ class TestRenderDashboard:
         assert len(html) > 200
         assert "Test Company Ltd" in html
 
-    def test_handles_missing_technicals(self, sample_stock_data, sample_news_items, sample_headline_scores):
+    def test_handles_missing_technicals(
+        self, sample_stock_data, sample_news_items, sample_headline_scores
+    ):
         """technical_indicators=None should not crash the dashboard."""
         from render import render_dashboard
 
@@ -159,7 +161,9 @@ class TestRenderDashboard:
         # RSI should NOT appear when technicals are missing
         assert "RSI" not in html
 
-    def test_handles_partial_technicals_regression(self, sample_stock_data, partial_technical_indicators):
+    def test_handles_partial_technicals_regression(
+        self, sample_stock_data, partial_technical_indicators
+    ):
         """Regression: sma50/sma200=None should not crash (the '> None' TypeError)."""
         from render import render_dashboard
 
@@ -182,7 +186,9 @@ class TestRenderDashboard:
         # Em dash for missing SMA data — verify no crash
         assert len(html) > 200
 
-    def test_handles_missing_fii(self, sample_stock_data, sample_news_items, sample_headline_scores):
+    def test_handles_missing_fii(
+        self, sample_stock_data, sample_news_items, sample_headline_scores
+    ):
         """fii_dii_data=None should not crash."""
         from render import render_dashboard
 

@@ -38,7 +38,9 @@ class NSEData:
     Class to open NSE data
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+    ):
         """ """
         self.baseurl = "https://www.nseindia.com/"
 
@@ -68,7 +70,8 @@ class NSEData:
         args:
            url: corresponding url
         """
-        return self.session.get(url, headers=self.headers, cookies=self.cookies)
+        response = self.session.get(url, headers=self.headers, cookies=self.cookies)
+        return response
 
     def current_indices_status(self, show_n: int = 5):
         """
@@ -76,9 +79,11 @@ class NSEData:
         args:
             show_n: Show top N sorted by ABSOLUTE % change Values such that -3.2 will be shown first than 2.3
         """
-        df = pd.DataFrame(self.get_live_nse_data("https://www.nseindia.com/api/allIndices").json()["data"])
-        df["absolute_change"] = df["percentChange"].apply(abs)
-        df = df.sort_values("absolute_change", ascending=False)
+        df = pd.DataFrame(
+            self.get_live_nse_data("https://www.nseindia.com/api/allIndices").json()["data"]
+        )
+        df["absolute_change"] = df["percentChange"].apply(lambda x: abs(x))
+        df.sort_values("absolute_change", ascending=False, inplace=True)
         return df.iloc[:show_n, [1, 5, 0, 4]]
 
     def open_nse_index(self, index_name: str, show_n: int = 10, drop_index: bool = True):
@@ -99,12 +104,12 @@ class NSEData:
         resp = self.get_live_nse_data(url)
 
         df = pd.DataFrame(resp.json()["data"])
-        df["absolute_change"] = df["pChange"].apply(abs)
+        df["absolute_change"] = df["pChange"].apply(lambda x: abs(x))
         # df['Index'] = df['symbol'].apply(lambda x: In.get_index(x))
-        df = df.sort_values("absolute_change", ascending=False)
+        df.sort_values("absolute_change", ascending=False, inplace=True)
 
         if drop_index:
-            df = df.drop(0)  # Drop the index name
+            df.drop(0, inplace=True)  # Drop the index name
         return df.iloc[:show_n, [1, 9, 3, 4, 5, 6, -1]]
 
     def get_VIX(self, whole_data: bool = False):
@@ -122,7 +127,6 @@ class NSEData:
         if whole_data:
             return result
         print(f"Current VIX: {result['currentVixSnapShot'][0]['CURRENT_PRICE']}")
-        return None
 
     def fifty_days_data(self, symbol: str):
         """
@@ -146,9 +150,10 @@ class NSEData:
             }
         )
 
-        return df.loc[
+        df = df.loc[
             :, ["DATE", "OPEN", "HIGH", "LOW", "CLOSE", "52W H", "52W L", "SYMBOL"]
         ]  # to match previous API's Columns and structure
+        return df
 
     def stocks_at_52W(self, direction: str = "high"):
         """
@@ -156,9 +161,12 @@ class NSEData:
         args:
             direction: direction of 52 Week. 'high', 'low'
         """
-        x = self.get_live_nse_data(f"https://www.nseindia.com/api/live-analysis-52Week?index={direction}")
+        x = self.get_live_nse_data(
+            f"https://www.nseindia.com/api/live-analysis-52Week?index={direction}"
+        )
         return pd.concat(
-            [pd.DataFrame(x.json()["dataLtpGreater20"]), pd.DataFrame(x.json()["dataLtpLess20"])], ignore_index=True
+            [pd.DataFrame(x.json()["dataLtpGreater20"]), pd.DataFrame(x.json()["dataLtpLess20"])],
+            ignore_index=True,
         )
 
 
@@ -171,7 +179,9 @@ class MarketSentiment:
         """
         Get fresh updated data scraped from the website https://www.traderscockpit.com/?pageView=live-nse-advance-decline-ratio-chart
         """
-        page = requests.get("https://www.traderscockpit.com/?pageView=live-nse-advance-decline-ratio-chart")
+        page = requests.get(
+            "https://www.traderscockpit.com/?pageView=live-nse-advance-decline-ratio-chart"
+        )
         soup = BeautifulSoup(page.content, "lxml")
         latest_updated_on = soup.find("span", {"class": "hm-time"})
         divs = soup.find_all("div", {"class": "col-sm-6"})
@@ -283,13 +293,14 @@ def get_mmi(raw=False):
         print("Market is in Fear Zone. You might want it to go to Extreme Fear to start buying")
 
     elif 50 < current < 80:
-        print("Market is in Greed zone! You might want to book profits. Keep yourself from taking new positions")
+        print(
+            "Market is in Greed zone! You might want to book profits. Keep yourself from taking new positions"
+        )
 
     elif current > 80:
         print(
             "WARNING!!! You might want to book profits. Do not take fresh positions for Investment purpose now. Market is Extremely Greedy"
         )
-    return None
 
 
 def get_Bhavcopy(start=None, no_days=5):
@@ -301,7 +312,9 @@ def get_Bhavcopy(start=None, no_days=5):
     for i in range(no_days):
         day = start - timedelta(days=i)
         try:
-            r = requests.get(f"https://www1.nseindia.com/content/historical/EQUITIES/2022/JAN/cm{day}bhav.csv.zip")
+            r = requests.get(
+                f"https://www1.nseindia.com/content/historical/EQUITIES/2022/JAN/cm{day}bhav.csv.zip"
+            )
             z = zipfile.ZipFile(io.BytesIO(r.content))
             z = z.open(z.namelist()[0])
             res.append(pd.read_csv(z))

@@ -48,8 +48,8 @@ def _make_record(
     verdict: str = "BULLISH",
     confidence: int = 70,
     days_ago: int = 1,
-    stop_loss: float | None = None,
-    target_price: float | None = None,
+    stop_loss: float = None,
+    target_price: float = None,
 ) -> MagicMock:
     rec = MagicMock()
     rec.symbol = symbol
@@ -220,7 +220,12 @@ class TestPrintActionableAgenda:
         _print_actionable_agenda(fii, breadth)
         captured = capsys.readouterr()
         # Count bullet icons
-        icons = captured.out.count("⚠️") + captured.out.count("✅") + captured.out.count("📋") + captured.out.count("📍")
+        icons = (
+            captured.out.count("⚠️")
+            + captured.out.count("✅")
+            + captured.out.count("📋")
+            + captured.out.count("📍")
+        )
         assert icons <= 5
 
     def test_handles_empty_fii_list(self, capsys):

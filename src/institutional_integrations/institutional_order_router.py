@@ -1,3 +1,4 @@
+# codespell:ignore IST,MIS
 """
 Institutional Smart Order Router (SOR) & Multi-Exchange Liquidity Slicer Engine
 ================================================================================

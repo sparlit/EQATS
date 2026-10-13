@@ -34,14 +34,11 @@ The options_flow and technical scores are added by the Trade Scoring Engine.
 """
 
 from pathlib import Path
-from typing import Dict, Optional
 
 import joblib
-import numpy as np
 import pandas as pd
-from utils.logger import get_logger
-
 from config.settings import MACRO_MODEL_PATH, MICRO_MODEL_PATH
+from utils.logger import get_logger
 
 logger = get_logger("predictor")
 
@@ -61,8 +58,8 @@ class Predictor:
 
     def load(
         self,
-        macro_path: str | None = None,
-        micro_path: str | None = None,
+        macro_path: str = None,
+        micro_path: str = None,
     ):
         """Load both models from disk. Either can be missing."""
         macro_path = macro_path or MACRO_MODEL_PATH
@@ -76,7 +73,7 @@ class Predictor:
                 self._macro_features = data["features"]
                 logger.info(f"Macro model loaded ({len(self._macro_features)} features).")
             except Exception as e:
-                logger.exception(f"Failed to load macro model: {e}")
+                logger.error(f"Failed to load macro model: {e}")
         else:
             logger.warning(f"No macro model at {macro_path}")
 
@@ -88,7 +85,7 @@ class Predictor:
                 self._micro_features = data["features"]
                 logger.info(f"Micro model loaded ({len(self._micro_features)} features).")
             except Exception as e:
-                logger.exception(f"Failed to load micro model: {e}")
+                logger.error(f"Failed to load micro model: {e}")
         else:
             logger.warning(f"No micro model at {micro_path}")
 
@@ -117,9 +114,10 @@ class Predictor:
                 return None
 
             X = df[available]
-            return float(self._macro_model.predict_proba(X)[0][1])
+            prob = float(self._macro_model.predict_proba(X)[0][1])
+            return prob
         except Exception as e:
-            logger.exception(f"Macro prediction error: {e}")
+            logger.error(f"Macro prediction error: {e}")
             return None
 
     def predict_micro(self, features: dict) -> float | None:
@@ -138,9 +136,10 @@ class Predictor:
                 return None
 
             X = df[available]
-            return float(self._micro_model.predict_proba(X)[0][1])
+            prob = float(self._micro_model.predict_proba(X)[0][1])
+            return prob
         except Exception as e:
-            logger.exception(f"Micro prediction error: {e}")
+            logger.error(f"Micro prediction error: {e}")
             return None
 
     # ── Combined Prediction ───────────────────────────────────────────────────
@@ -148,7 +147,7 @@ class Predictor:
     def predict_combined(
         self,
         macro_features: dict,
-        micro_features: dict | None = None,
+        micro_features: dict = None,
         macro_weight: float = 0.7,
         micro_weight: float = 0.3,
     ) -> dict:

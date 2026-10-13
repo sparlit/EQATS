@@ -123,7 +123,9 @@ def compute(prices: pd.DataFrame, T: pd.Timestamp) -> pd.DataFrame:
 
     n_null = results["mfi_14"].isnull().sum()
     if n_null > 0:
-        print(f"WARNING: {n_null} symbol(s) have NaN mfi_14 (< {MFI_PERIOD + 1} price rows or missing OHLCV)")
+        print(
+            f"WARNING: {n_null} symbol(s) have NaN mfi_14 (< {MFI_PERIOD + 1} price rows or missing OHLCV)"
+        )
 
     valid = results["mfi_14"].dropna()
     if len(valid):

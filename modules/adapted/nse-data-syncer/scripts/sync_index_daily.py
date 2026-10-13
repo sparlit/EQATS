@@ -40,14 +40,13 @@ load_dotenv("web/.env")
 sys.path.append(os.getcwd())
 
 from app.constants import VALIDATION_RECORDS_COUNT
-from app.database import DatabaseManager, Index, IndexDailyPrice, IndexPerformance
+from app.database import DatabaseManager
 from app.helpers import validate_data_mismatch
 
 # Database URL
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
-    msg = "DATABASE_URL environment variable is not set."
-    raise ValueError(msg)
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
 INDEX_MAPPING = {
     "^NSEI": "Nifty 50",
@@ -112,7 +111,7 @@ def sync_index_daily():
                     index_df = data[symbol].copy()
 
                 # Drop rows with no close price
-                index_df = index_df.dropna(subset=["Close"])
+                index_df.dropna(subset=["Close"], inplace=True)
 
                 if index_df.empty:
                     print(f"  ⚠️  {symbol}: No valid data")
@@ -127,7 +126,9 @@ def sync_index_daily():
 
                     # Re-fetch full history for this specific Index
                     print(f"  🔄  Resyncing {symbol} from scratch...")
-                    full_data = yf.download(symbol, start="2000-01-01", progress=False, auto_adjust=False)
+                    full_data = yf.download(
+                        symbol, start="2000-01-01", progress=False, auto_adjust=False
+                    )
                     if not full_data.empty:
                         index_df = full_data
                         print(f"     Resynced {len(index_df)} records.")

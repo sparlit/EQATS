@@ -39,7 +39,15 @@ exchange = ccxt.binance(
 )
 
 
-orders = [{"symbol": "BTCUSDT", "side": "BUY", "positionSide": "LONG", "type": "MARKET", "quantity": 0.005}]
+orders = [
+    {
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "positionSide": "LONG",
+        "type": "MARKET",
+        "quantity": 0.005,
+    }
+]
 
 orders = [exchange.encode_uri_component(exchange.json(order), safe=",") for order in orders]
 response = exchange.fapiPrivatePostBatchOrders({"batchOrders": "[" + ",".join(orders) + "]"})

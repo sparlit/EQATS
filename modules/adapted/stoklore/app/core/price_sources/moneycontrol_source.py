@@ -31,7 +31,7 @@ plain NSE ticker for every stock (it happens to for the ones this was tested aga
 no symbol-mapping table here, so an unmapped symbol will just come back empty/404 rather than
 silently fetching the wrong stock.
 """
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from app.core import moneycontrol_local
 
@@ -52,8 +52,7 @@ def fetch_max(symbol):
     try:
         bars = moneycontrol_local.fetch_history(symbol, MAX_HISTORY_FROM, to_ts, resolution="1D")
     except Exception as e:
-        msg = f"moneycontrol: {e}"
-        raise SourceError(msg) from e
+        raise SourceError(f"moneycontrol: {e}") from e
     return [
         {
             "date": datetime.fromtimestamp(b["time"], tz=UTC).date().isoformat(),

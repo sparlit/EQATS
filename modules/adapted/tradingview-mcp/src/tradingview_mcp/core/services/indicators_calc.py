@@ -41,7 +41,6 @@ Indicators:
 """
 
 import math
-from typing import Optional
 
 # ─── EMA ──────────────────────────────────────────────────────────────────────
 
@@ -116,7 +115,9 @@ def calc_rsi(closes: list[float], period: int = 14) -> list[float | None]:
 # ─── Bollinger Bands ──────────────────────────────────────────────────────────
 
 
-def calc_bollinger(closes: list[float], period: int = 20, std_mult: float = 2.0) -> dict[str, list[float | None]]:
+def calc_bollinger(
+    closes: list[float], period: int = 20, std_mult: float = 2.0
+) -> dict[str, list[float | None]]:
     """
     Bollinger Bands.
     Returns dict with 'upper', 'middle' (SMA), 'lower' lists.
@@ -180,7 +181,9 @@ def calc_macd(
 # ─── ATR (Average True Range) ─────────────────────────────────────────────────
 
 
-def calc_atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> list[float | None]:
+def calc_atr(
+    highs: list[float], lows: list[float], closes: list[float], period: int = 14
+) -> list[float | None]:
     """
     Average True Range — measures market volatility.
     True Range = max(H-L, |H-prevC|, |L-prevC|)
@@ -273,7 +276,9 @@ def calc_supertrend(
 # ─── Donchian Channel ─────────────────────────────────────────────────────────
 
 
-def calc_donchian(highs: list[float], lows: list[float], period: int = 20) -> dict[str, list[float | None]]:
+def calc_donchian(
+    highs: list[float], lows: list[float], period: int = 20
+) -> dict[str, list[float | None]]:
     """
     Donchian Channel.
     Returns dict with 'upper' (highest high), 'lower' (lowest low), 'middle'.

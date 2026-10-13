@@ -34,9 +34,22 @@ from ccxt.async_support.base.ws.cache import (
     ArrayCacheByTimestamp,
 )
 from ccxt.async_support.base.ws.client import Client
-from ccxt.base.errors import ArgumentsRequired, AuthenticationError
+from ccxt.base.errors import ArgumentsRequired, AuthenticationError, ExchangeError
 from ccxt.base.precise import Precise
-from ccxt.base.types import Balances, Int, Market, Order, OrderBook, Position, Str, Strings, Ticker, Tickers, Trade
+from ccxt.base.types import (
+    Balances,
+    Int,
+    Market,
+    MarketInterface,
+    Order,
+    OrderBook,
+    Position,
+    Str,
+    Strings,
+    Ticker,
+    Tickers,
+    Trade,
+)
 
 
 class aster(ccxt.async_support.aster):
@@ -101,12 +114,12 @@ class aster(ccxt.async_support.aster):
                         "swap": 3600000,
                     },
                     "watchBalance": {
-                        "fetchBalanceSnapshot": False,  # or True
+                        "fetchBalanceSnapshot": False,  # or true
                         "awaitBalanceSnapshot": True,  # whether to wait for the balance snapshot before providing updates
                     },
                     "wallet": "wb",  # wb = wallet balance, cw = cross balance
                     "watchPositions": {
-                        "fetchPositionsSnapshot": True,  # or False
+                        "fetchPositionsSnapshot": True,  # or false
                         "awaitPositionsSnapshot": True,  # whether to wait for the positions snapshot before providing updates
                     },
                 },
@@ -120,7 +133,7 @@ class aster(ccxt.async_support.aster):
             return "swap"
         return "spot"
 
-    async def watch_ticker(self, symbol: str, params: dict | None = None) -> Ticker:
+    async def watch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -142,11 +155,11 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "watchTicker"
         if self.markets is None:
             await self.load_markets()
-        symbol = self.safe_symbol(symbol)
-        tickers = await self.watch_tickers([symbol], params)
-        return tickers[symbol]
+        symbolValue = self.safe_symbol(symbol)
+        tickers = await self.watch_tickers([symbolValue], params)
+        return tickers[symbolValue]
 
-    async def un_watch_ticker(self, symbol: str, params: dict | None = None) -> object:
+    async def un_watch_ticker(self, symbol: str, params: dict = None) -> object:
         """
         unWatches a price ticker
 
@@ -168,7 +181,7 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "unWatchTicker"
         return await self.un_watch_tickers([symbol], params)
 
-    async def watch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    async def watch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         watches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
 
@@ -185,37 +198,45 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "watchTickers")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsList)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "watchTickers"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "SUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@ticker")
             messageHashes.append("ticker:" + market["symbol"])
-        newTicker = await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        newTicker = await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
         if self.newUpdates:
             result = {}
-            result[newTicker["symbol"]] = newTicker
+            newTickerSymbol = self.safe_string(newTicker, "symbol")
+            if newTickerSymbol is not None:
+                result[newTickerSymbol] = newTicker
             return result
-        return self.filter_by_array(self.tickers, "symbol", symbols)
+        return self.filter_by_array(self.tickers, "symbol", symbolsList)
 
-    async def un_watch_tickers(self, symbols: Strings = None, params=None) -> object:
+    async def un_watch_tickers(self, symbols: Strings = None, params: dict = None) -> object:
         """
         unWatches a price ticker, a statistical calculation with the information calculated over the past 24 hours for all markets of a specific list
 
@@ -232,32 +253,38 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "unWatchTickers")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsList)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "unWatchTickers"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@ticker")
             messageHashes.append("unsubscribe:ticker:" + market["symbol"])
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
 
-    async def watch_mark_price(self, symbol: str, params: dict | None = None) -> Ticker:
+    async def watch_mark_price(self, symbol: str, params: dict = None) -> Ticker:
         """
         watches a mark price for a specific market
 
@@ -274,11 +301,11 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "watchMarkPrice"
         if self.markets is None:
             await self.load_markets()
-        symbol = self.safe_symbol(symbol)
-        tickers = await self.watch_mark_prices([symbol], params)
-        return tickers[symbol]
+        symbolValue = self.safe_symbol(symbol)
+        tickers = await self.watch_mark_prices([symbolValue], params)
+        return tickers[symbolValue]
 
-    async def un_watch_mark_price(self, symbol: str, params: dict | None = None) -> object:
+    async def un_watch_mark_price(self, symbol: str, params: dict = None) -> object:
         """
         unWatches a mark price for a specific market
 
@@ -295,7 +322,7 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "unWatchMarkPrice"
         return await self.un_watch_mark_prices([symbol], params)
 
-    async def watch_mark_prices(self, symbols: Strings = None, params=None) -> Tickers:
+    async def watch_mark_prices(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         watches the mark price for all markets
 
@@ -311,39 +338,49 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "watchMarkPrices")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsList)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "watchMarkPrices"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "SUBSCRIBE",
             "params": subscriptionArgs,
         }
-        use1sFreq = self.safe_bool(params, "use1sFreq", True)
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        use1sFreq = self.safe_bool(paramsOmitted, "use1sFreq", True)
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
-            suffix = "@1s" if (use1sFreq is True) else ""
+            suffix = ""
+            if use1sFreq is True:
+                suffix = "@1s"
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@markPrice" + suffix)
             messageHashes.append("ticker:" + market["symbol"])
-        newTicker = await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        newTicker = await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
         if self.newUpdates:
             result = {}
-            result[newTicker["symbol"]] = newTicker
+            newTickerSymbol = self.safe_string(newTicker, "symbol")
+            if newTickerSymbol is not None:
+                result[newTickerSymbol] = newTicker
             return result
-        return self.filter_by_array(self.tickers, "symbol", symbols)
+        return self.filter_by_array(self.tickers, "symbol", symbolsList)
 
-    async def un_watch_mark_prices(self, symbols: Strings = None, params=None) -> object:
+    async def un_watch_mark_prices(self, symbols: Strings = None, params: dict = None) -> object:
         """
         watches the mark price for all markets
 
@@ -359,34 +396,42 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "unWatchMarkPrices")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsList)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "unWatchMarkPrices"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        use1sFreq = self.safe_bool(params, "use1sFreq", True)
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        use1sFreq = self.safe_bool(paramsOmitted, "use1sFreq", True)
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
-            suffix = "@1s" if (use1sFreq is True) else ""
+            suffix = ""
+            if use1sFreq is True:
+                suffix = "@1s"
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@markPrice" + suffix)
             messageHashes.append("unsubscribe:ticker:" + market["symbol"])
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
 
-    def handle_ticker(self, client: Client, message: object):
+    def handle_ticker(self, client: Client, message: dict):
         #
         #     {
         #             "e": "24hrTicker",
@@ -428,7 +473,7 @@ class aster(ccxt.async_support.aster):
             self.tickers[symbol] = parsed
             client.resolve(self.tickers[symbol], messageHash)
 
-    def parse_ws_ticker(self, message: object, marketType: object):
+    def parse_ws_ticker(self, message: dict, marketType: Str) -> Ticker:
         event = self.safe_string(message, "e")
         marketId = self.safe_string(message, "s")
         timestamp = self.safe_integer(message, "E")
@@ -471,7 +516,7 @@ class aster(ccxt.async_support.aster):
             market,
         )
 
-    async def watch_bids_asks(self, symbols: Strings = None, params=None) -> Tickers:
+    async def watch_bids_asks(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         watches best bid & ask for symbols
 
@@ -488,34 +533,41 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
+        symbolsLength = len(symbolsList)
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " watchBidsAsks() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " watchBidsAsks() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "SUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@bookTicker")
             messageHashes.append("bidask:" + market["symbol"])
-        newTicker = await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        newTicker = await self.watch_multiple(
+            url, messageHashes, self.extend(request, params), messageHashes
+        )
         if self.newUpdates:
             result = {}
-            result[newTicker["symbol"]] = newTicker
+            newTickerSymbol = self.safe_string(newTicker, "symbol")
+            if newTickerSymbol is not None:
+                result[newTickerSymbol] = newTicker
             return result
-        return self.filter_by_array(self.bidsasks, "symbol", symbols)
+        return self.filter_by_array(self.bidsasks, "symbol", symbolsList)
 
-    async def un_watch_bids_asks(self, symbols: Strings = None, params=None) -> object:
+    async def un_watch_bids_asks(self, symbols: Strings = None, params: dict = None) -> object:
         """
         unWatches best bid & ask for symbols
 
@@ -532,29 +584,34 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        if symbols is None:
-            symbols = []
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        symbolsList = [] if (symbolsNormalized is None) else symbolsNormalized
+        firstMarket = self.get_market_from_symbols(symbolsList)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
+        symbolsLength = len(symbolsList)
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " unWatchBidsAsks() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " unWatchBidsAsks() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsList)):
+            symbol = symbolsList[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@bookTicker")
             messageHashes.append("unsubscribe:bidask:" + market["symbol"])
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, params), messageHashes
+        )
 
-    def handle_bid_ask(self, client: Client, message: object):
+    def handle_bid_ask(self, client: Client, message: dict):
         #
         #     {
         #             "e": "bookTicker",
@@ -579,9 +636,11 @@ class aster(ccxt.async_support.aster):
         messageHash = "bidask:" + symbol
         client.resolve(ticker, messageHash)
 
-    def parse_ws_bid_ask(self, message: object, market: Market = None):
+    def parse_ws_bid_ask(self, message: dict, market: Market = None) -> Ticker:
         timestamp = self.safe_integer(message, "T")
-        bidAskSymbol = market["symbol"] if (market is not None) else None
+        bidAskSymbol = None
+        if market is not None:
+            bidAskSymbol = market["symbol"]
         return self.safe_ticker(
             {
                 "symbol": bidAskSymbol,
@@ -597,7 +656,7 @@ class aster(ccxt.async_support.aster):
         )
 
     async def watch_trades(
-        self, symbol: str, since: Int = None, limit: Int = None, params: dict | None = None
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         watches information on multiple trades made in a market
@@ -617,7 +676,7 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "watchTrades"
         return await self.watch_trades_for_symbols([symbol], since, limit, params)
 
-    async def un_watch_trades(self, symbol: str, params: dict | None = None) -> object:
+    async def un_watch_trades(self, symbol: str, params: dict = None) -> object:
         """
         unsubscribe from the trades channel
 
@@ -635,7 +694,7 @@ class aster(ccxt.async_support.aster):
         return await self.un_watch_trades_for_symbols([symbol], params)
 
     async def watch_trades_for_symbols(
-        self, symbols: list[str], since: Int = None, limit: Int = None, params=None
+        self, symbols: list[str], since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         get the list of most recent trades for a list of symbols
@@ -654,16 +713,21 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        firstMarket = self.get_market_from_symbols(symbolsNormalized)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "watchTradesForSymbols")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsNormalized)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "watchTradesForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
@@ -671,20 +735,25 @@ class aster(ccxt.async_support.aster):
             "params": subscriptionArgs,
             "id": 1,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsNormalized)):
+            symbol = symbolsNormalized[i]
             market = self.market(symbol)
             marketId = self.safe_string_lower(market, "id")
+            if marketId is None:
+                continue
             subscriptionArgs.append(marketId + "@aggTrade")
             messageHashes.append("trade::" + market["symbol"])
-        trades = await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        trades = await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
+        first = self.safe_dict(trades, 0)
+        tradeSymbol = self.safe_string(first, "symbol")
+        limitResolved = limit
         if self.newUpdates:
-            first = self.safe_value(trades, 0)
-            tradeSymbol = self.safe_string(first, "symbol")
-            limit = trades.getLimit(tradeSymbol, limit)
-        return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
+            limitResolved = trades.getLimit(tradeSymbol, limit)
+        return self.filter_by_since_limit(trades, since, limitResolved, "timestamp", True)
 
-    async def un_watch_trades_for_symbols(self, symbols: list[str], params=None) -> object:
+    async def un_watch_trades_for_symbols(self, symbols: list[str], params: dict = None) -> object:
         """
         unsubscribe from the trades channel
 
@@ -699,30 +768,37 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        firstMarket = self.get_market_from_symbols(symbolsNormalized)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "unWatchTradesForSymbols")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsNormalized)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "unWatchTradesForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsNormalized)):
+            symbol = symbolsNormalized[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@aggTrade")
             messageHashes.append("unsubscribe:trade:" + market["symbol"])
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
 
-    def handle_trade(self, client: Client, message: object):
+    def handle_trade(self, client: Client, message: dict):
         #
         #     {
         #         "e": "aggTrade",
@@ -734,7 +810,7 @@ class aster(ccxt.async_support.aster):
         #         "f": 26024678,
         #         "l": 26024682,
         #         "T": 1754551358528,
-        #         "m": False
+        #         "m": false
         #     }
         #
         marketType = self.get_account_type_from_url(client.url)
@@ -752,22 +828,22 @@ class aster(ccxt.async_support.aster):
         stored.append(parsed)
         client.resolve(stored, "trade::" + symbol)
 
-    def parse_ws_trade(self, trade: object, market: Market = None) -> Trade:
+    def parse_ws_trade(self, trade: dict, market: Market = None) -> Trade:
         #
-        # public watchTrades(spot)
+        # public watchTrades (spot)
         #
         #     {
-        #        "e": "aggTrade",  # Event type
-        #        "E": 123456789,   # Event time
-        #        "s": "BNBBTC",    # Symbol
-        #        "a": 12345,       # Aggregate trade ID
-        #        "p": "0.001",     # Price
-        #        "q": "100",       # Quantity
-        #        "f": 100,         # First trade ID
-        #        "l": 105,         # Last trade ID
-        #        "T": 123456785,   # Trade time
-        #        "m": True,        # Is the buyer the market maker?
-        #        "M": True         # Ignore
+        #        "e": "aggTrade",  // Event type
+        #        "E": 123456789,   // Event time
+        #        "s": "BNBBTC",    // Symbol
+        #        "a": 12345,       // Aggregate trade ID
+        #        "p": "0.001",     // Price
+        #        "q": "100",       // Quantity
+        #        "f": 100,         // First trade ID
+        #        "l": 105,         // Last trade ID
+        #        "T": 123456785,   // Trade time
+        #        "m": true,        // Is the buyer the market maker?
+        #        "M": true         // Ignore
         #     }
         #
         # private watchMyTrades spot
@@ -798,9 +874,9 @@ class aster(ccxt.async_support.aster):
         #         "T": 1611063861488,
         #         "t": 109747654,
         #         "I": 2696953381,
-        #         "w": False,
-        #         "m": False,
-        #         "M": True,
+        #         "w": false,
+        #         "m": false,
+        #         "M": true,
         #         "O": 1611063861488,
         #         "Z": "15.55951200",
         #         "Y": "15.55951200",
@@ -831,20 +907,20 @@ class aster(ccxt.async_support.aster):
         #         "t": 458032604,
         #         "b": "0",
         #         "a": "0",
-        #         "m": False,
-        #         "R": False,
+        #         "m": false,
+        #         "R": false,
         #         "wt": "CONTRACT_PRICE",
         #         "ot": "MARKET",
         #         "ps": "BOTH",
-        #         "cp": False,
+        #         "cp": false,
         #         "rp": "0.00335000",
-        #         "pP": False,
+        #         "pP": false,
         #         "si": 0,
         #         "ss": 0
         #     }
         #
         e = self.safe_string(trade, "e")
-        isPublicTrade = e in {"trade", "aggTrade"}
+        isPublicTrade = (e == "trade") or (e == "aggTrade")
         id = self.safe_string_2(trade, "t", "a")
         timestamp = self.safe_integer(trade, "T")
         price = self.safe_string_2(trade, "L", "p")
@@ -855,19 +931,24 @@ class aster(ccxt.async_support.aster):
             # private trades, amount is in 'l' field, quantity of the last filled trade
             amount = self.safe_string(trade, "l")
         cost = self.safe_string(trade, "Y")
-        if cost is None:
-            if (price is not None) and (amount is not None):
-                cost = Precise.string_mul(price, amount)
+        if cost is None and (price is not None) and (amount is not None):
+            cost = Precise.string_mul(price, amount)
         marketId = self.safe_string(trade, "s")
-        defaultType = self.safe_string(self.options, "defaultType", "spot") if (market is None) else market["type"]
+        defaultType = None
+        if market is None:
+            defaultType = self.safe_string(self.options, "defaultType", "spot")
+        else:
+            defaultType = self.safe_string(market, "type")
         symbol = self.safe_symbol(marketId, market, None, defaultType)
         side = self.safe_string_lower(trade, "S")
         takerOrMaker = None
         orderId = self.safe_string(trade, "i")
         if "m" in trade:
             if side is None:
-                side = "sell" if (trade["m"] is True) else "buy"  # self is reversed intentionally
-            takerOrMaker = "maker" if (trade["m"] is True) else "taker"
+                side = (
+                    "sell" if (self.safe_bool(trade, "m", False)) else "buy"
+                )  # this is reversed intentionally
+            takerOrMaker = "maker" if (self.safe_bool(trade, "m", False)) else "taker"
         fee = None
         feeCost = self.safe_string(trade, "n")
         if feeCost is not None:
@@ -896,7 +977,9 @@ class aster(ccxt.async_support.aster):
             }
         )
 
-    async def watch_order_book(self, symbol: str, limit: Int = None, params: dict | None = None) -> OrderBook:
+    async def watch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         watches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -915,7 +998,7 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "watchOrderBook"
         return await self.watch_order_book_for_symbols([symbol], limit, params)
 
-    async def un_watch_order_book(self, symbol: str, params: dict | None = None) -> object:
+    async def un_watch_order_book(self, symbol: str, params: dict = None) -> object:
         """
         unsubscribe from the orderbook channel
 
@@ -934,7 +1017,9 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "unWatchOrderBook"
         return await self.un_watch_order_book_for_symbols([symbol], params)
 
-    async def watch_order_book_for_symbols(self, symbols: list[str], limit: Int = None, params=None) -> OrderBook:
+    async def watch_order_book_for_symbols(
+        self, symbols: list[str], limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         watches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -952,33 +1037,45 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        firstMarket = self.get_market_from_symbols(symbolsNormalized)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "watchOrderBookForSymbols")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsNormalized)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "watchOrderBookForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "SUBSCRIBE",
             "params": subscriptionArgs,
         }
-        if limit is None or (limit not in {5, 10, 20}):
-            limit = 20
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        limitResolved = 20
+        if limit == 5 or limit == 10 or limit == 20:
+            limitResolved = limit
+        for i in range(0, len(symbolsNormalized)):
+            symbol = symbolsNormalized[i]
             market = self.market(symbol)
-            subscriptionArgs.append(self.safe_string_lower(market, "id") + "@depth" + str(limit))
+            subscriptionArgs.append(
+                self.safe_string_lower(market, "id") + "@depth" + str(limitResolved)
+            )
             messageHashes.append("orderbook:" + market["symbol"])
-        orderbook = await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        orderbook = await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
         return orderbook.limit()
 
-    async def un_watch_order_book_for_symbols(self, symbols: list[str], params=None) -> object:
+    async def un_watch_order_book_for_symbols(
+        self, symbols: list[str], params: dict = None
+    ) -> object:
         """
         unsubscribe from the orderbook channel
 
@@ -996,34 +1093,41 @@ class aster(ccxt.async_support.aster):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols, None, True, True, True)
-        firstMarket = self.get_market_from_symbols(symbols)
+        symbolsNormalized = self.market_symbols(symbols, None, True, True, True)
+        firstMarket = self.get_market_from_symbols(symbolsNormalized)
         type = self.safe_string(firstMarket, "type", "swap")
-        symbolsLength = len(symbols)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "unWatchOrderBookForSymbols")
-        params = self.omit(params, "callerMethodName")
+        symbolsLength = len(symbolsNormalized)
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "unWatchOrderBookForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
-        url = self.urls["api"]["ws"]["public"][type]
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        limit = self.safe_number(params, "limit")
-        params = self.omit(params, "limit")
-        if limit is None or (limit not in {5, 10, 20}):
+        limit = self.safe_number(paramsOmitted, "limit")
+        paramsOmitted2 = self.omit(paramsOmitted, "limit")
+        if limit is None or (limit != 5 and limit != 10 and limit != 20):
             limit = 20
-        for i in range(len(symbols)):
-            symbol = symbols[i]
+        for i in range(0, len(symbolsNormalized)):
+            symbol = symbolsNormalized[i]
             market = self.market(symbol)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@depth" + limit)
             messageHashes.append("unsubscribe:orderbook:" + market["symbol"])
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted2), messageHashes
+        )
 
-    def handle_order_book(self, client: Client, message: object):
+    def handle_order_book(self, client: Client, message: dict):
         #
         #     {
         #             "e": "depthUpdate",
@@ -1063,7 +1167,7 @@ class aster(ccxt.async_support.aster):
         client.resolve(orderbook, messageHash)
 
     async def watch_ohlcv(
-        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params: dict | None = None
+        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params: dict = None
     ) -> list[list]:
         """
         watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
@@ -1083,11 +1187,13 @@ class aster(ccxt.async_support.aster):
         params["callerMethodName"] = "watchOHLCV"
         if self.markets is None:
             await self.load_markets()
-        symbol = self.safe_symbol(symbol)
-        result = await self.watch_ohlcv_for_symbols([[symbol, timeframe]], since, limit, params)
-        return result[symbol][timeframe]
+        symbolValue = self.safe_symbol(symbol)
+        result = await self.watch_ohlcv_for_symbols(
+            [[symbolValue, timeframe]], since, limit, params
+        )
+        return result[symbolValue][timeframe]
 
-    async def un_watch_ohlcv(self, symbol: str, timeframe="1m", params: dict | None = None) -> object:
+    async def un_watch_ohlcv(self, symbol: str, timeframe="1m", params: dict = None) -> object:
         """
         unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
 
@@ -1105,7 +1211,11 @@ class aster(ccxt.async_support.aster):
         return await self.un_watch_ohlcv_for_symbols([[symbol, timeframe]], params)
 
     async def watch_ohlcv_for_symbols(
-        self, symbolsAndTimeframes: list[list[str]], since: Int = None, limit: Int = None, params=None
+        self,
+        symbolsAndTimeframes: list[list[str]],
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ):
         """
         watches historical candlestick data containing the open, high, low, and close price, and the volume of a market
@@ -1124,46 +1234,54 @@ class aster(ccxt.async_support.aster):
         if self.markets is None:
             await self.load_markets()
         symbolsLength = len(symbolsAndTimeframes)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "watchOHLCVForSymbols")
-        params = self.omit(params, "callerMethodName")
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "watchOHLCVForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
         symbols = self.get_list_from_object_values(symbolsAndTimeframes, 0)
         marketSymbols = self.market_symbols(symbols, None, False, True, True)
         firstMarket = self.market(marketSymbols[0])
         type = self.safe_string(firstMarket, "type", "swap")
-        url = self.urls["api"]["ws"]["public"][type]
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "SUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbolsAndTimeframes)):
-            data = symbolsAndTimeframes[i]
+        for i in range(0, len(symbolsAndTimeframes)):
+            data = self.safe_list(symbolsAndTimeframes, i)
             symbolString = self.safe_string(data, 0)
             if symbolString is None:
                 continue
             market = self.market(symbolString)
-            symbolString = market["symbol"]
+            symbolString = self.safe_string(market, "symbol")
             unfiedTimeframe = self.safe_string(data, 1)
-            timeframeId = (
-                None
-                if (unfiedTimeframe is None)
-                else self.safe_string(self.timeframes, unfiedTimeframe, unfiedTimeframe)
-            )
+            timeframeId = None
+            if unfiedTimeframe is None:
+                timeframeId = None
+            else:
+                timeframeId = self.safe_string(self.timeframes, unfiedTimeframe, unfiedTimeframe)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@kline_" + timeframeId)
             messageHashes.append("ohlcv:" + market["symbol"] + ":" + unfiedTimeframe)
         symbol, timeframe, stored = await self.watch_multiple(
-            url, messageHashes, self.extend(request, params), messageHashes
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
         )
+        limitResolved = limit
         if self.newUpdates:
-            limit = stored.getLimit(symbol, limit)
-        filtered = self.filter_by_since_limit(stored, since, limit, 0, True)
+            limitResolved = stored.getLimit(symbol, limit)
+        filtered = self.filter_by_since_limit(stored, since, limitResolved, 0, True)
         return self.create_ohlcv_object(symbol, timeframe, filtered)
 
-    async def un_watch_ohlcv_for_symbols(self, symbolsAndTimeframes: list[list[str]], params=None) -> object:
+    async def un_watch_ohlcv_for_symbols(
+        self, symbolsAndTimeframes: list[list[str]], params: dict = None
+    ) -> object:
         """
         unWatches historical candlestick data containing the open, high, low, and close price, and the volume of a market
 
@@ -1179,40 +1297,47 @@ class aster(ccxt.async_support.aster):
         if self.markets is None:
             await self.load_markets()
         symbolsLength = len(symbolsAndTimeframes)
-        methodName = None
-        methodName, params = self.handle_param_string(params, "callerMethodName", "unWatchOHLCVForSymbols")
-        params = self.omit(params, "callerMethodName")
+        methodName, paramsCallerMethodName = self.handle_param_string(
+            params, "callerMethodName", "unWatchOHLCVForSymbols"
+        )
+        paramsOmitted = self.omit(paramsCallerMethodName, "callerMethodName")
         if symbolsLength == 0:
-            raise ArgumentsRequired(self.id + " " + methodName + "() requires a non-empty array of symbols")
+            raise ArgumentsRequired(
+                self.id + " " + methodName + "() requires a non-empty array of symbols"
+            )
         symbols = self.get_list_from_object_values(symbolsAndTimeframes, 0)
         marketSymbols = self.market_symbols(symbols, None, False, True, True)
         firstMarket = self.market(marketSymbols[0])
         type = self.safe_string(firstMarket, "type", "swap")
-        url = self.urls["api"]["ws"]["public"][type]
+        url = self.safe_string(self.urls["api"]["ws"]["public"], type)
+        if url is None:
+            raise ExchangeError(self.id + " has no websocket url for self endpoint")
         subscriptionArgs = []
         messageHashes = []
         request = {
             "method": "UNSUBSCRIBE",
             "params": subscriptionArgs,
         }
-        for i in range(len(symbolsAndTimeframes)):
-            data = symbolsAndTimeframes[i]
+        for i in range(0, len(symbolsAndTimeframes)):
+            data = self.safe_list(symbolsAndTimeframes, i)
             symbolString = self.safe_string(data, 0)
             if symbolString is None:
                 continue
             market = self.market(symbolString)
-            symbolString = market["symbol"]
+            symbolString = self.safe_string(market, "symbol")
             unfiedTimeframe = self.safe_string(data, 1)
-            timeframeId = (
-                None
-                if (unfiedTimeframe is None)
-                else self.safe_string(self.timeframes, unfiedTimeframe, unfiedTimeframe)
-            )
+            timeframeId = None
+            if unfiedTimeframe is None:
+                timeframeId = None
+            else:
+                timeframeId = self.safe_string(self.timeframes, unfiedTimeframe, unfiedTimeframe)
             subscriptionArgs.append(self.safe_string_lower(market, "id") + "@kline_" + timeframeId)
             messageHashes.append("unsubscribe:ohlcv:" + market["symbol"] + ":" + unfiedTimeframe)
-        return await self.watch_multiple(url, messageHashes, self.extend(request, params), messageHashes)
+        return await self.watch_multiple(
+            url, messageHashes, self.extend(request, paramsOmitted), messageHashes
+        )
 
-    def handle_ohlcv(self, client: Client, message: object):
+    def handle_ohlcv(self, client: Client, message: dict):
         #
         #     {
         #             "e": "kline",
@@ -1231,7 +1356,7 @@ class aster(ccxt.async_support.aster):
         #                 "l": "116546.9",
         #                 "v": "0.011",
         #                 "n": 1,
-        #                 "x": False,
+        #                 "x": false,
         #                 "q": "1282.0159",
         #                 "V": "0.000",
         #                 "Q": "0.0000",
@@ -1249,7 +1374,7 @@ class aster(ccxt.async_support.aster):
         timeframe = self.find_timeframe(timeframeId)
         if timeframe is None:
             return
-        ohlcvsByTimeframe = self.safe_value(self.ohlcvs, symbol)
+        ohlcvsByTimeframe = self.safe_dict(self.ohlcvs, symbol)
         if ohlcvsByTimeframe is None:
             self.ohlcvs[symbol] = {}
         if self.safe_value(ohlcvsByTimeframe, timeframe) is None:
@@ -1272,23 +1397,25 @@ class aster(ccxt.async_support.aster):
             self.safe_number(ohlcv, "v"),
         ]
 
-    async def authenticate(self, type="spot", params=None):
+    async def authenticate(self, type: str = "spot", params: dict = None):
         if params is None:
             params = {}
         time = self.milliseconds()
         lastAuthenticatedTimeOptions = self.safe_dict(self.options, "lastAuthenticatedTime", {})
         lastAuthenticatedTime = self.safe_integer(lastAuthenticatedTimeOptions, type, 0)
         listenKeyRefreshRateOptions = self.safe_dict(self.options, "listenKeyRefreshRate", {})
-        listenKeyRefreshRate = self.safe_integer(listenKeyRefreshRateOptions, type, 3600000)  # 1 hour
+        listenKeyRefreshRate = self.safe_integer(
+            listenKeyRefreshRateOptions, type, 3600000
+        )  # 1 hour
         if time - lastAuthenticatedTime > listenKeyRefreshRate:
             # single-flight leader election on a never-dialed client, see
             # https://github.com/ccxt/ccxt/issues/29393: concurrent watch
             # calls on a cold instance each passed the staleness check and
-            # fetched their own listenKey(last write wins, earlier keys
+            # fetched their own listenKey (last write wins, earlier keys
             # orphan) - now one leader fetches per type and waiters wake when
             # the flight settles. client.futures is the registry:
-            # client.future() is the atomic check-and-insert and
-            # client.resolve() / client.reject() settle and remove the entry
+            # client.future () is the atomic check-and-insert and
+            # client.resolve () / client.reject () settle and remove the entry
             # under the same lock in every port
             messageHash = "authenticate:" + type
             client = self.client("authenticationFlights")
@@ -1297,8 +1424,8 @@ class aster(ccxt.async_support.aster):
                 # settles it: the listenKey is then in the bucket
                 await client.future(messageHash)
                 return
-            # reusableFuture(), not future() - the two match in
-            # js/py/php/cs/java, but go's Client.Future() yields a channel
+            # reusableFuture (), not future () - the two match in
+            # js/py/php/cs/java, but go's Client.Future () yields a channel
             # that the trailing suspension point below would panic on
             future = client.reusableFuture(messageHash)
             try:
@@ -1311,22 +1438,24 @@ class aster(ccxt.async_support.aster):
                 if listenKey is None:
                     # reject instead of caching an empty credential, so
                     # waiters retry rather than proceed unauthenticated
-                    raise AuthenticationError(self.id + " authenticate() received an empty listenKey")
+                    raise AuthenticationError(
+                        self.id + " authenticate() received an empty listenKey"
+                    )
                 self.options["listenKey"][type] = listenKey
                 self.options["lastAuthenticatedTime"][type] = time
-                params = self.extend({"type": type}, params)
-                self.delay(listenKeyRefreshRate, self.keep_alive_listen_key, params)
-                # settle the flight: client.resolve() removes the future from
+                keepAliveParams = self.extend({"type": type}, params)
+                self.delay(listenKeyRefreshRate, self.keep_alive_listen_key, keepAliveParams)
+                # settle the flight: client.resolve () removes the future from
                 # client.futures and wakes every waiter
                 client.resolve(listenKey, messageHash)
             except Exception as e:
-                # reject the flight - waiters raise and the next caller re-leads.
-                # no reraise here, the trailing suspension point rethrows to self
+                # reject the flight - waiters throw and the next caller re-leads.
+                # no rethrow here, the trailing suspension point rethrows to this
                 # caller AND attaches the handler an alone leader needs
                 client.reject(e, messageHash)
             await future
 
-    async def keep_alive_listen_key(self, params=None):
+    async def keep_alive_listen_key(self, params: dict = None):
         if params is None:
             params = {}
         type = self.safe_string(params, "type", "spot")
@@ -1336,14 +1465,14 @@ class aster(ccxt.async_support.aster):
             return
         try:
             if type == "spot":
-                await self.sapiPrivatePutV3ListenKey()  # self.extend the expiry
+                await self.sapiPrivatePutV3ListenKey()  # extend the expiry
             else:
-                await self.fapiPrivatePutV3ListenKey()  # self.extend the expiry
+                await self.fapiPrivatePutV3ListenKey()  # extend the expiry
         except Exception as error:
-            url = self.urls["api"]["ws"]["private"][type] + "/" + listenKey
+            url = self.safe_string(self.urls["api"]["ws"]["private"], type) + "/" + listenKey
             client = self.client(url)
             messageHashes = list(client.futures.keys())
-            for i in range(len(messageHashes)):
+            for i in range(0, len(messageHashes)):
                 messageHash = messageHashes[i]
                 client.reject(error, messageHash)
             self.options["listenKey"][type] = None
@@ -1351,15 +1480,18 @@ class aster(ccxt.async_support.aster):
             return
         # whether or not to schedule another listenKey keepAlive request
         listenKeyRefreshOptions = self.safe_dict(self.options, "listenKeyRefresh", {})
-        listenKeyRefreshRate = self.safe_integer(listenKeyRefreshOptions, "listenKeyRefreshRate", 3600000)
+        listenKeyRefreshRate = self.safe_integer(
+            listenKeyRefreshOptions, "listenKeyRefreshRate", 3600000
+        )
         self.delay(listenKeyRefreshRate, self.keep_alive_listen_key, params)
 
-    def get_private_url(self, type="spot"):
+    def get_private_url(self, type: str = "spot") -> str:
         listenKeyOptions = self.safe_dict(self.options, "listenKey", {})
         listenKey = self.safe_string(listenKeyOptions, type)
-        return self.urls["api"]["ws"]["private"][type] + "/" + listenKey
+        url = self.safe_string(self.urls["api"]["ws"]["private"], type) + "/" + listenKey
+        return url
 
-    async def watch_balance(self, params=None) -> Balances:
+    async def watch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -1375,24 +1507,28 @@ class aster(ccxt.async_support.aster):
         if self.markets is None:
             await self.load_markets()
         type = None
-        type, params = self.handle_market_type_and_params("watchBalance", None, params, type)
-        await self.authenticate(type, params)
-        url = self.get_private_url(type)
+        typeMarketType, paramsMarketType = self.handle_market_type_and_params(
+            "watchBalance", None, params, type
+        )
+        if type is None:
+            raise ArgumentsRequired(self.id + " watchBalance() requires a market type")
+        await self.authenticate(typeMarketType, paramsMarketType)
+        url = self.get_private_url(typeMarketType)
         client = self.client(url)
-        self.set_balance_cache(client, type)
+        self.set_balance_cache(client, typeMarketType)
         options = self.safe_dict(self.options, "watchBalance")
         fetchBalanceSnapshot = self.safe_bool(options, "fetchBalanceSnapshot", False)
         awaitBalanceSnapshot = self.safe_bool(options, "awaitBalanceSnapshot", True)
         if (fetchBalanceSnapshot is True) and (awaitBalanceSnapshot is True):
-            await client.future(type + ":fetchBalanceSnapshot")
-        messageHash = type + ":balance"
+            await client.future(typeMarketType + ":fetchBalanceSnapshot")
+        messageHash = typeMarketType + ":balance"
         message = None
-        return await self.watch(url, messageHash, message, type)
+        return await self.watch(url, messageHash, message, typeMarketType)
 
-    def set_balance_cache(self, client: Client, type: object):
+    def set_balance_cache(self, client: Client, type: str):
         if (type in client.subscriptions) and (type in self.balance):
             return
-        options = self.safe_value(self.options, "watchBalance")
+        options = self.safe_dict(self.options, "watchBalance")
         fetchBalanceSnapshot = self.safe_bool(options, "fetchBalanceSnapshot", False)
         if fetchBalanceSnapshot is True:
             messageHash = type + ":fetchBalanceSnapshot"
@@ -1402,19 +1538,19 @@ class aster(ccxt.async_support.aster):
         else:
             self.balance[type] = {}
 
-    async def load_balance_snapshot(self, client: Client, messageHash: object, type: object):
+    async def load_balance_snapshot(self, client: Client, messageHash: str, type: str):
         params = {
             "type": type,
         }
         response = await self.fetch_balance(params)
-        self.balance[type] = self.extend(response, self.safe_value(self.balance, type, {}))
+        self.balance[type] = self.extend(response, self.safe_dict(self.balance, type, {}))
         # don't remove the future from the .futures cache
         if messageHash in client.futures:
             future = client.futures[messageHash]
             future.resolve()
             client.resolve(self.balance[type], type + ":balance")
 
-    def handle_balance(self, client: Client, message: object):
+    def handle_balance(self, client: Client, message: dict):
         #
         # spot balance update
         #     {
@@ -1473,10 +1609,10 @@ class aster(ccxt.async_support.aster):
         if self.balance[accountType] is None:
             self.balance[accountType] = {}
         self.balance[accountType]["info"] = message
-        message = self.safe_dict(message, "a", message)
-        B = self.safe_list(message, "B", [])
+        messageValue = self.safe_dict(message, "a", message)
+        B = self.safe_list(messageValue, "B", [])
         wallet = self.safe_string(self.options, "wallet", "wb")
-        for i in range(len(B)):
+        for i in range(0, len(B)):
             entry = B[i]
             currencyId = self.safe_string(entry, "a")
             code = self.safe_currency_code(currencyId)
@@ -1486,14 +1622,14 @@ class aster(ccxt.async_support.aster):
             account["total"] = self.safe_string(entry, wallet)
             if (accountType is not None) and (code is not None):
                 self.balance[accountType][code] = account
-        timestamp = self.safe_integer(message, "E")
+        timestamp = self.safe_integer(messageValue, "E")
         self.balance[accountType]["timestamp"] = timestamp
         self.balance[accountType]["datetime"] = self.iso8601(timestamp)
         self.balance[accountType] = self.safe_balance(self.balance[accountType])
         client.resolve(self.balance[accountType], messageHash)
 
     async def watch_positions(
-        self, symbols: Strings = None, since: Int = None, limit: Int = None, params=None
+        self, symbols: Strings = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Position]:
         """
         watch all open positions
@@ -1517,28 +1653,40 @@ class aster(ccxt.async_support.aster):
         self.set_positions_cache(client)
         messageHashes = []
         messageHash = "positions"
-        symbols = self.market_symbols(symbols, "swap", True, True)
-        if symbols is None:
+        symbolsNormalized = self.market_symbols(symbols, "swap", True, True)
+        if symbolsNormalized is None:
             messageHashes.append(messageHash)
         else:
-            for i in range(len(symbols)):
-                symbol = symbols[i]
+            for i in range(0, len(symbolsNormalized)):
+                symbol = symbolsNormalized[i]
                 messageHashes.append(messageHash + "::" + symbol)
-        fetchPositionsSnapshot = self.handle_option("watchPositions", "fetchPositionsSnapshot", True)
-        awaitPositionsSnapshot = self.handle_option("watchPositions", "awaitPositionsSnapshot", True)
+        fetchPositionsSnapshot = self.handle_option(
+            "watchPositions", "fetchPositionsSnapshot", True
+        )
+        awaitPositionsSnapshot = self.handle_option(
+            "watchPositions", "awaitPositionsSnapshot", True
+        )
         cache = self.positions
-        if (fetchPositionsSnapshot is True) and (awaitPositionsSnapshot is True) and (cache is None):
+        if (
+            (fetchPositionsSnapshot is True)
+            and (awaitPositionsSnapshot is True)
+            and (cache is None)
+        ):
             snapshot = await client.future("fetchPositionsSnapshot")
-            return self.filter_by_symbols_since_limit(snapshot, symbols, since, limit, True)
+            return self.filter_by_symbols_since_limit(
+                snapshot, symbolsNormalized, since, limit, True
+            )
         newPositions = await self.watch_multiple(url, messageHashes, None, [type])
         if self.newUpdates:
             return newPositions
-        return self.filter_by_symbols_since_limit(cache, symbols, since, limit, True)
+        return self.filter_by_symbols_since_limit(cache, symbolsNormalized, since, limit, True)
 
     def set_positions_cache(self, client: Client):
         if self.positions is not None:
             return
-        fetchPositionsSnapshot = self.handle_option("watchPositions", "fetchPositionsSnapshot", False)
+        fetchPositionsSnapshot = self.handle_option(
+            "watchPositions", "fetchPositionsSnapshot", False
+        )
         if fetchPositionsSnapshot is True:
             messageHash = "fetchPositionsSnapshot"
             if messageHash not in client.futures:
@@ -1547,11 +1695,11 @@ class aster(ccxt.async_support.aster):
         else:
             self.positions = ArrayCacheBySymbolBySide()
 
-    async def load_positions_snapshot(self, client: Client, messageHash: object):
+    async def load_positions_snapshot(self, client: Client, messageHash: str):
         positions = await self.fetch_positions()
         self.positions = ArrayCacheBySymbolBySide()
         cache = self.positions
-        for i in range(len(positions)):
+        for i in range(0, len(positions)):
             position = positions[i]
             contracts = self.safe_number(position, "contracts", 0)
             if (contracts is not None) and (contracts > 0):
@@ -1562,7 +1710,7 @@ class aster(ccxt.async_support.aster):
             future.resolve(cache)
             client.resolve(cache, "positions")
 
-    def handle_positions(self, client: object, message: object):
+    def handle_positions(self, client: Client, message: dict):
         #
         #     {
         #         "e": "ACCOUNT_UPDATE",
@@ -1601,7 +1749,7 @@ class aster(ccxt.async_support.aster):
         data = self.safe_dict(message, "a", {})
         rawPositions = self.safe_list(data, "P", [])
         newPositions = []
-        for i in range(len(rawPositions)):
+        for i in range(0, len(rawPositions)):
             rawPosition = rawPositions[i]
             position = self.parse_ws_position(rawPosition)
             timestamp = self.safe_integer(message, "E")
@@ -1611,24 +1759,24 @@ class aster(ccxt.async_support.aster):
             cache.append(position)
         messageHashes = self.find_message_hashes(client, messageHash)
         if not self.is_empty(messageHashes):
-            for i in range(len(newPositions)):
+            for i in range(0, len(newPositions)):
                 position = newPositions[i]
-                symbol = position["symbol"]
+                symbol = self.safe_string(position, "symbol")
                 symbolMessageHash = messageHash + "::" + symbol
                 client.resolve(position, symbolMessageHash)
             client.resolve(newPositions, "positions")
 
-    def parse_ws_position(self, position: object, market: Market = None):
+    def parse_ws_position(self, position: dict, market: Market = None) -> Position:
         #
         #     {
-        #         "s": "BTCUSDT",  # Symbol
-        #         "pa": "0",  # Position Amount
-        #         "ep": "0.00000",  # Entry Price
-        #         "cr": "200",  #(Pre-fee) Accumulated Realized
-        #         "up": "0",  # Unrealized PnL
-        #         "mt": "isolated",  # Margin Type
-        #         "iw": "0.00000000",  # Isolated Wallet(if isolated position)
-        #         "ps": "BOTH"  # Position Side
+        #         "s": "BTCUSDT", // Symbol
+        #         "pa": "0", // Position Amount
+        #         "ep": "0.00000", // Entry Price
+        #         "cr": "200", // (Pre-fee) Accumulated Realized
+        #         "up": "0", // Unrealized PnL
+        #         "mt": "isolated", // Margin Type
+        #         "iw": "0.00000000", // Isolated Wallet (if isolated position)
+        #         "ps": "BOTH" // Position Side
         #     }
         #
         marketId = self.safe_string(position, "s")
@@ -1668,7 +1816,9 @@ class aster(ccxt.async_support.aster):
             }
         )
 
-    async def watch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params=None) -> list[Order]:
+    async def watch_orders(
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Order]:
         """
         watches information on multiple orders made by the user
 
@@ -1687,25 +1837,31 @@ class aster(ccxt.async_support.aster):
         if self.markets is None:
             await self.load_markets()
         market = None
+        symbolResolved = None
         if symbol is not None:
             market = self.market(symbol)
-            symbol = market["symbol"]
+            symbolResolved = self.safe_string(market, "symbol")
         messageHash = "orders"
         type = None
-        type, params = self.handle_market_type_and_params("watchOrders", market, params, type)
-        await self.authenticate(type, params)
+        typeMarketType, paramsMarketType = self.handle_market_type_and_params(
+            "watchOrders", market, params, type
+        )
+        if type is None:
+            raise ArgumentsRequired(self.id + " watchOrders() requires a market type")
+        await self.authenticate(typeMarketType, paramsMarketType)
         if market is not None:
-            messageHash += "::" + symbol
-        url = self.get_private_url(type)
+            messageHash += "::" + symbolResolved
+        url = self.get_private_url(typeMarketType)
         client = self.client(url)
-        self.set_balance_cache(client, type)
-        orders = await self.watch_multiple(url, [messageHash], None, [type])
+        self.set_balance_cache(client, typeMarketType)
+        orders = await self.watch_multiple(url, [messageHash], None, [typeMarketType])
+        limitResolved = limit
         if self.newUpdates:
-            limit = orders.getLimit(symbol, limit)
-        return self.filter_by_symbol_since_limit(orders, symbol, since, limit, True)
+            limitResolved = orders.getLimit(symbolResolved, limit)
+        return self.filter_by_symbol_since_limit(orders, symbolResolved, since, limitResolved, True)
 
     async def watch_my_trades(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         watches information on multiple trades made by the user
@@ -1725,37 +1881,47 @@ class aster(ccxt.async_support.aster):
         if self.markets is None:
             await self.load_markets()
         market = None
+        symbolResolved = None
         if symbol is not None:
             market = self.market(symbol)
-            symbol = market["symbol"]
+            symbolResolved = self.safe_string(market, "symbol")
         messageHash = "myTrades"
         type = None
-        type, params = self.handle_market_type_and_params("watchMyTrades", market, params, type)
-        await self.authenticate(type, params)
+        typeMarketType, paramsMarketType = self.handle_market_type_and_params(
+            "watchMyTrades", market, params, type
+        )
+        if type is None:
+            raise ArgumentsRequired(self.id + " watchMyTrades() requires a market type")
+        await self.authenticate(typeMarketType, paramsMarketType)
         if market is not None:
-            messageHash += "::" + symbol
-        url = self.get_private_url(type)
+            messageHash += "::" + symbolResolved
+        url = self.get_private_url(typeMarketType)
         client = self.client(url)
-        self.set_balance_cache(client, type)
-        trades = await self.watch_multiple(url, [messageHash], None, [type])
+        self.set_balance_cache(client, typeMarketType)
+        trades = await self.watch_multiple(url, [messageHash], None, [typeMarketType])
+        limitResolved = limit
         if self.newUpdates:
-            limit = trades.getLimit(symbol, limit)
-        return self.filter_by_symbol_since_limit(trades, symbol, since, limit, True)
+            limitResolved = trades.getLimit(symbolResolved, limit)
+        return self.filter_by_symbol_since_limit(trades, symbolResolved, since, limitResolved, True)
 
-    def handle_order_update(self, client: Client, message: object):
+    def handle_order_update(self, client: Client, message: dict):
         rawOrder = self.safe_dict(message, "o", message)
         e = self.safe_string(message, "e")
-        if e in {"ORDER_TRADE_UPDATE", "ALGO_UPDATE"}:
-            message = self.safe_dict(message, "o", message)
+        isOrderUpdate = (e == "ORDER_TRADE_UPDATE") or (e == "ALGO_UPDATE")
+        tradeMessage = message
+        if isOrderUpdate:
+            tradeMessage = rawOrder
         self.handle_order(client, rawOrder)
-        self.handle_my_trade(client, message)
+        self.handle_my_trade(client, tradeMessage)
 
-    def handle_my_trade(self, client: Client, message: object):
+    def handle_my_trade(self, client: Client, message: dict):
         messageHash = "myTrades"
         executionType = self.safe_string(message, "x")
         if executionType == "TRADE":
             isSwap = client.url.find("fstream") >= 0
-            type = "swap" if isSwap else "spot"
+            type = "spot"
+            if isSwap:
+                type = "swap"
             fakeMarket = self.safe_market_structure({"type": type})
             trade = self.parse_ws_trade(message, fakeMarket)
             orderId = self.safe_string(trade, "order")
@@ -1765,42 +1931,54 @@ class aster(ccxt.async_support.aster):
             if orderId is not None and tradeFee is not None and symbol is not None:
                 cachedOrders = self.orders
                 if cachedOrders is not None:
-                    orders = self.safe_value(cachedOrders.hashmap, symbol, {})
-                    order = self.safe_value(orders, orderId)
+                    orders = self.safe_dict(cachedOrders.hashmap, symbol, {})
+                    order = self.safe_dict(orders, orderId)
                     if order is not None:
                         # accumulate order fees
-                        fees = self.safe_value(order, "fees")
-                        fee = self.safe_value(order, "fee")
+                        fees = self.safe_list(order, "fees", [])
+                        fee = self.safe_dict(order, "fee")
                         if not self.is_empty(fees):
                             insertNewFeeCurrency = True
-                            for i in range(len(fees)):
+                            for i in range(0, len(fees)):
                                 orderFee = fees[i]
-                                if orderFee["currency"] == tradeFee["currency"]:
+                                if self.safe_string(orderFee, "currency") == self.safe_string(
+                                    tradeFee, "currency"
+                                ):
                                     feeCost = self.sum(tradeFee["cost"], orderFee["cost"])
-                                    feeCostString = self.currency_to_precision(tradeFee["currency"], feeCost)
-                                    order["fees"][i]["cost"] = None if (feeCostString is None) else float(feeCostString)
+                                    feeCostString = self.currency_to_precision(
+                                        tradeFee["currency"], feeCost
+                                    )
+                                    order["fees"][i]["cost"] = (
+                                        None if (feeCostString is None) else float(feeCostString)
+                                    )
                                     insertNewFeeCurrency = False
                                     break
                             if insertNewFeeCurrency:
                                 order["fees"].append(tradeFee)
                         elif fee is not None:
-                            if fee["currency"] == tradeFee["currency"]:
+                            if self.safe_string(fee, "currency") == self.safe_string(
+                                tradeFee, "currency"
+                            ):
                                 feeCost = self.sum(fee["cost"], tradeFee["cost"])
-                                feeCostString = self.currency_to_precision(tradeFee["currency"], feeCost)
-                                order["fee"]["cost"] = None if (feeCostString is None) else float(feeCostString)
-                            elif fee["currency"] is None:
+                                feeCostString = self.currency_to_precision(
+                                    tradeFee["currency"], feeCost
+                                )
+                                order["fee"]["cost"] = (
+                                    None if (feeCostString is None) else float(feeCostString)
+                                )
+                            elif self.safe_string(fee, "currency") is None:
                                 order["fee"] = tradeFee
                             else:
                                 order["fees"] = [fee, tradeFee]
                                 order["fee"] = None
                         else:
                             order["fee"] = tradeFee
-                        # save self trade in the order
+                        # save this trade in the order
                         orderTrades = self.safe_list(order, "trades", [])
                         orderTrades.append(trade)
                         order["trades"] = orderTrades
                         # don't append twice cause it breaks newUpdates mode
-                        # self order already exists in the cache
+                        # this order already exists in the cache
             if self.myTrades is None:
                 limit = self.safe_integer(self.options, "tradesLimit", 1000)
                 self.myTrades = ArrayCacheBySymbolById(limit)
@@ -1810,79 +1988,79 @@ class aster(ccxt.async_support.aster):
             messageHashSymbol = messageHash + "::" + symbol
             client.resolve(self.myTrades, messageHashSymbol)
 
-    def handle_order(self, client: Client, message: object):
+    def handle_order(self, client: Client, message: dict):
         #
         # spot
         #     {
-        #         "e": "executionReport",        # Event type
-        #         "E": 1499405658658,            # Event time
-        #         "s": "ETHBTC",                 # Symbol
-        #         "c": "mUvoqJxFIILMdfAW5iGSOW",  # Client order ID
-        #         "S": "BUY",                    # Side
-        #         "o": "LIMIT",                  # Order type
-        #         "f": "GTC",                    # Time in force
-        #         "q": "1.00000000",             # Order quantity
-        #         "p": "0.10264410",             # Order price
-        #         "P": "0.00000000",             # Stop price
-        #         "F": "0.00000000",             # Iceberg quantity
-        #         "g": -1,                       # OrderListId
-        #         "C": null,                     # Original client order ID; This is the ID of the order being canceled
-        #         "x": "NEW",                    # Current execution type
-        #         "X": "NEW",                    # Current order status
-        #         "r": "NONE",                   # Order reject reason; will be an error code.
-        #         "i": 4293153,                  # Order ID
-        #         "l": "0.00000000",             # Last executed quantity
-        #         "z": "0.00000000",             # Cumulative filled quantity
-        #         "L": "0.00000000",             # Last executed price
-        #         "n": "0",                      # Commission amount
-        #         "N": null,                     # Commission asset
-        #         "T": 1499405658657,            # Transaction time
-        #         "t": -1,                       # Trade ID
-        #         "I": 8641984,                  # Ignore
-        #         "w": True,                     # Is the order on the book?
-        #         "m": False,                    # Is self trade the maker side?
-        #         "M": False,                    # Ignore
-        #         "O": 1499405658657,            # Order creation time
-        #         "Z": "0.00000000",             # Cumulative quote asset transacted quantity
-        #         "Y": "0.00000000"              # Last quote asset transacted quantity(i.e. lastPrice * lastQty),
-        #         "Q": "0.00000000"              # Quote Order Qty
+        #         "e": "executionReport",        // Event type
+        #         "E": 1499405658658,            // Event time
+        #         "s": "ETHBTC",                 // Symbol
+        #         "c": "mUvoqJxFIILMdfAW5iGSOW", // Client order ID
+        #         "S": "BUY",                    // Side
+        #         "o": "LIMIT",                  // Order type
+        #         "f": "GTC",                    // Time in force
+        #         "q": "1.00000000",             // Order quantity
+        #         "p": "0.10264410",             // Order price
+        #         "P": "0.00000000",             // Stop price
+        #         "F": "0.00000000",             // Iceberg quantity
+        #         "g": -1,                       // OrderListId
+        #         "C": null,                     // Original client order ID; This is the ID of the order being canceled
+        #         "x": "NEW",                    // Current execution type
+        #         "X": "NEW",                    // Current order status
+        #         "r": "NONE",                   // Order reject reason; will be an error code.
+        #         "i": 4293153,                  // Order ID
+        #         "l": "0.00000000",             // Last executed quantity
+        #         "z": "0.00000000",             // Cumulative filled quantity
+        #         "L": "0.00000000",             // Last executed price
+        #         "n": "0",                      // Commission amount
+        #         "N": null,                     // Commission asset
+        #         "T": 1499405658657,            // Transaction time
+        #         "t": -1,                       // Trade ID
+        #         "I": 8641984,                  // Ignore
+        #         "w": true,                     // Is the order on the book?
+        #         "m": false,                    // Is this trade the maker side?
+        #         "M": false,                    // Ignore
+        #         "O": 1499405658657,            // Order creation time
+        #         "Z": "0.00000000",             // Cumulative quote asset transacted quantity
+        #         "Y": "0.00000000"              // Last quote asset transacted quantity (i.e. lastPrice * lastQty),
+        #         "Q": "0.00000000"              // Quote Order Qty
         #     }
         #
         # swap
         #     {
-        #         "s":"BTCUSDT",                 # Symbol
-        #         "c":"TEST",                    # Client Order Id
-        #                                        # special client order id:
-        #                                        # starts with "autoclose-": liquidation order
-        #                                        # "adl_autoclose": ADL auto close order
-        #         "S":"SELL",                    # Side
-        #         "o":"TRAILING_STOP_MARKET",    # Order Type
-        #         "f":"GTC",                     # Time in Force
-        #         "q":"0.001",                   # Original Quantity
-        #         "p":"0",                       # Original Price
-        #         "ap":"0",                      # Average Price
-        #         "sp":"7103.04",                # Stop Price. Please ignore with TRAILING_STOP_MARKET order
-        #         "x":"NEW",                     # Execution Type
-        #         "X":"NEW",                     # Order Status
-        #         "i":8886774,                   # Order Id
-        #         "l":"0",                       # Order Last Filled Quantity
-        #         "z":"0",                       # Order Filled Accumulated Quantity
-        #         "L":"0",                       # Last Filled Price
-        #         "N":"USDT",                    # Commission Asset, will not push if no commission
-        #         "n":"0",                       # Commission, will not push if no commission
-        #         "T":1568879465651,             # Order Trade Time
-        #         "t":0,                         # Trade Id
-        #         "b":"0",                       # Bids Notional
-        #         "a":"9.91",                    # Ask Notional
-        #         "m":false,                     # Is self trade the maker side?
-        #         "R":false,                     # Is self reduce only
-        #         "wt":"CONTRACT_PRICE",         # Stop Price Working Type
-        #         "ot":"TRAILING_STOP_MARKET",   # Original Order Type
-        #         "ps":"LONG",                   # Position Side
-        #         "cp":false,                    # If Close-All, pushed with conditional order
-        #         "AP":"7476.89",                # Activation Price, only puhed with TRAILING_STOP_MARKET order
-        #         "cr":"5.0",                    # Callback Rate, only puhed with TRAILING_STOP_MARKET order
-        #         "rp":"0"                       # Realized Profit of the trade
+        #         "s":"BTCUSDT",                 // Symbol
+        #         "c":"TEST",                    // Client Order Id
+        #                                        // special client order id:
+        #                                        // starts with "autoclose-": liquidation order
+        #                                        // "adl_autoclose": ADL auto close order
+        #         "S":"SELL",                    // Side
+        #         "o":"TRAILING_STOP_MARKET",    // Order Type
+        #         "f":"GTC",                     // Time in Force
+        #         "q":"0.001",                   // Original Quantity
+        #         "p":"0",                       // Original Price
+        #         "ap":"0",                      // Average Price
+        #         "sp":"7103.04",                // Stop Price. Please ignore with TRAILING_STOP_MARKET order
+        #         "x":"NEW",                     // Execution Type
+        #         "X":"NEW",                     // Order Status
+        #         "i":8886774,                   // Order Id
+        #         "l":"0",                       // Order Last Filled Quantity
+        #         "z":"0",                       // Order Filled Accumulated Quantity
+        #         "L":"0",                       // Last Filled Price
+        #         "N":"USDT",                    // Commission Asset, will not push if no commission
+        #         "n":"0",                       // Commission, will not push if no commission
+        #         "T":1568879465651,             // Order Trade Time
+        #         "t":0,                         // Trade Id
+        #         "b":"0",                       // Bids Notional
+        #         "a":"9.91",                    // Ask Notional
+        #         "m":false,                     // Is this trade the maker side?
+        #         "R":false,                     // Is this reduce only
+        #         "wt":"CONTRACT_PRICE",         // Stop Price Working Type
+        #         "ot":"TRAILING_STOP_MARKET",   // Original Order Type
+        #         "ps":"LONG",                   // Position Side
+        #         "cp":false,                    // If Close-All, pushed with conditional order
+        #         "AP":"7476.89",                // Activation Price, only puhed with TRAILING_STOP_MARKET order
+        #         "cr":"5.0",                    // Callback Rate, only puhed with TRAILING_STOP_MARKET order
+        #         "rp":"0"                       // Realized Profit of the trade
         #     }
         #
         messageHash = "orders"
@@ -1900,14 +2078,14 @@ class aster(ccxt.async_support.aster):
             client.resolve(cache, symbolMessageHash)
             client.resolve(cache, messageHash)
 
-    def parse_ws_order(self, order: object, market: Market = None):
+    def parse_ws_order(self, order: dict, market: Market = None) -> Order:
         executionType = self.safe_string(order, "x")
         marketId = self.safe_string(order, "s")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         timestamp = self.safe_integer(order, "O")
         T = self.safe_integer(order, "T")
         lastTradeTimestamp = None
-        if executionType in {"NEW", "AMENDMENT", "CANCELED"}:
+        if executionType == "NEW" or executionType == "AMENDMENT" or executionType == "CANCELED":
             if timestamp is None:
                 timestamp = T
         elif executionType == "TRADE":
@@ -1935,7 +2113,7 @@ class aster(ccxt.async_support.aster):
         return self.safe_order(
             {
                 "info": order,
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "id": self.safe_string_2(order, "i", "aid"),
                 "clientOrderId": clientOrderId,
                 "timestamp": timestamp,
@@ -1961,17 +2139,19 @@ class aster(ccxt.async_support.aster):
             }
         )
 
-    def get_market_from_order(self, client: Client, order: object):
+    def get_market_from_order(self, client: Client, order: dict) -> MarketInterface:
         marketId = self.safe_string(order, "s")
         marketType = self.get_account_type_from_url(client.url)
         return self.safe_market(marketId, None, None, marketType)
 
-    def handle_balance_and_position(self, client: Client, message: object):
+    def handle_balance_and_position(self, client: Client, message: dict):
         self.handle_balance(client, message)
         self.handle_positions(client, message)
 
-    def handle_message(self, client: Client, message: object):
-        messageInner = self.safe_dict(message, "data", message)  # can be either wrapped in 'data' or full object itself
+    def handle_message(self, client: Client, message: dict):
+        messageInner = self.safe_dict(
+            message, "data", message
+        )  # can be either wrapped in 'data' or full object itself
         event = self.safe_string(messageInner, "e")
         methods = {
             "24hrTicker": self.handle_ticker,

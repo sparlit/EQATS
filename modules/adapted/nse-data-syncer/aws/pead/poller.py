@@ -40,7 +40,10 @@ import psycopg2
 import requests
 
 NSE_API = "https://www.nseindia.com/api/corporate-announcements"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 RESULT_KEYWORDS = [
     "financial result",
@@ -181,7 +184,9 @@ def upsert_nse_documents(cur, announcements: list[dict], now_ist: datetime) -> i
             continue
         symbol = (ann.get("symbol") or "").strip().upper()
         doc_type = classify_doc_type(ann)
-        nse_filed_at = parse_nse_dt(ann.get("an_dt", "")) or now_ist.replace(hour=12, minute=0, second=0, microsecond=0)
+        nse_filed_at = parse_nse_dt(ann.get("an_dt", "")) or now_ist.replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
         cur.execute(
             """
             INSERT INTO nse_documents
@@ -327,7 +332,9 @@ def dispatch_result_analysis(symbol: str, pdf_url: str, seq_id: str, result_date
         )
         if resp.status_code == 200:
             data = resp.json()
-            print(f"Result analysis complete for {symbol}: signal={data.get('data', {}).get('signal')}")
+            print(
+                f"Result analysis complete for {symbol}: signal={data.get('data', {}).get('signal')}"
+            )
         else:
             print(f"Result analysis failed for {symbol}: {resp.status_code} {resp.text[:200]}")
     except Exception as e:
@@ -337,7 +344,12 @@ def dispatch_result_analysis(symbol: str, pdf_url: str, seq_id: str, result_date
 def send_telegram(token: str, chat_id: str, text: str) -> None:
     requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+        json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        },
         timeout=10,
     )
 
@@ -396,7 +408,9 @@ def lambda_handler(event, context):
     conn_check = psycopg2.connect(db_url)
     try:
         cur_check = conn_check.cursor()
-        cur_check.execute("SELECT UPPER(symbol) FROM board_meetings WHERE meeting_date = %s", (now_ist.date(),))
+        cur_check.execute(
+            "SELECT UPPER(symbol) FROM board_meetings WHERE meeting_date = %s", (now_ist.date(),)
+        )
         calendar_symbols = {row[0] for row in cur_check.fetchall()}
     finally:
         conn_check.close()

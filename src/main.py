@@ -16,7 +16,6 @@ import threading
 import time
 from typing import Any
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 import brain
 import config
 import connector
@@ -27,6 +26,8 @@ import predictive_brain
 import telegram_bot
 from event_bus import Event, global_event_bus
 from supervisor_agent import global_supervisor_agent
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 _log = logging.getLogger(__name__)
 
@@ -40,6 +41,12 @@ class AutonomousScalper:
 
     def __init__(self) -> None:
         database.init_db()
+        try:
+            import broker_database
+
+            broker_database.build_and_seed_broker_database(force_rebuild=False)
+        except Exception as err:
+            _log.debug("Main auto-seed broker database note: %s", err)
         if config.SIMULATION_MODE:
             print("--- RUNNING IN SIMULATION MODE (PAPER TRADING) ---")
             self.conn = connector.SimulatorConnector(initial_balance=10000.0)
@@ -369,7 +376,7 @@ class AutonomousScalper:
                     coming.append((name, dist_to_start, start))
         coming = sorted(coming, key=lambda x: x[1])
         coming_str_list = []
-        for name, dist, start_h in coming[:5]:
+        for name, dist, _start_h in coming[:5]:
             seconds_to_start = dist * 3600 - minute * 60 - second
             if seconds_to_start < 0:
                 seconds_to_start += 24 * 3600
@@ -412,6 +419,7 @@ class AutonomousScalper:
         Parallel worker to perform indicator calculation, research scraping,
         regime selection, and strategy evaluations for a single symbol.
         """
+        _ = active_positions
         history = self.conn.get_history(symbol, 220)
         if not history:
             return {
@@ -510,7 +518,7 @@ class AutonomousScalper:
             )
         if config.SIMULATION_MODE:
             closed_tickets = self.conn.tick()
-            for ticket in closed_tickets:
+            for _ticket in closed_tickets:
                 pass
         account_tmp = self.conn.get_account_info()
         current_equity = account_tmp["equity"]

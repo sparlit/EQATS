@@ -80,13 +80,18 @@ TWINS = [(1, 0, "revC"), (3, 2, "opC"), (8, 7, "ebitC")]
 CARVE_OUT = {"KIRLFER"}  # mixed-basis con series (runbook §5)
 BANKS_NULL = set()  # was {CUB, UCOBANK, KTKBANK, SOUTHBANK}; user reversed it 2026-08-06
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
 def iso_qe(s):
     m = re.match(r"(\d{2})-([A-Za-z]{3})-(\d{4})", (s or "").strip())
-    return None if not m else int(m.group(3)) * 10000 + MON[m.group(2).title()] * 100 + int(m.group(1))
+    return (
+        None if not m else int(m.group(3)) * 10000 + MON[m.group(2).title()] * 100 + int(m.group(1))
+    )
 
 
 def index_evidence(sym):
@@ -122,7 +127,10 @@ def _mat_eq(a, b):
 def rebuild_candidates():
     targets = json.load(open(TARGETS))
     revop = json.load(open(REVOP_DOCS))
-    fund = {s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3} for s, rows in json.load(open(FUND)).items()}
+    fund = {
+        s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3}
+        for s, rows in json.load(open(FUND)).items()
+    }
     keep, dropped = {}, {}
 
     for sym, v in sorted(targets.items()):
@@ -130,7 +138,10 @@ def rebuild_candidates():
             continue
         p = os.path.join(LIST_CACHE, re.sub(r"[^A-Z0-9]", "_", sym.upper()) + ".json")
         if not os.path.exists(p):
-            dropped[sym] = {"reason": "no cached NSE index (run nse_list_harvest.py)", "cells": v["revC"]}
+            dropped[sym] = {
+                "reason": "no cached NSE index (run nse_list_harvest.py)",
+                "cells": v["revC"],
+            }
             continue
         have = {"std": set(), "con": set()}
         for r in json.load(open(p)):
@@ -169,7 +180,11 @@ def rebuild_candidates():
         for q, row in (revop.get(sym) or {}).items():
             if int(q) > last:
                 continue
-            if row[0] is not None and row[1] is not None and abs(row[1] - row[0]) > CONTRA_REL * max(abs(row[0]), 1e-9):
+            if (
+                row[0] is not None
+                and row[1] is not None
+                and abs(row[1] - row[0]) > CONTRA_REL * max(abs(row[0]), 1e-9)
+            ):
                 bad.append(f"rev@{q} {row[0]:.1f} vs {row[1]:.1f}")
         for q, (a, b) in fund.get(sym, {}).items():
             if q > last or a is None or b is None:
@@ -177,7 +192,10 @@ def rebuild_candidates():
             if abs(b - a) > CONTRA_REL * max(abs(a), 1e-9):
                 bad.append("pat@%d %.2f vs %.2f" % (q, a, b))
         if bad:
-            dropped[sym] = {"reason": "E5 contradicted at/before the gap: " + "; ".join(bad[:3]), "cells": v["revC"]}
+            dropped[sym] = {
+                "reason": "E5 contradicted at/before the gap: " + "; ".join(bad[:3]),
+                "cells": v["revC"],
+            }
             continue
         keep[sym] = passed
 
@@ -224,11 +242,19 @@ def main():
         by_field[f[3]] += 1
     cells = len({(f[0], f[1]) for f in fills})
     print("=" * 78)
-    print("%s — consolidated identity where NO consolidated result was filed" % ("APPLY" if apply_it else "DRY RUN"))
+    print(
+        "%s — consolidated identity where NO consolidated result was filed"
+        % ("APPLY" if apply_it else "DRY RUN")
+    )
     print("=" * 78)
     print(
         "companies %d | quarter-cells %d | values %d  (%s)"
-        % (len({f[0] for f in fills}), cells, len(fills), ", ".join("%s=%d" % kv for kv in sorted(by_field.items())))
+        % (
+            len({f[0] for f in fills}),
+            cells,
+            len(fills),
+            ", ".join("%s=%d" % kv for kv in sorted(by_field.items())),
+        )
     )
     for why, items in sorted(held.items()):
         print("  HELD NULL: %-38s %d" % (why, len(items)))
@@ -290,13 +316,16 @@ def main():
                 "E2 no consolidated row for that quarter",
                 "E3 quarter earlier than the first consolidated filing ever",
                 "E4 stored con PAT already equals std PAT (max(0.05, 0.1%))",
-                ("E5 no quarter at-or-before the gap where both rev bases or both PAT bases differ by >1%"),
+                "E5 no quarter at-or-before the gap where both rev bases or both PAT bases "
+                "differ by >1%",
             ],
             "user_gate": "approved 2026-08-06 for the 91 non-bank values; banks approved the same "
             "day when the user chose 'include banks everywhere'",
             "held_null": dict(held.items()),
             "companies": len(merged),
-            "values": sum(len([k for k in q if k != "evidence"]) for v in merged.values() for q in v.values()),
+            "values": sum(
+                len([k for k in q if k != "evidence"]) for v in merged.values() for q in v.values()
+            ),
             "last_run_values": applied,
             "last_run_companies": len(journal),
             "fills": merged,
@@ -306,7 +335,8 @@ def main():
         sort_keys=True,
     )
     print(
-        "\nAPPLIED %d values across %d companies (ledger now holds %d companies)" % (applied, len(journal), len(merged))
+        "\nAPPLIED %d values across %d companies (ledger now holds %d companies)"
+        % (applied, len(journal), len(merged))
     )
 
 

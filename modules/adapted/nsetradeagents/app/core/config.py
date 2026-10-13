@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     truth — .env.example deliberately does not repeat them.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+    )
 
     # LLM — unused while the pipeline is fully deterministic; the veto agent
     # will need these again. Optional so the app starts without them.

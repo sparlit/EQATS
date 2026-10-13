@@ -106,7 +106,8 @@ class TestMMI:
 
         mocker.patch("market_data.get_fii_dii_flow", return_value={"fii_net": 500})
         mocker.patch(
-            "persistence.load_fiidii_history", return_value=[{"fii_net": 200, "date": f"d{i}"} for i in range(21)]
+            "persistence.load_fiidii_history",
+            return_value=[{"fii_net": 200, "date": f"d{i}"} for i in range(21)],
         )
 
         from market_data import get_mmi
@@ -182,7 +183,8 @@ class TestMMI:
         """FII buying above average → high FII score."""
         mocker.patch("market_data.get_fii_dii_flow", return_value={"fii_net": 1500})
         mocker.patch(
-            "persistence.load_fiidii_history", return_value=[{"fii_net": 300, "date": f"d{i}"} for i in range(21)]
+            "persistence.load_fiidii_history",
+            return_value=[{"fii_net": 300, "date": f"d{i}"} for i in range(21)],
         )
 
         from market_data import _calc_fii_score
@@ -194,7 +196,8 @@ class TestMMI:
         """FII selling above average → low FII score."""
         mocker.patch("market_data.get_fii_dii_flow", return_value={"fii_net": -1500})
         mocker.patch(
-            "persistence.load_fiidii_history", return_value=[{"fii_net": 300, "date": f"d{i}"} for i in range(21)]
+            "persistence.load_fiidii_history",
+            return_value=[{"fii_net": 300, "date": f"d{i}"} for i in range(21)],
         )
 
         from market_data import _calc_fii_score

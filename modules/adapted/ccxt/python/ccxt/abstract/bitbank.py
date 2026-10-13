@@ -27,28 +27,39 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    public_get_pair_ticker = publicGetPairTicker = Entry[_Dict]("{pair}/ticker", "public", "GET", {"cost": 1})
+    public_get_pair_ticker = publicGetPairTicker = Entry[_Dict](
+        "{pair}/ticker", "public", "GET", {"cost": 1}
+    )
     public_get_tickers = publicGetTickers = Entry[_Dict]("tickers", "public", "GET", {"cost": 1})
-    public_get_tickers_jpy = publicGetTickersJpy = Entry[_Dict]("tickers_jpy", "public", "GET", {"cost": 1})
-    public_get_pair_depth = publicGetPairDepth = Entry[_Dict]("{pair}/depth", "public", "GET", {"cost": 1})
+    public_get_tickers_jpy = publicGetTickersJpy = Entry[_Dict](
+        "tickers_jpy", "public", "GET", {"cost": 1}
+    )
+    public_get_pair_depth = publicGetPairDepth = Entry[_Dict](
+        "{pair}/depth", "public", "GET", {"cost": 1}
+    )
     public_get_pair_transactions = publicGetPairTransactions = Entry[_Dict](
         "{pair}/transactions", "public", "GET", {"cost": 1}
     )
     public_get_pair_transactions_yyyymmdd = publicGetPairTransactionsYyyymmdd = Entry[_Dict](
         "{pair}/transactions/{yyyymmdd}", "public", "GET", {"cost": 1}
     )
-    public_get_pair_candlestick_candletype_yyyymmdd = publicGetPairCandlestickCandletypeYyyymmdd = Entry[_Dict](
-        "{pair}/candlestick/{candletype}/{yyyymmdd}", "public", "GET", {"cost": 1}
+    public_get_pair_candlestick_candletype_yyyymmdd = publicGetPairCandlestickCandletypeYyyymmdd = (
+        Entry[_Dict]("{pair}/candlestick/{candletype}/{yyyymmdd}", "public", "GET", {"cost": 1})
     )
     public_get_pair_circuit_break_info = publicGetPairCircuitBreakInfo = Entry[_Dict](
         "{pair}/circuit_break_info", "public", "GET", {"cost": 1}
     )
-    private_get_user_assets = privateGetUserAssets = Entry[_Dict]("user/assets", "private", "GET", {"cost": 1})
+    private_get_user_assets = privateGetUserAssets = Entry[_Dict](
+        "user/assets", "private", "GET", {"cost": 1}
+    )
     private_get_user_spot_order = privateGetUserSpotOrder = Entry[_Dict](
         "user/spot/order", "private", "GET", {"cost": 1}
     )
     private_get_user_spot_active_orders = privateGetUserSpotActiveOrders = Entry[_Dict](
         "user/spot/active_orders", "private", "GET", {"cost": 1}
+    )
+    private_get_user_margin_status = privateGetUserMarginStatus = Entry[_Dict](
+        "user/margin/status", "private", "GET", {"cost": 1}
     )
     private_get_user_margin_positions = privateGetUserMarginPositions = Entry[_Dict](
         "user/margin/positions", "private", "GET", {"cost": 1}
@@ -71,8 +82,12 @@ class ImplicitAPI:
     private_get_user_withdrawal_history = privateGetUserWithdrawalHistory = Entry[_Dict](
         "user/withdrawal_history", "private", "GET", {"cost": 1}
     )
-    private_get_spot_status = privateGetSpotStatus = Entry[_Dict]("spot/status", "private", "GET", {"cost": 1})
-    private_get_spot_pairs = privateGetSpotPairs = Entry[_Dict]("spot/pairs", "private", "GET", {"cost": 1})
+    private_get_spot_status = privateGetSpotStatus = Entry[_Dict](
+        "spot/status", "private", "GET", {"cost": 1}
+    )
+    private_get_spot_pairs = privateGetSpotPairs = Entry[_Dict](
+        "spot/pairs", "private", "GET", {"cost": 1}
+    )
     private_post_user_spot_order = privatePostUserSpotOrder = Entry[_Dict](
         "user/spot/order", "private", "POST", {"cost": 1.66}
     )
@@ -94,4 +109,6 @@ class ImplicitAPI:
     private_post_user_request_withdrawal = privatePostUserRequestWithdrawal = Entry[_Dict](
         "user/request_withdrawal", "private", "POST", {"cost": 1.66}
     )
-    markets_get_spot_pairs = marketsGetSpotPairs = Entry[_Dict]("spot/pairs", "markets", "GET", {"cost": 1})
+    markets_get_spot_pairs = marketsGetSpotPairs = Entry[_Dict](
+        "spot/pairs", "markets", "GET", {"cost": 1}
+    )

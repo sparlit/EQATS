@@ -48,8 +48,7 @@ def market_cap_max_age_days(source: str) -> int:
 
 def calculated_market_cap_cr(close: float, shares_outstanding: float) -> float:
     if close <= 0 or shares_outstanding <= 0:
-        msg = "close and shares_outstanding must be positive"
-        raise ValueError(msg)
+        raise ValueError("close and shares_outstanding must be positive")
     return close * shares_outstanding / 10_000_000.0
 
 

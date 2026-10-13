@@ -53,5 +53,7 @@ limit = 3
 try:
     trades = exchange.fetch_trades(symbol, since, limit)
     my_trades = exchange.fetch_my_trades(symbol, since, limit)
+    pprint(trades)
+    pprint(my_trades)
 except Exception as err:
     print(err)

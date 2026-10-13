@@ -109,7 +109,9 @@ try:
         lines.append("\033[2J\033[H")  # clear screen
         lines.append(f"  TSLA L2 — SmartDepth (multi-exchange)    updates: {w.count}")
         lines.append(f"  {'BID':>36}  |  {'ASK':<36}")
-        lines.append(f"  {'Size':>8}  {'Price':>10}  {'MM':<6}  |  {'MM':<6}  {'Price':<10}  {'Size':<8}")
+        lines.append(
+            f"  {'Size':>8}  {'Price':>10}  {'MM':<6}  |  {'MM':<6}  {'Price':<10}  {'Size':<8}"
+        )
         lines.append(f"  {'-' * 36}  |  {'-' * 36}")
         n = max(len(bids), len(asks), 1)
         for i in range(min(n, ROWS)):

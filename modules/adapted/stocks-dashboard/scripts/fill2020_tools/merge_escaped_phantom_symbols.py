@@ -344,7 +344,9 @@ def main():
                 "from_phantom": ph,
                 "row_created": (target, q) in created,
                 "identity": (
-                    "filing ScripCode {} == our code for {} ({})".format(pr["scrip_code"], target, pr["filing"])
+                    "filing ScripCode {} == our code for {} ({})".format(
+                        pr["scrip_code"], target, pr["filing"]
+                    )
                 )
                 if pr
                 else "overlap gate",

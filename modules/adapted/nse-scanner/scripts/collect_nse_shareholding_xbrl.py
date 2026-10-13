@@ -39,7 +39,11 @@ def main() -> int:
     parser.add_argument("--batch-days", type=int, default=31, help="historical window batch size")
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--csv", type=Path, help="manual NSE listing CSV fallback/bootstrap")
-    parser.add_argument("--output", type=Path, help="compatibility argument; normalized output is managed atomically")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="compatibility argument; normalized output is managed atomically",
+    )
     parser.add_argument("--db")
     parser.add_argument("--limit", type=int)
     args = parser.parse_args()

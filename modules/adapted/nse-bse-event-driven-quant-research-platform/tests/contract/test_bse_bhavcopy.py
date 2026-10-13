@@ -70,7 +70,7 @@ class TestBseBhavcopy:
         bars = ingester.parse_bhavcopy(df, date(2026, 8, 24))
         assert len(bars) == 3
         # Check RELIANCE
-        rel = next(b for b in bars if "RELIANCE" in b.instrument_id)
+        rel = [b for b in bars if "RELIANCE" in b.instrument_id][0]
         assert rel.instrument_id == "BSE_EQ|RELIANCE"
         assert rel.exchange == "BSE"
         assert rel.close == pytest.approx(1321.5)
@@ -79,14 +79,14 @@ class TestBseBhavcopy:
     def test_parse_neetuyoshi_sme(self, ingester):
         df = make_sample_df()
         bars = ingester.parse_bhavcopy(df, date(2026, 8, 24))
-        neet = next(b for b in bars if "NEETUYOSHI" in b.instrument_id)
+        neet = [b for b in bars if "NEETUYOSHI" in b.instrument_id][0]
         assert neet.instrument_id == "BSE_SME|NEETUYOSHI"
         assert neet.close == pytest.approx(126.4)
 
     def test_parse_cianagro(self, ingester):
         df = make_sample_df()
         bars = ingester.parse_bhavcopy(df, date(2026, 8, 24))
-        cian = next(b for b in bars if "CIANAGRO" in b.instrument_id)
+        cian = [b for b in bars if "CIANAGRO" in b.instrument_id][0]
         assert cian.instrument_id == "BSE_EQ|CIANAGRO"
         assert cian.close == pytest.approx(43.5)
 

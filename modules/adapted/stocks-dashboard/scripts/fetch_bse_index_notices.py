@@ -38,7 +38,7 @@ import os as _o
 import sys as _s
 
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers
+import bse_headers  # noqa: F401  §181
 import os
 import sys
 import re
@@ -48,19 +48,21 @@ import datetime
 import urllib.request
 
 CACHE = os.path.expanduser("~/stocks-cache/bse_index_notices")
-LIST = (
-    "https://bseindices.com/AsiaIndexAPI/api/GetNoticesadvancesearch_newcomb/w?FromDate=2012-01-01&NoticeNo=&Todate=%s"
-)
+LIST = "https://bseindices.com/AsiaIndexAPI/api/GetNoticesadvancesearch_newcomb/w?FromDate=2012-01-01&NoticeNo=&Todate=%s"
 HDR = {
     "User-Agent": bse_headers.UA,
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.bseindices.com/",
 }
-KEEP = re.compile(r"(?i)sme|reconstitut|changes? (?:to|in)|addition|deletion|replacement|review|inclusion|exclusion")
+KEEP = re.compile(
+    r"(?i)sme|reconstitut|changes? (?:to|in)|addition|deletion|replacement|review|inclusion|exclusion"
+)
 
 
-EMPTY = os.path.join(CACHE, "_empty.json")  # notices the download route answered with a 0-byte body (not "absent")
+EMPTY = os.path.join(
+    CACHE, "_empty.json"
+)  # notices the download route answered with a 0-byte body (not "absent")
 
 
 def get(url, accept_pdf=False):
@@ -81,8 +83,7 @@ def get(url, accept_pdf=False):
             last = e
             print("  retry %d %s: %r" % (i + 1, url[-40:], e), flush=True)
             time.sleep(6 * (i + 1))
-    msg = f"{url}: {last!r}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"{url}: {last!r}")
 
 
 def main():
@@ -102,7 +103,9 @@ def main():
     ]
     with open(os.path.join(CACHE, "list.json"), "w", encoding="utf-8") as f:
         json.dump(
-            {"fetched": datetime.datetime.now().isoformat(timespec="seconds"), "all": rows}, f, ensure_ascii=False
+            {"fetched": datetime.datetime.now().isoformat(timespec="seconds"), "all": rows},
+            f,
+            ensure_ascii=False,
         )
     print("notices: %d listed, %d kept" % (len(rows), len(keep)))
     if "--list-only" in sys.argv:
@@ -116,7 +119,9 @@ def main():
             skip += 1
             continue
         # FileName is null on 1,466 of 1,582 rows (notice_flag 0); the site's own download route serves every notice
-        url = r.get("FileName") or ("https://bseindices.com/AsiaIndexAPI/api/NoticesAsiaDownload/w?NoticeId=" + no)
+        url = r.get("FileName") or (
+            "https://bseindices.com/AsiaIndexAPI/api/NoticesAsiaDownload/w?NoticeId=" + no
+        )
         b = get(url, accept_pdf=True)
         if not b:
             empty.add(no)

@@ -48,7 +48,8 @@ def refresh_snapshot_table():
         # properties -- CDF needs to be re-enabled every refresh for the
         # Delta Sync Index to pick up changes.
         cur.execute(
-            f"ALTER TABLE {CATALOG}.gold.gold_context_chunks_tbl SET TBLPROPERTIES (delta.enableChangeDataFeed = true)"
+            f"ALTER TABLE {CATALOG}.gold.gold_context_chunks_tbl "
+            f"SET TBLPROPERTIES (delta.enableChangeDataFeed = true)"
         )
     print("Refreshed gold_context_chunks_tbl and re-enabled CDF")
 

@@ -51,14 +51,13 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
 
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-DEFAULT_RPC = os.getenv("POLY_POLYGON_RPC_HTTP_URL", "").strip() or "https://polygon-bor-rpc.publicnode.com"
+DEFAULT_RPC = (
+    os.getenv("POLY_POLYGON_RPC_HTTP_URL", "").strip() or "https://polygon-bor-rpc.publicnode.com"
+)
 DEFAULT_EXCHANGE_ADDRESSES = [
     "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",  # Polymarket CTF Exchange
     "0xc5d563a36ae78145c45a50134d48a1215220f80a",  # Polymarket Neg Risk CTF Exchange
@@ -77,7 +76,8 @@ def ms_to_utc_str(ms: int | None) -> str:
 
 def normalize_hex_32(value: str) -> str:
     value = value.lower().strip()
-    value = value.removeprefix("0x")
+    if value.startswith("0x"):
+        value = value[2:]
     if len(value) > 64:
         value = value[-64:]
     return "0x" + value.rjust(64, "0")
@@ -117,7 +117,9 @@ class RpcClient:
     def call(self, method: str, params: list[object]) -> object:
         last_err: Exception | None = None
         for attempt in range(self.retries):
-            payload = json.dumps({"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}).encode("utf-8")
+            payload = json.dumps(
+                {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
+            ).encode("utf-8")
             self._id += 1
             req = urllib.request.Request(
                 self.url,
@@ -132,8 +134,7 @@ class RpcClient:
                 with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
                     body = json.loads(resp.read().decode("utf-8"))
                 if "error" in body:
-                    msg = f"rpc {method} error: {body['error']}"
-                    raise RuntimeError(msg)
+                    raise RuntimeError(f"rpc {method} error: {body['error']}")
                 return body["result"]
             except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError) as err:
                 last_err = err
@@ -153,8 +154,7 @@ class RpcClient:
         block_hex = hex(block_number)
         block = self.call("eth_getBlockByNumber", [block_hex, False])
         if not isinstance(block, dict) or "timestamp" not in block:
-            msg = f"missing block/timestamp for block {block_number}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"missing block/timestamp for block {block_number}")
         ts_s = int(block["timestamp"], 16)
         cache[block_number] = ts_s
         return ts_s
@@ -162,8 +162,7 @@ class RpcClient:
     def get_logs(self, params: dict[str, object]) -> list[dict[str, object]]:
         out = self.call("eth_getLogs", [params])
         if not isinstance(out, list):
-            msg = "eth_getLogs returned non-list"
-            raise RuntimeError(msg)
+            raise RuntimeError("eth_getLogs returned non-list")
         return out  # type: ignore[return-value]
 
 
@@ -334,7 +333,9 @@ def collect_chain_fills(
                 tx_hash = str(lg.get("transactionHash", ""))
                 prev = result.get(oid)
                 if prev is None:
-                    result[oid] = ChainFill(first_ms=ts_ms, last_ms=ts_ms, first_tx=tx_hash, count=1)
+                    result[oid] = ChainFill(
+                        first_ms=ts_ms, last_ms=ts_ms, first_tx=tx_hash, count=1
+                    )
                 else:
                     first_ms = min(prev.first_ms, ts_ms)
                     first_tx = prev.first_tx if prev.first_ms <= ts_ms else tx_hash
@@ -358,7 +359,7 @@ def pct_or_none(values: list[int], p: float) -> float | None:
     if not values:
         return None
     xs = sorted(values)
-    idx = round((len(xs) - 1) * p)
+    idx = int(round((len(xs) - 1) * p))
     idx = max(0, min(idx, len(xs) - 1))
     return float(xs[idx])
 
@@ -419,7 +420,9 @@ def print_report(
     a2c_all = [r[5] for r in rows if isinstance(r[5], int)]
     c2l_all = [r[6] for r in rows if isinstance(r[6], int)]
     print()
-    print(f"orders_with_ack={len(orders)} orders_with_chain={len(chain)} shown={min(len(rows), max_rows)}")
+    print(
+        f"orders_with_ack={len(orders)} orders_with_chain={len(chain)} shown={min(len(rows), max_rows)}"
+    )
     print(
         "submit->chain ms: "
         f"avg={fmt_ms(sum(s2c_all) / len(s2c_all) if s2c_all else None)} "
@@ -444,7 +447,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--rpc", default=DEFAULT_RPC, help="Polygon RPC URL")
     p.add_argument("--hours", type=float, default=24.0, help="Lookback hours")
     p.add_argument("--limit", type=int, default=400, help="Max ACK orders to inspect from DB")
-    p.add_argument("--rows", type=int, default=50, help="Rows to print in report (sorted by latest ACK)")
+    p.add_argument(
+        "--rows", type=int, default=50, help="Rows to print in report (sorted by latest ACK)"
+    )
     p.add_argument(
         "--exchange-address",
         action="append",
@@ -478,7 +483,9 @@ def main() -> int:
         print("No recent ENTRY_ACK orders with exchange order_id found.")
         return 0
 
-    earliest_submit = min([o.submit_ms for o in orders.values() if o.submit_ms is not None] or [since_ms])
+    earliest_submit = min(
+        [o.submit_ms for o in orders.values() if o.submit_ms is not None] or [since_ms]
+    )
     # small buffer before first local submit
     start_ts_ms = earliest_submit - 5 * 60 * 1000
 

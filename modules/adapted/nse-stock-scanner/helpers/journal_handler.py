@@ -52,7 +52,9 @@ class JournalHandler:
             self.check_21_days_rule(self.journal)
             self.check_extra_profit_opportunity(self.journal, all_listed_stocks)
 
-    def get_journal(self, excel_file_name: str = "Finance Journal", working_sheet_name: str = "Real Trades"):
+    def get_journal(
+        self, excel_file_name: str = "Finance Journal", working_sheet_name: str = "Real Trades"
+    ):
         """
         Open the desired Google Sheet
         args:
@@ -68,12 +70,12 @@ class JournalHandler:
 
         df.to_csv("csvfile.csv", encoding="utf-8", index=False)
         df = pd.read_csv("csvfile.csv")
-        df = df.dropna(subset=["Entry"])
+        df.dropna(subset=["Entry"], inplace=True)
         df["Buy Date"] = pd.to_datetime(df["Buy Date"], dayfirst=True, format="%d/%m/%Y")
         df["Exit Date"] = pd.to_datetime(df["Exit Date"], dayfirst=True, format="%d/%m/%Y")
         df["Exit Price"] = df["Exit Price"].astype("float64")
 
-        df = df.reset_index(drop=True)
+        df.reset_index(drop=True, inplace=True)
         remove("csvfile.csv")
         return df
 
@@ -90,7 +92,7 @@ class JournalHandler:
             Close: Columns name which describe Close of the stock
         """
         active = journal[(journal["Exit Price"].isna()) | (journal["Exit Date"].isna())]
-        active = active.reset_index(drop=True)
+        active.reset_index(drop=True, inplace=True)
 
         results = []
         for _i, val in enumerate(active.index):
@@ -104,10 +106,10 @@ class JournalHandler:
             df.loc[0, Close]
 
             limit = target - (0.0175 * target)
-            if target > last_high > limit:
+            if (target > last_high) and (last_high > limit):
                 results.append((name, buy_date))
 
-        if results:
+        if len(results):
             print("Trailing Stop Loss:", "\n")
             for val in results:
                 print(f"{val[0]} bought on: {val[1]},\n")
@@ -123,7 +125,7 @@ class JournalHandler:
         journal = journal[
             (journal["Exit Price"].isna()) | (journal["Exit Date"].isna())
         ]  # stocks which are still active
-        journal = journal.reset_index(drop=True)
+        journal.reset_index(drop=True, inplace=True)
 
         results = []
         for _index, val in enumerate(journal.index):
@@ -131,8 +133,10 @@ class JournalHandler:
             name = journal.loc[val, "Stock Name"]
             if (current_date - journal.loc[val, "Buy Date"]).days > 30:  # Almost 21 Trading Days
                 results.append((name, buy_date))
-        if results:
-            print("These stocks have crossed 21 days limit. Sell them at 1:1.5 or 1:1 or at Market Price")
+        if len(results):
+            print(
+                "These stocks have crossed 21 days limit. Sell them at 1:1.5 or 1:1 or at Market Price"
+            )
 
             for item in results:
                 print(f"{item[0]} bought on {item[1]}\n")
@@ -148,7 +152,10 @@ class JournalHandler:
         x = journal.copy()
         x = journal[~journal["Exit Date"].isna()]
         x["p/l"] = x.apply(
-            lambda row: ((row["Exit Price"] - row["Entry"]) * row["Quantity"]) - row["Tax and Brokrage"], axis=1
+            lambda row: (
+                ((row["Exit Price"] - row["Entry"]) * row["Quantity"]) - row["Tax and Brokrage"]
+            ),
+            axis=1,
         )
         p_l = x["p/l"].sum()
         return round(p_l, 2)

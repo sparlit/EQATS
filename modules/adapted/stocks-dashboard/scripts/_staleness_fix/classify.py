@@ -80,16 +80,25 @@ _MON = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
 _ANCH = r"(?:end(?:ed|ing)|for|as\s+on|as\s+at|q\.?\s*e\.?)\s*[:\-,]?\s*(?:on\s+|the\s+)?"
 
 DATE_NAMED = re.compile(
-    _ANCH + r"(?:(\d{1,2})(?:st|nd|rd|th)?\s+(" + _MON + r")|(" + _MON + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?)"
+    _ANCH
+    + r"(?:(\d{1,2})(?:st|nd|rd|th)?\s+("
+    + _MON
+    + r")|("
+    + _MON
+    + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?)"
     r",?\s*(\d{2,4})",
-    re.IGNORECASE,
+    re.I,
 )
-DATE_NUMERIC = re.compile(_ANCH + r"(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})", re.IGNORECASE)
+DATE_NUMERIC = re.compile(_ANCH + r"(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})", re.I)
 # anchor-less forms (guarded: quarter-ends only, results rows only)
 BARE_NAMED = re.compile(
-    r"(?:(\d{1,2})(?:st|nd|rd|th)?\s+(" + _MON + r")|(" + _MON + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?)"
+    r"(?:(\d{1,2})(?:st|nd|rd|th)?\s+("
+    + _MON
+    + r")|("
+    + _MON
+    + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?)"
     r",?\s*(\d{4})",
-    re.IGNORECASE,
+    re.I,
 )
 BARE_NUMERIC = re.compile(r"(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})")
 
@@ -97,7 +106,7 @@ QUARTER_ENDS = {(3, 31), (6, 30), (9, 30), (12, 31)}
 
 # Re-publications that FOLLOW the filing (Reg 47 newspaper ads, "Updates on …").
 SECONDARY_RE = re.compile(
-    r"newspaper|news\s*paper|publication of (?:the\s+)?extract|^\s*updates?\s+on\b", re.IGNORECASE
+    r"newspaper|news\s*paper|publication of (?:the\s+)?extract|^\s*updates?\s+on\b", re.I
 )
 
 # ⚠️ Weak markers ONLY. A real filing routinely BUNDLES its press release and deck —
@@ -106,14 +115,16 @@ SECONDARY_RE = re.compile(
 # words "press release" inflated 'secondary' to 2,542 against 512 actually measured (calibration
 # gate 3, 2026-08-20). So a weak marker demotes only when NO core results-disclosure phrase is
 # present, or when the row LEADS with the accompanying artefact ("Presentation To Analysts On …").
-SECONDARY_WEAK = re.compile(r"press\s+release|presentation|media\s+release|analyst\s+meet\s+deck", re.IGNORECASE)
+SECONDARY_WEAK = re.compile(
+    r"press\s+release|presentation|media\s+release|analyst\s+meet\s+deck", re.I
+)
 SECONDARY_LEAD = re.compile(
-    r"^\s*(?:presentation|press\s+release|media\s+release|investor\s+presentation)", re.IGNORECASE
+    r"^\s*(?:presentation|press\s+release|media\s+release|investor\s+presentation)", re.I
 )
 RESULTS_CORE = re.compile(
     r"financial\s+results?|announces?\s+(?:q[1-4]\b|fy\b|its\b|the\b)?\s*\w*\s*results?|"
     r"results?\s*[-:]|(?:un)?audited\s+results?|quarterly\s+results?|\bq[1-4]\s+(?:&\s*fy\w*\s+)?results?",
-    re.IGNORECASE,
+    re.I,
 )
 
 # Forward-looking notices. NEVER writable.
@@ -142,7 +153,7 @@ INTIMATION_RE = re.compile(
     r"\bresched|\bpostpone|\bprepone|change\s+in\s+(?:the\s+)?date|"
     r"analyst\s*/?\s*\&?\s*investor|investors?\s+meet|earnings\s+call|conference\s+call|"
     r"\bagenda\b|\bproposed\b",
-    re.IGNORECASE,
+    re.I,
 )
 
 # An OUTCOME override rescues a genuine disclosure that merely CONTAINS notice-ish words.
@@ -163,7 +174,7 @@ OUTCOME_RE = re.compile(
     # election notice (the OMAXE cell, 2026-08-23) — rescuing on it re-admits that intimation.
     r"\bsubmission\s+of\b|\bsubmits\b|\bsubmitted\b|"
     r"\bhave\s+been\s+approved\b|\bwere\s+approved\b|\bapproved\s+the\s+(?:audited|unaudited|financial)",
-    re.IGNORECASE,
+    re.I,
 )
 
 

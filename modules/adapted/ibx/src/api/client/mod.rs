@@ -22,7 +22,7 @@
 //!     core_id: None,
 //! }).unwrap();
 //!
-//! client.req_mkt_data(1, &Contract { con_id: 756733, symbol: "SPY".into(), ..Default::default() },
+//! client.req_mkt_data(1, &Contract { con_id: 756733, symbol: "SPY".into(), sec_type: "STK".into(), exchange: "SMART".into(), currency: "USD".into(), ..Default::default() },
 //!     "", false, false).unwrap();
 //!
 //! let mut wrapper = MyWrapper;
@@ -41,7 +41,7 @@ mod stubs;
 #[cfg(test)]
 mod tests;
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -69,9 +69,10 @@ pub use orders::parse_algo_params;
 ///
 /// With `paper: false`, [`connect()`](EClient::connect) enters a second-factor
 /// approval window and **blocks** until the factor is approved (mobile push) or
-/// the server-side deadline fires (~18 min). This is expected — it is a human
-/// approval gate, not a hang. Bound or avoid it by using `paper: true`, lowering
-/// the timeout (via [`GatewayConfig::ib_key_timeout_secs`] when building through
+/// the server ends the wait (~18 min); as in the reference there is no client
+/// timeout by default. This is expected — it is a human
+/// approval gate, not a hang. Bound or avoid it by using `paper: true`, setting
+/// a timeout (via [`GatewayConfig::ib_key_timeout_secs`] when building through
 /// the lower-level API), or supplying a `code_provider`. Paper logins skip the
 /// gate entirely. An `info`-level log line is emitted when the wait begins
 /// (`RUST_LOG=info`). See ibx#203 / ibx#207.
@@ -126,6 +127,15 @@ fn cache_reconnect_credentials(hot_loop: &mut crate::engine::hot_loop::HotLoop, 
 /// [`is_connected()`](EClient::is_connected) turns false. No error callback is
 /// raised for this: the connectivity error codes are pushed by the server, not
 /// synthesized locally (ibx#242).
+///
+/// # Ids
+///
+/// Request, ticker and order ids and conIds are `i64` everywhere: in the
+/// methods, the [`Wrapper`](crate::api::wrapper::Wrapper) callbacks and the
+/// [`Event`]s. Negative ids are kept as given; `-1` is the id of an error that
+/// belongs to no request. The reference reads request ids, ticker ids and
+/// conIds as 32-bit ints, so a request with one outside that range is dropped
+/// with a log line and no error, as the reference drops it (ibx#285).
 pub struct EClient {
     pub(crate) shared: Arc<SharedState>,
     pub(crate) control_tx: Sender<ControlCommand>,
@@ -135,10 +145,11 @@ pub struct EClient {
     /// True once `connection_closed` has been delivered, so it fires at most
     /// once per session.
     pub(crate) close_notified: AtomicBool,
-    pub(crate) next_order_id: AtomicU64,
     pub(crate) core: ClientCore,
     pub(crate) session_token_bytes: Vec<u8>,
     pub(crate) token_type: String,
+    /// Connection time, fixed when the session started (ibx#426).
+    pub(crate) connection_time: String,
 }
 
 impl Drop for EClient {
@@ -215,11 +226,6 @@ impl EClient {
             .name("ib-engine-hotloop".into())
             .spawn(move || { hot_loop.run_with_panic_recovery(); })?;
 
-        let start_id = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() * 1000;
-
         Ok(Self {
             shared,
             control_tx,
@@ -227,10 +233,10 @@ impl EClient {
             account_id,
             connected: AtomicBool::new(true),
             close_notified: AtomicBool::new(false),
-            next_order_id: AtomicU64::new(start_id),
             core: ClientCore::new(),
             session_token_bytes,
             token_type,
+            connection_time: crate::client_core::connection_time_now(),
         })
     }
 
@@ -242,10 +248,6 @@ impl EClient {
         handle: thread::JoinHandle<()>,
         account_id: String,
     ) -> Self {
-        let start_id = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() * 1000;
         Self {
             shared,
             control_tx,
@@ -253,26 +255,29 @@ impl EClient {
             account_id,
             connected: AtomicBool::new(true),
             close_notified: AtomicBool::new(false),
-            next_order_id: AtomicU64::new(start_id),
             core: ClientCore::new(),
             session_token_bytes: Vec::new(),
             token_type: String::new(),
+            connection_time: crate::client_core::connection_time_now(),
         }
     }
 
     /// Map a reqId to an InstrumentId (for testing without a live engine).
+    /// The request takes every tick of the instrument, its headlines too.
     #[doc(hidden)]
     pub fn map_req_instrument(&self, req_id: i64, instrument: InstrumentId) {
         self.core.req_to_instrument.lock().unwrap().insert(req_id, instrument);
-        self.core.instrument_to_req.lock().unwrap().insert(instrument, req_id);
+        self.core.instrument_to_req.lock().unwrap().entry(instrument).or_default().push(req_id);
+        self.core.md_news.lock().unwrap().insert(req_id, String::new());
     }
 
     /// Pre-populate the order tracker (for testing the dispatcher path
     /// without going through the engine's place-order flow).
+    #[cfg(any(test, feature = "test-support"))]
     #[doc(hidden)]
     pub fn track_order_for_test(
         &self,
-        order_id: u64,
+        order_id: OrderId,
         contract: ApiContract,
         order: ApiOrder,
         instrument: InstrumentId,
@@ -292,6 +297,20 @@ impl EClient {
     }
 
     // ── Connection ──
+
+    /// API level the session follows: 214, the level the reference gives a
+    /// current client (ibx#426). Matches `serverVersion()` in C++, for code
+    /// that tests it before using a feature.
+    pub fn server_version(&self) -> i32 {
+        crate::client_core::SERVER_VERSION
+    }
+
+    /// Time the session started, as `yyyyMMdd HH:mm:ss {zone}` in the
+    /// machine's local time (ibx#426). The connection time of the C++
+    /// client.
+    pub fn tws_connection_time(&self) -> String {
+        self.connection_time.clone()
+    }
 
     /// False after [`disconnect()`](EClient::disconnect), and after a
     /// `process_msgs()` call that observed the engine stopping (ibx#242).

@@ -36,7 +36,7 @@ class myokx(okx, ImplicitAPI):
             super().describe(),
             {
                 "id": "myokx",
-                "name": "MyOKX(EEA)",
+                "name": "MyOKX (EEA)",
                 "certified": False,
                 "pro": True,
                 "hostname": "eea.okx.com",

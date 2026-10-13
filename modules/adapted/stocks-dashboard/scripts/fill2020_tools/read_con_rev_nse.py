@@ -69,7 +69,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)
 NAR.JAR = NAR.BF.nse_jar()
@@ -84,19 +86,19 @@ FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 
 PAT_ABS, PAT_REL = 0.05, 0.005
 
-R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE)
-R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.IGNORECASE)
-R_MINORITY = re.compile(r"^minority interest", re.IGNORECASE)
-R_ASSOC = re.compile(r"share of profit.*associat", re.IGNORECASE)
+R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I)
+R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.I)
+R_MINORITY = re.compile(r"^minority interest", re.I)
+R_ASSOC = re.compile(r"share of profit.*associat", re.I)
 # revenue: the archive's own wordings, industrial then banking (§42)
 R_REV = (
-    re.compile(r"total income from operations", re.IGNORECASE),
-    re.compile(r"net sales\s*/\s*income from operations", re.IGNORECASE),
-    re.compile(r"^revenue from operations", re.IGNORECASE),
-    re.compile(r"net sales\s*/\s*revenue from operations", re.IGNORECASE),
-    re.compile(r"income from operations", re.IGNORECASE),
+    re.compile(r"total income from operations", re.I),
+    re.compile(r"net sales\s*/\s*income from operations", re.I),
+    re.compile(r"^revenue from operations", re.I),
+    re.compile(r"net sales\s*/\s*revenue from operations", re.I),
+    re.compile(r"income from operations", re.I),
 )
-R_REV_BANK = (re.compile(r"^interest earned", re.IGNORECASE), re.compile(r"total income", re.IGNORECASE))
+R_REV_BANK = (re.compile(r"^interest earned", re.I), re.compile(r"total income", re.I))
 
 
 def read_con(link, sym, qe):
@@ -110,9 +112,11 @@ def read_con(link, sym, qe):
         return None, "basis=%s" % (meta.get("Consolidated / Non-Consolidated") or "?")
     if NAR.iso_qe(meta.get("Period Ended", "")) != qe:
         return None, "period={}".format(meta.get("Period Ended"))
-    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym, *NAR.aliases(sym)])}:
+    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym] + NAR.aliases(sym))}:
         return None, "symbol={}".format(meta.get("Symbol"))
-    m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+    m = re.search(
+        r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+    )
     if m and m.group(1).lower().replace("-", "").startswith("cumulative"):
         return None, "cumulative-page(YTD)"
     own, per, mi = NAR.pick(rows, R_OWN), NAR.pick(rows, R_PERIOD), NAR.pick(rows, R_MINORITY)
@@ -160,7 +164,7 @@ def main():
             "no inventory yet -- run nse_con_discover.py --targets _conrev_targets.json "
             "--out _conrev_nse_inventory.json first"
         )
-        return None
+        return
     inv = json.load(open(INV))
     fund = json.load(open(FUND))
     revop_std = json.load(open(REVOP_DOCS))
@@ -230,7 +234,11 @@ def main():
                 "revC_candidate": round(rev, 2),
             }
             skip += 1
-            print("  SKIP %-12s %d  con-below-std review (con %.2f vs std %.2f)" % (sym, qe, rev, std_rev), flush=True)
+            print(
+                "  SKIP %-12s %d  con-below-std review (con %.2f vs std %.2f)"
+                % (sym, qe, rev, std_rev),
+                flush=True,
+            )
             continue
         reads["%s|%d" % (sym, qe)] = {
             "revC": round(rev, 2),
@@ -242,14 +250,14 @@ def main():
         }
         ok += 1
         print(
-            "  OK   %-12s %d  rev=%-12.2f (con-PAT anchor %.2f cr; %s)" % (sym, qe, rev, d, best[1] + "/" + src),
+            "  OK   %-12s %d  rev=%-12.2f (con-PAT anchor %.2f cr; %s)"
+            % (sym, qe, rev, d, best[1] + "/" + src),
             flush=True,
         )
         if (i + 1) % 10 == 0:
             json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     json.dump(reads, open(READS, "w"), indent=0, sort_keys=True)
     print("\nlanded %d | skipped %d -> %s" % (ok, skip, os.path.basename(READS)))
-    return None
 
 
 def apply_reads():

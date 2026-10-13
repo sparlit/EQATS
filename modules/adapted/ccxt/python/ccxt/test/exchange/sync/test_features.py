@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_features(exchange, skipped_properties):
@@ -43,8 +45,10 @@ def test_features(exchange, skipped_properties):
     sub_types = ["linear", "inverse"]
     features = exchange.features
     keys = list(features.keys())
-    for i in range(len(keys)):
-        test_shared_methods.assert_in_array(exchange, skipped_properties, "features", keys, i, market_types)
+    for i in range(0, len(keys)):
+        test_shared_methods.assert_in_array(
+            exchange, skipped_properties, "features", keys, i, market_types
+        )
         market_type = keys[i]
         value = features[market_type]
         # assert (value !== undefined, 'exchange.features["' + marketType + '"] is undefined, that key should be either absent or have a value');
@@ -54,9 +58,11 @@ def test_features(exchange, skipped_properties):
             test_features_inner(exchange, skipped_properties, value)
         else:
             sub_keys = list(value.keys())
-            for j in range(len(sub_keys)):
+            for j in range(0, len(sub_keys)):
                 sub_key = sub_keys[j]
-                test_shared_methods.assert_in_array(exchange, skipped_properties, "features", sub_keys, j, sub_types)
+                test_shared_methods.assert_in_array(
+                    exchange, skipped_properties, "features", sub_keys, j, sub_types
+                )
                 sub_value = value[sub_key]
                 # sometimes it might not be available for exchange, eg. future>inverse)
                 if sub_value is not None:
@@ -143,8 +149,10 @@ def test_features_inner(exchange, skipped_properties, feature_obj):
     }
     feature_keys = list(feature_obj.keys())
     all_methods = list(exchange.has.keys())
-    for i in range(len(feature_keys)):
-        test_shared_methods.assert_in_array(exchange, skipped_properties, "features", feature_keys, i, all_methods)
+    for i in range(0, len(feature_keys)):
+        test_shared_methods.assert_in_array(
+            exchange, skipped_properties, "features", feature_keys, i, all_methods
+        )
         test_shared_methods.assert_structure(
             exchange, skipped_properties, "features", feature_obj, format, None, True
         )  # deep structure check

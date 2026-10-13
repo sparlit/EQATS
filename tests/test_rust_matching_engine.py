@@ -2,18 +2,16 @@
 Tests for Rust High-Performance Orderbook Matching Engine Module
 """
 
-import pytest
 from unittest.mock import patch
 
 from institutional_integrations.rust_matching_engine import (
+    MAGIC_NUMBER_RUST_MATCHING_ENGINE,
     OrderbookL2,
     RustMatchingEngineBrokerAdapter,
-    round_tick_005,
-    MAGIC_NUMBER_RUST_MATCHING_ENGINE,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 

@@ -30,10 +30,9 @@ Run: pytest tests/python/test_issue_ib112.py -v -s
 
 import os
 import threading
-import time
 
 import pytest
-from ibx import Contract, EClient, EWrapper
+from ibx import EClient, EWrapper
 
 pytestmark = pytest.mark.skipif(
     not (os.environ.get("IB_USERNAME") and os.environ.get("IB_PASSWORD")),
@@ -82,7 +81,9 @@ class NewsWrapper(EWrapper):
 
     def historical_news(self, req_id, time_str, provider_code, article_id, headline):
         with self.lock:
-            self.hist_news_items.setdefault(req_id, []).append((time_str, provider_code, article_id, headline))
+            self.hist_news_items.setdefault(req_id, []).append(
+                (time_str, provider_code, article_id, headline)
+            )
 
     def historical_news_end(self, req_id, has_more):
         ev = self.got_hist_news_end.get(req_id)
@@ -174,7 +175,13 @@ class TestNews:
         self.wrapper.got_hist_news_end[req_id] = threading.Event()
 
         self.client.req_historical_news(
-            req_id, SPY_CON_ID, "BRFG+BRFUPDN+DJ-N+DJ-RTA+DJ-RTE+DJ-RTG+DJ-RTPRO+DJNL", "", "", 10, []
+            req_id,
+            SPY_CON_ID,
+            "BRFG+BRFUPDN+DJ-N+DJ-RTA+DJ-RTE+DJ-RTG+DJ-RTPRO+DJNL",
+            "",
+            "",
+            10,
+            [],
         )
 
         got = self.wrapper.got_hist_news_end[req_id].wait(timeout=30)

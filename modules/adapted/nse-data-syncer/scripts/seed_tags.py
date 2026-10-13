@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 #!/usr/bin/env python3
 """Seed common tags into tag_master table."""
 import os
-import sys
 from pathlib import Path
 
 import psycopg2
@@ -79,7 +78,9 @@ def main():
     inserted = 0
     skipped = 0
     for tag in TAGS:
-        cur.execute("INSERT INTO tag_master (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (tag,))
+        cur.execute(
+            "INSERT INTO tag_master (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (tag,)
+        )
         if cur.rowcount:
             inserted += 1
         else:

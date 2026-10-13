@@ -25,7 +25,6 @@ import json
 import traceback
 from datetime import datetime
 from io import StringIO
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -34,7 +33,7 @@ from nsemine.bin import scraper
 from nsemine.utilities import urls, utils
 
 
-def get_market_status(market_name: str | None = None) -> list[dict] | bool | None:
+def get_market_status(market_name: str = None) -> list[dict] | bool | None:
     """
     Returns the current market status of the NSE Exchange.
     Args:
@@ -56,7 +55,13 @@ def get_market_status(market_name: str | None = None) -> list[dict] | bool | Non
             return fetched_data
 
         # otherwise,
-        mapper = {"CM": "Capital Market", "CUR": "Currency", "COM": "Commodity", "DB": "Debt", "CURF": "currencyfuture"}
+        mapper = {
+            "CM": "Capital Market",
+            "CUR": "Currency",
+            "COM": "Commodity",
+            "DB": "Debt",
+            "CURF": "currencyfuture",
+        }
         market_name = mapper.get(market_name)
         for market in fetched_data:
             if market.get("market") == market_name:
@@ -157,9 +162,27 @@ def get_all_equities_list(raw: bool = False) -> pd.DataFrame | None:
             if raw:
                 return df
             # processing
-            df = df[["SYMBOL", "NAME OF COMPANY", " SERIES", " DATE OF LISTING", " ISIN NUMBER", " FACE VALUE"]]
-            df.columns = ["symbol", "name", "series", "date_of_listing", "isin_number", "face_value"]
-            df["date_of_listing"] = pd.to_datetime(df["date_of_listing"], format="%d-%b-%Y", errors="coerce")
+            df = df[
+                [
+                    "SYMBOL",
+                    "NAME OF COMPANY",
+                    " SERIES",
+                    " DATE OF LISTING",
+                    " ISIN NUMBER",
+                    " FACE VALUE",
+                ]
+            ]
+            df.columns = [
+                "symbol",
+                "name",
+                "series",
+                "date_of_listing",
+                "isin_number",
+                "face_value",
+            ]
+            df["date_of_listing"] = pd.to_datetime(
+                df["date_of_listing"], format="%d-%b-%Y", errors="coerce"
+            )
             return df
     except Exception as e:
         print(f"ERROR! - {e}\n")
@@ -184,9 +207,27 @@ def get_all_sme_stocks_list(raw: bool = False) -> pd.DataFrame | None:
             if raw:
                 return df
             # processing
-            df = df[["SYMBOL", "NAME_OF_COMPANY", "SERIES", "DATE_OF_LISTING", "ISIN_NUMBER", "FACE_VALUE"]]
-            df.columns = ["symbol", "name", "series", "date_of_listing", "isin_number", "face_value"]
-            df["date_of_listing"] = pd.to_datetime(df["date_of_listing"], format="%d-%b-%y", errors="coerce")
+            df = df[
+                [
+                    "SYMBOL",
+                    "NAME_OF_COMPANY",
+                    "SERIES",
+                    "DATE_OF_LISTING",
+                    "ISIN_NUMBER",
+                    "FACE_VALUE",
+                ]
+            ]
+            df.columns = [
+                "symbol",
+                "name",
+                "series",
+                "date_of_listing",
+                "isin_number",
+                "face_value",
+            ]
+            df["date_of_listing"] = pd.to_datetime(
+                df["date_of_listing"], format="%d-%b-%y", errors="coerce"
+            )
             return df
     except Exception as e:
         print(f"ERROR! - {e}\n")
@@ -423,7 +464,7 @@ def get_securities_above_previous_close(
     try:
         resp = scraper.get_request(url=urls.base_nse_api + urls.advance)
         if not resp:
-            return None
+            return
 
         data = resp.json()
         if raw:
@@ -460,7 +501,7 @@ def get_securities_below_previous_close(
     try:
         resp = scraper.get_request(url=urls.base_nse_api + urls.decline)
         if not resp:
-            return None
+            return
 
         data = resp.json()
         if raw:
@@ -496,7 +537,7 @@ def get_securities_same_as_previous_close(
     try:
         resp = scraper.get_request(url=urls.base_nse_api + urls.unchanged)
         if not resp:
-            return None
+            return
 
         data = resp.json()
         if raw:
@@ -528,7 +569,7 @@ def get_most_liquid_stocks(raw: bool = False):
     try:
         resp = scraper.get_request(urls.base_nse_api + urls.most_active)
         if not resp:
-            return None
+            return
         data = resp.json()
         if raw:
             return data
@@ -552,7 +593,8 @@ def get_most_liquid_stocks(raw: bool = False):
                 "yearLow",
             ]
         ]
-        df = df.rename(
+        df.rename(
+            inplace=True,
             columns={
                 "lastUpdateTime": "datetime",
                 "dayHigh": "high",
@@ -564,7 +606,7 @@ def get_most_liquid_stocks(raw: bool = False):
                 "totalTradedValue": "traded_value",
                 "yearHigh": "year_high",
                 "yearLow": "year_low",
-            }
+            },
         )
 
         try:
@@ -594,7 +636,7 @@ def get_most_value_traded_stocks(raw: bool = False):
     try:
         resp = scraper.get_request(urls.base_nse_api + urls.most_valued)
         if not resp:
-            return None
+            return
         data = resp.json()
         if raw:
             return data
@@ -618,7 +660,8 @@ def get_most_value_traded_stocks(raw: bool = False):
                 "yearLow",
             ]
         ]
-        df = df.rename(
+        df.rename(
+            inplace=True,
             columns={
                 "lastUpdateTime": "datetime",
                 "dayHigh": "high",
@@ -630,7 +673,7 @@ def get_most_value_traded_stocks(raw: bool = False):
                 "totalTradedValue": "traded_value",
                 "yearHigh": "year_high",
                 "yearLow": "year_low",
-            }
+            },
         )
 
         try:
@@ -663,7 +706,7 @@ def get_todays_gainers(key: str = "ALL", raw: bool = False):
     try:
         resp = scraper.get_request(url=urls.base_nse_api + urls.all_gainers)
         if not resp:
-            return None
+            return
         data = resp.json()
         if raw:
             return data
@@ -704,7 +747,7 @@ def get_todays_losers(key: str = "ALL", raw: bool = False):
     try:
         resp = scraper.get_request(url=urls.base_nse_api + urls.all_losers)
         if not resp:
-            return None
+            return
         data = resp.json()
         if raw:
             return data

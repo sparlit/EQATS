@@ -44,15 +44,14 @@ Run (CI): python3 scripts/verify_ca_review.py
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
+import datetime
+import json
 import os
 import sys
-import json
 import time
-import datetime
-import urllib.request
 import urllib.parse
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -93,24 +92,36 @@ def nse_rows(jar, sym, board):
 
 
 def yahoo(ticker, a, b):
-    p1 = int(datetime.datetime.combine(od(a) - datetime.timedelta(days=40), datetime.time()).timestamp())
-    p2 = int(datetime.datetime.combine(od(b) + datetime.timedelta(days=40), datetime.time()).timestamp())
+    p1 = int(
+        datetime.datetime.combine(od(a) - datetime.timedelta(days=40), datetime.time()).timestamp()
+    )
+    p2 = int(
+        datetime.datetime.combine(od(b) + datetime.timedelta(days=40), datetime.time()).timestamp()
+    )
     url = (
         "https://query1.finance.yahoo.com/v8/finance/chart/%s?period1=%d&period2=%d&interval=1d&events=split%%7Cdiv"
         % (urllib.parse.quote(ticker), p1, p2)
     )
     for attempt in range(3):
         try:
-            raw = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30).read()
+            raw = urllib.request.urlopen(
+                urllib.request.Request(url, headers={"User-Agent": UA}), timeout=30
+            ).read()
             r = (json.loads(raw).get("chart", {}).get("result") or [None])[0]
             if not r:
                 return {"status": "no-result"}
             ts = r.get("timestamp") or []
-            days = [int(datetime.datetime.utcfromtimestamp(t + 19800).strftime("%Y%m%d")) for t in ts]
+            days = [
+                int(datetime.datetime.utcfromtimestamp(t + 19800).strftime("%Y%m%d")) for t in ts
+            ]
             ev = r.get("events") or {}
             splits = [
                 {
-                    "date": int(datetime.datetime.utcfromtimestamp(int(s["date"]) + 19800).strftime("%Y%m%d")),
+                    "date": int(
+                        datetime.datetime.utcfromtimestamp(int(s["date"]) + 19800).strftime(
+                            "%Y%m%d"
+                        )
+                    ),
                     "num": s.get("numerator"),
                     "den": s.get("denominator"),
                     "ratio": s.get("splitRatio"),
@@ -119,7 +130,11 @@ def yahoo(ticker, a, b):
             ]
             divs = [
                 {
-                    "date": int(datetime.datetime.utcfromtimestamp(int(s["date"]) + 19800).strftime("%Y%m%d")),
+                    "date": int(
+                        datetime.datetime.utcfromtimestamp(int(s["date"]) + 19800).strftime(
+                            "%Y%m%d"
+                        )
+                    ),
                     "amount": s.get("amount"),
                 }
                 for s in (ev.get("dividends") or {}).values()
@@ -156,7 +171,11 @@ def bse(code, a, b):
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/", "Origin": "https://www.bseindia.com"},
+            headers={
+                "User-Agent": UA,
+                "Referer": "https://www.bseindia.com/",
+                "Origin": "https://www.bseindia.com",
+            },
         )
         rows = json.loads(urllib.request.urlopen(req, timeout=30).read() or b"[]")
         BSE_DEAD["n"] = 0
@@ -200,7 +219,10 @@ def main():
             key in prev
             and prev[key].get("done")
             and prev[key].get("v") == VERSION
-            and all((prev[key]["yahoo_events"].get(k) or {}).get("status") != "error" for k in ("ns", "bo"))
+            and all(
+                (prev[key]["yahoo_events"].get(k) or {}).get("status") != "error"
+                for k in ("ns", "bo")
+            )
         ):
             out.append(prev[key])
             continue
@@ -228,9 +250,13 @@ def main():
                     if not ex:
                         continue
                     ex = int(ex)
-                    if od(a) - datetime.timedelta(days=15) <= od(ex) <= od(b) + datetime.timedelta(days=15):
+                    if (
+                        od(a) - datetime.timedelta(days=15)
+                        <= od(ex)
+                        <= od(b) + datetime.timedelta(days=15)
+                    ):
                         subj = x.get("subject") or x.get("purpose") or ""
-                        f, _lab = BCA.official_factor(subj)
+                        f, lab = BCA.official_factor(subj)
                         nse["rows"].append(
                             {
                                 "sym": sym,
@@ -252,7 +278,7 @@ def main():
                 except Exception as e:
                     day_cache[d] = {"__error__": str(e)[:60]}
             row = None
-            for sym in [s, *sorted(alias.get(s, set()))]:
+            for sym in [s] + sorted(alias.get(s, set())):
                 row = day_cache[d].get(sym)
                 if row:
                     break
@@ -269,7 +295,9 @@ def main():
         ca, cb = bh.get(str(a)), bh.get(str(b))
         if isinstance(ca, dict) and isinstance(cb, dict) and ca["close"]:
             ev["raw_ratio_bhav"] = round(cb["close"] / ca["close"], 4)
-            ev["open_over_prev_bhav"] = round(cb["open"] / ca["close"], 4) if cb.get("open") else None
+            ev["open_over_prev_bhav"] = (
+                round(cb["open"] / ca["close"], 4) if cb.get("open") else None
+            )
         # --- Yahoo split events (NSE ticker, then the BSE code)
         time.sleep(0.6)
         yh = {"ns": yahoo(s + ".NS", a, b)}
@@ -283,9 +311,16 @@ def main():
         ev["v"] = VERSION
         out.append(ev)
         if n % 25 == 0:
-            json.dump({"generated": datetime.datetime.utcnow().isoformat() + "Z", "events": out}, open(OUT, "w"))
+            json.dump(
+                {"generated": datetime.datetime.utcnow().isoformat() + "Z", "events": out},
+                open(OUT, "w"),
+            )
             print("%d/%d  %.0fs" % (n + 1, len(R), time.time() - t0), flush=True)
-    json.dump({"generated": datetime.datetime.utcnow().isoformat() + "Z", "events": out}, open(OUT, "w"), indent=0)
+    json.dump(
+        {"generated": datetime.datetime.utcnow().isoformat() + "Z", "events": out},
+        open(OUT, "w"),
+        indent=0,
+    )
     print("done %d events in %.0fs -> %s" % (len(out), time.time() - t0, OUT))
 
 

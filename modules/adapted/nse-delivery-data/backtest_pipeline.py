@@ -33,10 +33,12 @@ backtest_pipeline.py
 import os
 import sys
 
-import numpy as np
-import pandas as pd
 from google import genai
-from train_breakout_model import engineer_features_and_targets, load_and_clean_data, train_breakout_model
+from train_breakout_model import (
+    engineer_features_and_targets,
+    load_and_clean_data,
+    train_breakout_model,
+)
 
 
 def run_historical_backtest(df, model):

@@ -80,7 +80,10 @@ def main():
         df = fetch()
     except Exception as e:
         print(f"ERROR: could not fetch EQUITY_L.csv from NSE: {e}", file=sys.stderr)
-        print("Tip: run this from an India IP; the app still works with the existing bundled list.", file=sys.stderr)
+        print(
+            "Tip: run this from an India IP; the app still works with the existing bundled list.",
+            file=sys.stderr,
+        )
         sys.exit(1)
     df.to_csv(OUT_PATH, index=False)
     print(f"Wrote {len(df)} symbols to {OUT_PATH}")

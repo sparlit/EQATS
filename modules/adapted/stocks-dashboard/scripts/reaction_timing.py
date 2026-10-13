@@ -73,14 +73,18 @@ def _load():
                 if hs:
                     t.setdefault((str(scrip), int(day)), set()).update(hs)
     try:
-        rows = json.load(open(os.path.join(ROOT, "docs", "results_feed.json"), encoding="utf-8")).get("rows", [])
+        rows = json.load(
+            open(os.path.join(ROOT, "docs", "results_feed.json"), encoding="utf-8")
+        ).get("rows", [])
     except (OSError, ValueError):
         rows = []
     for r in rows:  # per row: one malformed row must not drop the rest
         try:
             h = _hhmm(r[2])
             if h:
-                t.setdefault(("SYM:" + str(r[0]).upper(), int(str(r[2])[:10].replace("-", ""))), set()).add(h)
+                t.setdefault(
+                    ("SYM:" + str(r[0]).upper(), int(str(r[2])[:10].replace("-", ""))), set()
+                ).add(h)
         except (ValueError, TypeError, IndexError):
             continue
     _times = t

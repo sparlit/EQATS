@@ -26,13 +26,13 @@ import os
 import h5py
 import numpy as np
 import numpy.linalg as nla
-import utils
 from dolfin import MPI
-from matplotlib import pyplot as plt
 from mpi4py.MPI import DOUBLE
 from oasis.problems.NSfracStep import *
-from scipy.io import loadmat, savemat
+from scipy.io import savemat
 from scipy.sparse import csr_matrix
+
+import utils
 
 WORK_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir, os.pardir))
 COMM = MPI.comm_world
@@ -56,7 +56,11 @@ NU = nuflag
 FOLDER = WORK_DIR + f"/data/r{SEED}_g{GRID}by{GRID}_nu{NU}"
 # Noise RMS
 RMS = utils.compute_rms(
-    random_seeds=np.array([123]), folder_location=FOLDER, dt=0.01, time_range=[10, 15], solver="jax-cfd"
+    random_seeds=np.array([123]),
+    folder_location=FOLDER,
+    dt=0.01,
+    time_range=[10, 15],
+    solver="jax-cfd",
 )
 print("RMS:", RMS)
 # Override some problem specific parameters
@@ -175,13 +179,17 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
 
     for ui in q_:
         deltat = 0.0
-        vv = interpolate(Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu), VV[ui])
+        vv = interpolate(
+            Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu),
+            VV[ui],
+        )
         q_[ui].vector()[:] = vv.vector()[:]
         if ui != "p":
             q_1[ui].vector()[:] = vv.vector()[:]
             deltat = -dt
             vv = interpolate(
-                Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu), VV[ui]
+                Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu),
+                VV[ui],
             )
             q_2[ui].vector()[:] = vv.vector()[:]
     q_1["p"].vector()[:] = q_["p"].vector()[:]
@@ -236,7 +244,7 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
             observer["vel_y"] = np.zeros(data["vel_x_reg"].shape)
             data["vel_x_reg"].read_direct(observer["vel_x"])
             data["vel_y_reg"].read_direct(observer["vel_y"])
-            N = int(np.prod(data["vel_x_reg"].shape[1:]))
+            N = int(np.product(data["vel_x_reg"].shape[1:]))
             observer["vel_x"] = observer["vel_x"].reshape((-1, N), order="F").T
             observer["vel_y"] = observer["vel_y"].reshape((-1, N), order="F").T
 
@@ -248,11 +256,14 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
             observer["vel_x"] = data_u.reshape((-1, N), order="F").T[observer["m2f_ind"], :]
             observer["vel_y"] = data_v.reshape((-1, N), order="F").T[observer["m2f_ind"], :]
         else:
-            msg = "There is no such optioni for input data"
-            raise ValueError(msg)
+            raise ValueError("There is no such optioni for input data")
         # add noise
-        observer["vel_x_noisy"] = utils.zero_mean_normal_noise(observer["vel_x"], NS_namespace["std"])
-        observer["vel_y_noisy"] = utils.zero_mean_normal_noise(observer["vel_y"], NS_namespace["std"])
+        observer["vel_x_noisy"] = utils.zero_mean_normal_noise(
+            observer["vel_x"], NS_namespace["std"]
+        )
+        observer["vel_y_noisy"] = utils.zero_mean_normal_noise(
+            observer["vel_y"], NS_namespace["std"]
+        )
         # project the data onto low-resolution
         if NS_namespace["Nrec_x"] != NS_namespace["velocity_degree"] * NS_namespace["Nx"]:
             observer["avg_vel_x"] = observer["proj_mat"] @ observer["vel_x_noisy"]
@@ -325,7 +336,7 @@ def start_timestep_hook(q_, f, tstep, VV, **NS_namespace):
         all_add_to_source_x = None
         all_add_to_source_y = None
         # initialize count on worker processes
-        count = np.zeros(NPROCS, dtype=int)
+        count = np.zeros(NPROCS, dtype=np.int)
         displ = None
 
     # broadcast count
@@ -335,8 +346,12 @@ def start_timestep_hook(q_, f, tstep, VV, **NS_namespace):
     add_to_source_x = np.zeros(count[MPI_RANK])
     add_to_source_y = np.zeros(count[MPI_RANK])
 
-    COMM.Scatterv([np.ascontiguousarray(all_add_to_source_x), count, displ, DOUBLE], add_to_source_x, root=0)
-    COMM.Scatterv([np.ascontiguousarray(all_add_to_source_y), count, displ, DOUBLE], add_to_source_y, root=0)
+    COMM.Scatterv(
+        [np.ascontiguousarray(all_add_to_source_x), count, displ, DOUBLE], add_to_source_x, root=0
+    )
+    COMM.Scatterv(
+        [np.ascontiguousarray(all_add_to_source_y), count, displ, DOUBLE], add_to_source_y, root=0
+    )
 
     source_data["f1"].vector()[:] = source_data["f1_klm"].vector()[:] + add_to_source_x
     source_data["f2"].vector()[:] = source_data["f2_klm"].vector()[:] + add_to_source_y
@@ -353,7 +368,18 @@ def vector_norm(f_vec, norm_type="L2"):
 
 
 def temporal_hook(
-    q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_comp, compute_error, total_error, **NS_namespace
+    q_,
+    t,
+    nu,
+    VV,
+    dt,
+    plot_interval,
+    initial_fields,
+    tstep,
+    sys_comp,
+    compute_error,
+    total_error,
+    **NS_namespace,
 ):
     """Function called at end of timestep.
 

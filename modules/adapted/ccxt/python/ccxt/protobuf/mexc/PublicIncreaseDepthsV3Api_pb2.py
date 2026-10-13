@@ -52,7 +52,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
     _globals[
         "DESCRIPTOR"
-    ]._serialized_options = b"\n\034com.mxc.push.common.protobufB\036PublicIncreaseDepthsV3ApiProtoH\001P\001"
+    ]._serialized_options = (
+        b"\n\034com.mxc.push.common.protobufB\036PublicIncreaseDepthsV3ApiProtoH\001P\001"
+    )
     _globals["_PUBLICINCREASEDEPTHSV3API"]._serialized_start = 36
     _globals["_PUBLICINCREASEDEPTHSV3API"]._serialized_end = 189
     _globals["_PUBLICINCREASEDEPTHV3APIITEM"]._serialized_start = 191

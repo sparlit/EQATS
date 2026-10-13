@@ -30,21 +30,20 @@ fn contract_request_response_roundtrip() {
             (fix::TAG_MSG_TYPE, "d"),
             (TAG_SECURITY_REQ_ID, "R42"),
             (TAG_SECURITY_RESPONSE_TYPE, "4"),
-            (TAG_IB_CON_ID, "265598"),
             (TAG_SYMBOL, "AAPL"),
+            (TAG_IB_CON_ID, "265598"),
             (TAG_SECURITY_TYPE, "CS"),
             (TAG_SECURITY_EXCHANGE, "NASDAQ"),
             (TAG_IB_PRIMARY_EXCHANGE, "NASDAQ"),
             (TAG_CURRENCY, "USD"),
             (TAG_LONG_NAME, "APPLE INC"),
             (TAG_IB_VALID_EXCHANGES, "BEST,NYSE,ARCA,BATS"),
-            // Inline price-increment block (6019="1" is the rule-start
-            // sentinel); min_tick is derived from the smallest increment.
-            (TAG_MARKET_RULE_START, "1"),
+            // Rule table; min_tick is the smallest price increment.
+            (TAG_MARKET_RULE_COUNT, "1"),
             (TAG_MARKET_RULE_ID, "26"),
+            (TAG_PRICE_INCREMENT_COUNT, "1"),
             (TAG_LOW_EDGE, "0"),
             (TAG_INCREMENT, "0.01"),
-            (TAG_MARKET_RULE_END, "1"),
         ],
         11,
     );
@@ -141,8 +140,8 @@ fn option_contract_full_workflow() {
         &[
             (fix::TAG_MSG_TYPE, "d"),
             (TAG_SECURITY_REQ_ID, "OPT1"),
-            (TAG_IB_CON_ID, "99999"),
             (TAG_SYMBOL, "AAPL"),
+            (TAG_IB_CON_ID, "99999"),
             (TAG_SECURITY_TYPE, "OPT"),
             (TAG_LAST_TRADE_DATE, "20260321"),
             (TAG_STRIKE, "200.0"),
@@ -173,6 +172,7 @@ fn secdef_response_pagination() {
         &[
             (fix::TAG_MSG_TYPE, "d"),
             (TAG_SECURITY_RESPONSE_TYPE, "4"),
+            (TAG_SYMBOL, "AAPL"),
             (TAG_IB_CON_ID, "111"),
         ],
         1,
@@ -181,6 +181,7 @@ fn secdef_response_pagination() {
         &[
             (fix::TAG_MSG_TYPE, "d"),
             (TAG_SECURITY_RESPONSE_TYPE, "4"),
+            (TAG_SYMBOL, "AAPL"),
             (TAG_IB_CON_ID, "222"),
         ],
         2,
@@ -189,6 +190,7 @@ fn secdef_response_pagination() {
         &[
             (fix::TAG_MSG_TYPE, "d"),
             (TAG_SECURITY_RESPONSE_TYPE, "5"),
+            (TAG_SYMBOL, "AAPL"),
             (TAG_IB_CON_ID, "333"),
         ],
         3,
@@ -214,14 +216,15 @@ fn historical_request_full_workflow() {
         query_id: "hd1;;AAPL@SMART TRADES;;1;;true;;0;;I".to_string(),
         con_id: 265598,
         symbol: "AAPL".to_string(),
-        sec_type: "CS",
-        exchange: "SMART",
+        sec_type: "STK".to_string(),
+        exchange: "SMART".to_string(),
         data_type: BarDataType::Trades,
         end_time: "20260228-16:00:00".to_string(),
         duration: "1 d".to_string(),
         bar_size: BarSize::Min5,
         use_rth: true,
         keep_up_to_date: false,
+        include_expired: false,
     };
 
     // Build FIX message
@@ -304,14 +307,15 @@ fn historical_streaming_subscription_flow() {
         query_id: "rt1".to_string(),
         con_id: 265598,
         symbol: "AAPL".to_string(),
-        sec_type: "CS",
-        exchange: "SMART",
+        sec_type: "STK".to_string(),
+        exchange: "SMART".to_string(),
         data_type: BarDataType::Trades,
         end_time: "".to_string(),
         duration: "1800 S".to_string(),
         bar_size: BarSize::Sec5,
         use_rth: false,
         keep_up_to_date: false,
+        include_expired: false,
     };
     let msg = build_historical_request(&req, 1);
     let tags = fix::fix_parse(&msg);
@@ -472,26 +476,28 @@ fn contract_lookup_feeds_historical_request() {
     let query_id = format!("hd;;{}@{}", contract.symbol, contract.exchange);
     let con_id = contract.con_id;
     let symbol = contract.symbol.clone();
-    let sec_type = contract.sec_type.to_fix();
+    let sec_type = contract.sec_type.to_api_str().to_string();
 
     let req = HistoricalRequest {
         query_id,
         con_id,
         symbol,
         sec_type,
-        exchange: "NASDAQ",
+        exchange: "NASDAQ".to_string(),
         data_type: BarDataType::Trades,
         end_time: "20260228-16:00:00".to_string(),
         duration: "1 d".to_string(),
         bar_size: BarSize::Min5,
         use_rth: true,
         keep_up_to_date: false,
+        include_expired: false,
     };
 
     let msg = build_historical_request(&req, 1);
     let tags = fix::fix_parse(&msg);
     assert!(tags[&TAG_HISTORICAL_XML].contains("<contractID>265598</contractID>"));
-    assert!(tags[&TAG_HISTORICAL_XML].contains("<secType>CS</secType>"));
+    assert!(tags[&TAG_HISTORICAL_XML].contains("<secType>STK</secType>"));
+    assert!(tags[&TAG_HISTORICAL_XML].contains("<exchange>NASDAQ</exchange>"));
 }
 
 #[test]
@@ -500,8 +506,8 @@ fn fixcomp_wraps_secdef_response() {
     let inner = fix::fix_build(
         &[
             (fix::TAG_MSG_TYPE, "d"),
-            (TAG_IB_CON_ID, "265598"),
             (TAG_SYMBOL, "AAPL"),
+            (TAG_IB_CON_ID, "265598"),
             (TAG_SECURITY_TYPE, "CS"),
             (TAG_CURRENCY, "USD"),
         ],

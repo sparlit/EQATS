@@ -43,7 +43,13 @@ class TestNSECalendar:
 
     def test_observed_2026_float_holidays(self):
         cal = NSECalendar()
-        for d in (date(2026, 4, 3), date(2026, 4, 14), date(2026, 5, 1), date(2026, 5, 28), date(2026, 6, 26)):
+        for d in (
+            date(2026, 4, 3),
+            date(2026, 4, 14),
+            date(2026, 5, 1),
+            date(2026, 5, 28),
+            date(2026, 6, 26),
+        ):
             assert not cal.is_trading_day(d), d
 
     def test_regular_weekday_trades(self):

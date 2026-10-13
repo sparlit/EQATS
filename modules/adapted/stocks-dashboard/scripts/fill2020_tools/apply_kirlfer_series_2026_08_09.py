@@ -66,8 +66,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 LEDGER = os.path.join(SCRIPTS, "kirlfer_con_series.json")
 HEALS = os.path.join(SCRIPTS, "con_copy_heals.json")
 
@@ -95,7 +101,9 @@ FUND_IDX, REVOP_IDX = 3, 5
 def main():
     dry = "--apply" not in sys.argv
     changes = {q: v for q, v in SERIES.items() if abs(v[2] - v[3]) > 0.005}
-    print("%-10s %9s %9s %9s %9s  %s" % ("quarter", "total", "minority", "owners", "stored", "note"))
+    print(
+        "%-10s %9s %9s %9s %9s  %s" % ("quarter", "total", "minority", "owners", "stored", "note")
+    )
     for q in sorted(SERIES):
         tot, mi, own, was, note = SERIES[q]
         mark = "  <== FIX" if q in changes else ""
@@ -110,7 +118,11 @@ def main():
         p = sum(SERIES[q][0] for q in qs)
         m = sum(SERIES[q][1] for q in qs)
         o = sum(SERIES[q][2] for q in qs)
-        ok = abs(p - per_tot) < 0.02 and abs(m - mi_tot) < 0.02 and abs(o - (per_tot - mi_tot)) < 0.02
+        ok = (
+            abs(p - per_tot) < 0.02
+            and abs(m - mi_tot) < 0.02
+            and abs(o - (per_tot - mi_tot)) < 0.02
+        )
         print(
             "  {} period {:.2f}/{:.2f}  minority {:.2f}/{:.2f}  owners {:.2f}/{:.2f}  {}".format(
                 fy, p, per_tot, m, mi_tot, o, per_tot - mi_tot, "OK" if ok else "*** BROKEN"

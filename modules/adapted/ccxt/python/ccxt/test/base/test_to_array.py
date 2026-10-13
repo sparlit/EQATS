@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_to_array():
@@ -61,9 +61,11 @@ def test_to_array():
     #
     assert len(result1) == 3, "testToArray: length of result1 should be 3"
     assert len(result2) == 2, "testToArray: length of result2 should be 2"
-    assert exchange.in_array(1, result1) and exchange.in_array(3, result1) and exchange.in_array(2, result1), (
-        "testToArray: result1 should include 1, 3, and 2"
-    )
+    assert (
+        exchange.in_array(1, result1)
+        and exchange.in_array(3, result1)
+        and exchange.in_array(2, result1)
+    ), "testToArray: result1 should include 1, 3, and 2"
     assert exchange.in_array("x", result2) and exchange.in_array(2, result2), (
         'testToArray: result2 should include "x" and 2'
     )

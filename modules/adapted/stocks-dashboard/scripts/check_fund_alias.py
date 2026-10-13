@@ -55,6 +55,17 @@ miss-guarded, and they are counted but never flagged or removed. Only two things
 MISSING expected entries, and CONFLICTS where a baked entry points at a different target than
 the rename map does.
 
+ERA-TAPE EXCEPTION (runbook §220b, 2026-10-06, user-approved): rule 1's chain END is wrong for a
+TAPE-LESS predecessor whose chain crosses an ISIN seam the price store never stitched (a relisting
+after an IBC / BIFR capital reduction — §95g / §106b — keeps the two tapes split). The engine's
+membersAsOf folds a roster name that has no series of its own through FUND_ALIAS, so pointing it at
+the chain end (a tape that starts years later) silently drops a real member: ORCHIDCHEM -> ORCHPHARMA
+lost Orchid from 69 F&O month-ends 2005-05..2012-08, RDEL -> SWANDEF lost Reliance Defence from 5 in
+2017. Such an old name is EXPECTED to point at the dead key that HOLDS ITS ERA'S TAPE (ERA_TAPE below)
+— but only while that key is still PRESENT in META: once a seam is stitched, its old key leaves the
+bin and the entry falls back to rule 1 on its own. The list is explicit on purpose: widening it is a
+measured, per-name decision (§220b), never a sweep.
+
 Run:
     python3 scripts/check_fund_alias.py            # report; exit 1 on drift
     python3 scripts/check_fund_alias.py --write    # apply (union, never removes) + node --check
@@ -79,12 +90,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 RENAME_MAP = os.path.join(HERE, "_rename_map.json")
 INDEX = os.path.join(ROOT, "docs", "search_index.json")
-COLLIDE = os.path.join(ROOT, "docs", "bse_alias_collisions.json")  # BSE tickers the aliases must not touch (§197)
-TARGETS = [os.path.join(ROOT, "docs", "backtest-engine.js"), os.path.join(ROOT, "docs", "stock-backtest.html")]
+COLLIDE = os.path.join(
+    ROOT, "docs", "bse_alias_collisions.json"
+)  # BSE tickers the aliases must not touch (§197)
+TARGETS = [
+    os.path.join(ROOT, "docs", "backtest-engine.js"),
+    os.path.join(ROOT, "docs", "stock-backtest.html"),
+]
 
 # The constant is one line in both files; the capture must stay anchored so a stray
 # `FUND_ALIAS[sym]` lookup elsewhere in the file can never be mistaken for the definition.
-CONST_RE = re.compile(r"^const FUND_ALIAS = (\{.*?\});$", re.MULTILINE)
+CONST_RE = re.compile(r"^const FUND_ALIAS = (\{.*?\});$", re.M)
 
 # A META that lost its alive flags would make rule 3 reject everything and rule 2 accept
 # everything. That is not hypothetical: on 2026-08-02 a dead HTML scrape marked EVERY symbol
@@ -130,7 +146,12 @@ def load_meta():
     with open(INDEX, encoding="utf-8") as fh:
         idx = json.load(fh)
     rows = idx["s"]
-    return ({r[0] for r in rows if r[2] == 1}, len(rows), "docs/search_index.json", idx.get("v") or "")
+    return (
+        {r[0] for r in rows if r[2] == 1},
+        len(rows),
+        "docs/search_index.json",
+        idx.get("v") or "",
+    )
 
 
 def stamp_age(stamp):
@@ -152,10 +173,41 @@ def resolve(old, rmap):
     return target
 
 
-def expected_alias(rmap, alive):
+# §220b ERA-TAPE EXCEPTION (see the module docstring): tape-less predecessor -> the dead key holding its era's tape.
+# Each pair was measured on the live engine (roster resolution over all 2,164 index + F&O snapshots) before it was
+# added; the chain end each replaces is in brackets.
+ERA_TAPE = {
+    "ORCHIDCHEM": "ORCHIDPHAR",  # [ORCHPHARMA] Orchid Chemicals: F&O 2005-05..2012-08; the tape stops 2019-07-24 (IBC)
+    "RDEL": "RNAVAL",  # [SWANDEF]    Reliance Defence: F&O 2017-03..07; RNAVAL's tape stops 2023-07-13 (IBC)
+    "PIPAVAVDOC": "RNAVAL",  # [SWANDEF]    Pipavav Defence era of the same tape
+    "PIPAVAVYD": "RNAVAL",  # [SWANDEF]    Pipavav Shipyard era of the same tape
+    "SOFTPRO": "CURATECH",  # [CURAA]      Cura's pre-2010 name; CURATECH's tape stops 2021-04-12 (delisted 2022, IBC)
+}
+
+
+def meta_present():
+    """-> every symbol META carries, alive or dead (the same source load_meta reads). The era-tape exception needs
+    'still holds a tape', which the alive set cannot answer; kept separate so load_meta's 4-tuple (used by
+    isin_seam_land.py) never changes."""
+    binpath = os.environ.get("SF_BIN")
+    if binpath:
+        sys.path.insert(0, HERE)
+        from build_search_index import _scan_top_level
+
+        return set(_scan_top_level(binpath, ["meta"])["meta"])
+    with open(INDEX, encoding="utf-8") as fh:
+        return {r[0] for r in json.load(fh)["s"]}
+
+
+def expected_alias(rmap, alive, present=None):
     out = {}
     for old in rmap:
         target = resolve(old, rmap)
+        era = ERA_TAPE.get(old)
+        if era and present is not None and era in present and era != old:
+            if old not in alive:  # rule 2 still holds: a live symbol is never aliased
+                out[old] = era
+            continue
         if target != old and old not in alive and target in alive:
             out[old] = target
     return out
@@ -166,8 +218,7 @@ def read_baked(path):
         text = fh.read()
     m = CONST_RE.search(text)
     if not m:
-        msg = f"no `const FUND_ALIAS = {{...}};` line in {path}"
-        raise ValueError(msg)
+        raise ValueError(f"no `const FUND_ALIAS = {{...}};` line in {path}")
     return json.loads(m.group(1)), text, m
 
 
@@ -185,12 +236,13 @@ def collision_audit(rmap, baked):
         return [f"docs/bse_alias_collisions.json unreadable ({e})"]
     probs = []
     for old, c in sorted(coll.items()):
-        ends = ({resolve(old, rmap)} if old in rmap else set()) | ({baked[old]} if old in baked else set())
+        ends = ({resolve(old, rmap)} if old in rmap else set()) | (
+            {baked[old]} if old in baked else set()
+        )
         if ends and c.get("target") not in ends:
             probs.append(
-                "{}: ledger target {}, the aliases now end at {} — re-run scan_bse_alias_collisions.py".format(
-                    old, c.get("target"), sorted(ends)
-                )
+                "{}: ledger target {}, the aliases now end at {} — re-run "
+                "scan_bse_alias_collisions.py".format(old, c.get("target"), sorted(ends))
             )
     sys.path.insert(0, HERE)
     from retract_bse_alias_collision_rows import agrees
@@ -201,13 +253,40 @@ def collision_audit(rmap, baked):
         fd = json.load(fh)
     for old, c in sorted(coll.items()):
         t = c["target"]
-        n_rv = sum(1 for q, r in (rv.get(old) or {}).items() if (rv.get(t) or {}).get(q) and agrees(r, rv[t][q]))
+        n_rv = sum(
+            1
+            for q, r in (rv.get(old) or {}).items()
+            if (rv.get(t) or {}).get(q) and agrees(r, rv[t][q])
+        )
         tf = {r[0]: r for r in fd.get(t) or []}
-        n_fd = sum(1 for r in fd.get(old) or [] if r[0] in tf and r[1] is not None and r[1] == tf[r[0]][1])
+        n_fd = sum(
+            1 for r in fd.get(old) or [] if r[0] in tf and r[1] is not None and r[1] == tf[r[0]][1]
+        )
         if n_rv or n_fd:
             probs.append(
                 "%s re-seeded with %s's rows (%d revenue, %d profit quarters) — fix: python3 "
                 "scripts/retract_bse_alias_collision_rows.py --apply" % (old, t, n_rv, n_fd)
+            )
+    # §220c: both engines' SHP_FOLD_SKIP must name every collision ticker. shp_engine.json keys a BSE-only company by its
+    # BSE ticker, so a ledger ticker that is also a FUND_ALIAS key and is NOT skipped gets the BSE company's patterns
+    # folded into the NSE target as "re-filings" (8 did until 2026-10-06: 3,788 bar days on 6 live stocks).
+    for path in TARGETS:
+        rel = os.path.relpath(path, ROOT)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                m = re.search(r"const SHP_FOLD_SKIP\s*=\s*new Set\(\[([^\]]*)\]\)", fh.read())
+        except Exception as e:
+            probs.append(f"{rel} unreadable ({e})")
+            continue
+        if not m:
+            probs.append(f"{rel}: SHP_FOLD_SKIP not found")
+            continue
+        miss = sorted(set(coll) - set(re.findall(r"'([^']+)'", m.group(1))))
+        if miss:
+            probs.append(
+                "{}: SHP_FOLD_SKIP lacks collision ticker(s) {} — add them to both engines (runbook §220c)".format(
+                    rel, ", ".join(miss)
+                )
             )
     return probs
 
@@ -276,7 +355,8 @@ def audit():
             status="stale",
             detail="%s is cut from %s — %d days old (limit %d); renames newer than that "
             "cannot appear in it, so any 'in step' verdict would be worthless. "
-            "Refresh the source before trusting this check" % (source, stamp, age, MAX_META_AGE_DAYS),
+            "Refresh the source before trusting this check"
+            % (source, stamp, age, MAX_META_AGE_DAYS),
         )
         return rep
 
@@ -295,12 +375,13 @@ def audit():
             ok=False,
             status="mismatch",
             detail="the two baked copies differ (%d vs %d entries, %d keys not in both) — "
-            "they must stay byte-identical (runbook 39 step 2)" % (len(a), len(b), len(set(a) ^ set(b))),
+            "they must stay byte-identical (runbook 39 step 2)"
+            % (len(a), len(b), len(set(a) ^ set(b))),
         )
         return rep
 
     cur = baked[0][1]
-    exp = expected_alias(rmap, alive)
+    exp = expected_alias(rmap, alive, meta_present())
     rep["baked"] = len(cur)
     rep["expected"] = len(exp)
     rep["missing"] = {o: t for o, t in exp.items() if o not in cur}
@@ -322,11 +403,16 @@ def audit():
                 "%d entry(ies) point at the wrong current name (%s)"
                 % (
                     len(rep["conflicts"]),
-                    ", ".join(f"{o}: baked {b}, map says {e}" for o, (b, e) in sorted(rep["conflicts"].items())[:3]),
+                    ", ".join(
+                        f"{o}: baked {b}, map says {e}"
+                        for o, (b, e) in sorted(rep["conflicts"].items())[:3]
+                    ),
                 )
             )
         rep.update(
-            ok=False, status="drift", detail="; ".join(bits) + " — fix: python3 scripts/check_fund_alias.py --write"
+            ok=False,
+            status="drift",
+            detail="; ".join(bits) + " — fix: python3 scripts/check_fund_alias.py --write",
         )
     return rep
 
@@ -360,7 +446,9 @@ def main():
         % (
             rep["meta_source"],
             rep["meta_stamp"] or "NO STAMP",
-            "%d d old" % rep["meta_age_days"] if rep["meta_age_days"] is not None else "age unknown",
+            "%d d old" % rep["meta_age_days"]
+            if rep["meta_age_days"] is not None
+            else "age unknown",
             rep["meta_symbols"],
             rep["meta_alive"],
             rep["rename_map"],
@@ -370,7 +458,9 @@ def main():
     if rep["collisions"]:
         for p in rep["collisions"]:
             print(f"  COLLISION {p}")
-        print("!! the BSE-ticker collision ledger (runbook §197) is out of step — --write cannot fix it")
+        print(
+            "!! the BSE-ticker collision ledger (runbook §197) is out of step — --write cannot fix it"
+        )
         return 1
     if rep["status"] in ("error", "mismatch", "stale"):
         print("!! {}: {}".format(rep["status"], rep["detail"]))
@@ -382,7 +472,11 @@ def main():
     for old, target in sorted(rep["missing"].items()):
         print(f"  MISSING   {old} -> {target}")
     for old, (b, e) in sorted(rep["conflicts"].items()):
-        print(f"  CONFLICT  {old} -> baked {b}, rename map says {e}")
+        print(
+            "  CONFLICT  {} -> baked {}, {} says {}".format(
+                old, b, "the §220b era-tape exception" if old in ERA_TAPE else "rename map", e
+            )
+        )
     if rep["ok"]:
         print("FUND_ALIAS is in step with _rename_map.json (both copies byte-identical)")
         return 0

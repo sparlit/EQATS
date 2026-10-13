@@ -26,7 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 Check tool serialization to debug Cursor issue
 """
 
-import asyncio
 import json
 
 from mcp.types import Tool
@@ -39,7 +38,12 @@ def create_test_tool():
         description="Get detailed financial data for a specific company by name",
         inputSchema={
             "type": "object",
-            "properties": {"name": {"type": "string", "description": "Company name, shortened name, or search term"}},
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Company name, shortened name, or search term",
+                }
+            },
             "required": ["name"],
         },
     )

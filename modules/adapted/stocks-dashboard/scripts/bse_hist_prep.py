@@ -80,7 +80,9 @@ def main():
     floor = argv("--floor", int, 20200101)
     min_mcap = argv("--min-mcap", float, 0.0)
     outdir = argv("--outdir", str, "/tmp/bse_hist")
-    only = set(sys.argv[sys.argv.index("--scrips") + 1].split(",")) if "--scrips" in sys.argv else None
+    only = (
+        set(sys.argv[sys.argv.index("--scrips") + 1].split(",")) if "--scrips" in sys.argv else None
+    )
     no_ledger = "--no-ledger" in sys.argv
     run_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # merge counts each run's ufails once
     os.makedirs(outdir, exist_ok=True)
@@ -89,7 +91,11 @@ def main():
 
     univ = json.load(open(bf.UNIV, encoding="utf-8"))["rows"]
     univ.sort(key=lambda r: r[6] or 0, reverse=True)
-    data = json.loads(open(bf.OUT, encoding="utf-8").read()).get("px", {}) if os.path.exists(bf.OUT) else {}
+    data = (
+        json.loads(open(bf.OUT, encoding="utf-8").read()).get("px", {})
+        if os.path.exists(bf.OUT)
+        else {}
+    )
     hist = json.load(open(HIST)) if os.path.exists(HIST) else {}
     code2sym = {str(v): k for k, v in json.load(open(SCRIP))["by_id"].items()}
     # SEED: dual-listed names NSE doesn't serve + not in the BSE-only universe (routed in 2026-09-07,
@@ -101,7 +107,10 @@ def main():
     if os.path.exists(seed_path):
         seed = json.load(open(seed_path, encoding="utf-8"))
         seed_codes = {str(row[0]) for row in seed}
-        univ = [[row[0], row[1], (row[2] if len(row) > 2 else row[1]), "", "", "", 10**9, ""] for row in seed] + univ
+        univ = [
+            [row[0], row[1], (row[2] if len(row) > 2 else row[1]), "", "", "", 10**9, ""]
+            for row in seed
+        ] + univ
     op = B.session()
     time.sleep(1)
 
@@ -196,10 +205,13 @@ def main():
         json.dump(hist, open(HIST, "w"))
     print(
         "prep: %d scrips, %d filings rendered → %s/manifest.json | %d empty window(s), %d unfetchable, "
-        "%d listing failure(s)" % (spent, len(manifest), outdir, len(empty), len(unfetched), len(lfail))
+        "%d listing failure(s)"
+        % (spent, len(manifest), outdir, len(empty), len(unfetched), len(lfail))
     )
     if lfail:
-        print("  LISTING FAILED (left for retry, not stepped past): {}".format(",".join(lfail[:40])))
+        print(
+            "  LISTING FAILED (left for retry, not stepped past): {}".format(",".join(lfail[:40]))
+        )
 
 
 if __name__ == "__main__":

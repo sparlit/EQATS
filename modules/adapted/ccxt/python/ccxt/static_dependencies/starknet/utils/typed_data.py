@@ -22,7 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import dataclass
-from typing import Dict, List, Union, cast
+from typing import cast
 
 from ..cairo.felt import encode_shortstring
 from ..hash.selector import get_selector_from_name
@@ -69,13 +69,15 @@ class TypedData:
             type_name = strip_pointer(type_name)
 
             if self._is_struct(type_name):
-                return compute_hash_on_elements([self.struct_hash(type_name, data) for data in value])
+                return compute_hash_on_elements(
+                    [self.struct_hash(type_name, data) for data in value]
+                )
             return compute_hash_on_elements([int(get_hex(val), 16) for val in value])
 
         if self._is_struct(type_name) and isinstance(value, dict):
             return self.struct_hash(type_name, value)
 
-        value = cast("int | str", value)
+        value = cast(int | str, value)
         return int(get_hex(value), 16)
 
     def _encode_data(self, type_name: str, data: dict) -> list[int]:
@@ -132,7 +134,9 @@ class TypedData:
         :param data: Data defining the struct.
         :return: Hash of the struct.
         """
-        return compute_hash_on_elements([self.type_hash(type_name), *self._encode_data(type_name, data)])
+        return compute_hash_on_elements(
+            [self.type_hash(type_name), *self._encode_data(type_name, data)]
+        )
 
     def message_hash(self, account_address: int) -> int:
         """
@@ -143,7 +147,7 @@ class TypedData:
         """
         message = [
             encode_shortstring("StarkNet Message"),
-            self.struct_hash("StarkNetDomain", cast("dict", self.domain)),
+            self.struct_hash("StarkNetDomain", cast(dict, self.domain)),
             account_address,
             self.struct_hash(self.primary_type, self.message),
         ]
@@ -179,15 +183,13 @@ def _expect_str(value, where: str) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8")
     if not isinstance(value, str):
-        msg = f"{where}: Not a valid string."
-        raise ValueError(msg)
+        raise ValueError(f"{where}: Not a valid string.")
     return value
 
 
 def _expect_dict(value, where: str) -> dict:
     if not isinstance(value, dict):
-        msg = f"{where}: Not a valid mapping type."
-        raise ValueError(msg)
+        raise ValueError(f"{where}: Not a valid mapping type.")
     return dict(value)
 
 
@@ -195,12 +197,10 @@ def _parse_parameter(raw, where: str) -> Parameter:
     raw = _expect_dict(raw, where)
     extra = set(raw) - {"name", "type"}
     if extra:
-        msg = f"{where}: Unknown field(s) {sorted(extra)}."
-        raise ValueError(msg)
+        raise ValueError(f"{where}: Unknown field(s) {sorted(extra)}.")
     for key in ("name", "type"):
         if key not in raw:
-            msg = f"{where}.{key}: Missing data for required field."
-            raise ValueError(msg)
+            raise ValueError(f"{where}.{key}: Missing data for required field.")
     return Parameter(
         name=_expect_str(raw["name"], f"{where}.name"),
         type=_expect_str(raw["type"], f"{where}.type"),
@@ -211,25 +211,23 @@ def _typed_data_from_dict(data) -> TypedData:
     data = _expect_dict(data, "typedData")
     extra = set(data) - {"types", "primaryType", "domain", "message"}
     if extra:
-        msg = f"typedData: Unknown field(s) {sorted(extra)}."
-        raise ValueError(msg)
+        raise ValueError(f"typedData: Unknown field(s) {sorted(extra)}.")
     for key in ("types", "primaryType", "domain", "message"):
         if key not in data:
-            msg = f"typedData.{key}: Missing data for required field."
-            raise ValueError(msg)
+            raise ValueError(f"typedData.{key}: Missing data for required field.")
     raw_types = _expect_dict(data["types"], "typedData.types")
     types: dict[str, list[Parameter]] = {}
     for type_name, params in raw_types.items():
         type_name = _expect_str(type_name, "typedData.types<key>")
         if not isinstance(params, (list, tuple)):
-            msg = f"typedData.types.{type_name}: Not a valid list."
-            raise ValueError(msg)
+            raise ValueError(f"typedData.types.{type_name}: Not a valid list.")
         types[type_name] = [
-            _parse_parameter(param, f"typedData.types.{type_name}[{i}]") for i, param in enumerate(params)
+            _parse_parameter(param, f"typedData.types.{type_name}[{i}]")
+            for i, param in enumerate(params)
         ]
     return TypedData(
         types=types,
         primary_type=_expect_str(data["primaryType"], "typedData.primaryType"),
-        domain=cast("StarkNetDomainDict", _expect_dict(data["domain"], "typedData.domain")),
+        domain=cast(StarkNetDomainDict, _expect_dict(data["domain"], "typedData.domain")),
         message=_expect_dict(data["message"], "typedData.message"),
     )

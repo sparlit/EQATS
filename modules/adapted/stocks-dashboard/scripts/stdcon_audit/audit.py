@@ -44,7 +44,6 @@ Every rung tried is recorded whether it answers or not, so a refusal is reported
 import json
 import os
 import sys
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -71,7 +70,15 @@ def audit_cell(sym, qe, fund, o, lcache):
     if not row:
         return {"verdict": "NO-STORED-ROW"}
     ss, sc = row[1], row[3]
-    res = {"sym": sym, "qe": qe, "stored_std": ss, "stored_con": sc, "routes": [], "std": [], "con": []}
+    res = {
+        "sym": sym,
+        "qe": qe,
+        "stored_std": ss,
+        "stored_con": sc,
+        "routes": [],
+        "std": [],
+        "con": [],
+    }
 
     # ---- rung 5: NSE results XBRL, per basis --------------------------------------------------
     for want_con, bucket in ((False, "std"), (True, "con")):
@@ -81,7 +88,9 @@ def audit_cell(sym, qe, fund, o, lcache):
             res["routes"].append("{}: {}".format(tag, ev.get("skip")))
         else:
             res["routes"].append(
-                "{}: {:.2f} (ctx {}, {}, declared {})".format(tag, v, ev["ctx"], ev["period"], ev["basis_declared"])
+                "{}: {:.2f} (ctx {}, {}, declared {})".format(
+                    tag, v, ev["ctx"], ev["period"], ev["basis_declared"]
+                )
             )
             res[bucket].append({"src": "nse-xbrl", "value": v, "ev": ev})
 
@@ -94,7 +103,9 @@ def audit_cell(sym, qe, fund, o, lcache):
         if dr and dr["span_ok"]:
             cal = P.calibrate(sym, qe, code, rows, dr)
             res["routes"].append(
-                "detres: {:.2f} span-ok calib={} {}".format(dr["pat"], cal["verdict"], "; ".join(cal["notes"]))
+                "detres: {:.2f} span-ok calib={} {}".format(
+                    dr["pat"], cal["verdict"], "; ".join(cal["notes"])
+                )
             )
             if cal["verdict"] == "standalone":
                 res["std"].append(
@@ -106,7 +117,9 @@ def audit_cell(sym, qe, fund, o, lcache):
                 )
         elif dr:
             res["routes"].append(
-                "detres: row is {} months ending {} -- not this quarter".format(dr.get("span"), dr.get("end"))
+                "detres: row is {} months ending {} -- not this quarter".format(
+                    dr.get("span"), dr.get("end")
+                )
             )
         else:
             res["routes"].append("detres: no row")
@@ -157,7 +170,9 @@ def audit_cell(sym, qe, fund, o, lcache):
     if not settled():
         for want_con, bucket in ((False, "std"), (True, "con")):
             v, note = NA.read(sym, qe, want_con)
-            res["routes"].append("nse-archive-{}: {}".format(bucket, note if v is None else f"{v:.2f} ({note})"))
+            res["routes"].append(
+                "nse-archive-{}: {}".format(bucket, note if v is None else f"{v:.2f} ({note})")
+            )
             if v is not None:
                 res[bucket].append({"src": "nse-archive", "value": v, "ev": {"note": note}})
 
@@ -192,7 +207,10 @@ def main():
     args = sys.argv[1:]
     fund = json.load(open(FUND))
     if "--cells" in args:
-        cells = [(c.split(":")[0], int(c.split(":")[1])) for c in args[args.index("--cells") + 1].split(",")]
+        cells = [
+            (c.split(":")[0], int(c.split(":")[1]))
+            for c in args[args.index("--cells") + 1].split(",")
+        ]
     else:
         src = args[args.index("--from") + 1] if "--from" in args else "_sample.json"
         cells = [(c["sym"], c["qe"]) for c in json.load(open(os.path.join(HERE, src)))]
@@ -228,7 +246,11 @@ def main():
     import collections
 
     print(
-        "\n" + " | ".join("%s=%d" % kv for kv in collections.Counter(v["verdict"] for v in out.values()).most_common())
+        "\n"
+        + " | ".join(
+            "%s=%d" % kv
+            for kv in collections.Counter(v["verdict"] for v in out.values()).most_common()
+        )
     )
 
 

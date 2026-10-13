@@ -52,7 +52,10 @@ from ingest import nse, renames
 import config
 
 DIR = config.DATA_DIR / "buybacks"
-CA_URL = "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={frm}&to_date={to}"
+CA_URL = (
+    "https://www.nseindia.com/api/corporates-corporateActions"
+    "?index=equities&from_date={frm}&to_date={to}"
+)
 WARMUP = "https://www.nseindia.com/companies-listing/corporate-filings-actions"
 
 
@@ -76,10 +79,17 @@ def calendar() -> None:
     bb = ca[ca["subject"].str.contains("buy ?back", case=False, na=False)].copy()
     bb["symbol"] = renames.canonical(bb["symbol"].astype(str).str.strip())
     bb["record_date"] = pd.to_datetime(bb["exDate"], format="%d-%b-%Y", errors="coerce")
-    bb = bb.dropna(subset=["record_date"]).sort_values("record_date").drop_duplicates(["symbol", "record_date"])
+    bb = (
+        bb.dropna(subset=["record_date"])
+        .sort_values("record_date")
+        .drop_duplicates(["symbol", "record_date"])
+    )
     keep = ["symbol", "comp", "record_date", "subject", "isin"]
     bb[[c for c in keep if c in bb.columns]].to_parquet(DIR / "calendar.parquet", index=False)
-    print(f"buyback calendar: {len(bb)} events {bb['record_date'].min().date()} → {bb['record_date'].max().date()}")
+    print(
+        f"buyback calendar: {len(bb)} events "
+        f"{bb['record_date'].min().date()} → {bb['record_date'].max().date()}"
+    )
     print(bb.groupby(bb["record_date"].dt.year).size().to_string())
 
 
@@ -88,7 +98,10 @@ def announce() -> None:
     from pathlib import Path
 
     cal = pd.read_parquet(DIR / "calendar.parquet")
-    ann = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")), ignore_index=True)
+    ann = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "ann_full").glob("*.parquet")),
+        ignore_index=True,
+    )
     ann["an_dt"] = pd.to_datetime(ann["an_dt"], errors="coerce")
     ann["symbol"] = renames.canonical(ann["symbol"].astype(str))
     txt = (ann["desc"].astype(str) + " " + ann["snippet"].astype(str)).str.lower()
@@ -104,14 +117,20 @@ def announce() -> None:
             rows.append({**e, "announce_dt": pd.NaT, "snippet": None})
             continue
         first = w.sort_values("an_dt").iloc[0]
-        rows.append({**e, "announce_dt": first["an_dt"], "snippet": str(first.get("snippet"))[:400]})
+        rows.append(
+            {**e, "announce_dt": first["an_dt"], "snippet": str(first.get("snippet"))[:400]}
+        )
     out = pd.DataFrame(rows)
     out.to_parquet(DIR / "events.parquet", index=False)
     got = out["announce_dt"].notna().sum()
-    print(f"buyback events: {len(out)} | with announcement matched: {got} ({100 * got / len(out):.0f}%)")
+    print(
+        f"buyback events: {len(out)} | with announcement matched: {got} "
+        f"({100 * got / len(out):.0f}%)"
+    )
     lag = (out["record_date"] - out["announce_dt"]).dt.days.dropna()
     print(
-        f"announce→record lag days: median {lag.median():.0f} p25 {lag.quantile(0.25):.0f} p75 {lag.quantile(0.75):.0f}"
+        f"announce→record lag days: median {lag.median():.0f} "
+        f"p25 {lag.quantile(0.25):.0f} p75 {lag.quantile(0.75):.0f}"
     )
 
 

@@ -1,37 +1,87 @@
-from typing import Any
-import ctypes
 import unittest
+from datetime import UTC, datetime
+
 import numpy as np
 import pandas as pd
-from institutional_integrations.bayesian_consensus import BayesianConsensusEngine, global_bayesian_consensus
-from institutional_integrations import aat_strategies
+
+from institutional_integrations import aat_strategies, itip_signal_store, vibe_quantlib
 from institutional_integrations.aat_analyst import MacroAnalyst, SMCAnalyst, VolatilityAnalyst
-from institutional_integrations.web_api import MCPServerCore
-from institutional_integrations import itip_signal_store
-from institutional_integrations.mql_colab_engine import SLTPEngine, CandlestickAIClassifier, LatencyArbitrage
-from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
-from institutional_integrations import vibe_quantlib
-from institutional_integrations.openalgo_engine import OpenAlgoSmartOrderSplitter, OpenAlgoSessionSquareOffManager
-from institutional_integrations.openbull_analytics import calculate_max_pain, calculate_synthetic_future_price
-from institutional_integrations.nautilus_trader_engine import NautilusFixedRiskSizer, NautilusOrderRoutingGuard
-from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
-from institutional_integrations.ftmo_risk_guard import FTMORiskGuardEngine, FTMOQualificationAuditor
-from institutional_integrations.meta_edge_quant import calculate_probabilistic_sharpe_ratio, calculate_kelly_fraction, calculate_edge_score, EmpiricalSlippageTracker
-from institutional_integrations.nexquant_engine import NexQuantFactorModel, NexQuantPortfolioOptimizer
-from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
-from institutional_integrations.ftmo_tradingbot_core import ScaleOnProfitEngine, FTMODynamicStopEngine, ConsensusSizingModulator, CombinedExposureCapGuard
-from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
-from institutional_integrations.qma_quant_strategy import detect_rsi_failure_swing, calculate_ttm_squeeze, QMAQuantStrategy
-from institutional_integrations.mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
-from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
+from institutional_integrations.awesome_llm_agents import (
+    DataAnalystAgent,
+    DeepResearchAgent,
+    InvestmentAgent,
+)
 from institutional_integrations.awesome_llm_finance_team import MultiAgentFinanceTeamOrchestrator
-from institutional_integrations.awesome_llm_agents import DeepResearchAgent, InvestmentAgent, DataAnalystAgent
-from institutional_integrations.ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
+from institutional_integrations.bayesian_consensus import BayesianConsensusEngine
+from institutional_integrations.calculus_quant_engine import (
+    GeometricExitEngine,
+    MarketEntropyMonitor,
+    calculate_hma,
+)
+from institutional_integrations.ea_scalper_xauusd_engine import (
+    AMDCycleTracker,
+    FootprintPocAnalyzer,
+    MarketGapCooldownGuard,
+)
+from institutional_integrations.ftmo_journal_analyzer import FTMOJournalAnalyzer
+from institutional_integrations.ftmo_risk_guard import FTMOQualificationAuditor, FTMORiskGuardEngine
+from institutional_integrations.ftmo_temporal_matcher import FewShotTemporalMatcher
+from institutional_integrations.ftmo_tradingbot_core import (
+    CombinedExposureCapGuard,
+    ConsensusSizingModulator,
+    FTMODynamicStopEngine,
+    ScaleOnProfitEngine,
+)
+from institutional_integrations.meta_edge_quant import (
+    EmpiricalSlippageTracker,
+    calculate_edge_score,
+    calculate_kelly_fraction,
+    calculate_probabilistic_sharpe_ratio,
+)
+from institutional_integrations.mql_colab_engine import (
+    CandlestickAIClassifier,
+    LatencyArbitrage,
+    SLTPEngine,
+)
+from institutional_integrations.mt5bot_engine import (
+    MT5BotVolumeNormalizer,
+    RelativePricePredictionEvaluator,
+)
+from institutional_integrations.nautilus_trader_engine import (
+    NautilusFixedRiskSizer,
+    NautilusOrderRoutingGuard,
+)
+from institutional_integrations.nexquant_engine import (
+    NexQuantFactorModel,
+    NexQuantPortfolioOptimizer,
+)
+from institutional_integrations.openalgo_engine import (
+    OpenAlgoSessionSquareOffManager,
+    OpenAlgoSmartOrderSplitter,
+)
+from institutional_integrations.openbull_analytics import (
+    calculate_max_pain,
+    calculate_synthetic_future_price,
+)
+from institutional_integrations.prop_firm_calendar_feed import PropFirmCalendarFeedManager
+from institutional_integrations.prop_firm_elite_tracker import (
+    PropFirmEliteMultiAccountAggregator,
+    SignalPulseLogSyncParser,
+)
+from institutional_integrations.prop_firm_tracker import PropFirmChallengeTracker
 from institutional_integrations.prop_guard_equity_armor import PropGuardEquityArmorEngine
-from institutional_integrations.prop_firm_elite_tracker import SignalPulseLogSyncParser, PropFirmEliteMultiAccountAggregator
-from institutional_integrations.prop_guardian_safety import PropGuardianMasterFilters, PROP_FIRMS_DATABASE
-from institutional_integrations.calculus_quant_engine import calculate_hma, MarketEntropyMonitor, GeometricExitEngine
-from datetime import datetime, timezone
+from institutional_integrations.prop_guardian_safety import (
+    PROP_FIRMS_DATABASE,
+    PropGuardianMasterFilters,
+)
+from institutional_integrations.qma_quant_strategy import (
+    QMAQuantStrategy,
+    calculate_ttm_squeeze,
+    detect_rsi_failure_swing,
+)
+from institutional_integrations.sovereign_intelligence import SovereignIntelligencePlugin
+from institutional_integrations.web_api import MCPServerCore
+
 
 class TestAATAdaptedModules(unittest.TestCase):
 
@@ -149,8 +199,8 @@ class TestAATAdaptedModules(unittest.TestCase):
 
     def test_prop_firm_calendar_feed(self) -> None:
         cal = PropFirmCalendarFeedManager()
-        s_dt = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
-        e_dt = datetime(2026, 9, 1, 14, 0, tzinfo=timezone.utc)
+        s_dt = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
+        e_dt = datetime(2026, 9, 1, 14, 0, tzinfo=UTC)
         key = cal.add_event('FTMO', 'maintenance', 'Scheduled Server Maintenance', s_dt, e_dt)
         self.assertTrue(key)
         ics = cal.generate_ics_feed(firm_filter='FTMO')

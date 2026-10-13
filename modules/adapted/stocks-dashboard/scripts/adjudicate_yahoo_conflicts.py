@@ -55,11 +55,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Measured 2026-09-25 (§161h). Each entry: (sym, ex) -> the measurement that settles the conflict.
 MEASURED = {
-    ("HEG", 20241018): "results filings: shares (PAT/EPS) 3.851-3.859 cr in Dec-23..Jun-24 quarters -> "
+    (
+        "HEG",
+        20241018,
+    ): "results filings: shares (PAT/EPS) 3.851-3.859 cr in Dec-23..Jun-24 quarters -> "
     "19.28-19.32 cr from Sep-24 on = x5.00, a 1:5 split (Yahoo 2024-10-18 1:5)",
-    ("VERTOZ", 20250711): "results filings: shares ~84-98 cr (Sep-24..Mar-25, after the official x0.05 of "
+    (
+        "VERTOZ",
+        20250711,
+    ): "results filings: shares ~84-98 cr (Sep-24..Mar-25, after the official x0.05 of "
     "2024-07-05) -> 8.40-8.70 cr from Jun-25 on = /10, a 10:1 consolidation (Yahoo 2025-06-25)",
-    ("LOWVOLIETF", 20240301): "ETF of Nifty100 low-vol stocks: 90 largest stocks moved -2.24%..+6.46% (median "
+    (
+        "LOWVOLIETF",
+        20240301,
+    ): "ETF of Nifty100 low-vol stocks: 90 largest stocks moved -2.24%..+6.46% (median "
     "+1.19%) that day, so a raw x0.1006 cannot be a loss — a 1:10 unit split (Yahoo "
     "2024-03-01; NV20IETF and PVTBANIETF split x0.1 the same day); adjusted move +0.67%",
 }
@@ -69,11 +78,16 @@ def main():
     d = sys.argv[1]
     VP = os.path.join(HERE, "ca_review_verdicts.json")
     VV = json.load(open(VP))
-    E = {(e["sym"], e["b"]): e for e in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]}
+    E = {
+        (e["sym"], e["b"]): e
+        for e in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]
+    }
     todo = [v for v in VV["verdicts"] if v["verdict"] == "YAHOO_SPLIT"]
     syms = {v["sym"] for v in todo}
     ser = {}
-    for f in sorted(glob.glob(os.path.join(d, "*deep_*.bin"))) + sorted(glob.glob(os.path.join(d, "*recent_*.bin"))):
+    for f in sorted(glob.glob(os.path.join(d, "*deep_*.bin"))) + sorted(
+        glob.glob(os.path.join(d, "*recent_*.bin"))
+    ):
         D = json.loads(gzip.open(f).read())
         for s in syms:
             o = D["data"].get(s)
@@ -109,7 +123,9 @@ def main():
         measured = MEASURED.get((v["sym"], v["b"]))
         if ((open_ok or vol_ok) and not vol_bad) or measured:
             v["verdict"] = (
-                "REAL_YAHOO_FILING" if measured and not ((open_ok or vol_ok) and not vol_bad) else "REAL_YAHOO_TAPE"
+                "REAL_YAHOO_FILING"
+                if measured and not ((open_ok or vol_ok) and not vol_bad)
+                else "REAL_YAHOO_TAPE"
             )
             if measured:
                 ev["measured"] = measured
@@ -125,13 +141,25 @@ def main():
             if not open_ok:
                 why.append("open gate {} outside [0.88,1.12]".format(ev["open_gate"]))
             if large and not vol_ok:
-                why.append("volume step {} vs ~{} for a real split".format(ev["vol_step"], ev["vol_expected"]))
+                why.append(
+                    "volume step {} vs ~{} for a real split".format(
+                        ev["vol_step"], ev["vol_expected"]
+                    )
+                )
             v["verdict"] = "YAHOO_CONFLICT"
             ev["why"] = why
             v["evidence"] = ev
         print(
             "%-15s %-11s %d F=%.3f open_gate=%s vol=%s (split=>%s)"
-            % (v["verdict"], v["sym"], v["b"], F, ev["open_gate"], ev["vol_step"], ev["vol_expected"])
+            % (
+                v["verdict"],
+                v["sym"],
+                v["b"],
+                F,
+                ev["open_gate"],
+                ev["vol_step"],
+                ev["vol_expected"],
+            )
         )
     if "--apply" in sys.argv:
         json.dump(VV, open(VP, "w"), indent=0)

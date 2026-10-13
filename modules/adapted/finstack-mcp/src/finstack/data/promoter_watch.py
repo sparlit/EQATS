@@ -32,7 +32,7 @@ Data: NSE shareholding disclosures (public, quarterly)
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.promoter_watch")
 
@@ -124,7 +124,10 @@ def get_pledge_alert(symbol: str) -> dict:
         )
     elif current_pledge >= PLEDGE_HIGH:
         risk_level = "danger"
-        alert = f"DANGER: {current_pledge:.1f}% pledged. High pledge ratio — stock vulnerable to margin call cascades."
+        alert = (
+            f"DANGER: {current_pledge:.1f}% pledged. "
+            "High pledge ratio — stock vulnerable to margin call cascades."
+        )
     elif change_qoq and change_qoq >= PLEDGE_RISING:
         risk_level = "watch"
         alert = (

@@ -30,13 +30,11 @@ popped ~20% on the ex-date). Saves the official factor map to corp_actions.json 
 Run: python -X utf8 find_split_bugs.py
 """
 import datetime
-import glob
 import json
 import os
 import re
 
 import build_fundamentals as F
-import build_sf_data as B
 
 CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_bhav_cache")
 
@@ -73,7 +71,9 @@ def ca_factor(r):  # mirror of build_sf_data.ca_factor
 
 def official_factor(subj):
     s = subj.lower()
-    m = re.search(r"from\s*(?:rs\.?\s*)?([\d.]+).*?to\s*(?:rs\.?\s*)?([\d.]+)", s)  # split: face X -> Y
+    m = re.search(
+        r"from\s*(?:rs\.?\s*)?([\d.]+).*?to\s*(?:rs\.?\s*)?([\d.]+)", s
+    )  # split: face X -> Y
     if m and ("split" in s or "sub-division" in s or "sub division" in s):
         x, y = float(m.group(1)), float(m.group(2))
         if x:
@@ -149,11 +149,19 @@ def main():
         # bug if our inferred factor differs from official by >2%
         if abs(inferred / fac - 1) > 0.02:
             bugs.append((sym, ex, label, round(fac, 3), round(inferred, 3), round(obs, 3)))
-    json.dump(cmap, open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "corp_actions.json"), "w"))
+    json.dump(
+        cmap,
+        open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "corp_actions.json"), "w"),
+    )
     print("saved corp_actions.json (%d symbols)" % len(cmap))
     print("\nMIS-ADJUSTED stocks (official factor != our inferred):", len(bugs))
-    print("%-12s %-9s %-12s %7s %7s %7s" % ("SYMBOL", "exDate", "action", "official", "ours", "obs-ratio"))
-    for sym, ex, label, fac, inf, obs in sorted(bugs, key=lambda x: abs(x[4] / x[3] - 1), reverse=True):
+    print(
+        "%-12s %-9s %-12s %7s %7s %7s"
+        % ("SYMBOL", "exDate", "action", "official", "ours", "obs-ratio")
+    )
+    for sym, ex, label, fac, inf, obs in sorted(
+        bugs, key=lambda x: abs(x[4] / x[3] - 1), reverse=True
+    ):
         print("%-12s %-9d %-12s %7.3f %7.3f %7.3f" % (sym, ex, label, fac, inf, obs))
 
 

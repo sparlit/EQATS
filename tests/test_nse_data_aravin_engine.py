@@ -2,18 +2,16 @@
 Tests for NSE Data Aravin Client Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
 from institutional_integrations.nse_data_aravin_engine import (
-    NSEDataAravinEngine,
-    NSEDataAravinBrokerAdapter,
-    round_tick_005,
     MAGIC_NUMBER_NSE_DATA_ARAVIN,
+    NSEDataAravinBrokerAdapter,
+    NSEDataAravinEngine,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 

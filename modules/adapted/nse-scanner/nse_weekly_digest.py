@@ -31,7 +31,6 @@ Called via /digest command or manually.
 import json
 import logging
 import os
-import sqlite3
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -71,7 +70,7 @@ except ImportError:
         return f"<code>{_h(v)}</code>"
 
     def _fmt_price(p):
-        return f"\u20b9{round(float(p)):,}"
+        return f"\u20b9{int(round(float(p))):,}"
 
     def _fmt_return(pct):
         sign = "+" if float(pct) >= 0 else ""
@@ -86,7 +85,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
-        logging.FileHandler(os.path.join(getattr(config, "LOG_DIR", "logs"), "weekly_digest.log"), encoding="utf-8"),
+        logging.FileHandler(
+            os.path.join(getattr(config, "LOG_DIR", "logs"), "weekly_digest.log"), encoding="utf-8"
+        ),
         logging.StreamHandler(),
     ],
 )
@@ -300,9 +301,13 @@ def analyze_week(week_history, week_prices):
         if wp["week_low"] <= sl:
             sl_hits.append({"symbol": sym, "sl": sl, "week_low": wp["week_low"], "entry": entry})
         if wp["week_high"] >= t1:
-            t1_hits.append({"symbol": sym, "target1": t1, "week_high": wp["week_high"], "entry": entry})
+            t1_hits.append(
+                {"symbol": sym, "target1": t1, "week_high": wp["week_high"], "entry": entry}
+            )
         if wp["week_high"] >= t2:
-            t2_hits.append({"symbol": sym, "target2": t2, "week_high": wp["week_high"], "entry": entry})
+            t2_hits.append(
+                {"symbol": sym, "target2": t2, "week_high": wp["week_high"], "entry": entry}
+            )
 
     performers.sort(key=lambda x: x["week_return_pct"], reverse=True)
     total = len(performers)
@@ -310,8 +315,14 @@ def analyze_week(week_history, week_prices):
     losers = sum(1 for p in performers if p["week_return_pct"] < 0)
     flat = total - winners - losers
     hit_rate = round(winners / total * 100, 1) if total else 0
-    avg_w = round(sum(p["week_return_pct"] for p in performers if p["week_return_pct"] > 0) / max(winners, 1), 1)
-    avg_l = round(sum(p["week_return_pct"] for p in performers if p["week_return_pct"] < 0) / max(losers, 1), 1)
+    avg_w = round(
+        sum(p["week_return_pct"] for p in performers if p["week_return_pct"] > 0) / max(winners, 1),
+        1,
+    )
+    avg_l = round(
+        sum(p["week_return_pct"] for p in performers if p["week_return_pct"] < 0) / max(losers, 1),
+        1,
+    )
 
     consistency = []
     all_syms = set()
@@ -414,9 +425,7 @@ def format_weekly_digest(analysis, week_dates):
     if slh:
         msg += f"\U0001f6d1 {_b('SL breached')}\n"
         for s in slh:
-            msg += (
-                f"\u26a0\ufe0f {_code(s['symbol'])} SL {_fmt_price(s['sl'])} hit (low: {_fmt_price(s['week_low'])})\n"
-            )
+            msg += f"\u26a0\ufe0f {_code(s['symbol'])} SL {_fmt_price(s['sl'])} hit (low: {_fmt_price(s['week_low'])})\n"
         msg += SEP_THIN + "\n\n"
 
     # Champions
@@ -460,7 +469,12 @@ def format_triggered_weekly_digest(analysis, week_dates):
 
     msg = f"📅 {_b('NSE SCANNER V3 — WEEKLY REVIEW')}\n"
     msg += f"{_b(start + ' to ' + end + ' • PAPER')}\n"
-    msg += _i("A paper entry counts only when price crossed its stated entry trigger on a later session.") + "\n"
+    msg += (
+        _i(
+            "A paper entry counts only when price crossed its stated entry trigger on a later session."
+        )
+        + "\n"
+    )
     msg += SEP_BOLD + "\n\n"
     msg += f"{_b('New paper entries and progress')}\n"
     msg += f"Entries triggered: {len(trades)} | Positive so far: {_b(str(hit_rate) + '%')}\n"
@@ -473,9 +487,15 @@ def format_triggered_weekly_digest(analysis, week_dates):
     if trades:
         msg += f"{_b('Paper position progress')}\n"
         for trade in sorted(trades, key=lambda item: item["return_pct"], reverse=True)[:6]:
-            state = "Protective stop reached" if trade["outcome"] == "STOP" else "Paper position open"
+            state = (
+                "Protective stop reached" if trade["outcome"] == "STOP" else "Paper position open"
+            )
             targets = (
-                " • Second target reached" if trade["t2_hit"] else " • First target reached" if trade["t1_hit"] else ""
+                " • Second target reached"
+                if trade["t2_hit"]
+                else " • First target reached"
+                if trade["t1_hit"]
+                else ""
             )
             msg += (
                 f"• {_link(trade['symbol'])} — {state}\n"
@@ -499,7 +519,12 @@ def format_triggered_weekly_digest(analysis, week_dates):
     msg += f"Churn rate: {analysis['churn_pct']}%\n"
     if analysis["new_this_week"]:
         msg += f"New: {', '.join(analysis['new_this_week'][:8])}\n"
-    msg += "\n" + SEP_THIN + "\n" + _i("Next: Review watch-for-entry stocks only after their stated trigger.")
+    msg += (
+        "\n"
+        + SEP_THIN
+        + "\n"
+        + _i("Next: Review watch-for-entry stocks only after their stated trigger.")
+    )
     msg += "\nResearch and paper tracking only — not investment advice."
     return msg
 
@@ -519,16 +544,28 @@ def format_v3_weekly_review(daily, state, week_dates):
     positions = tables.get("v2_positions", [])
     active = [row for row in positions if row.get("state") in {"OPEN", "PARTIAL", "TRAILING"}]
     week_set = {day.isoformat() for day in week_dates}
-    events = [row for row in tables.get("v2_position_events", []) if str(row.get("event_date", ""))[:10] in week_set]
+    events = [
+        row
+        for row in tables.get("v2_position_events", [])
+        if str(row.get("event_date", ""))[:10] in week_set
+    ]
     new_entries = [row for row in events if row.get("event_type") in {"CREATE", "ENTRY", "OPEN"}]
-    exits = [row for row in events if row.get("to_state") == "CLOSED" or row.get("event_type") == "EXIT"]
+    exits = [
+        row for row in events if row.get("to_state") == "CLOSED" or row.get("event_type") == "EXIT"
+    ]
     snapshots = sorted(
-        (row for row in tables.get("v2_portfolio_snapshots", []) if str(row.get("portfolio_date")) in week_set),
+        (
+            row
+            for row in tables.get("v2_portfolio_snapshots", [])
+            if str(row.get("portfolio_date")) in week_set
+        ),
         key=lambda row: row.get("portfolio_date", ""),
     )
     pnl_change = 0.0
     if snapshots:
-        pnl_change = float(snapshots[-1].get("total_pnl", 0) or 0) - float(snapshots[0].get("total_pnl", 0) or 0)
+        pnl_change = float(snapshots[-1].get("total_pnl", 0) or 0) - float(
+            snapshots[0].get("total_pnl", 0) or 0
+        )
 
     regime = str(daily.get("regime", "UNKNOWN")).upper()
     regime_text = {
@@ -539,7 +576,11 @@ def format_v3_weekly_review(daily, state, week_dates):
         "BEARISH": "Weak — new entries restricted",
     }.get(regime, "Not available")
     candidates = list(daily.get("dashboard_candidates", []))
-    ready = [row for row in candidates if row.get("timing_state") == "READY" or row.get("classification") == "ACTION"]
+    ready = [
+        row
+        for row in candidates
+        if row.get("timing_state") == "READY" or row.get("classification") == "ACTION"
+    ]
     waiting = [row for row in candidates if row not in ready]
 
     lines = [
@@ -632,11 +673,13 @@ def generate_weekly_digest(week_ending=None, dry_run=False):
                 else:
                     log.error("V3_WEEKLY_TOPIC_ID is missing or invalid")
                     return False
-                r = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=20)
+                r = requests.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=20
+                )
                 r.raise_for_status()
                 return bool(r.json().get("ok"))
             except (requests.RequestException, ValueError) as exc:
-                log.exception("Telegram weekly delivery failed: %s", type(exc).__name__)
+                log.error("Telegram weekly delivery failed: %s", type(exc).__name__)
                 return False
         log.error("V3 Telegram credentials are missing")
         return False

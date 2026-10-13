@@ -54,7 +54,6 @@ def main():
                 if a == 2:
                     raise
                 time.sleep(3)
-        return None
 
     sget("https://www.bseindia.com/")
     got = 0
@@ -91,7 +90,9 @@ def main():
                 continue
             if not any(k in sub for k in ["result", "audited", "financial"]):
                 continue
-            if any(b in sub for b in ["newspaper", "investor", "analyst", "intimation", "presentation"]):
+            if any(
+                b in sub for b in ["newspaper", "investor", "analyst", "intimation", "presentation"]
+            ):
                 continue
             # prefer "year ended" / consolidated / audited
             sc = ("year ended" in sub) + ("consolidat" in sub) + ("audited" in sub)

@@ -49,7 +49,6 @@ Angel One SmartAPI docs: https://smartapi.angelbroking.com/
 import logging
 import os
 from datetime import datetime
-from typing import Optional
 
 import httpx
 from finstack.utils.helpers import clean_nan
@@ -126,7 +125,10 @@ def _get_session() -> dict | None:
     global _session_cache
 
     # Reuse token if fresh (< 6 hours old)
-    if _session_cache.get("expires_at") and datetime.now().timestamp() < _session_cache["expires_at"]:
+    if (
+        _session_cache.get("expires_at")
+        and datetime.now().timestamp() < _session_cache["expires_at"]
+    ):
         return _session_cache
 
     api_key = os.getenv("ANGEL_API_KEY")
@@ -175,8 +177,9 @@ def _get_session() -> dict | None:
                 }
                 logger.info("Angel One session established successfully")
                 return _session_cache
-            logger.warning("Angel One login failed: %s", data.get("message"))
-            return None
+            else:
+                logger.warning("Angel One login failed: %s", data.get("message"))
+                return None
 
     except Exception as e:
         logger.warning("Angel One session error: %s", e)
@@ -325,7 +328,7 @@ def get_market_depth_angel(symbol: str) -> dict:
 
 
 def get_candle_data_angel(
-    symbol: str, interval: str = "ONE_DAY", from_date: str | None = None, to_date: str | None = None
+    symbol: str, interval: str = "ONE_DAY", from_date: str = None, to_date: str = None
 ) -> dict:
     """
     Historical OHLCV candle data via Angel One SmartAPI getCandleData.
@@ -397,7 +400,7 @@ def get_candle_data_angel(
                     ts, o, h, low, cl, vol = c[0], c[1], c[2], c[3], c[4], c[5]
                     # Parse ISO timestamp from Angel One e.g. "2026-03-28T09:15:00+05:30"
                     try:
-                        dt = datetime.fromisoformat(str(ts))
+                        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
                         # Format for LightweightCharts:
                         # intraday → unix seconds; daily → "YYYY-MM-DD"
                         if interval in ("ONE_DAY", "ONE_WEEK", "ONE_MONTH"):
@@ -465,7 +468,7 @@ def broker_status() -> dict:
 
 def _check_pyotp() -> bool:
     try:
-        import pyotp
+        import pyotp  # noqa: F401
 
         return True
     except ImportError:

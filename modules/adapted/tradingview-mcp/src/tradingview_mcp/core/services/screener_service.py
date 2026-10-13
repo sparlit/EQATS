@@ -39,7 +39,7 @@ import contextlib
 import os
 import sys
 import time as _time
-from typing import Any, List, Optional
+from typing import Any
 
 from tradingview_mcp.core.errors import (
     BatchExecutionError,
@@ -53,7 +53,10 @@ from tradingview_mcp.core.services.coinlist import exchanges_listing_symbol, loa
 from tradingview_mcp.core.services.indicators import compute_metrics
 
 # Resilience layer (does not require tradingview_ta; safe to import unconditionally).
-from tradingview_mcp.core.services.screener_provider import _scan_with_retry, humanize_upstream_error
+from tradingview_mcp.core.services.screener_provider import (
+    _scan_with_retry,
+    humanize_upstream_error,
+)
 from tradingview_mcp.core.types import IndicatorMap, Row
 from tradingview_mcp.core.utils.validators import (
     EXCHANGE_SCREENER,
@@ -62,7 +65,7 @@ from tradingview_mcp.core.utils.validators import (
 
 try:
     # Patched: route through resilience layer (retry + 60s TTL cache).
-    import tradingview_ta
+    import tradingview_ta  # noqa: F401  presence check
     from tradingview_mcp.core.services.screener_provider import (
         resilient_get_multiple_analysis as get_multiple_analysis,
     )
@@ -133,7 +136,7 @@ def fetch_bollinger_analysis(
     exchange: str,
     timeframe: str = "4h",
     limit: int = 50,
-    bbw_filter: float | None = None,
+    bbw_filter: float = None,
 ) -> list[Row]:
     """
     Fetch analysis using tradingview_ta with Bollinger Band squeeze logic.
@@ -174,7 +177,9 @@ def fetch_bollinger_analysis(
     for i in range(0, len(symbols), batch_size):
         batch = symbols[i : i + batch_size]
         try:
-            analysis.update(get_multiple_analysis(screener=screener, interval=timeframe, symbols=batch))
+            analysis.update(
+                get_multiple_analysis(screener=screener, interval=timeframe, symbols=batch)
+            )
         except Exception:
             batch_errors += 1
     if not analysis:
@@ -225,7 +230,7 @@ def fetch_trending_analysis(
     exchange: str,
     timeframe: str = "5m",
     filter_type: str = "",
-    rating_filter: int | None = None,
+    rating_filter: int = None,
     limit: int = 50,
     sort: str = "desc",
 ) -> list[Row]:
@@ -305,14 +310,17 @@ def fetch_trending_analysis(
                 first_error = repr(exc)
             with contextlib.suppress(Exception):
                 print(
-                    f"[tradingview_mcp] fetch_trending_analysis batch {i // batch_size + 1} failed: {exc!r}",
+                    f"[tradingview_mcp] fetch_trending_analysis batch "
+                    f"{i // batch_size + 1} failed: {exc!r}",
                     file=sys.stderr,
                 )
 
             # Fast-fail: N consecutive failures means upstream is cliffing —
             # iterating remaining batches just multiplies the cooldown sleeps.
             if consecutive_failures >= max_consec:
-                aborted_reason = f"{consecutive_failures} consecutive batch failures (upstream cliff)"
+                aborted_reason = (
+                    f"{consecutive_failures} consecutive batch failures (upstream cliff)"
+                )
                 with contextlib.suppress(Exception):
                     print(
                         f"[tradingview_mcp] fetch_trending_analysis aborted: "
@@ -749,7 +757,9 @@ def analyze_coin(
     screener = resolve_screener_for_symbol(full_symbol, exchange)
 
     try:
-        analysis = get_multiple_analysis(screener=screener, interval=timeframe, symbols=[full_symbol])
+        analysis = get_multiple_analysis(
+            screener=screener, interval=timeframe, symbols=[full_symbol]
+        )
 
         if full_symbol not in analysis or analysis[full_symbol] is None:
             if _allow_venue_fallback:
@@ -917,7 +927,11 @@ def scan_consecutive_candles(
 
     symbols = load_symbols(exchange)
     if not symbols:
-        return {"error": f"No symbols found for exchange: {exchange}", "exchange": exchange, "timeframe": timeframe}
+        return {
+            "error": f"No symbols found for exchange: {exchange}",
+            "exchange": exchange,
+            "timeframe": timeframe,
+        }
 
     # Full-universe batched scan (the old `symbols[: min(limit*3, 200)]`
     # truncation silently limited the screen to the alphabetical head).
@@ -927,7 +941,9 @@ def scan_consecutive_candles(
     for i in range(0, len(symbols), batch_size):
         batch = symbols[i : i + batch_size]
         try:
-            analysis.update(get_multiple_analysis(screener=screener, interval=timeframe, symbols=batch))
+            analysis.update(
+                get_multiple_analysis(screener=screener, interval=timeframe, symbols=batch)
+            )
         except Exception:
             continue
     if not analysis:
@@ -1028,7 +1044,9 @@ def scan_consecutive_candles(
     if pattern_type == "bullish":
         pattern_coins.sort(key=lambda x: (x["pattern_strength"], x["current_change"]), reverse=True)
     else:
-        pattern_coins.sort(key=lambda x: (x["pattern_strength"], -x["current_change"]), reverse=True)
+        pattern_coins.sort(
+            key=lambda x: (x["pattern_strength"], -x["current_change"]), reverse=True
+        )
 
     return {
         "exchange": exchange,
@@ -1074,7 +1092,9 @@ def scan_advanced_candle_patterns_single_tf(
             continue
         try:
             indicators = data.indicators
-            pattern_score = calculate_candle_pattern_score(indicators, pattern_length, min_size_increase)
+            pattern_score = calculate_candle_pattern_score(
+                indicators, pattern_length, min_size_increase
+            )
             if pattern_score["detected"]:
                 metrics = compute_metrics(indicators)
                 pattern_results.append(
@@ -1091,7 +1111,9 @@ def scan_advanced_candle_patterns_single_tf(
                             "momentum": "Strong"
                             if abs(pattern_score["total_change"]) > min_size_increase
                             else "Moderate",
-                            "volume_trend": "High" if indicators.get("volume", 0) > 10000 else "Low",
+                            "volume_trend": "High"
+                            if indicators.get("volume", 0) > 10000
+                            else "Low",
                         },
                     }
                 )
@@ -1217,7 +1239,13 @@ def run_multi_timeframe_analysis(
             extended = extract_extended_indicators(indicators)
             tf_context = analyze_timeframe_context(indicators, tf)
 
-            bias_num = 1 if tf_context["bias"] == "Bullish" else -1 if tf_context["bias"] == "Bearish" else 0
+            bias_num = (
+                1
+                if tf_context["bias"] == "Bullish"
+                else -1
+                if tf_context["bias"] == "Bearish"
+                else 0
+            )
             alignment_scores.append((tf, bias_num))
 
             tf_results[tf] = {
@@ -1302,7 +1330,11 @@ def run_multi_timeframe_analysis(
         )
 
     higher_tf_bias = alignment_scores[0][1] if alignment_scores else 0
-    divergent_tfs = [tf for tf, score in alignment_scores if score not in (0, higher_tf_bias) and higher_tf_bias != 0]
+    divergent_tfs = [
+        tf
+        for tf, score in alignment_scores
+        if score != 0 and score != higher_tf_bias and higher_tf_bias != 0
+    ]
 
     return {
         "symbol": symbol,

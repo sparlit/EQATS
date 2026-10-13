@@ -60,7 +60,10 @@ def fetch_calendar(symbol):
         if ed is not None and len(ed) > 0:
             for idx in ed.index:
                 d = str(idx)[:10]
-                conn.execute("INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "RESULTS", "earnings date"))
+                conn.execute(
+                    "INSERT INTO corp_calendar VALUES (?,?,?,?)",
+                    (symbol, d, "RESULTS", "earnings date"),
+                )
                 n += 1
     except Exception as e:
         print("earnings dates failed:", e)
@@ -73,11 +76,15 @@ def fetch_calendar(symbol):
                 spl = r.get("Stock Splits")
                 if div is not None and div == div and div != 0:
                     conn.execute(
-                        "INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "DIVIDEND", f"Rs {round(div, 2)}")
+                        "INSERT INTO corp_calendar VALUES (?,?,?,?)",
+                        (symbol, d, "DIVIDEND", f"Rs {round(div, 2)}"),
                     )
                     n += 1
                 if spl is not None and spl == spl and spl != 0:
-                    conn.execute("INSERT INTO corp_calendar VALUES (?,?,?,?)", (symbol, d, "SPLIT", f"ratio {spl}"))
+                    conn.execute(
+                        "INSERT INTO corp_calendar VALUES (?,?,?,?)",
+                        (symbol, d, "SPLIT", f"ratio {spl}"),
+                    )
                     n += 1
     except Exception as e:
         print("actions failed:", e)
@@ -88,7 +95,8 @@ def fetch_calendar(symbol):
 
 def tag_headlines(conn, symbol):
     rows = conn.execute(
-        "SELECT title, age_days, label FROM sentiment_headlines WHERE symbol=? ORDER BY age_days", (symbol,)
+        "SELECT title, age_days, label FROM sentiment_headlines WHERE symbol=? ORDER BY age_days",
+        (symbol,),
     ).fetchall()
     out = []
     for title, age, label in rows:
@@ -115,7 +123,9 @@ def red_flags(conn, symbol):
         if m.get("cfo_positive") == 0:
             flags.append("NEGATIVE OPERATING CASH FLOW")
     neg = conn.execute(
-        "SELECT COUNT(*) FROM sentiment_headlines WHERE symbol=? AND label='negative' AND age_days<=7", (symbol,)
+        "SELECT COUNT(*) FROM sentiment_headlines "
+        "WHERE symbol=? AND label='negative' AND age_days<=7",
+        (symbol,),
     ).fetchone()[0]
     if neg >= 2:
         flags.append(f"{neg} NEGATIVE NEWS IN 7 DAYS")
@@ -129,7 +139,8 @@ def red_flags(conn, symbol):
     if soon:
         flags.append(f"RESULTS ON {soon[0]} (event risk)")
     t = conn.execute(
-        "SELECT above200, rsi FROM technicals_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (symbol,)
+        "SELECT above200, rsi FROM technicals_daily WHERE symbol=? ORDER BY date DESC LIMIT 1",
+        (symbol,),
     ).fetchone()
     if t:
         if t[0] == 0:

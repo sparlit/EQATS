@@ -69,7 +69,13 @@ for sym, qe in MANGLES:
     arr = F.get(sym, [])
     ratios = []
     for q in arr:
-        if len(q) > 3 and q[1] is not None and q[3] is not None and abs(q[1]) > 10 and abs(q[3]) > 0.2 * abs(q[1]):
+        if (
+            len(q) > 3
+            and q[1] is not None
+            and q[3] is not None
+            and abs(q[1]) > 10
+            and abs(q[3]) > 0.2 * abs(q[1])
+        ):
             ratios.append(q[3] / q[1])
     r = med(ratios)
     spread = (max(ratios) - min(ratios)) if ratios else None

@@ -34,7 +34,7 @@ IMPORTANT: For sandbox tokens (from developer.dhan.co), use sandbox URL.
 import sys
 from pathlib import Path
 
-import requests
+import httpx2 as requests  # the same call surface (get / .json()); a direct dependency
 
 # Fix Windows encoding
 sys.stdout.reconfigure(encoding="utf-8")
@@ -58,7 +58,6 @@ def test_dhan_connection():
     base_url = settings.dhan_base_url
 
     print("\n[CONFIG] Configuration:")
-    print(f"   Trading Mode: {settings.trading_mode}")
     print(f"   Client ID: {settings.dhan_client_id}")
     print(f"   API Base: {base_url}")
 
@@ -120,7 +119,7 @@ def test_dhan_connection():
 
         return True
 
-    except requests.exceptions.RequestException as e:
+    except requests.HTTPError as e:
         print(f"\n[ERROR] Connection Error: {e}")
         return False
     except Exception as e:
@@ -128,11 +127,17 @@ def test_dhan_connection():
         return False
 
 
-if __name__ == "__main__":
+def main() -> int:
     print("\n[INFO] If using SANDBOX token (from developer.dhan.co):")
     print("       Set DHAN_BASE_URL=https://sandbox.dhan.co/v2 in .env")
     print("\n[INFO] If using PRODUCTION token (from web.dhan.co):")
     print("       Set DHAN_BASE_URL=https://api.dhan.co/v2 in .env")
     print()
 
-    test_dhan_connection()
+    return 0 if test_dhan_connection() else 1
+
+
+if __name__ == "__main__":
+    from src.ops.process import run_entry_point
+
+    run_entry_point("test_dhan_connection", main)

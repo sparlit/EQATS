@@ -27,16 +27,13 @@ import inspect
 import json
 import random
 import string
-import sys
+from collections.abc import Callable
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple
+from pathlib import Path
+from typing import Any, Literal
 
 import pandas as pd
 from fast_csv_loader import csv_loader
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-    from pathlib import Path
 
 ohlc_dct = {
     "Open": "first",
@@ -350,4 +347,4 @@ if __name__ != "__main__":
     if not has_parameters(csv_loader, "use_columns"):
         print("fast_csv_loader version 2.1.0 required")
         print("Run `pip install -U fast_csv_loader`")
-        sys.exit()
+        exit()

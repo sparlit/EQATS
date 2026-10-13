@@ -60,5 +60,7 @@ symbol = "BTC/USDT"
 try:
     tickers = exchange.fetch_tickers(symbols)
     ticker = exchange.fetch_ticker(symbol)
+    pprint(tickers)
+    pprint(ticker)
 except Exception as err:
     print(err)

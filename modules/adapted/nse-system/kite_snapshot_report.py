@@ -50,23 +50,28 @@ def report(database, as_of=None):
     uri = path.as_uri() + "?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     try:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "kite_market_snapshots" not in tables:
-            msg = "No KITE snapshot table exists in this database"
-            raise RuntimeError(msg)
+            raise RuntimeError("No KITE snapshot table exists in this database")
         dates = [
-            row[0] for row in conn.execute("SELECT DISTINCT as_of_date FROM kite_market_snapshots ORDER BY as_of_date")
+            row[0]
+            for row in conn.execute(
+                "SELECT DISTINCT as_of_date FROM kite_market_snapshots ORDER BY as_of_date"
+            )
         ]
         if not dates:
-            msg = "The KITE snapshot table is empty"
-            raise RuntimeError(msg)
+            raise RuntimeError("The KITE snapshot table is empty")
         selected_date = as_of or dates[-1]
         if selected_date not in dates:
-            msg = f"No KITE snapshot found for {selected_date}; available dates: {', '.join(dates)}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"No KITE snapshot found for {selected_date}; available dates: {', '.join(dates)}"
+            )
 
         rows = conn.execute(
-            "SELECT symbol, data_quality_flags FROM kite_market_snapshots WHERE as_of_date=?", (selected_date,)
+            "SELECT symbol, data_quality_flags FROM kite_market_snapshots WHERE as_of_date=?",
+            (selected_date,),
         ).fetchall()
         total = len(rows)
         mapped = sum(bool(row[0]) for row in rows)
@@ -85,7 +90,9 @@ def report(database, as_of=None):
         )
         if all(name in columns for name in provenance_columns):
             provenance = conn.execute(
-                "SELECT DISTINCT " + ",".join(provenance_columns) + " FROM kite_market_snapshots WHERE as_of_date=?",
+                "SELECT DISTINCT "
+                + ",".join(provenance_columns)
+                + " FROM kite_market_snapshots WHERE as_of_date=?",
                 (selected_date,),
             ).fetchall()
             for artifact in provenance:
@@ -95,7 +102,10 @@ def report(database, as_of=None):
                     f"modified {artifact[2]}, imported {artifact[5]})"
                 )
                 print(f"Security master: {artifact[3]} (SHA-256 {artifact[4]})")
-            print("File modification time is host metadata, not proof of market-observation or publication time.")
+            print(
+                "File modification time is host metadata, not proof of "
+                "market-observation or publication time."
+            )
         selected = ",".join(f"count({name})" for name in present_metrics)
         counts = conn.execute(
             f"SELECT {selected} FROM kite_market_snapshots WHERE as_of_date=?", (selected_date,)
@@ -109,8 +119,7 @@ def report(database, as_of=None):
             try:
                 flags.update(json.loads(payload or "[]"))
             except json.JSONDecodeError as exc:
-                msg = "Malformed data_quality_flags JSON in KITE snapshot"
-                raise ValueError(msg) from exc
+                raise ValueError("Malformed data_quality_flags JSON in KITE snapshot") from exc
         print("\nQuality flags (row counts)")
         if flags:
             for flag, count in sorted(flags.items()):

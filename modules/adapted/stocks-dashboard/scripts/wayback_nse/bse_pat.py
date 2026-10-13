@@ -57,7 +57,6 @@ agg_pat_cell_fills.json with --gate/--label), never a direct store write.
 import argparse
 import collections
 import glob
-import gzip
 import json
 import os
 import re
@@ -111,7 +110,9 @@ def _row(t, label):
     """Value printed right after a ROW LABEL. The label must START a row: preceded by the previous row's
     number or by the header 'Value(Rs. million)' — bse_rev._num's lookbehind lets 'Tax' match inside
     'Profit before Tax 245.00' (measured: 226 good pages refused, WP-P1 2026-09-05)."""
-    m = re.search(r"(?:(?<=\d)\s+|\)\s+)" + re.escape(label) + r"\s+(-?[\d,]*\d(?:\.\d+)?)(?![\d.])", t)
+    m = re.search(
+        r"(?:(?<=\d)\s+|\)\s+)" + re.escape(label) + r"\s+(-?[\d,]*\d(?:\.\d+)?)(?![\d.])", t
+    )
     return float(m.group(1).replace(",", "")) if m else None
 
 
@@ -147,7 +148,9 @@ def arith_ok(raw_txt, tol_raw):
             checks.append(("PBT+Tax+Prov+Extra==NP", abs(base + extra - npf) <= tol))
     if not checks:
         return True, "no chain printed"
-    return all(ok for _, ok in checks), ";".join("{}:{}".format(n, "ok" if ok else "FAIL") for n, ok in checks)
+    return all(ok for _, ok in checks), ";".join(
+        "{}:{}".format(n, "ok" if ok else "FAIL") for n, ok in checks
+    )
 
 
 def read_quarter(idx, code, qe, fetch):
@@ -199,7 +202,11 @@ def read_quarter_cumdiff(idx, code, qe, fetch):
         return {"refuse": "G5 (cumulative page) " + det}
     chain, cur, bad = [], prev_qe(qe), None
     while True:
-        legs = [c for c in _read_ending(idx, code, cur, fetch) if c["from"] >= r["from"] and c["to"] == cur]
+        legs = [
+            c
+            for c in _read_ending(idx, code, cur, fetch)
+            if c["from"] >= r["from"] and c["to"] == cur
+        ]
         # prefer the leg whose 'from' equals the cumulative start (closes the chain in one step)
         legs.sort(key=lambda c: (c["from"] != r["from"], -c["months"]))
         if not legs:
@@ -227,12 +234,14 @@ def read_quarter_cumdiff(idx, code, qe, fetch):
     if months != r["months"] - 3:
         return {"refuse": "cumdiff: legs cover %dm, expected %dm" % (months, r["months"] - 3)}
     pat = round(r["pat"] - sum(c["pat"] for c in chain), 4)
-    tol = max(r["tol"], *(c["tol"] for c in chain))
+    tol = max(r["tol"], max(c["tol"] for c in chain))
     out = dict(r)
     out.update(
         {
             "pat": pat,
-            "raw_pat": "{} - ({})".format(r["raw_pat"], " + ".join(str(c["raw_pat"]) for c in chain)),
+            "raw_pat": "{} - ({})".format(
+                r["raw_pat"], " + ".join(str(c["raw_pat"]) for c in chain)
+            ),
             "mode": "cumdiff",
             "arith": det,
             "arith_ok": True,
@@ -296,7 +305,11 @@ def cross_anchor(keys, code, idx, nse_idx, fetch, max_pages=8):
             if "refuse" in b or b["from"] != nf:
                 continue
         else:
-            cands = [c for c in _read_ending(idx, code, q, fetch) if c["months"] == n["months"] and c["from"] == nf]
+            cands = [
+                c
+                for c in _read_ending(idx, code, q, fetch)
+                if c["months"] == n["months"] and c["from"] == nf
+            ]
             if not cands:
                 continue
             b = cands[0]
@@ -323,7 +336,9 @@ def main():
     ap.add_argument("--cells", required=True, help="json [[SYM, qeInt], ...]")
     ap.add_argument("--out", required=True)
     ap.add_argument("--fetch", action="store_true")
-    ap.add_argument("--calib", action="store_true", help="hold-out only: read HELD cells, report mismatch")
+    ap.add_argument(
+        "--calib", action="store_true", help="hold-out only: read HELD cells, report mismatch"
+    )
     ap.add_argument("--min-anchors", type=int, default=MIN_ANCHORS)
     ap.add_argument("--limit-syms", type=int, default=0)
     ap.add_argument(
@@ -382,7 +397,10 @@ def main():
                     out.setdefault(r[0], (r[1], k))
         return out
 
-    props, report = {}, {"calib": [], "anchors": {}, "refused": collections.Counter(), "per_cell": {}}
+    props, report = (
+        {},
+        {"calib": [], "anchors": {}, "refused": collections.Counter(), "per_cell": {}},
+    )
     hold_n = hold_bad = 0
     t0 = time.time()
     for si, sym in enumerate(syms):
@@ -400,7 +418,11 @@ def main():
         for code, via in codes.items():
             exact = conflict = 0
             used = []
-            cand_q = [q for q in sorted(held) if q // 10000 in ARCHIVE_YEARS and "%s|%d" % (code, q) in idx]
+            cand_q = [
+                q
+                for q in sorted(held)
+                if q // 10000 in ARCHIVE_YEARS and "%s|%d" % (code, q) in idx
+            ]
             # bounded: Wayback serves ~1 page/s on one keep-alive session; 6 quarters decide the anchor test
             for q in cand_q[: a.max_anchor_pages]:
                 v, k = held[q]
@@ -414,7 +436,16 @@ def main():
                     if not agree:
                         hold_bad += 1
                     report["calib"].append(
-                        [sym, k, q, v, r["pat"], r["tol"], "AGREE" if agree else "MISMATCH", r["url"]]
+                        [
+                            sym,
+                            k,
+                            q,
+                            v,
+                            r["pat"],
+                            r["tol"],
+                            "AGREE" if agree else "MISMATCH",
+                            r["url"],
+                        ]
                     )
                 if agree:
                     exact += 1
@@ -455,7 +486,11 @@ def main():
         if a.calib:
             continue
         if conflict > 0 or exact < a.min_anchors:
-            why = "anchor-gate: exact %d conflict %d (need >=%d, 0)" % (exact, conflict, a.min_anchors)
+            why = "anchor-gate: exact %d conflict %d (need >=%d, 0)" % (
+                exact,
+                conflict,
+                a.min_anchors,
+            )
             for q in targets:
                 report["refused"]["anchor-gate"] += 1
                 report["per_cell"]["%s|%d" % (sym, q)] = why
@@ -536,14 +571,19 @@ def main():
     }
     json.dump({"proposals": props, "report": report}, open(a.out, "w"), indent=0)
     print(
-        "\nHOLD-OUT: %d truth cells read blind, %d mismatch (%s%%)" % (hold_n, hold_bad, report["hold_out"]["rate_pct"])
+        "\nHOLD-OUT: %d truth cells read blind, %d mismatch (%s%%)"
+        % (hold_n, hold_bad, report["hold_out"]["rate_pct"])
     )
     print(
         "anchored symbols: %d (>=%d exact & 0 conflict: %d)"
         % (
             len(report["anchors"]),
             a.min_anchors,
-            sum(1 for v in report["anchors"].values() if v["exact"] >= a.min_anchors and v["conflict"] == 0),
+            sum(
+                1
+                for v in report["anchors"].values()
+                if v["exact"] >= a.min_anchors and v["conflict"] == 0
+            ),
         )
     )
     print("proposals: %d · refused: %s" % (len(props), dict(report["refused"])))

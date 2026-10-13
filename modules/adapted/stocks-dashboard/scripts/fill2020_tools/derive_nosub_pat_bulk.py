@@ -128,7 +128,13 @@ def main():
 
     prof = {}
     for sym, rows in fund.items():
-        both = sorted([(r[0], r[1], r[3]) for r in rows if len(r) > 3 and r[1] is not None and r[3] is not None])
+        both = sorted(
+            [
+                (r[0], r[1], r[3])
+                for r in rows
+                if len(r) > 3 and r[1] is not None and r[3] is not None
+            ]
+        )
         div = [q for q, s, c in both if diverges(s, c)]
         first_div = min(div) if div else None
         # LEADING identity run: quarters from the start of the con series up to the first
@@ -163,8 +169,14 @@ def main():
 
     n_cells = sum(len(v) for v in targets.values())
     n_fin = sum(len(v) for s, v in targets.items() if fin.get(s))
-    print("ELIGIBLE: %d cells across %d companies (%d cells are financials)" % (n_cells, len(targets), n_fin))
-    print("rule: >=%d LEADING identity quarters AND gap strictly before first divergence\n" % MIN_IDENT)
+    print(
+        "ELIGIBLE: %d cells across %d companies (%d cells are financials)"
+        % (n_cells, len(targets), n_fin)
+    )
+    print(
+        "rule: >=%d LEADING identity quarters AND gap strictly before first divergence\n"
+        % MIN_IDENT
+    )
     print("skipped:")
     for r, n in reasons.most_common():
         print("   %-42s %6d cells" % (r, n))

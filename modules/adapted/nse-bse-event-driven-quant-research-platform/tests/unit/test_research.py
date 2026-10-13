@@ -85,7 +85,9 @@ class TestEventStudy:
         for pos in event_positions:
             ret.iloc[pos] += 0.05
 
-        result = event_study(ret, mkt, pd.DatetimeIndex([dates[p] for p in event_positions]), pre=5, post=10)
+        result = event_study(
+            ret, mkt, pd.DatetimeIndex([dates[p] for p in event_positions]), pre=5, post=10
+        )
         assert result.n_events == 3
         assert result.mean_car > 0
         assert not result.car_by_offset.empty

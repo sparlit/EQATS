@@ -27,7 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 from ccxt.base.errors import BadRequest
-from ccxt.base.types import Strings, TransferEntry
+from ccxt.base.types import Str, Strings, Tickers, TransferEntry
 from ccxt.pro.kucoin import kucoin
 
 
@@ -63,7 +63,7 @@ class kucoinfutures(kucoin):
             },
         )
 
-    async def fetch_bids_asks(self, symbols: Strings = None, params=None):
+    async def fetch_bids_asks(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         fetches the bid and ask price and volume for multiple markets
         :param str[] [symbols]: unified symbols of the markets to fetch the bids and asks for, all markets are returned if not assigned
@@ -77,7 +77,9 @@ class kucoinfutures(kucoin):
         }
         return await self.fetch_tickers(symbols, self.extend(request, params))
 
-    async def transfer(self, code: str, amount: float, fromAccount: str, toAccount: str, params=None) -> TransferEntry:
+    async def transfer(
+        self, code: str, amount: float, fromAccount: str, toAccount: str, params: dict = None
+    ) -> TransferEntry:
         """
         transfer currency internally between wallets on the same account
         :param str code: unified currency code
@@ -99,7 +101,7 @@ class kucoinfutures(kucoin):
         }
         toAccountString = self.parse_transfer_type(toAccount)
         response = None
-        if toAccountString in {"TRADE", "MAIN"}:
+        if toAccountString == "TRADE" or toAccountString == "MAIN":
             request["recAccountType"] = toAccountString
             response = await self.futuresPrivatePostTransferOut(self.extend(request, params))
             #
@@ -126,20 +128,21 @@ class kucoinfutures(kucoin):
             #         }
             #     }
             #
-        elif toAccount in {"future", "swap", "contract"}:
+        elif toAccount == "future" or toAccount == "swap" or toAccount == "contract":
             request["payAccountType"] = self.parse_transfer_type(fromAccount)
             response = await self.futuresPrivatePostTransferIn(self.extend(request, params))
             #
             #    {
             #        "code": "200000",
             #        "data": {
-            #            "applyId": "5bffb63303aa675e8bbe18f9"  # Transfer-out request ID
+            #            "applyId": "5bffb63303aa675e8bbe18f9" // Transfer-out request ID
             #        }
             #    }
             #
         else:
             raise BadRequest(
-                self.id + " transfer() only supports transfers between future/swap, spot and funding accounts"
+                self.id
+                + " transfer() only supports transfers between future/swap, spot and funding accounts"
             )
         data = self.safe_dict(response, "data", {})
         return self.extend(
@@ -151,7 +154,7 @@ class kucoinfutures(kucoin):
             },
         )
 
-    def parse_transfer_type(self, transferType: object):
+    def parse_transfer_type(self, transferType: Str) -> Str:
         transferTypes = {
             "spot": "TRADE",
             "funding": "MAIN",

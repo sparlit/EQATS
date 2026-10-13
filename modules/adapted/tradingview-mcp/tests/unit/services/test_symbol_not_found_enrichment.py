@@ -52,8 +52,7 @@ class TestParseSymbolSearch:
             {"symbol": "KASABF2", "type": "stock", "exchange": "EGX", "description": "near-miss"},
         ]
         info = ss._parse_symbol_search(rows, "KASABF", "EGX")
-        assert info["exchange"] == "EGX"
-        assert info["type"] == "fund"
+        assert info["exchange"] == "EGX" and info["type"] == "fund"
 
     def test_no_exact_match_returns_none(self):
         rows = [{"symbol": "KASAB", "type": "stock", "exchange": "EGX"}]
@@ -115,7 +114,9 @@ class TestEnvelopeEnrichment:
         with (
             patch.object(ss, "exchanges_listing_symbol", return_value=["BINANCE"]),
             patch.object(
-                ss, "lookup_tradingview_instrument", side_effect=AssertionError("network lookup must not fire")
+                ss,
+                "lookup_tradingview_instrument",
+                side_effect=AssertionError("network lookup must not fire"),
             ),
         ):
             env = ss.symbol_not_found_error("BTCUSDT", "egx")
@@ -140,8 +141,7 @@ class TestLookupCache:
         def fake_urlopen(req, timeout=None):
             calls["n"] += 1
             if calls["n"] == 1:
-                msg = "network down"
-                raise OSError(msg)
+                raise OSError("network down")
             return FakeResp()
 
         import urllib.request
@@ -149,6 +149,8 @@ class TestLookupCache:
         monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
         assert ss.lookup_tradingview_instrument("KASABF", "EGX") is None  # failure: NOT cached
-        assert ss.lookup_tradingview_instrument("KASABF", "EGX")["type"] == "fund"  # retried, cached
+        assert (
+            ss.lookup_tradingview_instrument("KASABF", "EGX")["type"] == "fund"
+        )  # retried, cached
         assert ss.lookup_tradingview_instrument("KASABF", "EGX")["type"] == "fund"  # from cache
         assert calls["n"] == 2

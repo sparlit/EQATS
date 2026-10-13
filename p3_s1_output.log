@@ -1,8 +1,0 @@
-=== PHASE-3 STAGE-1 RUST LOG ===
-error: unexpected argument '-i' found
-
-  tip: to pass '-i' as a value, use '-- -i'
-
-Usage: maturin develop [OPTIONS] [ARGS]...
-
-For more information, try '--help'.

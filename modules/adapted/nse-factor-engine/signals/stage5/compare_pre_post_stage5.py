@@ -48,7 +48,9 @@ old_symbols = set(old["symbol"])
 new_symbols = set(new["symbol"])
 print(f"\nSymbols only in pre-Stage-5: {old_symbols - new_symbols}")
 print(f"Symbols only in post-Stage-5: {new_symbols - old_symbols}")
-print(f"Row count: pre={len(old)}, post={len(new)} (expect equal -- non-investable retained, not dropped)")
+print(
+    f"Row count: pre={len(old)}, post={len(new)} (expect equal -- non-investable retained, not dropped)"
+)
 
 common_cols = sorted(old_cols & new_cols - {"symbol"})
 merged = old.merge(new, on="symbol", suffixes=("_old", "_new"), how="inner")
@@ -78,9 +80,9 @@ if not any_diff:
     print("Confirmed: all pre-existing (Stage 2-4) column values unchanged.")
 
 print("\n--- Sample: 5 in-universe symbols, new Stage 5 columns ---")
-sample = new[new["in_universe"]][["symbol", *sorted(added_cols)]].head(5)
+sample = new[new["in_universe"]][["symbol"] + sorted(added_cols)].head(5)
 print(sample.to_string(index=False))
 
 print("\n--- Sample: 2 excluded (in_universe=False) symbols ---")
-excluded = new[not new["in_universe"]][["symbol", *sorted(added_cols)]].head(2)
+excluded = new[not new["in_universe"]][["symbol"] + sorted(added_cols)].head(2)
 print(excluded.to_string(index=False))

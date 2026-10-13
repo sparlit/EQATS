@@ -29,37 +29,30 @@ Main Streamlit application for the FinRL Trading platform.
 Provides interactive visualization and control of trading strategies.
 """
 
-import json
 import logging
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
-from plotly.subplots import make_subplots
 
 # Import project modules
 try:
-    from src.backtest.backtest_engine import BacktestConfig, BacktestEngine
-    from src.config.settings import get_config
-    from src.data.data_store import get_data_store
-    from src.strategies.base_strategy import StrategyConfig, create_strategy
-    from src.trading.alpaca_manager import create_alpaca_account_from_env
-    from src.trading.trade_executor import ExecutionConfig, TradeExecutor
-    from src.utils.logging_utils import setup_logging
+    from ..backtest.backtest_engine import BacktestConfig, BacktestEngine
+    from ..config.settings import get_config
+    from ..data.data_store import get_data_store
+    from ..strategies.base_strategy import StrategyConfig, create_strategy
+    from ..trading.alpaca_manager import create_alpaca_account_from_env
+    from ..trading.trade_executor import ExecutionConfig, TradeExecutor
+    from ..utils.logging_utils import setup_logging
 except ImportError:
     # Fallback for direct module testing
     from backtest.backtest_engine import BacktestConfig, BacktestEngine
+    from config.settings import get_config
     from data.data_store import get_data_store
     from strategies.base_strategy import StrategyConfig, create_strategy
     from trading.alpaca_manager import create_alpaca_account_from_env
-    from trading.trade_executor import ExecutionConfig, TradeExecutor
-
-    from config.settings import get_config
 
     try:
         from utils.logging_utils import setup_logging
@@ -71,7 +64,10 @@ logger = logging.getLogger(__name__)
 
 # Configure page
 st.set_page_config(
-    page_title="FinRL Trading Dashboard", page_icon="📈", layout="wide", initial_sidebar_state="expanded"
+    page_title="FinRL Trading Dashboard",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # Initialize session state
@@ -91,7 +87,14 @@ def main():
         st.header("Navigation")
         page = st.selectbox(
             "Select Page",
-            ["Overview", "Data Management", "Strategy Backtesting", "Live Trading", "Portfolio Analysis", "Settings"],
+            [
+                "Overview",
+                "Data Management",
+                "Strategy Backtesting",
+                "Live Trading",
+                "Portfolio Analysis",
+                "Settings",
+            ],
         )
 
         st.divider()
@@ -155,7 +158,13 @@ def show_overview():
     activity_data = pd.DataFrame(
         {
             "Time": pd.date_range("2024-01-01 09:00", periods=5, freq="1H"),
-            "Action": ["Strategy Execution", "Portfolio Rebalance", "Data Update", "Order Filled", "Strategy Backtest"],
+            "Action": [
+                "Strategy Execution",
+                "Portfolio Rebalance",
+                "Data Update",
+                "Order Filled",
+                "Strategy Backtest",
+            ],
             "Status": ["Success", "Success", "Success", "Success", "Completed"],
             "Details": [
                 "ML Strategy executed",
@@ -183,7 +192,9 @@ def show_data_management():
     """Show data management interface."""
     st.header("Data Management")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Data Sources", "Data Processing", "Data Storage", "Data Quality"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Data Sources", "Data Processing", "Data Storage", "Data Quality"]
+    )
 
     with tab1:
         st.subheader("Data Sources")
@@ -195,7 +206,7 @@ def show_data_management():
             if st.button("Fetch S&P 500 Components"):
                 with st.spinner("Fetching data..."):
                     try:
-                        from src.data.data_fetcher import fetch_sp500_tickers
+                        from ..data.data_fetcher import fetch_sp500_tickers
 
                         tickers = fetch_sp500_tickers()
                         st.success(f"Successfully fetched {len(tickers)} tickers")
@@ -206,9 +217,11 @@ def show_data_management():
             if st.button("Fetch Fundamental Data"):
                 with st.spinner("Fetching fundamental data..."):
                     try:
-                        from src.data.data_fetcher import fetch_fundamental_data
+                        from ..data.data_fetcher import fetch_fundamental_data
 
-                        fundamentals = fetch_fundamental_data(["AAPL", "MSFT", "GOOGL"], "2020-01-01", "2023-12-31")
+                        fundamentals = fetch_fundamental_data(
+                            ["AAPL", "MSFT", "GOOGL"], "2020-01-01", "2023-12-31"
+                        )
                         st.success(f"Successfully fetched {len(fundamentals)} records")
                     except Exception as e:
                         st.error(f"Failed to fetch data: {e}")
@@ -227,7 +240,7 @@ def show_data_management():
         if st.button("Process Raw Data"):
             with st.spinner("Processing data..."):
                 try:
-                    from src.data.data_processor import process_fundamentals, process_prices
+                    from ..data.data_processor import process_fundamentals, process_prices
 
                     # Process sample data
                     fundamentals = process_fundamentals("./data/fundamentals.csv")
@@ -243,7 +256,7 @@ def show_data_management():
         if st.button("Generate ML Dataset"):
             with st.spinner("Creating ML dataset..."):
                 try:
-                    from src.data.data_processor import create_ml_dataset
+                    from ..data.data_processor import create_ml_dataset
 
                     X, y = create_ml_dataset("./data/fundamentals.csv", "./data/prices.csv")
                     st.success("ML dataset created")
@@ -296,7 +309,9 @@ def show_strategy_backtesting():
         st.subheader("Backtest Configuration")
 
         # Strategy selection
-        strategy_type = st.selectbox("Strategy Type", ["equal_weight", "market_cap_weight", "ml_strategy"])
+        strategy_type = st.selectbox(
+            "Strategy Type", ["equal_weight", "market_cap_weight", "ml_strategy"]
+        )
 
         # Backtest parameters
         start_date = st.date_input("Start Date", datetime(2020, 1, 1))
@@ -341,14 +356,19 @@ def show_strategy_backtesting():
             # Performance chart
             if hasattr(result, "portfolio_values"):
                 fig = px.line(
-                    x=result.portfolio_values.index, y=result.portfolio_values.values, title="Portfolio Value"
+                    x=result.portfolio_values.index,
+                    y=result.portfolio_values.values,
+                    title="Portfolio Value",
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
             # Detailed metrics
             st.subheader("Detailed Metrics")
             metrics_df = pd.DataFrame(
-                {"Metric": list(result.metrics.keys()), "Value": [".4f" for v in result.metrics.values()]}
+                {
+                    "Metric": list(result.metrics.keys()),
+                    "Value": [".4f" for v in result.metrics.values()],
+                }
             )
             st.dataframe(metrics_df)
 
@@ -368,11 +388,18 @@ def run_backtest(strategy_type, start_date, end_date, initial_capital, top_quant
 
     # Load sample data (in practice, load real data)
     dates = pd.date_range(start_date, end_date, freq="D")
-    price_data = pd.DataFrame({"datadate": dates, "adj_close": 100 + np.cumsum(np.random.normal(0, 0.02, len(dates)))})
+    price_data = pd.DataFrame(
+        {"datadate": dates, "adj_close": 100 + np.cumsum(np.random.normal(0, 0.02, len(dates)))}
+    )
 
     # Sample weight signals
     weight_signals = pd.DataFrame(
-        {"date": pd.date_range(start_date, end_date, freq="Q"), "AAPL": 0.5, "MSFT": 0.3, "GOOGL": 0.2}
+        {
+            "date": pd.date_range(start_date, end_date, freq="Q"),
+            "AAPL": 0.5,
+            "MSFT": 0.3,
+            "GOOGL": 0.2,
+        }
     )
 
     # Run backtest
@@ -402,7 +429,7 @@ def show_live_trading():
             if st.button("Refresh Portfolio"):
                 with st.spinner("Loading portfolio..."):
                     try:
-                        from src.trading.alpaca_manager import AlpacaManager
+                        from ..trading.alpaca_manager import AlpacaManager
 
                         manager = AlpacaManager([account])
 
@@ -422,7 +449,15 @@ def show_live_trading():
                         if positions:
                             positions_df = pd.DataFrame(positions)
                             st.dataframe(
-                                positions_df[["symbol", "qty", "avg_entry_price", "market_value", "unrealized_pl"]],
+                                positions_df[
+                                    [
+                                        "symbol",
+                                        "qty",
+                                        "avg_entry_price",
+                                        "market_value",
+                                        "unrealized_pl",
+                                    ]
+                                ],
                                 use_container_width=True,
                             )
                         else:
@@ -446,18 +481,24 @@ def show_live_trading():
 
                 order_type = st.selectbox("Order Type", ["market", "limit"])
                 limit_price = (
-                    st.number_input("Limit Price", min_value=0.01, step=0.01) if order_type == "limit" else None
+                    st.number_input("Limit Price", min_value=0.01, step=0.01)
+                    if order_type == "limit"
+                    else None
                 )
 
                 submitted = st.form_submit_button("Place Order")
                 if submitted:
                     try:
-                        from src.trading.alpaca_manager import AlpacaManager, OrderRequest
+                        from ..trading.alpaca_manager import AlpacaManager, OrderRequest
 
                         manager = AlpacaManager([account])
 
                         order = OrderRequest(
-                            symbol=symbol, quantity=quantity, side=side, order_type=order_type, limit_price=limit_price
+                            symbol=symbol,
+                            quantity=quantity,
+                            side=side,
+                            order_type=order_type,
+                            limit_price=limit_price,
                         )
 
                         response = manager.place_order(order)
@@ -473,8 +514,8 @@ def show_live_trading():
             if st.button("Execute Sample Strategy"):
                 with st.spinner("Executing strategy..."):
                     try:
-                        from src.strategies.base_strategy import EqualWeightStrategy, StrategyConfig
-                        from src.trading.trade_executor import TradeExecutor
+                        from ..strategies.base_strategy import EqualWeightStrategy, StrategyConfig
+                        from ..trading.trade_executor import TradeExecutor
 
                         manager = AlpacaManager([account])
                         executor = TradeExecutor(manager)
@@ -509,7 +550,9 @@ def show_portfolio_analysis():
     dates = pd.date_range("2024-01-01", periods=100, freq="D")
     portfolio_values = 1000000 + np.cumsum(np.random.normal(2000, 8000, 100))
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Performance", "Risk Analysis", "Attribution", "Benchmarking"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["Performance", "Risk Analysis", "Attribution", "Benchmarking"]
+    )
 
     with tab1:
         st.subheader("Performance Analysis")
@@ -573,7 +616,9 @@ def show_portfolio_analysis():
             }
         )
 
-        fig = px.bar(attribution_data, x="Asset", y="Contribution", title="Return Attribution by Asset")
+        fig = px.bar(
+            attribution_data, x="Asset", y="Contribution", title="Return Attribution by Asset"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         st.dataframe(attribution_data, use_container_width=True)
@@ -591,7 +636,9 @@ def show_portfolio_analysis():
             }
         )
 
-        fig = px.line(benchmark_data, x="Date", y=["Portfolio", "SPY", "QQQ"], title="Portfolio vs Benchmarks")
+        fig = px.line(
+            benchmark_data, x="Date", y=["Portfolio", "SPY", "QQQ"], title="Portfolio vs Benchmarks"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
 

@@ -145,12 +145,16 @@ def identities(tape_isin=None):
         raw = open(os.path.join(ROOT, "docs", "stock_data.bin"), "rb").read()
         site = json.loads(gzip.decompress(raw) if raw[:2] == b"\x1f\x8b" else raw).get("meta") or {}
     except Exception as e:
-        print(f"bse_resolve: docs/stock_data.bin meta unreadable ({e}) — page owners unknown, §203 guard idle")
+        print(
+            f"bse_resolve: docs/stock_data.bin meta unreadable ({e}) — page owners unknown, §203 guard idle"
+        )
     if tape_isin is None:
         try:
             b = gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
             m, _ = json.JSONDecoder().raw_decode(b[b.rfind(b'"meta":') + 7 :].decode("utf-8"))
-            tape_isin = {k: v["isin"] for k, v in m.items() if isinstance(v, dict) and v.get("isin")}
+            tape_isin = {
+                k: v["isin"] for k, v in m.items() if isinstance(v, dict) and v.get("isin")
+            }
         except Exception:
             tape_isin = {}
     for s, i in (tape_isin or {}).items():
@@ -162,7 +166,10 @@ def identities(tape_isin=None):
         pass
     try:
         for r in csv.DictReader(open(NSE_ISIN_PATHS[1], encoding="utf-8", errors="replace")):
-            s, i = (r.get("SYMBOL") or "").strip().upper(), (r.get("ISIN_NUMBER") or r.get("ISIN NUMBER") or "").strip()
+            s, i = (
+                (r.get("SYMBOL") or "").strip().upper(),
+                (r.get("ISIN_NUMBER") or r.get("ISIN NUMBER") or "").strip(),
+            )
             if s and i:
                 nse.setdefault(s, set()).add(i.upper())
     except Exception:
@@ -176,9 +183,16 @@ def identities(tape_isin=None):
     except Exception:
         pass
     try:
-        for r in json.load(open(os.path.join(ROOT, "docs", "bse_universe.json"), encoding="utf-8")).get("rows") or []:
+        for r in (
+            json.load(open(os.path.join(ROOT, "docs", "bse_universe.json"), encoding="utf-8")).get(
+                "rows"
+            )
+            or []
+        ):
             if len(r) > 3 and r[1]:
-                bse.setdefault(str(r[1]).upper(), []).append((str(r[0]), str(r[3] or "").upper(), r[2]))
+                bse.setdefault(str(r[1]).upper(), []).append(
+                    (str(r[0]), str(r[3] or "").upper(), r[2])
+                )
                 if r[3]:
                     code_isin.setdefault(str(r[0]), str(r[3]).upper())
     except Exception:

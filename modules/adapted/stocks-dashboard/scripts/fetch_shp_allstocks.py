@@ -108,7 +108,11 @@ def _last_qe(today=None):
     """The latest quarter-end on or before today (IST): quarters the calendar has closed. Filings for it may still be
     arriving (SEBI deadline: 21 days), which the incremental `update` stage picks up run by run (§180e)."""
     d = today or (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()
-    ends = [datetime.date(y, m, dd) for y in (d.year - 1, d.year) for m, dd in ((3, 31), (6, 30), (9, 30), (12, 31))]
+    ends = [
+        datetime.date(y, m, dd)
+        for y in (d.year - 1, d.year)
+        for m, dd in ((3, 31), (6, 30), (9, 30), (12, 31))
+    ]
     return max(e for e in ends if e <= d).isoformat()
 
 
@@ -122,10 +126,11 @@ def STRIP(t):
 DOM_LBL = re.compile(
     r"QIB|qualified institutional|insurance|insurer|provident|pension|\bNPS\b|NBFC|non.?banking|"
     r"financial institution|\bbanks?\b|alternat\w* investment|\bAIF\b|mutual fund",
-    re.IGNORECASE,
+    re.I,
 )
 FOR_LBL = re.compile(
-    r"\bFIIs?\b|\bFPIs?\b|foreign portfolio|foreign institution|\bQFI\b|FVCI|private equity|sovereign", re.IGNORECASE
+    r"\bFIIs?\b|\bFPIs?\b|foreign portfolio|foreign institution|\bQFI\b|FVCI|private equity|sovereign",
+    re.I,
 )
 
 
@@ -191,7 +196,18 @@ def zero_proof(pct, shc):
     return 98.0 <= (prom + pub + third) * sc <= 102.0 or 98.0 <= (prom + pub) * sc <= 102.0
 
 
-NAME_STOP = {"LIMITED", "LTD", "THE", "PVT", "PRIVATE", "CO", "COMPANY", "CORP", "CORPORATION", "INC"}
+NAME_STOP = {
+    "LIMITED",
+    "LTD",
+    "THE",
+    "PVT",
+    "PRIVATE",
+    "CO",
+    "COMPANY",
+    "CORP",
+    "CORPORATION",
+    "INC",
+}
 
 
 def cname_norm(x):
@@ -253,7 +269,11 @@ def analyse(txt, qe):
             non_lbl.append(f.text.strip())
         elif t == "NumberOfShareholders":
             mems, typed = ctx.get(f.get("contextRef"), ([], True))
-            if not typed and len(mems) == 1 and mems[0] in ("ShareholdingPatternMember", "PublicShareholdingMember"):
+            if (
+                not typed
+                and len(mems) == 1
+                and mems[0] in ("ShareholdingPatternMember", "PublicShareholdingMember")
+            ):
                 with contextlib.suppress(TypeError, ValueError):
                     holders[mems[0]] = int(float(f.text))
         elif t in ("ShareholdingAsAPercentageOfTotalNumberOfShares", "NumberOfShares"):
@@ -295,7 +315,10 @@ def analyse(txt, qe):
 
     sh_pub = shc.get("PublicShareholdingMember")
     out["_pct"], out["_shc"] = pct, shc  # kept for the hold-out test; dropped before output
-    sh_tot, sh_prom = shc.get("ShareholdingPatternMember"), shc.get("ShareholdingOfPromoterAndPromoterGroupMember")
+    sh_tot, sh_prom = (
+        shc.get("ShareholdingPatternMember"),
+        shc.get("ShareholdingOfPromoterAndPromoterGroupMember"),
+    )
     if (
         cell is None
         and fmt == "unknown"
@@ -324,7 +347,10 @@ def analyse(txt, qe):
             "ins": 0.0,
         }
         # shareholder count, same rule as parse_shp: whole-company count, dropped when below the public count
-        nsh, nsh_pub = holders.get("ShareholdingPatternMember"), holders.get("PublicShareholdingMember")
+        nsh, nsh_pub = (
+            holders.get("ShareholdingPatternMember"),
+            holders.get("PublicShareholdingMember"),
+        )
         if nsh and nsh > 0 and not (nsh_pub and nsh < nsh_pub):
             out["cell"]["nsh"] = nsh
     if fmt == "new" and sh_pub is not None:
@@ -345,12 +371,17 @@ def analyse(txt, qe):
         base = sum(shc.get(k, 0.0) for k in no_gov)
         subsets = [[]]
         for g_ in gov_present:
-            subsets += [[*x, g_] for x in subsets]
-        out["partition_closes"] = any(abs(sh_pub - base - sum(shc.get(g_, 0.0) for g_ in sub)) < 0.5 for sub in subsets)
+            subsets += [x + [g_] for x in subsets]
+        out["partition_closes"] = any(
+            abs(sh_pub - base - sum(shc.get(g_, 0.0) for g_ in sub)) < 0.5 for sub in subsets
+        )
     if fmt == "old" and shc.get("InstitutionsMember") is not None:
         # §180c old-format split proof: the institutions total equals its sub-rows share for share, so a side whose rows are
         # all empty is PROVEN to hold nothing (APLAB Jun-2022: 2,300 shares, all MutualFundsOrUti -> no FPI).
-        f_rows = ("InstitutionsForeignPortfolioInvestorMember", "ForeignVentureCapitalInvestorsMember")
+        f_rows = (
+            "InstitutionsForeignPortfolioInvestorMember",
+            "ForeignVentureCapitalInvestorsMember",
+        )
         d_rows = (
             "MutualFundsOrUtiMember",
             "MutualFundsOrUTIMember",
@@ -362,16 +393,24 @@ def analyse(txt, qe):
             "OtherInstitutionsMember",
         )
         fs, ds = sum(shc.get(k, 0.0) for k in f_rows), sum(shc.get(k, 0.0) for k in d_rows)
-        out["old_split"] = {"closes": abs(shc["InstitutionsMember"] - fs - ds) < 0.5, "fii_rows": fs, "dii_rows": ds}
+        out["old_split"] = {
+            "closes": abs(shc["InstitutionsMember"] - fs - ds) < 0.5,
+            "fii_rows": fs,
+            "dii_rows": ds,
+        }
     if fmt == "old":
         o_other = pct.get("OtherInstitutionsMember") or 0.0
         if o_other or inst_lbl:
             out["ambiguity"].append(f"R1 institutional Any-Other {o_other:.4f} {inst_lbl[:3]}")
         for l in sorted(set(non_lbl)):
             if DOM_LBL.search(l):
-                out["ambiguity"].append("R2 non-institution row labelled domestic institution: " + l)
+                out["ambiguity"].append(
+                    "R2 non-institution row labelled domestic institution: " + l
+                )
             elif FOR_LBL.search(l):
-                out["ambiguity"].append("R2-FII non-institution row labelled foreign institution: " + l)
+                out["ambiguity"].append(
+                    "R2-FII non-institution row labelled foreign institution: " + l
+                )
     return out
 
 
@@ -380,14 +419,16 @@ def load_inputs(cache):
     hist = json.load(open(os.path.join(HERE, "shp_history.json"), encoding="utf-8"))
     rename = json.load(open(os.path.join(HERE, "_rename_map.json"), encoding="utf-8"))
     js = open(os.path.join(REPO, "docs", "backtest-engine.js"), encoding="utf-8").read()
-    m = re.search(r"const FUND_ALIAS\s*=\s*(\{.*?\});", js, re.DOTALL)
+    m = re.search(r"const FUND_ALIAS\s*=\s*(\{.*?\});", js, re.S)
     fund_alias = json.loads(m.group(1)) if m else {}
     # §197: a BSE-only ticker that is also a FORMER NSE ticker of another company (docs/bse_alias_collisions.json —
     # WORTH = Worth Investment, NSE's WORTH -> WORTHPERI) is not a relative of that company: the rename edges on it are
     # NSE facts. Linking them made every WORTH quarter "stored under a former ticker" (WORTHPERI's) and never fetched.
     try:
         coll = set(
-            json.load(open(os.path.join(REPO, "docs", "bse_alias_collisions.json"), encoding="utf-8"))["collisions"]
+            json.load(
+                open(os.path.join(REPO, "docs", "bse_alias_collisions.json"), encoding="utf-8")
+            )["collisions"]
         )
     except Exception as e:
         sys.exit(f"ABORT: docs/bse_alias_collisions.json unreadable ({e})")
@@ -418,7 +459,9 @@ def load_inputs(cache):
     if os.path.exists(p):
         for s, lst in json.load(open(p)).items():
             isins[s.upper()] |= {i.upper() for i in lst}
-    p = os.environ.get("SHP_ISIN_TAPE") or os.path.expanduser("~/stocks-cache/univ/sf_recent_now.bin")
+    p = os.environ.get("SHP_ISIN_TAPE") or os.path.expanduser(
+        "~/stocks-cache/univ/sf_recent_now.bin"
+    )
     if os.path.exists(p):
         tape = json.loads(gzip.open(p).read())
         for s, mt in (tape.get("meta") or {}).items():
@@ -433,7 +476,9 @@ def load_inputs(cache):
                     continue
                 if k in man and mp == "manifest_nse_all.json" and v.get("reused"):
                     continue
-                path = v.get("path") or os.path.join(cache, "xbrl_nse", k.replace("|", "_") + ".xml")
+                path = v.get("path") or os.path.join(
+                    cache, "xbrl_nse", k.replace("|", "_") + ".xml"
+                )
                 if os.path.exists(path) and os.path.getsize(path) > 0:
                     man[k] = dict(v, path=path)
     return hist, relatives, isins, man
@@ -442,6 +487,31 @@ def load_inputs(cache):
 def read_doc(path):
     b = open(path, "rb").read()
     return gzip.decompress(b) if path.endswith(".gz") else b
+
+
+def pattern_kind(raw):
+    """§224: what kind of shareholding pattern a BSE XBRL is, from its own fields -> {event, prelisting, instant}.
+    event = Regulation 31(1)(c) / 'Capital Restructuring' (filed on an allotment or capital change, as on that date);
+    prelisting = Regulation 31(1)(a) / 'Pre-listing'; instant = the date most of the document's contexts carry (a quarterly
+    pattern's is its quarter-end; MBLINFRA's Capital Restructuring file of 5-Jun-2026 carries 2026-05-30 under a 2026-03-31
+    DateOfReport)."""
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8")
+
+    def fld(name):
+        m = re.search(rb"<[A-Za-z0-9_-]+:" + name + rb"\b[^>]*>([^<]*)<", raw)
+        return m.group(1).decode("utf-8", "replace").strip() if m else ""
+
+    typ = fld(b"TypeOfReport").lower()
+    und = re.sub(r"\s+", "", fld(b"ShareholdingPatternFiledUnder")).lower()
+    inst = collections.Counter(
+        m.group(1).decode() for m in re.finditer(rb"<(?:xbrli:)?instant>([^<]+)<", raw)
+    )
+    return {
+        "event": "31(1)(c)" in und or "capitalrestructuring" in typ.replace(" ", ""),
+        "prelisting": "31(1)(a)" in und or "pre-listing" in typ or "prelisting" in typ,
+        "instant": inst.most_common(1)[0][0].strip() if inst else None,
+    }
 
 
 # ------------------------------------------------------------------------------------------ master + download
@@ -494,7 +564,9 @@ def stage_download(cache, workers=4):
             if os.path.getsize(os.path.join(d1, f)) > 0:
                 s_, q_ = f[:-4].rsplit("_", 1)
                 have[f"{s_}|{q_}"] = os.path.join(d1, f)
-    idx2 = os.path.join(cache, "xbrl_nse2_index.json")  # FII session's NSE cache, indexed by Symbol/as-on
+    idx2 = os.path.join(
+        cache, "xbrl_nse2_index.json"
+    )  # FII session's NSE cache, indexed by Symbol/as-on
     if os.path.exists(idx2):
         base = os.path.expanduser("~/stocks-cache/shp/fii_session/shp_src/xbrl_nse2")
         for f, (s_, isin_, q_) in json.load(open(idx2)).items():
@@ -507,7 +579,11 @@ def stage_download(cache, workers=4):
             continue
         for r in json.load(open(os.path.join(M, f))):
             sym = str(r.get("symbol") or "").upper().strip()
-            if F.iso_date(r.get("date")) != qe or not sym or not str(r.get("xbrl") or "").startswith("http"):
+            if (
+                F.iso_date(r.get("date")) != qe
+                or not sym
+                or not str(r.get("xbrl") or "").startswith("http")
+            ):
                 continue
             k, sub = f"{sym}|{qe}", F.visible_iso(r) or ""
             if k not in want or sub >= want[k]["sub"]:
@@ -629,7 +705,9 @@ def bse_pick(rows):
             r["_date"] = str(new[0]["filing_date_time"])[:10]
             r["_kind"] = "original"
         else:
-            rev = sorted([r for r in rs if r.get("revised_date_time")], key=lambda r: r["revised_date_time"])
+            rev = sorted(
+                [r for r in rs if r.get("revised_date_time")], key=lambda r: r["revised_date_time"]
+            )
             if not rev:
                 continue
             r = dict(rev[0])
@@ -646,24 +724,31 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
     import urllib.error
     import urllib.request
 
-    import bse_headers
+    import bse_headers  # noqa: F401  (installs the standard header set)
 
     T = json.load(open(os.path.join(cache, "bse_targets.json")))
     LD, XD = os.path.join(cache, "bse_lists_v2"), os.path.join(cache, "xbrl_bse_v2")
     os.makedirs(LD, exist_ok=True)
     os.makedirs(XD, exist_ok=True)
-    hist, relatives, _isins, _man = load_inputs(cache)
+    hist, relatives, isins, man = load_inputs(cache)
     try:
         d = json.loads(gzip.open(os.path.join(REPO, "docs", "stock_data.bin")).read())
-        mc = {m.get("symbol"): (m.get("mcap") or 0) for k, m in d["meta"].items() if k.endswith(".BO")}
+        mc = {
+            m.get("symbol"): (m.get("mcap") or 0) for k, m in d["meta"].items() if k.endswith(".BO")
+        }
     except Exception:
         mc = {}
-    codes = sorted((c for c, v in T.items() if not v.get("isin_conflict")), key=lambda c: -(mc.get(T[c]["sym"]) or 0))
+    codes = sorted(
+        (c for c, v in T.items() if not v.get("isin_conflict")),
+        key=lambda c: -(mc.get(T[c]["sym"]) or 0),
+    )
     if codes_file:  # a later round: only the codes a list names
         want = {str(c) for c in json.load(open(codes_file))}
         codes = [c for c in codes if c in want]
     k_, n_ = (int(x) for x in shard.split("/"))
-    codes = [c for c in codes if int(c) % n_ == k_]  # deterministic split across machines (--shard k/n)
+    codes = [
+        c for c in codes if int(c) % n_ == k_
+    ]  # deterministic split across machines (--shard k/n)
     log = open(os.path.join(cache, "bse_stage.log"), "a")
 
     def say(*a):
@@ -678,7 +763,11 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
             try:
                 with urllib.request.urlopen(url, timeout=60) as r:
                     b = r.read()
-                ok = (b[:1] in (b"{", b"[")) if kind == "list" else (b"xbrl" in b[:4000].lower() and len(b) > 1500)
+                ok = (
+                    (b[:1] in (b"{", b"["))
+                    if kind == "list"
+                    else (b"xbrl" in b[:4000].lower() and len(b) > 1500)
+                )
                 if ok:
                     fails = 0
                     time.sleep(0.6)
@@ -697,7 +786,9 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
                 say("3 refusals in a row -> pausing 10 min")
                 time.sleep(600)
                 if fails >= 6:
-                    raise SystemExit("BSE refusing repeatedly; stopped (resume later, nothing is lost)")
+                    raise SystemExit(
+                        "BSE refusing repeatedly; stopped (resume later, nothing is lost)"
+                    )
             time.sleep(2)
         return None
 
@@ -710,7 +801,9 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
         sym = T[code]["sym"]
         lp = os.path.join(LD, code + ".json")
         if not os.path.exists(lp):
-            b = get(f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}", "list")
+            b = get(
+                f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}", "list"
+            )
             if b is None:
                 say("no list", code, sym)
                 continue
@@ -737,7 +830,10 @@ def stage_bse(cache, cap=20000, shard="0/1", max_minutes=0, codes_file=None):
                 open(xp, "wb").write(gzip.compress(b))
                 n_files += 1
         if (i + 1) % 50 == 0:
-            say("progress %d/%d scrips, %d lists, %d files, %d requests" % (i + 1, len(codes), n_lists, n_files, n_req))
+            say(
+                "progress %d/%d scrips, %d lists, %d files, %d requests"
+                % (i + 1, len(codes), n_lists, n_files, n_req)
+            )
     say("DONE %d scrips, %d lists, %d files, %d requests" % (len(codes), n_lists, n_files, n_req))
 
 
@@ -773,7 +869,11 @@ def stage_rowlevel(cache):
             if (s_, q_) not in want and e_.get("file"):
                 want[(s_, q_)] = {
                     "src": e_.get("src")
-                    or ("bsexbrl:" + e_["file"] if not e_["file"].startswith("SHP_") else "nse:" + e_["file"])
+                    or (
+                        "bsexbrl:" + e_["file"]
+                        if not e_["file"].startswith("SHP_")
+                        else "nse:" + e_["file"]
+                    )
                 }
     T = json.load(open(os.path.join(cache, "bse_targets.json")))
     code_of = {v["sym"]: c for c, v in T.items()}
@@ -783,13 +883,21 @@ def stage_rowlevel(cache):
     os.makedirs(plain, exist_ok=True)
     D.CACHES[:] = [plain]  # find_file() looks here (plain XML, as the heal tools expect)
     hist = json.load(open(os.path.join(HERE, "shp_history.json"), encoding="utf-8"))
-    fills_led = json.load(gzip.open(LEDGER, "rt", encoding="utf-8")).get("fills", {}) if os.path.exists(LEDGER) else {}
+    fills_led = (
+        json.load(gzip.open(LEDGER, "rt", encoding="utf-8")).get("fills", {})
+        if os.path.exists(LEDGER)
+        else {}
+    )
     verdicts = D.load_verdicts()
 
     def held_doc(sym, qe, src):
         kind, f = src.split(":", 1)
         f = f.split()[0]
-        path = os.path.join(XD, f + ".gz") if kind == "bsexbrl" else (man.get(f"{sym}|{qe}") or {}).get("path")
+        path = (
+            os.path.join(XD, f + ".gz")
+            if kind == "bsexbrl"
+            else (man.get(f"{sym}|{qe}") or {}).get("path")
+        )
         return f, (read_doc(path) if path and os.path.exists(path) else None)
 
     out, st, sym_inputs = {}, collections.Counter(), {}
@@ -799,13 +907,19 @@ def stage_rowlevel(cache):
         bse_rows = (json.load(open(lp)).get("Table") or []) if lp and os.path.exists(lp) else []
         for r in bse_rows:  # plain copies of this scrip's cached filings
             xf = str(r.get("XbrlFile") or "").strip()
-            if xf and os.path.exists(os.path.join(XD, xf + ".gz")) and not os.path.exists(os.path.join(plain, xf)):
+            if (
+                xf
+                and os.path.exists(os.path.join(XD, xf + ".gz"))
+                and not os.path.exists(os.path.join(plain, xf))
+            ):
                 open(os.path.join(plain, xf), "wb").write(read_doc(os.path.join(XD, xf + ".gz")))
         byq = D.quarter_files(bse_rows)
         ctx, fctx = D.SymCtx(sym, bse_rows, verdicts), X.FiiCtx(sym, bse_rows, verdicts)
         sym_inputs[sym] = (bse_rows, byq)
         quarters = sorted(set(byq) | {q_ for s_, q_ in want if s_ == sym})
-        for qe, final in [(q_, False) for q_ in reversed(quarters)] + [(q_, True) for q_ in quarters]:
+        for qe, final in [(q_, False) for q_ in reversed(quarters)] + [
+            (q_, True) for q_ in quarters
+        ]:
             key = (sym, qe)
             if key in want:
                 f, txt = held_doc(sym, qe, want[key]["src"])
@@ -821,7 +935,15 @@ def stage_rowlevel(cache):
                         out["{}|{}".format(*key)] = {"file": f, "status": "parse refused"}
                         st["parse refused"] += 1
                     continue
-                cur = [res["prom"], res["fii"], res["dii"], res.get("mf"), res.get("ins"), None, None]
+                cur = [
+                    res["prom"],
+                    res["fii"],
+                    res["dii"],
+                    res.get("mf"),
+                    res.get("ins"),
+                    None,
+                    None,
+                ]
             else:
                 cur = (hist.get(sym) or {}).get(qe)
                 if not cur:
@@ -869,7 +991,12 @@ def stage_rowlevel(cache):
                 if dd >= 0.005:
                     ev += dev
                 if lab_unres >= 0.005:
-                    ev.append(("labelled rows kept in dii (not an unnamed remainder)", round(lab_unres, 4)))
+                    ev.append(
+                        (
+                            "labelled rows kept in dii (not an unnamed remainder)",
+                            round(lab_unres, 4),
+                        )
+                    )
             ins = res.get("ins")
             if r["add_ins"] > 0 and ins is not None:
                 ins = round(r["ins_base"] + r["add_ins"], 4)
@@ -881,7 +1008,9 @@ def stage_rowlevel(cache):
                 "fii_r": r["t_fii"],
                 "dii_r": r["t_dii"],
                 "m159": round(mv159, 4) if mv159 >= 0.005 else 0.0,
-                "m159_labels": sorted({str(e[1]) for e in rf["ev"] if e[0] == "R2FII-label"}) if mv159 >= 0.005 else [],
+                "m159_labels": sorted({str(e[1]) for e in rf["ev"] if e[0] == "R2FII-label"})
+                if mv159 >= 0.005
+                else [],
                 "d1": dd if dd >= 0.005 else 0.0,
                 "ins": ins,
                 "newmap_file": ctx.newfile,
@@ -933,7 +1062,9 @@ def stage_rowlevel(cache):
             dd, _ = D1.d1_delta(r, bd, res, cur, 0.0, 0.0)
             dd = min(dd, r["t_dii"])
             lab = sum(
-                float(e[2]) for e in r["ev"] if e[0] == "R1-unresolved" and not GENERIC_LBL.fullmatch(str(e[1]).strip())
+                float(e[2])
+                for e in r["ev"]
+                if e[0] == "R1-unresolved" and not GENERIC_LBL.fullmatch(str(e[1]).strip())
             )
             lab += sum(float(e[2]) for e in r["ev"] if e[0] == "R1-named-unresolved-kept")
             dd = max(0.0, round(dd - lab, 4))
@@ -942,13 +1073,19 @@ def stage_rowlevel(cache):
                 "fii_r": r["t_fii"],
                 "dii_r": r["t_dii"],
                 "m159": round(mv, 4) if mv >= 0.005 else 0.0,
-                "m159_labels": sorted({str(e[1]) for e in rf["ev"] if e[0] == "R2FII-label"}) if mv >= 0.005 else [],
+                "m159_labels": sorted({str(e[1]) for e in rf["ev"] if e[0] == "R2FII-label"})
+                if mv >= 0.005
+                else [],
                 "d1": dd if dd >= 0.005 else 0.0,
             }
         return None
 
     for sym in sorted({k.split("|")[0] for k in out}):
-        cells = {k.split("|")[1]: v for k, v in out.items() if k.split("|")[0] == sym and v.get("status") == "pending"}
+        cells = {
+            k.split("|")[1]: v
+            for k, v in out.items()
+            if k.split("|")[0] == sym and v.get("status") == "pending"
+        }
         if not cells:
             continue
         decided = {}  # component -> (destination, amount at the seam)
@@ -980,8 +1117,12 @@ def stage_rowlevel(cache):
             }
             best = sorted(variants.items(), key=lambda x: x[1])
             amt = min([x for x in (m, d) if x] or [0.0])
-            if best and best[0][1] <= 0.05 + 0.1 * (m + d) and (len(best) == 1 or best[1][1] - best[0][1] >= 0.5 * amt):
-                (md, dd_), _err = best[0]
+            if (
+                best
+                and best[0][1] <= 0.05 + 0.1 * (m + d)
+                and (len(best) == 1 or best[1][1] - best[0][1] >= 0.5 * amt)
+            ):
+                (md, dd_), err = best[0]
                 if m:
                     decided["m159"] = (md, m)
                 if d:
@@ -999,7 +1140,12 @@ def stage_rowlevel(cache):
                 if not amt:
                     continue
                 dec = live.get(comp)
-                same_row = comp == "m159" and dec is not None and seam_labels and c.get("m159_labels") == seam_labels
+                same_row = (
+                    comp == "m159"
+                    and dec is not None
+                    and seam_labels
+                    and c.get("m159_labels") == seam_labels
+                )
                 if dec is None or (not same_row and abs(amt - dec[1]) > max(0.02, 0.03 * dec[1])):
                     ok = False
                     live.pop(comp, None)
@@ -1015,10 +1161,16 @@ def stage_rowlevel(cache):
                         f"{comp} {amt:.4f} -> public (seam: the filer's 2022 form lists it under Non-institutions)"
                     )
                 else:
-                    note.append(f"{comp} {amt:.4f} stays (the 2022-form seam keeps it where the raw reading has it)")
+                    note.append(
+                        f"{comp} {amt:.4f} stays (the 2022-form seam keeps it where the raw reading has it)"
+                    )
             parts = (
                 ["R1-R3 (§158)"]
-                + (["R2-FII (§159)"] if c["m159"] and decided.get("m159", ("stay",))[0] == "fii" else [])
+                + (
+                    ["R2-FII (§159)"]
+                    if c["m159"] and decided.get("m159", ("stay",))[0] == "fii"
+                    else []
+                )
                 + (
                     ["D1 unnamed remainder -> FII (§164c)"]
                     if c["d1"] and decided.get("d1", ("stay",))[0] == "fii"
@@ -1032,7 +1184,11 @@ def stage_rowlevel(cache):
             )
             if ok:
                 c.update(
-                    status="resolved", fii=round(max(fii, 0.0), 4), dii=round(max(dii, 0.0), 4), parts=parts, seam=note
+                    status="resolved",
+                    fii=round(max(fii, 0.0), 4),
+                    dii=round(max(dii, 0.0), 4),
+                    parts=parts,
+                    seam=note,
                 )
                 st["resolved"] += 1
             else:
@@ -1040,7 +1196,10 @@ def stage_rowlevel(cache):
                 st["held: convention move unconfirmed"] += 1
     json.dump(
         {
-            "_meta": {"built": time.strftime("%Y-%m-%d %H:%M IST"), "rule": stage_rowlevel.__doc__.split(". ")[0]},
+            "_meta": {
+                "built": time.strftime("%Y-%m-%d %H:%M IST"),
+                "rule": stage_rowlevel.__doc__.split(". ")[0],
+            },
             "cells": out,
         },
         open(ROWLEVEL, "w", encoding="utf-8"),
@@ -1051,9 +1210,7 @@ def stage_rowlevel(cache):
 
 
 # ------------------------------------------------------------------------------------------ incremental update (§180e)
-HONEST_UA = (
-    "stocks-dashboard-research/1.0"  # our own name; NSE's master API and nsearchives serve it (measured 2026-09-27)
-)
+HONEST_UA = "stocks-dashboard-research/1.0"  # our own name; NSE's master API and nsearchives serve it (measured 2026-09-27)
 MASTER_WINDOW_DAYS = 200
 
 
@@ -1079,7 +1236,7 @@ def stage_update(cache, quarters=None, max_minutes=0):
     import urllib.error
     import urllib.request
 
-    import bse_headers
+    import bse_headers  # noqa: F401  (honest header set on *.bseindia.com)
 
     qes = sorted(quarters or window_qes())
     t_end = time.time() + max_minutes * 60 if max_minutes else None
@@ -1098,17 +1255,25 @@ def stage_update(cache, quarters=None, max_minutes=0):
         print(*a, flush=True)
 
     hist, relatives, _isins, _man = load_inputs(cache)
-    led = json.load(gzip.open(LEDGER, "rt", encoding="utf-8")).get("fills", {}) if os.path.exists(LEDGER) else {}
+    led = (
+        json.load(gzip.open(LEDGER, "rt", encoding="utf-8")).get("fills", {})
+        if os.path.exists(LEDGER)
+        else {}
+    )
 
     # stored under the symbol or any rename relative (a quarter kept under a former ticker is not owed again)
     def have(s_, q_):
-        return any(q_ in (hist.get(x) or {}) or q_ in (led.get(x) or {}) for x in {s_} | relatives(s_))
+        return any(
+            q_ in (hist.get(x) or {}) or q_ in (led.get(x) or {}) for x in {s_} | relatives(s_)
+        )
 
     meta = json.loads(gzip.open(os.path.join(REPO, "docs", "stock_data.bin")).read())["meta"]
     bysym = collections.defaultdict(set)
     for k_, m_ in meta.items():
         bysym[m_.get("symbol") or k_.split(".")[0]].add(k_)
-    sme = {s_ for s_, ks in bysym.items() for k_ in ks if k_.endswith(".NS") and meta[k_].get("sme")}
+    sme = {
+        s_ for s_, ks in bysym.items() for k_ in ks if k_.endswith(".NS") and meta[k_].get("sme")
+    }
     say("update window %s | NSE SME symbols %d" % (qes, len(sme)))
     # ---- NSE SME board
     H = {
@@ -1119,7 +1284,9 @@ def stage_update(cache, quarters=None, max_minutes=0):
     }
 
     def get(url, timeout=120):
-        return urllib.request.urlopen(urllib.request.Request(url, headers=H), timeout=timeout).read()
+        return urllib.request.urlopen(
+            urllib.request.Request(url, headers=H), timeout=timeout
+        ).read()
 
     MP = os.path.join(cache, "manifest_nse_all.json")
     man = json.load(open(MP)) if os.path.exists(MP) else {}
@@ -1162,7 +1329,10 @@ def stage_update(cache, quarters=None, max_minutes=0):
                     "revised": str(r.get("revisedData") or ""),
                     "idx": "sme",
                 }
-        say("NSE SME %s: %d master rows, %d new quarter-end filings to fetch" % (qe, len(recs), len(want)))
+        say(
+            "NSE SME %s: %d master rows, %d new quarter-end filings to fetch"
+            % (qe, len(recs), len(want))
+        )
         for k, v in sorted(want.items()):
             if t_end and time.time() > t_end:
                 say("time limit reached")
@@ -1182,9 +1352,16 @@ def stage_update(cache, quarters=None, max_minutes=0):
     # ---- BSE-only companies: the committed targets + any BSE-only dashboard company bse_universe maps a code to
     T = json.load(open(os.path.join(HERE, "_shp_bse_targets.json")))
     try:
-        for r_ in json.load(open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8"))["rows"]:
+        for r_ in json.load(
+            open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8")
+        )["rows"]:
             c_, s_ = str(r_[0]), r_[1]
-            if c_ not in T and s_ and (s_ + ".NS") not in meta and any(k_.endswith(".BO") for k_ in bysym.get(s_, ())):
+            if (
+                c_ not in T
+                and s_
+                and (s_ + ".NS") not in meta
+                and any(k_.endswith(".BO") for k_ in bysym.get(s_, ()))
+            ):
                 T[c_] = {
                     "sym": s_,
                     "grp": "BSE-only",
@@ -1199,7 +1376,9 @@ def stage_update(cache, quarters=None, max_minutes=0):
     # company (nothing in the four quarters before the window) is not re-asked every run — both measured 2026-09-27: 203
     # half-yearly filers, 57 dormant of 2,262 BSE-only companies
     def owed(sym):
-        qs_ = set().union(*[set(hist.get(x) or {}) | set(led.get(x) or {}) for x in {sym} | relatives(sym)])
+        qs_ = set().union(
+            *[set(hist.get(x) or {}) | set(led.get(x) or {}) for x in {sym} | relatives(sym)]
+        )
         lo = QES[max(0, QES.index(qes[0]) - 8)] if qes[0] in QES else "0000"
         recent = [q_ for q_ in qs_ if lo <= q_ < qes[0]]
         half = len(recent) >= 3 and all(q_[5:7] in ("03", "09") for q_ in recent)
@@ -1208,7 +1387,9 @@ def stage_update(cache, quarters=None, max_minutes=0):
         return [q_ for q_ in qes if not have(sym, q_) and not (half and q_[5:7] in ("06", "12"))]
 
     codes = sorted(
-        c_ for c_, v in T.items() if v.get("grp") == "BSE-only" and not v.get("isin_conflict") and owed(v["sym"])
+        c_
+        for c_, v in T.items()
+        if v.get("grp") == "BSE-only" and not v.get("isin_conflict") and owed(v["sym"])
     )
     say("BSE-only companies owing a window quarter: %d" % len(codes))
     fails = n_req = n_files = 0
@@ -1220,7 +1401,11 @@ def stage_update(cache, quarters=None, max_minutes=0):
             try:
                 with urllib.request.urlopen(url, timeout=60) as r:
                     b = r.read()
-                ok = (b[:1] in (b"{", b"[")) if kind == "list" else (b"xbrl" in b[:4000].lower() and len(b) > 1500)
+                ok = (
+                    (b[:1] in (b"{", b"["))
+                    if kind == "list"
+                    else (b"xbrl" in b[:4000].lower() and len(b) > 1500)
+                )
                 if ok:
                     fails = 0
                     time.sleep(0.6)
@@ -1247,7 +1432,9 @@ def stage_update(cache, quarters=None, max_minutes=0):
         if t_end and time.time() > t_end:
             say("time limit reached — the next run continues")
             break
-        b = bget(f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}", "list")
+        b = bget(
+            f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}", "list"
+        )
         if b is None:
             continue
         open(os.path.join(LD, code + ".json"), "wb").write(b)
@@ -1278,7 +1465,9 @@ def build(cache, window=None):
     hist, relatives, isins, man = load_inputs(cache)
     # WINDOW mode (§180e, stage `update`): only the given quarters are evaluated, on top of the store as it is — every
     # landed cell stays landed (fill-only), and the result is MERGED onto the committed ledger at the end.
-    prev_led = json.load(gzip.open(LEDGER, "rt", encoding="utf-8")) if os.path.exists(LEDGER) else {}
+    prev_led = (
+        json.load(gzip.open(LEDGER, "rt", encoding="utf-8")) if os.path.exists(LEDGER) else {}
+    )
     # Re-runs must reproduce the ledger: cells this ledger itself landed are treated as NOT stored (otherwise a
     # rebuild after landing sees every cell as "already stored" and writes an empty ledger that CI then applies).
     released = set()  # (sym, qe) this fill landed and now re-judges
@@ -1289,7 +1478,10 @@ def build(cache, window=None):
                 if q_ in (hist.get(s_) or {}):
                     del hist[s_][q_]
                     released.add((s_, q_))
-        print("previous ledger: %d cells treated as not yet stored" % sum(len(v) for v in prev.values()))
+        print(
+            "previous ledger: %d cells treated as not yet stored"
+            % sum(len(v) for v in prev.values())
+        )
     # §180c: so is every store cell the COMMITTED ledger wrote (identical values) — a rebuild that removes a wrong cell
     # (BRIGHT: Bright Solar's quarters) must see its quarter as open, or the right company's filing is skipped as
     # "already stored" behind the wrong value it is meant to replace
@@ -1297,7 +1489,8 @@ def build(cache, window=None):
         import subprocess
 
         _b = subprocess.run(
-            ["git", "-C", REPO, "show", "HEAD:scripts/shp_fill_allstocks.json.gz"], capture_output=True
+            ["git", "-C", REPO, "show", "HEAD:scripts/shp_fill_allstocks.json.gz"],
+            capture_output=True,
         ).stdout
         head = json.loads(gzip.decompress(_b)).get("fills", {}) if (_b and not window) else {}
     except Exception as e:
@@ -1312,7 +1505,9 @@ def build(cache, window=None):
                 n_head += 1
                 released.add((s_, q_))
     if n_head:
-        print("committed ledger: %d more stored cells written by this fill treated as open" % n_head)
+        print(
+            "committed ledger: %d more stored cells written by this fill treated as open" % n_head
+        )
     t0 = time.time()
     docs = {}  # (sym, qe) -> analysis + meta
     for k, v in man.items():
@@ -1355,7 +1550,9 @@ def build(cache, window=None):
     for i_, c_ in _bs.get("by_isin", {}).items():
         _code_is[str(c_)].add(i_.upper()[:7])
     try:
-        for r_ in json.load(open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8"))["rows"]:
+        for r_ in json.load(
+            open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8")
+        )["rows"]:
             if r_[3]:
                 _code_is[str(r_[0])].add(str(r_[3]).upper()[:7])
     except Exception:
@@ -1368,14 +1565,17 @@ def build(cache, window=None):
         if n_is and _code_is.get(code_) and not (n_is & _code_is[code_]):
             nse_other[tv_["sym"]] = (
                 "NSE ticker {} is another company ({}) than the dashboard's BSE scrip {} ({})".format(
-                    tv_["sym"], min(n_is), code_, min(_code_is[code_])
+                    tv_["sym"], sorted(n_is)[0], code_, sorted(_code_is[code_])[0]
                 )
             )
     set_aside = {}
     for key_ in [k_ for k_ in docs if k_[0] in nse_other]:
         set_aside[key_] = docs.pop(key_)
     if set_aside:
-        print("NSE documents set aside (another company under a dashboard BSE key): %d" % len(set_aside))
+        print(
+            "NSE documents set aside (another company under a dashboard BSE key): %d"
+            % len(set_aside)
+        )
     for code, tv in T.items():
         lp = os.path.join(LD, code + ".json")
         if tv.get("isin_conflict") or not os.path.exists(lp):
@@ -1432,7 +1632,9 @@ def build(cache, window=None):
     dash_keys = set(_meta)
     del _meta
     try:
-        for r_ in json.load(open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8"))["rows"]:
+        for r_ in json.load(
+            open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8")
+        )["rows"]:
             if r_[2]:
                 names_code[str(r_[0])].add(r_[2])
     except Exception as e:
@@ -1442,24 +1644,30 @@ def build(cache, window=None):
             names_code[c_].add(t_["name"])
     uni_ticker = {}  # bse_universe: scrip code -> the dashboard's ticker
     try:
-        for r_ in json.load(open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8"))["rows"]:
+        for r_ in json.load(
+            open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8")
+        )["rows"]:
             uni_ticker[str(r_[0])] = r_[1]
     except Exception as e:
         print(f"WARN bse_universe tickers unreadable ({e})")
     _js = open(os.path.join(REPO, "docs", "backtest-engine.js"), encoding="utf-8").read()
-    _m = re.search(r"const FUND_ALIAS\s*=\s*(\{.*?\});", _js, re.DOTALL)
+    _m = re.search(r"const FUND_ALIAS\s*=\s*(\{.*?\});", _js, re.S)
     _fa = json.loads(_m.group(1)) if _m else {}
     fund_alias_keys = set(_fa) | {v for v in _fa.values() if isinstance(v, str)}
     # §197: an alias whose OLD key is a PROVEN BSE-ticker collision (docs/bse_alias_collisions.json — the BSE scrip's
     # ISIN issuer is none of the target's) is an NSE fact about another company; it no longer makes the key ambiguous.
     try:
-        _coll = json.load(open(os.path.join(REPO, "docs", "bse_alias_collisions.json"), encoding="utf-8"))["collisions"]
+        _coll = json.load(
+            open(os.path.join(REPO, "docs", "bse_alias_collisions.json"), encoding="utf-8")
+        )["collisions"]
     except Exception as e:
         sys.exit(f"ABORT: docs/bse_alias_collisions.json unreadable ({e})")
     fund_alias_keys -= {o for o, c in _coll.items() if _fa.get(o) == c.get("target")}
 
     def name_ok(a, sym, code=None):
-        on_record = names_sym.get(sym, set()) | (names_code.get(str(code), set()) if code else set())
+        on_record = names_sym.get(sym, set()) | (
+            names_code.get(str(code), set()) if code else set()
+        )
         return bool(a.get("cname")) and any(names_match(a["cname"], n_) for n_ in on_record)
 
     def norm_isin(i):
@@ -1472,7 +1680,9 @@ def build(cache, window=None):
     for isin_, code_ in bs.get("by_isin", {}).items():
         code_isins[str(code_)].add(isin_.upper())
     try:
-        for r_ in json.load(open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8"))["rows"]:
+        for r_ in json.load(
+            open(os.path.join(REPO, "docs", "bse_universe.json"), encoding="utf-8")
+        )["rows"]:
             if r_[3]:
                 code_isins[str(r_[0])].add(str(r_[3]).upper())
     except Exception as e:
@@ -1486,18 +1696,23 @@ def build(cache, window=None):
         build_stock_fin folds BSE fundamentals under)."""
         code = a["bse_code"]
         fi = a.get("isin") or ""
-        known = code_isins.get(code, set()) | set().union(*[isins.get(x, set()) for x in ({sym} | relatives(sym))])
+        known = code_isins.get(code, set()) | set().union(
+            *[isins.get(x, set()) for x in ({sym} | relatives(sym))]
+        )
         nknown = {norm_isin(k) for k in known}
         isin_ok = bool(fi) and (norm_isin(fi) in nknown or norm_isin(fi)[:7] in issuers(nknown))
         # an ISIN within two characters of the scrip's own (a typo or two transposed digits: INE209E01011 / INE290E01011)
         isin_near = bool(fi) and any(
-            len(fi) == len(k) and sum(x != y for x, y in zip(norm_isin(fi), k, strict=False)) <= 2 for k in nknown
+            len(fi) == len(k) and sum(x != y for x, y in zip(norm_isin(fi), k, strict=False)) <= 2
+            for k in nknown
         )
         if a.get("scrip") and a["scrip"] != code:
             # a wrong ScripCode fact (WHEELS files "600001") passes only when the company name agrees AND the ISIN agrees or
             # the file carries none (BSE's own list for the requested scrip named the file)
             if not ((isin_ok or not fi) and name_ok(a, sym, code)):
-                return "file ScripCode {} is not the requested scrip {}".format(a["scrip"], code), []
+                return "file ScripCode {} is not the requested scrip {}".format(
+                    a["scrip"], code
+                ), []
             a["id_note"] = "file ScripCode {} is a filer error: {}company name match".format(
                 a["scrip"], "ISIN + " if fi else ""
             )
@@ -1514,7 +1729,10 @@ def build(cache, window=None):
             elif not known:
                 return f"no ISIN on record for scrip {code} / {sym}", []
             else:
-                return f"file ISIN {fi} does not match scrip {code} / {sym} ISINs {sorted(known)[:3]}", []
+                return (
+                    f"file ISIN {fi} does not match scrip {code} / {sym} ISINs {sorted(known)[:3]}",
+                    [],
+                )
         elif a.get("scrip") != code:
             # no ISIN in the file: only BSE's own ScripCode fact (equal to the scrip whose list named the file) proves it
             return "file carries neither ISIN nor the requested ScripCode", []
@@ -1530,13 +1748,20 @@ def build(cache, window=None):
                 and sym not in fund_alias_keys
                 and (uni_ticker.get(str(code)) == sym or name_ok(a, sym, code))
             )
-            nse_is, own = isins.get(sym, set()), code_isins.get(code, set()) | ({fi} if fi else set())
+            nse_is, own = (
+                isins.get(sym, set()),
+                code_isins.get(code, set()) | ({fi} if fi else set()),
+            )
             if nse_is and own and not (issuers(own) & issuers(nse_is)):
                 if not sole_key:
-                    return f"BSE ticker {sym} is also an NSE ticker of another company ({sorted(nse_is)[:2]})", []
+                    return (
+                        f"BSE ticker {sym} is also an NSE ticker of another company ({sorted(nse_is)[:2]})",
+                        [],
+                    )
                 a["id_note"] = (
-                    a.get("id_note", "") + "; " if a.get("id_note") else ""
-                ) + f"NSE ticker {sym} is another company outside the dashboard; the dashboard key is this BSE scrip"
+                    (a.get("id_note", "") + "; " if a.get("id_note") else "")
+                    + f"NSE ticker {sym} is another company outside the dashboard; the dashboard key is this BSE scrip"
+                )
             if by_id_sym.get(code) and by_id_sym[code] != sym:
                 if not sole_key:
                     return (
@@ -1544,8 +1769,9 @@ def build(cache, window=None):
                         [],
                     )
                 a["id_note"] = (
-                    a.get("id_note", "") + "; " if a.get("id_note") else ""
-                ) + f"dashboard ticker {sym} (bse_universe) for scrip {code}, bse_scrips still has {by_id_sym[code]}"
+                    (a.get("id_note", "") + "; " if a.get("id_note") else "")
+                    + f"dashboard ticker {sym} (bse_universe) for scrip {code}, bse_scrips still has {by_id_sym[code]}"
+                )
         return None, []
 
     def identity(sym, a):
@@ -1562,15 +1788,31 @@ def build(cache, window=None):
             if known:
                 if norm_isin(fi)[:7] not in issuers(nknown) and norm_isin(fi) not in nknown:
                     if not name_ok(a, sym):
-                        return f"file ISIN {fi} does not match {sym}'s ISINs {sorted(known)[:3]}", []
+                        return (
+                            f"file ISIN {fi} does not match {sym}'s ISINs {sorted(known)[:3]}",
+                            [],
+                        )
                     a["id_note"] = f"file ISIN {fi} is a filer typo: company name matches {sym}"
-            elif not (tag_ok and (fi[:7] in issuers(isins.get(tag, set())) or norm_isin(fi) in isins.get(tag, set()))):
+            elif not (
+                tag_ok
+                and (
+                    fi[:7] in issuers(isins.get(tag, set()))
+                    or norm_isin(fi) in isins.get(tag, set())
+                )
+            ):
                 if not name_ok(a, sym):
-                    return f"no ISIN on record for {sym} and the file's own symbol does not vouch for {fi}", []
+                    return (
+                        f"no ISIN on record for {sym} and the file's own symbol does not vouch for {fi}",
+                        [],
+                    )
                 a["id_note"] = f"no ISIN on record for {sym}: company name matches"
             extra = (
                 [tag]
-                if tag_ok and (fi[:7] in issuers(isins.get(tag, set())) or norm_isin(fi) in isins.get(tag, set()))
+                if tag_ok
+                and (
+                    fi[:7] in issuers(isins.get(tag, set()))
+                    or norm_isin(fi) in isins.get(tag, set())
+                )
                 else []
             )
             return None, extra
@@ -1607,15 +1849,27 @@ def build(cache, window=None):
 
     # §180c: an old-format filing held as ambiguous takes its row-level placement (stage `rowlevel`) when one was
     # resolved for this very file; every later gate still runs on the result.
-    rl = (json.load(open(ROWLEVEL, encoding="utf-8")).get("cells") or {}) if os.path.exists(ROWLEVEL) else {}
+    rl = (
+        (json.load(open(ROWLEVEL, encoding="utf-8")).get("cells") or {})
+        if os.path.exists(ROWLEVEL)
+        else {}
+    )
     # §180c second reading of a held quarter (Screener verify-only, or the filing's own named holders): lets THAT file pass
     # the continuity / unproven-zero / holder-count gates; identity, format and bounds gates still apply
     sr_path = os.path.join(HERE, "_shp_allstocks_second_reader.json")
-    second = (json.load(open(sr_path, encoding="utf-8")).get("cells") or {}) if os.path.exists(sr_path) else {}
+    second = (
+        (json.load(open(sr_path, encoding="utf-8")).get("cells") or {})
+        if os.path.exists(sr_path)
+        else {}
+    )
 
     def second_ok(sym_, qe_, a_):
         e_ = second.get(f"{sym_}|{qe_}")
-        return e_ if e_ and str(a_.get("src", "")).split(":", 1)[-1].split()[0] == e_.get("file") else None
+        return (
+            e_
+            if e_ and str(a_.get("src", "")).split(":", 1)[-1].split()[0] == e_.get("file")
+            else None
+        )
 
     n_rl = 0
     for (sym, qe), a in docs.items():
@@ -1625,7 +1879,10 @@ def build(cache, window=None):
         if str(a.get("src", "")).split(":", 1)[-1].split()[0] != e["file"]:
             continue
         a["cell"] = dict(
-            a["cell"], fii=e["fii"], dii=e["dii"], **({"ins": e["ins"]} if e.get("ins") is not None else {})
+            a["cell"],
+            fii=e["fii"],
+            dii=e["dii"],
+            **({"ins": e["ins"]} if e.get("ins") is not None else {}),
         )
         a["rowlevel"] = " + ".join(e["parts"])
         a["ambiguity"] = []
@@ -1652,7 +1909,9 @@ def build(cache, window=None):
     claimed = {slug(k) for k in hist if not k.startswith("_")}
     for fn in ("sf_fundamentals.json", "sf_revop.json"):
         try:
-            claimed |= {slug(k) for k in json.load(open(os.path.join(REPO, "docs", fn), encoding="utf-8"))}
+            claimed |= {
+                slug(k) for k in json.load(open(os.path.join(REPO, "docs", fn), encoding="utf-8"))
+            }
         except Exception as e:
             print(f"WARN {fn} unreadable ({e})")
     bs = json.load(open(os.path.join(HERE, "bse_scrips.json"), encoding="utf-8"))
@@ -1669,12 +1928,19 @@ def build(cache, window=None):
             )
             bse_clash_code[sym_] = str(code_)
 
-    accept_syms = set(json.load(open(os.path.join(HERE, "shp_cell_fix.json"), encoding="utf-8")).get("accept") or {})
-    share_series = collections.defaultdict(dict)  # total shares per filing, for the capital-collapse test
+    accept_syms = set(
+        json.load(open(os.path.join(HERE, "shp_cell_fix.json"), encoding="utf-8")).get("accept")
+        or {}
+    )
+    share_series = collections.defaultdict(
+        dict
+    )  # total shares per filing, for the capital-collapse test
     for (s_, q_), a_ in docs.items():
         if a_.get("shares"):
             share_series[s_][q_] = [a_["shares"]]
-    if window and os.path.exists(SHARES_HIST):  # window mode: earlier quarters come from the stored series
+    if window and os.path.exists(
+        SHARES_HIST
+    ):  # window mode: earlier quarters come from the stored series
         for s_, qs_ in json.load(open(SHARES_HIST, encoding="utf-8")).items():
             if s_ == "_meta":
                 continue
@@ -1695,7 +1961,12 @@ def build(cache, window=None):
     for (sym, qe), a in sorted(docs.items()):
 
         def hold(reason):
-            holds[sym][qe] = {"why": reason, "src": a.get("src"), "cell": a.get("cell"), "fmt": a.get("fmt")}
+            holds[sym][qe] = {
+                "why": reason,
+                "src": a.get("src"),
+                "cell": a.get("cell"),
+                "fmt": a.get("fmt"),
+            }
             stat[(a.get("idx"), "hold")] += 1
             why[reason.split(":")[0][:60]] += 1
 
@@ -1759,10 +2030,9 @@ def build(cache, window=None):
             and max(earlier[-1], later[0]) <= 3 * min(earlier[-1], later[0])
             and nsh > 20 * max(earlier[-1], later[0])
         ):
-            nsh_note = " nsh-withheld(%d one-quarter spike vs %d / %d: holder fields carry share counts)" % (
-                nsh,
-                earlier[-1],
-                later[0],
+            nsh_note = (
+                " nsh-withheld(%d one-quarter spike vs %d / %d: holder fields carry share counts)"
+                % (nsh, earlier[-1], later[0])
             )
             nsh = None
         # the collapse test compares with the MEDIAN of earlier quarters, so one spiked quarter cannot hold every later one
@@ -1778,7 +2048,9 @@ def build(cache, window=None):
             # §180c: the SAME share capital as the earlier filings (within 5 % of their median) means the same share class,
             # so the percentages stand; only the holder count is doubtful (AARCON Dec-2025: 2,245 -> 85 after an open offer)
             same_class = bool(
-                n_now and n_before and abs(n_now - statistics.median(n_before)) <= 0.05 * statistics.median(n_before)
+                n_now
+                and n_before
+                and abs(n_now - statistics.median(n_before)) <= 0.05 * statistics.median(n_before)
             )
             sr_ = second_ok(sym, qe, a)
             if sr_ and sr_.get("nsh_confirmed"):
@@ -1800,7 +2072,11 @@ def build(cache, window=None):
                 hold("nsh gate: %d vs %d earlier" % (nsh, statistics.median(earlier)))
                 continue
         i = QES.index(qe)
-        nb = [series[sym][QES[j]] for j in (i - 2, i - 1, i + 1, i + 2) if 0 <= j < len(QES) and QES[j] in series[sym]]
+        nb = [
+            series[sym][QES[j]]
+            for j in (i - 2, i - 1, i + 1, i + 2)
+            if 0 <= j < len(QES) and QES[j] in series[sym]
+        ]
         sr_ = second_ok(sym, qe, a)
         if sr_:
             nsh_note += " second-reader"
@@ -1821,7 +2097,9 @@ def build(cache, window=None):
             # a FLIP is not an exit: the other slot here equals this slot in a neighbour (GLOBUSCON: the same 17,810,728 shares
             # filed as FPI in Jun-2021 and as Financial Institutions/Banks in Sep-2021)
             other = c["dii" if s_ == "fii" else "fii"]
-            return not any(n[ix_] > 1.0 and abs(n[ix_] - other) <= max(0.05, 0.005 * other) for n in nb)
+            return not any(
+                n[ix_] > 1.0 and abs(n[ix_] - other) <= max(0.05, 0.005 * other) for n in nb
+            )
 
         if not sr_ and any(
             c[s] == 0.0 and nb and any(n[ix] > 1.0 for n in nb) and not slot_proven(s, ix)
@@ -1848,7 +2126,7 @@ def build(cache, window=None):
             round(c["mf"], 4),
             round(c["ins"], 4),
             sub,
-            nsh or None,
+            nsh if nsh else None,
             tag,
         ]
         stat[(a.get("idx"), "FILL")] += 1
@@ -1876,7 +2154,9 @@ def build(cache, window=None):
                 [
                     r
                     for r in rows
-                    if bse_label_qe(r.get("qtr")) == qe and str(r.get("status")) != "New" and r.get("revised_date_time")
+                    if bse_label_qe(r.get("qtr")) == qe
+                    and str(r.get("status")) != "New"
+                    and r.get("revised_date_time")
                 ],
                 key=lambda r: r["revised_date_time"],
             )
@@ -1889,9 +2169,34 @@ def build(cache, window=None):
                 rev_stat["revision file not cached"] += 1
                 continue
             try:
-                ra = analyse(read_doc(xp), qe)
+                raw_rev = read_doc(xp)
+                ra = analyse(raw_rev, qe)
             except Exception:
                 rev_stat["revision unreadable"] += 1
+                continue
+            # §224: BSE lists a Reg 31(1)(c) capital-restructuring pattern (and a 31(1)(a) pre-listing one) as "Revised" under
+            # the quarter it falls in — MBLINFRA's 30-May-2026 allotment pattern, ISTRNETWK's 4-Mar-2026 one, SHRYDUS Mar-2023,
+            # STARHFL's 12-Nov-2022 preferential-offer pattern were stored as those quarters' re-filings. Read the document's own
+            # TypeOfReport / ShareholdingPatternFiledUnder / context date before treating it as a version of the quarter.
+            pk = pattern_kind(raw_rev)
+            if pk["event"]:
+                rev_stat["revision is a Reg 31(1)(c) pattern (left out)"] += 1
+                continue
+            if pk[
+                "prelisting"
+            ]:  # a pre-listing re-filing is a version only of a pre-listing original
+                op = os.path.join(XD, cell[7].split()[0].split(":", 1)[1] + ".gz")
+                try:
+                    orig_pre = pattern_kind(read_doc(op))["prelisting"]
+                except Exception:
+                    orig_pre = False
+                if not orig_pre:
+                    rev_stat[
+                        "revision is a Reg 31(1)(a) pattern of a quarterly original (left out)"
+                    ] += 1
+                    continue
+            elif pk["instant"] and pk["instant"] != qe:
+                rev_stat["revision dated off the quarter-end (left out)"] += 1
                 continue
             ra.pop("_pct", None)
             ra.pop("_shc", None)
@@ -1933,7 +2238,38 @@ def build(cache, window=None):
             if max(abs(new[i] - cell[i]) for i in range(5)) < 0.005:
                 rev_stat["revision repeats the original"] += 1
                 continue
-            revisions[sym][qe] = [*new, rdate, rc.get("nsh"), f"bsexbrl:{xf} bse-revision"]
+            # §224 / §164b: the LATEST revision often repeats figures an earlier version of the quarter already printed (KZLFIN
+            # Jun-2025: 6-Aug-2025 and again 6-Feb-2026; 79 rows dated by the later copy on 2026-10-07). Those figures were
+            # public from the FIRST version that printed them — date the row there (exact to 4 dp, read from that version).
+            t_own = str(r.get("revised_date_time") or "")
+            for r2 in sorted(
+                [
+                    x
+                    for x in rows
+                    if bse_label_qe(x.get("qtr")) == qe
+                    and x is not r
+                    and str(x.get("revised_date_time") or x.get("filing_date_time") or "") < t_own
+                ],
+                key=lambda x: str(x.get("revised_date_time") or x.get("filing_date_time")),
+            ):
+                x2 = os.path.join(XD, str(r2.get("XbrlFile") or "").strip() + ".gz")
+                if not os.path.exists(x2):
+                    rev_stat["earlier version not cached (own date kept)"] += 1
+                    continue
+                try:
+                    c2 = analyse(read_doc(x2), qe).get("cell")
+                except Exception:
+                    c2 = None
+                if c2 and all(
+                    abs(round(c2[f_], 4) - new[i]) <= 0.00005
+                    for i, f_ in enumerate(("prom", "fii", "dii", "mf", "ins"))
+                ):
+                    rdate = max(
+                        str(r2.get("revised_date_time") or r2.get("filing_date_time"))[:10], cell[5]
+                    )
+                    rev_stat["dated by an earlier version with the same figures"] += 1
+                    break
+            revisions[sym][qe] = new + [rdate, rc.get("nsh"), f"bsexbrl:{xf} bse-revision"]
             rev_stat["revision recorded"] += 1
     print(f"RE-FILINGS {dict(rev_stat)}")
 
@@ -1941,7 +2277,12 @@ def build(cache, window=None):
     sh = collections.defaultdict(dict)
     for (sym, qe), a in docs.items():
         n = a.get("shares")
-        if "error" in a or not n or n <= 0 or (identity_bse(sym, a) if a.get("bse_code") else identity(sym, a))[0]:
+        if (
+            "error" in a
+            or not n
+            or n <= 0
+            or (identity_bse(sym, a) if a.get("bse_code") else identity(sym, a))[0]
+        ):
             continue
         sh[sym][qe] = [int(n), visibility(a)[0], a["src"]]
     sh_hold = 0
@@ -1961,7 +2302,9 @@ def build(cache, window=None):
             nb = [qs[ks[j]][0] for j in (idx - 2, idx - 1, idx + 1, idx + 2) if 0 <= j < len(ks)]
             n = qs[qe][0]
             if nb and all(n < x / 5 or n > x * 5 for x in nb):
-                holds[sym].setdefault(qe, {})["shares"] = "share count %d is >5x off every neighbour %s" % (n, nb)
+                holds[sym].setdefault(qe, {})["shares"] = (
+                    "share count %d is >5x off every neighbour %s" % (n, nb)
+                )
                 bad.append(qe)
         for qe in bad:
             qs[qe] = None
@@ -1969,7 +2312,9 @@ def build(cache, window=None):
     sh = {s: {q: v for q, v in qs.items() if v} for s, qs in sh.items()}
     sh = {s: qs for s, qs in sh.items() if qs}
 
-    built = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M IST")
+    built = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime(
+        "%Y-%m-%d %H:%M IST"
+    )
     if not window and (prev_led or head):
         # §180e: a full build re-judges only the quarters whose FILING it read (or set aside) this run. A ledger cell whose
         # document is not on this machine — landed by the GitHub update job, whose files live only on its runner — is
@@ -1977,7 +2322,10 @@ def build(cache, window=None):
         # run would have dropped all 9 cells that run landed).
         judged = set(docs) | set(set_aside)
         carried = 0
-        for src_ in ((prev_led.get("fills") or {}), head):  # the ledger on disk and the committed one
+        for src_ in (
+            (prev_led.get("fills") or {}),
+            head,
+        ):  # the ledger on disk and the committed one
             for s_, qs_ in src_.items():
                 for q_, c_ in qs_.items():
                     if (s_, q_) not in judged and q_ not in fills.get(s_, {}):
@@ -2010,7 +2358,11 @@ def build(cache, window=None):
             for q_, c_ in qs_.items():
                 rv.setdefault(s_, {})[q_] = c_
         revisions = rv
-        ph = (json.load(open(HOLDS, encoding="utf-8")).get("holds") or {}) if os.path.exists(HOLDS) else {}
+        ph = (
+            (json.load(open(HOLDS, encoding="utf-8")).get("holds") or {})
+            if os.path.exists(HOLDS)
+            else {}
+        )
         evaluated = set(docs)
         for s_, qs_ in ph.items():
             for q_, v_ in qs_.items():
@@ -2084,23 +2436,43 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["master", "download", "bse", "rowlevel", "build", "update"])
     ap.add_argument(
-        "--quarters", default=None, help="update/build: comma list of quarter-ends (default: the last two closed)"
+        "--quarters",
+        default=None,
+        help="update/build: comma list of quarter-ends (default: the last two closed)",
     )
     ap.add_argument("--cache", default=CACHE)
     ap.add_argument(
-        "--shard", default="0/1", help="bse stage: k/n — this machine takes scrip codes with code %% n == k"
+        "--shard",
+        default="0/1",
+        help="bse stage: k/n — this machine takes scrip codes with code %% n == k",
     )
-    ap.add_argument("--cap", type=int, default=20000, help="bse stage: per-run file cap (runbook §181)")
-    ap.add_argument("--max-minutes", type=int, default=0, help="bse stage: stop cleanly after this many minutes (CI)")
     ap.add_argument(
-        "--codes", default=None, help="bse stage: JSON list of scrip codes to restrict this run to (later rounds)"
+        "--cap", type=int, default=20000, help="bse stage: per-run file cap (runbook §181)"
+    )
+    ap.add_argument(
+        "--max-minutes",
+        type=int,
+        default=0,
+        help="bse stage: stop cleanly after this many minutes (CI)",
+    )
+    ap.add_argument(
+        "--codes",
+        default=None,
+        help="bse stage: JSON list of scrip codes to restrict this run to (later rounds)",
     )
     a = ap.parse_args()
     if a.stage == "bse":
         stage_bse(a.cache, cap=a.cap, shard=a.shard, max_minutes=a.max_minutes, codes_file=a.codes)
     elif a.stage == "update":
-        stage_update(a.cache, quarters=a.quarters.split(",") if a.quarters else None, max_minutes=a.max_minutes)
-    else:
-        {"master": stage_master, "download": stage_download, "rowlevel": stage_rowlevel, "build": build}[a.stage](
-            a.cache
+        stage_update(
+            a.cache,
+            quarters=a.quarters.split(",") if a.quarters else None,
+            max_minutes=a.max_minutes,
         )
+    else:
+        {
+            "master": stage_master,
+            "download": stage_download,
+            "rowlevel": stage_rowlevel,
+            "build": build,
+        }[a.stage](a.cache)

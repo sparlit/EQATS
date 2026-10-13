@@ -60,7 +60,9 @@ def test_universe_and_direct_market_cap(tmp_path):
         assert ingest_equity_master(conn, master) == 1
         assert ingest_market_caps(conn, caps, "2026-08-17") == 1
         assert refresh_current_market_cap(conn, "2026-08-17") == 1
-        row = conn.execute("SELECT market_cap_cr,market_cap_source FROM symbol_master_v2 WHERE symbol='ABC'").fetchone()
+        row = conn.execute(
+            "SELECT market_cap_cr,market_cap_source FROM symbol_master_v2 WHERE symbol='ABC'"
+        ).fetchone()
     assert row == (2500.0, "NSE_DIRECT_MARKET_CAP")
 
 
@@ -73,7 +75,9 @@ def test_calculated_cap_uses_only_available_shares(tmp_path):
           (symbol,as_of_date,available_date,shares_outstanding,source)
           VALUES ('ABC','2026-06-30','2026-07-20',100000000,'NSE_SHAREHOLDING')""")
         assert calculate_caps_from_shares(conn, "2026-08-17") == 1
-        cap = conn.execute("SELECT market_cap_cr FROM market_cap_snapshots_v3 WHERE symbol='ABC'").fetchone()[0]
+        cap = conn.execute(
+            "SELECT market_cap_cr FROM market_cap_snapshots_v3 WHERE symbol='ABC'"
+        ).fetchone()[0]
     assert cap == 1000.0
 
 
@@ -87,5 +91,7 @@ def test_historical_caps_never_use_future_shares(tmp_path):
           VALUES ('ABC','2026-06-30','2026-07-15',100000000,'NSE_SHAREHOLDING','OLD'),
                  ('ABC','2026-07-31','2026-08-02',200000000,'NSE_SHAREHOLDING','FUTURE')""")
         assert rebuild_caps_from_shares(conn, end_date="2026-08-01") == 1
-        row = conn.execute("SELECT as_of_date,market_cap_cr,filing_id FROM market_cap_snapshots_v3").fetchone()
+        row = conn.execute(
+            "SELECT as_of_date,market_cap_cr,filing_id FROM market_cap_snapshots_v3"
+        ).fetchone()
     assert row == ("2026-08-01", 1100.0, "OLD")

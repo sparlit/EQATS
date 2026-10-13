@@ -42,7 +42,6 @@ Environment variables
 
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
 
 import httpx
 from db.connection import get_db
@@ -51,9 +50,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy import select
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +58,10 @@ COGNITO_REGION = os.environ.get("COGNITO_REGION", "ap-southeast-1")
 COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "")
 COGNITO_APP_CLIENT_ID = os.environ.get("COGNITO_APP_CLIENT_ID", "")
 
-JWKS_URL = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+JWKS_URL = (
+    f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com"
+    f"/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+)
 
 # Cached per Lambda warm instance — avoids a network call on every request
 _jwks_keys: list | None = None
@@ -158,5 +158,7 @@ async def get_admin_user(current_user: User = Depends(get_current_user)) -> User
     Verifies that the current user's cognito_sub matches the ADMIN_COGNITO_SUB.
     """
     if current_user.cognito_sub != ADMIN_COGNITO_SUB:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
     return current_user

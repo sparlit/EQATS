@@ -41,7 +41,9 @@ def universe() -> tuple[set[str], pd.DataFrame]:
     tickers = set()
     for row in m["tickers"]:
         tickers.update(t.strip() for t in row.split(","))
-    tickers = {t.replace(".", "-") for t in tickers if (t and "." not in t) or t.count(".") == 1}  # BRK.B → BRK-B
+    tickers = {
+        t.replace(".", "-") for t in tickers if t and "." not in t or t.count(".") == 1
+    }  # BRK.B → BRK-B
     return tickers, m
 
 
@@ -54,7 +56,9 @@ def main() -> None:
     frames, got = [], 0
     for i in range(0, len(tickers), 50):
         batch = tickers[i : i + 50]
-        df = yf.download(batch, start=START, auto_adjust=True, progress=False, group_by="ticker", threads=True)
+        df = yf.download(
+            batch, start=START, auto_adjust=True, progress=False, group_by="ticker", threads=True
+        )
         for t in batch:
             try:
                 sub = df[t][["Open", "Close", "Volume"]].dropna(how="all")
@@ -70,7 +74,10 @@ def main() -> None:
 
     out = pd.concat(frames, ignore_index=True)
     out.to_parquet(DATA / "prices.parquet", index=False)
-    print(f"saved {got}/{len(tickers)} tickers ({100 * got / len(tickers):.0f}% coverage) → us/data/prices.parquet")
+    print(
+        f"saved {got}/{len(tickers)} tickers "
+        f"({100 * got / len(tickers):.0f}% coverage) → us/data/prices.parquet"
+    )
 
 
 if __name__ == "__main__":

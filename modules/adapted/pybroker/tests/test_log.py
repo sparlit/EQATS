@@ -40,23 +40,23 @@ from pybroker.common import ModelSymbol
 from pybroker.log import Logger
 from pybroker.scope import PendingOrder
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 
 def _order_kwargs():
     return {
         "date": np.datetime64("2020-01-01"),
         "symbol": "AAPL",
-        "shares": Decimal(10),
-        "fill_price": Decimal(100),
+        "shares": Decimal("10"),
+        "fill_price": Decimal("100"),
         "limit_price": None,
     }
 
 
 class TestLogger:
-    def test_enable_and_disable(self, capsys, caplog):
+    def test_enable_and_disable(scope, capsys, caplog):
         caplog.set_level(logging.DEBUG)
-        logger = Logger(self)
+        logger = Logger(scope)
         logger.disable()
         logger.indicator_data_start([])
         logger.info_indicator_data_start([])
@@ -74,8 +74,8 @@ class TestLogger:
         assert captured.err == ""
         assert len(caplog.record_tuples) == 2
 
-    def test_suppress_silences_only_this_thread(self, capsys):
-        logger = Logger(self)
+    def test_suppress_silences_only_this_thread(scope, capsys):
+        logger = Logger(scope)
         with logger._suppress():
             logger.loaded_indicator_data()
             assert logger._is_disabled()
@@ -84,11 +84,11 @@ class TestLogger:
         logger.loaded_indicator_data()
         assert capsys.readouterr().out
 
-    def test_suppress_concurrent_threads_leave_logger_enabled(self):
+    def test_suppress_concurrent_threads_leave_logger_enabled(scope):
         # A shared save/restore flag races here: with both threads inside
         # _suppress at once, one saves the other's "disabled" as its previous
         # state and restores it on exit, leaving the logger silenced for good.
-        logger = Logger(self)
+        logger = Logger(scope)
         inside = threading.Barrier(3, timeout=5)
         release = threading.Barrier(3, timeout=5)
 
@@ -108,8 +108,8 @@ class TestLogger:
             thread.join(timeout=5)
         assert not logger._is_disabled()
 
-    def test_enable_and_disable_progress_bar(self, capsys):
-        logger = Logger(self)
+    def test_enable_and_disable_progress_bar(scope, capsys):
+        logger = Logger(scope)
         logger.disable_progress_bar()
         logger._start_progress_bar("start", 10)
         logger._update_progress_bar(1)
@@ -147,9 +147,9 @@ class TestLogger:
             symbol="AAPL",
             created=np.datetime64("2020-01-01"),
             exec_date=np.datetime64("2020-01-02"),
-            shares=Decimal(10),
-            limit_price=Decimal(100),
-            fill_price=Decimal(100),
+            shares=Decimal("10"),
+            limit_price=Decimal("100"),
+            fill_price=Decimal("100"),
             exec_bar=1,
             timeout_bars=5,
             stops=None,

@@ -50,8 +50,7 @@ class TestSymbolMapper:
         mapper = SymbolMapper()
         mapper.register(identity())
         found = mapper.by_isin("ine002a01018")
-        assert found is not None
-        assert found.symbol == "RELIANCE"
+        assert found is not None and found.symbol == "RELIANCE"
 
     def test_canonical_to_nautilus(self):
         assert SymbolMapper.canonical_to_nautilus("NSE_EQ|RELIANCE") == "RELIANCE.NSE"

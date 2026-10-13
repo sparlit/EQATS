@@ -86,7 +86,14 @@ NL = "\n" if raw.endswith("\n") else ""
 assert json.dumps(led, indent=1) + NL == raw, "ledger not indent=1 round-trippable; abort"
 
 n = 0
-for param in ("profitYoyCon", "profitBaseCon", "profitStreakCon", "profitAccelCon", "profitTTMCon", "compositeCon"):
+for param in (
+    "profitYoyCon",
+    "profitBaseCon",
+    "profitStreakCon",
+    "profitAccelCon",
+    "profitTTMCon",
+    "compositeCon",
+):
     for sym in NAMES:
         e = led.get(param, {}).get(sym)
         if not e:

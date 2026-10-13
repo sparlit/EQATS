@@ -72,7 +72,14 @@ def get_cached_ohlcv(sym: str):
 
     idx = pd.to_datetime(raw["t"], unit="s")
     return pd.DataFrame(
-        {"open": raw["o"], "high": raw["h"], "low": raw["l"], "close": raw["c"], "volume": raw["v"]}, index=idx
+        {
+            "open": raw["o"],
+            "high": raw["h"],
+            "low": raw["l"],
+            "close": raw["c"],
+            "volume": raw["v"],
+        },
+        index=idx,
     )
 
 
@@ -85,7 +92,6 @@ def build_cache(period: str = "2y") -> dict:
     import warnings
 
     warnings.simplefilter("ignore")
-    import pandas as pd
     import yfinance as yf
     from data.fetcher import load_universe
 
@@ -99,7 +105,13 @@ def build_cache(period: str = "2y") -> dict:
         chunk = symbols[i : i + 80]
         try:
             df = yf.download(
-                chunk, period=period, interval="1d", group_by="ticker", progress=False, threads=True, auto_adjust=True
+                chunk,
+                period=period,
+                interval="1d",
+                group_by="ticker",
+                progress=False,
+                threads=True,
+                auto_adjust=True,
             )
         except Exception as exc:
             logger.warning("chunk fetch failed: {}", exc)
@@ -125,6 +137,9 @@ def build_cache(period: str = "2y") -> dict:
     with gzip.open(CACHE_FILE, "wt", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"))
     logger.info(
-        "OHLCV cache written: {} symbols → {} ({:.1f} MB)", len(out), CACHE_FILE, CACHE_FILE.stat().st_size / 1e6
+        "OHLCV cache written: {} symbols → {} ({:.1f} MB)",
+        len(out),
+        CACHE_FILE,
+        CACHE_FILE.stat().st_size / 1e6,
     )
     return payload

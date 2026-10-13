@@ -101,7 +101,12 @@ def fetch_ohlcv_batch(symbols, fetch_start):
         return pd.DataFrame(), symbols, "DOWNLOAD_ERROR", str(e)
 
     if raw.empty:
-        return pd.DataFrame(), symbols, classify_empty(fetch_start), "yfinance returned empty dataframe"
+        return (
+            pd.DataFrame(),
+            symbols,
+            classify_empty(fetch_start),
+            "yfinance returned empty dataframe",
+        )
 
     if isinstance(raw.columns, pd.MultiIndex):
         raw.columns.names = ["field", "ticker"]
@@ -115,7 +120,9 @@ def fetch_ohlcv_batch(symbols, fetch_start):
 
     df["symbol"] = df["symbol"].str.replace(SUFFIX, "", regex=False).str.upper()
     df["date"] = pd.to_datetime(df["date"])
-    df = df[[c for c in ["symbol", "date", "open", "high", "low", "close", "volume"] if c in df.columns]]
+    df = df[
+        [c for c in ["symbol", "date", "open", "high", "low", "close", "volume"] if c in df.columns]
+    ]
     df = df[df["volume"] != 0]
     df = df.dropna(subset=["open", "high", "low", "close", "volume"])
 
@@ -147,7 +154,11 @@ def flush_batch(batch_symbols, fetch_start, new_price_rows, failed_symbols):
     if failure == "DOWNLOAD_ERROR" and df.empty:
         for sym in batch_symbols:
             if sym not in failed_symbols:
-                failed_symbols[sym] = {"failure_type": failure, "error_message": errmsg, "attempts": 1}
+                failed_symbols[sym] = {
+                    "failure_type": failure,
+                    "error_message": errmsg,
+                    "attempts": 1,
+                }
     time.sleep(SLEEP_SECS)
 
 
@@ -159,8 +170,7 @@ print("=" * 60)
 
 print("\n[0/5] Loading symbol list...")
 if not SYMBOLS_CSV.exists():
-    msg = f"Symbol list not found at {SYMBOLS_CSV}"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError(f"Symbol list not found at {SYMBOLS_CSV}")
 df_sym = pd.read_csv(SYMBOLS_CSV)
 df_sym.columns = df_sym.columns.str.strip().str.lower()
 SYMBOLS = df_sym["symbol"].tolist()
@@ -172,7 +182,9 @@ skip_price_fetch = False
 if LAST_RUN_PATH.exists():
     last_run = LAST_RUN_PATH.read_text().strip()
     if last_run == END_DATE.strftime("%Y-%m-%d"):
-        print(f"\n      Run already completed today (last_run_date = {last_run}). Nothing to do. Exiting.")
+        print(
+            f"\n      Run already completed today (last_run_date = {last_run}). Nothing to do. Exiting."
+        )
         import sys
 
         sys.exit(0)
@@ -198,9 +210,13 @@ if STAGE6_MODE in ("monitor", "mid_month"):
     if METADATA_PATH.exists():
         cached_meta_df = pd.read_parquet(METADATA_PATH)
         cached_meta_map = cached_meta_df.set_index("symbol").to_dict("index")
-        print(f"      Monitor/mid_month mode: {len(cached_meta_map)} cached metadata records loaded")
+        print(
+            f"      Monitor/mid_month mode: {len(cached_meta_map)} cached metadata records loaded"
+        )
     else:
-        print("      Monitor mode requested but no existing metadata found -- falling back to rebalance")
+        print(
+            "      Monitor mode requested but no existing metadata found -- falling back to rebalance"
+        )
         STAGE6_MODE = "rebalance"
         cached_meta_map = {}
 else:
@@ -247,11 +263,15 @@ if not skip_price_fetch:
                 )
 
                 if fetch_start > END_DATE:
-                    print(f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE (cached)")
+                    print(
+                        f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE (cached)"
+                    )
                     continue
 
                 if fetch_start == END_DATE and not market_closed_today():
-                    print(f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE pre-close (cached)")
+                    print(
+                        f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE pre-close (cached)"
+                    )
                     continue
 
             else:
@@ -261,7 +281,11 @@ if not skip_price_fetch:
                 if fetch_start > END_DATE:
                     info, failure, errmsg = fetch_symbol_info(symbol)
                     if failure:
-                        failed_symbols[symbol] = {"failure_type": failure, "error_message": errmsg, "attempts": 1}
+                        failed_symbols[symbol] = {
+                            "failure_type": failure,
+                            "error_message": errmsg,
+                            "attempts": 1,
+                        }
                         print(f"  [{idx:03d}] {symbol:20s} INFO_ERROR : {errmsg}")
                         time.sleep(SLEEP_SECS)
                         continue
@@ -282,7 +306,11 @@ if not skip_price_fetch:
                 if fetch_start == END_DATE and not market_closed_today():
                     info, failure, errmsg = fetch_symbol_info(symbol)
                     if failure:
-                        failed_symbols[symbol] = {"failure_type": failure, "error_message": errmsg, "attempts": 1}
+                        failed_symbols[symbol] = {
+                            "failure_type": failure,
+                            "error_message": errmsg,
+                            "attempts": 1,
+                        }
                         print(f"  [{idx:03d}] {symbol:20s} INFO_ERROR : {errmsg}")
                         time.sleep(SLEEP_SECS)
                         continue
@@ -296,13 +324,19 @@ if not skip_price_fetch:
                             "market_cap_cr": mktcap_cr,
                         }
                     )
-                    print(f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE (pre-close)")
+                    print(
+                        f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  UP TO DATE (pre-close)"
+                    )
                     time.sleep(SLEEP_SECS)
                     continue
 
                 info, failure, errmsg = fetch_symbol_info(symbol)
                 if failure:
-                    failed_symbols[symbol] = {"failure_type": failure, "error_message": errmsg, "attempts": 1}
+                    failed_symbols[symbol] = {
+                        "failure_type": failure,
+                        "error_message": errmsg,
+                        "attempts": 1,
+                    }
                     print(f"  [{idx:03d}] {symbol:20s} INFO_ERROR : {errmsg}")
                     time.sleep(SLEEP_SECS)
                     continue
@@ -329,11 +363,17 @@ if not skip_price_fetch:
             print(f"  [{idx:03d}] {symbol:20s} Rs {mktcap_cr:>10,.0f} Cr  {mode} queued")
 
             if len(pending_batches[fetch_start]) >= BATCH_SIZE:
-                flush_batch(pending_batches.pop(fetch_start), fetch_start, new_price_rows, failed_symbols)
+                flush_batch(
+                    pending_batches.pop(fetch_start), fetch_start, new_price_rows, failed_symbols
+                )
 
         except Exception as e:
-            failed_symbols[symbol] = {"failure_type": "INFO_ERROR", "error_message": str(e), "attempts": 1}
-            print(f"  [{idx:03d}] {symbol:20s} ERROR : {e!s}")
+            failed_symbols[symbol] = {
+                "failure_type": "INFO_ERROR",
+                "error_message": str(e),
+                "attempts": 1,
+            }
+            print(f"  [{idx:03d}] {symbol:20s} ERROR : {str(e)}")
 
         if made_info_call:
             time.sleep(SLEEP_SECS)
@@ -386,7 +426,11 @@ if not skip_price_fetch:
                     rec["failure_type"] = failure or "NO_DATA"
                     rec["error_message"] = errmsg or "yfinance returned empty"
                     still_failing[symbol] = rec
-                    print("  {:20s} {} (attempt {})".format(symbol, rec["failure_type"], rec["attempts"]))
+                    print(
+                        "  {:20s} {} (attempt {})".format(
+                            symbol, rec["failure_type"], rec["attempts"]
+                        )
+                    )
                     time.sleep(SLEEP_SECS)
                     continue
                 new_price_rows.append(df)
@@ -400,8 +444,9 @@ if not skip_price_fetch:
         failed_df = pd.DataFrame([{"symbol": s, **v} for s, v in failed_symbols.items()])
         failed_df.to_csv(FAILED_PATH, index=False)
         print(f"\n  {len(failed_symbols)} symbols still failing -- saved to {FAILED_PATH}")
-    elif FAILED_PATH.exists():
-        FAILED_PATH.unlink()
+    else:
+        if FAILED_PATH.exists():
+            FAILED_PATH.unlink()
 
 else:
     print("\n[2/5] Price fetch skipped -- loading existing metadata...")
@@ -418,7 +463,10 @@ print(f"      universe_metadata.parquet : {len(metadata)} rows")
 print("\n[4/5] Saving prices...")
 if new_price_rows:
     new_prices = pd.concat(new_price_rows, ignore_index=True)
-    combined = pd.concat([existing_prices, new_prices], ignore_index=True) if not existing_prices.empty else new_prices
+    if not existing_prices.empty:
+        combined = pd.concat([existing_prices, new_prices], ignore_index=True)
+    else:
+        combined = new_prices
     combined["date"] = pd.to_datetime(combined["date"])
     combined = combined.drop_duplicates(subset=["symbol", "date"], keep="last")
     combined = combined.sort_values(["symbol", "date"]).reset_index(drop=True)
@@ -437,14 +485,18 @@ combined["daily_value"] = combined["close"] * combined["volume"]
 adtv_rows = []
 for symbol, grp in combined.groupby("symbol"):
     grp = grp.sort_values("date").copy()
-    grp["adtv_63_cr"] = (grp["daily_value"].rolling(window=ADTV_WINDOW, min_periods=1).mean() / 1e7).round(2)
+    grp["adtv_63_cr"] = (
+        grp["daily_value"].rolling(window=ADTV_WINDOW, min_periods=1).mean() / 1e7
+    ).round(2)
     adtv_rows.append(grp[["symbol", "date", "adtv_63_cr"]])
 
 adtv = pd.concat(adtv_rows, ignore_index=True)
 adtv.to_parquet(ADTV_PATH, index=False)
 print(f"      adtv.parquet : {adtv.shape[0]} rows")
 
-latest_adtv = adtv.sort_values("date").groupby("symbol").last().reset_index()[["symbol", "adtv_63_cr"]]
+latest_adtv = (
+    adtv.sort_values("date").groupby("symbol").last().reset_index()[["symbol", "adtv_63_cr"]]
+)
 
 universe = metadata.merge(latest_adtv, on="symbol", how="left")
 universe["passes_mktcap"] = universe["market_cap_cr"] >= MKTCAP_FLOOR
@@ -454,7 +506,11 @@ universe["in_universe"] = universe["passes_mktcap"] & universe["passes_adtv"]
 UNIVERSE_DIR.mkdir(parents=True, exist_ok=True)
 universe_path = UNIVERSE_DIR / "universe_{}.parquet".format(END_DATE.strftime("%d%m%Y"))
 universe.to_parquet(universe_path, index=False)
-print("      {} : {} rows | {} in universe".format(universe_path.name, len(universe), universe["in_universe"].sum()))
+print(
+    "      {} : {} rows | {} in universe".format(
+        universe_path.name, len(universe), universe["in_universe"].sum()
+    )
+)
 
 # ── Update last run date ──────────────────────────
 if not failed_symbols:

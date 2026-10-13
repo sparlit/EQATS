@@ -87,6 +87,8 @@ def rename_watchlist_list(name: str, req: RenameWatchlistRequest):
 @router.delete("/api/watchlists/{name}")
 def delete_watchlist_list(name: str):
     if db.watchlist_symbols(name):
-        raise HTTPException(status_code=400, detail=f"'{name}' still has stocks in it - move or remove them first")
+        raise HTTPException(
+            status_code=400, detail=f"'{name}' still has stocks in it - move or remove them first"
+        )
     db.delete_watchlist(name)
     return {"ok": True}

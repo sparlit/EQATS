@@ -86,10 +86,16 @@ def main():
             if "governance" in (r.get("type", "") or "").lower():
                 continue
             byq.setdefault((sym, int(qe)), []).append(
-                {"ann": B.iso(r.get("broadcast_Date")) or "99999999", "xbrl": xb, "basis": r.get("consolidated", "")}
+                {
+                    "ann": B.iso(r.get("broadcast_Date")) or "99999999",
+                    "xbrl": xb,
+                    "basis": r.get("consolidated", ""),
+                }
             )
             n += 1
-        print("window %s..%s rows=%d kept=%d uniq=%d" % (frm, to, len(rows), n, len(byq)), flush=True)
+        print(
+            "window %s..%s rows=%d kept=%d uniq=%d" % (frm, to, len(rows), n, len(byq)), flush=True
+        )
         time.sleep(0.5)
 
     changed = 0
@@ -103,12 +109,15 @@ def main():
                 break
             is_con = "consol" in (f.get("basis") or "").lower()
             if existing and (
-                (is_con and len(existing) > 3 and existing[3] is not None) or (not is_con and existing[1] is not None)
+                (is_con and len(existing) > 3 and existing[3] is not None)
+                or (not is_con and existing[1] is not None)
             ):
                 continue
             try:
                 xml = B._get(
-                    f["xbrl"], headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=30
+                    f["xbrl"],
+                    headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"},
+                    timeout=30,
                 )
                 fetched += 1
             except Exception:
@@ -140,7 +149,8 @@ def main():
     json.dump(data, open(DOCS, "w"), separators=(",", ":"))
     json.dump(data, open(MIRROR, "w"), separators=(",", ":"))
     print(
-        "HIST BACKFILL DONE: fetched %d xbrls, upserted %d fields, %d (sym,qe) seen" % (fetched, changed, len(byq)),
+        "HIST BACKFILL DONE: fetched %d xbrls, upserted %d fields, %d (sym,qe) seen"
+        % (fetched, changed, len(byq)),
         flush=True,
     )
 

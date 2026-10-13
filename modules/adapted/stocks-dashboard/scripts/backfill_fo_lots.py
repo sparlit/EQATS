@@ -83,7 +83,12 @@ def main():
         if abs(n - tot) > 0.5:
             resid.append((d, round(n, 1), tot, round((tot - n) / tot * 100, 3)))
     print("days", len(fo), "with lots", len(lots), "no bhavcopy", none, "fetch errors", errs)
-    print("contract-count residual days", len(resid), "max |%|", max((abs(x[3]) for x in resid), default=0))
+    print(
+        "contract-count residual days",
+        len(resid),
+        "max |%|",
+        max((abs(x[3]) for x in resid), default=0),
+    )
     for x in sorted(resid, key=lambda x: -abs(x[3]))[:15]:
         print("  ", x)
     if errs:

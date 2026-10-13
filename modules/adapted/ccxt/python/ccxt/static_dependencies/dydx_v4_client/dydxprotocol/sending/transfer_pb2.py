@@ -35,12 +35,6 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from ...cosmos.base.v1beta1 import coin_pb2 as cosmos_dot_base_dot_v1beta1_dot_coin__pb2
-from ...cosmos.msg.v1 import msg_pb2 as cosmos_dot_msg_dot_v1_dot_msg__pb2
-from ...cosmos_proto import cosmos_pb2 as cosmos__proto_dot_cosmos__pb2
-from ...gogoproto import gogo_pb2 as gogoproto_dot_gogo__pb2
-from ..subaccounts import subaccount_pb2 as dydxprotocol_dot_subaccounts_dot_subaccount__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n#dydxprotocol/sending/transfer.proto\x12\x14\x64ydxprotocol.sending\x1a\x19\x63osmos_proto/cosmos.proto\x1a\x1e\x63osmos/base/v1beta1/coin.proto\x1a\x17\x63osmos/msg/v1/msg.proto\x1a\x14gogoproto/gogo.proto\x1a)dydxprotocol/subaccounts/subaccount.proto"\xab\x01\n\x08Transfer\x12<\n\x06sender\x18\x01 \x01(\x0b\x32&.dydxprotocol.subaccounts.SubaccountIdB\x04\xc8\xde\x1f\x00\x12?\n\trecipient\x18\x02 \x01(\x0b\x32&.dydxprotocol.subaccounts.SubaccountIdB\x04\xc8\xde\x1f\x00\x12\x10\n\x08\x61sset_id\x18\x03 \x01(\r\x12\x0e\n\x06\x61mount\x18\x04 \x01(\x04"\xb4\x01\n\x16MsgDepositToSubaccount\x12(\n\x06sender\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12?\n\trecipient\x18\x02 \x01(\x0b\x32&.dydxprotocol.subaccounts.SubaccountIdB\x04\xc8\xde\x1f\x00\x12\x10\n\x08\x61sset_id\x18\x03 \x01(\r\x12\x10\n\x08quantums\x18\x04 \x01(\x04:\x0b\x82\xe7\xb0*\x06sender"\xb7\x01\n\x19MsgWithdrawFromSubaccount\x12<\n\x06sender\x18\x02 \x01(\x0b\x32&.dydxprotocol.subaccounts.SubaccountIdB\x04\xc8\xde\x1f\x00\x12+\n\trecipient\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12\x10\n\x08\x61sset_id\x18\x03 \x01(\r\x12\x10\n\x08quantums\x18\x04 \x01(\x04:\x0b\x82\xe7\xb0*\x06sender"\xd1\x01\n\x1aMsgSendFromModuleToAccount\x12+\n\tauthority\x18\x01 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12\x1a\n\x12sender_module_name\x18\x02 \x01(\t\x12+\n\trecipient\x18\x03 \x01(\tB\x18\xd2\xb4-\x14\x63osmos.AddressString\x12-\n\x04\x63oin\x18\x04 \x01(\x0b\x32\x19.cosmos.base.v1beta1.CoinB\x04\xc8\xde\x1f\x00:\x0e\x82\xe7\xb0*\tauthorityB;Z9github.com/dydxprotocol/v4-chain/protocol/x/sending/typesb\x06proto3'
 )
@@ -55,7 +49,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _TRANSFER.fields_by_name["recipient"]._options = None
     _TRANSFER.fields_by_name["recipient"]._serialized_options = b"\310\336\037\000"
     _MSGDEPOSITTOSUBACCOUNT.fields_by_name["sender"]._options = None
-    _MSGDEPOSITTOSUBACCOUNT.fields_by_name["sender"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGDEPOSITTOSUBACCOUNT.fields_by_name[
+        "sender"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGDEPOSITTOSUBACCOUNT.fields_by_name["recipient"]._options = None
     _MSGDEPOSITTOSUBACCOUNT.fields_by_name["recipient"]._serialized_options = b"\310\336\037\000"
     _MSGDEPOSITTOSUBACCOUNT._options = None
@@ -63,13 +59,19 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _MSGWITHDRAWFROMSUBACCOUNT.fields_by_name["sender"]._options = None
     _MSGWITHDRAWFROMSUBACCOUNT.fields_by_name["sender"]._serialized_options = b"\310\336\037\000"
     _MSGWITHDRAWFROMSUBACCOUNT.fields_by_name["recipient"]._options = None
-    _MSGWITHDRAWFROMSUBACCOUNT.fields_by_name["recipient"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGWITHDRAWFROMSUBACCOUNT.fields_by_name[
+        "recipient"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGWITHDRAWFROMSUBACCOUNT._options = None
     _MSGWITHDRAWFROMSUBACCOUNT._serialized_options = b"\202\347\260*\006sender"
     _MSGSENDFROMMODULETOACCOUNT.fields_by_name["authority"]._options = None
-    _MSGSENDFROMMODULETOACCOUNT.fields_by_name["authority"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGSENDFROMMODULETOACCOUNT.fields_by_name[
+        "authority"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGSENDFROMMODULETOACCOUNT.fields_by_name["recipient"]._options = None
-    _MSGSENDFROMMODULETOACCOUNT.fields_by_name["recipient"]._serialized_options = b"\322\264-\024cosmos.AddressString"
+    _MSGSENDFROMMODULETOACCOUNT.fields_by_name[
+        "recipient"
+    ]._serialized_options = b"\322\264-\024cosmos.AddressString"
     _MSGSENDFROMMODULETOACCOUNT.fields_by_name["coin"]._options = None
     _MSGSENDFROMMODULETOACCOUNT.fields_by_name["coin"]._serialized_options = b"\310\336\037\000"
     _MSGSENDFROMMODULETOACCOUNT._options = None

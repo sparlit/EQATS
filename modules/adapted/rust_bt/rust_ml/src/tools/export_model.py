@@ -22,7 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import torch
-from torch import nn
+import torch.nn as nn
 
 
 class DeepNN(nn.Module):
@@ -48,7 +48,8 @@ class DeepNN(nn.Module):
         x = self.dropout(x)
         x = torch.relu(self.bn4(self.fc4(x)))
         x = self.dropout(x)
-        return self.fc5(x)
+        x = self.fc5(x)
+        return x
 
 
 model = DeepNN()

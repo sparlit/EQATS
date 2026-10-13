@@ -131,7 +131,12 @@ def qe_from_ann(a):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 def code_of(sym):
@@ -149,7 +154,8 @@ def result_filings(code, since):
     for pg in range(1, 6):
         u = (
             "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=Result"
-            "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=20261231&strType=C" % (pg, since, code)
+            "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=20261231&strType=C"
+            % (pg, since, code)
         )
         try:
             rows = json.loads(V.get(o, u)).get("Table", [])
@@ -236,7 +242,12 @@ def main():
             for ser, idx in ((serS, 1), (serC, 3)):
                 sv = stored(sym, q, idx)
                 ev = ser.get(q)
-                if sv is not None and ev is not None and abs(sv) > 1 and abs(ev - sv) <= abs(sv) * 0.02:
+                if (
+                    sv is not None
+                    and ev is not None
+                    and abs(sv) > 1
+                    and abs(ev - sv) <= abs(sv) * 0.02
+                ):
                     ok = True
         # fills = quarters NOT currently stored (pre-IPO / gaps), 2021+
         fills = {}
@@ -250,7 +261,11 @@ def main():
             if ns is not None or nc is not None:
                 fills[q] = [ns, nc]
         out[sym] = {"ok": ok, "code": code, "filings": len(fl), "fills": fills}
-        print("  %-12s ok=%s filings=%d fills=%d %s" % (sym, ok, len(fl), len(fills), sorted(fills)[:4]), flush=True)
+        print(
+            "  %-12s ok=%s filings=%d fills=%d %s"
+            % (sym, ok, len(fl), len(fills), sorted(fills)[:4]),
+            flush=True,
+        )
         json.dump(out, open(OUTF, "w"))
     json.dump(out, open(OUTF, "w"))
     good = sum(1 for v in out.values() if v.get("ok") and v.get("fills"))

@@ -2,10 +2,8 @@
 EQATS Version 10.0 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v10.0 attributes, and CAATBridgeClient trade executor role adaptations.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v10_0_version_assertions() -> None:
     scalper = ScalperBrain()

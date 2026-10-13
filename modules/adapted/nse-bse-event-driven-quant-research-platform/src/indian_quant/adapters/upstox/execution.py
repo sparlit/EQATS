@@ -45,12 +45,11 @@ import uuid
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 
-if TYPE_CHECKING:
-    from indian_quant.config.settings import UpstoxConfig
+from indian_quant.config.settings import UpstoxConfig
 
 ORDER_BASE_URL_SANDBOX = "https://api-sandbox.upstox.com"
 READ_BASE_URL = "https://api.upstox.com"
@@ -146,8 +145,9 @@ class UpstoxExecutionClient:
         read_base_url: str = READ_BASE_URL,
     ) -> None:
         if not config.sandbox:
-            msg = "refusing to construct a live execution client; sandbox only in this phase"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                "refusing to construct a live execution client; sandbox only in this phase"
+            )
         self.config = config
         self.base_url = base_url.rstrip("/")
         self.read_base_url = read_base_url.rstrip("/")
@@ -157,12 +157,11 @@ class UpstoxExecutionClient:
     def _headers(self) -> dict[str, str]:
         token = _find_sandbox_token()
         if not token:
-            msg = (
+            raise RuntimeError(
                 "missing sandbox token - create a sandbox app at "
                 "account.upstox.com/developer/apps#sandbox, click Generate, then "
                 "set UPSTOX_SANDBOX_TOKEN (or upstox_sandbox_tokens.json)"
             )
-            raise RuntimeError(msg)
         return {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
@@ -171,12 +170,11 @@ class UpstoxExecutionClient:
 
     def _guard_reads(self) -> None:
         """Sandbox tokens are orders-only per Upstox docs."""
-        msg = (
+        raise RuntimeError(
             "read APIs (order book/positions/funds) are unavailable with "
             "sandbox tokens - use UpstoxRestClient/Reconciler with a live "
             "token for account reads"
         )
-        raise RuntimeError(msg)
 
     @staticmethod
     def new_client_order_id() -> str:
@@ -189,11 +187,9 @@ class UpstoxExecutionClient:
 
     async def submit_order(self, request: SandboxOrderRequest) -> ExecutionReport:
         if request.order_type == OrderType.LIMIT and request.limit_price is None:
-            msg = "LIMIT order requires limit_price"
-            raise ValueError(msg)
+            raise ValueError("LIMIT order requires limit_price")
         if request.order_type in (OrderType.SL, OrderType.SL_M) and (request.trigger_price is None):
-            msg = "SL orders require trigger_price"
-            raise ValueError(msg)
+            raise ValueError("SL orders require trigger_price")
         body: dict[str, Any] = {
             "quantity": request.quantity,
             "product": request.product.value,
@@ -255,7 +251,9 @@ class UpstoxExecutionClient:
     # --------------------------------------------------------- reconciliation
     def order_book(self) -> list[dict[str, Any]]:
         self._guard_reads()
-        resp = self._http.get(f"{self.read_base_url}/v2/order/retrieve-all", headers=self._headers())
+        resp = self._http.get(
+            f"{self.read_base_url}/v2/order/retrieve-all", headers=self._headers()
+        )
         resp.raise_for_status()
         data = resp.json().get("data") or {}
         if isinstance(data, dict) and "orders" in data:
@@ -276,7 +274,9 @@ class UpstoxExecutionClient:
 
     def funds(self) -> dict[str, Any]:
         self._guard_reads()
-        resp = self._http.get(f"{self.read_base_url}/v2/user/get-funds-and-margin", headers=self._headers())
+        resp = self._http.get(
+            f"{self.read_base_url}/v2/user/get-funds-and-margin", headers=self._headers()
+        )
         resp.raise_for_status()
         return dict((resp.json().get("data") or {}).get("equity") or {})
 
@@ -303,8 +303,7 @@ class UpstoxExecutionClient:
     def _report(resp: httpx.Response, fallback_status: str = "unknown") -> ExecutionReport:
         if resp.status_code >= 400:
             detail = resp.text[:300]
-            msg = f"order endpoint failed ({resp.status_code}): {detail}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"order endpoint failed ({resp.status_code}): {detail}")
         payload: dict[str, Any] = {}
         with contextlib.suppress(ValueError):
             payload = (resp.json() or {}).get("data") or {}
@@ -315,11 +314,12 @@ class UpstoxExecutionClient:
             first_id = str(payload["order_ids"][0]) if payload["order_ids"] else ""
             return ExecutionReport(order_id=first_id, status=fallback_status, raw=payload)
         if payload.get("order_id") and not payload.get("status"):
-            return ExecutionReport(order_id=str(payload["order_id"]), status=fallback_status, raw=payload)
+            return ExecutionReport(
+                order_id=str(payload["order_id"]), status=fallback_status, raw=payload
+            )
         status = str(payload.get("status") or fallback_status)
         if status.lower() in ("rejected", "rejected_by_broker", "validation_error"):
-            msg = f"broker rejected order: {payload}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"broker rejected order: {payload}")
         return ExecutionReport(
             order_id=str(payload.get("order_id") or ""),
             status=status,
@@ -335,6 +335,6 @@ __all__ = [
     "OrderType",
     "ProductType",
     "SandboxOrderRequest",
-    "UpstoxExecutionClient",
     "Validity",
+    "UpstoxExecutionClient",
 ]

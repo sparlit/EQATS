@@ -22,8 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import MySQLdb
-import numpy as np
-import pandas as pd
 
 import config
 

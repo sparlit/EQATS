@@ -33,7 +33,9 @@ from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
 
-_runtime_version.ValidateProtobufRuntimeVersion(_runtime_version.Domain.PUBLIC, 5, 29, 3, "", "PrivateDealsV3Api.proto")
+_runtime_version.ValidateProtobufRuntimeVersion(
+    _runtime_version.Domain.PUBLIC, 5, 29, 3, "", "PrivateDealsV3Api.proto"
+)
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
@@ -50,7 +52,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
     _globals[
         "DESCRIPTOR"
-    ]._serialized_options = b"\n\034com.mxc.push.common.protobufB\026PrivateDealsV3ApiProtoH\001P\001"
+    ]._serialized_options = (
+        b"\n\034com.mxc.push.common.protobufB\026PrivateDealsV3ApiProtoH\001P\001"
+    )
     _globals["_PRIVATEDEALSV3API"]._serialized_start = 28
     _globals["_PRIVATEDEALSV3API"]._serialized_end = 264
 # @@protoc_insertion_point(module_scope)

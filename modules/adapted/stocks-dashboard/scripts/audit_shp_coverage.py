@@ -58,7 +58,9 @@ ERAS = [
 def load(path, local):
     if local:
         return json.load(open(os.path.join(HERE, os.path.basename(path)), encoding="utf-8"))
-    r = subprocess.run(["git", "show", "origin/main:" + path], capture_output=True, cwd=os.path.dirname(HERE))
+    r = subprocess.run(
+        ["git", "show", "origin/main:" + path], capture_output=True, cwd=os.path.dirname(HERE)
+    )
     if r.returncode:
         sys.exit(f"git show failed for {path} — fetch origin first")
     return json.loads(r.stdout)
@@ -68,8 +70,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--local", action="store_true")
     ap.add_argument("--csv", default="")
-    ap.add_argument("--missing", default="", metavar="QE", help="list the missing cells from this quarter on")
-    ap.add_argument("--year", action="store_true", help="roll up by calendar year of the quarter-end instead of by era")
+    ap.add_argument(
+        "--missing", default="", metavar="QE", help="list the missing cells from this quarter on"
+    )
+    ap.add_argument(
+        "--year",
+        action="store_true",
+        help="roll up by calendar year of the quarter-end instead of by era",
+    )
     a = ap.parse_args()
 
     IH = load("scripts/indices_history.json", a.local)
@@ -90,7 +98,10 @@ def main():
         return s
 
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")])
+        (
+            s["effectiveDate"],
+            [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")],
+        )
         for s in IH["Nifty 500"]
     )
 
@@ -111,7 +122,9 @@ def main():
     skip = {(norm(s), qe) for s, qs in SKIP.items() for qe in qs}
     last = max(q for qs in have.values() for q in qs)
     qes = [
-        "%d%s" % (y, suf) for y in range(2002, int(last[:4]) + 1) for suf in ("-03-31", "-06-30", "-09-30", "-12-31")
+        "%d%s" % (y, suf)
+        for y in range(2002, int(last[:4]) + 1)
+        for suf in ("-03-31", "-06-30", "-09-30", "-12-31")
     ]
     qes = [q for q in qes if "2002-12-31" <= q <= last]
 
@@ -132,7 +145,8 @@ def main():
         # Wayback era is LUMPY (Mar-2015 10.2% next to Jun-2015 49.6%) — an annual
         # average there hides that coverage tracks archive luck, not the stocks.
         print(
-            "\n%-6s %5s %12s %9s %7s   %s" % ("year", "qtrs", "member-qtrs", "covered", "cov%", "worst qtr .. best qtr")
+            "\n%-6s %5s %12s %9s %7s   %s"
+            % ("year", "qtrs", "member-qtrs", "covered", "cov%", "worst qtr .. best qtr")
         )
         for y in sorted({int(r[0][:4]) for r in rows}):
             sel = [r for r in rows if int(r[0][:4]) == y]
@@ -163,7 +177,14 @@ def main():
     t, c = sum(r[1] for r in rows), sum(r[2] for r in rows)
     print(
         "%-*s %5d %12d %9d %6.1f%%"
-        % (6 if a.year else 22, "TOTAL" if a.year else "WHOLE SAMPLE", len(rows), t, c, 100.0 * c / t)
+        % (
+            6 if a.year else 22,
+            "TOTAL" if a.year else "WHOLE SAMPLE",
+            len(rows),
+            t,
+            c,
+            100.0 * c / t,
+        )
     )
 
     if missing:
@@ -171,7 +192,10 @@ def main():
         for qe, s in missing:
             print("  %s  %-12s %s" % (qe, s, (names.get(s) or "")[:44]))
         print(
-            "  by symbol:", ", ".join("%s(%d)" % kv for kv in collections.Counter(s for _, s in missing).most_common())
+            "  by symbol:",
+            ", ".join(
+                "%s(%d)" % kv for kv in collections.Counter(s for _, s in missing).most_common()
+            ),
         )
 
     if a.csv:

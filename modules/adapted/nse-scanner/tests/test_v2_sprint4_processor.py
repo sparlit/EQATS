@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from dataclasses import replace
 
 from v2.lifecycle import TradeState, new_position, transition
-from v2.lifecycle_processor import horizon_trailing_stop, process_daily_bar
+from v2.lifecycle_processor import process_daily_bar
 from v2.portfolio_message import render_portfolio_message
 
 
@@ -38,26 +38,34 @@ def open_position():
 
 
 def test_ready_position_enters_and_carries_forward():
-    events = process_daily_bar(ready_position(), "2026-01-02", {"low": 98, "high": 102, "close": 101})
+    events = process_daily_bar(
+        ready_position(), "2026-01-02", {"low": 98, "high": 102, "close": 101}
+    )
     assert [event.event_type for event in events] == ["ENTER", "MARK"]
     assert events[-1].position.state == TradeState.OPEN
 
 
 def test_same_bar_entry_stop_collision_is_conservative():
-    events = process_daily_bar(ready_position(), "2026-01-02", {"low": 94, "high": 102, "close": 99})
+    events = process_daily_bar(
+        ready_position(), "2026-01-02", {"low": 94, "high": 102, "close": 99}
+    )
     assert [event.event_type for event in events] == ["ENTER", "STOP_HIT"]
     assert events[-1].position.state == TradeState.CLOSED
     assert events[-1].position.exit_price == 95
 
 
 def test_stop_wins_when_stop_and_targets_are_inside_same_bar():
-    events = process_daily_bar(open_position(), "2026-01-03", {"low": 94, "high": 125, "close": 115})
+    events = process_daily_bar(
+        open_position(), "2026-01-03", {"low": 94, "high": 125, "close": 115}
+    )
     assert [event.event_type for event in events] == ["STOP_HIT"]
     assert events[-1].position.exit_price == 95
 
 
 def test_t1_then_t2_can_close_on_same_bar_without_stop_touch():
-    events = process_daily_bar(open_position(), "2026-01-03", {"low": 99, "high": 121, "close": 118})
+    events = process_daily_bar(
+        open_position(), "2026-01-03", {"low": 99, "high": 121, "close": 118}
+    )
     assert [event.event_type for event in events] == ["T1_HIT", "T2_HIT"]
     assert events[-1].position.state == TradeState.CLOSED
     assert events[-1].position.exit_price == 120

@@ -35,7 +35,6 @@ Updated: Now queries surveillance_stocks/surveillance_history directly from Post
 
 import logging
 
-import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 
@@ -49,7 +48,9 @@ log = logging.getLogger(__name__)
 @register_hypothesis
 class SurveillanceRecovery(BaseHypothesis):
     name = "surveillance_recovery"
-    description = "Buy after ASM/GSM surveillance exit + price stabilization. Stocks de-escalate and recover."
+    description = (
+        "Buy after ASM/GSM surveillance exit + price stabilization. Stocks de-escalate and recover."
+    )
     max_positions = 7
     default_stop_pct = 0.07
     default_horizon_days = 10
@@ -139,21 +140,22 @@ class SurveillanceRecovery(BaseHypothesis):
         # Price stabilization: low volatility, holding above recent low
         frame["ret_1d"] = frame["close"].pct_change()
         frame["volatility_10d"] = frame["ret_1d"].rolling(10, min_periods=5).std()
-        frame["price_range_10d"] = (frame["close"].rolling(10).max() - frame["close"].rolling(10).min()) / frame[
-            "close"
-        ].rolling(10).mean()
+        frame["price_range_10d"] = (
+            frame["close"].rolling(10).max() - frame["close"].rolling(10).min()
+        ) / frame["close"].rolling(10).mean()
         frame["price_above_low"] = frame["close"] > frame["close"].rolling(10).min() * 1.05
 
         # Stabilization: low volatility + price above recent low
         frame["stabilized"] = (frame["volatility_10d"] < 0.03) & frame["price_above_low"]
 
         # Signal requires stabilization + positive momentum
-        mask = frame["stabilized"] & (frame["ret_1d"] > 0) & (frame["close"] > frame["close"].shift(5))
+        mask = (
+            frame["stabilized"] & (frame["ret_1d"] > 0) & (frame["close"] > frame["close"].shift(5))
+        )
 
         # If we have surveillance data, use it to filter
-        if surveillance_data:
-            if not surveillance_data.get("exited", False):
-                return []  # Only signal for stocks that exited surveillance
+        if surveillance_data and not surveillance_data.get("exited", False):
+            return []  # Only signal for stocks that exited surveillance
 
         if signal_date is not None:
             frame["_date_str"] = frame["date"].dt.strftime("%Y-%m-%d")
@@ -181,7 +183,9 @@ class SurveillanceRecovery(BaseHypothesis):
             signals.append(
                 Signal(
                     symbol=row.get("symbol", ""),
-                    signal_date=str(row["date"].date()) if hasattr(row["date"], "date") else str(row["date"])[:10],
+                    signal_date=str(row["date"].date())
+                    if hasattr(row["date"], "date")
+                    else str(row["date"])[:10],
                     signal_type="surveillance_recovery",
                     strength=round(strength, 2),
                     entry_price=round(row["close"], 2),
@@ -229,7 +233,9 @@ class SurveillanceRecovery(BaseHypothesis):
                         "stages": surv_stocks[symbol]["stages"],
                     }
 
-                sigs = self.compute_signals(df, signal_date=signal_date, surveillance_data=surv_data)
+                sigs = self.compute_signals(
+                    df, signal_date=signal_date, surveillance_data=surv_data
+                )
                 # Enrich notes with surveillance info
                 for sig in sigs:
                     if symbol in surv_stocks:

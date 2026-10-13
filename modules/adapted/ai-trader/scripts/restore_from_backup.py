@@ -112,8 +112,7 @@ def resolve_snapshot(snap_arg: str, backup_root: Path | None) -> Path:
     if snap_arg != "latest":
         return Path(snap_arg).expanduser()
     if not backup_root:
-        msg = "--backup-root is required when snap is 'latest'"
-        raise ValueError(msg)
+        raise ValueError("--backup-root is required when snap is 'latest'")
     backup_root = backup_root.expanduser()
     candidates: list[tuple[date, Path]] = []
     for child in backup_root.iterdir():
@@ -125,8 +124,7 @@ def resolve_snapshot(snap_arg: str, backup_root: Path | None) -> Path:
         except ValueError:
             continue
     if not candidates:
-        msg = f"No date-named snapshots found in {backup_root}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No date-named snapshots found in {backup_root}")
     candidates.sort(reverse=True)
     return candidates[0][1]
 
@@ -181,7 +179,9 @@ def restore_table(table: str, csv_gz: Path, creds: dict, dry_run: bool) -> tuple
     try:
         # gunzip → psql via pipe
         gz = subprocess.Popen(["gunzip", "-c", str(csv_gz)], stdout=subprocess.PIPE)
-        ps = subprocess.Popen(cmd, stdin=gz.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        ps = subprocess.Popen(
+            cmd, stdin=gz.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env
+        )
         gz.stdout.close()
         out, err = ps.communicate(timeout=3600)
         if ps.returncode != 0:
@@ -195,7 +195,7 @@ def restore_table(table: str, csv_gz: Path, creds: dict, dry_run: bool) -> tuple
                 n = int(out_str.split()[-1])
         return (True, n)
     except Exception as e:
-        logger.exception(f"restore {table} exception: {e}")
+        logger.error(f"restore {table} exception: {e}")
         return (False, 0)
 
 
@@ -254,11 +254,17 @@ def main():
     parser.add_argument("snap", help="Path to a snapshot folder, or 'latest'")
     parser.add_argument("--backup-root", type=Path, help="Required if snap='latest'")
     parser.add_argument(
-        "--tables-only", action="store_true", help="Restore DB tables only — skip models, configs, results"
+        "--tables-only",
+        action="store_true",
+        help="Restore DB tables only — skip models, configs, results",
     )
-    parser.add_argument("--models-only", action="store_true", help="Restore models only — skip everything else")
     parser.add_argument(
-        "--no-schema-init", action="store_true", help="Skip schema init (use if your DB schema is already set up)"
+        "--models-only", action="store_true", help="Restore models only — skip everything else"
+    )
+    parser.add_argument(
+        "--no-schema-init",
+        action="store_true",
+        help="Skip schema init (use if your DB schema is already set up)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen")
     args = parser.parse_args()
@@ -284,7 +290,11 @@ def main():
 
     if not args.dry_run:
         try:
-            ans = input("\nProceed with restore? This will overwrite current state. [y/N] ").strip().lower()
+            ans = (
+                input("\nProceed with restore? This will overwrite current state. [y/N] ")
+                .strip()
+                .lower()
+            )
         except EOFError:
             ans = "n"
         if ans != "y":

@@ -62,7 +62,17 @@ def main(start: str | None = None, end: str | None = None, strategy: str = "v2")
     t = r.trades
     if t.empty:
         t = pd.DataFrame(
-            columns=["symbol", "entry_date", "exit_date", "entry", "exit", "shares", "pnl", "pct", "reason"]
+            columns=[
+                "symbol",
+                "entry_date",
+                "exit_date",
+                "entry",
+                "exit",
+                "shares",
+                "pnl",
+                "pct",
+                "reason",
+            ]
         )
     closed = t[t["reason"] != "scale_out"]
     wins = t[t["pnl"] > 0]
@@ -74,8 +84,12 @@ def main(start: str | None = None, end: str | None = None, strategy: str = "v2")
         "nifty_buy_hold": metrics(r.bench),
         "n_round_trips": len(closed),
         "win_rate_pct": round(100 * len(wins) / len(t), 1) if len(t) else None,
-        "profit_factor": round(wins["pnl"].sum() / max(1e-9, -t[t["pnl"] <= 0]["pnl"].sum()), 2) if len(t) else None,
-        "avg_days_held": round((pd.to_datetime(t["exit_date"]) - pd.to_datetime(t["entry_date"])).dt.days.mean(), 1)
+        "profit_factor": round(wins["pnl"].sum() / max(1e-9, -t[t["pnl"] <= 0]["pnl"].sum()), 2)
+        if len(t)
+        else None,
+        "avg_days_held": round(
+            (pd.to_datetime(t["exit_date"]) - pd.to_datetime(t["entry_date"])).dt.days.mean(), 1
+        )
         if len(t)
         else None,
     }

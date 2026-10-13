@@ -105,18 +105,180 @@ fn has_complete_response_frame(buf: &[u8]) -> bool {
     false
 }
 
-/// Compute token short hash for farm logon (FIX tag 8483).
+/// The short hash of the session token: in the farm logon (tag 8483), the
+/// connect request of a reconnect and the port type change (ibx#423).
 ///
-/// Per ib-agent#125: gateway always emits this as **8 hex chars padded with
-/// leading zeros**. `format!("{:x}", n)` is wrong when `hash_int`'s high
-/// nibble is zero — server silently rejects the FIX 35=A logon in that case.
+/// The reference writes it with `Integer.toHexString` (`twslaunch.
+/// jauthentication.x.b(BigInteger)`): lower-case hex with **no** zero
+/// padding: its logins of 26/09, 28/09 and 02/10/2026 sent `b8a6cde`,
+/// `708019c` and `287b51` in the farm logons and the port type change
+/// (and on 28/09 in a reconnect's connect request), and the farms logged
+/// on.
 pub fn token_short_hash(session_token: &BigUint) -> String {
     let token_bytes = session_token.to_bytes_be();
     let stripped = strip_leading_zeros(&token_bytes);
     let digest = Sha1::digest(stripped);
     // Take last 4 bytes as u32 (Java BigInteger.intValue() truncates to low 32 bits)
     let hash_int = u32::from_be_bytes([digest[16], digest[17], digest[18], digest[19]]);
-    format!("{:08x}", hash_int)
+    format!("{:x}", hash_int)
+}
+
+/// A misc URLs list: `{key}={value}` items in their order.
+type MiscUrls = Vec<(String, String)>;
+
+/// The misc URLs list of the reference (ibx#423): the host whose answer
+/// is kept, and the list. None until an answer came.
+static MISC_URLS: std::sync::Mutex<Option<(String, MiscUrls)>> = std::sync::Mutex::new(None);
+
+/// The reference's misc URLs request (`twslaunch.trader.common.url.b`,
+/// thread "MiscUlrsRequester"): its own short connection, not the auth
+/// connection, to `{host}:4000` in clear, `MISC38;528;`, one answer
+/// `MISC38;529;{key}={value}|...;`, then the connection is closed. The
+/// reference sends it, in the background, when it has no list: at its
+/// start before the first login, and again when the main host changes, as
+/// after the redirect of a reconnect (its logs of 25/09 to 02/10/2026: one
+/// request per process, a second on 30/09 at the redirect of a
+/// reconnect, none on a relogin to the same host). Run here at the first
+/// login attempt, at a login attempt while no answer came, and after each
+/// redirect of the auth connection.
+pub(crate) fn misc_urls_before_login(host: &str, redirected: bool) {
+    let known = MISC_URLS.lock().unwrap().as_ref().map(|(h, _)| h.clone());
+    if !misc_urls_wanted(known.as_deref(), host, redirected) {
+        return;
+    }
+    let host = host.to_string();
+    let spawned = std::thread::Builder::new().name("ibx-misc-urls".into()).spawn(move || {
+        match request_misc_urls(&host, misc_port()) {
+            Ok(urls) => {
+                // The reference reads one flag from the list: the auth
+                // connection uses TLS unless `nossl=1` (`trader.common.url.
+                // d.a(Map)`, "sslRequired"). ibx takes its TLS setting
+                // from IBX_USE_SSL only (ibx#423).
+                if urls.iter().any(|(k, v)| k == "nossl" && v == "1") {
+                    log::warn!("Misc URLs of {}: the server asks for the auth connection without TLS (IBX_USE_SSL=false)", host);
+                }
+                log::info!("Misc URLs of {}: {} entries", host, urls.len());
+                *MISC_URLS.lock().unwrap() = Some((host, urls));
+            }
+            Err(e) => log::warn!("Misc URLs request to {} failed: {}", host, e),
+        }
+    });
+    if let Err(e) = spawned {
+        log::warn!("Misc URLs request not started: {}", e);
+    }
+}
+
+/// Whether a login attempt to `host` asks for the misc URLs: when no
+/// answer came yet, or after a redirect to a host other than the one whose
+/// answer is kept.
+fn misc_urls_wanted(known: Option<&str>, host: &str, redirected: bool) -> bool {
+    match known {
+        None => true,
+        Some(known) => redirected && known != host,
+    }
+}
+
+/// The reference's IPv4 address of one of its known hosts (ibx#423,
+/// `twslaunch.trader.common.url.t.a(E, CookbookMode)`, mode IPV4): a fixed
+/// table by host name in lower case. A host not in it gives itself back
+/// (the reference logs "missing ip for [host]").
+pub(crate) fn cookbook_ipv4(host: &str) -> String {
+    let ip = match host.to_ascii_lowercase().as_str() {
+        "ndc1.ibllc.com" | "tws.ibllc.com" | "cdc1-hb1.ibllc.com" => "64.190.197.40",
+        "ndc1-hb1.ibllc.com" | "gdc1-hb1.ibllc.com" | "tws_hb1.ibllc.com" | "zdc1-hb1.ibllc.com"
+        | "cdc1.ibllc.com" | "hdc1-hb1.ibllc.com" => "8.17.22.31",
+        "zdc1.ibllc.com" => "217.192.86.32",
+        "hdc1.ibllc.com" => "103.38.91.3",
+        "mcgw1.ibllc.com.cn" => "101.52.237.228",
+        "mcgw1-hb1.ibllc.com.cn" => "103.38.91.2",
+        "mcgw1-hb2.ibllc.com.cn" => "8.17.22.47",
+        "download.interactivebrokers.com" | "download2.interactivebrokers.com" => "23.77.206.37",
+        "misc.interactivebrokers.com" | "wit1.interactivebrokers.com" => "206.106.137.34",
+        "www.interactivebrokers.com" | "interactivebrokers.com" | "www.ibkr.com" | "ibkr.com" => "63.86.206.37",
+        "www.clientam.com" | "clientam.com" => "206.106.137.39",
+        "risk.interactivebrokers.com" => "63.86.206.34",
+        "s3.amazonaws.com" => "52.217.132.64",
+        _ => {
+            log::error!("missing ip for [{}]", host.to_ascii_lowercase());
+            return host.to_string();
+        }
+    };
+    ip.to_string()
+}
+
+/// The connection of a misc URLs request (ibx#423): to `host:port`, and
+/// when that fails for any reason, once more to the reference's IPv4
+/// address of the host (`twslaunch.trader.common.url.i.run()`; its log of
+/// 30/09/2026 at 21:04:05, 21:08:26 and 21:09:05: the name did not
+/// resolve, then `8.17.22.31:4000` was tried). `connect` opens one socket.
+pub(crate) fn misc_urls_connection<T>(
+    host: &str,
+    port: u16,
+    mut connect: impl FnMut(&str, u16) -> io::Result<T>,
+) -> io::Result<T> {
+    match connect(host, port) {
+        Ok(conn) => Ok(conn),
+        Err(e) if host.trim().is_empty() => Err(e),
+        Err(e) => {
+            let ipv4 = cookbook_ipv4(host);
+            log::error!("MiscUrlsAuthConnection: unable to connect to {}:{} - trying {}:{} ({})", host, port, ipv4, port, e);
+            connect(&ipv4, port).inspect_err(|e| log::error!("Can't connect to get MISC URLs @{}:{}: {}", ipv4, port, e))
+        }
+    }
+}
+
+/// One misc URLs request to `host:port` (see [`misc_urls_before_login`]):
+/// the list of the answer, in its order.
+pub(crate) fn request_misc_urls(host: &str, port: u16) -> io::Result<MiscUrls> {
+    // The reference's connect timeout for this connection is 10 s; it
+    // waits up to 30 s for an answer (its response monitor).
+    let mut tcp = misc_urls_connection(host, port, |h, p| {
+        let addr = format!("{}:{}", h, p)
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "DNS resolution failed"))?;
+        TcpStream::connect_timeout(&addr, Duration::from_secs(10))
+    })?;
+    tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
+    tcp.write_all(&ns::ns_build(NS_VERSION_MIN, ns::NS_MISC_URLS_REQUEST, &[], "MISC"))?;
+    let (payload, _) = ns::ns_recv(&mut tcp)?;
+    misc_urls_answer(&payload)
+}
+
+/// The list of a misc URLs answer: `{key}={value}` items separated by `|`
+/// (an item with no `=` is left out). Any other message is an error.
+pub(crate) fn misc_urls_answer(payload: &[u8]) -> io::Result<MiscUrls> {
+    let text = String::from_utf8_lossy(payload);
+    let body = text.strip_prefix("MISC").unwrap_or(&text);
+    let mut parts = body.splitn(3, ';');
+    let _version = parts.next();
+    if parts.next().and_then(|t| t.parse::<u32>().ok()) != Some(ns::NS_MISC_URLS_RESPONSE) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "not a misc URLs answer"));
+    }
+    let list = parts.next().unwrap_or("");
+    let list = list.strip_suffix(';').unwrap_or(list);
+    Ok(list.split('|')
+        .filter_map(|item| item.split_once('='))
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect())
+}
+
+/// The port type change, as the reference builds it (`twslaunch.
+/// jauthentication.aI.g()`, filled by `aY.E()`): the connection's version
+/// (the auth start's, `n.i(aD)`), mode 0, then by version an empty field
+/// (27), the token mask (31; 2, the session token), the read-only flag 0
+/// (35) and the short hashes of the tokens (49; the session token's, left
+/// out when there is none). Captured `50;526;0;;2;0;{hash};` (ibx#423).
+pub fn new_comm_port(version: u32, token_hash: &str) -> String {
+    let mut text = format!("{};{};0;", version, ns::NS_NEWCOMMPORTTYPE);
+    if version >= 27 { text.push(';'); }
+    if version >= 31 { text.push_str("2;"); }
+    if version >= 35 { text.push_str("0;"); }
+    if version >= 49 && !token_hash.is_empty() {
+        text.push_str(token_hash);
+        text.push(';');
+    }
+    text
 }
 
 /// Build auth server logon message.
@@ -133,40 +295,198 @@ pub fn token_short_hash(session_token: &BigUint) -> String {
 /// currently running is no longer supported." Per ib-agent#141 the
 /// official client also keeps 6397/6947/8098, so we leave them in.
 ///
-/// Tag 6947 carries the JVM default timezone (e.g. `Europe/Paris`,
-/// `America/New_York`). The auth server doesn't validate it — `UTC` is
-/// the safe default — but `IBX_TZ` overrides for users who want to mirror
-/// their locale or comply with regional logging requirements.
+/// The time zone field carries the machine's IANA time zone name (e.g.
+/// `Europe/Paris`), as the reference client does; `IBX_TZ` overrides it and
+/// `UTC` is the fallback when the system zone has no IANA name.
 pub fn build_ccp_logon(hw_info: &str, encoded: &str, heartbeat: u64, seq: u32) -> Vec<u8> {
+    ccp_logon(hw_info, encoded, heartbeat, seq, "")
+}
+
+/// Logon for a reconnect of the same server session: the fresh logon plus
+/// the session epoch of the previous logon reply, in the reference order.
+/// An empty epoch gives the fresh logon (ibx#422).
+pub fn build_ccp_reconnect_logon(hw_info: &str, encoded: &str, heartbeat: u64, seq: u32, session_epoch: &str) -> Vec<u8> {
+    ccp_logon(hw_info, encoded, heartbeat, seq, session_epoch)
+}
+
+fn ccp_logon(hw_info: &str, encoded: &str, heartbeat: u64, seq: u32, session_epoch: &str) -> Vec<u8> {
     let now = chrono_free_timestamp();
-    let tz_owned = std::env::var("IBX_TZ").unwrap_or_else(|_| "UTC".to_string());
-    let tz = tz_owned.as_str();
+    let tz = machine_time_zone();
     let hb_str = heartbeat.to_string();
     let hw_field = format!("<{}|{}>", hw_info, session::get_lan_ip());
-    fix_build(
-        &[
-            (fix::TAG_MSG_TYPE, fix::MSG_LOGON),
-            (fix::TAG_SENDING_TIME, &now),
-            (fix::TAG_ENCRYPT_METHOD, "0"),
-            (fix::TAG_HEARTBEAT_INT, &hb_str),
-            (fix::TAG_RESET_SEQ_NUM, "Y"),
-            (fix::TAG_IB_BUILD, IB_BUILD),
-            (fix::TAG_IB_VERSION, IB_VERSION),
-            (6490, "dark"),
-            (6266, encoded),
-            (6351, &hw_field),
-            (6397, "1"),
-            (6947, tz),
-            (8361, "(rolling)"),
-            (8098, "0"),
-        ],
-        seq,
-    )
+    let mut fields: Vec<(u32, &str)> = Vec::with_capacity(15);
+    fields.extend_from_slice(&[
+        (fix::TAG_MSG_TYPE, fix::MSG_LOGON),
+        (fix::TAG_SENDING_TIME, &now),
+        (fix::TAG_ENCRYPT_METHOD, "0"),
+        (fix::TAG_HEARTBEAT_INT, &hb_str),
+        (fix::TAG_RESET_SEQ_NUM, "Y"),
+    ]);
+    if !session_epoch.is_empty() {
+        fields.push((TAG_SESSION_EPOCH, session_epoch));
+    }
+    fields.extend_from_slice(&[
+        (fix::TAG_IB_BUILD, IB_BUILD),
+        (fix::TAG_IB_VERSION, IB_VERSION),
+        (6490, "dark"),
+        (6266, encoded),
+        (6351, &hw_field),
+        (6397, "1"),
+        (6947, &tz),
+        (8361, "(rolling)"),
+        (8098, "0"),
+    ]);
+    fix_build(&fields, seq)
 }
+
+/// Session epoch of the server session, echoed on a reconnect logon (ibx#422).
+const TAG_SESSION_EPOCH: u32 = 6059;
+
+/// Time zone sent at logon: `IBX_TZ` when set, else the machine zone. It
+/// is also the machine zone of an order's expiry zone rule (ibx#335).
+pub(crate) fn machine_time_zone() -> String {
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(zone) = ZONE_FOR_TEST.with(|z| z.borrow().clone()) {
+        return zone;
+    }
+    time_zone_or_system(std::env::var("IBX_TZ").ok())
+}
+
+/// The machine zone as a zone: [`machine_time_zone`], or the system zone
+/// when that name is not known.
+pub(crate) fn machine_tz() -> jiff::tz::TimeZone {
+    jiff::tz::TimeZone::get(&machine_time_zone()).unwrap_or_else(|_| jiff::tz::TimeZone::system())
+}
+
+#[cfg(any(test, feature = "test-support"))]
+thread_local! {
+    /// The machine zone of this thread in the tests (ibx#486).
+    static ZONE_FOR_TEST: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Fix the machine zone this thread reads, for the tests: a replay of a
+/// recording runs in the zone of the machine it was made on, whatever the
+/// zone of the machine that runs the test (ibx#486). `None` gives the real
+/// zone back.
+#[cfg(any(test, feature = "test-support"))]
+pub fn set_machine_zone_for_test(zone: Option<&str>) {
+    ZONE_FOR_TEST.with(|z| *z.borrow_mut() = zone.map(str::to_string));
+}
+
+/// The machine zone fixed for this thread by [`set_machine_zone_for_test`].
+#[cfg(any(test, feature = "test-support"))]
+pub fn machine_zone_for_test() -> Option<String> {
+    ZONE_FOR_TEST.with(|z| z.borrow().clone())
+}
+
+fn time_zone_or_system(override_tz: Option<String>) -> String {
+    if let Some(tz) = override_tz.filter(|s| !s.is_empty()) {
+        return tz;
+    }
+    jiff::tz::TimeZone::try_system()
+        .ok()
+        .and_then(|tz| tz.iana_name().map(str::to_string))
+        .unwrap_or_else(|| "UTC".to_string())
+}
+
+/// The session epoch in a logon reply (plain or compressed), if any.
+fn logon_reply_epoch(response: &[u8]) -> Option<String> {
+    logon_reply_tags(response)?.remove(&TAG_SESSION_EPOCH).filter(|v| !v.is_empty())
+}
+
+/// The tags of a logon reply, plain or compressed.
+fn logon_reply_tags(response: &[u8]) -> Option<std::collections::HashMap<u32, String>> {
+    let mut text = response.to_vec();
+    if response.starts_with(b"8=FIXCOMP\x01") {
+        text.clear();
+        for inner in fixcomp::fixcomp_decompress(response).ok()? {
+            text.extend_from_slice(&inner);
+            text.push(SOH);
+        }
+    }
+    Some(fix_parse(&text))
+}
+
+/// Values of an auth logon reply that the reference applies on every
+/// logon, a reconnect included (ibx#421).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct LogonValues {
+    /// Clock offset from the server time (52), None when not usable.
+    pub clock_offset_ms: Option<i64>,
+    /// Feature list (6542), None when absent.
+    pub features: Option<String>,
+    /// Data permission stamp (6764), None when absent or empty.
+    pub data_permissions: Option<String>,
+    /// Pending accounts (8092), None when absent (ibx#421).
+    pub pending_accounts: Option<Vec<String>>,
+}
+
+impl LogonValues {
+    /// The values of a logon reply's tags, received at `received_ms` and
+    /// read at `now_ms` (local clock).
+    pub fn read(tags: &std::collections::HashMap<u32, String>, received_ms: i64, now_ms: i64) -> Self {
+        let clock_offset_ms = match tags.get(&fix::TAG_SENDING_TIME).and_then(|v| crate::control::logon::server_time_ms(v)) {
+            Some(server_ms) => crate::control::logon::logon_offset(server_ms, received_ms, now_ms),
+            None => {
+                log::warn!("Logon time is missing: {:?}", tags.get(&fix::TAG_SENDING_TIME));
+                None
+            }
+        };
+        if let Some(offset) = clock_offset_ms {
+            log::info!("Setting time offset to {} ms", offset);
+        }
+        Self {
+            clock_offset_ms,
+            features: tags.get(&6542).cloned(),
+            data_permissions: tags.get(&TAG_DATA_PERMISSIONS).filter(|v| !v.is_empty()).cloned(),
+            pending_accounts: tags.get(&TAG_PENDING_ACCOUNTS).map(|v| crate::control::logon::pending_accounts(v)),
+        }
+    }
+}
+
+/// Data permission stamp of a logon reply (ibx#421).
+pub(crate) const TAG_DATA_PERMISSIONS: u32 = 6764;
+
+/// The SSL farm list of a logon reply (ibx#276).
+pub(crate) const TAG_SSL_FARMS: u32 = 8449;
+
+/// The pending accounts of a logon reply (ibx#421).
+pub(crate) const TAG_PENDING_ACCOUNTS: u32 = 8092;
+
+/// The private label misc URLs of a logon reply (ibx#421).
+pub(crate) const TAG_MISC_URLS: u32 = 6321;
 
 /// Build encrypted farm logon message.
 pub fn build_farm_encrypted_logon(
     channel: &mut SecureChannel,
+    username: &str,
+    paper: bool,
+    farm_name: &str,
+    session_id: &str,
+    session_token: &BigUint,
+    hw_info: &str,
+    encoded: &str,
+    slot: u32,
+) -> Vec<u8> {
+    let inner = build_farm_logon(username, paper, farm_name, session_id, session_token, hw_info, encoded, slot);
+    let encrypted_raw = channel.encrypt(&inner);
+    let b64_str = B64.encode(&encrypted_raw);
+
+    // Outer wrapper: 8=FIX.4.1|9=<bodylen>|90=<b64_len>|91=<b64>|10=<cksum>
+    let b64_len_str = b64_str.len().to_string();
+    let body = format!("90={}\x0191={}\x01", b64_len_str, b64_str);
+    let header = format!("8=FIX.4.1\x019={:04}\x01", body.len());
+    let pre_cksum = format!("{}{}", header, body);
+    let cksum = fix::fix_checksum(pre_cksum.as_bytes());
+    let mut wrapper = pre_cksum.into_bytes();
+    wrapper.extend_from_slice(format!("10={}\x01", cksum).as_bytes());
+    wrapper
+}
+
+/// The farm logon message, not encrypted: what goes inside the encrypted
+/// logon, and what is sent as it is when the farm session runs in clear
+/// (ibx#423).
+pub fn build_farm_logon(
     username: &str,
     _paper: bool,
     farm_name: &str,
@@ -211,25 +531,170 @@ pub fn build_farm_encrypted_logon(
         inner.len(),
         String::from_utf8_lossy(&inner).replace('\x01', "|"),
     );
-    let encrypted_raw = channel.encrypt(&inner);
-    let b64_str = B64.encode(&encrypted_raw);
+    inner
+}
 
-    // Outer wrapper: 8=FIX.4.1|9=<bodylen>|90=<b64_len>|91=<b64>|10=<cksum>
-    let b64_len_str = b64_str.len().to_string();
-    let body = format!("90={}\x0191={}\x01", b64_len_str, b64_str);
-    let header = format!("8=FIX.4.1\x019={:04}\x01", body.len());
-    let pre_cksum = format!("{}{}", header, body);
-    let cksum = fix::fix_checksum(pre_cksum.as_bytes());
-    let mut wrapper = pre_cksum.into_bytes();
-    wrapper.extend_from_slice(format!("10={}\x01", cksum).as_bytes());
-    wrapper
+/// A connection socket of the reference: TLS or plain TCP (ibx#423,
+/// ibx#276). The reference picks it by the endpoint's SSL flag
+/// (`twslaunch.jconnection.y.b(boolean, boolean)`, `E.d()`).
+pub enum LinkStream {
+    Tls(Box<native_tls::TlsStream<TcpStream>>),
+    Plain(TcpStream),
+}
+
+impl LinkStream {
+    /// Connect to `host:port`, with TLS when `ssl`. `accept_invalid_certs`
+    /// is for local tests only.
+    pub fn connect(host: &str, port: u16, ssl: bool, timeout: Duration, accept_invalid_certs: bool) -> io::Result<Self> {
+        let addr = format!("{}:{}", host, port)
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "DNS resolution failed"))?;
+        let tcp = TcpStream::connect_timeout(&addr, timeout)?;
+        if !ssl {
+            return Ok(Self::Plain(tcp));
+        }
+        let connector = TlsConnector::builder()
+            .danger_accept_invalid_certs(accept_invalid_certs)
+            .build()
+            .map_err(|e| io::Error::other(e.to_string()))?;
+        connector.connect(host, tcp)
+            .map(|s| Self::Tls(Box::new(s)))
+            .map_err(|e| io::Error::other(e.to_string()))
+    }
+
+    /// The TCP socket under the stream.
+    pub fn tcp(&self) -> &TcpStream {
+        match self {
+            Self::Tls(s) => s.get_ref(),
+            Self::Plain(s) => s,
+        }
+    }
+
+    pub fn is_tls(&self) -> bool {
+        matches!(self, Self::Tls(_))
+    }
+
+    /// The connection of the engine on this socket.
+    pub fn into_connection(self) -> io::Result<Connection> {
+        match self {
+            Self::Tls(s) => Connection::new(*s),
+            Self::Plain(s) => Connection::new_raw(s),
+        }
+    }
+}
+
+impl Read for LinkStream {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Self::Tls(s) => s.read(buf),
+            Self::Plain(s) => s.read(buf),
+        }
+    }
+}
+
+impl Write for LinkStream {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Tls(s) => s.write(buf),
+            Self::Plain(s) => s.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            Self::Tls(s) => s.flush(),
+            Self::Plain(s) => s.flush(),
+        }
+    }
+}
+
+/// The SSL port of an endpoint: the next port when the port is even
+/// (`twslaunch.jconnection.E.j()`: 4000 gives 4001).
+pub fn ssl_port(port: u16) -> u16 {
+    if port.is_multiple_of(2) { port + 1 } else { port }
+}
+
+/// The plain port of an endpoint: the port before when the port is odd
+/// (`twslaunch.jconnection.E.k()`: 4001 gives 4000).
+pub fn plain_port(port: u16) -> u16 {
+    if !port.is_multiple_of(2) { port - 1 } else { port }
+}
+
+/// The service of a farm, as the reference's SSL farm list names them
+/// (`jconnection.service.ServiceType`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FarmService {
+    MarketData,
+    Historical,
+    SecDef,
+}
+
+impl FarmService {
+    /// The service of a farm by its logon slot: 18 market data, 17
+    /// historical data, as ibx opens them.
+    pub fn of_slot(slot: u32) -> Self {
+        if slot == 17 { Self::Historical } else { Self::MarketData }
+    }
+}
+
+/// Whether `farm` of `service` is in the logon's SSL farm list (tag 8449,
+/// ibx#276): `;` separated items, each a farm name (any case) or one of
+/// the wildcards `all`, `allmd`, `allhmds`, `allaux`
+/// (`jconnection.service.j`, `FarmMatcherWildcard`).
+pub fn ssl_farm_listed(list: &str, farm: &str, service: FarmService) -> bool {
+    if farm.is_empty() {
+        return false;
+    }
+    let items: Vec<&str> = list.split(';').collect();
+    let wildcard = |w: &str| items.iter().any(|i| i.eq_ignore_ascii_case(w));
+    if wildcard("all") {
+        return true;
+    }
+    let by_service = match service {
+        FarmService::MarketData => wildcard("allmd"),
+        FarmService::Historical => wildcard("allhmds"),
+        FarmService::SecDef => wildcard("allaux"),
+    };
+    by_service
+        || items.iter().any(|i| {
+            !["allmd", "allhmds", "allaux", "all", "unknown"].iter().any(|w| i.eq_ignore_ascii_case(w))
+                && i.eq_ignore_ascii_case(farm)
+        })
+}
+
+/// How a farm connection is secured, as the reference decides it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FarmLink {
+    /// TLS on the SSL port, with no key exchange (ibx#276).
+    pub ssl: bool,
+    /// The key exchange on the plain socket (ibx#423).
+    pub ns_secure: bool,
+}
+
+impl FarmLink {
+    /// The link of `farm`: TLS when the auth connection uses TLS
+    /// (`auth_ssl`) and the farm is in the logon's SSL farm list
+    /// (`jmdclient.bo.a(E, String, ServiceType, boolean, String)`); else a
+    /// plain socket with the key exchange, unless the server refused the
+    /// encryption of the auth login (`ns_secure_refused`,
+    /// `jmdclient.bo.a(int, Object)@458-550`).
+    pub fn of(ssl_farms: &str, auth_ssl: bool, farm: &str, service: FarmService, ns_secure_refused: bool) -> Self {
+        let ssl = auth_ssl && ssl_farm_listed(ssl_farms, farm, service);
+        FarmLink { ssl, ns_secure: !ssl && !ns_secure_refused }
+    }
+
+    /// A plain socket, with or without the key exchange.
+    pub fn plain(ns_secure: bool) -> Self {
+        FarmLink { ssl: false, ns_secure }
+    }
 }
 
 /// Execute farm logon exchange.
 ///
 /// Returns (read_iv, sign_iv, remaining_buf) for message signing/verification.
 pub fn farm_logon_exchange(
-    stream: &mut TcpStream,
+    stream: &mut LinkStream,
     channel: &mut SecureChannel,
     session_token: &BigUint,
     username: &str,
@@ -240,7 +705,7 @@ pub fn farm_logon_exchange(
     // Poll on a short read timeout and tolerate transient WouldBlock/TimedOut
     // returns until an overall deadline. A single slow response segment from a
     // high-latency regional gateway must not tear down the connection (ibx#237).
-    stream.set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
+    stream.tcp().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
     let deadline = std::time::Instant::now() + Duration::from_secs_f64(TIMEOUT_FARM_LOGON);
     let mut buf = Vec::new();
     let mut read_iv = initial_read_iv.to_vec();
@@ -279,10 +744,17 @@ pub fn farm_logon_exchange(
 
         // FIX.4.1 message
         if msg.starts_with(b"8=FIX.4.1\x01") {
-            let has_sig = msg.windows(5).any(|w| w == b"8349=");
-            // Check for HMAC signature → unsign
-            let parsed_msg = if has_sig {
-                let (unsigned, new_iv, _valid) = fix::fix_unsign(&msg, read_mac_key, &read_iv);
+            // A signed frame is verified; on a mismatch the logon fails and
+            // the IV is not advanced, as in the reference (ibx#275).
+            // A farm session in clear has no signing key (ibx#423).
+            let parsed_msg = if fix::is_signed(&msg) && !read_mac_key.is_empty() {
+                let (unsigned, new_iv, valid) = fix::fix_unsign(&msg, read_mac_key, &read_iv);
+                if !valid {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "farm logon: frame signature mismatch",
+                    ));
+                }
                 read_iv = new_iv;
                 unsigned
             } else {
@@ -290,20 +762,28 @@ pub fn farm_logon_exchange(
             };
             let fields = fix_parse(&parsed_msg);
 
-            // Check for encrypted content (tags 91/96)
+            // Check for encrypted content (tags 91/96). A farm session in
+            // clear sends its auth start as it is (ibx#423).
             let enc_tag = fields.get(&91).or_else(|| fields.get(&96));
-            if let Some(b64_data) = enc_tag {
-                let encrypted = B64.decode(b64_data).map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, e.to_string())
-                })?;
-                let decrypted = channel.decrypt(&encrypted).map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidData, e)
-                })?;
+            let plain_auth_start = enc_tag.is_none() && fields.get(&35).map(|s| s.as_str()) == Some("S");
+            if enc_tag.is_some() || plain_auth_start {
+                let decrypted = match enc_tag {
+                    Some(b64_data) => {
+                        let encrypted = B64.decode(b64_data).map_err(|e| {
+                            io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+                        })?;
+                        let decrypted = channel.decrypt(&encrypted).map_err(|e| {
+                            io::Error::new(io::ErrorKind::InvalidData, e)
+                        })?;
 
-                // Sync HMAC read IV with AES read IV after decryption (CBC chaining)
-                if let Some(iv) = channel.read_iv() {
-                    read_iv = iv.to_vec();
-                }
+                        // Sync HMAC read IV with AES read IV after decryption (CBC chaining)
+                        if let Some(iv) = channel.read_iv() {
+                            read_iv = iv.to_vec();
+                        }
+                        decrypted
+                    }
+                    None => parsed_msg.clone(),
+                };
 
                 // Check for auth challenge → respond with token, fall back to SRP if rejected.
                 // Outcome asymmetry (ib-agent#153, ibx#187):
@@ -323,7 +803,7 @@ pub fn farm_logon_exchange(
                         session::SoftTokenOutcome::Passed => {}
                         session::SoftTokenOutcome::Unknown => {
                             log::warn!("Soft token rejected — falling back to SRP farm auth");
-                            stream.set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
+                            stream.tcp().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
                             session::do_srp_farm(stream, username, password, &mut buf)?;
                         }
                     }
@@ -401,17 +881,61 @@ pub struct ReconnectAuth {
     /// Used by HMDS reconnect (ibx#187) — empty when no HMDS route was parsed.
     pub hmds_host: String,
     pub hmds_farm: String,
+    /// Market-data farm of the session (host and name from the logon
+    /// routing tag), used by the farm reconnect, as the reference reuses
+    /// the farm of the lost connection (ibx#295). Empty: the auth host and
+    /// the default farm name.
+    pub farm_host: String,
+    pub farm_name: String,
+    /// Session epoch of the last logon reply, sent back on a reconnect logon
+    /// so the server can resume the same session (ibx#422). Empty when the
+    /// server sent none.
+    pub session_epoch: String,
+    /// The server refused the encryption of the last auth login, which went
+    /// on in clear: farms opened after it log on in clear, as in the
+    /// reference (ibx#423).
+    pub ns_secure_refused: bool,
+    /// The auth connection runs on TLS (ibx#423).
+    pub use_ssl: bool,
+    /// The SSL farm list of the last logon reply or logon update (8449,
+    /// ibx#276).
+    pub ssl_farms: String,
+}
+
+impl ReconnectAuth {
+    /// The link of a farm opened from now on (ibx#276, ibx#423).
+    pub fn farm_link(&self, farm: &str, service: FarmService) -> FarmLink {
+        FarmLink::of(&self.ssl_farms, self.use_ssl, farm, service, self.ns_secure_refused)
+    }
+}
+
+/// A CCP reconnect: the new connection and the session epoch of its logon
+/// reply, when the reply carried one.
+pub struct CcpReconnect {
+    pub conn: Connection,
+    pub session_epoch: Option<String>,
+    /// The server refused the encryption of this login, which went on in
+    /// clear: the farms opened after it log on in clear (ibx#423).
+    pub ns_secure_refused: bool,
+    /// The values of the logon reply the reference applies (ibx#421).
+    pub logon: LogonValues,
 }
 
 /// Full gateway connection.
 pub struct Gateway {
     pub account_id: String,
+    /// The account ids of the logon's account list (6095), in logon
+    /// order: the managed accounts of the API (ibx#420). Empty when the
+    /// logon has no list.
+    pub managed_accounts: Vec<String>,
     pub session_token: BigUint,
     /// Session ID surfaced to webapp REST clients as `x-ccp-session-id`.
     /// Sourced from the post-auth FIX logon ACK, falling back to the locally generated
     /// session ID when the gateway does not echo one back.
     pub server_session_id: String,
-    pub ccp_token: String,
+    /// Logon tag 6386: in the reference, the object key of the settings
+    /// download; not used by ibx (ibx#483).
+    pub settings_object_key: String,
     pub heartbeat_interval: u64,
     /// Stored for farm reconnection.
     pub hw_info: String,
@@ -422,12 +946,54 @@ pub struct Gateway {
     pub raw_family_codes: String,
     /// Raw news provider data from CCP logon tag 6830.
     pub raw_news_providers: String,
+    /// Raw API news source list from the CCP logon (ibx#460).
+    pub raw_news_sources: String,
+    /// Raw news source capabilities from the CCP logon (ibx#460).
+    pub raw_news_capabilities: String,
+    /// The logon feature list denies news: no API news source (ibx#460).
+    pub deny_news: bool,
     /// White branding ID from CCP logon (empty for standard accounts).
     pub white_branding_id: String,
+    /// FA session: CCP logon tag 6108 is "1" (ibx#481).
+    pub fa_session: bool,
+    /// The logon's super user and omnibus flags (ibx#417).
+    pub super_user: bool,
+    pub omnibus: bool,
+    /// Logon tag 6611: the smart combo conId of each currency (ibx#470).
+    pub raw_smart_combo_con_ids: String,
+    /// Account config (6040=210): feature list (6542) and MiFID config id
+    /// (8234); None when the answer was not in the login burst (ibx#425).
+    pub account_config: Option<(Vec<String>, String)>,
+    /// The algo definition answers of the login burst (ibx#263).
+    pub algo_definitions: Vec<String>,
+    /// The logon feature list asks for US stock sizes in round lots
+    /// (ibx#287).
+    pub scale_us_lots: bool,
+    /// Most contracts with tick-by-tick data at once, from the logon's
+    /// limits (ibx#455).
+    pub tick_by_tick_limit: usize,
+    /// Most contracts with API depth at once, from the logon (#452).
+    pub depth_limit: usize,
+    /// The logon's 6247 is `demo` (any case), as on paper: the reference
+    /// turns its user book on, and gives depth as an index diff (#451).
+    pub user_book: bool,
+    /// The logon feature list turns tick-by-tick data off (ibx#455).
+    pub tick_by_tick_off: bool,
+    /// The logon feature list allows the price management flag (ibx#492).
+    pub price_mgmt: bool,
+    /// The logon's price management exclusion list, None when absent
+    /// (ibx#492).
+    pub price_mgmt_exclusions: Option<String>,
+    /// Most real-time bar requests at once, from the logon (ibx#454).
+    pub max_real_time_requests: u32,
     /// Logical-name → host URL map pushed by the gateway during logon. Empty when no
     /// URL set was pushed (callers should then fall back to a documented literal,
     /// e.g. `api.ibkr.com` for `region_dam`).
     pub misc_urls: std::collections::HashMap<String, String>,
+    /// The auth connection runs on TLS (ibx#423, [`crate::config::use_ssl`]).
+    pub use_ssl: bool,
+    /// The logon's SSL farm list (8449, ibx#276), empty when absent.
+    pub ssl_farms: String,
     /// CCP HMAC signing key (kb[64..84]) for selective signing of XML messages.
     pub ccp_sign_key: Vec<u8>,
     /// CCP HMAC initial IV (kb[48..64]) for selective signing.
@@ -436,6 +1002,36 @@ pub struct Gateway {
     /// retained for HMDS reconnect (ibx#187).
     pub hmds_host: String,
     pub hmds_farm: String,
+    /// Session epoch of the logon reply, for the reconnect logon (ibx#422).
+    pub session_epoch: String,
+    /// Name of the market-data farm, for the farm status messages (ibx#399).
+    pub farm_name: String,
+    /// Host of the market-data farm, for the farm reconnect (ibx#295).
+    pub farm_host: String,
+    /// Rows of the routing tables of the two primary farms, when they came
+    /// with the logon (#445). A table that comes later is read by the loop.
+    pub md_routing: Option<String>,
+    pub hmds_routing: Option<String>,
+    /// The server refused the encryption of the auth login, which went on
+    /// in clear (ibx#423).
+    pub ns_secure_refused: bool,
+    /// Values of the logon reply the reference applies (ibx#421): clock
+    /// offset, feature list, data permission stamp.
+    pub logon: LogonValues,
+    /// Version cutoff (6243) and its date (6244) of the logon (ibx#421).
+    pub version_cutoff: Option<String>,
+    pub version_cutoff_date: Option<String>,
+    /// Most years of a historical data request (6774, 1 when not above
+    /// 0, ibx#421).
+    pub max_backfill_years: i32,
+}
+
+/// Request ids of the routing-table requests: one process-wide counter
+/// starting at 1, as in the reference, whatever the farm (ibx#253).
+static ROUTING_REQUEST_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+
+fn next_routing_request_id() -> u32 {
+    ROUTING_REQUEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
 /// Connect to a data farm: key exchange → encrypted logon → token auth → routing → Connection.
@@ -451,49 +1047,121 @@ pub fn connect_farm(
     encoded: &str,
     slot: u32,
 ) -> io::Result<Connection> {
-    let port = misc_port();
+    connect_farm_ex(host, farm_id, username, password, paper, server_session_id, session_key,
+        hw_info, encoded, slot, true).map(|(conn, _)| conn)
+}
+
+/// [`connect_farm`], with the routing table request only when `routing`
+/// is set: the reference asks for it on the two primary farms, never on a
+/// farm opened on demand (#445). Also returns the rows of the table when
+/// its answer came with the logon.
+pub fn connect_farm_ex(
+    host: &str,
+    farm_id: &str,
+    username: &str,
+    password: &str,
+    paper: bool,
+    server_session_id: &str,
+    session_key: &BigUint,
+    hw_info: &str,
+    encoded: &str,
+    slot: u32,
+    routing: bool,
+) -> io::Result<(Connection, Option<String>)> {
+    connect_farm_opts(host, farm_id, username, password, paper, server_session_id, session_key,
+        hw_info, encoded, slot, routing, FarmLink::plain(true))
+}
+
+/// [`connect_farm_ex`], on the farm link `link`: TLS on the SSL port for a
+/// farm of the logon's SSL farm list (ibx#276), else a plain socket with
+/// the key exchange when `link.ns_secure`. The reference does not ask a
+/// farm for the encryption after the server refused it on the auth login,
+/// and goes on in clear when a farm refuses it with the permission to go
+/// on (ibx#423); the logon is then sent in clear and the session is not
+/// signed. On TLS there is no key exchange and the logon goes in clear
+/// inside TLS, as the reference's farm on an SSL socket
+/// (`jmdclient.bo.a(int, Object)@458-472`).
+pub fn connect_farm_opts(
+    host: &str,
+    farm_id: &str,
+    username: &str,
+    password: &str,
+    paper: bool,
+    server_session_id: &str,
+    session_key: &BigUint,
+    hw_info: &str,
+    encoded: &str,
+    slot: u32,
+    routing: bool,
+    link: FarmLink,
+) -> io::Result<(Connection, Option<String>)> {
+    let port = if link.ssl { ssl_port(misc_port()) } else { misc_port() };
     let farm_host = farm_host_override().unwrap_or_else(|| host.to_string());
-    log::info!("Connecting to {} {}:{}", farm_id, farm_host, port);
-    let addr = format!("{}:{}", farm_host, port)
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "DNS resolution failed"))?;
-    let farm_tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(TIMEOUT_FARM_CONNECT))
-        .map_err(|e| io::Error::new(e.kind(), format!("{} TCP connect: {}", farm_id, e)))?;
-    farm_tcp.set_nodelay(true)?;
-    farm_tcp.set_read_timeout(Some(Duration::from_secs(TIMEOUT_FARM_CONNECT)))?;
+    log::info!("Connecting to {} {}:{} (ssl={})", farm_id, farm_host, port, link.ssl);
+    let stream = LinkStream::connect(&farm_host, port, link.ssl, Duration::from_secs(TIMEOUT_FARM_CONNECT), false)
+        .map_err(|e| io::Error::new(e.kind(), format!("{} connect: {}", farm_id, e)))?;
+    stream.tcp().set_nodelay(true)?;
+    stream.tcp().set_read_timeout(Some(Duration::from_secs(TIMEOUT_FARM_CONNECT)))?;
+    farm_session(stream, farm_id, username, password, paper, server_session_id, session_key,
+        hw_info, encoded, slot, routing, link.ns_secure && !link.ssl)
+}
 
-    // Key exchange (raw TCP)
+/// The farm session on a connected socket: key exchange when `ns_secure`,
+/// logon, token auth, routing table.
+fn farm_session(
+    mut stream: LinkStream,
+    farm_id: &str,
+    username: &str,
+    password: &str,
+    paper: bool,
+    server_session_id: &str,
+    session_key: &BigUint,
+    hw_info: &str,
+    encoded: &str,
+    slot: u32,
+    routing: bool,
+    ns_secure: bool,
+) -> io::Result<(Connection, Option<String>)> {
+    // Key exchange (plain socket). Any failure, an error answer included,
+    // drops the socket and the farm is tried again, as in the reference.
     let mut channel = SecureChannel::new();
-    let dh_msg = channel.build_secure_connect(NS_VERSION, NS_VERSION);
-    let mut stream = farm_tcp;
-    stream.write_all(&dh_msg)?;
+    let secure = if ns_secure {
+        let dh_msg = channel.build_secure_connect(NS_VERSION, NS_VERSION);
+        stream.write_all(&dh_msg)?;
+        let secure = session::read_key_exchange_answer(&mut stream, &mut channel)
+            .map_err(|e| io::Error::new(e.kind(), format!("{} key exchange: {}", farm_id, e)))?;
+        if secure {
+            log::info!("{} key exchange complete", farm_id);
+        }
+        secure
+    } else if stream.is_tls() {
+        log::info!("{}: on TLS, no key exchange", farm_id);
+        false
+    } else {
+        log::info!("{}: no key exchange, the auth login runs in clear", farm_id);
+        false
+    };
 
-    let (payload, _) = ns::ns_recv(&mut stream)?;
-    let text = String::from_utf8_lossy(&payload);
-    let parts: Vec<&str> = text.split(';').collect();
-    let msg_type: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-    if msg_type != ns::NS_SECURE_CONNECTION_START {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("{} DH: expected 533, got {}", farm_id, msg_type),
-        ));
-    }
-    channel.process_server_hello(&parts[2..]);
-    log::info!("{} key exchange complete", farm_id);
-
-    // Encrypted logon
+    // Logon: encrypted, or in clear without a key exchange (ibx#423).
     let farm_session_id = if server_session_id.is_empty() {
         session::get_session_id()
     } else {
         server_session_id.to_string()
     };
-    let logon_bytes = build_farm_encrypted_logon(
-        &mut channel, username, paper, farm_id,
-        &farm_session_id, session_key, hw_info, encoded, slot,
-    );
-    stream.write_all(&logon_bytes)?;
-    log::info!("{} encrypted logon sent", farm_id);
+    if secure {
+        let logon_bytes = build_farm_encrypted_logon(
+            &mut channel, username, paper, farm_id,
+            &farm_session_id, session_key, hw_info, encoded, slot,
+        );
+        stream.write_all(&logon_bytes)?;
+        log::info!("{} encrypted logon sent", farm_id);
+    } else {
+        let logon_bytes = build_farm_logon(
+            username, paper, farm_id, &farm_session_id, session_key, hw_info, encoded, slot,
+        );
+        stream.write_all(&logon_bytes)?;
+        log::info!("{} logon sent in clear", farm_id);
+    }
 
     // Logon exchange: challenge → token auth → logon ACK
     let read_mac_key = channel.key_block().map(|kb| kb[84..104].to_vec()).unwrap_or_default();
@@ -506,51 +1174,57 @@ pub fn connect_farm(
 
     let sign_mac_key = channel.key_block().map(|kb| kb[64..84].to_vec()).unwrap_or_default();
 
-    // Send routing table request after logon.
-    let channel_id = if farm_id == "ushmds" { "2" } else { "1" };
-    let now = chrono_free_timestamp();
-    let routing_msg = fix_build(&[
-        (fix::TAG_MSG_TYPE, "U"),
-        (fix::TAG_SENDING_TIME, &now),
-        (6040, "112"),
-        (6556, channel_id),
-    ], 1);
-    let wrapped = fixcomp::fixcomp_build(&routing_msg);
-
-    let (signed, new_sign_iv) = fix::fix_sign(&wrapped, &sign_mac_key, &sign_iv);
-    stream.write_all(&signed)?;
-    let final_sign_iv = new_sign_iv;
-    log::info!("{} sent routing request (6556={})", farm_id, channel_id);
-
-    // Read routing response. Frame-based termination: poll with a short
-    // timeout, break as soon as we have at least one complete FIXCOMP frame
-    // buffered. The 5-s read timeout remains as the worst-case fallback.
-    stream.set_read_timeout(Some(Duration::from_millis(100)))?;
+    // Send routing table request after logon. Its request id is a unique
+    // counter, as in the reference; it is not derived from the farm name
+    // (ibx#253). A farm opened on demand is not asked (#445).
+    let mut final_sign_iv = sign_iv.clone();
     let mut resp_buf = Vec::new();
-    let routing_deadline = std::time::Instant::now() + Duration::from_secs(5);
-    loop {
-        let mut tmp = [0u8; 8192];
-        match stream.read(&mut tmp) {
-            Ok(0) => break,
-            Ok(n) => {
-                resp_buf.extend_from_slice(&tmp[..n]);
-                if has_complete_response_frame(&resp_buf) { break; }
+    if routing {
+        let request_id = next_routing_request_id().to_string();
+        let now = chrono_free_timestamp();
+        let routing_msg = fix_build(&[
+            (fix::TAG_MSG_TYPE, "U"),
+            (fix::TAG_SENDING_TIME, &now),
+            (6040, "112"),
+            (6556, &request_id),
+        ], 1);
+        let wrapped = fixcomp::fixcomp_build(&routing_msg);
+
+        let (signed, new_sign_iv) = fix::fix_sign(&wrapped, &sign_mac_key, &sign_iv);
+        stream.write_all(&signed)?;
+        final_sign_iv = new_sign_iv;
+        log::info!("{} sent routing request (6556={})", farm_id, request_id);
+
+        // Read routing response. Frame-based termination: poll with a short
+        // timeout, break as soon as we have at least one complete FIXCOMP frame
+        // buffered. The 5-s read timeout remains as the worst-case fallback.
+        stream.tcp().set_read_timeout(Some(Duration::from_millis(100)))?;
+        let routing_deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let mut tmp = [0u8; 8192];
+            match stream.read(&mut tmp) {
+                Ok(0) => break,
+                Ok(n) => {
+                    resp_buf.extend_from_slice(&tmp[..n]);
+                    if has_complete_response_frame(&resp_buf) { break; }
+                }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock
+                    || e.kind() == io::ErrorKind::TimedOut =>
+                {
+                    if has_complete_response_frame(&resp_buf) { break; }
+                    if std::time::Instant::now() >= routing_deadline { break; }
+                }
+                Err(e) => return Err(e),
             }
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock
-                || e.kind() == io::ErrorKind::TimedOut =>
-            {
-                if has_complete_response_frame(&resp_buf) { break; }
-                if std::time::Instant::now() >= routing_deadline { break; }
-            }
-            Err(e) => return Err(e),
         }
+        log::info!("{} routing response: {} bytes", farm_id, resp_buf.len());
     }
-    log::info!("{} routing response: {} bytes", farm_id, resp_buf.len());
 
     // Create Connection (switches to non-blocking), inject routing bytes
-    let mut conn = Connection::new_raw(stream)?;
+    let mut conn = stream.into_connection()?;
     conn.set_keys(sign_mac_key, final_sign_iv, read_mac_key, read_iv);
-    conn.seq = 1; // routing request was seq=1; next send_fix will be seq=2
+    // The routing request was seq=1; the next send_fix is seq=2.
+    conn.seq = if routing { 1 } else { 0 };
 
     // Inject logon remaining bytes + routing response into connection buffer.
     // Python processes logon remaining before routing, but both need read_iv chaining.
@@ -561,11 +1235,15 @@ pub fn connect_farm(
         conn.inject_buf(&resp_buf);
     }
     // Extract and process all frames (unsign + respond to TestRequests, like Python).
+    let mut table = None;
     let frames = conn.extract_frames();
     for frame in &frames {
         match frame {
             crate::protocol::connection::Frame::FixComp(raw) => {
-                let (unsigned, _valid) = conn.unsign(raw);
+                let (unsigned, valid) = conn.unsign(raw);
+                if !valid {
+                    return Err(signature_mismatch(farm_id));
+                }
                 let inner = fixcomp::fixcomp_decompress(&unsigned).unwrap_or_else(|e| {
                     log::warn!("{}: dropping malformed FIXCOMP frame: {}", farm_id, e);
                     Vec::new()
@@ -586,7 +1264,10 @@ pub fn connect_farm(
                 }
             }
             crate::protocol::connection::Frame::Fix(raw) => {
-                let (unsigned, _valid) = conn.unsign(raw);
+                let (unsigned, valid) = conn.unsign(raw);
+                if !valid {
+                    return Err(signature_mismatch(farm_id));
+                }
                 let parsed = fix_parse(&unsigned);
                 let mt = parsed.get(&35).map(|s| s.as_str()).unwrap_or("");
                 log::debug!("{} routing FIX 35={}", farm_id, mt);
@@ -601,8 +1282,14 @@ pub fn connect_farm(
                 }
             }
             crate::protocol::connection::Frame::Binary(raw) => {
-                let (_unsigned, _valid) = conn.unsign(raw);
+                let (unsigned, valid) = conn.unsign(raw);
+                if !valid {
+                    return Err(signature_mismatch(farm_id));
+                }
                 log::info!("{} routing 8=O: {} bytes", farm_id, raw.len());
+                if let Some(text) = crate::engine::routing::table_text(&unsigned) {
+                    table = Some(text);
+                }
             }
             crate::protocol::connection::Frame::Control(raw) => {
                 // 8=1 / 8=X control state — extracted, not routed (ibx#185).
@@ -613,53 +1300,77 @@ pub fn connect_farm(
     if !frames.is_empty() {
         log::info!("{} post-logon frames: {} frames, seq now {}", farm_id, frames.len(), conn.seq);
     }
-    Ok(conn)
+    Ok((conn, table))
+}
+
+/// Error of a frame whose signature does not match on `farm_id` (ibx#275).
+fn signature_mismatch(farm_id: &str) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, format!("{}: frame signature mismatch", farm_id))
 }
 
 /// Reconnect to the CCP (order/auth) server using cached session credentials.
-/// Performs TLS + DH + CONNECT_REQUEST, then attempts SOFT_TOKEN auth with cached K.
+/// Performs TLS + CONNECT_REQUEST (no key exchange, ibx#423), then attempts SOFT_TOKEN auth with cached K.
 /// If the server signals at AUTH_START that it requires full SRP, transparently
 /// falls back to a fresh SRP handshake using the cached `username`/`password`
 /// in `ReconnectAuth` (the same path used by `Gateway::connect`).
+/// The connection has the order status request already sent.
 pub fn reconnect_ccp(auth: &ReconnectAuth) -> io::Result<Connection> {
-    let token_hash = token_short_hash(&auth.session_token);
-    reconnect_ccp_attempt(auth, &token_hash, &auth.host, 0)
+    let mut conn = reconnect_ccp_session(auth)?.conn;
+    let now = chrono_free_timestamp();
+    conn.send_fix(&[(35, "H"), (52, &now), (11, "*"), (54, "*"), (55, "*")])?;
+    Ok(conn)
 }
 
-fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, depth: u32) -> io::Result<Connection> {
+/// [`reconnect_ccp`] without the order status request, also returning the
+/// session epoch of the new logon reply so the caller can keep it for the
+/// next reconnect (ibx#422). The caller sends the post-logon requests.
+pub fn reconnect_ccp_session(auth: &ReconnectAuth) -> io::Result<CcpReconnect> {
+    reconnect_ccp_via(auth, &auth.host)
+}
+
+/// [`reconnect_ccp_session`] to `host`, one of [`ccp_reconnect_hosts`].
+pub fn reconnect_ccp_via(auth: &ReconnectAuth, host: &str) -> io::Result<CcpReconnect> {
+    let token_hash = token_short_hash(&auth.session_token);
+    reconnect_ccp_attempt(auth, &token_hash, host, 0)
+}
+
+/// Hosts a CCP reconnect cycles through, as the reference does (ibx#399):
+/// the primary, then its backups `{first label}-hb1` and `{first label}-hb2`
+/// in the same domain (`cdc1.example` gives `cdc1-hb1.example`). An IP
+/// address or a single-label name has no backups.
+pub fn ccp_reconnect_hosts(host: &str) -> Vec<String> {
+    let mut hosts = vec![host.to_string()];
+    if host.parse::<std::net::IpAddr>().is_err()
+        && let Some((label, domain)) = host.split_once('.')
+        && !label.is_empty()
+        && !domain.is_empty()
+    {
+        hosts.push(format!("{}-hb1.{}", label, domain));
+        hosts.push(format!("{}-hb2.{}", label, domain));
+    }
+    hosts
+}
+
+/// Host of reconnect attempt `attempt` (1 for the first attempt).
+pub fn ccp_reconnect_host(host: &str, attempt: u32) -> String {
+    let mut hosts = ccp_reconnect_hosts(host);
+    let i = (attempt.max(1) as usize - 1) % hosts.len();
+    hosts.swap_remove(i)
+}
+
+fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, depth: u32) -> io::Result<CcpReconnect> {
     if depth > 5 {
         return Err(io::Error::new(io::ErrorKind::Other, "CCP reconnect: too many redirects"));
     }
-    log::info!("CCP reconnect to {}:{} (attempt {})", host, AUTH_PORT, depth + 1);
+    log::info!("CCP reconnect to {} (ssl={}, attempt {})", host, auth.use_ssl, depth + 1);
+    // The misc URLs, on their own connection (ibx#423).
+    misc_urls_before_login(host, depth > 0);
 
-    // TLS + DH key exchange
-    let addr = format!("{}:{}", host, AUTH_PORT)
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "DNS resolution failed"))?;
-    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(TIMEOUT_SSL_AUTH))?;
-    let connector = TlsConnector::builder()
-        .build()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-    let mut tls = connector
-        .connect(host, tcp)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-
+    // TLS with no key exchange (the reference's SSL mode), or a plain
+    // socket with the key exchange (its mode without TLS) (ibx#423).
+    let auth_port = if auth.use_ssl { AUTH_PORT } else { plain_port(AUTH_PORT) };
+    let mut tls = LinkStream::connect(host, auth_port, auth.use_ssl, Duration::from_secs(TIMEOUT_SSL_AUTH), false)?;
     let mut channel = SecureChannel::new();
-    let dh_msg = channel.build_secure_connect(NS_VERSION, NS_VERSION);
-    tls.write_all(&dh_msg)?;
-
-    let (payload, _) = ns::ns_recv(&mut tls)?;
-    let text = String::from_utf8_lossy(&payload);
-    let parts: Vec<&str> = text.split(';').collect();
-    let msg_type: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-    if msg_type != ns::NS_SECURE_CONNECTION_START {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("CCP reconnect DH: expected 533, got {}", msg_type),
-        ));
-    }
-    channel.process_server_hello(&parts[2..]);
 
     // CONNECT_REQUEST with SOFT_TOKEN flag + token hash (field 9)
     let flags = session::FLAG_OK_TO_REDIRECT
@@ -688,12 +1399,11 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
         auth.encoded,
         token_hash,
     );
-    session::send_secure(&mut tls, &mut channel, connect_req.as_bytes())?;
-    log::info!("CCP reconnect CONNECT_REQUEST sent (session={}, hash={})", auth.server_session_id, token_hash);
+    log::info!("CCP reconnect CONNECT_REQUEST (session={}, hash={})", auth.server_session_id, token_hash);
 
     // Receive AUTH_START — may get NS_REDIRECT instead
-    let auth_start = match session::recv_secure(&mut tls, &mut channel) {
-        Ok(data) => data,
+    let (auth_start, refused) = match ccp_login_start(&mut tls, &mut channel, connect_req.as_bytes(), auth.use_ssl) {
+        Ok(start) => start,
         Err(e) if e.to_string().starts_with("REDIRECT:") => {
             let target = e.to_string().replace("REDIRECT:", "");
             let redirect_host = target.split(':').next().unwrap_or(&target).to_string();
@@ -708,12 +1418,9 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
         Err(e) => return Err(e),
     };
 
-    // Parse AUTH_START field[5] for auth mode: 2=SOFT_TOKEN, 0=SRP required
-    let auth_text = String::from_utf8_lossy(&auth_start);
-    let auth_fields: Vec<&str> = auth_text.split(';').collect();
-    let auth_mode: u32 = auth_fields.get(5).and_then(|s| s.parse().ok()).unwrap_or(0);
-
-    if auth_mode == 2 {
+    // The soft flag of the auth start selects the session-token step, as in
+    // the reference; it is read only from a real auth start (ibx#353).
+    if auth_start.soft_flag != 0 {
         // SOFT_TOKEN challenge-response (4 states)
         do_ccp_soft_token(&mut tls, &auth.session_key)?;
 
@@ -731,7 +1438,7 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
             }
         }
     } else {
-        // Server requires full SRP (auth_mode != 2). Re-run the SRP handshake
+        // Server requires full SRP (soft flag 0). Re-run the SRP handshake
         // with the credentials cached on ReconnectAuth — the same path
         // Gateway::connect uses on first login.
         log::info!("CCP reconnect: server requires SRP, running handshake with cached credentials");
@@ -740,7 +1447,7 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
 
     // Post-auth: wait for NS_CONNECT_RESPONSE → NEWCOMMPORTTYPE → NS_FIX_START.
     // Per-iteration read timeout aligned with the initial-connect path.
-    tls.get_ref().set_read_timeout(Some(Duration::from_secs_f64(TIMEOUT_FIX_LOGON)))?;
+    tls.tcp().set_read_timeout(Some(Duration::from_secs_f64(TIMEOUT_FIX_LOGON)))?;
     let mut fix_ready = false;
     for _ in 0..20 {
         let (payload, _) = match ns::ns_recv(&mut tls) {
@@ -755,7 +1462,7 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
         let raw_type: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
         let inner = if raw_type == ns::NS_SECURE_MESSAGE {
-            let ct = B64.decode(parts[2])
+            let ct = B64.decode(parts.get(2).copied().unwrap_or(""))
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
             channel.decrypt(&ct)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
@@ -768,36 +1475,43 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
         let msg_type: u32 = inner_parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
         if msg_type == ns::NS_CONNECT_RESPONSE {
-            let newcomm = format!("{};{};0;;2;0;", NS_VERSION_MIN, ns::NS_NEWCOMMPORTTYPE);
-            session::send_secure(&mut tls, &mut channel, newcomm.as_bytes())?;
+            let newcomm = new_comm_port(auth_start.version, token_hash);
+            session::send_ns(&mut tls, &mut channel, !auth.use_ssl && !refused, newcomm.as_bytes())?;
         } else if msg_type == ns::NS_FIX_START {
             fix_ready = true;
             break;
-        } else if msg_type == ns::NS_ERROR_RESPONSE {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("CCP reconnect post-auth error: {}", inner_parts[2..].join(";")),
-            ));
+        } else if msg_type == ns::NS_ERROR_RESPONSE || msg_type == ns::NS_SECURE_ERROR {
+            return Err(session::ns_error(msg_type, &inner_parts[2..]));
         }
         // Ignore 530 keepalives and other types
     }
-    tls.get_ref().set_read_timeout(None)?;
+    tls.tcp().set_read_timeout(None)?;
     if !fix_ready {
         return Err(io::Error::new(io::ErrorKind::Other, "CCP reconnect: no FIX_START after auth"));
     }
 
-    // FIX Logon
-    let logon_msg = build_ccp_logon(&auth.hw_info, &auth.encoded, CCP_HEARTBEAT, 1);
+    // FIX Logon: a reconnect of the same session carries its epoch (ibx#422).
+    let logon_msg = build_ccp_reconnect_logon(&auth.hw_info, &auth.encoded, CCP_HEARTBEAT, 1, &auth.session_epoch);
     tls.write_all(&logon_msg)?;
     tls.flush()?;
 
     // Short poll timeout + overall deadline so a slow response segment from a
     // high-latency gateway is retried, not treated as a fatal logon failure
     // (ibx#237, same tolerance as the farm-logon path).
-    tls.get_ref().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
+    tls.tcp().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
     let fix_deadline = std::time::Instant::now() + Duration::from_secs_f64(TIMEOUT_FARM_LOGON);
+    let mut session_epoch = None;
+    let mut logon = LogonValues::default();
     for _ in 0..5 {
         let response = fix_read_deadline(&mut tls, fix_deadline)?;
+        let received_ms = crate::control::logon::local_now_ms();
+        if let Some(epoch) = logon_reply_epoch(&response) {
+            log::info!("CCP reconnect: session epoch {} (sent {:?})", epoch, auth.session_epoch);
+            session_epoch = Some(epoch);
+        }
+        if let Some(tags) = logon_reply_tags(&response).filter(|t| t.get(&fix::TAG_MSG_TYPE).is_some_and(|m| m == "A")) {
+            logon = LogonValues::read(&tags, received_ms, crate::control::logon::local_now_ms());
+        }
         let fields = fix_parse(&response);
         let msg_type = fields.get(&35).map(|s| s.as_str()).unwrap_or("");
         match msg_type {
@@ -812,22 +1526,49 @@ fn reconnect_ccp_attempt(auth: &ReconnectAuth, token_hash: &str, host: &str, dep
             _ => {}
         }
     }
-    tls.get_ref().set_read_timeout(None)?;
+    tls.tcp().set_read_timeout(None)?;
 
-    // Order mass status request
-    let mut ccp_seq: u32 = 1;
-    ccp_seq += 1;
-    let now = chrono_free_timestamp();
-    let status_req = fix_build(&[(35, "H"), (52, &now), (11, "*"), (54, "*"), (55, "*")], ccp_seq);
-    tls.write_all(&status_req)?;
-    tls.flush()?;
-
-    let mut conn = Connection::new(tls)?;
-    conn.seq = ccp_seq;
+    let mut conn = tls.into_connection()?;
+    conn.seq = 1; // the logon
     log::info!("CCP reconnect complete (seq={})", conn.seq);
-    Ok(conn)
+    Ok(CcpReconnect { conn, session_epoch, ns_secure_refused: refused, logon })
 }
 
+
+/// Start of a login on the auth connection, then the auth start is read
+/// (ibx#423). In the reference's SSL mode (jts.ini `[Logon] UseSSL=true`,
+/// the setting of the captured gateway, `ssl`) the connect request
+/// `connect_req` goes in clear inside TLS, with no key exchange before it.
+/// Without TLS the key exchange comes first and the connect request goes
+/// encrypted (`twslaunch.jconnection.A.a(int, Object)@56-155`,
+/// `aY.a(aE, boolean)`). The second value is set when the server refused
+/// the encryption with the permission to go on: the connect request was
+/// sent (again) in clear, and the farms opened after this login skip their
+/// key exchange. Every auth login (first login, reconnect, redirect)
+/// starts here.
+fn ccp_login_start<S: Read + Write>(
+    stream: &mut S,
+    channel: &mut SecureChannel,
+    connect_req: &[u8],
+    ssl: bool,
+) -> io::Result<(session::AuthStart, bool)> {
+    let mut refused = false;
+    if ssl {
+        session::send_plain(stream, connect_req)?;
+    } else {
+        stream.write_all(&channel.build_secure_connect(NS_VERSION, NS_VERSION))?;
+        let secure = session::read_key_exchange_answer(stream, channel)?;
+        if secure {
+            log::info!("Auth key exchange complete");
+        } else {
+            log::warn!("The server refused the encryption of the auth login: it goes on in clear");
+            refused = true;
+        }
+        session::send_ns(stream, channel, secure, connect_req)?;
+    }
+    let start = session::recv_auth_start_ccp(stream, channel, &mut refused, connect_req)?;
+    Ok((start, refused))
+}
 
 /// SOFT_TOKEN challenge-response over the TLS/NS channel (for CCP reconnect).
 fn do_ccp_soft_token<S: Read + Write>(stream: &mut S, session_key: &BigUint) -> io::Result<()> {
@@ -894,16 +1635,18 @@ pub struct GatewayConfig {
     /// Accept invalid TLS certificates during auth. Default: `false` (secure).
     /// Only set to `true` for local testing against self-signed gateways.
     pub accept_invalid_certs: bool,
-    /// Per-session second-factor approval timeout. Defaults to
-    /// [`session::IB_KEY_DEFAULT_TIMEOUT_SECS`] (~18 min, matching the
-    /// server-side deadline). Set lower to fail fast for unattended logins.
-    /// Only consulted on non-paper logins; paper logins skip the gate entirely.
+    /// Per-session second-factor approval timeout in seconds; `0` (the
+    /// default, [`session::IB_KEY_DEFAULT_TIMEOUT_SECS`]) is no client
+    /// timeout, as in the reference: the wait ends with the server's answer
+    /// or its close of the socket after about 18 min (ibx#208). Set a value
+    /// to fail fast for unattended logins. Only consulted on non-paper
+    /// logins; paper logins skip the gate entirely.
     pub ib_key_timeout_secs: u64,
-    /// Account-specific second-factor token sub-type used in the SWCR_TOKEN
-    /// state=1 init body (`M.D` field). Default `"2a"` matches the captured
-    /// reference profile; other accounts may use a different value. Capture
-    /// the live value via ib-agent's `SWCR_TOKEN_SUBTYPE` hook if the default
-    /// doesn't trigger the IBKey push for your account.
+    /// Override of the second-factor token sub-type sent in the SWCR_TOKEN
+    /// state=1 init body (`M.D` field). Empty (the default,
+    /// [`session::IB_KEY_DEFAULT_TOKEN_SUB_TYPE`]): the value comes from the
+    /// second-factor list of the session's auth start, as the reference
+    /// does (ibx#279). Set it only to force another value.
     pub ib_key_token_sub_type: String,
     /// If set, the IBKey gate uses the **Challenge/Response** path instead
     /// of waiting for a mobile push approval. After the server delivers
@@ -917,8 +1660,22 @@ pub struct GatewayConfig {
 impl Gateway {
     /// Connect to IB: auth + logon + data farm connections.
     /// Returns Gateway + farm Connection + auth Connection + optional historical data Connection.
+    ///
+    /// While the server answers "site down" or "site not ready" the login is
+    /// retried after 5 to 15 s, as the reference retries those answers; any
+    /// other login error answer (bad credentials, lockout, ...) stops at once
+    /// (ibx#423).
     pub fn connect(config: &GatewayConfig) -> io::Result<(Self, Connection, Connection, Option<Connection>)> {
-        Self::connect_to_host(config, &config.host, 0)
+        loop {
+            match Self::connect_to_host(config, &config.host, 0) {
+                Err(e) if session::login_error(&e).is_some_and(|l| l.kind.is_retryable()) => {
+                    let delay = crate::engine::hot_loop::reconnect_backoff();
+                    log::warn!("{}; login retried in {:?}", e, delay);
+                    std::thread::sleep(delay);
+                }
+                result => return result,
+            }
+        }
     }
 
     /// Internal: connect to a specific host, with redirect depth tracking.
@@ -947,47 +1704,21 @@ impl Gateway {
             }
         });
 
-        // --- Phase 1: TLS + auth ---
-        log::info!("Connecting to auth server {}:{}", host, AUTH_PORT);
-        let addr = format!("{}:{}", host, AUTH_PORT)
-            .to_socket_addrs()?
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "DNS resolution failed"))?;
-        let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(TIMEOUT_SSL_AUTH))?;
+        // The misc URLs, on their own connection (ibx#423).
+        misc_urls_before_login(host, redirect_depth > 0);
 
-        let connector = TlsConnector::builder()
-            .danger_accept_invalid_certs(config.accept_invalid_certs)
-            .build()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-        let mut tls = connector
-            .connect(host, tcp)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-
-        // Key exchange
+        // --- Phase 1: auth connection + auth ---
+        // TLS on the auth port, or the reference's mode without TLS: a
+        // plain socket on the port before it (ibx#423).
+        let use_ssl = crate::config::use_ssl();
+        let auth_port = if use_ssl { AUTH_PORT } else { plain_port(AUTH_PORT) };
+        log::info!("Connecting to auth server {}:{} (ssl={})", host, auth_port, use_ssl);
+        let mut tls = LinkStream::connect(host, auth_port, use_ssl, Duration::from_secs(TIMEOUT_SSL_AUTH),
+            config.accept_invalid_certs)?;
         let mut channel = SecureChannel::new();
-        let dh_msg = channel.build_secure_connect(NS_VERSION, NS_VERSION);
-        tls.write_all(&dh_msg)?;
 
-        let (payload, _) = ns::ns_recv(&mut tls)?;
-        let text = String::from_utf8_lossy(&payload);
-        let parts: Vec<&str> = text.split(';').collect();
-        let msg_type: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
-        if msg_type == ns::NS_SECURE_ERROR {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("DH error: {}", parts[2..].join(";")),
-            ));
-        }
-        if msg_type != ns::NS_SECURE_CONNECTION_START {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Expected 533, got {}", msg_type),
-            ));
-        }
-        channel.process_server_hello(&parts[2..]);
-        log::info!("Auth key exchange complete");
-
-        // Send CONNECT_REQUEST (encrypted)
+        // CONNECT_REQUEST: in clear inside TLS, or after the key exchange
+        // on the plain socket.
         let flags = session::FLAG_OK_TO_REDIRECT
             | session::FLAG_VERSION
             | session::FLAG_VERSION_PRESENT
@@ -1013,11 +1744,13 @@ impl Gateway {
             session_id,
             encoded
         );
-        session::send_secure(&mut tls, &mut channel, connect_req.as_bytes())?;
 
-        // Receive AUTH_START (may get a redirect instead for paper accounts)
-        let _auth_start = match session::recv_secure(&mut tls, &mut channel) {
-            Ok(data) => data,
+        // Receive AUTH_START (may get a redirect instead for paper accounts).
+        // When the server refuses the encryption with the permission to go
+        // on, the farms of the session log on in clear, as the reference
+        // does (ibx#423).
+        let (auth_start, refused) = match ccp_login_start(&mut tls, &mut channel, connect_req.as_bytes(), use_ssl) {
+            Ok(start) => start,
             Err(e) if e.to_string().starts_with("REDIRECT:") => {
                 let target = e.to_string().strip_prefix("REDIRECT:").unwrap().to_string();
                 // Extract host (strip port if present — auth always uses AUTH_PORT)
@@ -1028,6 +1761,10 @@ impl Gateway {
             }
             Err(e) => return Err(e),
         };
+
+        // The protocol messages of the login are encrypted after an
+        // accepted key exchange (the mode without TLS, ibx#423).
+        let secure = !use_ssl && !refused;
 
         // Authentication
         log::info!("Starting auth for {}", config.username);
@@ -1040,31 +1777,51 @@ impl Gateway {
         // Captures the SOFT session token from AUTH_FINISH PASSED — this is
         // the token used for downstream farm logons (NOT the SRP session_key).
         let mut soft_token: Option<BigUint> = None;
-        if !config.paper {
-            let deadline = std::time::Instant::now()
-                + std::time::Duration::from_secs(config.ib_key_timeout_secs);
+        // The second factor and its token sub-type come from the auth start
+        // of this session; the config value only overrides the sub-type
+        // (ibx#279). An empty list means no second factor, as in the
+        // reference.
+        let second_factor = if config.paper {
+            None
+        } else {
+            let token = auth_start.mobile_key_token(&config.ib_key_token_sub_type)?;
+            if token.is_none() {
+                log::info!("Auth start lists no second factor: none required");
+            }
+            token
+        };
+        if let Some(token_sub_type) = second_factor {
+            // No client deadline unless one is set, as in the reference: the
+            // wait ends with the server's answer or its close of the socket
+            // (ibx#208).
+            let deadline = session::ib_key_deadline(config.ib_key_timeout_secs);
+            let bound = if deadline.is_some() {
+                format!("up to {}s", config.ib_key_timeout_secs)
+            } else {
+                "until the server answers or closes (about 18 min)".to_string()
+            };
             // Live logins enter a human-approval window here: connect() blocks
-            // until the second factor is approved (mobile push) or this deadline
-            // fires. Announce it up front so a stalled connect() reads as
+            // until the second factor is approved (mobile push) or the wait
+            // ends. Announce it up front so a stalled connect() reads as
             // "waiting for approval" rather than a hang (ibx#203 / ibx#207).
             // Accounts with no second factor fall straight through (Skipped).
             if config.code_provider.is_none() {
                 log::info!(
-                    "Live login for {}: waiting for second-factor approval (mobile push); \
-                     connect() blocks up to {}s. Use paper=true, a lower ib_key_timeout_secs, \
-                     or a code_provider to avoid this.",
-                    config.username, config.ib_key_timeout_secs,
+                    "Live login for {}: waiting for second-factor approval (mobile push);                      connect() blocks {}. Use paper=true, an ib_key_timeout_secs,                      or a code_provider to avoid this.",
+                    config.username, bound,
                 );
             } else {
                 log::info!(
-                    "Live login for {}: second-factor via code_provider (Challenge/Response); \
-                     connect() blocks up to {}s awaiting the challenge.",
-                    config.username, config.ib_key_timeout_secs,
+                    "Live login for {}: second-factor via code_provider (Challenge/Response);                      connect() blocks {} awaiting the challenge.",
+                    config.username, bound,
                 );
             }
+            // Short read timeout: the wait checks the code provider and the
+            // deadline between reads (ibx#244).
+            tls.tcp().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
             match session::do_ib_key_2fa(
                 &mut tls,
-                &config.ib_key_token_sub_type,
+                &token_sub_type,
                 deadline,
                 config.code_provider.as_ref(),
             )? {
@@ -1096,7 +1853,7 @@ impl Gateway {
         // could exhaust a fixed iteration budget before it arrived (ibx#196).
         // Retry within an overall deadline and ignore intervening messages,
         // mirroring the CCP-reconnect path.
-        tls.get_ref().set_read_timeout(Some(Duration::from_secs_f64(TIMEOUT_FIX_LOGON)))?;
+        tls.tcp().set_read_timeout(Some(Duration::from_secs_f64(TIMEOUT_FIX_LOGON)))?;
         let fix_deadline = std::time::Instant::now()
             + std::time::Duration::from_secs_f64(TIMEOUT_FIX_LOGON * 2.0);
         let mut fix_ready = false;
@@ -1121,15 +1878,12 @@ impl Gateway {
 
             // Decrypt if encrypted, otherwise use raw
             let inner = if raw_type == ns::NS_SECURE_MESSAGE {
-                let ct = B64.decode(parts[2])
+                let ct = B64.decode(parts.get(2).copied().unwrap_or(""))
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
                 channel.decrypt(&ct)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
-            } else if raw_type == ns::NS_SECURE_ERROR {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Post-auth secure error: {}", parts[2..].join(";")),
-                ));
+            } else if raw_type == ns::NS_SECURE_ERROR || raw_type == ns::NS_ERROR_RESPONSE {
+                return Err(session::ns_error(raw_type, &parts[2..]));
             } else if raw_type == ns::NS_REDIRECT {
                 let target = parts.get(2).unwrap_or(&"");
                 let redirect_host = target.split(':').next().unwrap_or(target);
@@ -1145,22 +1899,24 @@ impl Gateway {
             let msg_type: u32 = inner_parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
 
             if msg_type == ns::NS_CONNECT_RESPONSE {
-                log::info!("NS_CONNECT_RESPONSE: {}", inner_text);
+                // Type only: the connect response carries the session log
+                // key, so its text is not logged (ibx#283).
+                log::info!("Post-auth: connect response received");
                 // Send port type change (required before data start)
-                let newcomm = format!("{};{};0;;2;0;", NS_VERSION_MIN, ns::NS_NEWCOMMPORTTYPE);
-                session::send_secure(&mut tls, &mut channel, newcomm.as_bytes())?;
+                let newcomm = new_comm_port(auth_start.version,
+                    &token_short_hash(soft_token.as_ref().unwrap_or(&session_key)));
+                session::send_ns(&mut tls, &mut channel, secure, newcomm.as_bytes())?;
                 log::info!("Port type change sent");
             } else if msg_type == ns::NS_FIX_START {
                 log::info!("Data start: {}", inner_text);
                 fix_ready = true;
                 break;
-            } else if msg_type == ns::NS_ERROR_RESPONSE {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Post-auth error: {}", inner_parts[2..].join(";")),
-                ));
+            } else if msg_type == ns::NS_ERROR_RESPONSE || msg_type == ns::NS_SECURE_ERROR {
+                return Err(session::ns_error(msg_type, &inner_parts[2..]));
+            } else if msg_type == ns::NS_BACKUP_HOST {
+                log::info!("Backup host notice received (ignored)");
             } else {
-                log::info!("Post-auth msg type={}: {}", msg_type, inner_text);
+                log::info!("Post-auth msg type={} (ignored)", msg_type);
             }
         }
         if !fix_ready {
@@ -1182,16 +1938,38 @@ impl Gateway {
         // Read FIX messages until we get the logon ACK (35=A) with session info.
         // Short poll timeout + overall deadline so a slow ACK segment from a
         // high-latency gateway is retried, not fatal (ibx#237).
-        tls.get_ref().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
+        tls.tcp().set_read_timeout(Some(Duration::from_millis(FARM_LOGON_POLL_MS)))?;
         let ack_deadline = std::time::Instant::now() + Duration::from_secs_f64(TIMEOUT_FARM_LOGON);
         let mut account_id = String::new();
+        let mut managed_accounts: Vec<String> = Vec::new();
+        // The farms that connect on TLS (8449, ibx#276); empty when absent.
+        let mut ssl_farms = String::new();
         let mut heartbeat_interval = CCP_HEARTBEAT;
         let mut server_session_id = String::new();
-        let mut ccp_token = String::new();
+        let mut settings_object_key = String::new();
+        let mut session_epoch = String::new();
         let mut raw_soft_dollar_tiers = String::new();
         let mut raw_family_codes = String::new();
         let mut raw_news_providers = String::new();
+        let mut raw_news_sources = String::new();
+        let mut raw_news_capabilities = String::new();
+        let mut deny_news = false;
         let mut white_branding_id = String::new();
+        let mut fa_session = false;
+        let mut super_user = false;
+        let mut omnibus = false;
+        let mut raw_smart_combo_con_ids = String::new();
+        let mut scale_us_lots = false;
+        let mut user_book = false;
+        // Tick-by-tick limit fields, first value seen (ibx#455).
+        let mut tbt_limit_fields: [Option<String>; 4] = Default::default();
+        // Logon values of the depth limit (#452).
+        let mut depth_limit_fields: [Option<String>; 5] = Default::default();
+        let mut tick_by_tick_off = false;
+        let mut price_mgmt = false;
+        let mut price_mgmt_exclusions: Option<String> = None;
+        // Logon values of the real-time bar limit (ibx#454).
+        let mut ticker_limit_tags: std::collections::HashMap<u32, i64> = std::collections::HashMap::new();
         let mut raw_misc_urls = String::new();
         // Per ib-agent#128: the auth-logon ACK tells us which farms this
         // account is routed to. Hardcoding `usfarm`/`ushmds` only works for
@@ -1200,9 +1978,15 @@ impl Gateway {
         let mut trading_route = String::new();    // tag 6145
         let mut mktdata_route = String::new();    // tag 6171
         let mut secdef_route  = String::new();    // tag 8008
+        // Values of the logon reply the reference applies (ibx#421).
+        let mut logon = LogonValues::default();
+        let mut version_cutoff = None;
+        let mut version_cutoff_date = None;
+        let mut max_backfill_years = 1;
 
         for _ in 0..5 {
             let raw_response = fix_read_deadline(&mut tls, ack_deadline)?;
+            let received_ms = crate::control::logon::local_now_ms();
             // The auth-logon ACK arrives as `8=FIXCOMP` with a DEFLATE-
             // compressed inner body containing the per-account routing tags
             // (6145/6171/8008) and other init data. Inflate before parsing.
@@ -1242,6 +2026,18 @@ impl Gateway {
                 _ => {}
             }
 
+            if msg_type == "A" {
+                logon = LogonValues::read(&fields, received_ms, crate::control::logon::local_now_ms());
+                version_cutoff = fields.get(&6243).cloned();
+                version_cutoff_date = fields.get(&6244).cloned();
+                max_backfill_years = crate::control::logon::max_backfill_years(fields.get(&6774).map(String::as_str));
+                log::info!("Normal logon [cutoffVersion={:?}], Max API Backfill Years is set to {}", version_cutoff, max_backfill_years);
+                // The account list of the logon, the managed accounts of
+                // the API (ibx#420).
+                managed_accounts = fields.get(&6095).map(|v| crate::control::logon::managed_accounts(v)).unwrap_or_default();
+                log::info!("Logon account list: {} account(s)", managed_accounts.len());
+                ssl_farms = fields.get(&TAG_SSL_FARMS).cloned().unwrap_or_default();
+            }
             if let Some(v) = fields.get(&1) {
                 if account_id.is_empty() { account_id = v.clone(); }
             }
@@ -1249,12 +2045,16 @@ impl Gateway {
                 if let Ok(hb) = v.parse() { heartbeat_interval = hb; }
             }
             if let Some(v) = fields.get(&6386) {
-                if ccp_token.is_empty() {
-                    ccp_token = v.clone();
-                    log::info!("Auth: captured ccp_token (FIX 6386, len={}, prefix={:?})",
-                        ccp_token.len(),
-                        if ccp_token.len() > 16 { &ccp_token[..16] } else { &ccp_token });
+                if settings_object_key.is_empty() {
+                    settings_object_key = v.clone();
+                    log::info!("Auth: settings object key (6386, len={})", settings_object_key.len());
                 }
+            }
+            if let Some(v) = fields.get(&TAG_SESSION_EPOCH).filter(|v| !v.is_empty())
+                && session_epoch.is_empty()
+            {
+                session_epoch = v.clone();
+                log::info!("Auth: session epoch {}", session_epoch);
             }
             // Tag 8035: try parsed fields first, then raw byte search
             if server_session_id.is_empty() {
@@ -1305,8 +2105,48 @@ impl Gateway {
             if let Some(v) = fields.get(&6830) {
                 if raw_news_providers.is_empty() { raw_news_providers = v.clone(); }
             }
-            if let Some(v) = fields.get(&6571) {
+            if let Some(v) = fields.get(&6988) {
+                if raw_news_sources.is_empty() { raw_news_sources = v.clone(); }
+            }
+            if let Some(v) = fields.get(&6969) {
+                if raw_news_capabilities.is_empty() { raw_news_capabilities = v.clone(); }
+            }
+            // whiteBrandingId: logon tag 6593, as the reference (ibx#483).
+            if let Some(v) = fields.get(&6593) {
                 if white_branding_id.is_empty() { white_branding_id = v.clone(); }
+            }
+            // FA session: true only for the single character "1", as the
+            // reference reads FIX booleans (ibx#481).
+            if let Some(v) = fields.get(&6108) {
+                fa_session |= v == "1";
+            }
+            // Super user and omnibus, read the same way (ibx#417).
+            super_user |= fields.get(&6130).is_some_and(|v| v == "1");
+            user_book |= fields.get(&6247).is_some_and(|v| v.eq_ignore_ascii_case("demo"));
+            omnibus |= fields.get(&9826).is_some_and(|v| v == "1");
+            // The smart combo conIds by currency (ibx#470).
+            if let Some(v) = fields.get(&6611) {
+                if raw_smart_combo_con_ids.is_empty() { raw_smart_combo_con_ids = v.clone(); }
+            }
+            if let Some(v) = fields.get(&6542) {
+                scale_us_lots |= features_scale_us_lots(v);
+                tick_by_tick_off |= features_have(v, "NOTICKBYTICK");
+                price_mgmt |= features_have(v, "PRICEMGMT");
+                deny_news |= features_have(v, "DENYNEWS");
+            }
+            if price_mgmt_exclusions.is_none() {
+                price_mgmt_exclusions = fields.get(&8146).cloned();
+            }
+            for (slot, tag) in tbt_limit_fields.iter_mut().zip([8421u32, 8422, 6594, 6848]) {
+                if slot.is_none() { *slot = fields.get(&tag).cloned(); }
+            }
+            for (slot, tag) in depth_limit_fields.iter_mut().zip([6849u32, 6848, 8421, 8422, 6594]) {
+                if slot.is_none() { *slot = fields.get(&tag).cloned(); }
+            }
+            for tag in [6847u32, 6846, 8421, 8422, 6083] {
+                if let Some(n) = fields.get(&tag).and_then(|v| v.trim().parse::<i64>().ok()) {
+                    ticker_limit_tags.entry(tag).or_insert(n);
+                }
             }
             // Tag 6321: PRIV_LAB_MISC_URLS — try parsed fields first, then raw byte search.
             // Mirrors the 8035 defensive scan because the value can carry `|` separators
@@ -1334,16 +2174,24 @@ impl Gateway {
                 break;
             }
         }
-        tls.get_ref().set_read_timeout(None)?;
+        tls.tcp().set_read_timeout(None)?;
+
+        // DENYAPI in the feature list: the reference closes every API
+        // connection with no message (ibx#421).
+        if logon.features.as_deref().is_some_and(|f| crate::control::logon::ApiFeatures::parse(f).deny_api) {
+            log::warn!("{}", crate::control::logon::API_NOT_ALLOWED);
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::control::logon::API_NOT_ALLOWED));
+        }
 
         // Fall back to our auth session_id if server didn't provide one (Python does the same)
         if server_session_id.is_empty() {
             server_session_id = session_id.clone();
         }
 
+        let max_real_time_requests = max_real_time_requests(&ticker_limit_tags);
         log::info!(
-            "Auth logon: account={} session_id={} hb={}s",
-            account_id, server_session_id, heartbeat_interval
+            "Auth logon: account={} session_id={} hb={}s scale_us_lots={} max_real_time_requests={}",
+            account_id, server_session_id, heartbeat_interval, scale_us_lots, max_real_time_requests
         );
 
         // --- Post-logon init sequence ---
@@ -1370,8 +2218,12 @@ impl Gateway {
         for _ in 0..92 {
             send_init(&[(35, "U"), (52, &now), (6040, "80")])?;
         }
+        // The algo definitions the reference asks for stock algos (ibx#263).
+        for key in crate::control::algo::DEFINITION_KEYS {
+            send_init(&[(35, "U"), (52, &now), (6040, "53"), (6364, key)])?;
+        }
         tls.flush()?;
-        log::info!("Init sequence sent ({} messages, seq now {})", 99, ccp_seq);
+        log::info!("Init sequence sent ({} messages, seq now {})", ccp_seq - 1, ccp_seq);
 
         // Drain init responses — extract account ID + farm routing tags.
         // Per ib-agent#134 read-throughput investigation (2026-05-05):
@@ -1380,7 +2232,7 @@ impl Gateway {
         // until it FINs the socket at ~140 s. A 300 ms idle-gap is past any
         // intra-burst jitter (the burst is continuous) and well short of the
         // 10 s keep-alive trickle interval, so we exit promptly after burst-end.
-        tls.get_ref().set_read_timeout(Some(Duration::from_millis(300)))?;
+        tls.tcp().set_read_timeout(Some(Duration::from_millis(300)))?;
         let mut init_data: Vec<u8> = Vec::with_capacity(65536);
         let mut tmp_buf = vec![0u8; 65536];
         let read_start = std::time::Instant::now();
@@ -1414,6 +2266,13 @@ impl Gateway {
 
         // Scan init response for account ID and gateway-local init tags
         let init_str = String::from_utf8_lossy(&scan_data);
+        let account_config = parse_account_config(&init_str);
+        let algo_definitions = parse_algo_definitions(&init_str);
+        log::info!("Algo definitions in the login burst: {}", algo_definitions.len());
+        match &account_config {
+            Some((features, mifid)) => log::info!("Account config: features {:?}, MiFID config {:?}", features, mifid),
+            None => log::warn!("No account config answer in the login burst"),
+        }
         // TEMP diagnostic (ib-agent#128 follow-up): log every part containing
         // "farm" or "hmds" so we can locate the routing tags.
         for part in init_str.split('\x01') {
@@ -1439,8 +2298,22 @@ impl Gateway {
             } else if part.starts_with("6830=") && raw_news_providers.is_empty() {
                 raw_news_providers = part[5..].to_string();
                 log::info!("Found news providers from init response ({} bytes)", raw_news_providers.len());
-            } else if part.starts_with("6571=") && white_branding_id.is_empty() {
-                white_branding_id = part[5..].to_string();
+            } else if part.starts_with("6988=") && raw_news_sources.is_empty() {
+                raw_news_sources = part[5..].to_string();
+                log::info!("Found API news sources from init response ({} bytes)", raw_news_sources.len());
+            } else if part.starts_with("6969=") && raw_news_capabilities.is_empty() {
+                raw_news_capabilities = part[5..].to_string();
+                log::info!("Found news capabilities from init response ({} bytes)", raw_news_capabilities.len());
+            } else if part == "6108=1" {
+                fa_session = true;
+            } else if part == "6130=1" {
+                super_user = true;
+            } else if part == "9826=1" {
+                omnibus = true;
+            } else if part.starts_with("6611=") && raw_smart_combo_con_ids.is_empty() {
+                raw_smart_combo_con_ids = part[5..].to_string();
+            } else if let Some(id) = white_branding_part(part).filter(|_| white_branding_id.is_empty()) {
+                white_branding_id = id.to_string();
                 log::info!("Found white branding ID from init response");
             } else if part.starts_with("6321=") && raw_misc_urls.is_empty() {
                 raw_misc_urls = part[5..].to_string();
@@ -1544,22 +2417,25 @@ impl Gateway {
             ccp_seq
         );
 
-        tls.get_ref().set_read_timeout(None)?;
+        tls.tcp().set_read_timeout(None)?;
 
-        // Auth connection (non-blocking TLS for hot loop)
-        let mut ccp_conn = Connection::new(tls)?;
+        // Auth connection for the hot loop: TLS, or the plain socket of the
+        // mode without TLS (ibx#423).
+        let mut ccp_conn = tls.into_connection()?;
         ccp_conn.seq = ccp_seq;
-        // CCP HMAC signing IV: derived by AES-CBC encrypting the logon message.
-        // The logon was sent as plaintext over TLS, but the AES-CBC computation
-        // evolves the IV — last 16 bytes of ciphertext = new IV for HMAC signing.
-        let ccp_sign_key = channel.key_block().map(|kb| kb[64..84].to_vec()).unwrap_or_default();
-        let ccp_sign_iv = if let Some(kb) = channel.key_block() {
-            let aes_key = &kb[0..16];
-            let initial_iv = &kb[32..48];
-            let ciphertext = crate::auth::crypto::aes_cbc_encrypt(aes_key, initial_iv, &logon_msg);
-            ciphertext[ciphertext.len() - 16..].to_vec()
-        } else {
-            Vec::new()
+        // On TLS there is no key exchange, so no signing key: its messages
+        // go unsigned, as the reference's (ibx#423). Without TLS the keys
+        // of the key exchange sign the XML-carrying messages, the scheme
+        // ibx ran when it made the key exchange on the auth connection
+        // (before 5222d66): the key block's signing key, and the IV the
+        // logon message moves the cipher to. How the reference signs on
+        // that connection was not read; no capture runs without TLS.
+        let (ccp_sign_key, ccp_sign_iv) = match channel.key_block().filter(|_| secure) {
+            Some(kb) => {
+                let ciphertext = crate::auth::crypto::aes_cbc_encrypt(&kb[0..16], &kb[32..48], &logon_msg);
+                (kb[64..84].to_vec(), ciphertext[ciphertext.len() - 16..].to_vec())
+            }
+            None => (Vec::new(), Vec::new()),
         };
         // Seed init burst into connection buffer so the hot loop processes 8=O account data
         ccp_conn.seed_buffer(&init_data);
@@ -1593,6 +2469,8 @@ impl Gateway {
         // below are moved into the thread::scope closures.
         let hmds_host_for_gw = mktdata_host.clone();
         let hmds_farm_for_gw = mktdata_farm.clone();
+        let farm_name = trading_farm.clone();
+        let farm_host = trading_host.clone();
 
         // Parallel farm logons: validated against paper and live (each farm
         // logon is ~6 s sequentially; running them in parallel halves the
@@ -1606,99 +2484,108 @@ impl Gateway {
             let token = &farm_token;
             let hw = &hw_info;
             let enc = &encoded;
+            // Each farm on TLS when the logon lists it and the auth
+            // connection uses TLS, else with the key exchange (ibx#276).
+            let trading_link = FarmLink::of(&ssl_farms, use_ssl, &trading_farm, FarmService::MarketData, refused);
+            let mktdata_link = FarmLink::of(&ssl_farms, use_ssl, &mktdata_farm, FarmService::Historical, refused);
             let trading_handle = scope.spawn(move || {
-                connect_farm(&trading_host, &trading_farm, username, password,
-                    paper, ssid, token, hw, enc, 18)
+                connect_farm_opts(&trading_host, &trading_farm, username, password,
+                    paper, ssid, token, hw, enc, 18, true, trading_link)
             });
             let mktdata_handle = scope.spawn(move || {
-                connect_farm(&mktdata_host, &mktdata_farm, username, password,
-                    paper, ssid, token, hw, enc, 17)
+                connect_farm_opts(&mktdata_host, &mktdata_farm, username, password,
+                    paper, ssid, token, hw, enc, 17, true, mktdata_link)
             });
             let trading = trading_handle.join().expect("trading farm thread panicked");
             let mktdata = mktdata_handle.join().expect("mktdata farm thread panicked");
             (trading, mktdata)
         });
-        let farm_conn = farm_conn?;
-        let hmds_conn = match hmds_conn {
-            Ok(c) => { log::info!("Historical data farm connected"); Some(c) }
-            Err(e) => { log::warn!("Historical data farm connection failed (non-fatal): {}", e); None }
+        let (farm_conn, md_routing) = farm_conn?;
+        let (hmds_conn, hmds_routing) = match hmds_conn {
+            Ok((c, table)) => { log::info!("Historical data farm connected"); (Some(c), table) }
+            Err(e) => { log::warn!("Historical data farm connection failed (non-fatal): {}", e); (None, None) }
         };
 
         let gw = Gateway {
             account_id: if account_id.is_empty() { config.username.clone() } else { account_id },
+            managed_accounts,
             session_token: session_key,
             server_session_id,
-            ccp_token,
+            settings_object_key,
             heartbeat_interval,
             hw_info,
             encoded,
             raw_soft_dollar_tiers,
             raw_family_codes,
             raw_news_providers,
+            raw_news_sources,
+            raw_news_capabilities,
+            deny_news,
             white_branding_id,
+            fa_session,
+            super_user,
+            omnibus,
+            raw_smart_combo_con_ids,
+            account_config,
+            algo_definitions,
+            scale_us_lots,
+            tick_by_tick_limit: tick_by_tick_limit(&tbt_limit_fields),
+            depth_limit: depth_limit(&depth_limit_fields),
+            user_book,
+            tick_by_tick_off,
+            price_mgmt,
+            price_mgmt_exclusions,
+            max_real_time_requests,
             misc_urls: parse_misc_urls(&raw_misc_urls),
             ccp_sign_key,
             ccp_sign_iv,
             hmds_host: hmds_host_for_gw,
             hmds_farm: hmds_farm_for_gw,
+            session_epoch,
+            farm_name,
+            farm_host,
+            md_routing,
+            hmds_routing,
+            ns_secure_refused: refused,
+            use_ssl,
+            ssl_farms,
+            logon,
+            version_cutoff,
+            version_cutoff_date,
+            max_backfill_years,
         };
         Ok((gw, farm_conn, ccp_conn, hmds_conn))
     }
 
     /// Populate shared state with gateway-local init data parsed from CCP logon.
     pub fn populate_init_data(&self, shared: &SharedState) {
-        use crate::types::{SmartComponent, NewsProvider, FamilyCode};
+        use crate::types::FamilyCode;
 
-        // Smart components: hardcoded US equity SMART routing exchanges.
-        // Server doesn't send these in a parseable init message; they're
-        // embedded in the Gateway binary. Hardcoded list matches Gateway 10.30+.
-        let smart_components: Vec<SmartComponent> = [
-            ("NASDAQ", "Q"), ("NYSE", "N"), ("ARCA", "P"), ("BATS", "Z"),
-            ("IEX", "V"), ("BEX", "B"), ("BYX", "Y"), ("NYSENAT", "C"),
-            ("DRCTEDGE", "J"), ("MEMX", "U"), ("PEARL", "H"), ("AMEX", "A"),
-            ("CHX", "M"), ("LTSE", "L"), ("PSX", "X"), ("ISE", "I"), ("EDGEA", "K"),
-        ].iter().enumerate().map(|(i, (exch, letter))| SmartComponent {
-            bit_number: i as i32,
-            exchange: exch.to_string(),
-            exchange_letter: letter.to_string(),
-        }).collect();
-        shared.reference.set_smart_components(smart_components);
+        // Smart components are not logon data: the exchange map of each BBO
+        // exchange comes with market data (ibx#441).
 
-        // News providers: parse from CCP logon tag 6830, fall back to defaults.
-        // Wire format: "code1,name1;code2,name2;..." (tag value capped at 155 entries).
-        let news_providers: Vec<NewsProvider> = if self.raw_news_providers.is_empty() {
-            // Default list — only used when account-specific entitlement data is unavailable.
-            [
-                ("BRFG", "Briefing.com General Market Columns"),
-                ("BRFUPDN", "Briefing.com Analyst Actions"),
-                ("DJ-N", "Dow Jones Global Equity Trader"),
-                ("DJ-RTA", "Dow Jones Top Stories Asia Pacific"),
-                ("DJ-RTE", "Dow Jones Top Stories Europe"),
-                ("DJ-RTG", "Dow Jones Top Stories Global"),
-                ("DJ-RTPRO", "Dow Jones Top Stories Pro"),
-                ("DJNL", "Dow Jones Newsletters"),
-            ].iter().map(|(code, name)| NewsProvider {
-                code: code.to_string(), name: name.to_string(),
-            }).collect()
+        // News providers: the API source list of the logon (ibx#460).
+        let sources = if self.deny_news {
+            log::info!("News denied by the logon feature list: no news provider");
+            Vec::new()
         } else {
-            self.raw_news_providers.split(';').filter_map(|entry| {
-                let entry = entry.trim();
-                if entry.is_empty() { return None; }
-                let (code, name) = entry.split_once(',')?;
-                Some(NewsProvider {
-                    code: code.trim().to_string(),
-                    name: name.trim().to_string(),
-                })
-            }).collect()
+            parse_news_sources(&self.raw_news_sources)
         };
+        if sources.is_empty() && !self.deny_news {
+            log::warn!("No API news source in the logon: the news provider list is empty");
+        }
+        let news_providers = news_providers_from_logon(&sources, &self.raw_news_providers, &self.raw_news_capabilities);
+        shared.reference.set_news_sources(
+            sources.iter().filter(|s| s.subscribed).map(|s| s.code.clone()).collect(),
+        );
         shared.reference.set_news_providers(news_providers);
 
         // Soft dollar tiers: from CCP logon tag 6522, none when it is absent
         // (ibx#480).
         shared.reference.set_soft_dollar_tiers(parse_soft_dollar_tiers(&self.raw_soft_dollar_tiers));
 
-        // Family codes: parse from CCP logon tag 6823.
-        // Empty for paper/single accounts.
+        // Family codes: parse from CCP logon tag 6823, answered as the
+        // reference (ibx#441).
         let codes = if self.raw_family_codes.is_empty() {
             Vec::new()
         } else {
@@ -1715,14 +2602,32 @@ impl Gateway {
                 }
             }).collect()
         };
-        shared.reference.set_family_codes(codes);
+        shared.reference.set_family_codes(family_codes_answer(codes));
 
         // White branding ID (empty for standard accounts).
         shared.reference.set_white_branding_id(self.white_branding_id.clone());
+        // The account list of the logon: the managed accounts (ibx#420).
+        shared.reference.set_managed_accounts(self.managed_accounts.clone());
+        shared.reference.set_fa_session(self.fa_session);
+        shared.reference.set_short_sale_flags(self.super_user, self.omnibus);
+        shared.reference.set_smart_combo_con_ids(&self.raw_smart_combo_con_ids);
+        shared.reference.set_tick_by_tick_limits(self.tick_by_tick_limit, self.tick_by_tick_off);
+        // The snapshot rate limit is the API ticker limit (ibx#446).
+        shared.reference.set_snapshot_rate_limit(self.max_real_time_requests);
+        for xml in &self.algo_definitions {
+            shared.reference.add_algo_definitions(xml);
+        }
+        if let Some((features, mifid)) = &self.account_config {
+            shared.reference.set_account_config(features.clone(), mifid.clone());
+        }
 
         // Webapp-REST-facing fields from the FIX logon roundtrip.
         shared.reference.set_ccp_session_id(self.server_session_id.clone());
         shared.reference.set_misc_urls(self.misc_urls.clone());
+
+        // The values of the logon reply the API sees (ibx#421).
+        apply_first_logon(&self.logon, self.version_cutoff.as_deref(), self.version_cutoff_date.as_deref(),
+            self.max_backfill_years, shared);
     }
 
     /// Create the control channel and build a HotLoop with connected sockets.
@@ -1761,6 +2666,12 @@ impl Gateway {
             encoded: self.encoded.clone(),
             hmds_host: self.hmds_host.clone(),
             hmds_farm: self.hmds_farm.clone(),
+            farm_host: self.farm_host.clone(),
+            farm_name: self.farm_name.clone(),
+            session_epoch: self.session_epoch.clone(),
+            ns_secure_refused: self.ns_secure_refused,
+            use_ssl: self.use_ssl,
+            ssl_farms: self.ssl_farms.clone(),
         };
         if let Some(tx) = event_tx.as_ref() {
             let _ = tx.send(Event::GatewayLogon {
@@ -1771,19 +2682,73 @@ impl Gateway {
         let mut hot_loop = HotLoop::new(shared, event_tx, core_id);
         hot_loop.set_control_rx(rx);
         hot_loop.set_account_id(self.account_id.clone());
+        hot_loop.set_scale_us_lots(self.scale_us_lots);
+        hot_loop.set_price_mgmt(self.price_mgmt, self.price_mgmt_exclusions.as_deref());
+        hot_loop.set_max_real_time_requests(self.max_real_time_requests);
+        hot_loop.set_depth_limit(self.depth_limit);
+        hot_loop.set_user_book(self.user_book);
+        hot_loop.set_farm_name(self.farm_name.clone());
+        hot_loop.ccp.data_permissions = self.logon.data_permissions.clone();
         hot_loop.set_reconnect_auth(reconnect_auth);
         hot_loop.farm_conn = Some(farm_conn);
         hot_loop.ccp_conn = Some(ccp_conn);
+        // The logon's order status replay request went out with the
+        // post-burst messages (ibx#251).
+        hot_loop.await_login_replay();
         hot_loop.ccp.ccp_sign_key = self.ccp_sign_key.clone();
         hot_loop.ccp.ccp_sign_iv = std::sync::Mutex::new(self.ccp_sign_iv.clone());
         hot_loop.hmds_conn = hmds_conn;
+        if let Some(text) = &self.md_routing {
+            hot_loop.set_routing_table(crate::engine::routing::TableKind::MarketData, text);
+        }
+        if let Some(text) = &self.hmds_routing {
+            hot_loop.set_routing_table(crate::engine::routing::TableKind::Historical, text);
+        }
         (hot_loop, tx)
+    }
+}
+
+/// Apply the values every logon reply sets (ibx#421): the clock offset of
+/// the current time request, the feature tokens that gate API requests,
+/// and the pending accounts (8092, none when absent: the reference sets
+/// them from every logon reply, `jclient.gi.a(jfix.dk, jfix.bb, boolean,
+/// boolean, boolean)@1583` → `trader.cm.j.b(jfix.dk)`). A reply read with
+/// no feature list (every captured reply has one) leaves the tokens as
+/// they are.
+pub(crate) fn apply_logon_values(logon: &LogonValues, shared: &SharedState) {
+    if let Some(offset) = logon.clock_offset_ms {
+        shared.reference.clock().set(offset);
+    }
+    shared.reference.set_pending_accounts(logon.pending_accounts.clone().unwrap_or_default());
+    if let Some(features) = &logon.features {
+        shared.reference.set_api_features(crate::control::logon::ApiFeatures::parse(features));
+    }
+}
+
+/// The values of the first logon reply at the API connect (ibx#421): those
+/// of every logon, the historical data years limit, and the warning 2172
+/// with id -1 when the version cutoff of the logon is above the client's
+/// version.
+pub(crate) fn apply_first_logon(
+    logon: &LogonValues,
+    version_cutoff: Option<&str>,
+    version_cutoff_date: Option<&str>,
+    max_backfill_years: i32,
+    shared: &SharedState,
+) {
+    apply_logon_values(logon, shared);
+    shared.reference.set_max_backfill_years(max_backfill_years);
+    if let Some(text) = crate::control::logon::version_cutoff_warning(version_cutoff, version_cutoff_date) {
+        log::warn!("{}", text);
+        shared.push_connection_notice(crate::control::logon::VERSION_CUTOFF_CODE, text);
+    } else if let Some(cutoff) = version_cutoff {
+        log::info!("Version cutoff {} does not apply to {}", cutoff, crate::control::logon::own_version());
     }
 }
 
 /// Build market data subscription request.
 pub fn build_mktdata_subscribe(
-    con_id: u32,
+    con_id: i64,
     exchange: &str,
     sec_type: &str,
     md_req_id: &str,
@@ -1826,6 +2791,14 @@ pub fn build_mktdata_unsubscribe(md_req_id: &str, seq: u32) -> Vec<u8> {
 /// Re-exports for backward compatibility.
 pub use crate::config::{chrono_free_timestamp, days_to_ymd};
 
+/// The algo definition answers of the login burst (ibx#263): the XML of
+/// each.
+fn parse_algo_definitions(init: &str) -> Vec<String> {
+    init.split("8=FIX").filter(|frame| frame.contains("\x016040=54\x01")).filter_map(|frame| {
+        frame.split('\x01').find_map(|p| p.strip_prefix("6118=")).map(String::from)
+    }).collect()
+}
+
 /// The init burst as the logon tag scan reads it: the received bytes, then
 /// the inflated content of every `8=FIXCOMP` frame in them (ib-agent#129).
 /// The compressed body is ~30 kB on the wire and expands to ~48 kB plaintext
@@ -1835,6 +2808,85 @@ pub use crate::config::{chrono_free_timestamp, days_to_ymd};
 /// inflates the compressed frames itself. The copy must stay out of it: with
 /// the inflated content appended there, every compressed message of the init
 /// burst was handled twice, executions included (ibx#317).
+/// The account config answer (35=U 6040=210) of the login burst: its
+/// feature list (6542, comma separated) and MiFID config id (8234), as the
+/// reference reads them (ibx#425). Paper answer, 15/06/2026:
+/// `6040=210|6556=AcctConfig4|1=DU...|6542=OLP,EUCOSTCALC,EUILLS`.
+fn parse_account_config(init: &str) -> Option<(Vec<String>, String)> {
+    init.split("8=FIX").find(|frame| frame.contains("\x016040=210\x01")).map(|frame| {
+        let field = |tag: &str| frame.split('\x01').find_map(|p| p.strip_prefix(tag)).unwrap_or("");
+        let features = field("6542=").split(',').filter(|f| !f.is_empty()).map(String::from).collect();
+        (features, field("8234=").to_string())
+    })
+}
+
+/// Most real-time bar requests at once, from the logon values, in the
+/// order of preference of the reference (ibx#454); 40 when the logon
+/// gives none.
+fn max_real_time_requests(tags: &std::collections::HashMap<u32, i64>) -> u32 {
+    let positive = |t: u32| tags.get(&t).copied().filter(|n| *n > 0);
+    let n = positive(6847)
+        .or_else(|| positive(6846))
+        .or_else(|| match (tags.get(&8421), tags.contains_key(&8422)) {
+            (Some(n), true) => Some(*n),
+            _ => None,
+        })
+        .or_else(|| positive(6083));
+    match n {
+        Some(n) => n.clamp(0, u32::MAX as i64) as u32,
+        None => crate::engine::hot_loop::hmds::DEFAULT_MAX_REAL_TIME_REQUESTS,
+    }
+}
+
+/// The logon feature list turns on US stock sizes in round lots
+/// (ibx#287): one of its comma separated tokens is SCALEUSLOT.
+fn features_scale_us_lots(features: &str) -> bool {
+    features_have(features, "SCALEUSLOT")
+}
+
+/// One of the comma separated tokens of a feature list is `feature`.
+fn features_have(features: &str, feature: &str) -> bool {
+    features.split(',').any(|f| f == feature)
+}
+
+/// Most contracts with tick-by-tick data at once (ibx#455), as the
+/// reference reads its logon limit fields, given in the order the loop
+/// collects them: the second field when the first two are both present,
+/// else the third; the fourth when that one is missing or negative; at
+/// least 3, and 3 when none is given.
+/// The API depth limit of the logon, as the reference reads it (#452): the
+/// API value, else the total value; with neither, the deep slot count (the
+/// second of the two slot values when both are given, else the older one),
+/// at least 3.
+fn depth_limit(fields: &[Option<String>; 5]) -> usize {
+    let int = |v: &Option<String>| v.as_deref().and_then(|s| s.trim().parse::<i64>().ok());
+    let value = match (int(&fields[0]), int(&fields[1])) {
+        (Some(api), _) => Some(api),
+        (None, Some(total)) => Some(total),
+        (None, None) => {
+            let slots = if fields[2].is_some() && fields[3].is_some() { int(&fields[3]) } else { int(&fields[4]) };
+            return slots.map_or(3, |v| v.max(3) as usize);
+        }
+    };
+    value.map_or(3, |v| v.max(0) as usize)
+}
+
+fn tick_by_tick_limit(fields: &[Option<String>; 4]) -> usize {
+    let int = |v: &Option<String>| v.as_deref().and_then(|s| s.trim().parse::<i64>().ok());
+    let mut value = if fields[0].is_some() && fields[1].is_some() { int(&fields[1]) } else { int(&fields[2]) };
+    if value.is_none_or(|v| v < 0) {
+        value = int(&fields[3]);
+    }
+    value.map_or(3, |v| v.max(3) as usize)
+}
+
+/// The whiteBrandingId in one field of the logon data: tag 6593, as the
+/// reference (`jfix.d0.a(e3)@13-19`). Tag 6571 is an order attribute there,
+/// never a logon one (ibx#483).
+fn white_branding_part(part: &str) -> Option<&str> {
+    part.strip_prefix("6593=")
+}
+
 fn init_scan_buffer(init_data: &[u8]) -> Vec<u8> {
     let mut inflated_extra: Vec<u8> = Vec::new();
     let mut cursor = 0usize;
@@ -1872,6 +2924,374 @@ fn init_scan_buffer(init_data: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An auth connection: reads the framed `frames`, records what is
+    /// written.
+    struct AuthWire {
+        input: io::Cursor<Vec<u8>>,
+        output: Vec<u8>,
+    }
+
+    impl AuthWire {
+        fn new(frames: &[&str]) -> Self {
+            let mut wire = Vec::new();
+            for f in frames {
+                wire.extend_from_slice(ns::NS_MAGIC);
+                wire.extend_from_slice(&(f.len() as u32).to_be_bytes());
+                wire.extend_from_slice(f.as_bytes());
+            }
+            Self { input: io::Cursor::new(wire), output: Vec::new() }
+        }
+
+        /// The texts of the frames written, in order.
+        fn sent(&self) -> Vec<String> {
+            let mut cursor = io::Cursor::new(self.output.clone());
+            let mut out = Vec::new();
+            while (cursor.position() as usize) < self.output.len() {
+                out.push(String::from_utf8(ns::ns_recv(&mut cursor).unwrap().0).unwrap());
+            }
+            out
+        }
+    }
+
+    impl Read for AuthWire {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.input.read(buf) }
+    }
+
+    impl Write for AuthWire {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> { self.output.extend_from_slice(buf); Ok(buf.len()) }
+        fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    }
+
+    /// The connect request of the reference's login of 02/10/2026, masked.
+    const CAPTURED_CONNECT: &str = "38;521;S{user};1585197;50;27;{hwid}|XX:XX:XX:XX:XX:XX;6abf4c1c.03bc;17.0.10.0.101/W/en_US/G;";
+    /// The auth start the server answered it with.
+    const CAPTURED_AUTH_START: &str = "50;520;1;1;;0;2311454642000;1;6840198100420923956;OTPWAY;;";
+
+    // ibx#423: on the TLS auth connection the reference sends the connect
+    // request in clear as its first message, with no key exchange before
+    // it (gateway capture of 02/10/2026: TLS to port 4001, then 521, then
+    // the auth start; no 532 on the auth connection in any archived login).
+    #[test]
+    fn auth_login_starts_with_the_connect_request_in_clear() {
+        let mut wire = AuthWire::new(&[CAPTURED_AUTH_START]);
+        let (start, refused) = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), true).unwrap();
+        assert_eq!(wire.sent(), vec![CAPTURED_CONNECT.to_string()]);
+        assert!(!wire.sent().iter().any(|f| f.contains(";532;")), "no key exchange request");
+        assert!(start.password_required);
+        assert!(!refused);
+    }
+
+    // ibx#423: a refusal of the encryption with the permission to go on
+    // sends the connect request again in clear; the farms of the session
+    // then skip their key exchange.
+    #[test]
+    fn auth_login_refused_encryption_with_proceed_goes_on() {
+        let mut wire = AuthWire::new(&["50;535;no crypto;1;", CAPTURED_AUTH_START]);
+        let (_, refused) = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), true).unwrap();
+        assert_eq!(wire.sent(), vec![CAPTURED_CONNECT.to_string(), CAPTURED_CONNECT.to_string()]);
+        assert!(refused);
+
+        let mut wire = AuthWire::new(&["50;535;no crypto;0;"]);
+        let err = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), true).unwrap_err();
+        assert_eq!(session::login_error(&err).unwrap().kind, session::LoginErrorKind::SecureConnectionRefused);
+        assert_eq!(wire.sent(), vec![CAPTURED_CONNECT.to_string()]);
+    }
+
+    // ibx#423: a redirect ends this connection after the connect request;
+    // the login to the new host starts the same way.
+    #[test]
+    fn auth_login_redirect_after_the_connect_request() {
+        let mut wire = AuthWire::new(&["38;524;cdc1.example:4000;"]);
+        let err = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), true).unwrap_err();
+        assert_eq!(err.to_string(), "REDIRECT:cdc1.example:4000");
+        assert_eq!(wire.sent(), vec![CAPTURED_CONNECT.to_string()]);
+    }
+
+    // ibx#423: in the reference's mode without TLS (jts.ini UseSSL false)
+    // the key exchange comes first on the auth connection and the connect
+    // request goes encrypted (`twslaunch.jconnection.A.a(int, Object)@56-155`,
+    // `aY.a(aE, boolean)`); a refusal with the permission to go on sends it
+    // in clear; any other refusal is an error.
+    #[test]
+    fn auth_login_without_tls_runs_the_key_exchange() {
+        use crate::auth::certs::fixture;
+        let hello = fixture::captured_hello();
+        let mut wire = AuthWire::new(&[hello, CAPTURED_AUTH_START]);
+        let mut channel = SecureChannel::new().with_cert_time(fixture::NOW_MS);
+        let (start, refused) = ccp_login_start(&mut wire, &mut channel, CAPTURED_CONNECT.as_bytes(), false).unwrap();
+        assert!(!refused);
+        assert!(start.password_required);
+        assert!(channel.key_block().is_some());
+        let sent = wire.sent();
+        assert_eq!(sent.len(), 2);
+        assert!(sent[0].contains(";532;"), "{}", sent[0]);
+        assert!(sent[1].contains(";534;") && !sent[1].contains("S{user}"), "{}", sent[1]);
+
+        let mut wire = AuthWire::new(&["50;535;no crypto;1;", CAPTURED_AUTH_START]);
+        let (_, refused) = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), false).unwrap();
+        assert!(refused);
+        let sent = wire.sent();
+        assert!(sent[0].contains(";532;"));
+        assert_eq!(sent[1..], [CAPTURED_CONNECT.to_string()]);
+
+        let mut wire = AuthWire::new(&["50;535;no crypto;0;"]);
+        assert!(ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), false).is_err());
+
+        // ibx#276: a reply whose certificates fail the reference's checks
+        // ends the login, with its login text; nothing more is sent.
+        for (now, text) in [
+            (fixture::NOW_MS + 86_400_000, crate::auth::dh::CERTIFICATE_EXPIRED),
+            (fixture::NOW_MS - 86_400_000 * 2, crate::auth::dh::CERTIFICATE_NOT_YET_VALID),
+        ] {
+            let mut wire = AuthWire::new(&[hello, CAPTURED_AUTH_START]);
+            let err = ccp_login_start(&mut wire, &mut SecureChannel::new().with_cert_time(now), CAPTURED_CONNECT.as_bytes(), false).unwrap_err();
+            assert!(err.to_string().starts_with(text), "{err}");
+            assert_eq!(wire.sent().len(), 1);
+        }
+        let no_certificate = format!("50;533;{};{};c2ln;0;", B64.encode([7u8; 32]), B64.encode([2u8]));
+        let mut wire = AuthWire::new(&[&no_certificate, CAPTURED_AUTH_START]);
+        let err = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), false).unwrap_err();
+        assert!(err.to_string().starts_with(crate::auth::dh::SECURE_CONNECTION_FAILED), "{err}");
+    }
+
+    // ibx#423: the SSL and plain ports of an endpoint (`E.j()`, `E.k()`).
+    #[test]
+    fn ssl_and_plain_ports() {
+        assert_eq!((ssl_port(4000), ssl_port(4001)), (4001, 4001));
+        assert_eq!((plain_port(4001), plain_port(4000)), (4000, 4000));
+    }
+
+    // ibx#276: a farm connects on TLS only when the auth connection uses
+    // TLS and the logon's SSL farm list (8449) names it or a wildcard of
+    // its service; otherwise a plain socket with the key exchange, none
+    // after a refused auth encryption. The captured logons have no 8449.
+    #[test]
+    fn farm_link_of_the_ssl_farm_list() {
+        use FarmService::*;
+        assert!(!ssl_farm_listed("", "usfarm", MarketData));
+        assert!(ssl_farm_listed("USFARM;ushmds", "usfarm", MarketData));
+        assert!(ssl_farm_listed("allmd", "eufarm", MarketData));
+        assert!(!ssl_farm_listed("allmd", "ushmds", Historical));
+        assert!(ssl_farm_listed("allhmds", "ushmds", Historical));
+        assert!(ssl_farm_listed("allaux", "secdefil", SecDef));
+        assert!(ssl_farm_listed("ALL", "ushmds", Historical));
+        assert!(!ssl_farm_listed("usfarm ", "usfarm", MarketData), "items are not trimmed");
+        assert_eq!(FarmService::of_slot(17), Historical);
+        assert_eq!(FarmService::of_slot(18), MarketData);
+
+        assert_eq!(FarmLink::of("", true, "usfarm", MarketData, false), FarmLink { ssl: false, ns_secure: true });
+        assert_eq!(FarmLink::of("usfarm", true, "usfarm", MarketData, false), FarmLink { ssl: true, ns_secure: false });
+        assert_eq!(FarmLink::of("usfarm", false, "usfarm", MarketData, false), FarmLink { ssl: false, ns_secure: true });
+        assert_eq!(FarmLink::of("", true, "usfarm", MarketData, true), FarmLink { ssl: false, ns_secure: false });
+    }
+
+    // ibx#423: a misc URLs connection that fails is tried once more on the
+    // reference's IPv4 address of the host (its log of 30/09/2026 21:04:05:
+    // cdc1.ibllc.com did not resolve, then 8.17.22.31:4000).
+    #[test]
+    fn misc_urls_fall_back_to_the_ipv4_address() {
+        let mut tried = Vec::new();
+        let r: io::Result<()> = misc_urls_connection("cdc1.ibllc.com", 4000, |h, p| {
+            tried.push(format!("{}:{}", h, p));
+            Err(io::Error::new(io::ErrorKind::NotFound, "unknown host"))
+        });
+        assert!(r.is_err());
+        assert_eq!(tried, ["cdc1.ibllc.com:4000", "8.17.22.31:4000"]);
+
+        let mut tried = Vec::new();
+        let r = misc_urls_connection("zdc1.ibllc.com", 4000, |h, _| {
+            tried.push(h.to_string());
+            if h == "217.192.86.32" { Ok(1) } else { Err(io::Error::new(io::ErrorKind::NotFound, "x")) }
+        });
+        assert_eq!(r.unwrap(), 1);
+        assert_eq!(tried, ["zdc1.ibllc.com", "217.192.86.32"]);
+
+        let mut tried = 0;
+        let r = misc_urls_connection("cdc1.ibllc.com", 4000, |_, _| { tried += 1; Ok(()) });
+        assert!(r.is_ok());
+        assert_eq!(tried, 1, "no fallback after a connection");
+
+        assert_eq!(cookbook_ipv4("NDC1.ibllc.com"), "64.190.197.40");
+        assert_eq!(cookbook_ipv4("cdc1-hb1.ibllc.com"), "64.190.197.40");
+        assert_eq!(cookbook_ipv4("gw.example"), "gw.example", "unknown host: itself");
+    }
+
+    // ibx#420: the account list of a logon reply (6095), from the captured
+    // paper reply of 02/10/2026 and the same reply with two accounts.
+    #[test]
+    fn managed_accounts_of_a_logon_reply() {
+        let captured = "35=A\x0134=000001\x0143=N\x0152=20261002-08:54:01\x0198=0\x01108=10\x01141=Y\x01\
+            6059=1790914646\x011=DUXXXXXXX\x016558=1\x018364=0\x016095=DUXXXXXXX\x016961=0\x01";
+        let accounts = |frame: &str| {
+            let tags = fix_parse(frame.as_bytes());
+            crate::control::logon::managed_accounts(tags.get(&6095).map(String::as_str).unwrap_or(""))
+        };
+        assert_eq!(accounts(captured), ["DUXXXXXXX"]);
+        let two = captured.replace("6095=DUXXXXXXX", "6095=DUXXXXXX2/{alias},DUXXXXXX1/{alias}");
+        assert_eq!(accounts(&two), ["DUXXXXXX2", "DUXXXXXX1"]);
+        let shared = SharedState::new();
+        shared.reference.set_managed_accounts(accounts(&two));
+        assert_eq!(shared.reference.managed_accounts_text("DUXXXXXX1"), "DUXXXXXX2,DUXXXXXX1");
+    }
+
+    // ibx#423: an encrypted message on the auth connection, which has no
+    // key exchange, is an error, not a panic.
+    #[test]
+    fn auth_login_encrypted_message_without_key_exchange_is_an_error() {
+        let mut wire = AuthWire::new(&["50;534;AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;"]);
+        let err = ccp_login_start(&mut wire, &mut SecureChannel::new(), CAPTURED_CONNECT.as_bytes(), true).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("Decryptor is not valid"), "{err}");
+    }
+
+    /// Tags of the captured paper logon reply of 02/10/2026 that ibx#421
+    /// reads (account masked, feature list cut to a few of its 304 items).
+    fn captured_logon_tags() -> std::collections::HashMap<u32, String> {
+        fix_parse(b"35=A\x0134=000001\x0152=20261002-06:15:59\x016059=1790914646\x016764=1788356313\x01\
+            1=DUXXXXXXX\x016774=199\x016542=1DAYSORDER,APIELOG,SCALEUSLOT,SECDEFTA\x01")
+    }
+
+    // ibx#421: the logon reply's server time, feature list and data
+    // permission stamp.
+    #[test]
+    fn logon_values_of_the_captured_reply() {
+        let tags = captured_logon_tags();
+        let received = crate::control::logon::server_time_ms("20261002-06:16:59").unwrap();
+        let v = LogonValues::read(&tags, received, received + 5);
+        assert_eq!(v.clock_offset_ms, Some(-60_000));
+        assert_eq!(v.features.as_deref(), Some("1DAYSORDER,APIELOG,SCALEUSLOT,SECDEFTA"));
+        assert_eq!(v.data_permissions.as_deref(), Some("1788356313"));
+        assert_eq!(crate::control::logon::max_backfill_years(tags.get(&6774).map(String::as_str)), 199);
+        let late = LogonValues::read(&tags, received, received + 500);
+        assert_eq!(late.clock_offset_ms, None, "handled too late");
+    }
+
+    // ibx#421: every logon reply sets the pending accounts (8092); a reply
+    // without the tag leaves none (the captured replies have none).
+    #[test]
+    fn logon_reply_sets_the_pending_accounts() {
+        let shared = SharedState::new();
+        let mut tags = captured_logon_tags();
+        tags.insert(TAG_PENDING_ACCOUNTS, "DUXXXXXX1".into());
+        apply_logon_values(&LogonValues::read(&tags, 0, 0), &shared);
+        assert!(shared.reference.account_pending("DUXXXXXX1"));
+        apply_logon_values(&LogonValues::read(&captured_logon_tags(), 0, 0), &shared);
+        assert!(!shared.reference.account_pending("DUXXXXXX1"));
+    }
+
+    // ibx#421: the first logon sets the clock, the feature tokens and the
+    // years limit; a version cutoff above the client's gives 2172 with
+    // id -1, none when it does not apply.
+    #[test]
+    fn first_logon_values_reach_the_api() {
+        let shared = SharedState::new();
+        let logon = LogonValues { clock_offset_ms: Some(60_000), features: Some("APIELOG".into()), ..Default::default() };
+        apply_first_logon(&logon, Some("10411"), Some("20261201"), 199, &shared);
+        assert_eq!(shared.reference.clock().offset_ms(), 60_000);
+        assert!(!shared.reference.matching_symbols_allowed());
+        assert_eq!(shared.reference.backfill_years_limit(), Some(199));
+        let notices = shared.drain_connection_notices();
+        assert_eq!(notices.len(), 1);
+        assert_eq!(notices[0].0, 2172);
+        assert!(notices[0].1.contains("1040.1") && notices[0].1.contains("20261201") && notices[0].1.contains("1041.1"), "{}", notices[0].1);
+
+        let shared = SharedState::new();
+        let logon = LogonValues { features: Some("SECDEFTA,NIGHTLY".into()), ..Default::default() };
+        apply_first_logon(&logon, Some("10401c"), None, 1, &shared);
+        assert!(shared.reference.matching_symbols_allowed());
+        assert_eq!(shared.reference.backfill_years_limit(), None, "NIGHTLY: no limit");
+        assert!(shared.drain_connection_notices().is_empty());
+    }
+
+    /// A farm server on a local socket: answers the key exchange request
+    /// with `key_answer` (none when no request is expected), then reads the
+    /// logon and acknowledges it. Returns the bytes the client sent.
+    fn clear_farm_server(key_answer: Option<&'static str>) -> (TcpStream, std::thread::JoinHandle<Vec<u8>>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            sock.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut got = Vec::new();
+            if let Some(answer) = key_answer {
+                let (request, _) = ns::ns_recv(&mut sock).unwrap();
+                got.extend_from_slice(&request);
+                let fields: Vec<&str> = answer.split(';').collect();
+                sock.write_all(&ns::ns_build(50, fields[0].parse().unwrap(), &fields[1..], "")).unwrap();
+            }
+            let mut buf = [0u8; 4096];
+            while !got.windows(4).any(|w| w == b"\x0110=") {
+                let n = sock.read(&mut buf).unwrap();
+                assert!(n > 0, "closed before the logon");
+                got.extend_from_slice(&buf[..n]);
+            }
+            sock.write_all(&fix::fix_build(&[(fix::TAG_MSG_TYPE, "A"), (fix::TAG_SENDING_TIME, "20261001-10:00:00")], 1)).unwrap();
+            std::thread::sleep(Duration::from_millis(200));
+            got
+        });
+        (client, server)
+    }
+
+    fn logon_in_clear(sent: &[u8]) -> bool {
+        let text = String::from_utf8_lossy(sent);
+        text.contains("8=FIX.4.1\x01") && text.contains("\x0135=A\x01") && text.contains("\x0196=Suser/18/usfarm\x01")
+    }
+
+    // ibx#423: after the auth login went on in clear, a farm is not asked
+    // for the encryption: the logon goes in clear and the session is not
+    // signed.
+    #[test]
+    fn farm_after_a_refused_auth_encryption_logs_on_in_clear() {
+        let (client, server) = clear_farm_server(None);
+        let (conn, table) = farm_session(LinkStream::Plain(client), "usfarm", "user", "pass", true, "sid", &BigUint::from(7u32),
+            "hw", "enc", 18, false, false).unwrap();
+        assert!(table.is_none());
+        drop(conn);
+        let sent = server.join().unwrap();
+        assert!(!sent.starts_with(ns::NS_MAGIC), "no key exchange request");
+        assert!(logon_in_clear(&sent), "{}", String::from_utf8_lossy(&sent));
+    }
+
+    // ibx#423: a farm that refuses the encryption with the permission to go
+    // on gets its logon in clear; any other refusal drops the farm.
+    #[test]
+    fn farm_refusing_the_encryption_with_proceed_goes_on_in_clear() {
+        let (client, server) = clear_farm_server(Some("535;no crypto;1"));
+        farm_session(LinkStream::Plain(client), "usfarm", "user", "pass", true, "sid", &BigUint::from(7u32),
+            "hw", "enc", 18, false, true).unwrap();
+        let sent = server.join().unwrap();
+        assert!(String::from_utf8_lossy(&sent).contains(";532;"), "key exchange asked first");
+        assert!(logon_in_clear(&sent[sent.windows(9).position(|w| w == b"8=FIX.4.1").unwrap()..]));
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().unwrap();
+            let _ = ns::ns_recv(&mut sock).unwrap();
+            sock.write_all(&ns::ns_build(50, ns::NS_SECURE_ERROR, &["no crypto", "0"], "")).unwrap();
+        });
+        let err = farm_session(LinkStream::Plain(client), "usfarm", "user", "pass", true, "sid", &BigUint::from(7u32),
+            "hw", "enc", 18, false, true).err().expect("refused");
+        assert!(err.to_string().contains("usfarm key exchange"), "{err}");
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn encrypted_farm_logon_wraps_the_clear_one() {
+        let clear = build_farm_logon("user", true, "usfarm", "sid", &BigUint::from(7u32), "hw", "enc", 18);
+        assert!(logon_in_clear(&clear));
+    }
+
+    // ibx#263: the algo definition answers of the login burst are kept,
+    // one XML each; other frames are not.
+    #[test]
+    fn algo_definitions_are_read_from_the_login_burst() {
+        let burst = "8=FIX.4.1\x0135=U\x016040=54\x016364=IBALGO-AE\x016118=<AlgoExchange/>\x0110=1\x01"
+            .to_string() + "8=FIX.4.1\x0135=U\x016040=210\x016118=x\x0110=2\x01"
+            + "8=FIX.4.1\x0135=U\x016040=54\x016364=IBALGO-AL-STK\x016118=<AlgorithmsMap/>\x0110=3\x01";
+        assert_eq!(parse_algo_definitions(&burst), ["<AlgoExchange/>", "<AlgorithmsMap/>"]);
+    }
 
     // ibx#317: the tag scan sees the inflated init burst, and the bytes that
     // seed the connection buffer stay as received. The inflated copy used
@@ -1913,6 +3333,17 @@ mod tests {
         assert_ne!(token_short_hash(&t1), token_short_hash(&t2));
     }
 
+    // ibx#253: each routing request gets a new id from one counter, not an
+    // id chosen by the farm name.
+    #[test]
+    fn routing_request_ids_are_unique_and_increasing() {
+        let ids: Vec<u32> = (0..5).map(|_| next_routing_request_id()).collect();
+        assert!(ids[0] >= 1);
+        for w in ids.windows(2) {
+            assert!(w[1] > w[0], "{ids:?}");
+        }
+    }
+
     #[test]
     fn parse_farm_route_two_segments() {
         let parsed = parse_farm_route("zdc1.ibllc.com/eufarm").unwrap();
@@ -1940,17 +3371,71 @@ mod tests {
     }
 
     #[test]
-    fn token_short_hash_always_8_chars() {
-        // Per ib-agent#125: gateway pads to 8 hex chars. Brute-force search
-        // over small inputs to find one whose SHA1 ends in a high-nibble
-        // zero, then assert padding kicks in.
+    fn token_short_hash_has_no_zero_padding() {
+        // ibx#423: `Integer.toHexString`, as the reference; a value whose
+        // high nibble is zero is shorter than 8 characters.
+        let mut short = 0;
         for n in 0u64..10_000 {
             let token = BigUint::from(n);
             let h = token_short_hash(&token);
-            assert_eq!(h.len(), 8,
-                "token_short_hash must always be 8 chars; n={n} produced {h:?}");
-            assert!(h.chars().all(|c| c.is_ascii_hexdigit()));
+            assert!(!h.starts_with('0') || h == "0", "n={n} produced {h:?}");
+            assert!(h.len() <= 8 && h.chars().all(|c| c.is_ascii_hexdigit()));
+            assert_eq!(h, crate::auth::srp::token_short_hash(&token));
+            if h.len() < 8 { short += 1; }
         }
+        assert!(short > 0, "some hashes are shorter than 8 characters");
+    }
+
+    // ibx#423: the misc URLs request as the reference sends it (its log
+    // of 30/09/2026: `#%#%` + length 11 + `MISC38;528;`) on a connection
+    // of its own, and its answer read as a list.
+    #[test]
+    fn misc_urls_request_and_answer() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            let mut request = [0u8; 19];
+            s.read_exact(&mut request).unwrap();
+            let answer = "MISC38;529;acct_mgt=https://a.example/sso|demo=email|ssl=1|additionalDemoUsers=demo_tws=prio:1/name:X|zid=0a1f.17;";
+            let mut frame = b"#%#%".to_vec();
+            frame.extend_from_slice(&(answer.len() as u32).to_be_bytes());
+            frame.extend_from_slice(answer.as_bytes());
+            s.write_all(&frame).unwrap();
+            request
+        });
+        let urls = request_misc_urls("127.0.0.1", port).unwrap();
+        assert_eq!(&server.join().unwrap(), b"#%#%\0\0\0\x0bMISC38;528;");
+        let keys: Vec<&str> = urls.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, ["acct_mgt", "demo", "ssl", "additionalDemoUsers", "zid"]);
+        assert_eq!(urls[3].1, "demo_tws=prio:1/name:X");
+        assert_eq!(urls[4].1, "0a1f.17");
+        assert!(misc_urls_answer(b"50;520;1;0;;2;").is_err());
+    }
+
+    // ibx#423: asked at the first login attempt, at a login attempt while
+    // no answer came, and after a redirect to another host; not on a
+    // relogin to the same host.
+    #[test]
+    fn misc_urls_are_asked_when_the_reference_asks_them() {
+        assert!(misc_urls_wanted(None, "cdc1.example", false));
+        assert!(misc_urls_wanted(None, "cdc1.example", true));
+        assert!(!misc_urls_wanted(Some("cdc1.example"), "cdc1.example", false));
+        assert!(!misc_urls_wanted(Some("cdc1.example"), "cdc1-hb1.example", false));
+        assert!(misc_urls_wanted(Some("cdc1-hb1.example"), "cdc1.example", true));
+        assert!(!misc_urls_wanted(Some("cdc1.example"), "cdc1.example", true));
+    }
+
+    // ibx#423: the port type change as the reference sent it on its
+    // logins of 30/09 and 02/10/2026; older versions have fewer fields.
+    #[test]
+    fn port_type_change_carries_the_token_hash() {
+        assert_eq!(new_comm_port(50, "f22e2dc4"), "50;526;0;;2;0;f22e2dc4;");
+        assert_eq!(new_comm_port(50, "287b51"), "50;526;0;;2;0;287b51;");
+        assert_eq!(new_comm_port(50, ""), "50;526;0;;2;0;");
+        assert_eq!(new_comm_port(38, "f22e2dc4"), "38;526;0;;2;0;");
+        assert_eq!(new_comm_port(32, "f22e2dc4"), "32;526;0;;2;");
+        assert_eq!(new_comm_port(26, "f22e2dc4"), "26;526;0;");
     }
 
     #[test]
@@ -1968,6 +3453,78 @@ mod tests {
         assert_eq!(fields[&8361], "(rolling)");
         assert_eq!(fields[&8098], "0");
         assert!(fields[&6351].contains("abc123"));
+    }
+
+    fn tag_order(msg: &[u8]) -> Vec<u32> {
+        msg.split(|&b| b == SOH)
+            .filter_map(|f| f.iter().position(|&b| b == b'=').map(|i| &f[..i]))
+            .filter_map(|t| std::str::from_utf8(t).ok()?.parse().ok())
+            .collect()
+    }
+
+    // ibx#422: the reconnect logon is the fresh logon plus the session
+    // epoch, in the reference order.
+    #[test]
+    fn reconnect_logon_sends_the_session_epoch_in_reference_order() {
+        let msg = build_ccp_reconnect_logon("abc123|00:00:00:00:00:00", "17.0.10.0.101/W/en/G", 10, 1, "1790795127");
+        assert_eq!(fix_parse(&msg)[&TAG_SESSION_EPOCH], "1790795127");
+        assert_eq!(
+            tag_order(&msg),
+            [8, 9, 35, 34, 52, 98, 108, 141, 6059, 6034, 6968, 6490, 6266, 6351, 6397, 6947, 8361, 8098, 10],
+        );
+    }
+
+    // ibx#399: reconnect attempts go to the primary host and its backups in
+    // turn.
+    #[test]
+    fn reconnect_hosts_rotate_primary_and_backups() {
+        assert_eq!(ccp_reconnect_hosts("cdc1.example.com"),
+            ["cdc1.example.com", "cdc1-hb1.example.com", "cdc1-hb2.example.com"]);
+        let hosts: Vec<String> = (1..=7).map(|a| ccp_reconnect_host("cdc1.example", a)).collect();
+        assert_eq!(hosts, ["cdc1.example", "cdc1-hb1.example", "cdc1-hb2.example",
+            "cdc1.example", "cdc1-hb1.example", "cdc1-hb2.example", "cdc1.example"]);
+        assert_eq!(ccp_reconnect_host("cdc1.example", 0), "cdc1.example");
+    }
+
+    #[test]
+    fn reconnect_hosts_without_backups() {
+        assert_eq!(ccp_reconnect_hosts("127.0.0.1"), ["127.0.0.1"]);
+        assert_eq!(ccp_reconnect_hosts("::1"), ["::1"]);
+        assert_eq!(ccp_reconnect_hosts("localhost"), ["localhost"]);
+        assert_eq!(ccp_reconnect_host("localhost", 2), "localhost");
+    }
+
+    #[test]
+    fn fresh_logon_has_no_session_epoch() {
+        let msg = build_ccp_logon("abc123|00:00:00:00:00:00", "17.0.10.0.101/W/en/G", 10, 1);
+        assert!(!fix_parse(&msg).contains_key(&TAG_SESSION_EPOCH));
+        let empty = build_ccp_reconnect_logon("abc123|00:00:00:00:00:00", "17.0.10.0.101/W/en/G", 10, 1, "");
+        assert_eq!(tag_order(&empty), tag_order(&msg), "no epoch known: the fresh logon");
+    }
+
+    #[test]
+    fn logon_reply_epoch_is_read_from_plain_and_compressed_replies() {
+        let reply = fix_build(&[(35, "A"), (52, "20260930-19:05:24"), (98, "0"), (108, "10"), (141, "Y"), (6059, "1790795127")], 1);
+        assert_eq!(logon_reply_epoch(&reply).as_deref(), Some("1790795127"));
+        let without = fix_build(&[(35, "A"), (52, "20260930-19:05:24"), (98, "0")], 1);
+        assert_eq!(logon_reply_epoch(&without), None);
+
+        let comp = fixcomp::fixcomp_build(&fix_build(&[(35, "A"), (6059, "1790795128")], 1));
+        assert_eq!(logon_reply_epoch(&comp).as_deref(), Some("1790795128"));
+    }
+
+    // ibx#422: the machine's IANA zone by default, the override when set.
+    #[test]
+    fn logon_time_zone_is_the_machine_zone_unless_overridden() {
+        assert_eq!(time_zone_or_system(Some("America/New_York".into())), "America/New_York");
+        let system = time_zone_or_system(None);
+        assert!(!system.is_empty());
+        assert_eq!(time_zone_or_system(Some(String::new())), system, "an empty override is ignored");
+        if let Ok(tz) = jiff::tz::TimeZone::try_system()
+            && let Some(name) = tz.iana_name()
+        {
+            assert_eq!(system, name);
+        }
     }
 
     #[test]
@@ -2218,6 +3775,99 @@ mod tests {
     }
 }
 
+/// One API news source of the logon. It is subscribed only when it has
+/// no service id (ibx#460).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NewsSource {
+    pub(crate) code: String,
+    pub(crate) subscribed: bool,
+}
+
+/// The API news sources of the logon, in logon order (ibx#460).
+pub(crate) fn parse_news_sources(raw: &str) -> Vec<NewsSource> {
+    raw.split(',').filter_map(|entry| {
+        let entry = entry.trim();
+        if entry.is_empty() { return None; }
+        let (code, ids) = match entry.split_once(':') {
+            Some((c, ids)) => (c, ids),
+            None => (entry, ""),
+        };
+        if code.is_empty() { return None; }
+        Some(NewsSource {
+            code: code.to_string(),
+            subscribed: ids.split(';').all(|id| id.trim().is_empty()),
+        })
+    }).collect()
+}
+
+/// Look up `code` in a logon list of code and value items (names,
+/// capabilities).
+fn news_list_value<'a>(raw: &'a str, code: &str) -> Option<&'a str> {
+    raw.split(',').find_map(|item| {
+        let (c, v) = item.split_once('/')?;
+        c.trim().eq_ignore_ascii_case(code).then_some(v.trim())
+    })
+}
+
+/// The reqNewsProviders answer built from the logon (ibx#460): the
+/// subscribed API sources whose capabilities include news, in source
+/// order, named from the logon name list or by their code. A source with
+/// no capability entry is not used.
+pub(crate) fn news_providers_from_logon(
+    sources: &[NewsSource],
+    raw_names: &str,
+    raw_capabilities: &str,
+) -> Vec<crate::types::NewsProvider> {
+    sources.iter().filter(|s| s.subscribed).filter_map(|s| {
+        let caps = news_list_value(raw_capabilities, &s.code).filter(|c| !c.is_empty());
+        let Some(caps) = caps else {
+            log::warn!("News source {} has empty capabilities and is not processed", s.code);
+            return None;
+        };
+        if !caps.contains('N') { return None; }
+        let name = news_list_value(raw_names, &s.code).filter(|n| !n.is_empty()).unwrap_or(&s.code);
+        Some(crate::types::NewsProvider { code: s.code.clone(), name: name.to_string() })
+    }).collect()
+}
+
+#[cfg(test)]
+mod news_provider_tests {
+    use super::*;
+
+    // ibx#460: the captured paper logon gives the 8 providers the API
+    // client received, in logon order, with their names.
+    #[test]
+    fn providers_from_the_paper_logon() {
+        let sources = "BRFG,BRFUPDN,DJ-N,DJ-RTA,DJ-RTE,DJ-RTG,DJ-RTPRO,DJNL,BZ:706,DJTOP:557;558;559,FLY:698";
+        let names = "ABSTR/Absolute Strategy Research,BRFG/Briefing.com General Market Columns,\
+                     BRFUPDN/Briefing.com Analyst Actions,BZ/Benzinga,DJ-N/Dow Jones Global Equity Trader,\
+                     DJ-RTA/Dow Jones Top Stories Asia Pacific,DJ-RTE/Dow Jones Top Stories Europe,\
+                     DJ-RTG/Dow Jones Top Stories Global,DJ-RTPRO/Dow Jones Top Stories Pro,\
+                     DJNL/Dow Jones Newsletters,DJTOP/Dow Jones,FLY/The Fly";
+        let caps = "ABSTR/RNP,BRFG/RNM,BRFUPDN/RNPU,BZ/N,DJ-N/N,DJ-RTA/N,DJ-RTE/N,DJ-RTG/N,\
+                    DJ-RTPRO/N,DJNL/N,DJTOP/T,FLY/N";
+        let parsed = parse_news_sources(sources);
+        assert_eq!(parsed.len(), 11);
+        assert!(!parsed[8].subscribed && !parsed[9].subscribed && !parsed[10].subscribed);
+        let p = news_providers_from_logon(&parsed, names, caps);
+        let codes: Vec<&str> = p.iter().map(|p| p.code.as_str()).collect();
+        assert_eq!(codes, ["BRFG", "BRFUPDN", "DJ-N", "DJ-RTA", "DJ-RTE", "DJ-RTG", "DJ-RTPRO", "DJNL"]);
+        assert_eq!(p[0].name, "Briefing.com General Market Columns");
+        assert_eq!(p[7].name, "Dow Jones Newsletters");
+    }
+
+    #[test]
+    fn providers_filter_and_names() {
+        let parsed = parse_news_sources("AAA,BBB,CCC,DDD:");
+        assert!(parsed[3].subscribed, "an empty service id list is subscribed");
+        // BBB has no news capability, CCC has no capability entry, DDD no name.
+        let p = news_providers_from_logon(&parsed, "AAA/Alpha", "AAA/RN,BBB/T,DDD/N");
+        let got: Vec<(&str, &str)> = p.iter().map(|p| (p.code.as_str(), p.name.as_str())).collect();
+        assert_eq!(got, [("AAA", "Alpha"), ("DDD", "DDD")]);
+        assert!(news_providers_from_logon(&parse_news_sources(""), "AAA/Alpha", "AAA/N").is_empty());
+    }
+}
+
 /// Soft dollar tiers as the reference reads them from logon tag 6522
 /// (ibx#480): groups `{KEY}:{tiers}` separated by `;`, tiers `{name}@{value}`
 /// separated by `,`. A later group with the same key replaces the earlier
@@ -2252,6 +3902,47 @@ pub(crate) fn parse_soft_dollar_tiers(raw: &str) -> Vec<crate::types::SoftDollar
     groups.into_iter().flat_map(|(_, tiers)| tiers).collect()
 }
 
+/// The family codes answer of the reference (ibx#441): the list of
+/// accounts with their code when the accounts do not all share one code;
+/// else one entry for every account, `*`, with the shared code, empty when
+/// no account has one.
+pub(crate) fn family_codes_answer(codes: Vec<crate::types::FamilyCode>) -> Vec<crate::types::FamilyCode> {
+    let first = codes.iter().find(|c| !c.family_code_str.is_empty()).map(|c| c.family_code_str.clone());
+    if let Some(code) = &first {
+        if codes.iter().any(|c| c.family_code_str != *code) {
+            return codes;
+        }
+    }
+    vec![crate::types::FamilyCode { account_id: "*".into(), family_code_str: first.unwrap_or_default() }]
+}
+
+#[cfg(test)]
+mod family_code_tests {
+    use super::family_codes_answer;
+    use crate::types::FamilyCode;
+
+    fn codes(list: &[(&str, &str)]) -> Vec<FamilyCode> {
+        list.iter().map(|(a, c)| FamilyCode { account_id: a.to_string(), family_code_str: c.to_string() }).collect()
+    }
+
+    fn pairs(list: &[FamilyCode]) -> Vec<(&str, &str)> {
+        list.iter().map(|c| (c.account_id.as_str(), c.family_code_str.as_str())).collect()
+    }
+
+    // ibx#441: one entry when the accounts share a code or none has one.
+    #[test]
+    fn family_codes_answer_as_the_reference() {
+        // No data, or no account with a code: one entry with an empty code.
+        assert_eq!(pairs(&family_codes_answer(vec![])), [("*", "")]);
+        assert_eq!(pairs(&family_codes_answer(codes(&[("DU1", ""), ("DU2", "")]))), [("*", "")]);
+        // Every account with the same code: one entry with that code.
+        assert_eq!(pairs(&family_codes_answer(codes(&[("U1", "F1"), ("U2", "F1")]))), [("*", "F1")]);
+        // Different codes, or a code and no code: the full list.
+        assert_eq!(pairs(&family_codes_answer(codes(&[("U1", "F1"), ("U2", "F2")]))), [("U1", "F1"), ("U2", "F2")]);
+        assert_eq!(pairs(&family_codes_answer(codes(&[("U1", ""), ("U2", "F2")]))), [("U1", ""), ("U2", "F2")]);
+    }
+}
+
 #[cfg(test)]
 mod soft_dollar_tests {
     use super::parse_soft_dollar_tiers;
@@ -2271,5 +3962,75 @@ mod soft_dollar_tests {
         let t = parse_soft_dollar_tiers("USSTK:Gold@Y,nope");
         assert_eq!(t.len(), 1);
         assert_eq!(t[0].display_name, "Tier Gold (Y)");
+    }
+}
+
+#[cfg(test)]
+mod account_config_tests {
+    use super::parse_account_config;
+
+    // ibx#287: the logon feature list turns on US stock sizes in lots.
+    #[test]
+    // #452: the API depth limit of the logon (captured paper logon: API 3,
+    // total 3).
+    fn depth_limit_follows_the_reference_rule() {
+        let f = |v: [Option<&str>; 5]| super::depth_limit(&v.map(|x| x.map(String::from)));
+        assert_eq!(f([Some("3"), Some("3"), Some("100"), Some("5"), None]), 3);
+        assert_eq!(f([None, Some("4"), None, None, None]), 4);
+        assert_eq!(f([None, None, Some("100"), Some("5"), Some("9")]), 5);
+        assert_eq!(f([None, None, None, None, Some("2")]), 3);
+        assert_eq!(f([None, None, None, None, None]), 3);
+    }
+
+    #[test]
+    fn tick_by_tick_limit_follows_the_reference_rule() {
+        let f = |a: Option<&str>, b: Option<&str>, c: Option<&str>, d: Option<&str>| {
+            super::tick_by_tick_limit(&[a.map(String::from), b.map(String::from), c.map(String::from), d.map(String::from)])
+        };
+        assert_eq!(f(Some("100"), Some("5"), None, Some("3")), 5, "captured paper logon");
+        assert_eq!(f(None, Some("5"), Some("7"), Some("3")), 7);
+        assert_eq!(f(None, None, None, Some("9")), 9);
+        assert_eq!(f(Some("100"), Some("-1"), None, Some("4")), 4);
+        assert_eq!(f(Some("100"), Some("0"), None, Some("9")), 3, "0 is kept, then at least 3");
+        assert_eq!(f(None, None, None, None), 3);
+        assert!(super::features_have("A,NOTICKBYTICK", "NOTICKBYTICK"));
+        assert!(!super::features_have("NOTICKBYTICKS", "NOTICKBYTICK"));
+    }
+
+    #[test]
+    fn max_real_time_requests_from_the_logon() {
+        let tags = |pairs: &[(u32, i64)]| pairs.iter().copied().collect::<std::collections::HashMap<u32, i64>>();
+        // The values of the paper logon.
+        assert_eq!(super::max_real_time_requests(&tags(&[(6846, 100), (6847, 100)])), 100);
+        assert_eq!(super::max_real_time_requests(&tags(&[(6846, 60), (6847, 0)])), 60);
+        assert_eq!(super::max_real_time_requests(&tags(&[(8421, 100), (8422, 5), (6083, 30)])), 100);
+        assert_eq!(super::max_real_time_requests(&tags(&[(8421, 100), (6083, 30)])), 30);
+        assert_eq!(super::max_real_time_requests(&tags(&[])), 40);
+    }
+
+    #[test]
+    fn scale_us_lots_is_a_feature_token() {
+        assert!(super::features_scale_us_lots("SCALEFRAC,SCALEMOD,SCALEUSLOT,SCALEWHATIF"));
+        assert!(super::features_scale_us_lots("SCALEUSLOT"));
+        assert!(!super::features_scale_us_lots("SCALEUSLOTS,XSCALEUSLOT"));
+        assert!(!super::features_scale_us_lots(""));
+    }
+
+    // ibx#483: whiteBrandingId is logon tag 6593, not 6571.
+    #[test]
+    fn white_branding_is_tag_6593() {
+        assert_eq!(super::white_branding_part("6593=ABC"), Some("ABC"));
+        assert_eq!(super::white_branding_part("6571=X"), None);
+    }
+
+    // ibx#425: the paper answer (15/06/2026) has no CUSTACCT and no 8234.
+    #[test]
+    fn account_config_from_the_login_burst() {
+        let burst = "8=FIX.4.1\x019=10\x0135=U\x016040=75\x011=DU1\x0110=000\x01\
+                     8=FIX.4.1\x019=10\x0135=U\x016040=210\x016556=AcctConfig4\x011=DU1\x016542=OLP,EUCOSTCALC,EUILLS\x0110=000\x01";
+        let (features, mifid) = parse_account_config(burst).unwrap();
+        assert_eq!(features, ["OLP", "EUCOSTCALC", "EUILLS"]);
+        assert_eq!(mifid, "");
+        assert!(parse_account_config("8=FIX.4.1\x0135=U\x016040=75\x01").is_none());
     }
 }

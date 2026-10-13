@@ -38,7 +38,7 @@ Version: 1.2.1
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pandas as pd
 
@@ -154,8 +154,7 @@ class AdaptiveRotationEngine:
         elif isinstance(config, AdaptiveRotationConfig):
             self.config = config
         else:
-            msg = "Must provide either config or config_path"
-            raise ValueError(msg)
+            raise ValueError("Must provide either config or config_path")
 
         # Store data preprocessor for accessing daily data
         self.data_preprocessor = data_preprocessor
@@ -219,7 +218,10 @@ class AdaptiveRotationEngine:
             as_of_date = pd.Timestamp(as_of_date)
 
         # Convert price_data to dict format if needed
-        prices_dict = self._dataframe_to_dict(price_data) if isinstance(price_data, pd.DataFrame) else price_data
+        if isinstance(price_data, pd.DataFrame):
+            prices_dict = self._dataframe_to_dict(price_data)
+        else:
+            prices_dict = price_data
 
         # Get point-in-time data
         prices_as_of = get_data_as_of_date(prices_dict, as_of_date)
@@ -229,8 +231,12 @@ class AdaptiveRotationEngine:
             "data_summary": {
                 "symbols_available": len(prices_as_of),
                 "date_range": (
-                    min(s.index[0] for s in prices_as_of.values() if len(s) > 0).strftime("%Y-%m-%d"),
-                    max(s.index[-1] for s in prices_as_of.values() if len(s) > 0).strftime("%Y-%m-%d"),
+                    min(s.index[0] for s in prices_as_of.values() if len(s) > 0).strftime(
+                        "%Y-%m-%d"
+                    ),
+                    max(s.index[-1] for s in prices_as_of.values() if len(s) > 0).strftime(
+                        "%Y-%m-%d"
+                    ),
                 ),
                 "as_of_date": as_of_date.strftime("%Y-%m-%d"),
             }
@@ -245,7 +251,9 @@ class AdaptiveRotationEngine:
         audit_data["group_strength"] = self._audit_group_strength(group_strength)
 
         # === STEP 3: Intra-Group Ranking ===
-        group_rankings = self._rank_assets_in_groups(prices_as_of, group_strength.active_groups, as_of_date)
+        group_rankings = self._rank_assets_in_groups(
+            prices_as_of, group_strength.active_groups, as_of_date
+        )
         audit_data["asset_ranking"] = self._audit_asset_ranking(group_rankings)
 
         # === STEP 4: Exception Detection ===
@@ -337,7 +345,9 @@ class AdaptiveRotationEngine:
         """Run group strength analysis"""
         return analyze_group_strength(prices, self.config, as_of_date)
 
-    def _rank_assets_in_groups(self, prices: dict[str, pd.Series], active_groups: list[str], as_of_date: pd.Timestamp):
+    def _rank_assets_in_groups(
+        self, prices: dict[str, pd.Series], active_groups: list[str], as_of_date: pd.Timestamp
+    ):
         """Rank assets within each active group"""
         # Compute group returns
         group_returns_dict = {}
@@ -366,12 +376,14 @@ class AdaptiveRotationEngine:
             top_n=self.config.ranking.top_n_per_group,
         )
 
-    def _detect_exceptions(self, group_rankings: dict, prices_as_of: dict[str, pd.Series], as_of_date: pd.Timestamp):
+    def _detect_exceptions(
+        self, group_rankings: dict, prices_as_of: dict[str, pd.Series], as_of_date: pd.Timestamp
+    ):
         """Detect exception assets"""
         # Collect Z-scores from all groups
         all_zscores = {}
 
-        for ranking in group_rankings.values():
+        for _group_name, ranking in group_rankings.items():
             for symbol, score in ranking.asset_scores.items():
                 if score.is_valid:
                     # For exception detection, we need historical Z-scores
@@ -390,7 +402,12 @@ class AdaptiveRotationEngine:
             benchmark_prices=benchmark_prices,
         )
 
-    def _check_stops(self, positions: dict[str, PositionState], prices: dict[str, pd.Series], as_of_date: pd.Timestamp):
+    def _check_stops(
+        self,
+        positions: dict[str, PositionState],
+        prices: dict[str, pd.Series],
+        as_of_date: pd.Timestamp,
+    ):
         """Check stop-loss conditions"""
         # Get current prices
         current_prices = {}
@@ -453,7 +470,11 @@ class AdaptiveRotationEngine:
                 "ranked_assets": ranking.ranked_assets,
                 "top_n_selected": ranking.top_n_assets,
                 "scores": {
-                    symbol: {"zscore": score.zscore, "residual_momentum": score.residual_momentum, "rank": score.rank}
+                    symbol: {
+                        "zscore": score.zscore,
+                        "residual_momentum": score.residual_momentum,
+                        "rank": score.rank,
+                    }
                     for symbol, score in ranking.asset_scores.items()
                     if score.is_valid
                 },
@@ -487,7 +508,9 @@ class AdaptiveRotationEngine:
         return {
             "stops_triggered": len(risk_result.triggered_stops),
             "stopped_symbols": risk_result.get_stopped_symbols(),
-            "cooldowns_active": {sym: date.strftime("%Y-%m-%d") for sym, date in risk_result.cooldowns_active.items()},
+            "cooldowns_active": {
+                sym: date.strftime("%Y-%m-%d") for sym, date in risk_result.cooldowns_active.items()
+            },
             "stop_details": [
                 {
                     "symbol": stop.symbol,
@@ -525,7 +548,9 @@ class AdaptiveRotationEngine:
         return self.config
 
     @staticmethod
-    def export_weights_to_dataframe(results: list[dict], all_symbols: list[str] | None = None) -> pd.DataFrame:
+    def export_weights_to_dataframe(
+        results: list[dict], all_symbols: list[str] | None = None
+    ) -> pd.DataFrame:
         """
         Export portfolio weights to a DataFrame for analysis
 
@@ -566,8 +591,10 @@ class AdaptiveRotationEngine:
             rows.append(row)
 
         # Create DataFrame with specific column order
-        columns = ["date", *all_symbols, "cash", "regime"]
-        return pd.DataFrame(rows, columns=columns)
+        columns = ["date"] + all_symbols + ["cash", "regime"]
+        df = pd.DataFrame(rows, columns=columns)
+
+        return df
 
 
 if __name__ == "__main__":

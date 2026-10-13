@@ -31,7 +31,6 @@ Run: pytest tests/python/test_issue_ib113.py -v -s
 
 import os
 import threading
-import time
 
 import pytest
 from ibx import EClient, EWrapper
@@ -45,7 +44,9 @@ pytestmark = pytest.mark.skipif(
 class ScannerSubscription:
     """Minimal scanner subscription matching ibapi interface."""
 
-    def __init__(self, scan_code="TOP_PERC_GAIN", num_rows=25, instrument="STK", location="STK.US.MAJOR"):
+    def __init__(
+        self, scan_code="TOP_PERC_GAIN", num_rows=25, instrument="STK", location="STK.US.MAJOR"
+    ):
         self.scanCode = scan_code
         self.numberOfRows = num_rows
         self.instrument = instrument
@@ -86,7 +87,9 @@ class MultiScannerWrapper(EWrapper):
         self.scanner_xml = xml
         self.got_scanner_params.set()
 
-    def scanner_data(self, req_id, rank, contract_details, distance, benchmark, projection, legs_str):
+    def scanner_data(
+        self, req_id, rank, contract_details, distance, benchmark, projection, legs_str
+    ):
         with self.lock:
             self.scanner_results.setdefault(req_id, []).append((rank, contract_details))
 
@@ -170,13 +173,19 @@ class TestMultiScanner:
                 results_received += 1
                 symbols = []
                 for _rank, cd in results[:5]:
-                    sym = cd.contract.symbol if hasattr(cd, "contract") and hasattr(cd.contract, "symbol") else "?"
+                    sym = (
+                        cd.contract.symbol
+                        if hasattr(cd, "contract") and hasattr(cd.contract, "symbol")
+                        else "?"
+                    )
                     symbols.append(sym)
                 print(f"  {scan_code}: {len(results)} results — {', '.join(symbols)}...")
             else:
                 print(f"  {scan_code}: no results")
 
-        assert results_received >= 3, f"Expected at least 3 scanners with results, got {results_received}"
+        assert results_received >= 3, (
+            f"Expected at least 3 scanners with results, got {results_received}"
+        )
 
     def test_filtered_scanner(self):
         """Scanner with price/volume filter (TOP_PERC_GAIN, $10-$500, >1M volume)."""
@@ -200,7 +209,11 @@ class TestMultiScanner:
 
         symbols = []
         for _rank, cd in results[:10]:
-            sym = cd.contract.symbol if hasattr(cd, "contract") and hasattr(cd.contract, "symbol") else "?"
+            sym = (
+                cd.contract.symbol
+                if hasattr(cd, "contract") and hasattr(cd.contract, "symbol")
+                else "?"
+            )
             symbols.append(sym)
         if symbols:
             print(f"    Top: {', '.join(symbols)}")

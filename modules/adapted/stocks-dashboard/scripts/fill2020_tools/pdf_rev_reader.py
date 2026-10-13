@@ -104,20 +104,20 @@ R_REV = re.compile(
     r"^revenue from operations|^total revenue from operations"
     r"|^income from operations|^net sales\s*/\s*income from operations"
     r"|^interest earned",
-    re.IGNORECASE,
+    re.I,
 )
 N_REV = re.compile(
     r"^(total)?revenuefromoperations$|^incomefromoperations$"
     r"|^netsalesincomefromoperations|^interestearned"
 )
-R_PAT_OWN = re.compile(r"owners of the (parent|company)|attributable to.*owners", re.IGNORECASE)
+R_PAT_OWN = re.compile(r"owners of the (parent|company)|attributable to.*owners", re.I)
 N_PAT_OWN = re.compile(r"ownersofthe(parent|company)|attributableto.*owners")
 R_PAT = re.compile(
     r"^(net\s+)?profit\s*/?\s*\(?loss\)?\s*(for the period|after tax)"
     r"|^profit\s*/?\s*\(?loss\)?\s*for the period"
     r"|^net profit[\s\(\)\+\-/]*loss[\s\(\)\+\-/]*"
     r"(from ordinary activities\s*)?(after tax|for the period)",
-    re.IGNORECASE,
+    re.I,
 )
 N_PAT = re.compile(
     r"^(net)?profit(loss)?(fortheperiod|aftertax)"
@@ -160,7 +160,7 @@ def statements(doc, ocr=False):
 
 def read_cell(st, qe, stored_pat):
     """(revenue, scale, pat_seen) for the column headed `qe` on this page, or None."""
-    _pno, _decl, cols, rows = st
+    pno, decl, cols, rows = st
     k = IC.column_for(cols, qe)  # P2
     if k is None:
         return None
@@ -183,7 +183,7 @@ def best_read(doc, qe, basis, stored_pat, ocr=False):
             continue
         got = read_cell(st, qe, stored_pat)
         if got:
-            return (*got, st[0], "ocr" if ocr else "text")
+            return got + (st[0], "ocr" if ocr else "text")
     return None
 
 
@@ -237,17 +237,33 @@ def main():
     if verify:
         sym, qe_s, basis = verify.split(":")
         qe = int(qe_s)
-        stored_pat = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[1 if basis == "std" else 3]
+        stored_pat = (fmap.get(sym, {}).get(qe) or [None, None, None, None])[
+            1 if basis == "std" else 3
+        ]
         stored_rev = ((revop.get(sym) or {}).get(qe_s) or [None] * 9)[0 if basis == "std" else 1]
         res, why = fetch_and_read(sym, qe, basis, stored_pat)
         if not res:
             print(f"{sym} {qe} {basis} -> NO READ ({why})")
             return
         (rev, scale, seen, pno, reader), att, adate, _doc = res
-        ok = stored_rev is not None and abs(rev - stored_rev) <= max(1.0, CTRL_REL * abs(stored_rev))
+        ok = stored_rev is not None and abs(rev - stored_rev) <= max(
+            1.0, CTRL_REL * abs(stored_rev)
+        )
         print(
             "%s %s %s -> read %.2f | stored %s | %s  (p%d, %s, %s, anchor %.2f vs %s)"
-            % (sym, qe, basis, rev, stored_rev, "MATCH" if ok else "*** DIFFERS", pno, scale, reader, seen, stored_pat)
+            % (
+                sym,
+                qe,
+                basis,
+                rev,
+                stored_rev,
+                "MATCH" if ok else "*** DIFFERS",
+                pno,
+                scale,
+                reader,
+                seen,
+                stored_pat,
+            )
         )
         return
 
@@ -284,11 +300,14 @@ def main():
                     continue
                 (rev, scale, seen, pno, reader), att, adate, doc = res
                 if basis == "con" and ambiguous:
-                    decl_ok = any(st[0] == pno and st[1] == "con" for st in statements(doc, reader == "ocr"))
+                    decl_ok = any(
+                        st[0] == pno and st[1] == "con" for st in statements(doc, reader == "ocr")
+                    )
                     if not decl_ok:
                         skips[key] = (
                             "std/con PAT indistinguishable (%s vs %s) and page p%d does "
-                            "not declare consolidated — refusing, runbook §44" % (frow[1], frow[3], pno)
+                            "not declare consolidated — refusing, runbook §44"
+                            % (frow[1], frow[3], pno)
                         )
                         continue
 
@@ -301,8 +320,12 @@ def main():
                     if tpat is not None:
                         c = best_read(doc, qe, "std", tpat) or best_read(doc, qe, "std", tpat, True)
                         ctrl = c[0] if c else None
-                    if ctrl is None or abs(ctrl - twin_stored) > max(1.0, CTRL_REL * abs(twin_stored)):
-                        skips[key] = f"std control failed: filing reads {ctrl} against stored {twin_stored}"
+                    if ctrl is None or abs(ctrl - twin_stored) > max(
+                        1.0, CTRL_REL * abs(twin_stored)
+                    ):
+                        skips[key] = (
+                            f"std control failed: filing reads {ctrl} against stored {twin_stored}"
+                        )
                         continue
 
                 # P5 — neighbour band

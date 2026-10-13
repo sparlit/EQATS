@@ -32,13 +32,9 @@ Shows a Broker column automatically when multiple brokers are connected.
 """
 
 
-from typing import TYPE_CHECKING
-
 from rich.text import Text
+from textual.app import ComposeResult
 from textual.widgets import DataTable, Label, Static
-
-if TYPE_CHECKING:
-    from textual.app import ComposeResult
 
 
 class PortfolioWidget(Static):

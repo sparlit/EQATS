@@ -54,9 +54,15 @@ def main():
     for sym, qe, _field in cells:
         by[sym].append(qe)
 
-    syms = list(a.syms.split(",")) if a.syms else [s for s, _ in sorted(by.items(), key=lambda kv: -len(kv[1]))[: a.n]]
+    if a.syms:
+        syms = list(a.syms.split(","))
+    else:
+        syms = [s for s, _ in sorted(by.items(), key=lambda kv: -len(kv[1]))[: a.n]]
 
-    print("%-12s %-8s %5s  %-9s  %6s  %6s  %s" % ("SYM", "sc_id", "qtrs", "oldest", "gap", "hasPAT", "note"))
+    print(
+        "%-12s %-8s %5s  %-9s  %6s  %6s  %s"
+        % ("SYM", "sc_id", "qtrs", "oldest", "gap", "hasPAT", "note")
+    )
     tot_gap = tot_hit = 0
     out = {}
     for sym in syms:
@@ -85,7 +91,15 @@ def main():
         }
         print(
             "%-12s %-8s %5d  %-9s  %6d  %6d  %s"
-            % (sym, ident["sc_id"], len(series), min(series, default="-"), len(gaps), len(have), note[:60])
+            % (
+                sym,
+                ident["sc_id"],
+                len(series),
+                min(series, default="-"),
+                len(gaps),
+                len(have),
+                note[:60],
+            )
         )
         sys.stdout.flush()
 

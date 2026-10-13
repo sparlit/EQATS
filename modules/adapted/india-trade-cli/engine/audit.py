@@ -45,7 +45,6 @@ Usage:
 
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -102,7 +101,9 @@ class AuditReport:
         if self.pnl is not None:
             lines.append(f"  P&L       : [{pnl_style}]{self.pnl:+,.0f}[/{pnl_style}]")
 
-        console.print(Panel("\n".join(lines), title="[bold cyan]Trade Audit[/bold cyan]", border_style="cyan"))
+        console.print(
+            Panel("\n".join(lines), title="[bold cyan]Trade Audit[/bold cyan]", border_style="cyan")
+        )
 
         # Analyst grades
         if self.analyst_grades:
@@ -151,7 +152,9 @@ class AuditReport:
             console.print("\n[bold]What-If:[/bold]")
             console.print(f"  With equal weights: {self.alt_verdict}")
             help_str = (
-                "[green]YES — would have helped[/green]" if self.alt_would_help else "[dim]NO — same outcome[/dim]"
+                "[green]YES — would have helped[/green]"
+                if self.alt_would_help
+                else "[dim]NO — same outcome[/dim]"
             )
             console.print(f"  Would it help?    : {help_str}")
 
@@ -271,7 +274,11 @@ def audit_trade(trade_id: str) -> AuditReport:
     if not is_win:
         if report.most_wrong:
             wrong_score = next(
-                (a["score_at_time"] for a in report.analyst_grades if a["analyst"] == report.most_wrong),
+                (
+                    a["score_at_time"]
+                    for a in report.analyst_grades
+                    if a["analyst"] == report.most_wrong
+                ),
                 0,
             )
             report.lessons.append(

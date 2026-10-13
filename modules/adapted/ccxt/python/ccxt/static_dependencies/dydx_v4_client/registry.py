@@ -54,4 +54,5 @@ def encode_as_any(encodeObject):
     value = encodeObject["value"]
     t = registry[typeUrl]
     message = ParseDict(value, t())
-    return Any(type_url=typeUrl, value=message.SerializeToString())
+    packed = Any(type_url=typeUrl, value=message.SerializeToString())
+    return packed

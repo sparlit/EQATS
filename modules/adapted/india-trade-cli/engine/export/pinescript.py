@@ -44,10 +44,8 @@ Usage:
 
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
+from typing import Any
 
 # ── Pine Script template pieces ───────────────────────────────
 

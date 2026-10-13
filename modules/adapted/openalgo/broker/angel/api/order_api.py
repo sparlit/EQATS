@@ -1,0 +1,616 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import json
+import os
+import time
+import uuid
+
+import httpx
+from broker.angel.mapping.transform_data import (
+    map_product_type,
+    reverse_map_product_type,
+    transform_data,
+    transform_modify_order_data,
+)
+from database.token_db import get_br_symbol, get_symbol, get_token
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+from utils.position_read import read_position_book, refuse_smart_order_on_read_failure
+from utils.smart_order_guard import PositionBookCache, SymbolLocks
+
+logger = get_logger(__name__)
+
+
+def get_api_response(endpoint, auth, method="GET", payload="", max_retries=2):
+    AUTH_TOKEN = auth
+    api_key = os.getenv("BROKER_API_KEY")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    headers = {
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "CLIENT_LOCAL_IP",
+        "X-ClientPublicIP": "CLIENT_PUBLIC_IP",
+        "X-MACAddress": "MAC_ADDRESS",
+        "X-PrivateKey": api_key,
+    }
+
+    url = f"https://apiconnect.angelone.in{endpoint}"
+
+    for attempt in range(max_retries + 1):
+        try:
+            if method == "GET":
+                response = client.get(url, headers=headers)
+            elif method == "POST":
+                response = client.post(url, headers=headers, content=payload)
+            else:
+                response = client.request(method, url, headers=headers, content=payload)
+        except Exception as e:
+            logger.error(f"HTTP request failed for {endpoint}: {e}")
+            if attempt < max_retries:
+                time.sleep(1)
+                continue
+            return {"status": "error", "message": str(e)}
+
+        # Add status attribute for compatibility with the existing codebase
+        response.status = response.status_code
+
+        # Handle empty response
+        if not response.text:
+            logger.error(f"Empty response from {endpoint} (HTTP {response.status_code})")
+            if attempt < max_retries:
+                time.sleep(1)
+                continue
+            return {"status": "error", "message": f"Empty response (HTTP {response.status_code})"}
+
+        try:
+            return json.loads(response.text)
+        except json.JSONDecodeError:
+            # Rate limit returns plain text like "Access denied because of exceeding access rate"
+            if "exceeding access rate" in response.text.lower() and attempt < max_retries:
+                logger.warning(
+                    f"Rate limited on {endpoint}, retrying in 1s (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(1)
+                continue
+            logger.error(f"Failed to parse JSON response from {endpoint}: {response.text}")
+            return {
+                "status": "error",
+                "message": f"Invalid JSON response (HTTP {response.status_code})",
+            }
+
+    return {"status": "error", "message": "Max retries exceeded"}
+
+
+def get_order_book(auth):
+    return get_api_response("/rest/secure/angelbroking/order/v1/getOrderBook", auth)
+
+
+def get_trade_book(auth):
+    return get_api_response("/rest/secure/angelbroking/order/v1/getTradeBook", auth)
+
+
+def get_positions(auth):
+    return get_api_response("/rest/secure/angelbroking/order/v1/getPosition", auth)
+
+
+def get_holdings(auth):
+    return get_api_response("/rest/secure/angelbroking/portfolio/v1/getAllHolding", auth)
+
+
+# --- Per-Symbol Smart Order Lock ---
+# Ensures only one smart order per symbol executes at a time.
+# Others queue and execute sequentially, each getting a fresh position book.
+# The registry only holds the symbols in use right now, and under the gthread
+# worker a smart order gives up after SMART_ORDER_LOCK_WAIT_SECONDS rather
+# than hold a request thread behind a slow broker. Under eventlet and the dev
+# server it waits as long as it takes, as before.
+_symbol_locks = SymbolLocks(name="angel smart orders")
+
+# --- Position Book Cache ---
+# Caches get_positions() for 1 second. Invalidated after each smart order placement.
+# A fetch still in flight when an order invalidates the book is returned to
+# its own caller but never cached, so the next order cannot size itself
+# against the position from before that fill.
+_position_cache = PositionBookCache()
+
+
+def _get_symbol_lock(symbol, exchange, product):
+    """Hold the per-symbol smart-order lock for the body of a ``with`` block.
+
+    Yields True while held, or False when the bounded wait under the gthread
+    worker ran out; the caller then returns ``SymbolLocks.busy(symbol)`` and
+    places nothing.
+    """
+    return _symbol_locks.hold(symbol, exchange, product)
+
+
+def _position_book_ok(positions_data):
+    """Angel marks success with status true, a real bool.
+
+    get_api_response's own failures carry status "error", which is truthy, so
+    the value has to be checked, not its truthiness.
+    """
+    return isinstance(positions_data, dict) and positions_data.get("status") in (True, "true")
+
+
+def _get_cached_positions(auth):
+    """Get positions from cache if fresh, otherwise fetch from broker API."""
+    return _position_cache.get(
+        auth,
+        lambda: read_position_book("angel", lambda: get_positions(auth), _position_book_ok),
+    )
+
+
+def _invalidate_position_cache(auth):
+    """Invalidate the position cache so the next queued order fetches fresh data."""
+    _position_cache.invalidate(auth)
+
+
+def get_open_position(tradingsymbol, exchange, producttype, auth):
+    # Convert Trading Symbol from OpenAlgo Format to Broker Format Before Search in OpenPosition
+    tradingsymbol = get_br_symbol(tradingsymbol, exchange)
+    positions_data = _get_cached_positions(auth)
+
+    logger.debug(f"{positions_data}")
+
+    net_qty = "0"
+
+    if positions_data and positions_data.get("status") and positions_data.get("data"):
+        for position in positions_data["data"]:
+            if (
+                position.get("tradingsymbol") == tradingsymbol
+                and position.get("exchange") == exchange
+                and position.get("producttype") == producttype
+            ):
+                net_qty = position.get("netqty", "0")
+                break  # Assuming you need the first match
+
+    return net_qty
+
+
+def place_order_api(data, auth):
+    AUTH_TOKEN = auth
+    BROKER_API_KEY = os.getenv("BROKER_API_KEY")
+    data["apikey"] = BROKER_API_KEY
+    token = get_token(data["symbol"], data["exchange"])
+    newdata = transform_data(data, token)
+    headers = {
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "CLIENT_LOCAL_IP",
+        "X-ClientPublicIP": "CLIENT_PUBLIC_IP",
+        "X-MACAddress": "MAC_ADDRESS",
+        "X-PrivateKey": newdata["apikey"],
+    }
+    # Angel exposes ordertag in the order book, so it can be used to recover
+    # an order when the placement response is lost or cannot be decoded.
+    ordertag = f"oa{uuid.uuid4().hex[:16]}"
+    payload = json.dumps(
+        {
+            "variety": newdata.get("variety", "NORMAL"),
+            "tradingsymbol": newdata["tradingsymbol"],
+            "symboltoken": newdata["symboltoken"],
+            "transactiontype": newdata["transactiontype"],
+            "exchange": newdata["exchange"],
+            "ordertype": newdata.get("ordertype", "MARKET"),
+            "producttype": newdata.get("producttype", "INTRADAY"),
+            "duration": newdata.get("duration", "DAY"),
+            "price": newdata.get("price", "0"),
+            "triggerprice": newdata.get("triggerprice", "0"),
+            "squareoff": newdata.get("squareoff", "0"),
+            "stoploss": newdata.get("stoploss", "0"),
+            "quantity": newdata["quantity"],
+            "ordertag": ordertag,
+        }
+    )
+
+    logger.debug(f"{payload}")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    # Make the request using the shared client
+    place_order_url = "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/placeOrder"
+    try:
+        response = client.post(place_order_url, headers=headers, content=payload)
+    except httpx.TransportError as exc:
+        logger.warning("Angel order placement transport error: %s", exc)
+        response = httpx.Response(
+            502,
+            request=httpx.Request("POST", place_order_url),
+            json={},
+        )
+
+    # Add status attribute to make response compatible with http.client response
+    # as the rest of the codebase expects .status instead of .status_code
+    response.status = response.status_code
+
+    # An empty or invalid body does not mean the order was rejected. Never
+    # retry this POST; check the order book using the tag sent with the order.
+    try:
+        response_data = response.json()
+        if not isinstance(response_data, dict):
+            raise ValueError("Order response is not a JSON object")
+    except (ValueError, json.JSONDecodeError):
+        response_data = None
+
+    valid_order_response = (
+        isinstance(response_data, dict)
+        and response_data.get("status") is True
+        and isinstance(response_data.get("data"), dict)
+        and bool(response_data["data"].get("orderid"))
+    )
+    explicit_rejection = isinstance(response_data, dict) and response_data.get("status") is False
+    if explicit_rejection and response.status_code == 200:
+        response.status = 500
+    if not valid_order_response and not explicit_rejection:
+        logger.warning(
+            "Ambiguous Angel order response (HTTP %s); reconciling ordertag %s",
+            response.status_code,
+            ordertag,
+        )
+        try:
+            order_book = get_order_book(auth)
+        except Exception:
+            logger.exception("Could not reconcile ambiguous Angel order response")
+            order_book = None
+        orders = order_book.get("data") if isinstance(order_book, dict) else None
+        expected = {
+            "tradingsymbol": newdata["tradingsymbol"],
+            "symboltoken": newdata["symboltoken"],
+            "exchange": newdata["exchange"],
+            "transactiontype": newdata["transactiontype"],
+            "quantity": newdata["quantity"],
+        }
+        matching_orders = [
+            order
+            for order in orders or []
+            if isinstance(order, dict)
+            and order.get("ordertag") == ordertag
+            and all(str(order.get(key, "")) == str(value) for key, value in expected.items())
+        ]
+        matched_order = matching_orders[0] if len(matching_orders) == 1 else None
+        if matched_order:
+            response.status = 200
+            response_data = {
+                "status": True,
+                "message": "Order found in order book after ambiguous placement response",
+                "data": {
+                    "orderid": matched_order.get("orderid"),
+                    "uniqueorderid": matched_order.get("uniqueorderid"),
+                },
+            }
+        else:
+            if response.status_code == 200:
+                response.status = 500
+            response_data = {
+                "status": "unknown",
+                "message": (
+                    "AngelOne returned an empty or invalid order response and no matching "
+                    "ordertag was found in the order book. Check order status before retrying."
+                ),
+                "ordertag": ordertag,
+            }
+
+    # Use .get() so a malformed / non-conforming response (gateway error
+    # envelope, partial response, network blip) returns a clean
+    # ``orderid = None`` instead of raising KeyError. Angel's documented
+    # success shape carries ``status: true`` and ``data.orderid``; anything
+    # else is treated as a failure and surfaced through the caller's
+    # existing None-orderid error path. See issue #846 for the original
+    # KeyError trace this hardening eliminates.
+    if response_data.get("status") is True:
+        order_data = response_data.get("data") or {}
+        orderid = order_data.get("orderid") if isinstance(order_data, dict) else None
+    else:
+        orderid = None
+    return response, response_data, orderid
+
+
+@refuse_smart_order_on_read_failure
+def place_smartorder_api(data, auth):
+    AUTH_TOKEN = auth
+
+    # If no API call is made in this function then res will return None
+    res = None
+
+    # Extract necessary info from data
+    symbol = data.get("symbol")
+    exchange = data.get("exchange")
+    product = data.get("product")
+    # Per-symbol lock: serialize smart orders per symbol
+    symbol_lock = _get_symbol_lock(symbol, exchange, product)
+
+    with symbol_lock as acquired:
+        if not acquired:
+            return SymbolLocks.busy(symbol)
+        position_size = int(data.get("position_size", "0"))
+
+        # Get current open position for the symbol
+        current_position = int(
+            get_open_position(symbol, exchange, map_product_type(product), AUTH_TOKEN)
+        )
+
+        logger.debug(f"position_size : {position_size}")
+        logger.debug(f"Open Position : {current_position}")
+
+        # Determine action based on position_size and current_position
+        action = None
+        quantity = 0
+
+        # If both position_size and current_position are 0, do nothing
+        if position_size == 0 and current_position == 0 and int(data["quantity"]) != 0:
+            action = data["action"]
+            quantity = data["quantity"]
+            # logger.debug(f"action : {action}")
+            # logger.debug(f"Quantity : {quantity}")
+            res, response, orderid = place_order_api(data, AUTH_TOKEN)
+            _invalidate_position_cache(AUTH_TOKEN)
+            # logger.debug(f"{res}")
+            # logger.debug(f"{response}")
+
+            return res, response, orderid
+
+        elif position_size == current_position:
+            if int(data["quantity"]) == 0:
+                response = {
+                    "status": "success",
+                    "message": "No OpenPosition Found. Not placing Exit order.",
+                }
+            else:
+                response = {
+                    "status": "success",
+                    "message": "No action needed. Position size matches current position",
+                }
+            orderid = None
+            return res, response, orderid  # res remains None as no API call was mad
+
+        if position_size == 0 and current_position > 0:
+            action = "SELL"
+            quantity = abs(current_position)
+        elif position_size == 0 and current_position < 0:
+            action = "BUY"
+            quantity = abs(current_position)
+        elif current_position == 0:
+            action = "BUY" if position_size > 0 else "SELL"
+            quantity = abs(position_size)
+        else:
+            if position_size > current_position:
+                action = "BUY"
+                quantity = position_size - current_position
+                # logger.debug(f"smart buy quantity : {quantity}")
+            elif position_size < current_position:
+                action = "SELL"
+                quantity = current_position - position_size
+                # logger.debug(f"smart sell quantity : {quantity}")
+
+        if action:
+            # Prepare data for placing the order
+            order_data = data.copy()
+            order_data["action"] = action
+            order_data["quantity"] = str(quantity)
+
+            # logger.debug(f"{order_data}")
+            # Place the order
+            res, response, orderid = place_order_api(order_data, auth)
+            _invalidate_position_cache(AUTH_TOKEN)
+            # logger.debug(f"{res}")
+            logger.debug(f"{response}")
+            logger.debug(f"{orderid}")
+
+            return res, response, orderid
+
+
+def close_all_positions(current_api_key, auth):
+    # Fetch the current open positions
+    AUTH_TOKEN = auth
+
+    positions_response = get_positions(AUTH_TOKEN)
+
+    # Check if the positions data is null or empty
+    if positions_response["data"] is None or not positions_response["data"]:
+        return {"message": "No Open Positions Found"}, 200
+
+    if positions_response["status"]:
+        # Loop through each position to close
+        for position in positions_response["data"]:
+            # Skip if net quantity is zero
+            if int(position["netqty"]) == 0:
+                continue
+
+            # Determine action based on net quantity
+            action = "SELL" if int(position["netqty"]) > 0 else "BUY"
+            quantity = abs(int(position["netqty"]))
+
+            # get openalgo symbol to send to placeorder function
+            symbol = get_symbol(position["symboltoken"], position["exchange"])
+            logger.debug(f"The Symbol is {symbol}")
+
+            # Prepare the order payload
+            place_order_payload = {
+                "apikey": current_api_key,
+                "strategy": "Squareoff",
+                "symbol": symbol,
+                "action": action,
+                "exchange": position["exchange"],
+                "pricetype": "MARKET",
+                "product": reverse_map_product_type(position["producttype"]),
+                "quantity": str(quantity),
+            }
+
+            logger.debug(f"{place_order_payload}")
+
+            # Place the order to close the position
+            res, response, orderid = place_order_api(place_order_payload, auth)
+
+            # logger.debug(f"{res}")
+            # logger.debug(f"{response}")
+            # logger.debug(f"{orderid}")
+
+            # Note: Ensure place_order_api handles any errors and logs accordingly
+
+    return {"status": "success", "message": "All Open Positions SquaredOff"}, 200
+
+
+def cancel_order(orderid, auth):
+    # Assuming you have a function to get the authentication token
+    AUTH_TOKEN = auth
+    api_key = os.getenv("BROKER_API_KEY")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    # Set up the request headers
+    headers = {
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "CLIENT_LOCAL_IP",
+        "X-ClientPublicIP": "CLIENT_PUBLIC_IP",
+        "X-MACAddress": "MAC_ADDRESS",
+        "X-PrivateKey": api_key,
+    }
+
+    # Prepare the payload
+    payload = json.dumps(
+        {
+            "variety": "NORMAL",
+            "orderid": orderid,
+        }
+    )
+
+    # Make the request using the shared client
+    response = client.post(
+        "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/cancelOrder",
+        headers=headers,
+        content=payload,
+    )
+
+    # Add status attribute for compatibility with the existing codebase
+    response.status = response.status_code
+
+    data = json.loads(response.text)
+
+    # Check if the request was successful
+    if data.get("status"):
+        # Return a success response
+        return {"status": "success", "orderid": orderid}, 200
+    else:
+        # Return an error response
+        return {
+            "status": "error",
+            "message": data.get("message", "Failed to cancel order"),
+        }, response.status
+
+
+def modify_order(data, auth):
+    # Assuming you have a function to get the authentication token
+    AUTH_TOKEN = auth
+    api_key = os.getenv("BROKER_API_KEY")
+
+    # Get the shared httpx client with connection pooling
+    client = get_httpx_client()
+
+    token = get_token(data["symbol"], data["exchange"])
+    data["symbol"] = get_br_symbol(data["symbol"], data["exchange"])
+
+    transformed_data = transform_modify_order_data(
+        data, token
+    )  # You need to implement this function
+    # Set up the request headers
+    headers = {
+        "Authorization": f"Bearer {AUTH_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-UserType": "USER",
+        "X-SourceID": "WEB",
+        "X-ClientLocalIP": "CLIENT_LOCAL_IP",
+        "X-ClientPublicIP": "CLIENT_PUBLIC_IP",
+        "X-MACAddress": "MAC_ADDRESS",
+        "X-PrivateKey": api_key,
+    }
+    payload = json.dumps(transformed_data)
+
+    # Make the request using the shared client
+    response = client.post(
+        "https://apiconnect.angelone.in/rest/secure/angelbroking/order/v1/modifyOrder",
+        headers=headers,
+        content=payload,
+    )
+
+    # Add status attribute for compatibility with the existing codebase
+    response.status = response.status_code
+
+    data = json.loads(response.text)
+
+    if data.get("status") == "true" or data.get("message") == "SUCCESS":
+        return {"status": "success", "orderid": data["data"]["orderid"]}, 200
+    else:
+        return {
+            "status": "error",
+            "message": data.get("message", "Failed to modify order"),
+        }, response.status
+
+
+def cancel_all_orders_api(data, auth):
+    # Get the order book
+
+    AUTH_TOKEN = auth
+
+    order_book_response = get_order_book(AUTH_TOKEN)
+    # logger.debug(f"{order_book_response}")
+    if not order_book_response["status"]:
+        return [], []  # Return empty lists indicating failure to retrieve the order book
+
+    # Filter orders that are in 'open' or 'trigger_pending' state
+    orders_to_cancel = [
+        order
+        for order in order_book_response.get("data", [])
+        if order["status"] in ["open", "trigger pending"]
+    ]
+    # logger.debug(f"{orders_to_cancel}")
+    canceled_orders = []
+    failed_cancellations = []
+
+    # Cancel the filtered orders
+    for order in orders_to_cancel:
+        orderid = order["orderid"]
+        cancel_response, status_code = cancel_order(orderid, auth)
+        if status_code == 200:
+            canceled_orders.append(orderid)
+        else:
+            failed_cancellations.append(orderid)
+
+    return canceled_orders, failed_cancellations

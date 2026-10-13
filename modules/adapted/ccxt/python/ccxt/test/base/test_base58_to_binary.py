@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_base58_to_binary():
@@ -44,7 +44,7 @@ def test_base58_to_binary():
             "id": "sampleexchange",
         }
     )
-    # TODO: can be implemented stringToBinary in future
+    # todo: can be implemented stringToBinary in future
     # @SKIP_START_GO
     # Test 1: Simple base58
     b58_1 = "Cn8eVZg"  # hello

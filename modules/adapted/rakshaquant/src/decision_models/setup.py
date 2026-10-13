@@ -1,0 +1,74 @@
+from __future__ import annotations
+
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""Building the decision-model cascade from the settings (plan M7): Laya when the optional
+``decision-local`` extra is installed and enabled, Jev when ``TYPESAFE_API_KEY`` is set. With
+neither, there is no cascade and callers degrade (announcements are stored, not classified)."""
+
+
+import importlib.util
+from typing import Any
+
+from src.decision_models.adapters import LayaLocal, jev_remote
+from src.decision_models.base import DecisionModel
+from src.decision_models.cache import CachedDecisionModel
+from src.decision_models.calibration import CalibrationMap
+from src.decision_models.cascade import Calibrator, Cascade, CascadeConfig
+from src.domain.sink import EventSink
+from src.llm.router import ResponseCache
+
+
+def laya_available() -> bool:
+    return importlib.util.find_spec("laya") is not None
+
+
+def build_cascade(
+    settings: Any,
+    *,
+    sink: EventSink,
+    calibrator: Calibrator | None = None,
+    cache: ResponseCache | None = None,
+) -> Cascade | None:
+    """``cache`` records every answer for replays (plan M8.5)."""
+    laya: DecisionModel | None = None
+    if settings.decision_laya_enabled and laya_available():
+        laya = LayaLocal(checkpoint=settings.decision_laya_checkpoint,
+                         cache_dir=str(settings.models_dir / "hf"))  # fmt: skip
+    jev: DecisionModel | None = None
+    key = settings.typesafe_api_key
+    if key is not None and key.get_secret_value():
+        jev = jev_remote(key.get_secret_value(), model=settings.typesafe_model)
+    if laya is None and jev is None:
+        return None
+    if cache is not None:
+        laya = CachedDecisionModel(laya, cache) if laya is not None else None
+        jev = CachedDecisionModel(jev, cache) if jev is not None else None
+    config = CascadeConfig(
+        escalate_band=(settings.decision_escalate_low, settings.decision_escalate_high),
+        shadow_pct=settings.decision_shadow_pct,
+    )
+    if calibrator is None:  # fitted by scripts/calibrate_decision_models.py (plan M7.5)
+        calibrator = CalibrationMap.load(settings.models_dir / "calibration.json")
+    return Cascade(laya=laya, jev=jev, sink=sink, config=config, calibrator=calibrator)

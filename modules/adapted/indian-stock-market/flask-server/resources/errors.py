@@ -34,6 +34,9 @@ errors = {
     "UpdatingMovieError": {"message": "Updating movie added by other is forbidden", "status": 403},
     "DeletingMovieError": {"message": "Deleting movie added by other is forbidden", "status": 403},
     "MovieNotExistsError": {"message": "Movie with given id doesn't exists", "status": 400},
-    "EmailAlreadyExistsError": {"message": "User with given email address already exists", "status": 400},
+    "EmailAlreadyExistsError": {
+        "message": "User with given email address already exists",
+        "status": 400,
+    },
     "UnauthorizedError": {"message": "Invalid username or password", "status": 401},
 }

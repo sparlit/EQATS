@@ -57,10 +57,8 @@ _RULES: list[tuple[str, list[tuple[str, str]]]] = [
         "CAPITAL_RAISE",
         [
             (
-                (
-                    r"\b(prefe?rential|qip|qualified institutional|rights issue|fund raising|"
-                    r"funds raising|capital raise)\b"
-                ),
+                r"\b(prefe?rential|qip|qualified institutional|rights issue|fund raising|"
+                r"funds raising|capital raise)\b",
                 "i",
             )
         ],
@@ -73,10 +71,8 @@ _RULES: list[tuple[str, list[tuple[str, str]]]] = [
         "INVESTOR_MEET",
         [
             (
-                (
-                    r"\b(investor meet|investor meeting|conference call|"
-                    r"institutional investors)\b"
-                ),
+                r"\b(investor meet|investor meeting|conference call|"
+                r"institutional investors)\b",
                 "i",
             )
         ],

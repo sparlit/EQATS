@@ -59,7 +59,11 @@ def close(a, b, tol_abs=0.5, tol_pct=0.01):
 def main():
     argv = sys.argv
     cells_path = argv[argv.index("--cells") + 1]
-    out_path = argv[argv.index("--emit") + 1] if "--emit" in argv else os.path.join(HERE, "_mc_batch_emit.json")
+    out_path = (
+        argv[argv.index("--emit") + 1]
+        if "--emit" in argv
+        else os.path.join(HERE, "_mc_batch_emit.json")
+    )
     batch = json.load(open(cells_path))
     want = batch["cells"]  # {sym: [qe,...]}
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
@@ -119,7 +123,11 @@ def main():
                 "pat_seen": mc["pat_total"],
                 "fin": finflag,
                 "src": "moneycontrol std {}={} pat={} (deep feed, as-filed; conv={}{}) [batch60 2026-08-24]".format(
-                    ckey, mc[ckey], mc["pat_total"], conv, "" if conv != "default_rev_total" else " NO-OVERLAP-DEFAULT"
+                    ckey,
+                    mc[ckey],
+                    mc["pat_total"],
+                    conv,
+                    "" if conv != "default_rev_total" else " NO-OVERLAP-DEFAULT",
                 ),
             }
             got.append(qe)
@@ -133,7 +141,9 @@ def main():
     )
     if report["no_mc"]:
         print("  no MC match:", ", ".join(s for s, _ in report["no_mc"]))
-    defaults = [s for s, v in report["per_sym"].items() if v["conv"] == "default_rev_total" and v["staged"]]
+    defaults = [
+        s for s, v in report["per_sym"].items() if v["conv"] == "default_rev_total" and v["staged"]
+    ]
     if defaults:
         print("  LOW-CONFIDENCE (no existing revStd to confirm convention):", ", ".join(defaults))
     json.dump(report, open(os.path.join(HERE, "_mc_batch_report.json"), "w"), indent=1)

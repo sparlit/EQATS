@@ -21,8 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import UTC, date, datetime, timezone
-from typing import Optional
+from datetime import UTC, date, datetime
 
 from app.core.database import Base
 from sqlalchemy import Boolean, Date, DateTime, String, Text

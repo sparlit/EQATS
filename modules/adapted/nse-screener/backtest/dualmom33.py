@@ -85,7 +85,11 @@ def main():
     close = p["close"][list(ETFS)].dropna(how="all")
     close = close.dropna()  # all four must exist
     print(f"panel: {close.index[0].date()} → {close.index[-1].date()}")
-    for name, kw in (("PRIMARY", {}), ("D1 cash+5%/yr", {"cash_accrual": 0.05}), ("D2 no-gold", {"use_gold": False})):
+    for name, kw in (
+        ("PRIMARY", {}),
+        ("D1 cash+5%/yr", {"cash_accrual": 0.05}),
+        ("D2 no-gold", {"use_gold": False}),
+    ):
         eqs, sw = run(close, **kw)
         print(f"\n### {name} (switches: {sw})")
         for label, lo, hi in (
@@ -103,7 +107,10 @@ def main():
             gate = ""
             if label.startswith(("IS", "OOS")):
                 gate = f"  [{'beats' if tot > btot else 'dead'}]"
-            print(f"  {label:<26} v33 {tot:+8.1f}% (DD {dd:+6.1f}%)  bees {btot:+8.1f}% (DD {bdd:+6.1f}%){gate}")
+            print(
+                f"  {label:<26} v33 {tot:+8.1f}% (DD {dd:+6.1f}%)  "
+                f"bees {btot:+8.1f}% (DD {bdd:+6.1f}%){gate}"
+            )
 
 
 if __name__ == "__main__":

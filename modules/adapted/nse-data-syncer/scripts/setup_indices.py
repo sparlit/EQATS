@@ -42,8 +42,7 @@ from app.database import DatabaseManager
 
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
-    msg = "DATABASE_URL environment variable is not set."
-    raise ValueError(msg)
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
 INDEX_MAPPING = {
     "^NSEI": "Nifty 50",
@@ -79,7 +78,7 @@ def setup_indices():
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
 
-            data = data.dropna(subset=["Close"])
+            data.dropna(subset=["Close"], inplace=True)
 
             if data.empty:
                 print(f"  No valid close price data found for {symbol}.")

@@ -75,7 +75,13 @@ state_db.cleanup_stale_manual_jobs()
 
 
 def start_background_job(
-    key: str, fn, *args, job_type: str | None = None, summarize_fn=None, meta: dict | None = None, **kwargs
+    key: str,
+    fn,
+    *args,
+    job_type: str | None = None,
+    summarize_fn=None,
+    meta: dict | None = None,
+    **kwargs,
 ) -> bool:
     """Runs fn(*args, **kwargs, progress_cb=...) in a background thread.
     No-ops (returns False) if a job with this key is already running --
@@ -122,8 +128,7 @@ def start_background_job(
 
     def _progress_cb(stage, frac):
         if job["cancel_requested"]:
-            msg = "Stopped by user."
-            raise JobCancelled(msg)
+            raise JobCancelled("Stopped by user.")
         job["progress"] = (frac, stage)
 
     def _run_fn():

@@ -50,7 +50,9 @@ os.chdir(WT)
 import fetch_insurers as FI  # noqa: E402
 import fitz  # noqa: E402
 
-_s = importlib.util.spec_from_file_location("brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py"))
+_s = importlib.util.spec_from_file_location(
+    "brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py")
+)
 BRG = importlib.util.module_from_spec(_s)
 _s.loader.exec_module(BRG)
 
@@ -59,7 +61,7 @@ REV_ROW = re.compile(
     r"(t[o0]tal\s+inc[o0]me\s+fr[o0]m\s+[o0]pera|revenue\s+fr[o0]m\s+[o0]pera|"
     r"inc[o0]me\s+fr[o0]m\s+[o0]pera|net\s+sales|t[o0]tal\s+revenue|"
     r"t[o0]tal\s+inc[o0]me)",
-    re.IGNORECASE,
+    re.I,
 )
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 
@@ -92,7 +94,11 @@ def hunt(doc, target):
                 for sc, un in ((1.0, "crore"), (10.0, "million"), (100.0, "lakh")):
                     got = v / sc
                     if abs(got - target) <= max(1.0, abs(target) * 0.004):
-                        cand = (abs(got - target), round(got, 2), "p%d %s /%s row=%r raw=%s" % (pi, un, un, x[:38], v))
+                        cand = (
+                            abs(got - target),
+                            round(got, 2),
+                            "p%d %s /%s row=%r raw=%s" % (pi, un, un, x[:38], v),
+                        )
                         if best is None or cand[0] < best[0]:
                             best = cand
     return best
@@ -103,14 +109,22 @@ def main():
     tg = json.load(open("/tmp/mar25.json"))
     out = {}
     for key, g in sorted(gate.items()):
-        sym, _qe, field = key.split("|")
+        sym, qe, field = key.split("|")
         meta = tg.get(sym) or {}
         target = g["val"]
-        rec = {"field": field, "screener": target, "src": "screener.in gate-validated", "gate": g["note"]}
+        rec = {
+            "field": field,
+            "screener": target,
+            "src": "screener.in gate-validated",
+            "gate": g["note"],
+        }
         if not meta.get("scrip"):
             rec.update(value=target, precision="crore-rounded", exact=False)
             out[key] = rec
-            print("  %-11s %-5s = %-9s crore-rounded (no scrip for filing refine)" % (sym, field, target))
+            print(
+                "  %-11s %-5s = %-9s crore-rounded (no scrip for filing refine)"
+                % (sym, field, target)
+            )
             continue
         sess = FI.bse_session()
         d0 = datetime.datetime.strptime(str(meta["ann"]), "%Y%m%d").date()
@@ -147,11 +161,17 @@ def main():
             print("  %-11s %-5s = %-9s EXACT  %s" % (sym, field, hit[1], hit[2]))
         else:
             rec.update(value=target, precision="crore-rounded", exact=False)
-            print("  %-11s %-5s = %-9s crore-rounded (target not located in PDF)" % (sym, field, target))
+            print(
+                "  %-11s %-5s = %-9s crore-rounded (target not located in PDF)"
+                % (sym, field, target)
+            )
         out[key] = rec
         time.sleep(0.5)
     json.dump(out, open("/tmp/mar25_final.json", "w"), indent=1)
-    print("\nresolved %d cells (%d filing-exact)" % (len(out), sum(1 for v in out.values() if v.get("exact"))))
+    print(
+        "\nresolved %d cells (%d filing-exact)"
+        % (len(out), sum(1 for v in out.values() if v.get("exact")))
+    )
 
 
 if __name__ == "__main__":

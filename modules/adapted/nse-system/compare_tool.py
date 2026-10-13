@@ -53,7 +53,11 @@ def compare(symbols, max_n=4):
         # Sector + mcap
         row = _row(conn, "SELECT sector FROM stocks WHERE symbol=?", (sym,))
         r["sector"] = row[0] if row else None
-        row = _row(conn, "SELECT mcap_cr, close, pe, perf1m, perf3m FROM universe_broad WHERE symbol=?", (sym,))
+        row = _row(
+            conn,
+            "SELECT mcap_cr, close, pe, perf1m, perf3m FROM universe_broad WHERE symbol=?",
+            (sym,),
+        )
         if row:
             r["mcap_cr"] = row[0]
             r["close"] = row[1]
@@ -80,12 +84,17 @@ def compare(symbols, max_n=4):
 
         # Fundamental score
         row = _row(
-            conn, "SELECT fundamental_score FROM scan_results WHERE symbol=? ORDER BY scan_date DESC LIMIT 1", (sym,)
+            conn,
+            "SELECT fundamental_score FROM scan_results "
+            "WHERE symbol=? ORDER BY scan_date DESC LIMIT 1",
+            (sym,),
         )
         r["fund_score"] = row[0] if row else None
 
         # P(WIN)
-        row = _row(conn, "SELECT p_win FROM pwin_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,))
+        row = _row(
+            conn, "SELECT p_win FROM pwin_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,)
+        )
         r["p_win"] = row[0] if row else None
 
         # Swing stats

@@ -24,9 +24,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from torch import nn, optim
 
 # Load and preprocess data
 data = pd.read_csv("../Data/SP500_DJIA_2m_clean.csv", index_col=0, parse_dates=True)
@@ -40,13 +41,15 @@ data["Spread_Mean"] = data["Spread"].rolling(window=20).mean()
 data["Spread_Std"] = data["Spread"].rolling(window=20).std()
 data["Zscore"] = (data["Spread"] - data["Spread_Mean"]) / data["Spread_Std"]
 
-data = data.dropna()
+data.dropna(inplace=True)
 
 # Create target variable
 data["Signal"] = 0
 data.loc[data["Zscore"] > 1.0, "Signal"] = 2  # Sell signal (mapped from -1 to 2)
 data.loc[data["Zscore"] < -1.0, "Signal"] = 0  # Buy signal (mapped from 1 to 0)
-data.loc[(data["Zscore"] <= 1.0) & (data["Zscore"] >= -1.0), "Signal"] = 1  # Hold signal (mapped from 0 to 1)
+data.loc[(data["Zscore"] <= 1.0) & (data["Zscore"] >= -1.0), "Signal"] = (
+    1  # Hold signal (mapped from 0 to 1)
+)
 
 # Features and target
 features = ["Spread", "Spread_Mean", "Spread_Std", "Zscore"]
@@ -100,7 +103,8 @@ class LSTMModel(nn.Module):
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
         out, _ = self.lstm(x, (h0, c0))
         out = self.dropout(out[:, -1, :])
-        return self.fc(out)
+        out = self.fc(out)
+        return out
 
 
 # Initialize the model, loss function, and optimizer
@@ -129,7 +133,9 @@ for epoch in range(num_epochs):
         test_losses.append(test_loss.item())
 
     if (epoch + 1) % 1 == 0:
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Test Loss: {test_loss.item():.4f}")
+        print(
+            f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {loss.item():.4f}, Test Loss: {test_loss.item():.4f}"
+        )
 
 # Evaluate the model
 model.eval()

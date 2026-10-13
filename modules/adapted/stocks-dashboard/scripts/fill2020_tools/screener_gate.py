@@ -81,7 +81,12 @@ def check(sym, qe, field):
     ok, m, n, bad = SF.validate(ser, ours_series(sym, field), label)
     if not ok:
         return None, "GATE FAIL %d/%d agree on %r; %s" % (m, n, label, "; ".join(bad[:2]))
-    return val, "gate ok %d/%d neighbour quarters reproduce our stored %s (row %r)" % (m, n, field, label)
+    return val, "gate ok %d/%d neighbour quarters reproduce our stored %s (row %r)" % (
+        m,
+        n,
+        field,
+        label,
+    )
 
 
 def main():

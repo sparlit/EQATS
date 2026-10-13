@@ -127,7 +127,9 @@ class MarketTickerWidget(Static):
                 vc = "red" if snap.india_vix > 20 else "yellow" if snap.india_vix > 15 else "green"
                 lines.append(f"India VIX    [{vc}]{snap.india_vix:>8.2f}[/{vc}]")
 
-            posture_color = {"BULLISH": "green", "BEARISH": "red", "VOLATILE": "yellow"}.get(snap.posture, "white")
+            posture_color = {"BULLISH": "green", "BEARISH": "red", "VOLATILE": "yellow"}.get(
+                snap.posture, "white"
+            )
             lines.append(f"\n[{posture_color}]{snap.posture}[/{posture_color}]")
 
             self.query_one("#ticker-body", Static).update("\n".join(lines))

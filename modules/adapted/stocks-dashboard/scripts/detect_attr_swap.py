@@ -95,7 +95,10 @@ def cffi_get(url, hh):
     if _cffi["s"] is None:
         s = cr.Session(impersonate="chrome")
         s.get("https://www.nseindia.com/", timeout=30)
-        s.get("https://www.nseindia.com/companies-listing/corporate-filings-financial-results", timeout=30)
+        s.get(
+            "https://www.nseindia.com/companies-listing/corporate-filings-financial-results",
+            timeout=30,
+        )
         _cffi["s"] = s
     r = _cffi["s"].get(url, headers=hh, timeout=90)
     if r.status_code != 200:
@@ -109,7 +112,11 @@ def fetch(url, hh, expect_json=False):
         try:
             if attempt == 1:
                 warm()
-            body = cffi_get(url, hh) if attempt == 2 else B._get(url, headers=hh, jar=jar[0], timeout=90)
+            body = (
+                cffi_get(url, hh)
+                if attempt == 2
+                else B._get(url, headers=hh, jar=jar[0], timeout=90)
+            )
             if expect_json:
                 return json.loads(body)
             return body
@@ -117,7 +124,6 @@ def fetch(url, hh, expect_json=False):
             if attempt == 2:
                 raise
             time.sleep(3 * (attempt + 1))
-    return None
 
 
 def qe_windows(qe):
@@ -157,7 +163,14 @@ def analyze(xml):
     paid = tagval(xml, "PaidUpValueOfEquityShareCapital")
     fv = tagval(xml, "FaceValueOfEquityShareCapital")
     shares = paid / fv if (paid and fv) else None
-    return {"total": total, "owners": owners, "nci": nci, "bank": bank, "eps": eps, "shares": shares}
+    return {
+        "total": total,
+        "owners": owners,
+        "nci": nci,
+        "bank": bank,
+        "eps": eps,
+        "shares": shares,
+    }
 
 
 def verdict(a, stored_cr):
@@ -214,7 +227,9 @@ for c in cands:
         if not rows:
             out["verdict"] = "NO_CON_FILING_FOUND"
         else:
-            xml = fetch(rows[0]["xbrl"], {"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"})
+            xml = fetch(
+                rows[0]["xbrl"], {"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}
+            )
             a = analyze(xml)
             v, correct = verdict(a, c["con"])
             out.update(
@@ -241,7 +256,9 @@ for c in cands:
 
 # summary
 sw = [r for r in results.values() if r["verdict"] == "SWAPPED"]
-manual = [r for r in results.values() if r["verdict"] in ("MISMATCH_MANUAL", "NO_EPS_ANCHOR", "ERROR")]
+manual = [
+    r for r in results.values() if r["verdict"] in ("MISMATCH_MANUAL", "NO_EPS_ANCHOR", "ERROR")
+]
 print("\n==== SUMMARY ====")
 print("checked:", len(results), "| SWAPPED:", len(sw), "| manual-review:", len(manual))
 for r in sw:

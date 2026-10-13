@@ -91,7 +91,10 @@ def load_open_cells(first):
         d = [
             r[0]
             for r in rows
-            if len(r) > 3 and r[1] is not None and r[3] is not None and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
+            if len(r) > 3
+            and r[1] is not None
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
         ]
         if d:
             divq[s] = set(d)
@@ -161,7 +164,10 @@ def main():
     by_sym = {}
     for sym, qe, field in cells:
         by_sym.setdefault((sym, field), []).append(qe)
-    print("open revenue cells >= %d: %d across %d company/basis pairs\n" % (first, len(cells), len(by_sym)))
+    print(
+        "open revenue cells >= %d: %d across %d company/basis pairs\n"
+        % (first, len(cells), len(by_sym))
+    )
 
     derived, rejected, nodata = {}, [], 0
     for n, ((sym, field), qes) in enumerate(sorted(by_sym.items())):
@@ -178,7 +184,9 @@ def main():
             continue
         slot = 0 if field == "revS" else 1
         mine = {
-            int(q): v[slot] for q, v in (revop.get(sym) or {}).items() if v and len(v) > slot and v[slot] is not None
+            int(q): v[slot]
+            for q, v in (revop.get(sym) or {}).items()
+            if v and len(v) > slot and v[slot] is not None
         }
         # ---- GATE A: our own 4-quarter sums must reproduce screener's annual totals.
         # Measured behaviour (diagnostic run, 2026-08-06): where the entity and basis match, our sum
@@ -196,10 +204,18 @@ def main():
             qs = fy_quarters(fy)
             if all(q in mine for q in qs):
                 mysum = sum(mine[q] for q in qs)
-                (ok_fy if abs(mysum - row[label]) <= max(2.0, abs(mysum) * 0.005) else bad_fy).add(fy)
+                (ok_fy if abs(mysum - row[label]) <= max(2.0, abs(mysum) * 0.005) else bad_fy).add(
+                    fy
+                )
         comparable = len(ok_fy) + len(bad_fy)
         if len(ok_fy) < 3 or comparable < 3 or len(ok_fy) / float(comparable) < 0.6:
-            rejected.append((sym, field, "GATE A %d ok / %d restated-or-mismatched FYs" % (len(ok_fy), len(bad_fy))))
+            rejected.append(
+                (
+                    sym,
+                    field,
+                    "GATE A %d ok / %d restated-or-mismatched FYs" % (len(ok_fy), len(bad_fy)),
+                )
+            )
             continue
         # ---- derive each open quarter whose FY is otherwise complete
         for qe in sorted(qes):
@@ -216,25 +232,32 @@ def main():
             # run of FYs that DID reproduce. A restatement year that we cannot see is the single
             # way this method writes a wrong number, and bracketing is what detects it.
             if fy in bad_fy:
-                rejected.append((sym, field, "GATE A2 FY%d is a restated/mismatched year" % (fy // 10000)))
+                rejected.append(
+                    (sym, field, "GATE A2 FY%d is a restated/mismatched year" % (fy // 10000))
+                )
                 continue
             nb = [f for f in (fy - 10000, fy + 10000) if f in ok_fy or f in bad_fy]
             if any(f in bad_fy for f in nb):
-                rejected.append((sym, field, "GATE A2 FY%d adjacent to a restated year" % (fy // 10000)))
+                rejected.append(
+                    (sym, field, "GATE A2 FY%d adjacent to a restated year" % (fy // 10000))
+                )
                 continue
             conf = "high" if len(nb) == 2 else ("medium" if len(nb) == 1 else "low")
             val = round(total - sum(mine[q] for q in others), 2)
             sibs = sorted(mine[q] for q in others)
             med = sibs[len(sibs) // 2]
             if val <= 0 or not (0.2 * med <= val <= 5 * med):  # GATE B
-                rejected.append((sym, field, "GATE B derived %s vs siblings %s at %d" % (val, sibs, qe)))
+                rejected.append(
+                    (sym, field, "GATE B derived %s vs siblings %s at %d" % (val, sibs, qe))
+                )
                 continue
             derived["%s|%d|%s" % (sym, qe, field)] = {
                 "value": val,
                 "fy_total": total,
                 "confidence": conf,
                 "others": {str(q): mine[q] for q in others},
-                "src": "screener.in FY%d annual %s minus the 3 stored quarters" % (fy // 10000, label),
+                "src": "screener.in FY%d annual %s minus the 3 stored quarters"
+                % (fy // 10000, label),
             }
     print("DERIVED %d cells" % len(derived))
     for k, v in sorted(derived.items())[:40]:
@@ -245,7 +268,9 @@ def main():
     print("\nrejected by gates: %d   |  no screener annual table: %d" % (len(rejected), nodata))
     for r in rejected[:15]:
         print("  %-12s %-5s %s" % r)
-    json.dump({"derived": derived, "rejected": rejected}, open("/tmp/annual_derive.json", "w"), indent=1)
+    json.dump(
+        {"derived": derived, "rejected": rejected}, open("/tmp/annual_derive.json", "w"), indent=1
+    )
 
 
 if __name__ == "__main__":

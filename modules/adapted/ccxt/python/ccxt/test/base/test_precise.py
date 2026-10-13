@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.precise import Precise  # noqa: E402
+from ccxt.base.precise import Precise  # noqa E402
 
 
 def test_precise():
@@ -204,7 +204,8 @@ def test_precise():
     assert Precise.string_min("999.999", "1e3") == "999.999"
     # large integers
     assert (
-        Precise.string_mul("123456789012345678901234567890", "987654321") == "121932631124828532112482853211126352690"
+        Precise.string_mul("123456789012345678901234567890", "987654321")
+        == "121932631124828532112482853211126352690"
     )
     assert (
         Precise.string_add("123456789012345678901234567890", "123456789012345678901234567890")

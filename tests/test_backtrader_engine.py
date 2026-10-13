@@ -1,9 +1,11 @@
 """
 Unit and Integration Tests for Backtrader Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.backtrader_engine import BacktraderAnalyzerEngine, BacktraderSizerEngine
+from institutional_integrations.backtrader_engine import (
+    BacktraderAnalyzerEngine,
+    BacktraderSizerEngine,
+)
+
 
 def test_backtrader_analyzer_metrics() -> None:
     analyzer = BacktraderAnalyzerEngine()

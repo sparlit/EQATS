@@ -100,7 +100,9 @@ class FeatureWrapper(EWrapper):
         )
         self.got_depth_l2.set()
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         self.depth_l2_updates.append(
             {
                 "req_id": req_id,
@@ -254,7 +256,9 @@ class TestSessionFeatures:
         # Validate market maker = NSDQ for ISLAND
         l2_with_mm = [u for u in updates if u.get("market_maker")]
         assert len(l2_with_mm) > 0, "No market maker in L2 updates"
-        assert l2_with_mm[0]["market_maker"] == "NSDQ", f"Expected NSDQ, got {l2_with_mm[0]['market_maker']}"
+        assert l2_with_mm[0]["market_maker"] == "NSDQ", (
+            f"Expected NSDQ, got {l2_with_mm[0]['market_maker']}"
+        )
 
         print(f"L2 depth: {len(bids)} bids + {len(asks)} asks, total {len(updates)} updates")
 
@@ -316,7 +320,8 @@ class TestSessionFeatures:
         assert len(asks) > 0, "No SmartDepth asks"
 
         print(
-            f"SmartDepth: {len(bids)} bids + {len(asks)} asks = {len(updates)} total, smart_flag={len(smart_updates)}"
+            f"SmartDepth: {len(bids)} bids + {len(asks)} asks = {len(updates)} total, "
+            f"smart_flag={len(smart_updates)}"
         )
 
     def test_l2_depth_resubscribe_no_stale_data(self):
@@ -418,7 +423,9 @@ class TestSessionFeatures:
         updates_b = [u for u in self.w.depth_l2_updates if u["req_id"] == 5012]
         stale_a = [u for u in self.w.depth_l2_updates if u["req_id"] == 5011]
         assert len(updates_b) > 0, "No depth updates for ticker B"
-        assert len(stale_a) == 0, f"Stale ticker A data leaked: {len(stale_a)} updates with req_id=5011"
+        assert len(stale_a) == 0, (
+            f"Stale ticker A data leaked: {len(stale_a)} updates with req_id=5011"
+        )
         print(f"Ticker B: {len(updates_b)} updates, no stale leaks")
 
     # ── reqMktDepthExchanges ──
@@ -428,7 +435,9 @@ class TestSessionFeatures:
         self.c.req_mkt_depth_exchanges()
         got = self.w.got_depth_exchanges.wait(timeout=10)
         assert got, "No depth exchanges received"
-        assert len(self.w.depth_exchanges) > 50, f"Expected 50+ exchanges, got {len(self.w.depth_exchanges)}"
+        assert len(self.w.depth_exchanges) > 50, (
+            f"Expected 50+ exchanges, got {len(self.w.depth_exchanges)}"
+        )
 
         stk = [d for d in self.w.depth_exchanges if d.sec_type == "STK"]
         fut = [d for d in self.w.depth_exchanges if d.sec_type == "FUT"]
@@ -524,11 +533,16 @@ class TestSessionFeatures:
         assert isinstance(o.oca_type, int), f"oca_type not int: {type(o.oca_type)}"
         assert o.oca_type in (0, 3), f"Unexpected oca_type={o.oca_type}"
 
-        assert isinstance(o.use_price_mgmt_algo, int)
-        assert o.use_price_mgmt_algo == 0, f"Expected use_price_mgmt_algo=0 for LMT, got {o.use_price_mgmt_algo}"
+        # A stock limit order with the value unset carries the price
+        # management flag, as the reference, and reads it back (ibx#492).
+        assert o.use_price_mgmt_algo is True, (
+            f"Expected use_price_mgmt_algo True for a stock LMT, got {o.use_price_mgmt_algo}"
+        )
 
         # 6 constant fields (defaults)
-        assert o.adjusted_order_type == "", f"Expected empty adjusted_order_type, got '{o.adjusted_order_type}'"
+        assert o.adjusted_order_type == "", (
+            f"Expected empty adjusted_order_type, got '{o.adjusted_order_type}'"
+        )
         assert o.delta_neutral_order_type == "", (
             f"Expected empty delta_neutral_order_type, got '{o.delta_neutral_order_type}'"
         )

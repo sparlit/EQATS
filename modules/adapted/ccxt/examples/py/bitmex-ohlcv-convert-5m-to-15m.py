@@ -54,20 +54,21 @@ volume = 5
 
 if len(ohlcv5) > 2:
     for i in range(0, len(ohlcv5) - 2, 3):
-        highs = [ohlcv5[i + j][high] for j in range(3) if ohlcv5[i + j][high]]
-        lows = [ohlcv5[i + j][low] for j in range(3) if ohlcv5[i + j][low]]
-        volumes = [ohlcv5[i + j][volume] for j in range(3) if ohlcv5[i + j][volume]]
+        highs = [ohlcv5[i + j][high] for j in range(0, 3) if ohlcv5[i + j][high]]
+        lows = [ohlcv5[i + j][low] for j in range(0, 3) if ohlcv5[i + j][low]]
+        volumes = [ohlcv5[i + j][volume] for j in range(0, 3) if ohlcv5[i + j][volume]]
         candle = [
             ohlcv5[i + 0][timestamp],
             ohlcv5[i + 0][open],
-            max(highs) if highs else None,
-            min(lows) if lows else None,
+            max(highs) if len(highs) else None,
+            min(lows) if len(lows) else None,
             ohlcv5[i + 2][close],
-            sum(volumes) if volumes else None,
+            sum(volumes) if len(volumes) else None,
         ]
         ohlcv15.append(candle)
 else:
-    msg = "Too few 5m candles"
-    raise Exception(msg)
+    raise Exception("Too few 5m candles")
 
 # do whatever you want with your 15m candles here...
+
+pprint(ohlcv15)

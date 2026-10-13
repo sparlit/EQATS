@@ -73,7 +73,13 @@ def ask(reason):
 
 def git(args):
     r = subprocess.run(
-        ["git", *args], cwd=MAIN, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10
+        ["git"] + args,
+        cwd=MAIN,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=10,
     )
     return r.stdout or ""
 
@@ -150,6 +156,8 @@ def pre_bash(h):
 
 
 SYNC_MIN_TIMEOUT = 300  # seconds; the SessionStart hook entry must allow at least this
+GC_TIMEOUT = 90  # backstop kill for the gc job
+GC_BUDGET = 60  # gc stops itself here: 30 s slack for the tree in flight, prune, report
 
 
 def hook_timeout():
@@ -178,19 +186,35 @@ def sync_and_gc(h):
         jobs = [(["status", "--tree", MAIN], 60)]
         tail = (
             "[sync] auto-sync is OFF: this hook's timeout is %ds (< %ds). Run it by hand: "
-            "python3 scripts/sync_checkout.py sync   (then: gc --dry-run)" % (budget, SYNC_MIN_TIMEOUT)
+            "python3 scripts/sync_checkout.py sync   (then: gc --dry-run)"
+            % (budget, SYNC_MIN_TIMEOUT)
         )
     else:
+        # gc stops ITSELF at GC_BUDGET (least-recently-checked trees first; the rest wait for the
+        # next session) - the kill at GC_TIMEOUT is only a backstop. Runbook #107 (2026-09-28): a
+        # full gc took 4.5-17 min, so a bare 90 s kill cut it off every session.
         jobs = [
             (["sync", "--tree", MAIN, "--for-hook"], budget - 120),
-            (["gc", "--idle-hours", "48", "--for-hook", "--protect", h.get("cwd") or MAIN], 90),
+            (
+                [
+                    "gc",
+                    "--idle-hours",
+                    "48",
+                    "--for-hook",
+                    "--budget",
+                    str(GC_BUDGET),
+                    "--protect",
+                    h.get("cwd") or MAIN,
+                ],
+                GC_TIMEOUT,
+            ),
         ]
         tail = ""
     notes = []
     for args, tmo in jobs:
         try:
             r = subprocess.run(
-                [sys.executable, tool, *args],
+                [sys.executable, tool] + args,
                 cwd=MAIN,
                 capture_output=True,
                 text=True,
@@ -199,8 +223,29 @@ def sync_and_gc(h):
                 timeout=max(tmo, 30),
             )
             txt = (r.stdout or "").strip()
+            if (
+                r.returncode != 0
+            ):  # both jobs exit 0 in --for-hook mode: anything else is a crash/usage error
+                txt += ("\n" if txt else "") + "[%s] exited %d: %s" % (
+                    args[0],
+                    r.returncode,
+                    ((r.stderr or "").strip().splitlines() or ["(no stderr)"])[-1][:200],
+                )
             if txt:
                 notes.append(txt)
+        except (
+            subprocess.TimeoutExpired
+        ) as e:  # keep what it printed before the kill (bytes, even with text=True)
+            part = (
+                e.stdout.decode("utf-8", "replace")
+                if isinstance(e.stdout, bytes)
+                else (e.stdout or "")
+            )
+            notes.append(
+                (part.strip() + "\n" if part.strip() else "")
+                + "[%s] killed at %d s - lines above are all it reported; a worktree removal it had "
+                "started runs detached and the next gc reports it" % (args[0], max(tmo, 30))
+            )
         except Exception as e:  # never block a session on the sync
             notes.append(f"[{args[0]}] skipped: {str(e)[:160]}")
     if tail:
@@ -225,7 +270,11 @@ def session_start(h):
             "worth reviewing/clearing when idle." % len(stashes)
         )
     counts = git(["rev-list", "--left-right", "--count", "main...origin/main"]).split()
-    if len(counts) == 2 and all(c.isdigit() for c in counts) and (int(counts[0]) >= 3 or int(counts[1]) >= 50):
+    if (
+        len(counts) == 2
+        and all(c.isdigit() for c in counts)
+        and (int(counts[0]) >= 3 or int(counts[1]) >= 50)
+    ):
         # Runbook 107a: these are STALENESS counts. A session once read the old wording here and told
         # the user 25 commits were "unpushed" and a push "would wipe thousands of commits" - measured:
         # 0 unique commits, 0 unique WIP, and a plain push is simply rejected (non-fast-forward).
@@ -255,9 +304,12 @@ def main():
         h = json.loads(sys.stdin.read().lstrip("﻿"))
     except Exception:
         h = {}
-    {"pre-edit": pre_edit, "post-edit": post_edit, "pre-bash": pre_bash, "session-start": session_start}.get(
-        mode, lambda _: None
-    )(h)
+    {
+        "pre-edit": pre_edit,
+        "post-edit": post_edit,
+        "pre-bash": pre_bash,
+        "session-start": session_start,
+    }.get(mode, lambda _: None)(h)
 
 
 if __name__ == "__main__":

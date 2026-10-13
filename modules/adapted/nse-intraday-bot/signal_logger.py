@@ -135,7 +135,10 @@ def log_signal(sig: dict):
     }
     data.append(record)
     _save(data, log_file)
-    print(f"[LOG] Saved signal #{record['id']} — {record['symbol']} {record['signal']} score={record['score']}/150")
+    print(
+        f"[LOG] Saved signal #{record['id']} — {record['symbol']} "
+        f"{record['signal']} score={record['score']}/150"
+    )
 
 
 def log_evaluation(sym: str, score: int, blocked_reason: str, phase_scores: dict):
@@ -209,24 +212,25 @@ def _update_file_statuses(log_file: str) -> tuple[list, int]:
                     changed += 1
                 else:
                     rec["exit_price"] = price
-            elif price <= target:
-                rec.update(
-                    status="TARGET HIT",
-                    exit_price=price,
-                    pnl_pts=round(entry - price, 2),
-                    pnl_pct=round((entry - price) / entry * 100, 2),
-                )
-                changed += 1
-            elif price >= sl:
-                rec.update(
-                    status="SL HIT",
-                    exit_price=price,
-                    pnl_pts=round(entry - price, 2),
-                    pnl_pct=round((entry - price) / entry * 100, 2),
-                )
-                changed += 1
-            else:
-                rec["exit_price"] = price
+            else:  # SHORT
+                if price <= target:
+                    rec.update(
+                        status="TARGET HIT",
+                        exit_price=price,
+                        pnl_pts=round(entry - price, 2),
+                        pnl_pct=round((entry - price) / entry * 100, 2),
+                    )
+                    changed += 1
+                elif price >= sl:
+                    rec.update(
+                        status="SL HIT",
+                        exit_price=price,
+                        pnl_pts=round(entry - price, 2),
+                        pnl_pct=round((entry - price) / entry * 100, 2),
+                    )
+                    changed += 1
+                else:
+                    rec["exit_price"] = price
         except Exception as e:
             print(f"[LOGGER] Status update error for record {rec.get('id', '?')}: {e}")
 
@@ -248,9 +252,10 @@ def update_statuses(asset: str = "ALL") -> list:
         gold, _ = _update_file_statuses(GOLD_LOG_FILE)
         btc, _ = _update_file_statuses(BTC_LOG_FILE)
         return nse + gold + btc
-    log_file = _log_file_for(asset)
-    data, _ = _update_file_statuses(log_file)
-    return data
+    else:
+        log_file = _log_file_for(asset)
+        data, _ = _update_file_statuses(log_file)
+        return data
 
 
 def get_all(asset: str = "ALL") -> list:

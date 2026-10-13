@@ -35,17 +35,14 @@ Subscription requests are JSON payloads sent as BINARY websocket frames.
 
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 
 import indian_quant.adapters.upstox.proto.MarketDataFeedV3_pb2 as _pb2  # type: ignore[import-untyped]
-
-if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
-    from indian_quant.config.settings import UpstoxConfig
+from indian_quant.config.settings import UpstoxConfig
 
 pb2: Any = _pb2
 
@@ -66,7 +63,7 @@ class JsonFeedDecoder(FeedDecoder):
         return [data] if isinstance(data, dict) else [d for d in data if isinstance(d, dict)]
 
 
-def _ms_to_iso(ms: float | None) -> str | None:
+def _ms_to_iso(ms: int | float | None) -> str | None:
     if not ms:
         return None
     return datetime.fromtimestamp(float(ms) / 1000.0, tz=UTC).isoformat()
@@ -94,11 +91,16 @@ class ProtoFeedDecoder(FeedDecoder):
 
         if self.include_market_info and response.HasField("marketInfo"):
             statuses = {
-                segment: pb2.MarketStatus.Name(status) for segment, status in response.marketInfo.segmentStatus.items()
+                segment: pb2.MarketStatus.Name(status)
+                for segment, status in response.marketInfo.segmentStatus.items()
             }
             if statuses:
                 records.append(
-                    {"market_info": statuses, "feed_type": "market_info", "ts": _ms_to_iso(response.currentTs)}
+                    {
+                        "market_info": statuses,
+                        "feed_type": "market_info",
+                        "ts": _ms_to_iso(response.currentTs),
+                    }
                 )
         return records
 
@@ -204,8 +206,10 @@ class UpstoxFeedClient:
         """
         token = self.config.resolve_token()
         if not token:
-            msg = f"missing access token; set {self.config.access_token_env} (or upstox_tokens.json / .env)"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"missing access token; set {self.config.access_token_env} "
+                "(or upstox_tokens.json / .env)"
+            )
         rest_base = "https://api.upstox.com"
         resp = httpx.get(
             f"{rest_base}/v3/feed/market-data-feed",
@@ -219,8 +223,7 @@ class UpstoxFeedClient:
                 return location
         if resp.status_code == 200:
             return f"{self.config.ws_url}?authorization={token}"
-        msg = f"feed authorize failed ({resp.status_code}): {resp.text[:150]}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"feed authorize failed ({resp.status_code}): {resp.text[:150]}")
 
     async def connect(self) -> None:
         import websockets  # optional runtime dependency
@@ -231,8 +234,7 @@ class UpstoxFeedClient:
 
     async def subscribe(self, instrument_keys: list[str], mode: str = "ltpc") -> None:
         if not self._connected or self._ws is None:
-            msg = "feed not connected"
-            raise RuntimeError(msg)
+            raise RuntimeError("feed not connected")
         message = {
             "guid": "indian-quant",
             "method": "sub",
@@ -245,8 +247,7 @@ class UpstoxFeedClient:
 
     async def run(self) -> None:
         if not self._connected or self._ws is None:
-            msg = "feed not connected"
-            raise RuntimeError(msg)
+            raise RuntimeError("feed not connected")
         async for raw in self._ws:
             if isinstance(raw, str):
                 raw = raw.encode()
@@ -263,8 +264,7 @@ class UpstoxFeedClient:
     def authorize_header_probe(config: UpstoxConfig) -> dict[str, str]:
         token = config.resolve_token()
         if not token:
-            msg = f"set {config.access_token_env}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"set {config.access_token_env}")
         resp = httpx.get(
             "https://api.upstox.com/v2/user/profile",
             headers={

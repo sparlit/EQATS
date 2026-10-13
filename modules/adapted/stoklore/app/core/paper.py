@@ -313,7 +313,9 @@ def apply_fills(position, fills):
         targets = [t for t in targets if t["id"] != leg_id]
 
     if remaining > 0:
-        db.update_paper_position(position["id"], quantity=remaining, stop_losses=stops, targets=targets)
+        db.update_paper_position(
+            position["id"], quantity=remaining, stop_losses=stops, targets=targets
+        )
     else:
         # Nothing left uncovered - the ladder fully unwound, so the position is gone. Any legs
         # still listed on the other side are moot and go with it.
@@ -325,7 +327,12 @@ def close_position(position, price, qty=None, reason="manual"):
     """Manual close, in whole or in part. Routed through the same journalling path as a triggered
     exit so a hand-closed position produces an identically-shaped trade."""
     qty = min(qty or position["quantity"], position["quantity"])
-    fill = {"leg": {"id": None, "price": price, "qty": qty}, "price": price, "reason": reason, "qty": qty}
+    fill = {
+        "leg": {"id": None, "price": price, "qty": qty},
+        "price": price,
+        "reason": reason,
+        "qty": qty,
+    }
     trade_ids = [_journal_close(position, fill, position["account_id"])]
     remaining = position["quantity"] - qty
     if remaining > 0:
@@ -354,7 +361,7 @@ def _synced_bars(symbol, start):
 
     try:
         prices.sync_symbol(symbol)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - stale bars are better than no reconciliation at all
         state["last_error"] = f"{symbol} sync: {e}"
     # price_history_since, NOT bars_between: that one prefers price_history_max, which is a
     # one-shot "Collect max history" table nothing refreshes afterwards. Reading it here found bars
@@ -380,7 +387,7 @@ def reconcile(bars_fn=None):
         start = opened.date() if hasattr(opened, "date") else date.today()
         try:
             bars = bars_fn(position["symbol"], start)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - one unreadable symbol must not stop the rest
             state["last_error"] = f"{position['symbol']} catch-up: {e}"
             continue
         fills = catch_up(position, bars)
@@ -403,7 +410,7 @@ def poll_once(quote_fn):
     for symbol in db.paper_position_symbols():
         try:
             price = quote_fn(symbol)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - one bad symbol must not halt the sweep
             state["last_error"] = f"{symbol}: {e}"
             continue
         if price is None:
@@ -415,7 +422,9 @@ def poll_once(quote_fn):
                 continue
             fills, filled_entry = check_position(position, price)
             if filled_entry:
-                db.update_paper_position(position["id"], status="open", opened_at=datetime.now(IST).isoformat())
+                db.update_paper_position(
+                    position["id"], status="open", opened_at=datetime.now(IST).isoformat()
+                )
                 continue
             if fills:
                 apply_fills(position, fills)
@@ -438,7 +447,7 @@ def _loop(quote_fn):
                 reconcile()
             if market_is_open():
                 poll_once(quote_fn)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - the loop must outlive any single failure
             state["last_error"] = str(e)
         time.sleep(POLL_SECONDS)
 

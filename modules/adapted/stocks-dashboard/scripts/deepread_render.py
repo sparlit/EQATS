@@ -74,7 +74,11 @@ def main():
         def piece(x0, x1, a, b, dpi):
             pm = pg.get_pixmap(dpi=dpi, clip=fitz.Rect(W * x0, H * a, W * x1, H * b))
             im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-            return cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            return (
+                cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+                if pm.n == 3
+                else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            )
 
         def save(img, suf, Wt=2400):
             img = cv2.resize(img, (Wt, int(img.shape[0] * Wt / img.shape[1])))

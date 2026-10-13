@@ -62,8 +62,7 @@ class FinStackClient:
 
     def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         if name not in self._tools:
-            msg = f"unknown tool: {name}"
-            raise FinStackError(msg)
+            raise FinStackError(f"unknown tool: {name}")
         try:
             result = self._tools[name].fn(**(arguments or {}))
             if isinstance(result, str):
@@ -73,8 +72,7 @@ class FinStackClient:
                     return result
             return result
         except Exception as exc:
-            msg = f"tool {name} failed: {exc}"
-            raise FinStackError(msg) from exc
+            raise FinStackError(f"tool {name} failed: {exc}") from exc
 
     def close(self) -> None:
         pass

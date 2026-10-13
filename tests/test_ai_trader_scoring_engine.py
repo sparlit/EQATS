@@ -1,9 +1,11 @@
 """
 Unit and Integration Tests for AI-Trader Scoring Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.ai_trader_scoring_engine import AITraderSignalQualityEvaluator, AITraderChallengeScoringEngine
+from institutional_integrations.ai_trader_scoring_engine import (
+    AITraderChallengeScoringEngine,
+    AITraderSignalQualityEvaluator,
+)
+
 
 def test_ai_trader_signal_quality_evaluator() -> None:
     evaluator = AITraderSignalQualityEvaluator()

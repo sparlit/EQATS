@@ -46,7 +46,11 @@ def make_row(score, subs, t5=None, t10=None, confirmation="anticipatory", regime
     windows = {}
     for label, v in (("T+5", t5), ("T+10", t10)):
         if v is None:
-            windows[label] = {"excess_return_pct": None, "untrackable": False, "reason": "window_not_closed"}
+            windows[label] = {
+                "excess_return_pct": None,
+                "untrackable": False,
+                "reason": "window_not_closed",
+            }
         else:
             windows[label] = {"excess_return_pct": v, "untrackable": False, "reason": None}
     return {
@@ -72,11 +76,11 @@ class TestSpearman(unittest.TestCase):
     def test_ties_averaged(self):
         # [1, 1, 2] ranks -> [1.5, 1.5, 3]
         ic = ef.spearman_ic([1, 1, 2, 3], [10, 12, 20, 30])
-        assert ic is not None
-        assert ic > 0.9
+        self.assertIsNotNone(ic)
+        self.assertGreater(ic, 0.9)
 
     def test_too_short_is_none(self):
-        assert ef.spearman_ic([1, 2], [3, 4]) is None
+        self.assertIsNone(ef.spearman_ic([1, 2], [3, 4]))
 
 
 class TestICBootstrap(unittest.TestCase):
@@ -86,12 +90,12 @@ class TestICBootstrap(unittest.TestCase):
         pairs = list(zip(xs, ys, strict=False))
         a = ef._ic_bootstrap_ci(pairs)
         b = ef._ic_bootstrap_ci(pairs)
-        assert a == b
-        assert isinstance(a, list)
-        assert len(a) == 2
+        self.assertEqual(a, b)
+        self.assertIsInstance(a, list)
+        self.assertEqual(len(a), 2)
 
     def test_suppressed_below_min_n(self):
-        assert ef._ic_bootstrap_ci([(1.0, 2.0), (3.0, 4.0)]) is None
+        self.assertIsNone(ef._ic_bootstrap_ci([(1.0, 2.0), (3.0, 4.0)]))
 
 
 class TestConfirmationAB(unittest.TestCase):
@@ -102,8 +106,8 @@ class TestConfirmationAB(unittest.TestCase):
             make_row(50, {}, t5=2.0),  # no sub_scores — still counts for A/B
         ]
         ab = ef.confirmation_ab(rows, "T+5")
-        assert ab["confirmed"]["n"] == 1
-        assert ab["anticipatory"]["n"] == 2
+        self.assertEqual(ab["confirmed"]["n"], 1)
+        self.assertEqual(ab["anticipatory"]["n"], 2)
         self.assertAlmostEqual(ab["confirmed"]["mean"], 5.0)
         self.assertAlmostEqual(ab["anticipatory"]["mean"], 0.5)
 
@@ -111,7 +115,9 @@ class TestConfirmationAB(unittest.TestCase):
 class TestShadow(unittest.TestCase):
     def test_shadow_score_renormalises(self):
         # Only one component present: score must be that component x 100.
-        self.assertAlmostEqual(ef._shadow_score({"quality_composite": 0.8}, {"quality_composite": 1.0}), 80.0)
+        self.assertAlmostEqual(
+            ef._shadow_score({"quality_composite": 0.8}, {"quality_composite": 1.0}), 80.0
+        )
 
     def test_normalize(self):
         w = ef._normalize({"a": 2.0, "b": 2.0})
@@ -124,28 +130,38 @@ class TestShadow(unittest.TestCase):
             s1 = 0.2 + 0.03 * i
             s2 = 0.5
             rows.append(
-                make_row(50 + s1 * 30, {"quality_composite": s1, "conviction_holding": s2}, t5=(s1 - 0.2) * 100 - 2)
+                make_row(
+                    50 + s1 * 30,
+                    {"quality_composite": s1, "conviction_holding": s2},
+                    t5=(s1 - 0.2) * 100 - 2,
+                )
             )
-            rows.append(make_row(52, {"quality_composite": s1, "conviction_holding": s2}, t5=-(s1 - 0.2) * 100 + 2))
+            rows.append(
+                make_row(
+                    52,
+                    {"quality_composite": s1, "conviction_holding": s2},
+                    t5=-(s1 - 0.2) * 100 + 2,
+                )
+            )
         candidates = {
             "baseline": {"quality_composite": 0.5, "conviction_holding": 0.5},
             "all_quality": {"quality_composite": 1.0, "conviction_holding": 0.0},
         }
         shadow = ef.shadow_compare(rows, candidates)
-        assert shadow["rows_used"] == 48
+        self.assertEqual(shadow["rows_used"], 48)
         t5 = shadow["windows"]["T+5"]
         # 63+ band must exist for both candidates on this synthetic data.
-        assert "63+" in t5["baseline"]
-        assert "63+" in t5["all_quality"]
+        self.assertIn("63+", t5["baseline"])
+        self.assertIn("63+", t5["all_quality"])
         # The all-quality candidate's top band should not be worse.
         t5["baseline"]["63+"]
         cand_top = t5["all_quality"]["63+"]
-        assert cand_top["mean"] is not None
+        self.assertIsNotNone(cand_top["mean"])
 
     def test_baseline_mismatch_flag(self):
         rows = [make_row(90.0, {"quality_composite": 0.1}, t5=1.0) for _ in range(3)]
         shadow = ef.shadow_compare(rows, {"baseline": {"quality_composite": 1.0}})
-        assert shadow["baseline_score_mismatch_gt5"] >= 1
+        self.assertGreaterEqual(shadow["baseline_score_mismatch_gt5"], 1)
 
 
 class TestTopBandLift(unittest.TestCase):
@@ -157,7 +173,7 @@ class TestTopBandLift(unittest.TestCase):
         }
         shadow = ef.shadow_compare(rows, candidates)
         lift = ef.top_band_lift(shadow, "T+5")
-        assert "all_quality" in lift
+        self.assertIn("all_quality", lift)
 
 
 class TestEndToEnd(unittest.TestCase):
@@ -178,11 +194,11 @@ class TestEndToEnd(unittest.TestCase):
             path = f.name
         try:
             fb = ef.build_feedback(__import__("pathlib").Path(path))
-            assert fb["meta"]["rows_closed_any_window"] >= 2
+            self.assertGreaterEqual(fb["meta"]["rows_closed_any_window"], 2)
             self.assertAlmostEqual(fb["meta"]["baseline_weights"]["quality_composite"], 0.2)
             rep = ef.render_report(fb)
-            assert "Promotion checklist" in rep
-            assert "IN-SAMPLE" in rep
+            self.assertIn("Promotion checklist", rep)
+            self.assertIn("IN-SAMPLE", rep)
         finally:
             os.unlink(path)
 

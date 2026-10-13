@@ -45,8 +45,8 @@ Signal shape (from traders/__init__ docstring).
 import db
 import pandas as pd
 from log_utils import get_logger
+
 from traders import base as B
-from universe_helper import band_universe
 
 log = get_logger("trader.john_crane")
 
@@ -160,33 +160,39 @@ def _reaction_swing(bars, trend_direction):
         b_idx, c_idx = cand_B["index"], cand_C["index"]
         if c_idx + 2 >= len(bars):
             return cand_B, cand_C, False
-        rule_a = bars[c_idx + 1]["Close"] < cand_C["value"] and bars[c_idx + 2]["Close"] < bars[c_idx + 1]["Close"]
+        rule_a = (
+            bars[c_idx + 1]["Close"] < cand_C["value"]
+            and bars[c_idx + 2]["Close"] < bars[c_idx + 1]["Close"]
+        )
         lows_arr = [b["Low"] for b in bars]
         highs_arr = [b["High"] for b in bars]
         rule_b = B.check_trendline_break_lows(highs_arr, lows_arr, closes, b_idx, c_idx)
         rule_c = any(b["Close"] < cand_B["value"] for b in bars[c_idx + 1 :])
         return cand_B, cand_C, (rule_a or rule_b or rule_c)
-    # UP
-    highs = B.find_pivot_highs(closes, k=3)
-    if not highs:
-        return None, None, False
-    cand_B = highs[-1]
-    seg = closes[cand_B["index"] :]
-    if not seg:
-        return None, None, False
-    rel_min = min(range(len(seg)), key=lambda i: seg[i])
-    cand_C = {"index": cand_B["index"] + rel_min, "value": float(seg[rel_min])}
-    if cand_C["index"] - cand_B["index"] + 1 < 3:
-        return None, None, False
-    b_idx, c_idx = cand_B["index"], cand_C["index"]
-    if c_idx + 2 >= len(bars):
-        return cand_B, cand_C, False
-    rule_a = bars[c_idx + 1]["Close"] > cand_C["value"] and bars[c_idx + 2]["Close"] > bars[c_idx + 1]["Close"]
-    lows_arr = [b["Low"] for b in bars]
-    highs_arr = [b["High"] for b in bars]
-    rule_b = B.check_trendline_break_highs(highs_arr, lows_arr, closes, b_idx, c_idx)
-    rule_c = any(b["Close"] > cand_B["value"] for b in bars[c_idx + 1 :])
-    return cand_B, cand_C, (rule_a or rule_b or rule_c)
+    else:  # UP
+        highs = B.find_pivot_highs(closes, k=3)
+        if not highs:
+            return None, None, False
+        cand_B = highs[-1]
+        seg = closes[cand_B["index"] :]
+        if not seg:
+            return None, None, False
+        rel_min = min(range(len(seg)), key=lambda i: seg[i])
+        cand_C = {"index": cand_B["index"] + rel_min, "value": float(seg[rel_min])}
+        if cand_C["index"] - cand_B["index"] + 1 < 3:
+            return None, None, False
+        b_idx, c_idx = cand_B["index"], cand_C["index"]
+        if c_idx + 2 >= len(bars):
+            return cand_B, cand_C, False
+        rule_a = (
+            bars[c_idx + 1]["Close"] > cand_C["value"]
+            and bars[c_idx + 2]["Close"] > bars[c_idx + 1]["Close"]
+        )
+        lows_arr = [b["Low"] for b in bars]
+        highs_arr = [b["High"] for b in bars]
+        rule_b = B.check_trendline_break_highs(highs_arr, lows_arr, closes, b_idx, c_idx)
+        rule_c = any(b["Close"] > cand_B["value"] for b in bars[c_idx + 1 :])
+        return cand_B, cand_C, (rule_a or rule_b or rule_c)
 
 
 def _project_reversal_date(bars, a_idx, b_idx, c_idx):
@@ -268,12 +274,23 @@ def _two_day_rule(bars, trend_direction):
             high_pivot = max(bars[-3]["High"], b1["High"])
             low_ext = min(b1["Low"], b2["Low"])
             trig = high_pivot - (high_pivot - low_ext) / 2.0
-            return {"entry": trig, "stop": low_ext, "order": "BUY_STOP", "notes": "2 down closes → 50% trigger"}
-    elif B.is_bullish(b1) and B.is_bullish(b2):
-        low_pivot = min(bars[-3]["Low"], b1["Low"])
-        high_ext = max(b1["High"], b2["High"])
-        trig = low_pivot + (high_ext - low_pivot) / 2.0
-        return {"entry": trig, "stop": high_ext, "order": "SELL_STOP", "notes": "2 up closes → 50% trigger"}
+            return {
+                "entry": trig,
+                "stop": low_ext,
+                "order": "BUY_STOP",
+                "notes": "2 down closes → 50% trigger",
+            }
+    else:
+        if B.is_bullish(b1) and B.is_bullish(b2):
+            low_pivot = min(bars[-3]["Low"], b1["Low"])
+            high_ext = max(b1["High"], b2["High"])
+            trig = low_pivot + (high_ext - low_pivot) / 2.0
+            return {
+                "entry": trig,
+                "stop": high_ext,
+                "order": "SELL_STOP",
+                "notes": "2 up closes → 50% trigger",
+            }
     return None
 
 
@@ -300,23 +317,24 @@ def _peg_leg(bars, trend_direction):
             "notes": "Peg-Leg (up): 20d high ≥3d after prior pivot",
             "ttl": 2,
         }
-    window = bars[-20:]
-    if cur["Low"] != min(b["Low"] for b in window):
-        return None
-    prior_lows = B.find_pivot_lows([b["Low"] for b in bars[:-1]], k=3)
-    if not prior_lows:
-        return None
-    prev = prior_lows[-1]["index"]
-    if (len(bars) - 1 - prev) < 3:
-        return None
-    tick4 = B.ticks(4, cur["Close"])
-    return {
-        "entry": cur["High"] + tick4,
-        "stop": cur["Low"] - tick4,
-        "order": "BUY_STOP",
-        "notes": "Peg-Leg (down): 20d low ≥3d after prior pivot",
-        "ttl": 2,
-    }
+    else:
+        window = bars[-20:]
+        if cur["Low"] != min(b["Low"] for b in window):
+            return None
+        prior_lows = B.find_pivot_lows([b["Low"] for b in bars[:-1]], k=3)
+        if not prior_lows:
+            return None
+        prev = prior_lows[-1]["index"]
+        if (len(bars) - 1 - prev) < 3:
+            return None
+        tick4 = B.ticks(4, cur["Close"])
+        return {
+            "entry": cur["High"] + tick4,
+            "stop": cur["Low"] - tick4,
+            "order": "BUY_STOP",
+            "notes": "Peg-Leg (down): 20d low ≥3d after prior pivot",
+            "ttl": 2,
+        }
 
 
 def _gap_and_go(bars):
@@ -357,23 +375,29 @@ def _gap_reversal(bars):
     tick1 = B.ticks(1, d1["Close"])
     tick3 = B.ticks(3, d1["Close"])
     # Bullish
-    if d1["Low"] < prior["Low"]:
-        if d2["Open"] < d1["Low"] and B.is_bullish(d2) and abs(d2["Open"] - d2["Low"]) <= B.ticks(2, d2["Close"]):
-            return {
-                "entry": d1["High"] + tick1,
-                "stop": d2["Low"] - tick3,
-                "order": "BUY_STOP",
-                "notes": "Bullish Gap Reversal",
-            }
+    if d1["Low"] < prior["Low"] and (
+        d2["Open"] < d1["Low"]
+        and B.is_bullish(d2)
+        and abs(d2["Open"] - d2["Low"]) <= B.ticks(2, d2["Close"])
+    ):
+        return {
+            "entry": d1["High"] + tick1,
+            "stop": d2["Low"] - tick3,
+            "order": "BUY_STOP",
+            "notes": "Bullish Gap Reversal",
+        }
     # Bearish
-    if d1["High"] > prior["High"]:
-        if d2["Open"] > d1["High"] and B.is_bearish(d2) and abs(d2["Open"] - d2["High"]) <= B.ticks(2, d2["Close"]):
-            return {
-                "entry": d1["Low"] - tick1,
-                "stop": d2["High"] + tick3,
-                "order": "SELL_STOP",
-                "notes": "Bearish Gap Reversal",
-            }
+    if d1["High"] > prior["High"] and (
+        d2["Open"] > d1["High"]
+        and B.is_bearish(d2)
+        and abs(d2["Open"] - d2["High"]) <= B.ticks(2, d2["Close"])
+    ):
+        return {
+            "entry": d1["Low"] - tick1,
+            "stop": d2["High"] + tick3,
+            "order": "SELL_STOP",
+            "notes": "Bearish Gap Reversal",
+        }
     return None
 
 
@@ -415,27 +439,28 @@ def _major_reversal(bars, trend_direction):
             "ttl": 2,
             "notes": f"Major Reversal: 10d low + {n_down} down closes",
         }
-    window = bars[-10:]
-    if cur["High"] != max(b["High"] for b in window):
-        return None
-    n_up = 0
-    for b in reversed(bars):
-        if B.is_bullish(b):
-            n_up += 1
-        else:
-            break
-    if n_up < 3:
-        return None
-    tick1 = B.ticks(1, cur["Close"])
-    tick3 = B.ticks(3, cur["Close"])
-    stop = max(b["High"] for b in bars[-n_up:]) + tick3
-    return {
-        "entry": cur["Low"] - tick1,
-        "stop": stop,
-        "order": "SELL_STOP",
-        "ttl": 2,
-        "notes": f"Major Reversal: 10d high + {n_up} up closes",
-    }
+    else:
+        window = bars[-10:]
+        if cur["High"] != max(b["High"] for b in window):
+            return None
+        n_up = 0
+        for b in reversed(bars):
+            if B.is_bullish(b):
+                n_up += 1
+            else:
+                break
+        if n_up < 3:
+            return None
+        tick1 = B.ticks(1, cur["Close"])
+        tick3 = B.ticks(3, cur["Close"])
+        stop = max(b["High"] for b in bars[-n_up:]) + tick3
+        return {
+            "entry": cur["Low"] - tick1,
+            "stop": stop,
+            "order": "SELL_STOP",
+            "ttl": 2,
+            "notes": f"Major Reversal: 10d high + {n_up} up closes",
+        }
 
 
 def _ssto_divergence(bars, trend_direction):
@@ -724,21 +749,27 @@ def _scan_symbol(symbol, df):
 # ============================================================
 # Universe scan
 # ============================================================
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     """Scan the band universe. Returns list of signals."""
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
 
     signals = []
     for i, sym in enumerate(syms, 1):
         rows = conn.execute(
-            "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, open, high, low, close, volume "
+            "FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         if len(rows) < 260:
             continue
-        df = pd.DataFrame(list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]).set_index("date")
+        df = pd.DataFrame(
+            list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]
+        ).set_index("date")
         df.index = pd.to_datetime(df.index)
         try:
             sigs = _scan_symbol(sym, df)

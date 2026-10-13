@@ -186,14 +186,16 @@ def _derive_signal(a: FlowAnalysis) -> tuple[str, str, int]:
     if a.fii_streak <= -5 and a.fii_streak_total < -5000:
         return (
             "BEARISH",
-            (f"FII selling streak: {abs(a.fii_streak)} days, {a.fii_streak_total:,.0f} Cr. Heavy institutional exit."),
+            f"FII selling streak: {abs(a.fii_streak)} days, {a.fii_streak_total:,.0f} Cr. "
+            "Heavy institutional exit.",
             80,
         )
 
     if a.fii_streak >= 5 and a.fii_streak_total > 5000:
         return (
             "BULLISH",
-            (f"FII buying streak: {a.fii_streak} days, +{a.fii_streak_total:,.0f} Cr. Strong institutional demand."),
+            f"FII buying streak: {a.fii_streak} days, +{a.fii_streak_total:,.0f} Cr. "
+            "Strong institutional demand.",
             80,
         )
 
@@ -201,20 +203,16 @@ def _derive_signal(a: FlowAnalysis) -> tuple[str, str, int]:
     if a.divergence and a.divergence_type == "FII_SELL_DII_BUY":
         return (
             "NEUTRAL_TO_BULLISH",
-            (
-                "FII selling but DII absorbing — historically marks short-term bottoms. "
-                f"FII 5d: {a.fii_5d_net:,.0f} Cr, DII 5d: +{a.dii_5d_net:,.0f} Cr."
-            ),
+            "FII selling but DII absorbing — historically marks short-term bottoms. "
+            f"FII 5d: {a.fii_5d_net:,.0f} Cr, DII 5d: +{a.dii_5d_net:,.0f} Cr.",
             65,
         )
 
     if a.divergence and a.divergence_type == "FII_BUY_DII_SELL":
         return (
             "NEUTRAL_TO_BEARISH",
-            (
-                "FII buying but DII selling — potential distribution phase. "
-                f"FII 5d: +{a.fii_5d_net:,.0f} Cr, DII 5d: {a.dii_5d_net:,.0f} Cr."
-            ),
+            "FII buying but DII selling — potential distribution phase. "
+            f"FII 5d: +{a.fii_5d_net:,.0f} Cr, DII 5d: {a.dii_5d_net:,.0f} Cr.",
             55,
         )
 
@@ -235,7 +233,8 @@ def _derive_signal(a: FlowAnalysis) -> tuple[str, str, int]:
 
     return (
         "NEUTRAL",
-        (f"FII 5d: {a.fii_5d_net:,.0f} Cr, DII 5d: {a.dii_5d_net:,.0f} Cr. No strong directional signal."),
+        f"FII 5d: {a.fii_5d_net:,.0f} Cr, DII 5d: {a.dii_5d_net:,.0f} Cr. "
+        "No strong directional signal.",
         40,
     )
 
@@ -273,16 +272,12 @@ def print_flow_report() -> None:
 
     lines = [
         "  [bold]Today[/bold]",
-        (
-            f"  FII: [{fii_style}]{a.fii_net_today:+,.0f} Cr[/{fii_style}]  |  "
-            f"DII: [{dii_style}]{a.dii_net_today:+,.0f} Cr[/{dii_style}]"
-        ),
+        f"  FII: [{fii_style}]{a.fii_net_today:+,.0f} Cr[/{fii_style}]  |  "
+        f"DII: [{dii_style}]{a.dii_net_today:+,.0f} Cr[/{dii_style}]",
         "",
         "  [bold]5-Day Totals[/bold]",
-        (
-            f"  FII: [{fii_style}]{a.fii_5d_net:+,.0f} Cr[/{fii_style}]  |  "
-            f"DII: [{dii_style}]{a.dii_5d_net:+,.0f} Cr[/{dii_style}]"
-        ),
+        f"  FII: [{fii_style}]{a.fii_5d_net:+,.0f} Cr[/{fii_style}]  |  "
+        f"DII: [{dii_style}]{a.dii_5d_net:+,.0f} Cr[/{dii_style}]",
         "",
         "  [bold]Streaks[/bold]",
         f"  FII: {a.fii_streak} day(s) ({a.fii_streak_total:+,.0f} Cr)",
@@ -293,7 +288,10 @@ def print_flow_report() -> None:
     if a.divergence:
         lines.append(f"\n  [bold yellow]DIVERGENCE: {a.divergence_type}[/bold yellow]")
 
-    lines.append(f"\n  [bold]Signal: [{signal_style}]{a.signal}[/{signal_style}][/bold] (confidence: {a.confidence}%)")
+    lines.append(
+        f"\n  [bold]Signal: [{signal_style}]{a.signal}[/{signal_style}][/bold] "
+        f"(confidence: {a.confidence}%)"
+    )
     lines.append(f"  {a.signal_reason}")
 
     console.print(

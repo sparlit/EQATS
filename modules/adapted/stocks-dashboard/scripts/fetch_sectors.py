@@ -74,7 +74,7 @@ print(f"BSE scrips to enrich: {len(scrip_list)}")
 
 
 def fetch(entry):
-    code, _sid, _ref = entry
+    code, sid, ref = entry
     url = f"https://api.bseindia.com/BseIndiaAPI/api/ComHeadernew/w?quotetype=EQ&scripcode={code}"
     try:
         r = subprocess.run(
@@ -126,7 +126,9 @@ for attempt in range(PASSES):
     if attempt < PASSES - 1 and len(todo) - sum(1 for c in todo if c[0] in sectors) > 50:
         time.sleep(5)  # cool-off if BSE was rate-limiting
 
-print(f"\nTotal sector rows: {len(sectors)} / {len(scrip_list)} ({100 * len(sectors) / len(scrip_list):.1f}%)")
+print(
+    f"\nTotal sector rows: {len(sectors)} / {len(scrip_list)} ({100 * len(sectors) / len(scrip_list):.1f}%)"
+)
 
 # --- Fallback: the last PUBLISHED build's labels, fill-only (DATA_RUNBOOK §150) ------------
 # 2026-09-23: api.bseindia.com answered 403 "Access Denied" to every client for hours. With
@@ -145,7 +147,9 @@ try:
                 PREV[_t] = {"sector": _m["sector"], "industry": _m.get("industry") or ""}
 except Exception as e:
     print(f"previous build unreadable, no sector fallback this run: {e}")
-print(f"Previous build carries sector labels for {len(PREV)} tickers (fallback for any BSE did not answer)")
+print(
+    f"Previous build carries sector labels for {len(PREV)} tickers (fallback for any BSE did not answer)"
+)
 
 # Histogram of industries we found
 from collections import Counter
@@ -241,7 +245,9 @@ for ticker, meta in data["meta"].items():
         meta["industry"] = ""
 
 DATA.write_text(json.dumps(data, separators=(",", ":")))
-print(f"\nMerged sector data into {merged}/{len(data['meta'])} stocks ({100 * merged / len(data['meta']):.1f}%)")
+print(
+    f"\nMerged sector data into {merged}/{len(data['meta'])} stocks ({100 * merged / len(data['meta']):.1f}%)"
+)
 print(f"  via numeric/scrip_id direct: {merged - fallback_isin - fallback_sid}")
 print(f"  via .BO scrip_id text match: {fallback_sid}")
 print(f"  via ISIN fallback:           {fallback_isin}")

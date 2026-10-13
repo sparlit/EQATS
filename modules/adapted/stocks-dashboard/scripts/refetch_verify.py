@@ -89,7 +89,12 @@ def d(x):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 def cv(s, q):
@@ -104,7 +109,9 @@ def pscore(t):
     s = 0
     if re.search(r"revenue from operations|interest earned|total income", low):
         s += 4
-    if re.search(r"tax expense|current tax|provision for tax", low) or ("tax" in low and "profit" in low):
+    if re.search(r"tax expense|current tax|provision for tax", low) or (
+        "tax" in low and "profit" in low
+    ):
         s += 3
     if re.search(r"profit\s*/?\s*\(?loss\)?\s*for the (period|year)", low):
         s += 4
@@ -112,7 +119,10 @@ def pscore(t):
         s += 4
     if "attributable" in low and "owner" in low:
         s += 4
-    if re.search(r"earnings per|related party|board of directors approved|outcome of", low) and "income" not in low:
+    if (
+        re.search(r"earnings per|related party|board of directors approved|outcome of", low)
+        and "income" not in low
+    ):
         s -= 6
     s += min(len(NUMTOK.findall(t)) / 30.0, 5)
     return s
@@ -190,6 +200,10 @@ for i, (sym, qe) in enumerate(TARGETS):
         lab = " ".join(w for _, w in cells if not NUM.match(w.replace(",", "")))
         nums = [w for _, w in cells if NUM.match(w.replace(",", ""))]
         l = lab.lower()
-        if len(nums) >= 2 and ("profit" in l or "owner" in l or "attributable" in l) and "before" not in l:
+        if (
+            len(nums) >= 2
+            and ("profit" in l or "owner" in l or "attributable" in l)
+            and "before" not in l
+        ):
             print("   %-40s | %s" % (lab[:40], " ".join(nums[:5])))
 print("DONE")

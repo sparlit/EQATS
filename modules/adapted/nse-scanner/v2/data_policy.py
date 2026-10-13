@@ -39,11 +39,8 @@ RECENT_REPAIR_SESSIONS = int(os.getenv("V2_RECENT_REPAIR_SESSIONS", "5"))
 
 def validate_policy() -> None:
     if SEED_HISTORY_SESSIONS < MIN_FULL_RANKING_SESSIONS:
-        msg = "V2 seed history must cover full-ranking lookback"
-        raise ValueError(msg)
+        raise ValueError("V2 seed history must cover full-ranking lookback")
     if MIN_FULL_RANKING_SESSIONS < MIN_INDICATOR_SESSIONS:
-        msg = "full-ranking history must exceed indicator minimum"
-        raise ValueError(msg)
+        raise ValueError("full-ranking history must exceed indicator minimum")
     if RECENT_REPAIR_SESSIONS < 1:
-        msg = "recent repair window must be positive"
-        raise ValueError(msg)
+        raise ValueError("recent repair window must be positive")

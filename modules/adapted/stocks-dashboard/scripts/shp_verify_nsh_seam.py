@@ -69,7 +69,9 @@ RATIO_HI, RATIO_LO = 5.0, 0.2
 
 
 def load_hist(pin):
-    r = subprocess.run(["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO)
+    r = subprocess.run(
+        ["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO
+    )
     if r.returncode:
         sys.exit(f"cannot read shp_history.json at {pin}")
     return json.loads(r.stdout)
@@ -86,7 +88,11 @@ def main():
     ap.add_argument("--out", default="")
     a = ap.parse_args()
 
-    raw = gzip.open(a.ledger, "rb").read() if a.ledger.endswith(".gz") else open(a.ledger, "rb").read()
+    raw = (
+        gzip.open(a.ledger, "rb").read()
+        if a.ledger.endswith(".gz")
+        else open(a.ledger, "rb").read()
+    )
     led = json.loads(raw)
     counts = led.get("counts", led)
     HIST = load_hist(a.pin)
@@ -112,7 +118,8 @@ def main():
             # there IS no later count, but the PRIOR quarter is right there at 99.9% coverage and
             # is a perfectly good continuity reference.
             anchors = sorted(
-                ((q, v) for q, v in held if q != qe), key=lambda t: abs(years_between(min(t[0], qe), max(t[0], qe)))
+                ((q, v) for q, v in held if q != qe),
+                key=lambda t: abs(years_between(min(t[0], qe), max(t[0], qe))),
             )
             if not anchors:
                 tally["NO_ANCHOR"] += 1
@@ -163,7 +170,13 @@ def main():
         if tally[k]:
             print(
                 "  %-13s %6d%s"
-                % (k, tally[k], "  %5.1f%%" % (100.0 * tally[k] / total) if total and k != "ALREADY_HAVE" else "")
+                % (
+                    k,
+                    tally[k],
+                    "  %5.1f%%" % (100.0 * tally[k] / total)
+                    if total and k != "ALREADY_HAVE"
+                    else "",
+                )
             )
     fails = [r for r in rows if r["verdict"] == "FAIL"]
     if fails:

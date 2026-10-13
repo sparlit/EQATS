@@ -105,8 +105,7 @@ class ParquetStore:
     ) -> pd.DataFrame:
         path = self._path_for(layer, f"bars_{timeframe}", exchange, symbol)
         if not path.exists():
-            msg = f"no bar dataset at {path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"no bar dataset at {path}")
         return pq.read_table(path).to_pandas()
 
     def write_frame(
@@ -120,14 +119,15 @@ class ParquetStore:
     ) -> Path:
         path = self._path_for(layer, dataset, exchange, name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        pq.write_table(pa.Table.from_pandas(df, preserve_index=False), path, compression=self.compression)
+        pq.write_table(
+            pa.Table.from_pandas(df, preserve_index=False), path, compression=self.compression
+        )
         return path
 
     def read_frame(self, *, layer: Layer, dataset: str, exchange: str, name: str) -> pd.DataFrame:
         path = self._path_for(layer, dataset, exchange, name)
         if not path.exists():
-            msg = f"no dataset at {path}"
-            raise FileNotFoundError(msg)
+            raise FileNotFoundError(f"no dataset at {path}")
         return pq.read_table(path).to_pandas()
 
     def _conform(self, group: pd.DataFrame) -> pa.Table:

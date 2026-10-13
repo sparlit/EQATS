@@ -22,7 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
@@ -33,7 +33,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
-    ForeignKey,
     Index,
     Integer,
     String,
@@ -48,8 +47,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 DB_URL = os.getenv("DATABASE_URL")
 
 if not DB_URL:
-    msg = "DATABASE_URL environment variable is not set."
-    raise ValueError(msg)
+    raise ValueError("DATABASE_URL environment variable is not set.")
 
 Base = declarative_base()
 
@@ -146,7 +144,10 @@ class DatabaseManager:
             """)
             result = session.execute(query, {"stock_id": stock_id, "limit": n}).fetchall()
             # Convert to date object for easy comparison if it is a datetime
-            return {(row[0].date() if isinstance(row[0], datetime) else row[0]): row[1] for row in result}
+            return {
+                (row[0].date() if isinstance(row[0], datetime) else row[0]): row[1]
+                for row in result
+            }
         except Exception as e:
             print(f"Error fetching last records for stock {stock_id}: {e}")
             return {}
@@ -190,7 +191,11 @@ class DatabaseManager:
         try:
             # Using raw SQL for performance on grouping
             # Or simplified query
-            results = session.query(DailyPrice.stock_id, func.max(DailyPrice.date)).group_by(DailyPrice.stock_id).all()
+            results = (
+                session.query(DailyPrice.stock_id, func.max(DailyPrice.date))
+                .group_by(DailyPrice.stock_id)
+                .all()
+            )
 
             return {r[0]: r[1] for r in results}
         except Exception as e:
@@ -226,7 +231,16 @@ class DatabaseManager:
         df_to_insert["created_at"] = datetime.now()
 
         # Select only relevant columns
-        columns = ["stock_id", "date", "open_price", "high_price", "low_price", "close_price", "volume", "created_at"]
+        columns = [
+            "stock_id",
+            "date",
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "created_at",
+        ]
         df_to_insert = df_to_insert[columns]
 
         # Drop rows where close_price is NaN — Prisma cannot handle NaN floats
@@ -240,7 +254,12 @@ class DatabaseManager:
 
         try:
             df_to_insert.to_sql(
-                "daily_prices", self.engine, if_exists="append", index=False, method="multi", chunksize=1000
+                "daily_prices",
+                self.engine,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
             )
             print(f"Inserted {len(df_to_insert)} records for stock_id {stock_id}")
         except SQLAlchemyError as e:
@@ -274,7 +293,16 @@ class DatabaseManager:
             df_curr["created_at"] = datetime.now()
 
             # Select columns
-            cols = ["stock_id", "date", "open_price", "high_price", "low_price", "close_price", "volume", "created_at"]
+            cols = [
+                "stock_id",
+                "date",
+                "open_price",
+                "high_price",
+                "low_price",
+                "close_price",
+                "volume",
+                "created_at",
+            ]
             # Ensure columns exist
             for c in cols:
                 if c not in df_curr.columns:
@@ -300,7 +328,12 @@ class DatabaseManager:
 
         try:
             final_df.to_sql(
-                "daily_prices", self.engine, if_exists="append", index=False, method="multi", chunksize=1000
+                "daily_prices",
+                self.engine,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
             )
             print(f"Inserted {len(final_df)} records for {len(data_dict)} stocks.")
         except SQLAlchemyError as e:
@@ -326,7 +359,9 @@ class DatabaseManager:
         """Deletes all price records for a stock."""
         session = self.Session()
         try:
-            session.execute(text("DELETE FROM daily_prices WHERE stock_id = :stock_id"), {"stock_id": stock_id})
+            session.execute(
+                text("DELETE FROM daily_prices WHERE stock_id = :stock_id"), {"stock_id": stock_id}
+            )
             session.commit()
             print(f"Deleted all records for stock_id {stock_id}")
         except Exception as e:
@@ -375,7 +410,9 @@ class DatabaseManager:
         """Deletes all price records for an ETF."""
         session = self.Session()
         try:
-            session.execute(text("DELETE FROM etf_daily_prices WHERE etf_id = :etf_id"), {"etf_id": etf_id})
+            session.execute(
+                text("DELETE FROM etf_daily_prices WHERE etf_id = :etf_id"), {"etf_id": etf_id}
+            )
             session.commit()
             print(f"Deleted all records for etf_id {etf_id}")
         except Exception as e:
@@ -551,12 +588,26 @@ class DatabaseManager:
         df_to_insert["created_at"] = datetime.now()
 
         # Select only relevant columns
-        columns = ["etf_id", "date", "open_price", "high_price", "low_price", "close_price", "volume", "created_at"]
+        columns = [
+            "etf_id",
+            "date",
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "created_at",
+        ]
         df_to_insert = df_to_insert[columns]
 
         try:
             df_to_insert.to_sql(
-                "etf_daily_prices", self.engine, if_exists="append", index=False, method="multi", chunksize=1000
+                "etf_daily_prices",
+                self.engine,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
             )
             print(f"Inserted {len(df_to_insert)} records for etf_id {etf_id}")
         except SQLAlchemyError as e:
@@ -592,13 +643,17 @@ class DatabaseManager:
 
             # Average daily range % over the last 20 trading days: mean of (high-low)/close*100
             range_rows = (
-                session.query(ETFDailyPrice.high_price, ETFDailyPrice.low_price, ETFDailyPrice.close_price)
+                session.query(
+                    ETFDailyPrice.high_price, ETFDailyPrice.low_price, ETFDailyPrice.close_price
+                )
                 .filter(ETFDailyPrice.etf_id == etf_id)
                 .order_by(ETFDailyPrice.date.desc())
                 .limit(20)
                 .all()
             )
-            range_pcts = [(h - l) / c * 100 for h, l, c in range_rows if h is not None and l is not None and c]
+            range_pcts = [
+                (h - l) / c * 100 for h, l, c in range_rows if h is not None and l is not None and c
+            ]
             avg_range_20d = sum(range_pcts) / len(range_pcts) if range_pcts else None
 
             # Define time deltas
@@ -748,7 +803,10 @@ class DatabaseManager:
         """Deletes all price records for an Index."""
         session = self.Session()
         try:
-            session.execute(text("DELETE FROM index_daily_prices WHERE index_id = :index_id"), {"index_id": index_id})
+            session.execute(
+                text("DELETE FROM index_daily_prices WHERE index_id = :index_id"),
+                {"index_id": index_id},
+            )
             session.commit()
             print(f"Deleted all records for index_id {index_id}")
         except Exception as e:
@@ -780,12 +838,26 @@ class DatabaseManager:
         df_to_insert["created_at"] = datetime.now()
 
         # Select only relevant columns
-        columns = ["index_id", "date", "open_price", "high_price", "low_price", "close_price", "volume", "created_at"]
+        columns = [
+            "index_id",
+            "date",
+            "open_price",
+            "high_price",
+            "low_price",
+            "close_price",
+            "volume",
+            "created_at",
+        ]
         df_to_insert = df_to_insert[columns]
 
         try:
             df_to_insert.to_sql(
-                "index_daily_prices", self.engine, if_exists="append", index=False, method="multi", chunksize=1000
+                "index_daily_prices",
+                self.engine,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1000,
             )
             print(f"Inserted {len(df_to_insert)} records for index_id {index_id}")
         except SQLAlchemyError as e:

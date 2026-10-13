@@ -2,10 +2,8 @@
 EQATS Version 9.5 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v9.5 attributes, and pure MQL5 indicator math adaptations.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v9_5_version_assertions() -> None:
     scalper = ScalperBrain()

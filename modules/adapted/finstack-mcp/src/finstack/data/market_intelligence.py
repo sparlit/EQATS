@@ -99,11 +99,15 @@ def _bs_greeks(S: float, K: float, T: float, r: float, sigma: float, option_type
 
     if option_type.lower() == "call":
         delta = _norm_cdf(d1)
-        theta = (-(S * _norm_pdf(d1) * sigma) / (2.0 * sqrt(T)) - r * K * exp(-r * T) * _norm_cdf(d2)) / 365.0
+        theta = (
+            -(S * _norm_pdf(d1) * sigma) / (2.0 * sqrt(T)) - r * K * exp(-r * T) * _norm_cdf(d2)
+        ) / 365.0
         rho = K * T * exp(-r * T) * _norm_cdf(d2) / 100.0
     else:
         delta = _norm_cdf(d1) - 1.0
-        theta = (-(S * _norm_pdf(d1) * sigma) / (2.0 * sqrt(T)) + r * K * exp(-r * T) * _norm_cdf(-d2)) / 365.0
+        theta = (
+            -(S * _norm_pdf(d1) * sigma) / (2.0 * sqrt(T)) + r * K * exp(-r * T) * _norm_cdf(-d2)
+        ) / 365.0
         rho = -K * T * exp(-r * T) * _norm_cdf(-d2) / 100.0
 
     gamma = _norm_pdf(d1) / (S * sigma * sqrt(T))
@@ -172,9 +176,17 @@ def get_options_oi_analytics(symbol: str) -> dict:
                 def _parse_chain(df: Any, opt_type: str) -> list[dict]:
                     rows = []
                     for _, row in df.iterrows():
-                        oi = int(row.get("openInterest", 0)) if pd.notna(row.get("openInterest")) else 0
+                        oi = (
+                            int(row.get("openInterest", 0))
+                            if pd.notna(row.get("openInterest"))
+                            else 0
+                        )
                         vol = int(row.get("volume", 0)) if pd.notna(row.get("volume")) else 0
-                        iv = float(row.get("impliedVolatility", 0)) if pd.notna(row.get("impliedVolatility")) else 0
+                        iv = (
+                            float(row.get("impliedVolatility", 0))
+                            if pd.notna(row.get("impliedVolatility"))
+                            else 0
+                        )
                         rows.append(
                             {
                                 "strike": float(row.get("strike", 0)),
@@ -213,14 +225,28 @@ def get_options_oi_analytics(symbol: str) -> dict:
                 max_pain = _compute_max_pain(calls_data, puts_data)
 
                 # Top OI strikes (support/resistance from options market)
-                top_call_strikes = sorted(calls_data, key=lambda x: x["open_interest"], reverse=True)[:5]
-                top_put_strikes = sorted(puts_data, key=lambda x: x["open_interest"], reverse=True)[:5]
+                top_call_strikes = sorted(
+                    calls_data, key=lambda x: x["open_interest"], reverse=True
+                )[:5]
+                top_put_strikes = sorted(puts_data, key=lambda x: x["open_interest"], reverse=True)[
+                    :5
+                ]
 
                 # IV summary
-                call_ivs = [c["implied_volatility_pct"] for c in calls_data if c["implied_volatility_pct"] > 0]
-                put_ivs = [p["implied_volatility_pct"] for p in puts_data if p["implied_volatility_pct"] > 0]
+                call_ivs = [
+                    c["implied_volatility_pct"]
+                    for c in calls_data
+                    if c["implied_volatility_pct"] > 0
+                ]
+                put_ivs = [
+                    p["implied_volatility_pct"]
+                    for p in puts_data
+                    if p["implied_volatility_pct"] > 0
+                ]
                 avg_iv = (
-                    round((sum(call_ivs + put_ivs) / len(call_ivs + put_ivs)), 2) if (call_ivs or put_ivs) else None
+                    round((sum(call_ivs + put_ivs) / len(call_ivs + put_ivs)), 2)
+                    if (call_ivs or put_ivs)
+                    else None
                 )
 
                 results.append(
@@ -234,13 +260,17 @@ def get_options_oi_analytics(symbol: str) -> dict:
                         "pcr_volume": pcr_vol,
                         "pcr_signal": pcr_signal,
                         "max_pain": max_pain,
-                        "max_pain_vs_spot": round(max_pain - float(underlying), 2) if underlying else None,
+                        "max_pain_vs_spot": round(max_pain - float(underlying), 2)
+                        if underlying
+                        else None,
                         "avg_iv_pct": avg_iv,
                         "top_call_oi_strikes": [
-                            {"strike": c["strike"], "oi": c["open_interest"]} for c in top_call_strikes
+                            {"strike": c["strike"], "oi": c["open_interest"]}
+                            for c in top_call_strikes
                         ],
                         "top_put_oi_strikes": [
-                            {"strike": p["strike"], "oi": p["open_interest"]} for p in top_put_strikes
+                            {"strike": p["strike"], "oi": p["open_interest"]}
+                            for p in top_put_strikes
                         ],
                     }
                 )
@@ -274,7 +304,7 @@ def get_options_oi_analytics(symbol: str) -> dict:
 
 
 @cached(quotes_cache, ttl=300)
-def get_options_greeks(symbol: str, expiry: str | None = None) -> dict:
+def get_options_greeks(symbol: str, expiry: str = None) -> dict:
     """
     Calculate Black-Scholes Greeks for all strikes in an options chain.
     Delta, Gamma, Theta, Vega, Rho — what Sensibull Pro charges for.
@@ -303,7 +333,11 @@ def get_options_greeks(symbol: str, expiry: str | None = None) -> dict:
                 rows = []
                 for _, row in df.iterrows():
                     K = float(row.get("strike", 0))
-                    iv = float(row.get("impliedVolatility", 0)) if pd.notna(row.get("impliedVolatility")) else 0
+                    iv = (
+                        float(row.get("impliedVolatility", 0))
+                        if pd.notna(row.get("impliedVolatility"))
+                        else 0
+                    )
                     if K <= 0 or iv <= 0 or S <= 0:
                         continue
                     greeks = _bs_greeks(S, K, T, RISK_FREE_RATE, iv, opt_type)
@@ -315,7 +349,9 @@ def get_options_greeks(symbol: str, expiry: str | None = None) -> dict:
                             "last_price": float(row.get("lastPrice", 0)),
                             "implied_volatility_pct": round(iv * 100, 2),
                             "open_interest": oi,
-                            "volume": int(row.get("volume", 0)) if pd.notna(row.get("volume")) else 0,
+                            "volume": int(row.get("volume", 0))
+                            if pd.notna(row.get("volume"))
+                            else 0,
                             "greeks": greeks,
                             "in_the_money": bool(row.get("inTheMoney", False)),
                         }
@@ -443,7 +479,9 @@ def get_insider_trading(symbol: str, days: int = 90) -> dict:
                 "symbol": symbol,
                 "note": "Using yfinance holder data (NSE SAST endpoint not available)",
                 "major_holders": major.to_dict() if major is not None else {},
-                "institutional_holders": holders.head(10).to_dict("records") if holders is not None else [],
+                "institutional_holders": holders.head(10).to_dict("records")
+                if holders is not None
+                else [],
                 "data_source": "yfinance",
                 "timestamp": datetime.now().isoformat(),
             }
@@ -486,7 +524,10 @@ def get_promoter_shareholding(symbol: str) -> dict:
                     }
                 )
 
-            promoter_pct = next((h["pct_total"] for h in holding if "promoter" in (h["category"] or "").lower()), None)
+            promoter_pct = next(
+                (h["pct_total"] for h in holding if "promoter" in (h["category"] or "").lower()),
+                None,
+            )
 
             return clean_nan(
                 {
@@ -623,8 +664,12 @@ def get_india_macro_indicators() -> dict:
                             result[field_name] = {
                                 "latest_value": round(entries[0]["value"], 2),
                                 "year": entries[0].get("date"),
-                                "previous_value": round(entries[1]["value"], 2) if len(entries) > 1 else None,
-                                "previous_year": entries[1].get("date") if len(entries) > 1 else None,
+                                "previous_value": round(entries[1]["value"], 2)
+                                if len(entries) > 1
+                                else None,
+                                "previous_year": entries[1].get("date")
+                                if len(entries) > 1
+                                else None,
                             }
                 except Exception as e:
                     logger.debug("World Bank indicator %s failed: %s", indicator_code, e)
@@ -673,7 +718,9 @@ def get_amfi_fund_flows() -> dict:
             )
             if resp.status_code == 200:
                 result["amfi_data_available"] = True
-                result["amfi_url"] = "https://www.amfiindia.com/research-information/industry-trends"
+                result["amfi_url"] = (
+                    "https://www.amfiindia.com/research-information/industry-trends"
+                )
 
     except Exception:
         pass
@@ -690,7 +737,16 @@ def get_amfi_fund_flows() -> dict:
                 categories: dict = {}
                 for fund in all_funds:
                     name = fund.get("schemeName", "")
-                    for cat in ["Equity", "Debt", "Hybrid", "ETF", "Index", "ELSS", "Liquid", "Gilt"]:
+                    for cat in [
+                        "Equity",
+                        "Debt",
+                        "Hybrid",
+                        "ETF",
+                        "Index",
+                        "ELSS",
+                        "Liquid",
+                        "Gilt",
+                    ]:
                         if cat.lower() in name.lower():
                             categories[cat] = categories.get(cat, 0) + 1
                             break
@@ -882,7 +938,9 @@ def get_gift_nifty() -> dict:
                 "last_close": round(current, 2),
                 "prev_close": round(prev_close, 2) if prev_close else None,
                 "change": round(current - prev_close, 2) if prev_close else None,
-                "change_pct": round((current - prev_close) / prev_close * 100, 2) if prev_close else None,
+                "change_pct": round((current - prev_close) / prev_close * 100, 2)
+                if prev_close
+                else None,
             }
     except Exception:
         pass
@@ -905,7 +963,12 @@ def get_gift_nifty() -> dict:
 
     # Global indices as overnight sentiment
     global_sentiment = {}
-    for sym, name in [("^GSPC", "S&P 500"), ("^DJI", "Dow Jones"), ("^IXIC", "NASDAQ"), ("^HSI", "Hang Seng")]:
+    for sym, name in [
+        ("^GSPC", "S&P 500"),
+        ("^DJI", "Dow Jones"),
+        ("^IXIC", "NASDAQ"),
+        ("^HSI", "Hang Seng"),
+    ]:
         try:
             t = yf.Ticker(sym)
             h = t.history(period="2d")
@@ -960,7 +1023,9 @@ def get_promoter_pledge(symbol: str) -> dict:
                             "pct_held": item.get("percentageSharesHeld"),
                             "pledged_shares": item.get("noOfSharesPledged"),
                             "pct_pledged_of_total": item.get("percentageSharesPledgedToTotal"),
-                            "pct_pledged_of_promoter": item.get("percentageSharesPledgedToPromoter"),
+                            "pct_pledged_of_promoter": item.get(
+                                "percentageSharesPledgedToPromoter"
+                            ),
                             "quarter": item.get("quarter"),
                         }
                     )
@@ -1044,7 +1109,10 @@ def get_dividend_history_deep(symbol: str) -> dict:
             for item in history:
                 year = item["date"][:4]
                 annual[year] = annual.get(year, 0) + item["dividend"]
-            annual_list = [{"year": y, "total_dividend": round(v, 4)} for y, v in sorted(annual.items(), reverse=True)]
+            annual_list = [
+                {"year": y, "total_dividend": round(v, 4)}
+                for y, v in sorted(annual.items(), reverse=True)
+            ]
 
             trailing_12m = sum(
                 item["dividend"]

@@ -2,9 +2,12 @@
 Unit tests for Hummingbot Suite integration.
 Verifies AvellanedaStoikovMarketMakingEngine, PureMarketMakingInventorySkewEngine, and CrossExchangeArbitrageEngine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.hummingbot_suite import AvellanedaStoikovMarketMakingEngine, CrossExchangeArbitrageEngine, PureMarketMakingInventorySkewEngine
+from institutional_integrations.hummingbot_suite import (
+    AvellanedaStoikovMarketMakingEngine,
+    CrossExchangeArbitrageEngine,
+    PureMarketMakingInventorySkewEngine,
+)
+
 
 def test_avellaneda_stoikov_market_making() -> None:
     engine = AvellanedaStoikovMarketMakingEngine()

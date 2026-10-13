@@ -70,8 +70,7 @@ def _get_client():
     if _client is None:
         url, key = _cred("SUPABASE_URL"), _cred("SUPABASE_SERVICE_KEY")
         if not (_HAS_SUPABASE and url and key):
-            msg = "Supabase is not configured."
-            raise RuntimeError(msg)
+            raise RuntimeError("Supabase is not configured.")
         _client = create_client(url, key)
     return _client
 
@@ -85,8 +84,7 @@ def add_alert(
     note: str | None = None,
 ) -> dict[str, Any]:
     if upper is None and lower is None:
-        msg = "Provide at least one of upper / lower."
-        raise ValueError(msg)
+        raise ValueError("Provide at least one of upper / lower.")
     row = {
         "symbol": symbol.strip().upper(),
         "exchange": exchange,
@@ -111,7 +109,9 @@ def set_active(alert_id: int, active: bool) -> None:
 def rearm(alert_id: int) -> None:
     """Re-activate an alert and clear its trigger stamp, so it watches again.
     Used to resume a paused alert or re-arm one that already fired (one-shot)."""
-    _get_client().table("alerts").update({"active": True, "last_alert_at": None}).eq("id", alert_id).execute()
+    _get_client().table("alerts").update({"active": True, "last_alert_at": None}).eq(
+        "id", alert_id
+    ).execute()
 
 
 def delete_alert(alert_id: int) -> None:

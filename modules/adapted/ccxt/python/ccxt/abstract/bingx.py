@@ -91,15 +91,15 @@ class ImplicitAPI:
     spot_v1_private_post_trade_batchorders = spotV1PrivatePostTradeBatchOrders = Entry[_Dict](
         "trade/batchOrders", ["spot", "v1", "private"], "POST", {"cost": 5}
     )
-    spot_v1_private_post_trade_order_cancelreplace = spotV1PrivatePostTradeOrderCancelReplace = Entry[_Dict](
-        "trade/order/cancelReplace", ["spot", "v1", "private"], "POST", {"cost": 5}
+    spot_v1_private_post_trade_order_cancelreplace = spotV1PrivatePostTradeOrderCancelReplace = (
+        Entry[_Dict]("trade/order/cancelReplace", ["spot", "v1", "private"], "POST", {"cost": 5})
     )
     spot_v1_private_post_trade_cancelorders = spotV1PrivatePostTradeCancelOrders = Entry[_Dict](
         "trade/cancelOrders", ["spot", "v1", "private"], "POST", {"cost": 5}
     )
-    spot_v1_private_post_trade_cancelopenorders = spotV1PrivatePostTradeCancelOpenOrders = Entry[_Dict](
-        "trade/cancelOpenOrders", ["spot", "v1", "private"], "POST", {"cost": 5}
-    )
+    spot_v1_private_post_trade_cancelopenorders = spotV1PrivatePostTradeCancelOpenOrders = Entry[
+        _Dict
+    ]("trade/cancelOpenOrders", ["spot", "v1", "private"], "POST", {"cost": 5})
     spot_v1_private_post_trade_cancelallafter = spotV1PrivatePostTradeCancelAllAfter = Entry[_Dict](
         "trade/cancelAllAfter", ["spot", "v1", "private"], "POST", {"cost": 5}
     )
@@ -118,27 +118,51 @@ class ImplicitAPI:
     spot_v2_public_get_ticker_price = spotV2PublicGetTickerPrice = Entry[_Dict](
         "ticker/price", ["spot", "v2", "public"], "GET", {"cost": 1}
     )
+    spot_v2_public_get_quote_bookticker = spotV2PublicGetQuoteBookTicker = Entry[_Dict](
+        "quote/bookTicker", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_depth = spotV2PublicGetQuoteDepth = Entry[_Dict](
+        "quote/depth", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_historicalklines = spotV2PublicGetQuoteHistoricalKlines = Entry[_Dict](
+        "quote/historicalKlines", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_historicaltrades = spotV2PublicGetQuoteHistoricalTrades = Entry[_Dict](
+        "quote/historicalTrades", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_klines = spotV2PublicGetQuoteKlines = Entry[_Dict](
+        "quote/klines", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_price = spotV2PublicGetQuotePrice = Entry[_Dict](
+        "quote/price", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_ticker = spotV2PublicGetQuoteTicker = Entry[_Dict](
+        "quote/ticker", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
+    spot_v2_public_get_quote_trades = spotV2PublicGetQuoteTrades = Entry[_Dict](
+        "quote/trades", ["spot", "v2", "public"], "GET", {"cost": 1}
+    )
     spot_v3_private_get_get_asset_transfer = spotV3PrivateGetGetAssetTransfer = Entry[_Dict](
         "get/asset/transfer", ["spot", "v3", "private"], "GET", {"cost": 1}
     )
     spot_v3_private_get_asset_transfer = spotV3PrivateGetAssetTransfer = Entry[_Dict](
         "asset/transfer", ["spot", "v3", "private"], "GET", {"cost": 1}
     )
-    spot_v3_private_get_capital_deposit_hisrec = spotV3PrivateGetCapitalDepositHisrec = Entry[_List](
-        "capital/deposit/hisrec", ["spot", "v3", "private"], "GET", {"cost": 1}
-    )
-    spot_v3_private_get_capital_withdraw_history = spotV3PrivateGetCapitalWithdrawHistory = Entry[_List](
-        "capital/withdraw/history", ["spot", "v3", "private"], "GET", {"cost": 1}
-    )
+    spot_v3_private_get_capital_deposit_hisrec = spotV3PrivateGetCapitalDepositHisrec = Entry[
+        _List
+    ]("capital/deposit/hisrec", ["spot", "v3", "private"], "GET", {"cost": 1})
+    spot_v3_private_get_capital_withdraw_history = spotV3PrivateGetCapitalWithdrawHistory = Entry[
+        _List
+    ]("capital/withdraw/history", ["spot", "v3", "private"], "GET", {"cost": 1})
     spot_v3_private_post_post_asset_transfer = spotV3PrivatePostPostAssetTransfer = Entry[_Dict](
         "post/asset/transfer", ["spot", "v3", "private"], "POST", {"cost": 5}
     )
     swap_v1_public_get_ticker_price = swapV1PublicGetTickerPrice = Entry[_Dict](
         "ticker/price", ["swap", "v1", "public"], "GET", {"cost": 1}
     )
-    swap_v1_public_get_market_historicaltrades = swapV1PublicGetMarketHistoricalTrades = Entry[_Dict](
-        "market/historicalTrades", ["swap", "v1", "public"], "GET", {"cost": 1}
-    )
+    swap_v1_public_get_market_historicaltrades = swapV1PublicGetMarketHistoricalTrades = Entry[
+        _Dict
+    ]("market/historicalTrades", ["swap", "v1", "public"], "GET", {"cost": 1})
     swap_v1_public_get_market_markpriceklines = swapV1PublicGetMarketMarkPriceKlines = Entry[_Dict](
         "market/markPriceKlines", ["swap", "v1", "public"], "GET", {"cost": 1}
     )
@@ -151,9 +175,9 @@ class ImplicitAPI:
     swap_v1_private_get_positionside_dual = swapV1PrivateGetPositionSideDual = Entry[_Dict](
         "positionSide/dual", ["swap", "v1", "private"], "GET", {"cost": 5}
     )
-    swap_v1_private_get_trade_batchcancelreplace = swapV1PrivateGetTradeBatchCancelReplace = Entry[_Dict](
-        "trade/batchCancelReplace", ["swap", "v1", "private"], "GET", {"cost": 5}
-    )
+    swap_v1_private_get_trade_batchcancelreplace = swapV1PrivateGetTradeBatchCancelReplace = Entry[
+        _Dict
+    ]("trade/batchCancelReplace", ["swap", "v1", "private"], "GET", {"cost": 5})
     swap_v1_private_get_trade_fullorder = swapV1PrivateGetTradeFullOrder = Entry[_Dict](
         "trade/fullOrder", ["swap", "v1", "private"], "GET", {"cost": 2}
     )
@@ -163,9 +187,9 @@ class ImplicitAPI:
     swap_v1_private_get_trade_positionhistory = swapV1PrivateGetTradePositionHistory = Entry[_Dict](
         "trade/positionHistory", ["swap", "v1", "private"], "GET", {"cost": 2}
     )
-    swap_v1_private_get_positionmargin_history = swapV1PrivateGetPositionMarginHistory = Entry[_Dict](
-        "positionMargin/history", ["swap", "v1", "private"], "GET", {"cost": 2}
-    )
+    swap_v1_private_get_positionmargin_history = swapV1PrivateGetPositionMarginHistory = Entry[
+        _Dict
+    ]("positionMargin/history", ["swap", "v1", "private"], "GET", {"cost": 2})
     swap_v1_private_get_twap_openorders = swapV1PrivateGetTwapOpenOrders = Entry[_Dict](
         "twap/openOrders", ["swap", "v1", "private"], "GET", {"cost": 5}
     )
@@ -190,8 +214,8 @@ class ImplicitAPI:
     swap_v1_private_post_positionside_dual = swapV1PrivatePostPositionSideDual = Entry[_Dict](
         "positionSide/dual", ["swap", "v1", "private"], "POST", {"cost": 5}
     )
-    swap_v1_private_post_trade_batchcancelreplace = swapV1PrivatePostTradeBatchCancelReplace = Entry[_Dict](
-        "trade/batchCancelReplace", ["swap", "v1", "private"], "POST", {"cost": 5}
+    swap_v1_private_post_trade_batchcancelreplace = swapV1PrivatePostTradeBatchCancelReplace = (
+        Entry[_Dict]("trade/batchCancelReplace", ["swap", "v1", "private"], "POST", {"cost": 5})
     )
     swap_v1_private_post_trade_closeposition = swapV1PrivatePostTradeClosePosition = Entry[_Dict](
         "trade/closePosition", ["swap", "v1", "private"], "POST", {"cost": 2}
@@ -283,6 +307,9 @@ class ImplicitAPI:
     swap_v2_private_get_trade_fillhistory = swapV2PrivateGetTradeFillHistory = Entry[_Dict](
         "trade/fillHistory", ["swap", "v2", "private"], "GET", {"cost": 2}
     )
+    swap_v2_private_get_trade_positionhistory = swapV2PrivateGetTradePositionHistory = Entry[_Dict](
+        "trade/positionHistory", ["swap", "v2", "private"], "GET", {"cost": 2}
+    )
     swap_v2_private_get_user_income_export = swapV2PrivateGetUserIncomeExport = Entry[_Dict](
         "user/income/export", ["swap", "v2", "private"], "GET", {"cost": 2}
     )
@@ -301,9 +328,9 @@ class ImplicitAPI:
     swap_v2_private_post_trade_batchorders = swapV2PrivatePostTradeBatchOrders = Entry[_Dict](
         "trade/batchOrders", ["swap", "v2", "private"], "POST", {"cost": 2}
     )
-    swap_v2_private_post_trade_closeallpositions = swapV2PrivatePostTradeCloseAllPositions = Entry[_Dict](
-        "trade/closeAllPositions", ["swap", "v2", "private"], "POST", {"cost": 2}
-    )
+    swap_v2_private_post_trade_closeallpositions = swapV2PrivatePostTradeCloseAllPositions = Entry[
+        _Dict
+    ]("trade/closeAllPositions", ["swap", "v2", "private"], "POST", {"cost": 2})
     swap_v2_private_post_trade_cancelallafter = swapV2PrivatePostTradeCancelAllAfter = Entry[_Dict](
         "trade/cancelAllAfter", ["swap", "v2", "private"], "POST", {"cost": 5}
     )
@@ -325,9 +352,9 @@ class ImplicitAPI:
     swap_v2_private_delete_trade_batchorders = swapV2PrivateDeleteTradeBatchOrders = Entry[_Dict](
         "trade/batchOrders", ["swap", "v2", "private"], "DELETE", {"cost": 2}
     )
-    swap_v2_private_delete_trade_allopenorders = swapV2PrivateDeleteTradeAllOpenOrders = Entry[_Dict](
-        "trade/allOpenOrders", ["swap", "v2", "private"], "DELETE", {"cost": 2}
-    )
+    swap_v2_private_delete_trade_allopenorders = swapV2PrivateDeleteTradeAllOpenOrders = Entry[
+        _Dict
+    ]("trade/allOpenOrders", ["swap", "v2", "private"], "DELETE", {"cost": 2})
     swap_v3_public_get_quote_klines = swapV3PublicGetQuoteKlines = Entry[_Dict](
         "quote/klines", ["swap", "v3", "public"], "GET", {"cost": 1}
     )
@@ -391,20 +418,23 @@ class ImplicitAPI:
     cswap_v1_private_post_trade_allopenorders = cswapV1PrivatePostTradeAllOpenOrders = Entry[_Dict](
         "trade/allOpenOrders", ["cswap", "v1", "private"], "POST", {"cost": 2}
     )
-    cswap_v1_private_post_trade_closeallpositions = cswapV1PrivatePostTradeCloseAllPositions = Entry[_Dict](
-        "trade/closeAllPositions", ["cswap", "v1", "private"], "POST", {"cost": 2}
+    cswap_v1_private_post_trade_closeallpositions = cswapV1PrivatePostTradeCloseAllPositions = (
+        Entry[_Dict]("trade/closeAllPositions", ["cswap", "v1", "private"], "POST", {"cost": 2})
     )
     cswap_v1_private_post_trade_margintype = cswapV1PrivatePostTradeMarginType = Entry[_Dict](
         "trade/marginType", ["cswap", "v1", "private"], "POST", {"cost": 2}
     )
-    cswap_v1_private_post_trade_positionmargin = cswapV1PrivatePostTradePositionMargin = Entry[_Dict](
-        "trade/positionMargin", ["cswap", "v1", "private"], "POST", {"cost": 2}
-    )
-    cswap_v1_private_delete_trade_allopenorders = cswapV1PrivateDeleteTradeAllOpenOrders = Entry[_Dict](
-        "trade/allOpenOrders", ["cswap", "v1", "private"], "DELETE", {"cost": 2}
-    )
+    cswap_v1_private_post_trade_positionmargin = cswapV1PrivatePostTradePositionMargin = Entry[
+        _Dict
+    ]("trade/positionMargin", ["cswap", "v1", "private"], "POST", {"cost": 2})
+    cswap_v1_private_delete_trade_allopenorders = cswapV1PrivateDeleteTradeAllOpenOrders = Entry[
+        _Dict
+    ]("trade/allOpenOrders", ["cswap", "v1", "private"], "DELETE", {"cost": 2})
     cswap_v1_private_delete_trade_cancelorder = cswapV1PrivateDeleteTradeCancelOrder = Entry[_Dict](
         "trade/cancelOrder", ["cswap", "v1", "private"], "DELETE", {"cost": 2}
+    )
+    cswap_v2_private_post_trade_order = cswapV2PrivatePostTradeOrder = Entry[_Dict](
+        "trade/order", ["cswap", "v2", "private"], "POST", {"cost": 2}
     )
     contract_v1_private_get_allposition = contractV1PrivateGetAllPosition = Entry[_Dict](
         "allPosition", ["contract", "v1", "private"], "GET", {"cost": 2}
@@ -415,38 +445,52 @@ class ImplicitAPI:
     contract_v1_private_get_balance = contractV1PrivateGetBalance = Entry[_Dict](
         "balance", ["contract", "v1", "private"], "GET", {"cost": 2}
     )
-    wallets_v1_private_get_capital_config_getall = walletsV1PrivateGetCapitalConfigGetall = Entry[_Dict](
-        "capital/config/getall", ["wallets", "v1", "private"], "GET", {"cost": 5}
-    )
-    wallets_v1_private_get_capital_deposit_address = walletsV1PrivateGetCapitalDepositAddress = Entry[_Dict](
-        "capital/deposit/address", ["wallets", "v1", "private"], "GET", {"cost": 5}
-    )
-    wallets_v1_private_get_capital_innertransfer_records = walletsV1PrivateGetCapitalInnerTransferRecords = Entry[
+    wallets_v1_private_get_capital_config_getall = walletsV1PrivateGetCapitalConfigGetall = Entry[
         _Dict
-    ]("capital/innerTransfer/records", ["wallets", "v1", "private"], "GET", {"cost": 1})
-    wallets_v1_private_get_capital_subaccount_deposit_address = walletsV1PrivateGetCapitalSubAccountDepositAddress = (
-        Entry[_Dict]("capital/subAccount/deposit/address", ["wallets", "v1", "private"], "GET", {"cost": 5})
+    ]("capital/config/getall", ["wallets", "v1", "private"], "GET", {"cost": 5})
+    wallets_v1_private_get_capital_deposit_address = walletsV1PrivateGetCapitalDepositAddress = (
+        Entry[_Dict]("capital/deposit/address", ["wallets", "v1", "private"], "GET", {"cost": 5})
     )
-    wallets_v1_private_get_capital_deposit_subhisrec = walletsV1PrivateGetCapitalDepositSubHisrec = Entry[_Dict](
-        "capital/deposit/subHisrec", ["wallets", "v1", "private"], "GET", {"cost": 2}
+    wallets_v1_private_get_capital_innertransfer_records = (
+        walletsV1PrivateGetCapitalInnerTransferRecords
+    ) = Entry[_Dict](
+        "capital/innerTransfer/records", ["wallets", "v1", "private"], "GET", {"cost": 1}
     )
+    wallets_v1_private_get_capital_subaccount_deposit_address = (
+        walletsV1PrivateGetCapitalSubAccountDepositAddress
+    ) = Entry[_Dict](
+        "capital/subAccount/deposit/address", ["wallets", "v1", "private"], "GET", {"cost": 5}
+    )
+    wallets_v1_private_get_capital_deposit_subhisrec = (
+        walletsV1PrivateGetCapitalDepositSubHisrec
+    ) = Entry[_Dict]("capital/deposit/subHisrec", ["wallets", "v1", "private"], "GET", {"cost": 2})
     wallets_v1_private_get_capital_subaccount_innertransfer_records = (
         walletsV1PrivateGetCapitalSubAccountInnerTransferRecords
-    ) = Entry[_Dict]("capital/subAccount/innerTransfer/records", ["wallets", "v1", "private"], "GET", {"cost": 1})
-    wallets_v1_private_get_capital_deposit_riskrecords = walletsV1PrivateGetCapitalDepositRiskRecords = Entry[_Dict](
+    ) = Entry[_Dict](
+        "capital/subAccount/innerTransfer/records", ["wallets", "v1", "private"], "GET", {"cost": 1}
+    )
+    wallets_v1_private_get_capital_deposit_riskrecords = (
+        walletsV1PrivateGetCapitalDepositRiskRecords
+    ) = Entry[_Dict](
         "capital/deposit/riskRecords", ["wallets", "v1", "private"], "GET", {"cost": 5}
     )
-    wallets_v1_private_post_capital_withdraw_apply = walletsV1PrivatePostCapitalWithdrawApply = Entry[_Dict](
-        "capital/withdraw/apply", ["wallets", "v1", "private"], "POST", {"cost": 5}
+    wallets_v1_private_post_capital_withdraw_apply = walletsV1PrivatePostCapitalWithdrawApply = (
+        Entry[_Dict]("capital/withdraw/apply", ["wallets", "v1", "private"], "POST", {"cost": 5})
     )
-    wallets_v1_private_post_capital_innertransfer_apply = walletsV1PrivatePostCapitalInnerTransferApply = Entry[_Dict](
+    wallets_v1_private_post_capital_innertransfer_apply = (
+        walletsV1PrivatePostCapitalInnerTransferApply
+    ) = Entry[_Dict](
         "capital/innerTransfer/apply", ["wallets", "v1", "private"], "POST", {"cost": 5}
     )
     wallets_v1_private_post_capital_subaccountinnertransfer_apply = (
         walletsV1PrivatePostCapitalSubAccountInnerTransferApply
-    ) = Entry[_Dict]("capital/subAccountInnerTransfer/apply", ["wallets", "v1", "private"], "POST", {"cost": 2})
-    wallets_v1_private_post_capital_deposit_createsubaddress = walletsV1PrivatePostCapitalDepositCreateSubAddress = (
-        Entry[_Dict]("capital/deposit/createSubAddress", ["wallets", "v1", "private"], "POST", {"cost": 2})
+    ) = Entry[_Dict](
+        "capital/subAccountInnerTransfer/apply", ["wallets", "v1", "private"], "POST", {"cost": 2}
+    )
+    wallets_v1_private_post_capital_deposit_createsubaddress = (
+        walletsV1PrivatePostCapitalDepositCreateSubAddress
+    ) = Entry[_Dict](
+        "capital/deposit/createSubAddress", ["wallets", "v1", "private"], "POST", {"cost": 2}
     )
     subaccount_v1_private_get_list = subAccountV1PrivateGetList = Entry[_Dict](
         "list", ["subAccount", "v1", "private"], "GET", {"cost": 10}
@@ -454,9 +498,9 @@ class ImplicitAPI:
     subaccount_v1_private_get_assets = subAccountV1PrivateGetAssets = Entry[_Dict](
         "assets", ["subAccount", "v1", "private"], "GET", {"cost": 2}
     )
-    subaccount_v1_private_get_allaccountbalance = subAccountV1PrivateGetAllAccountBalance = Entry[_Dict](
-        "allAccountBalance", ["subAccount", "v1", "private"], "GET", {"cost": 2}
-    )
+    subaccount_v1_private_get_allaccountbalance = subAccountV1PrivateGetAllAccountBalance = Entry[
+        _Dict
+    ]("allAccountBalance", ["subAccount", "v1", "private"], "GET", {"cost": 2})
     subaccount_v1_private_post_create = subAccountV1PrivatePostCreate = Entry[_Dict](
         "create", ["subAccount", "v1", "private"], "POST", {"cost": 10}
     )
@@ -478,28 +522,40 @@ class ImplicitAPI:
     account_v1_private_get_apikey_query = accountV1PrivateGetApiKeyQuery = Entry[_Dict](
         "apiKey/query", ["account", "v1", "private"], "GET", {"cost": 2}
     )
-    account_v1_private_get_account_apipermissions = accountV1PrivateGetAccountApiPermissions = Entry[_Dict](
-        "account/apiPermissions", ["account", "v1", "private"], "GET", {"cost": 5}
+    account_v1_private_get_account_apipermissions = accountV1PrivateGetAccountApiPermissions = (
+        Entry[_Dict]("account/apiPermissions", ["account", "v1", "private"], "GET", {"cost": 5})
     )
-    account_v1_private_get_account_apirestrictions = accountV1PrivateGetAccountApiRestrictions = Entry[_Dict](
-        "account/apiRestrictions", ["account", "v1", "private"], "GET", {"cost": 5}
+    account_v1_private_get_account_apirestrictions = accountV1PrivateGetAccountApiRestrictions = (
+        Entry[_Dict]("account/apiRestrictions", ["account", "v1", "private"], "GET", {"cost": 5})
     )
     account_v1_private_get_allaccountbalance = accountV1PrivateGetAllAccountBalance = Entry[_Dict](
         "allAccountBalance", ["account", "v1", "private"], "GET", {"cost": 2}
     )
-    account_v1_private_post_innertransfer_authorizesubaccount = accountV1PrivatePostInnerTransferAuthorizeSubAccount = (
-        Entry[_Dict]("innerTransfer/authorizeSubAccount", ["account", "v1", "private"], "POST", {"cost": 1})
+    account_v1_private_post_innertransfer_authorizesubaccount = (
+        accountV1PrivatePostInnerTransferAuthorizeSubAccount
+    ) = Entry[_Dict](
+        "innerTransfer/authorizeSubAccount", ["account", "v1", "private"], "POST", {"cost": 1}
     )
     account_transfer_v1_private_get_subaccount_asset_transferhistory = (
         accountTransferV1PrivateGetSubAccountAssetTransferHistory
-    ) = Entry[_Dict]("subAccount/asset/transferHistory", ["account", "transfer", "v1", "private"], "GET", {"cost": 1})
+    ) = Entry[_Dict](
+        "subAccount/asset/transferHistory",
+        ["account", "transfer", "v1", "private"],
+        "GET",
+        {"cost": 1},
+    )
     account_transfer_v1_private_post_subaccount_transferasset_supportcoins = (
         accountTransferV1PrivatePostSubAccountTransferAssetSupportCoins
     ) = Entry[_Dict](
-        "subAccount/transferAsset/supportCoins", ["account", "transfer", "v1", "private"], "POST", {"cost": 1}
+        "subAccount/transferAsset/supportCoins",
+        ["account", "transfer", "v1", "private"],
+        "POST",
+        {"cost": 1},
     )
-    account_transfer_v1_private_post_subaccount_transferasset = accountTransferV1PrivatePostSubAccountTransferAsset = (
-        Entry[_Dict]("subAccount/transferAsset", ["account", "transfer", "v1", "private"], "POST", {"cost": 1})
+    account_transfer_v1_private_post_subaccount_transferasset = (
+        accountTransferV1PrivatePostSubAccountTransferAsset
+    ) = Entry[_Dict](
+        "subAccount/transferAsset", ["account", "transfer", "v1", "private"], "POST", {"cost": 1}
     )
     user_auth_private_post_userdatastream = userAuthPrivatePostUserDataStream = Entry[_Dict](
         "userDataStream", ["user", "auth", "private"], "POST", {"cost": 2}
@@ -510,43 +566,45 @@ class ImplicitAPI:
     user_auth_private_delete_userdatastream = userAuthPrivateDeleteUserDataStream = Entry[_Dict](
         "userDataStream", ["user", "auth", "private"], "DELETE", {"cost": 2}
     )
-    copytrading_v1_private_get_swap_trace_currenttrack = copyTradingV1PrivateGetSwapTraceCurrentTrack = Entry[_Dict](
-        "swap/trace/currentTrack", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
+    copytrading_v1_private_get_pfutures_traderdetail = (
+        copyTradingV1PrivateGetPFuturesTraderDetail
+    ) = Entry[_Dict]("PFutures/traderDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_get_pfutures_profithistorysummarys = (
+        copyTradingV1PrivateGetPFuturesProfitHistorySummarys
+    ) = Entry[_Dict](
+        "PFutures/profitHistorySummarys", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
     )
-    copytrading_v1_private_get_pfutures_traderdetail = copyTradingV1PrivateGetPFuturesTraderDetail = Entry[_Dict](
-        "PFutures/traderDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
-    )
-    copytrading_v1_private_get_pfutures_profithistorysummarys = copyTradingV1PrivateGetPFuturesProfitHistorySummarys = (
-        Entry[_Dict]("PFutures/profitHistorySummarys", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
-    )
-    copytrading_v1_private_get_pfutures_profitdetail = copyTradingV1PrivateGetPFuturesProfitDetail = Entry[_Dict](
-        "PFutures/profitDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
-    )
-    copytrading_v1_private_get_pfutures_tradingpairs = copyTradingV1PrivateGetPFuturesTradingPairs = Entry[_Dict](
-        "PFutures/tradingPairs", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
-    )
-    copytrading_v1_private_get_spot_traderdetail = copyTradingV1PrivateGetSpotTraderDetail = Entry[_Dict](
-        "spot/traderDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
-    )
-    copytrading_v1_private_get_spot_profithistorysummarys = copyTradingV1PrivateGetSpotProfitHistorySummarys = Entry[
+    copytrading_v1_private_get_pfutures_profitdetail = (
+        copyTradingV1PrivateGetPFuturesProfitDetail
+    ) = Entry[_Dict]("PFutures/profitDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_get_pfutures_tradingpairs = (
+        copyTradingV1PrivateGetPFuturesTradingPairs
+    ) = Entry[_Dict]("PFutures/tradingPairs", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_get_spot_traderdetail = copyTradingV1PrivateGetSpotTraderDetail = Entry[
         _Dict
-    ]("spot/profitHistorySummarys", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
-    copytrading_v1_private_get_spot_profitdetail = copyTradingV1PrivateGetSpotProfitDetail = Entry[_Dict](
-        "spot/profitDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
+    ]("spot/traderDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_get_spot_profithistorysummarys = (
+        copyTradingV1PrivateGetSpotProfitHistorySummarys
+    ) = Entry[_Dict](
+        "spot/profitHistorySummarys", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
     )
-    copytrading_v1_private_get_spot_historyorder = copyTradingV1PrivateGetSpotHistoryOrder = Entry[_Dict](
-        "spot/historyOrder", ["copyTrading", "v1", "private"], "GET", {"cost": 2}
-    )
-    copytrading_v1_private_post_swap_trace_closetrackorder = copyTradingV1PrivatePostSwapTraceCloseTrackOrder = Entry[
+    copytrading_v1_private_get_spot_profitdetail = copyTradingV1PrivateGetSpotProfitDetail = Entry[
         _Dict
-    ]("swap/trace/closeTrackOrder", ["copyTrading", "v1", "private"], "POST", {"cost": 2})
-    copytrading_v1_private_post_swap_trace_settpsl = copyTradingV1PrivatePostSwapTraceSetTPSL = Entry[_Dict](
-        "swap/trace/setTPSL", ["copyTrading", "v1", "private"], "POST", {"cost": 2}
+    ]("spot/profitDetail", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_get_spot_historyorder = copyTradingV1PrivateGetSpotHistoryOrder = Entry[
+        _Dict
+    ]("spot/historyOrder", ["copyTrading", "v1", "private"], "GET", {"cost": 2})
+    copytrading_v1_private_post_swap_trace_settpsl = copyTradingV1PrivatePostSwapTraceSetTPSL = (
+        Entry[_Dict]("swap/trace/setTPSL", ["copyTrading", "v1", "private"], "POST", {"cost": 2})
     )
-    copytrading_v1_private_post_pfutures_setcommission = copyTradingV1PrivatePostPFuturesSetCommission = Entry[_Dict](
+    copytrading_v1_private_post_pfutures_setcommission = (
+        copyTradingV1PrivatePostPFuturesSetCommission
+    ) = Entry[_Dict](
         "PFutures/setCommission", ["copyTrading", "v1", "private"], "POST", {"cost": 2}
     )
-    copytrading_v1_private_post_spot_trader_sellorder = copyTradingV1PrivatePostSpotTraderSellOrder = Entry[_Dict](
+    copytrading_v1_private_post_spot_trader_sellorder = (
+        copyTradingV1PrivatePostSpotTraderSellOrder
+    ) = Entry[_Dict](
         "spot/trader/sellOrder", ["copyTrading", "v1", "private"], "POST", {"cost": 10}
     )
     api_v3_private_get_asset_transfer = apiV3PrivateGetAssetTransfer = Entry[_Dict](
@@ -558,39 +616,68 @@ class ImplicitAPI:
     api_v3_private_get_capital_deposit_hisrec = apiV3PrivateGetCapitalDepositHisrec = Entry[_Dict](
         "capital/deposit/hisrec", ["api", "v3", "private"], "GET", {"cost": 1}
     )
-    api_v3_private_get_capital_withdraw_history = apiV3PrivateGetCapitalWithdrawHistory = Entry[_Dict](
-        "capital/withdraw/history", ["api", "v3", "private"], "GET", {"cost": 1}
-    )
+    api_v3_private_get_capital_withdraw_history = apiV3PrivateGetCapitalWithdrawHistory = Entry[
+        _Dict
+    ]("capital/withdraw/history", ["api", "v3", "private"], "GET", {"cost": 1})
     api_v3_private_post_post_asset_transfer = apiV3PrivatePostPostAssetTransfer = Entry[_Dict](
         "post/asset/transfer", ["api", "v3", "private"], "POST", {"cost": 1}
     )
     api_asset_v1_private_post_transfer = apiAssetV1PrivatePostTransfer = Entry[_Dict](
         "transfer", ["api", "asset", "v1", "private"], "POST", {"cost": 5}
     )
-    api_asset_v1_public_get_transfer_supportcoins = apiAssetV1PublicGetTransferSupportCoins = Entry[_Dict](
-        "transfer/supportCoins", ["api", "asset", "v1", "public"], "GET", {"cost": 5}
-    )
-    agent_v1_private_get_account_inviteaccountlist = agentV1PrivateGetAccountInviteAccountList = Entry[_Dict](
-        "account/inviteAccountList", ["agent", "v1", "private"], "GET", {"cost": 5}
-    )
-    agent_v1_private_get_reward_commissiondatalist = agentV1PrivateGetRewardCommissionDataList = Entry[_Dict](
-        "reward/commissionDataList", ["agent", "v1", "private"], "GET", {"cost": 5}
-    )
-    agent_v1_private_get_account_inviterelationcheck = agentV1PrivateGetAccountInviteRelationCheck = Entry[_Dict](
-        "account/inviteRelationCheck", ["agent", "v1", "private"], "GET", {"cost": 5}
-    )
-    agent_v1_private_get_asset_depositdetaillist = agentV1PrivateGetAssetDepositDetailList = Entry[_Dict](
-        "asset/depositDetailList", ["agent", "v1", "private"], "GET", {"cost": 5}
-    )
-    agent_v1_private_get_reward_third_commissiondatalist = agentV1PrivateGetRewardThirdCommissionDataList = Entry[
+    api_asset_v1_public_get_transfer_supportcoins = apiAssetV1PublicGetTransferSupportCoins = Entry[
         _Dict
-    ]("reward/third/commissionDataList", ["agent", "v1", "private"], "GET", {"cost": 5})
+    ]("transfer/supportCoins", ["api", "asset", "v1", "public"], "GET", {"cost": 5})
+    agent_v1_private_get_account_inviteaccountlist = agentV1PrivateGetAccountInviteAccountList = (
+        Entry[_Dict]("account/inviteAccountList", ["agent", "v1", "private"], "GET", {"cost": 5})
+    )
+    agent_v1_private_get_reward_commissiondatalist = agentV1PrivateGetRewardCommissionDataList = (
+        Entry[_Dict]("reward/commissionDataList", ["agent", "v1", "private"], "GET", {"cost": 5})
+    )
+    agent_v1_private_get_account_inviterelationcheck = (
+        agentV1PrivateGetAccountInviteRelationCheck
+    ) = Entry[_Dict]("account/inviteRelationCheck", ["agent", "v1", "private"], "GET", {"cost": 5})
+    agent_v1_private_get_asset_depositdetaillist = agentV1PrivateGetAssetDepositDetailList = Entry[
+        _Dict
+    ]("asset/depositDetailList", ["agent", "v1", "private"], "GET", {"cost": 5})
+    agent_v1_private_get_reward_third_commissiondatalist = (
+        agentV1PrivateGetRewardThirdCommissionDataList
+    ) = Entry[_Dict](
+        "reward/third/commissionDataList", ["agent", "v1", "private"], "GET", {"cost": 5}
+    )
     agent_v1_private_get_asset_partnerdata = agentV1PrivateGetAssetPartnerData = Entry[_Dict](
         "asset/partnerData", ["agent", "v1", "private"], "GET", {"cost": 5}
     )
-    agent_v1_private_get_commissiondatalist_referralcode = agentV1PrivateGetCommissionDataListReferralCode = Entry[
+    agent_v1_private_get_commissiondatalist_referralcode = (
+        agentV1PrivateGetCommissionDataListReferralCode
+    ) = Entry[_Dict](
+        "commissionDataList/referralCode", ["agent", "v1", "private"], "GET", {"cost": 5}
+    )
+    agent_v1_private_get_account_superiorcheck = agentV1PrivateGetAccountSuperiorCheck = Entry[
         _Dict
-    ]("commissionDataList/referralCode", ["agent", "v1", "private"], "GET", {"cost": 5})
-    agent_v1_private_get_account_superiorcheck = agentV1PrivateGetAccountSuperiorCheck = Entry[_Dict](
-        "account/superiorCheck", ["agent", "v1", "private"], "GET", {"cost": 5}
+    ]("account/superiorCheck", ["agent", "v1", "private"], "GET", {"cost": 5})
+    wealth_v1_private_get_product_dual_currency_pre_order = (
+        wealthV1PrivateGetProductDualCurrencyPreOrder
+    ) = Entry[_Dict](
+        "product/dual-currency/pre-order", ["wealth", "v1", "private"], "GET", {"cost": 2}
+    )
+    wealth_v1_private_get_product_dual_currency_position = (
+        wealthV1PrivateGetProductDualCurrencyPosition
+    ) = Entry[_Dict](
+        "product/dual-currency/position", ["wealth", "v1", "private"], "GET", {"cost": 2}
+    )
+    wealth_v1_private_get_product_dual_currency_order_records = (
+        wealthV1PrivateGetProductDualCurrencyOrderRecords
+    ) = Entry[_Dict](
+        "product/dual-currency/order-records", ["wealth", "v1", "private"], "GET", {"cost": 2}
+    )
+    wealth_v1_private_post_product_dual_currency_invest_asset_list = (
+        wealthV1PrivatePostProductDualCurrencyInvestAssetList
+    ) = Entry[_Dict](
+        "product/dual-currency/invest-asset-list", ["wealth", "v1", "private"], "POST", {"cost": 2}
+    )
+    wealth_v1_private_post_product_dual_currency_order = (
+        wealthV1PrivatePostProductDualCurrencyOrder
+    ) = Entry[_Dict](
+        "product/dual-currency/order", ["wealth", "v1", "private"], "POST", {"cost": 2}
     )

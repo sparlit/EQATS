@@ -40,13 +40,12 @@ Run: python -X utf8 scripts/fetch_announcements.py
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
-import os
-import sys
-import json
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import datetime
+import json
+import os
 import re
+import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -102,7 +101,9 @@ def key_of(r):
 
 
 def main():
-    today = (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()  # IST, not the runner's UTC
+    today = (
+        datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
+    ).date()  # IST, not the runner's UTC
     start = today - datetime.timedelta(days=WINDOW_DAYS - 1)
     hdr = {
         "User-Agent": B.UA,
@@ -121,7 +122,9 @@ def main():
     # short on a given run (intermittent throttle self-heals across runs).
     for idx in INDICES:
         jar = B.nse_jar()  # fresh warmed session per board
-        step = CHUNK_SME if idx == "sme" else CHUNK_DAYS  # SME 3-day (a 7-day peak-season window errors)
+        step = (
+            CHUNK_SME if idx == "sme" else CHUNK_DAYS
+        )  # SME 3-day (a 7-day peak-season window errors)
         d = start
         while d <= today:
             e = min(d + datetime.timedelta(days=step - 1), today)
@@ -157,7 +160,8 @@ def main():
                 if len(cap) > CAPTION_MAX:
                     cap = cap[: CAPTION_MAX - 1].rstrip() + "…"
                 f = str(rec.get("attchmntFile") or "").strip()
-                f = f.removeprefix(PDF_PREFIX)
+                if f.startswith(PDF_PREFIX):
+                    f = f[len(PDF_PREFIX) :]
                 co = re.sub(r"\s+", " ", str(rec.get("sm_name") or "")).strip()
                 r = [sym, co, dt, cat, cap, f]
                 rows[key_of(r)] = r
@@ -180,11 +184,19 @@ def main():
     allrows = [r for r in rows.values() if r[2][:10] >= lo]
     allrows.sort(key=lambda r: (r[2], r[0]), reverse=True)
     if len(allrows) < MIN_ROWS:
-        print("ABORT: only %d rows (fresh %d, errs %d) — keeping existing file" % (len(allrows), fresh, errs))
+        print(
+            "ABORT: only %d rows (fresh %d, errs %d) — keeping existing file"
+            % (len(allrows), fresh, errs)
+        )
         sys.exit(1)
 
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
-    out = {"updated": ist.strftime("%Y-%m-%d %H:%M IST"), "from": lo, "to": today.isoformat(), "rows": allrows}
+    out = {
+        "updated": ist.strftime("%Y-%m-%d %H:%M IST"),
+        "from": lo,
+        "to": today.isoformat(),
+        "rows": allrows,
+    }
     json.dump(out, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
     cats = {}
@@ -204,10 +216,10 @@ def main():
 RESULT_CAP_RE = re.compile(
     r"financial\s+results?\s+for\s+the\s+(?:period|quarter|year)|"
     r"submitted.{0,40}financial\s+results?",
-    re.IGNORECASE,
+    re.I,
 )
 RESULT_CAT_RE = re.compile(
-    r"^(?:financial\s+result|integrated\s+filing\s*[-–]?\s*financial)", re.IGNORECASE
+    r"^(?:financial\s+result|integrated\s+filing\s*[-–]?\s*financial)", re.I
 )  # NSE's "Integrated Filing- Financial" (TEMPSENS, NAGAFERT)
 # ⚠️ A results filing in Jul/Aug/Sep is often a LATE March (Q4/annual) result, not the current June
 # quarter — so read the reporting period per filing and ANCHOR on an "ended" clause (never assume the
@@ -219,36 +231,40 @@ _DAY_LAST = {3: 31, 6: 30, 9: 30, 12: 31}
 # ("Q.E.", "as on", "for the … year", "For <Month D, YYYY>") come from the audit of real qe=0 captions;
 # they only fire where the old parser returned 0, so no previously-parsed row can change quarter.
 _ANCHOR_RES = [
-    re.compile(r"end(?:ed|ing)\s+(?:on\s+)?(.{0,30}?\d{4})", re.IGNORECASE),  # "quarter ended March 31, 2026"
     re.compile(
-        r"q\.?\s*e\.?[\s:.\-]*(.{0,20}?\d{4})", re.IGNORECASE
+        r"end(?:ed|ing)\s+(?:on\s+)?(.{0,30}?\d{4})", re.I
+    ),  # "quarter ended March 31, 2026"
+    re.compile(
+        r"q\.?\s*e\.?[\s:.\-]*(.{0,20}?\d{4})", re.I
     ),  # "Q.E.31.03.2026" (no \b: real captions glue it — "theQ.E.31.03.2026")
-    re.compile(r"\bas\s+(?:on|at)[\s:.\-]*(.{0,20}?\d{4})", re.IGNORECASE),  # "AS ON 30.06.2026"
+    re.compile(r"\bas\s+(?:on|at)[\s:.\-]*(.{0,20}?\d{4})", re.I),  # "AS ON 30.06.2026"
     re.compile(
-        r"for\s+the\s+(?:quarter\s+and\s+)?(?:financial\s+)?year\s+(.{0,25}?\d{4})", re.IGNORECASE
+        r"for\s+the\s+(?:quarter\s+and\s+)?(?:financial\s+)?year\s+(.{0,25}?\d{4})", re.I
     ),  # "for the quarter and financial year March 31, 2026"
     re.compile(
         r"\bfor\s+((?:[A-Za-z]{3,9}\s+\d{1,2},?|\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}[,\s.\-]*|[A-Za-z]{3,9}[,\s.\-]*)\s*\d{4})",
-        re.IGNORECASE,
+        re.I,
     ),  # "For March 31, 2026" / "for 30th June-2026" / "for September 2025" (month+year can't be a meeting date)
 ]
 _DMY_RE = re.compile(
-    r"(\d{1,2})(?:st|nd|rd|th)?[\s,.\-]+([A-Za-z]{3,9})\.?[,\s.\-]+(\d{4})", re.IGNORECASE
+    r"(\d{1,2})(?:st|nd|rd|th)?[\s,.\-]+([A-Za-z]{3,9})\.?[,\s.\-]+(\d{4})", re.I
 )  # + "30-Jun-2026"
 _MDY_RE = re.compile(
-    r"([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})", re.IGNORECASE
+    r"([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})", re.I
 )  # + "June 30,2026", "june 30th 2026", "Sept. 30, 2026"
 _ISO_RE = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")  # "2026-06-30" -> "30.06.2026"
-_YY_RE = re.compile(r"\b(\d{1,2})([./])(\d{1,2})\2(\d{2})\b(?![./\d])")  # "30/06/26" -> "30/06/2026"
+_YY_RE = re.compile(
+    r"\b(\d{1,2})([./])(\d{1,2})\2(\d{2})\b(?![./\d])"
+)  # "30/06/26" -> "30/06/2026"
 _TIME_RE = re.compile(
-    r"\bat\s+\d{1,2}:\d{2}\b|\d{1,2}[.:]\d{2}\s*(?:a\.?m|p\.?m|hrs)\b", re.IGNORECASE
+    r"\bat\s+\d{1,2}:\d{2}\b|\d{1,2}[.:]\d{2}\s*(?:a\.?m|p\.?m|hrs)\b", re.I
 )  # "at 4:30" / "4.30 PM" — NOT "ended at 30.06.2026"   # a meeting's clock time
 _NUM_RE = re.compile(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})")
-_MY_RE = re.compile(r"([A-Za-z]{3,9})[,\s]+(\d{4})", re.IGNORECASE)  # "March, 2026" (day unstated)
+_MY_RE = re.compile(r"([A-Za-z]{3,9})[,\s]+(\d{4})", re.I)  # "March, 2026" (day unstated)
 # "F.Y. 2025-26" / "FY 2025-2026" / "financial year 2025-26" -> March of the END year. Unambiguous
 # (a fiscal-year range is never a meeting date), so this one needs no anchor.
 _FY_RE = re.compile(
-    r"(?:\bf\.?\s*y\.?|financial\s+year)\s*[:.\-]?\s*(20\d{2})\s*[-–—/]\s*(?:20)?(\d{2})\b", re.IGNORECASE
+    r"(?:\bf\.?\s*y\.?|financial\s+year)\s*[:.\-]?\s*(20\d{2})\s*[-–—/]\s*(?:20)?(\d{2})\b", re.I
 )
 
 
@@ -312,7 +328,9 @@ def write_results_feed(allrows):
     to an empty reply at random (dropping SME result filers for a whole window). So we keep ALL prior rows;
     a fresh row for the same (symbol, date) OVERRIDES the preserved one below, so quarter corrections still
     win — preservation only backfills what THIS run's fetch missed. The rolling-31d trim stops accretion."""
-    outp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "results_feed.json")
+    outp = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "docs", "results_feed.json"
+    )
     try:
         prev = json.load(open(outp, encoding="utf-8")).get("rows", [])
     except Exception:
@@ -322,14 +340,19 @@ def write_results_feed(allrows):
     # Quarter corrections: NSE sometimes captions a late Q4/annual filing as the current quarter. The
     # daily vision-prep reads the filing PDF's real period and records "SYM|YYYY-MM-DD" -> real qe here.
     try:
-        qfix = json.load(open(os.path.join(os.path.dirname(outp), "feed_qe_fix.json"), encoding="utf-8"))
+        qfix = json.load(
+            open(os.path.join(os.path.dirname(outp), "feed_qe_fix.json"), encoding="utf-8")
+        )
     except Exception:
         qfix = {}
 
     feed = []
     for r in allrows:
         cat, cap = r[3], r[4] or ""
-        if not (RESULT_CAT_RE.search(cat) or (cat == "Outcome of Board Meeting" and RESULT_CAP_RE.search(cap))):
+        if not (
+            RESULT_CAT_RE.search(cat)
+            or (cat == "Outcome of Board Meeting" and RESULT_CAP_RE.search(cap))
+        ):
             continue
         qe = qe_sane(qfix.get(f"{r[0]}|{str(r[2])[:10]}") or parse_qe(cap), str(r[2])[:10])
         feed.append([r[0], r[1], r[2], qe, (cap[:220] + "…") if len(cap) > 221 else cap, r[5]])
@@ -346,7 +369,8 @@ def write_results_feed(allrows):
         have.add((r[0], r[2][:10]))
     # trim to a rolling 31-day window (matches fetch_bse_results) so preserved BSE rows don't accrete
     cut = (
-        (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date() - datetime.timedelta(days=31)
+        (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).date()
+        - datetime.timedelta(days=31)
     ).isoformat()
     feed = [r for r in feed if r[2][:10] >= cut]
     feed.sort(key=lambda r: (r[2], r[0]), reverse=True)

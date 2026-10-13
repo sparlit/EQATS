@@ -40,29 +40,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from datetime import timedelta
 
 import numpy as np
 import pandas as pd
-from backtest.backtest_engine import BacktestEngine, BacktestResult, BacktestTrade
+from backtest.backtest_engine import BacktestEngine, BacktestTrade
 from backtest.option_resolver import (
     clear_cache,
     get_days_to_expiry,
     get_nearest_expiry,
     resolve_option_at_entry,
 )
-from models.predict import Predictor
-from strategy.options_flow_detector import OptionsFlowDetector
-from strategy.regime_detector import RegimeDetector, get_strategies_for_regime
-from strategy.signal_generator import generate_signals
-from utils.logger import get_logger
-
 from config.settings import (
     WEIGHT_ML_PROBABILITY,
     WEIGHT_OPTIONS_FLOW,
     WEIGHT_TECHNICAL_STRENGTH,
 )
 from database.db import read_sql
+from models.predict import Predictor
+from strategy.options_flow_detector import OptionsFlowDetector
+from strategy.regime_detector import RegimeDetector, get_strategies_for_regime
+from strategy.signal_generator import generate_signals
+from utils.logger import get_logger
 
 logger = get_logger("premium_bt_v2")
 
@@ -112,7 +110,7 @@ def main():
     ohlcv["timestamp"] = pd.to_datetime(ohlcv["timestamp"])
     df = df.merge(ohlcv, on="timestamp", how="left", suffixes=("", "_mc"))
     for c in [x for x in df.columns if x.endswith("_mc")]:
-        df = df.drop(columns=[c])
+        df.drop(columns=[c], inplace=True)
     print(f"Features: {df.shape}")
 
     # ── Load option chain timeseries (for flow scoring) ───────────────────
@@ -129,8 +127,6 @@ def main():
     oc_ts["option_type"] = oc_ts["symbol"].str[-2:]
     oc_ts["oi_change"] = oc_ts.groupby("symbol")["oi"].diff().fillna(0)
     # Extract strike
-    import re
-
     oc_ts["strike"] = oc_ts["symbol"].str.extract(r"NIFTY\d{6}(\d+)")[0].astype(float)
     print(f"Option chain rows: {len(oc_ts):,}")
 
@@ -214,7 +210,9 @@ def main():
                     current_trade.exit_price = round(exit_prem, 2)
                     prem_move = exit_prem - entry_prem
                     slippage = entry_prem * SLIPPAGE_PCT * 2 * current_trade.quantity
-                    current_trade.pnl = round(prem_move * current_trade.quantity - slippage - COMMISSION, 2)
+                    current_trade.pnl = round(
+                        prem_move * current_trade.quantity - slippage - COMMISSION, 2
+                    )
                     trades.append(current_trade)
                     in_trade = False
                     current_trade = None
@@ -425,7 +423,18 @@ def main():
 
         print("\nSample trades:")
         print(
-            tdf[["symbol", "direction", "strategy", "entry_price", "exit_price", "pnl", "result", "flow_score"]]
+            tdf[
+                [
+                    "symbol",
+                    "direction",
+                    "strategy",
+                    "entry_price",
+                    "exit_price",
+                    "pnl",
+                    "result",
+                    "flow_score",
+                ]
+            ]
             .head(10)
             .to_string()
         )

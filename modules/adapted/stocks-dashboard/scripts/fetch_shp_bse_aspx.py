@@ -117,7 +117,8 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
     skip = {(norm(s), qe) for s, qs in skipf.items() for qe in qs}
 
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")]) for s in ih["Nifty 500"]
+        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not x.startswith("DUMMY")])
+        for s in ih["Nifty 500"]
     )
 
     def members(qe):
@@ -129,7 +130,9 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
                 break
         return best
 
-    qes = ["%d%s" % (y, s) for y in range(2001, 2017) for s in ("-03-31", "-06-30", "-09-30", "-12-31")]
+    qes = [
+        "%d%s" % (y, s) for y in range(2001, 2017) for s in ("-03-31", "-06-30", "-09-30", "-12-31")
+    ]
     qes = [q for q in qes if q_from <= q <= q_to]
     missing = []
     for qe in qes:
@@ -145,7 +148,11 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
                 # carry the filer's 2dp percentage. Same page, same derivation; parse_new now
                 # recomputes %(A+B+C) from the share-count column.
                 c = have.get(s, {}).get(qe)
-                if c and len(c) > 2 and all(isinstance(v, (int, float)) and round(v, 2) == v for v in (c[1], c[2])):
+                if (
+                    c
+                    and len(c) > 2
+                    and all(isinstance(v, (int, float)) and round(v, 2) == v for v in (c[1], c[2]))
+                ):
                     missing.append((s, qe))
             elif qe not in have.get(s, {}):
                 missing.append((s, qe))
@@ -170,7 +177,10 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
     for row in master:
         sid = str(row.get("scrip_id") or "").strip().upper()
         if sid and sid not in by_id:
-            by_id[sid] = (int(row["SCRIP_CD"]), row.get("Scrip_Name") or row.get("SCRIP_NAME") or "")
+            by_id[sid] = (
+                int(row["SCRIP_CD"]),
+                row.get("Scrip_Name") or row.get("SCRIP_NAME") or "",
+            )
     n_override = 0
     front = []
     unresolved = Counter()
@@ -185,15 +195,27 @@ def cmd_frontier(dirp, q_from="2002-12-31", q_to="2016-03-31"):
             unresolved[s] += 1
             continue
         front.append(
-            {"sym": s, "qe": qe, "code": code, "qtrid": qtrid_of(qe), "bname": bname, "lname": names.get(s, "")}
+            {
+                "sym": s,
+                "qe": qe,
+                "code": code,
+                "qtrid": qtrid_of(qe),
+                "bname": bname,
+                "lname": names.get(s, ""),
+            }
         )
     json.dump(front, open(os.path.join(dirp, "frontier.json"), "w"), indent=0)
-    json.dump(dict(sorted(unresolved.items())), open(os.path.join(dirp, "unresolved.json"), "w"), indent=1)
+    json.dump(
+        dict(sorted(unresolved.items())), open(os.path.join(dirp, "unresolved.json"), "w"), indent=1
+    )
     print(
         "MISSING member-qtr cells: %d   frontier (scripcode resolved): %d  (override %d)"
         % (len(missing), len(front), n_override)
     )
-    print("UNRESOLVED symbols: %d (%d cells) -> unresolved.json" % (len(unresolved), sum(unresolved.values())))
+    print(
+        "UNRESOLVED symbols: %d (%d cells) -> unresolved.json"
+        % (len(unresolved), sum(unresolved.values()))
+    )
     per_era = Counter(f["qe"][:4] for f in front)
     print("frontier by year:", dict(sorted(per_era.items())))
 
@@ -209,15 +231,16 @@ def fetch_page(dirp, code, qtrid, flag):
             return fh.read(), True
     if CACHE_ONLY:
         return None, False
-    u = "https://www.bseindia.com/corporates/ShareholdingPattern.aspx?scripcd=%d&flag_qtr=1&qtrid=%d.00&Flag=%s" % (
-        code,
-        qtrid,
-        flag,
+    u = (
+        "https://www.bseindia.com/corporates/ShareholdingPattern.aspx"
+        "?scripcd=%d&flag_qtr=1&qtrid=%d.00&Flag=%s" % (code, qtrid, flag)
     )
     for attempt in range(3):
         try:
             r = BH.get(u, headers=H_HTML, timeout=45)
-            if r.status_code == 200 and len(r.text) > 3000:  # 162-byte 302 trap: never trust tiny bodies
+            if (
+                r.status_code == 200 and len(r.text) > 3000
+            ):  # 162-byte 302 trap: never trust tiny bodies
                 os.makedirs(os.path.dirname(cf), exist_ok=True)
                 with gzip.open(cf, "wt", encoding="utf-8") as fh:
                     fh.write(r.text)
@@ -267,7 +290,9 @@ def parse_new(html):
     for i, c in enumerate(cells):
         if c == "Shareholding Pattern" and i + 1 < len(cells):
             nm = (
-                cells[i + 1] if cells[i + 1] != "Shareholding Pattern" else (cells[i + 2] if i + 2 < len(cells) else "")
+                cells[i + 1]
+                if cells[i + 1] != "Shareholding Pattern"
+                else (cells[i + 2] if i + 2 < len(cells) else "")
             )
             break
 
@@ -335,7 +360,7 @@ def parse_new(html):
         return None
 
     def find_row(rxs, lo=0, hi=None):
-        rx = re.compile(rxs, re.IGNORECASE)
+        rx = re.compile(rxs, re.I)
         for i in range(lo, hi if hi is not None else len(cells)):
             if rx.search(cells[i]):
                 p = pair(row_nums(i))
@@ -353,10 +378,10 @@ def parse_new(html):
     blk_lo = blk_hi = None
     for rxs in (r"\(1\)\s*Institutions?\s*$", r"^Institutions$"):
         for i, c in enumerate(cells):
-            if re.search(rxs, c, re.IGNORECASE):
+            if re.search(rxs, c, re.I):
                 blk_lo = i
                 for j in range(i + 1, min(i + 160, len(cells))):
-                    if re.fullmatch(r"Sub\s*Total", cells[j], re.IGNORECASE):
+                    if re.fullmatch(r"Sub\s*Total", cells[j], re.I):
                         blk_hi = j + 1
                         break
                 break
@@ -364,13 +389,26 @@ def parse_new(html):
             break
     if blk_lo is not None:
         hi = blk_hi if blk_hi is not None else min(blk_lo + 160, len(cells))
-        for slot in ("mf", "banks", "govt", "ins", "fii", "qfi", "vcf", "fvci", "fpi", "anyoth", "fmf", "ffi"):
+        for slot in (
+            "mf",
+            "banks",
+            "govt",
+            "ins",
+            "fii",
+            "qfi",
+            "vcf",
+            "fvci",
+            "fpi",
+            "anyoth",
+            "fmf",
+            "ffi",
+        ):
             p = find_row(ROW_LABELS[slot], blk_lo, hi)
             if p:
                 out[slot] = p
         # every excluded-category row in the block, summed (there can be several)
         _ex = 0.0
-        _rx = re.compile(ROW_LABELS["excl"], re.IGNORECASE)
+        _rx = re.compile(ROW_LABELS["excl"], re.I)
         for _i in range(blk_lo, hi):
             if _islabel(_i) and _rx.search(cells[_i]):
                 _pp = pair(row_nums(_i))
@@ -394,7 +432,9 @@ def parse_old(html):
     for i, c in enumerate(cells):
         if c == "Shareholding Pattern" and i + 1 < len(cells):
             nm = (
-                cells[i + 1] if cells[i + 1] != "Shareholding Pattern" else (cells[i + 2] if i + 2 < len(cells) else "")
+                cells[i + 1]
+                if cells[i + 1] != "Shareholding Pattern"
+                else (cells[i + 2] if i + 2 < len(cells) else "")
             )
             break
 
@@ -419,7 +459,11 @@ def parse_old(html):
     def _islabel_o(i):
         return not re.fullmatch(r"[\d,.]+", cells[i].strip())
 
-    _rows = [n for n in (_nums_at(i) for i in range(len(cells)) if _islabel_o(i)) if len(n) >= 2 and n[0] and n[1]]
+    _rows = [
+        n
+        for n in (_nums_at(i) for i in range(len(cells)) if _islabel_o(i))
+        if len(n) >= 2 and n[0] and n[1]
+    ]
     _cand = [(n[1], n[0]) for n in _rows if 1.0 <= n[1] <= 100.0]
     if _cand:
         _p, _s = max(_cand)
@@ -428,7 +472,7 @@ def parse_old(html):
             _base = _b
 
     def val_after(rxs, lo=0, hi=None):
-        rx = re.compile(rxs, re.IGNORECASE)
+        rx = re.compile(rxs, re.I)
         for i in range(lo, hi if hi is not None else len(cells)):
             if rx.search(cells[i]):
                 nums = _nums_at(i)
@@ -440,8 +484,10 @@ def parse_old(html):
 
     out = {}
     # promoter block: "Promoter's Holding ... Sub Total"
-    ip = next((i for i, c in enumerate(cells) if re.search(r"Promoter'?s? Holding", c, re.IGNORECASE)), None)
-    inp = next((i for i, c in enumerate(cells) if re.search(r"Non Promoter'?s? Holding", c, re.IGNORECASE)), None)
+    ip = next((i for i, c in enumerate(cells) if re.search(r"Promoter'?s? Holding", c, re.I)), None)
+    inp = next(
+        (i for i, c in enumerate(cells) if re.search(r"Non Promoter'?s? Holding", c, re.I)), None
+    )
     if ip is not None and inp is not None and inp > ip:
         _, v = val_after(r"^Sub\s*Total$", ip, inp)
         if v is not None:
@@ -452,7 +498,7 @@ def parse_old(html):
     if out.get("prom") is None and inp is not None:
         subs = []
         for i in range(inp, len(cells)):
-            if re.fullmatch(r"Sub\s*Total", cells[i], re.IGNORECASE):
+            if re.fullmatch(r"Sub\s*Total", cells[i], re.I):
                 nums = []
                 for c2 in cells[i + 1 : i + 4]:
                     c2 = c2.replace(",", "").strip()
@@ -477,26 +523,36 @@ def parse_old(html):
     if out.get("prom") is None and inp is not None and (ip is None or ip >= inp):
         pre = [
             i
-            for i in range(inp)
-            if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2
+            for i in range(0, inp)
+            if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.I) and len(_nums_at(i)) >= 2
         ]
         if pre:
             cand = _nums_at(pre[-1])[1]
             post = [
                 _nums_at(i)[1]
                 for i in range(inp, len(cells))
-                if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2
+                if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.I) and len(_nums_at(i)) >= 2
             ]
             gt = next(
                 (
                     _nums_at(i)[1]
                     for i in range(len(cells))
-                    if re.fullmatch(r"Grand\s*Total", cells[i].strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2
+                    if re.fullmatch(r"Grand\s*Total", cells[i].strip(), re.I)
+                    and len(_nums_at(i)) >= 2
                 ),
                 None,
             )
-            if post and gt is not None and 99.5 <= gt <= 100.5 and abs(cand + sum(post) - gt) <= 0.5:
-                out["prom"] = (_nums_at(pre[-1])[0] / _base * 100.0) if (_base and _nums_at(pre[-1])[0]) else cand
+            if (
+                post
+                and gt is not None
+                and 99.5 <= gt <= 100.5
+                and abs(cand + sum(post) - gt) <= 0.5
+            ):
+                out["prom"] = (
+                    (_nums_at(pre[-1])[0] / _base * 100.0)
+                    if (_base and _nums_at(pre[-1])[0])
+                    else cand
+                )
     _, v = val_after(r"^FIIS?\b", lo)
     out["fii"] = v
     _, v = val_after(r"Mutual Funds? and UTI", lo)
@@ -504,7 +560,12 @@ def parse_old(html):
     _, v = val_after(r"Banks\s*,?\s*Financial Institutions?\s*,?\s*Insurance", lo)
     out["lump"] = v
     ii = next(
-        (i for i, c in enumerate(cells[lo:], lo) if re.search(r"Institutional Investors?$", c, re.IGNORECASE)), None
+        (
+            i
+            for i, c in enumerate(cells[lo:], lo)
+            if re.search(r"Institutional Investors?$", c, re.I)
+        ),
+        None,
     )
     if ii is not None:
         _, v = val_after(r"^Sub\s*Total$", ii)
@@ -516,7 +577,7 @@ def parse_old(html):
     # reader for an absent FIIS row (WP-S2 2026-09-05, runbook §127g). Captured here, judged in _attempt.
     m_note = None
     for c in cells:
-        mm = re.search(r"Total Foreign Shareholding is\s*([\d,]+)\s*equity shares", c, re.IGNORECASE)
+        mm = re.search(r"Total Foreign Shareholding is\s*([\d,]+)\s*equity shares", c, re.I)
         if mm:
             try:
                 m_note = float(mm.group(1).replace(",", ""))
@@ -526,18 +587,27 @@ def parse_old(html):
     # the Others block's Sub Total and the Grand Total pct — a page with NO institutional block proves
     # "institutions = 0" only when promoter + others close to the grand total (ELDERPHARM Dec-2002).
     _io = next(
-        (i for i, c in enumerate(cells) if re.fullmatch(r"Others", c.strip(), re.IGNORECASE) and i > (inp or 0)), None
+        (
+            i
+            for i, c in enumerate(cells)
+            if re.fullmatch(r"Others", c.strip(), re.I) and i > (inp or 0)
+        ),
+        None,
     )
     if _io is not None:
         for i in range(_io + 1, len(cells)):
-            if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2:
-                out["others_sub"] = (_nums_at(i)[0] / _base * 100.0) if (_base and _nums_at(i)[0]) else _nums_at(i)[1]
+            if re.fullmatch(r"Sub\s*Total", cells[i].strip(), re.I) and len(_nums_at(i)) >= 2:
+                out["others_sub"] = (
+                    (_nums_at(i)[0] / _base * 100.0)
+                    if (_base and _nums_at(i)[0])
+                    else _nums_at(i)[1]
+                )
                 break
     _gt = next(
         (
             _nums_at(i)[1]
             for i, c in enumerate(cells)
-            if re.fullmatch(r"Grand\s*Total", c.strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2
+            if re.fullmatch(r"Grand\s*Total", c.strip(), re.I) and len(_nums_at(i)) >= 2
         ),
         None,
     )
@@ -550,9 +620,11 @@ def parse_old(html):
         if (
             _islabel_o(i)
             and re.search(
-                r"NRIs?\s*/\s*OCBs?|\bGDR|\bADR|Overseas Corporate|Foreign (?!Institutional|Promoter)", c, re.IGNORECASE
+                r"NRIs?\s*/\s*OCBs?|\bGDR|\bADR|Overseas Corporate|Foreign (?!Institutional|Promoter)",
+                c,
+                re.I,
             )
-            and not re.search(r"Total Foreign Shareholding", c, re.IGNORECASE)
+            and not re.search(r"Total Foreign Shareholding", c, re.I)
         ):
             _n = _nums_at(i)
             if _n:
@@ -561,7 +633,9 @@ def parse_old(html):
         out["foreign_rows_shares"] = _fx
     if m_note is not None:
         out["foreign_note_shares"] = m_note
-        inr = next((i for i, c in enumerate(cells) if re.search(r"NRIs?\s*/\s*OCBs?", c, re.IGNORECASE)), None)
+        inr = next(
+            (i for i, c in enumerate(cells) if re.search(r"NRIs?\s*/\s*OCBs?", c, re.I)), None
+        )
         if inr is not None:
             nums = _nums_at(inr)
             if nums:
@@ -573,13 +647,19 @@ def parse_old(html):
     # (inst_sub == mf + lump) decides fii, mf defaults to 0, prom via the two-subtotal fallback. So refuse
     # only when NOTHING of the table parsed: no promoter, no lump, no institutional sub-total, no Grand Total.
     _has_gt = any(
-        re.fullmatch(r"Grand\s*Total", c.strip(), re.IGNORECASE) and len(_nums_at(i)) >= 2 for i, c in enumerate(cells)
+        re.fullmatch(r"Grand\s*Total", c.strip(), re.I) and len(_nums_at(i)) >= 2
+        for i, c in enumerate(cells)
     )
     if (
         out.get("fii") is None
         and out.get("mf") is None
         and not (
-            _has_gt and (out.get("lump") is not None or out.get("inst_sub") is not None or out.get("prom") is not None)
+            _has_gt
+            and (
+                out.get("lump") is not None
+                or out.get("inst_sub") is not None
+                or out.get("prom") is not None
+            )
         )
     ):
         return None, nm
@@ -627,7 +707,11 @@ def _attempt(fr, dirp, neigh, used):
         and not (ln and (ln in pn or pn in ln))
         and not (bn and (bn in pn or pn in bn))
     ):
-        return ("identity", None, "page='{}' vs '{}'/'{}'".format(nm, fr.get("lname"), fr.get("bname")))
+        return (
+            "identity",
+            None,
+            "page='{}' vs '{}'/'{}'".format(nm, fr.get("lname"), fr.get("bname")),
+        )
 
     sub = (datetime.date(*map(int, qe.split("-"))) + datetime.timedelta(days=LAG_DAYS)).isoformat()
     src = "bseaspx:%d:%d:%s" % (code, q, used)
@@ -679,10 +763,22 @@ def _attempt(fr, dirp, neigh, used):
         derived = False
         excl = val("excl") or 0.0
         if fii is not None:
-            fii = round(fii + fpi_add + (val("fvci") or 0.0) + (val("fmf") or 0.0) + (val("ffi") or 0.0), 4)
+            fii = round(
+                fii + fpi_add + (val("fvci") or 0.0) + (val("fmf") or 0.0) + (val("ffi") or 0.0), 4
+            )
             if inst is not None and oth_add:
-                gap0 = abs(fii + dii_base + excl + (val("govt") or 0.0) + (val("qfi") or 0.0) - inst)
-                gap1 = abs(fii + dii_base + excl + oth_add + (val("govt") or 0.0) + (val("qfi") or 0.0) - inst)
+                gap0 = abs(
+                    fii + dii_base + excl + (val("govt") or 0.0) + (val("qfi") or 0.0) - inst
+                )
+                gap1 = abs(
+                    fii
+                    + dii_base
+                    + excl
+                    + oth_add
+                    + (val("govt") or 0.0)
+                    + (val("qfi") or 0.0)
+                    - inst
+                )
                 if gap0 > 1.0 and gap1 <= 1.0:
                     dii = round(dii_base + oth_add, 4)
         else:
@@ -711,7 +807,12 @@ def _attempt(fr, dirp, neigh, used):
             elif r > 0.15:
                 nb = [
                     neigh[k]
-                    for k in ((sym, _adj(qe, -1)), (sym, _adj(qe, 1)), (sym, _adj(qe, -2)), (sym, _adj(qe, 2)))
+                    for k in (
+                        (sym, _adj(qe, -1)),
+                        (sym, _adj(qe, 1)),
+                        (sym, _adj(qe, -2)),
+                        (sym, _adj(qe, 2)),
+                    )
                     if neigh and k in neigh
                 ]
                 if nb and min(abs(r + fpi_add - v) for v in nb) <= 5.0:
@@ -790,7 +891,11 @@ def _attempt(fr, dirp, neigh, used):
                 pass  # accept the proven zero
             else:
                 return ("zero-vs-neighbour", None, f"fii 0.00 beside stored {max(nb):.2f}")
-    return ("ok", [round(prom, 4), round(fii, 4), round(dii, 4), round(mf, 4), ins, sub, None, src], used)
+    return (
+        "ok",
+        [round(prom, 4), round(fii, 4), round(dii, 4), round(mf, 4), ins, sub, None, src],
+        used,
+    )
 
 
 def _adj(qe, step):
@@ -830,7 +935,8 @@ def run(dirp, front, workers, tag):
         list(ex.map(one, front))
     n = sum(len(v) for v in res.values())
     print(
-        "\n%s: %d cells parsed OK of %d fetched in %.0fs — %s" % (tag, n, len(front), time.time() - t0, dict(stats)),
+        "\n%s: %d cells parsed OK of %d fetched in %.0fs — %s"
+        % (tag, n, len(front), time.time() - t0, dict(stats)),
         flush=True,
     )
     json.dump(rejects, open(os.path.join(dirp, "rejects.json"), "w"), indent=0)
@@ -842,7 +948,9 @@ def run(dirp, front, workers, tag):
         for qe, cell in qs.items():
             old = (hist.get(sym) or {}).get(qe)
             if old:
-                diffs.append((abs(cell[1] - old[1]), abs(cell[2] - old[2]), sym, qe, cell[1], old[1]))
+                diffs.append(
+                    (abs(cell[1] - old[1]), abs(cell[2] - old[2]), sym, qe, cell[1], old[1])
+                )
     if diffs:
         bad = [d for d in diffs if d[0] > 0.11 or d[1] > 0.11]
         diffs.sort(reverse=True)
@@ -856,15 +964,32 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["frontier", "pilot", "harvest"])
     ap.add_argument("n", nargs="?", type=int, default=60)
-    ap.add_argument("--refine", action="store_true", help="22j: target EXISTING 2dp cells instead of gaps; own ledger")
+    ap.add_argument(
+        "--refine",
+        action="store_true",
+        help="22j: target EXISTING 2dp cells instead of gaps; own ledger",
+    )
     ap.add_argument("--dir", default=HERE)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument(
-        "--cache-only", action="store_true", help="re-parse pages already on disk; never fetch (recovery passes)"
+        "--cache-only",
+        action="store_true",
+        help="re-parse pages already on disk; never fetch (recovery passes)",
     )
-    ap.add_argument("--from", dest="q_from", default="2002-12-31", help="frontier window start (quarter-end ISO)")
-    ap.add_argument("--to", dest="q_to", default="2016-03-31", help="frontier window end (quarter-end ISO)")
-    ap.add_argument("--frontier", default="frontier.json", help="frontier file inside --dir (e.g. frontier_unres.json)")
+    ap.add_argument(
+        "--from",
+        dest="q_from",
+        default="2002-12-31",
+        help="frontier window start (quarter-end ISO)",
+    )
+    ap.add_argument(
+        "--to", dest="q_to", default="2016-03-31", help="frontier window end (quarter-end ISO)"
+    )
+    ap.add_argument(
+        "--frontier",
+        default="frontier.json",
+        help="frontier file inside --dir (e.g. frontier_unres.json)",
+    )
     a = ap.parse_args()
     global CACHE_ONLY
     CACHE_ONLY = a.cache_only
@@ -886,7 +1011,16 @@ def main():
         # overlap sample: stored cells re-fetched deliberately (not in frontier — build ad hoc)
         gitshow("scripts/_rename_map.json")
         ov = []
-        for sym in ("RELIANCE", "ITC", "HDFCBANK", "INFY", "TATASTEEL", "CAPF", "SUNPHARMA", "WIPRO"):
+        for sym in (
+            "RELIANCE",
+            "ITC",
+            "HDFCBANK",
+            "INFY",
+            "TATASTEEL",
+            "CAPF",
+            "SUNPHARMA",
+            "WIPRO",
+        ):
             qs = hist.get(sym) or {}
             for qe in sorted(qs):
                 if qe <= "2016-03-31" and len(ov) < 24:
@@ -900,16 +1034,29 @@ def main():
                         "SUNPHARMA": 524715,
                         "WIPRO": 507685,
                     }[sym]
-                    ov.append({"sym": sym, "qe": qe, "code": code, "qtrid": qtrid_of(qe), "bname": sym, "lname": sym})
+                    ov.append(
+                        {
+                            "sym": sym,
+                            "qe": qe,
+                            "code": code,
+                            "qtrid": qtrid_of(qe),
+                            "bname": sym,
+                            "lname": sym,
+                        }
+                    )
         print("pilot: %d frontier cells + %d overlap cells" % (len(take), len(ov)))
         run(a.dir, take + ov, a.workers, "PILOT")
         return
     if a.cmd == "harvest":
-        res, _stats, _diffs = run(a.dir, front, a.workers, "HARVEST")
-        out = os.path.join(a.dir, "shp_refine_aspx.json.gz" if REFINE else "shp_fill_bse_aspx.json.gz")
+        res, stats, diffs = run(a.dir, front, a.workers, "HARVEST")
+        out = os.path.join(
+            a.dir, "shp_refine_aspx.json.gz" if REFINE else "shp_fill_bse_aspx.json.gz"
+        )
         with gzip.open(out, "wt", encoding="utf-8") as fh:
             json.dump({"_built": "fetch_shp_bse_aspx harvest", "fills": res}, fh)
-        print("ledger -> %s  (%d syms, %d cells)" % (out, len(res), sum(len(v) for v in res.values())))
+        print(
+            "ledger -> %s  (%d syms, %d cells)" % (out, len(res), sum(len(v) for v in res.values()))
+        )
 
 
 if __name__ == "__main__":

@@ -55,6 +55,7 @@ try:
     fetch_order = exchange.fetch_order(order_id, symbol)
     # fetch_orders = exchange.fetch_orders(symbol, since, limit)
     # fetch_open_orders = exchange.fetch_open_orders(symbol, since, limit)
+    pprint(fetch_order)
     # pprint(fetch_orders)
     # pprint(fetch_open_orders)
 except Exception as err:

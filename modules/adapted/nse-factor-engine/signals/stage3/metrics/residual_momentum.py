@@ -42,7 +42,9 @@ MAX_DAYS = 251
 
 def compute(window: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
     rm_win = window[["symbol", "date", "close"]].copy()
-    rm_win["log_ret"] = rm_win.groupby("symbol")["close"].transform(lambda x: np.log(x / x.shift(1)))
+    rm_win["log_ret"] = rm_win.groupby("symbol")["close"].transform(
+        lambda x: np.log(x / x.shift(1))
+    )
     rm_win = rm_win.dropna(subset=["log_ret"])
 
     def tail_max(df):
@@ -131,7 +133,9 @@ def compute(window: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
         results[sym] = (residuals.sum(), r2, len(sub))
 
     return (
-        pd.DataFrame.from_dict(results, orient="index", columns=["residual_momentum", "rm_r2", "rm_n_obs"])
+        pd.DataFrame.from_dict(
+            results, orient="index", columns=["residual_momentum", "rm_r2", "rm_n_obs"]
+        )
         .rename_axis("symbol")
         .reset_index()
     )

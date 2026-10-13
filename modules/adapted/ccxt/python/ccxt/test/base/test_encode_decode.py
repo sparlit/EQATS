@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_encode():
@@ -47,7 +47,9 @@ def test_encode():
     input = "encode-test"
     encoded = exchange.encode(input)
     decoded = exchange.decode(encoded)
-    assert decoded == input, "decoded should be equal to input, got " + decoded + " instead of " + input
+    assert decoded == input, (
+        "decoded should be equal to input, got " + decoded + " instead of " + input
+    )
 
 
 def test_decode():
@@ -59,7 +61,9 @@ def test_decode():
     input = "decode-test"
     encoded = exchange.encode(input)
     decoded = exchange.decode(encoded)
-    assert decoded == input, "decoded should be equal to input, got " + decoded + " instead of " + input
+    assert decoded == input, (
+        "decoded should be equal to input, got " + decoded + " instead of " + input
+    )
 
 
 def test_encode_decode():

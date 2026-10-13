@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 async def test_sleep():
@@ -73,5 +73,7 @@ async def test_sleep():
         + str(sleep_amount)
         + "ms)"
     )
-    assert elapsed_less_than_max, "Elapsed time " + str(elapsed) + "ms exceeds sleep amount " + str(max_elapsed) + "ms"
+    assert elapsed_less_than_max, (
+        "Elapsed time " + str(elapsed) + "ms exceeds sleep amount " + str(max_elapsed) + "ms"
+    )
     return True

@@ -41,16 +41,12 @@ From the docs (Flow Diagrams §6, Learning Pipeline §7-8):
 """
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-from strategy.signal_generator import Signal, generate_signals
-from utils.logger import get_logger
-
 from config.settings import (
     INITIAL_CAPITAL,
     RISK_PER_TRADE,
@@ -59,6 +55,8 @@ from config.settings import (
     WEIGHT_OPTIONS_FLOW,
     WEIGHT_TECHNICAL_STRENGTH,
 )
+from strategy.signal_generator import generate_signals
+from utils.logger import get_logger
 
 logger = get_logger("backtest")
 
@@ -289,7 +287,7 @@ class BacktestEngine:
         df: pd.DataFrame,
         symbol: str = "",
         predictor=None,
-        active_strategies: list[str] | None = None,
+        active_strategies: list[str] = None,
     ) -> BacktestResult:
         """
         Run a backtest on a DataFrame of 1-minute candles with features.
@@ -370,7 +368,9 @@ class BacktestEngine:
                     option_pnl = index_move * self.atm_delta * current_trade.quantity
                     # Slippage on option premium (not index price)
                     option_premium_est = abs(index_move * self.atm_delta)
-                    slippage_cost = option_premium_est * self.slippage_pct * 2 * current_trade.quantity
+                    slippage_cost = (
+                        option_premium_est * self.slippage_pct * 2 * current_trade.quantity
+                    )
                     commission_cost = self.commission_per_order * 2  # entry + exit
                     current_trade.pnl = round(option_pnl - slippage_cost - commission_cost, 2)
                     trades.append(current_trade)
@@ -474,7 +474,7 @@ class BacktestEngine:
         df: pd.DataFrame,
         symbol: str = "",
         predictor=None,
-        active_strategies: list[str] | None = None,
+        active_strategies: list[str] = None,
     ) -> BacktestResult:
         """
         Backtest using ACTUAL option premium prices from DB.
@@ -492,7 +492,7 @@ class BacktestEngine:
 
         Requires option 1-min bars in minute_candles table.
         """
-        resolve_option, _get_dte = _get_option_resolver()
+        resolve_option, get_dte = _get_option_resolver()
 
         df = df.copy().reset_index(drop=True)
         if df.empty:

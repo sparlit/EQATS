@@ -27,7 +27,14 @@ Algo Trader — Indian Stock Market Backtester
 Just run:  python3 main.py
 """
 
-from engine import apply_crossover, apply_price_vs_ema, build_chart, fetch, print_report, run_backtest
+from engine import (
+    apply_crossover,
+    apply_price_vs_ema,
+    build_chart,
+    fetch,
+    print_report,
+    run_backtest,
+)
 
 # Popular NSE stocks (name → yfinance ticker)
 STOCKS = {
@@ -69,7 +76,7 @@ def main():
         print(f"  {k}. {name:25s} ({ticker})")
     print("  9. Enter a custom NSE ticker (e.g. TATAMOTORS.NS)")
 
-    choice = ask("\nEnter number: ", [*list(STOCKS.keys()), "9"])
+    choice = ask("\nEnter number: ", list(STOCKS.keys()) + ["9"])
 
     if choice == "9":
         ticker = input("  Enter ticker symbol (e.g. TATAMOTORS.NS): ").strip().upper()

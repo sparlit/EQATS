@@ -124,7 +124,7 @@ fn keychain_service() -> Result<String, String> {
 fn read_credentials() -> Result<Value, String> {
     #[cfg(target_os = "macos")]
     {
-        let output = std::process::Command::new("security")
+        let output = crate::utils::process::command("security")
             .args(["find-generic-password", "-s", &keychain_service()?, "-w"])
             .output()
             .map_err(|e| format!("accountError.keychain|{e}"))?;
@@ -142,7 +142,7 @@ fn read_credentials() -> Result<Value, String> {
 fn write_credentials(value: &Value) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        let output = std::process::Command::new("security")
+        let output = crate::utils::process::command("security")
             .args([
                 "add-generic-password",
                 "-U",
@@ -158,7 +158,7 @@ fn write_credentials(value: &Value) -> Result<(), String> {
         if !output.status.success() {
             return Err("accountError.keychain".to_string());
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     write_json(&config_dir()?.join(".credentials.json"), value)

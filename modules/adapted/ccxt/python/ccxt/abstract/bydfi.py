@@ -54,8 +54,8 @@ class ImplicitAPI:
     public_get_v1_fapi_market_funding_rate = publicGetV1FapiMarketFundingRate = Entry[_Dict](
         "v1/fapi/market/funding_rate", "public", "GET", {"cost": 1}
     )
-    public_get_v1_fapi_market_funding_rate_history = publicGetV1FapiMarketFundingRateHistory = Entry[_Dict](
-        "v1/fapi/market/funding_rate_history", "public", "GET", {"cost": 1}
+    public_get_v1_fapi_market_funding_rate_history = publicGetV1FapiMarketFundingRateHistory = (
+        Entry[_Dict]("v1/fapi/market/funding_rate_history", "public", "GET", {"cost": 1})
     )
     public_get_v1_fapi_market_risk_limit = publicGetV1FapiMarketRiskLimit = Entry[_Dict](
         "v1/fapi/market/risk_limit", "public", "GET", {"cost": 1}
@@ -87,22 +87,42 @@ class ImplicitAPI:
     private_get_v1_fapi_trade_history_trade = privateGetV1FapiTradeHistoryTrade = Entry[_Dict](
         "v1/fapi/trade/history_trade", "private", "GET", {"cost": 1}
     )
-    private_get_v1_fapi_trade_position_history = privateGetV1FapiTradePositionHistory = Entry[_Dict](
-        "v1/fapi/trade/position_history", "private", "GET", {"cost": 1}
-    )
+    private_get_v1_fapi_trade_position_history = privateGetV1FapiTradePositionHistory = Entry[
+        _Dict
+    ]("v1/fapi/trade/position_history", "private", "GET", {"cost": 1})
     private_get_v1_fapi_trade_positions = privateGetV1FapiTradePositions = Entry[_Dict](
         "v1/fapi/trade/positions", "private", "GET", {"cost": 1}
+    )
+    private_get_v2_fapi_trade_open_order = privateGetV2FapiTradeOpenOrder = Entry[_Dict](
+        "v2/fapi/trade/open_order", "private", "GET", {"cost": 1}
+    )
+    private_get_v2_fapi_trade_plan_order = privateGetV2FapiTradePlanOrder = Entry[_Dict](
+        "v2/fapi/trade/plan_order", "private", "GET", {"cost": 1}
+    )
+    private_get_v2_fapi_trade_history_order = privateGetV2FapiTradeHistoryOrder = Entry[_Dict](
+        "v2/fapi/trade/history_order", "private", "GET", {"cost": 1}
+    )
+    private_get_v2_fapi_trade_history_trade = privateGetV2FapiTradeHistoryTrade = Entry[_Dict](
+        "v2/fapi/trade/history_trade", "private", "GET", {"cost": 1}
+    )
+    private_get_v2_fapi_trade_position_history = privateGetV2FapiTradePositionHistory = Entry[
+        _Dict
+    ]("v2/fapi/trade/position_history", "private", "GET", {"cost": 1})
+    private_get_v2_fapi_trade_positions = privateGetV2FapiTradePositions = Entry[_Dict](
+        "v2/fapi/trade/positions", "private", "GET", {"cost": 1}
     )
     private_get_v1_fapi_account_balance = privateGetV1FapiAccountBalance = Entry[_Dict](
         "v1/fapi/account/balance", "private", "GET", {"cost": 1}
     )
-    private_get_v1_fapi_user_data_assets_margin = privateGetV1FapiUserDataAssetsMargin = Entry[_Dict](
-        "v1/fapi/user_data/assets_margin", "private", "GET", {"cost": 1}
+    private_get_v1_fapi_user_data_assets_margin = privateGetV1FapiUserDataAssetsMargin = Entry[
+        _Dict
+    ]("v1/fapi/user_data/assets_margin", "private", "GET", {"cost": 1})
+    private_get_v1_fapi_user_data_position_side_dual = privateGetV1FapiUserDataPositionSideDual = (
+        Entry[_Dict]("v1/fapi/user_data/position_side/dual", "private", "GET", {"cost": 1})
     )
-    private_get_v1_fapi_user_data_position_side_dual = privateGetV1FapiUserDataPositionSideDual = Entry[_Dict](
-        "v1/fapi/user_data/position_side/dual", "private", "GET", {"cost": 1}
+    private_get_v1_agent_teams = privateGetV1AgentTeams = Entry[_Dict](
+        "v1/agent/teams", "private", "GET", {"cost": 1}
     )
-    private_get_v1_agent_teams = privateGetV1AgentTeams = Entry[_Dict]("v1/agent/teams", "private", "GET", {"cost": 1})
     private_get_v1_agent_agent_links = privateGetV1AgentAgentLinks = Entry[_Dict](
         "v1/agent/agent_links", "private", "GET", {"cost": 1}
     )
@@ -112,9 +132,9 @@ class ImplicitAPI:
     private_get_v1_agent_agent_sub_overview = privateGetV1AgentAgentSubOverview = Entry[_Dict](
         "v1/agent/agent_sub_overview", "private", "GET", {"cost": 1}
     )
-    private_get_v1_agent_partener_user_deposit = privateGetV1AgentPartenerUserDeposit = Entry[_Dict](
-        "v1/agent/partener_user_deposit", "private", "GET", {"cost": 1}
-    )
+    private_get_v1_agent_partener_user_deposit = privateGetV1AgentPartenerUserDeposit = Entry[
+        _Dict
+    ]("v1/agent/partener_user_deposit", "private", "GET", {"cost": 1})
     private_get_v1_agent_partener_users_data = privateGetV1AgentPartenerUsersData = Entry[_Dict](
         "v1/agent/partener_users_data", "private", "GET", {"cost": 1}
     )
@@ -124,8 +144,8 @@ class ImplicitAPI:
     private_get_v1_agent_affiliate_commission = privateGetV1AgentAffiliateCommission = Entry[_Dict](
         "v1/agent/affiliate_commission", "private", "GET", {"cost": 1}
     )
-    private_get_v1_agent_internal_withdrawal_status = privateGetV1AgentInternalWithdrawalStatus = Entry[_Dict](
-        "v1/agent/internal_withdrawal_status", "private", "GET", {"cost": 1}
+    private_get_v1_agent_internal_withdrawal_status = privateGetV1AgentInternalWithdrawalStatus = (
+        Entry[_Dict]("v1/agent/internal_withdrawal_status", "private", "GET", {"cost": 1})
     )
     private_post_v1_account_transfer = privatePostV1AccountTransfer = Entry[_Dict](
         "v1/account/transfer", "private", "POST", {"cost": 1}
@@ -133,30 +153,51 @@ class ImplicitAPI:
     private_post_v1_fapi_trade_place_order = privatePostV1FapiTradePlaceOrder = Entry[_Dict](
         "v1/fapi/trade/place_order", "private", "POST", {"cost": 1}
     )
-    private_post_v1_fapi_trade_batch_place_order = privatePostV1FapiTradeBatchPlaceOrder = Entry[_Dict](
-        "v1/fapi/trade/batch_place_order", "private", "POST", {"cost": 1}
-    )
+    private_post_v1_fapi_trade_batch_place_order = privatePostV1FapiTradeBatchPlaceOrder = Entry[
+        _Dict
+    ]("v1/fapi/trade/batch_place_order", "private", "POST", {"cost": 1})
     private_post_v1_fapi_trade_edit_order = privatePostV1FapiTradeEditOrder = Entry[_Dict](
         "v1/fapi/trade/edit_order", "private", "POST", {"cost": 1}
     )
-    private_post_v1_fapi_trade_batch_edit_order = privatePostV1FapiTradeBatchEditOrder = Entry[_Dict](
-        "v1/fapi/trade/batch_edit_order", "private", "POST", {"cost": 1}
-    )
-    private_post_v1_fapi_trade_cancel_all_order = privatePostV1FapiTradeCancelAllOrder = Entry[_Dict](
-        "v1/fapi/trade/cancel_all_order", "private", "POST", {"cost": 1}
-    )
+    private_post_v1_fapi_trade_batch_edit_order = privatePostV1FapiTradeBatchEditOrder = Entry[
+        _Dict
+    ]("v1/fapi/trade/batch_edit_order", "private", "POST", {"cost": 1})
+    private_post_v1_fapi_trade_cancel_all_order = privatePostV1FapiTradeCancelAllOrder = Entry[
+        _Dict
+    ]("v1/fapi/trade/cancel_all_order", "private", "POST", {"cost": 1})
     private_post_v1_fapi_trade_leverage = privatePostV1FapiTradeLeverage = Entry[_Dict](
         "v1/fapi/trade/leverage", "private", "POST", {"cost": 1}
     )
-    private_post_v1_fapi_trade_batch_leverage_margin = privatePostV1FapiTradeBatchLeverageMargin = Entry[_Dict](
-        "v1/fapi/trade/batch_leverage_margin", "private", "POST", {"cost": 1}
+    private_post_v1_fapi_trade_batch_leverage_margin = privatePostV1FapiTradeBatchLeverageMargin = (
+        Entry[_Dict]("v1/fapi/trade/batch_leverage_margin", "private", "POST", {"cost": 1})
     )
+    private_post_v2_fapi_trade_place_order = privatePostV2FapiTradePlaceOrder = Entry[_Dict](
+        "v2/fapi/trade/place_order", "private", "POST", {"cost": 1}
+    )
+    private_post_v2_fapi_trade_batch_place_order = privatePostV2FapiTradeBatchPlaceOrder = Entry[
+        _Dict
+    ]("v2/fapi/trade/batch_place_order", "private", "POST", {"cost": 1})
+    private_post_v2_fapi_trade_edit_order = privatePostV2FapiTradeEditOrder = Entry[_Dict](
+        "v2/fapi/trade/edit_order", "private", "POST", {"cost": 1}
+    )
+    private_post_v2_fapi_trade_batch_edit_order = privatePostV2FapiTradeBatchEditOrder = Entry[
+        _Dict
+    ]("v2/fapi/trade/batch_edit_order", "private", "POST", {"cost": 1})
+    private_post_v2_fapi_trade_cancel_order = privatePostV2FapiTradeCancelOrder = Entry[_Dict](
+        "v2/fapi/trade/cancel_order", "private", "POST", {"cost": 1}
+    )
+    private_post_v2_fapi_trade_batch_cancel_order = privatePostV2FapiTradeBatchCancelOrder = Entry[
+        _Dict
+    ]("v2/fapi/trade/batch_cancel_order", "private", "POST", {"cost": 1})
+    private_post_v2_fapi_trade_cancel_all_order = privatePostV2FapiTradeCancelAllOrder = Entry[
+        _Dict
+    ]("v2/fapi/trade/cancel_all_order", "private", "POST", {"cost": 1})
     private_post_v1_fapi_user_data_margin_type = privatePostV1FapiUserDataMarginType = Entry[_Dict](
         "v1/fapi/user_data/margin_type", "private", "POST", {"cost": 1}
     )
-    private_post_v1_fapi_user_data_position_side_dual = privatePostV1FapiUserDataPositionSideDual = Entry[_Dict](
-        "v1/fapi/user_data/position_side/dual", "private", "POST", {"cost": 1}
-    )
+    private_post_v1_fapi_user_data_position_side_dual = (
+        privatePostV1FapiUserDataPositionSideDual
+    ) = Entry[_Dict]("v1/fapi/user_data/position_side/dual", "private", "POST", {"cost": 1})
     private_post_v1_agent_internal_withdrawal = privatePostV1AgentInternalWithdrawal = Entry[_Dict](
         "v1/agent/internal_withdrawal", "private", "POST", {"cost": 1}
     )

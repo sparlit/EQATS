@@ -98,8 +98,7 @@ def _ollama_post(path, body):
     try:
         return _post(OLLAMA_BASE, path, body)
     except (urllib.error.URLError, ConnectionRefusedError) as e:
-        msg = "Ollama is unavailable - is `ollama serve` running?"
-        raise RuntimeError(msg) from e
+        raise RuntimeError("Ollama is unavailable - is `ollama serve` running?") from e
 
 
 def embed(text):
@@ -120,25 +119,26 @@ def _openai_compat_post(base, api_key, body, provider_label, unavailable_hint):
             detail = json.load(e)["error"]["message"]
         except Exception:
             detail = f"HTTP {e.code}"
-        msg = f"'{body['model']}' request failed via {provider_label}: {detail}"
-        raise RuntimeError(msg) from e
+        raise RuntimeError(
+            f"'{body['model']}' request failed via {provider_label}: {detail}"
+        ) from e
     except (urllib.error.URLError, ConnectionRefusedError) as e:
-        msg = f"{provider_label} is unavailable - {unavailable_hint}"
-        raise RuntimeError(msg) from e
+        raise RuntimeError(f"{provider_label} is unavailable - {unavailable_hint}") from e
 
 
 def _omniroute_chat(messages, model, tools=None):
     body = {"model": model, "messages": messages, "stream": False}
     if tools:
         body["tools"] = tools
-    resp = _openai_compat_post(OMNIROUTE_BASE, OMNIROUTE_API_KEY, body, "OmniRoute", "is `omniroute serve` running?")
+    resp = _openai_compat_post(
+        OMNIROUTE_BASE, OMNIROUTE_API_KEY, body, "OmniRoute", "is `omniroute serve` running?"
+    )
     return resp["choices"][0]["message"]
 
 
 def _litellm_chat(messages, model, tools=None):
     if not LITELLM_BASE:
-        msg = "LiteLLM isn't configured - add its proxy URL in Settings"
-        raise RuntimeError(msg)
+        raise RuntimeError("LiteLLM isn't configured - add its proxy URL in Settings")
     body = {"model": model, "messages": messages, "stream": False}
     if tools:
         body["tools"] = tools
@@ -152,11 +152,13 @@ def _generate(prompt, model):
     """Single-prompt completion, routed to Ollama's /api/generate or an OpenAI-compatible chat call."""
     if model.startswith("ollama/"):
         ollama_model = model.removeprefix("ollama/")
-        return _ollama_post("/api/generate", {"model": ollama_model, "prompt": prompt, "stream": False})[
-            "response"
-        ].strip()
+        return _ollama_post(
+            "/api/generate", {"model": ollama_model, "prompt": prompt, "stream": False}
+        )["response"].strip()
     if model.startswith("litellm/"):
-        return _litellm_chat([{"role": "user", "content": prompt}], model.removeprefix("litellm/"))["content"].strip()
+        return _litellm_chat([{"role": "user", "content": prompt}], model.removeprefix("litellm/"))[
+            "content"
+        ].strip()
     return _omniroute_chat([{"role": "user", "content": prompt}], model)["content"].strip()
 
 
@@ -172,25 +174,25 @@ def generate(prompt, model, fallback=None):
         return _generate(prompt, model), model
     except Exception as first:
         if not fallback or fallback == model:
-            msg = (
+            raise RuntimeError(
                 f"{first} No fallback model is set - pick one in Settings → Model so unattended runs "
                 "keep working when this one can't be reached."
-            )
-            raise RuntimeError(msg) from first
+            ) from first
         try:
             return _generate(prompt, fallback), fallback
         except Exception as second:
-            msg = f"{model} failed ({first}) and the fallback {fallback} failed too ({second})."
-            raise RuntimeError(msg) from second
+            raise RuntimeError(
+                f"{model} failed ({first}) and the fallback {fallback} failed too ({second})."
+            ) from second
 
 
 def _chat(messages, model):
     """Multi-turn chat, routed to Ollama's /api/chat or an OpenAI-compatible chat call."""
     if model.startswith("ollama/"):
         ollama_model = model.removeprefix("ollama/")
-        return _ollama_post("/api/chat", {"model": ollama_model, "messages": messages, "stream": False})["message"][
-            "content"
-        ].strip()
+        return _ollama_post(
+            "/api/chat", {"model": ollama_model, "messages": messages, "stream": False}
+        )["message"]["content"].strip()
     if model.startswith("litellm/"):
         return _litellm_chat(messages, model.removeprefix("litellm/"))["content"].strip()
     return _omniroute_chat(messages, model)["content"].strip()
@@ -209,11 +211,16 @@ class _OllamaDriver:
         self.model = model.removeprefix("ollama/")
 
     def call(self, messages, tools):
-        msg = _ollama_post("/api/chat", {"model": self.model, "messages": messages, "tools": tools, "stream": False})[
-            "message"
-        ]
+        msg = _ollama_post(
+            "/api/chat",
+            {"model": self.model, "messages": messages, "tools": tools, "stream": False},
+        )["message"]
         calls = [
-            {"id": f"call_{i}", "name": c["function"]["name"], "arguments": c["function"].get("arguments") or {}}
+            {
+                "id": f"call_{i}",
+                "name": c["function"]["name"],
+                "arguments": c["function"].get("arguments") or {},
+            }
             for i, c in enumerate(msg.get("tool_calls") or [])
         ]
         return msg, calls
@@ -273,7 +280,9 @@ def _wrap_tool_result(name, result):
     # The regex catches the stock phrasings; the Laya classifier (when enabled in Settings) catches
     # the reworded ones it can't. ponytail: Laya reads only the first ~2.5k chars of a result, so an
     # injection buried deep in a long scrape is left to the regex and the data boundary below.
-    flagged = _INJECTION_MARKERS.search(text) or (TOOL_RESULT_GUARD is not None and TOOL_RESULT_GUARD(text))
+    flagged = _INJECTION_MARKERS.search(text) or (
+        TOOL_RESULT_GUARD is not None and TOOL_RESULT_GUARD(text)
+    )
     if flagged:
         warning = (
             "\n[SECURITY NOTE: this content contains phrasing that resembles an attempt to "
@@ -326,10 +335,13 @@ def run_agent_stream(messages, tools, tool_impls, model, max_rounds=5):
                 result = f"tool '{call['name']}' failed: {e}"
             # unwrapped - the UI shows the real result
             yield ("tool_result", call["id"], result, round_)
-            msgs.append(driver.tool_result_message(call["id"], _wrap_tool_result(call["name"], result)))
+            msgs.append(
+                driver.tool_result_message(call["id"], _wrap_tool_result(call["name"], result))
+            )
     yield (
         "done",
-        content.strip() or "I couldn't finish that within the tool-call limit - try a more specific request.",
+        content.strip()
+        or "I couldn't finish that within the tool-call limit - try a more specific request.",
     )
 
 
@@ -338,7 +350,6 @@ def run_agent(messages, tools, tool_impls, model, max_rounds=5):
     for event in run_agent_stream(messages, tools, tool_impls, model, max_rounds):
         if event[0] == "done":
             return event[1]
-    return None
 
 
 def get_models():
@@ -364,7 +375,9 @@ def get_models():
             # return_wildcard_routes=true - without it, LiteLLM's /models lists a model_list
             # entry like "openai/*" as that literal wildcard string instead of expanding it into
             # the actual models it covers.
-            req = urllib.request.Request(f"{LITELLM_BASE}/models?return_wildcard_routes=true", headers=headers)
+            req = urllib.request.Request(
+                f"{LITELLM_BASE}/models?return_wildcard_routes=true", headers=headers
+            )
             with urllib.request.urlopen(req, timeout=5) as r:
                 data = json.load(r)
             # return_wildcard_routes also echoes back the raw pattern itself (e.g. "openai/*",
@@ -487,7 +500,7 @@ def chat(history, context, model=DEFAULT_MODEL):
         "reports. If the reports don't cover the question, say so plainly instead of "
         "guessing.\n\n" + context
     )
-    messages = [{"role": "system", "content": system}, *history]
+    messages = [{"role": "system", "content": system}] + history
     return _chat(messages, model)
 
 
@@ -532,7 +545,8 @@ def analyze_trade_screenshot(image_b64, mime, model=DEFAULT_MODEL):
     messages = _vision_messages(TRADE_SCREENSHOT_PROMPT, image_b64, mime, model)
     if model.startswith("ollama/"):
         reply = _ollama_post(
-            "/api/chat", {"model": model.removeprefix("ollama/"), "messages": messages, "stream": False}
+            "/api/chat",
+            {"model": model.removeprefix("ollama/"), "messages": messages, "stream": False},
         )["message"]["content"].strip()
     elif model.startswith("litellm/"):
         reply = _litellm_chat(messages, model.removeprefix("litellm/"))["content"].strip()

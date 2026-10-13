@@ -53,7 +53,7 @@ def get_standalone_results(code):
             for row in table.find_all("tr", {"class": ""})[1:35]:
                 key = row.find("td").text
                 table_cells = row.find_all("td")[1:-1]
-                for i in range(len(table_cells)):
+                for i in range(0, len(table_cells)):
                     if table_cells[i].text == "--":
                         continue
                     results[i][key] = float(table_cells[i].text.replace(",", ""))
@@ -87,7 +87,7 @@ def get_consolidated_results(code):
             for row in table.find_all("tr", {"class": ""})[1:35]:
                 key = row.find("td").text
                 table_cells = row.find_all("td")[1:-1]
-                for i in range(len(table_cells)):
+                for i in range(0, len(table_cells)):
                     if table_cells[i].text == "--":
                         continue
                     results[i][key] = float(table_cells[i].text.replace(",", ""))
@@ -112,7 +112,7 @@ def get_details(company, index):
         for row in table_rows:
             key = row.find("td").text
             table_data = row.find_all("td")[1:-1]
-            for i in range(len(table_data)):
+            for i in range(0, len(table_data)):
                 try:
                     holdings[headings[i].text][key] = float(table_data[i].text)
                 except (AttributeError, TypeError, ValueError):

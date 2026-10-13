@@ -1,0 +1,92 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Token Database Module - Enhanced with Full Memory Cache
+This module provides the same API as before but now uses intelligent in-memory caching
+for 100,000+ symbols with O(1) lookup performance.
+
+All existing code will continue to work without any changes.
+"""
+
+# Import all functions from the enhanced module
+# This makes the enhanced cache transparent to existing code
+# For complete backward compatibility, also expose the old cache variable
+# (though it's not used anymore, some code might reference it)
+
+from database.token_db_enhanced import (
+    # Data types
+    SymbolData,
+    clear_cache,
+    get_br_symbol,
+    get_br_symbol_dbquery,
+    get_brexchange,
+    get_brexchange_dbquery,
+    get_cache_stats,
+    get_oa_symbol,
+    get_oa_symbol_dbquery,
+    get_symbol,
+    get_symbol_count,
+    get_symbol_dbquery,
+    get_symbol_info,
+    get_symbol_info_dbquery,
+    get_symbols_bulk,
+    get_token,
+    # Additional functions for backward compatibility
+    get_token_dbquery,
+    # New bulk operations (optional - won't break existing code)
+    get_tokens_bulk,
+    # Cache management (optional - won't break existing code)
+    load_cache_for_broker,
+    search_symbols,
+)
+from utils.thread_safe_cache import LockedTTLCache
+
+token_cache = LockedTTLCache(maxsize=1024, ttl=3600)  # Dummy cache for compatibility
+
+# Re-export everything so imports work identically
+__all__ = [
+    "get_token",
+    "get_symbol",
+    "get_oa_symbol",
+    "get_br_symbol",
+    "get_brexchange",
+    "get_symbol_info",
+    "get_symbol_count",
+    "get_token_dbquery",
+    "get_symbol_dbquery",
+    "get_oa_symbol_dbquery",
+    "get_br_symbol_dbquery",
+    "get_brexchange_dbquery",
+    "get_symbol_info_dbquery",
+    "token_cache",  # For backward compatibility
+    # Data types
+    "SymbolData",
+    # New functions (won't affect existing code)
+    "get_tokens_bulk",
+    "get_symbols_bulk",
+    "search_symbols",
+    "load_cache_for_broker",
+    "clear_cache",
+    "get_cache_stats",
+]

@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_unique():
@@ -46,10 +46,14 @@ def test_unique():
         }
     )
     # in different langs, the order (sort) is not guaranteed, so we sort the results before comparing them
-    # TODO: `unique` is primarily meant for strings atm, add numeric support
+    # todo: `unique` is primarily meant for strings atm, add numeric support
     test_shared_methods.assert_deep_equal(exchange, None, "testUnique", exchange.unique([]), [])
     # testSharedMethods.assertDeepEqual (exchange, undefined, 'testUnique',  exchange.sort (exchange.unique ([ 1, 2, 3 ])), [ 1, 2, 3 ]);
     # testSharedMethods.assertDeepEqual (exchange, undefined, 'testUnique',  exchange.sort (exchange.unique ([ 1, 2, 3, 4, 1 ])), [ 1, 2, 3, 4 ]);
     test_shared_methods.assert_deep_equal(
-        exchange, None, "testUnique", exchange.sort(exchange.unique(["a", "a", "b", "c", "a", "c"])), ["a", "b", "c"]
+        exchange,
+        None,
+        "testUnique",
+        exchange.sort(exchange.unique(["a", "a", "b", "c", "a", "c"])),
+        ["a", "b", "c"],
     )

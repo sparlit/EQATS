@@ -234,9 +234,15 @@ def fetch_company(symbol: str, use_cache: bool = True) -> dict:
         mh = t.major_holders
         if mh is not None and "Value" in getattr(mh, "columns", []):
             vals = mh["Value"].to_dict()
-            out["holding"]["promoters"] = _num(vals.get("insidersPercentHeld", out["holding"]["promoters"]))
-            out["holding"]["institutions"] = _num(vals.get("institutionsPercentHeld", out["holding"]["institutions"]))
-            out["holding"]["inst_count"] = _num(vals.get("institutionsCount", out["holding"]["inst_count"]))
+            out["holding"]["promoters"] = _num(
+                vals.get("insidersPercentHeld", out["holding"]["promoters"])
+            )
+            out["holding"]["institutions"] = _num(
+                vals.get("institutionsPercentHeld", out["holding"]["institutions"])
+            )
+            out["holding"]["inst_count"] = _num(
+                vals.get("institutionsCount", out["holding"]["inst_count"])
+            )
     except Exception:
         pass
     h = out["holding"]

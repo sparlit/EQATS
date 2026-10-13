@@ -3,8 +3,10 @@ use alloy::primitives::Address;
 use alloy::signers::local::PrivateKeySigner;
 use futures::future::join_all;
 use hyperliquid_rust_sdk::{
-    AssetPosition, BaseUrl, Error, FrontendOpenOrdersResponse, InfoClient, UserFillsResponse,
+    AssetPosition, BaseUrl, Error, FrontendOpenOrdersResponse, InfoClient, InfoRequest,
+    UserFillsResponse, UserStateResponse,
 };
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::sync::{
@@ -24,6 +26,42 @@ static LOCALHOST_DEXS_REFRESH_STARTED: AtomicBool = AtomicBool::new(false);
 const HL_INFO_TIMEOUT_SECS: u64 = 15;
 const LEVERAGE_CACHE_TTL_SECS: u64 = 30;
 
+// The SDK's UserStateResponse discards the exchange timestamp. Keep it so fills
+// already included in a snapshot are not applied a second time during adoption.
+#[derive(Deserialize)]
+struct TimedUserState {
+    #[serde(flatten)]
+    state: UserStateResponse,
+    time: u64,
+}
+
+pub(crate) struct MarginSnapshot {
+    pub total: f64,
+    pub positions: Vec<AssetPosition>,
+    pub orders: Vec<FrontendOpenOrdersResponse>,
+    pub dex_times: HashMap<String, u64>,
+}
+
+impl MarginSnapshot {
+    pub fn time_for(&self, asset: &str) -> Result<u64, Error> {
+        let dex = asset.split_once(':').map_or("", |(dex, _)| dex);
+        self.dex_times
+            .get(dex)
+            .copied()
+            .filter(|time| *time > 0)
+            .ok_or_else(|| Error::Custom(format!("missing account snapshot timestamp for {asset}")))
+    }
+
+    pub fn ensure_no_orders(&self, asset: &str) -> Result<(), Error> {
+        if self.orders.iter().any(|o| o.coin == asset) {
+            return Err(Error::Custom(format!(
+                "Cancel outstanding orders (including TP/SL) for {asset} before adding or resuming it"
+            )));
+        }
+        Ok(())
+    }
+}
+
 pub struct Wallet {
     dexs: Arc<RwLock<Vec<Option<String>>>>,
     leverage_cache: RwLock<HashMap<String, (f64, Instant)>>,
@@ -34,6 +72,23 @@ pub struct Wallet {
 }
 
 impl Wallet {
+    #[cfg(test)]
+    pub(crate) async fn for_test(base_url: String) -> Self {
+        let mut info_client = InfoClient::new(None, Some(BaseUrl::Localhost))
+            .await
+            .unwrap();
+        info_client.http_client.base_url = base_url;
+        let wallet = PrivateKeySigner::random();
+        Self {
+            dexs: Arc::new(RwLock::new(vec![None])),
+            leverage_cache: RwLock::new(HashMap::new()),
+            info_client,
+            pubkey: wallet.address(),
+            wallet,
+            url: BaseUrl::Localhost,
+        }
+    }
+
     const DEXS_REFRESH_SECS: u64 = 12 * 3600;
     pub async fn new(
         url: BaseUrl,
@@ -69,12 +124,33 @@ impl Wallet {
         hl_info_timeout("user_fills", self.info_client.user_fills(self.pubkey)).await
     }
 
-    async fn get_all_positions(&self) -> Result<(Vec<AssetPosition>, f64), Error> {
+    pub(crate) async fn mid_price(&self, asset: &str) -> Result<f64, Error> {
+        let dex = asset.split_once(':').map_or("", |(dex, _)| dex);
+        let body = serde_json::json!({"type": "allMids", "dex": dex}).to_string();
+        let response =
+            hl_info_timeout("all_mids", self.info_client.http_client.post("/info", body)).await?;
+        let mids: HashMap<String, String> =
+            serde_json::from_str(&response).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let raw = mids.get(asset).ok_or(Error::AssetNotFound)?;
+        let px = parse_finite_f64("mid price", raw)?;
+        if px <= 0.0 {
+            return Err(Error::FloatStringParse);
+        }
+        Ok(px)
+    }
+
+    async fn get_all_positions(
+        &self,
+    ) -> Result<(Vec<AssetPosition>, f64, HashMap<String, u64>), Error> {
         let dexs = self.dexs.read().await.clone();
         let futures = dexs.iter().map(|d| {
             hl_info_timeout(
                 "user_state",
-                self.info_client.user_state(self.pubkey, d.clone()),
+                self.info_client
+                    .send_info_request::<TimedUserState>(InfoRequest::UserState {
+                        user: self.pubkey,
+                        dex: d.clone(),
+                    }),
             )
         });
 
@@ -99,13 +175,17 @@ impl Wallet {
             0f64
         };
         let mut parse_error: Option<Error> = None;
+        let mut dex_times = HashMap::new();
 
         let r = join_all(futures)
             .await
             .into_iter()
             .collect::<Result<Vec<_>, Error>>()?
             .into_iter()
-            .flat_map(|state| {
+            .zip(dexs.iter())
+            .flat_map(|(timed, dex)| {
+                dex_times.insert(dex.clone().unwrap_or_default(), timed.time);
+                let state = timed.state;
                 if !is_unified {
                     match parse_finite_f64("account balance", &state.margin_summary.account_value) {
                         Ok(v) => account_value += v,
@@ -122,7 +202,7 @@ impl Wallet {
             return Err(e);
         }
 
-        Ok((r, account_value))
+        Ok((r, account_value, dex_times))
     }
 
     async fn get_all_orders(&self) -> Result<Vec<FrontendOpenOrdersResponse>, Error> {
@@ -156,7 +236,15 @@ impl Wallet {
         &self,
         bot_assets: &HashSet<String>,
     ) -> Result<(f64, Vec<AssetPosition>), Error> {
-        let ((positions, account_value), open_orders) =
+        let snapshot = self.margin_snapshot(bot_assets).await?;
+        Ok((snapshot.total, snapshot.positions))
+    }
+
+    pub(crate) async fn margin_snapshot(
+        &self,
+        bot_assets: &HashSet<String>,
+    ) -> Result<MarginSnapshot, Error> {
+        let ((positions, account_value, dex_times), open_orders) =
             tokio::try_join!(self.get_all_positions(), self.get_all_orders())?;
 
         let unknown_coins: Vec<String> = open_orders
@@ -203,7 +291,16 @@ impl Wallet {
 
         let upnl = position_margin_adjustment(&positions, bot_assets)?;
 
-        Ok((account_value - upnl - discard_value, positions))
+        let total = account_value - upnl - discard_value;
+        if !total.is_finite() {
+            return Err(Error::Custom("non-finite account margin".into()));
+        }
+        Ok(MarginSnapshot {
+            total,
+            positions,
+            orders: open_orders,
+            dex_times,
+        })
     }
 
     async fn active_leverage_cached(&self, coin: &str) -> Result<f64, Error> {

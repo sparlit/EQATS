@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::process::Command;
 use tokio::time::timeout;
 
 use crate::commands::ssh_commands::SSHPool;
@@ -570,8 +569,7 @@ async fn exec_local_shell(command: &str) -> ToolResult {
     let spawn_result = {
         #[cfg(target_os = "windows")]
         {
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            Command::new("powershell")
+            crate::utils::process::async_command("powershell")
                 .args([
                     "-NoProfile",
                     "-NonInteractive",
@@ -582,7 +580,6 @@ async fn exec_local_shell(command: &str) -> ToolResult {
                     ),
                 ])
                 .env("PYTHONIOENCODING", "utf-8")
-                .creation_flags(CREATE_NO_WINDOW)
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -598,7 +595,7 @@ async fn exec_local_shell(command: &str) -> ToolResult {
             // process_group(0) makes the bash child a new process-group
             // leader so a timeout can `kill -pgid` the whole tree
             // (bash → npm → node → postinstall) in one signal.
-            Command::new("bash")
+            crate::utils::process::async_command("bash")
                 .args(["-c", command])
                 .process_group(0)
                 .stdin(Stdio::null())
@@ -686,14 +683,11 @@ async fn exec_local_shell(command: &str) -> ToolResult {
 fn kill_process_tree(pid: u32) {
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
         // /T = kill the whole descendant tree; /F = force. Without this a
         // timed-out npm install keeps writing via its node/postinstall
         // children even after the parent shell is gone.
-        let killed = std::process::Command::new("taskkill")
+        let killed = crate::utils::process::command("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);

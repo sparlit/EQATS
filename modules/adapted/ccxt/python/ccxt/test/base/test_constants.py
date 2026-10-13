@@ -35,17 +35,15 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.decimal_to_precision import (
-    DECIMAL_PLACES,
-    NO_PADDING,
-    PAD_WITH_ZERO,
-    ROUND,
-    ROUND_DOWN,
-    ROUND_UP,
-    SIGNIFICANT_DIGITS,
-    TICK_SIZE,
-    TRUNCATE,
-)
+from ccxt.base.decimal_to_precision import DECIMAL_PLACES  # noqa E402
+from ccxt.base.decimal_to_precision import TICK_SIZE  # noqa E402
+from ccxt.base.decimal_to_precision import NO_PADDING  # noqa E402
+from ccxt.base.decimal_to_precision import TRUNCATE  # noqa E402
+from ccxt.base.decimal_to_precision import ROUND  # noqa E402
+from ccxt.base.decimal_to_precision import ROUND_UP  # noqa E402
+from ccxt.base.decimal_to_precision import ROUND_DOWN  # noqa E402
+from ccxt.base.decimal_to_precision import SIGNIFICANT_DIGITS  # noqa E402
+from ccxt.base.decimal_to_precision import PAD_WITH_ZERO  # noqa E402
 
 
 def test_constants():

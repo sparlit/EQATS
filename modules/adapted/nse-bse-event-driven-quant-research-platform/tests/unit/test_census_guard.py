@@ -60,8 +60,7 @@ class TestCensusDrift:
         report = QualityReport(dataset="t")
         detect_census_drift({"EQ": 100, "SM": 50}, {"EQ": 100, "SME": 50}, report)
         drifts = [i for i in report.issues if i.code == "CENSUS_DRIFT"]
-        assert len(drifts) == 1
-        assert "SM" in drifts[0].detail
+        assert len(drifts) == 1 and "SM" in drifts[0].detail
 
     def test_total_ratio_drop_raises(self):
         report = QualityReport(dataset="t")

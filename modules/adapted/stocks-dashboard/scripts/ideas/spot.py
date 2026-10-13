@@ -36,7 +36,6 @@ import html as htmlmod
 import json
 import os
 import re
-import statistics
 import sys
 import urllib.request
 
@@ -78,17 +77,22 @@ def get(url):
 
 def westmetall(field):
     h = get(f"https://www.westmetall.com/en/markdaten.php?action=table&field={field}")
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.DOTALL)
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.S)
     out = []
     for r in rows:
-        c = [re.sub(r"<[^>]+>", "", x).strip() for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.DOTALL)]
+        c = [
+            re.sub(r"<[^>]+>", "", x).strip()
+            for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)
+        ]
         if len(c) < 2:
             continue
         m = re.match(r"(\d{1,2})\.\s*(\w+)\s+(\d{4})", c[0])
         if not m:
             continue
         try:
-            d = datetime.datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3)}", "%d %B %Y").date()
+            d = datetime.datetime.strptime(
+                f"{m.group(1)} {m.group(2)} {m.group(3)}", "%d %B %Y"
+            ).date()
             v = float(c[1].replace(",", ""))
         except Exception:
             continue
@@ -99,12 +103,12 @@ def westmetall(field):
 
 def insider():
     h = get("https://markets.businessinsider.com/commodities")
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.DOTALL)
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.S)
     out = {}
     for r in rows:
         c = [
             htmlmod.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x))).strip()
-            for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.DOTALL)
+            for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)
         ]
         if len(c) >= 5 and re.match(r"^-?[\d,]+(\.\d+)?$", c[1] or "") and "%" in (c[2] or ""):
             with contextlib.suppress(Exception):
@@ -153,7 +157,9 @@ def main():
     if os.path.exists(hist_fn):
         for r in csv.DictReader(open(hist_fn)):
             with contextlib.suppress(Exception):
-                hist.setdefault(r["name"], []).append((datetime.date.fromisoformat(r["date"]), float(r["price"])))
+                hist.setdefault(r["name"], []).append(
+                    (datetime.date.fromisoformat(r["date"]), float(r["price"]))
+                )
     panel = {}
     series_out = {}
     for name, field in WM.items():
@@ -163,7 +169,9 @@ def main():
             print("westmetall fail", name, e)
             continue
         panel[name] = dict(
-            source="LME cash via Westmetall" if name not in ("gold", "silver") else "London fix via Westmetall",
+            source="LME cash via Westmetall"
+            if name not in ("gold", "silver")
+            else "London fix via Westmetall",
             unit=WM_UNIT[name],
             **stats(s),
         )
@@ -209,7 +217,11 @@ def main():
         if os.path.getsize(hist_fn) == 0:
             w.writerow(["date", "name", "price", "unit", "source"])
         for k, v in panel.items():
-            if v.get("last") is not None and (k, today) not in seen and v.get("date") == today.isoformat():
+            if (
+                v.get("last") is not None
+                and (k, today) not in seen
+                and v.get("date") == today.isoformat()
+            ):
                 w.writerow([today.isoformat(), k, v["last"], v["unit"], v["source"]])
     out = {"updated": ist.stamp(), "count": len(panel), "rows": panel}
     json.dump(out, open(os.path.join(DOCS, "spot.json"), "w"), indent=1)
@@ -223,7 +235,6 @@ def main():
         print(
             f"  {k:24s} {v.get('last')} {v.get('unit'):14s} 1w {v.get('chg_1w')} 1m {v.get('chg_1m')} 3m {v.get('chg_3m')} 52w-pos {v.get('pos')} n={v.get('n')} [{v['source']}]"
         )
-    return None
 
 
 if __name__ == "__main__":

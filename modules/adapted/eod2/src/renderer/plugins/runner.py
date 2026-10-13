@@ -24,13 +24,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+import pandas as pd
 from renderer.cli import CliError
-
-if TYPE_CHECKING:
-    import pandas as pd
-    from renderer.dtypes import PanelAssignment
+from renderer.dtypes import PanelAssignment
 
 
 class PluginError(CliError):
@@ -69,8 +67,9 @@ class PluginRunner:
                 module = import_module(f"renderer.plugins.{module_name}")
             except ModuleNotFoundError as exc:
                 if exc.name in (module_name, f"renderer.plugins.{module_name}"):
-                    msg = f"Could not load plugin '{plugin_key}' from module 'renderer.plugins.{module_name}'"
-                    raise PluginError(msg) from exc
+                    raise PluginError(
+                        f"Could not load plugin '{plugin_key}' from module 'renderer.plugins.{module_name}'"
+                    ) from exc
 
                 raise
 

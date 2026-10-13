@@ -28,7 +28,6 @@ strategy_config.SETUP. Change values there, not here.
 v3.5 (2026-09-12): thresholds migrated to central config.
 """
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -86,7 +85,22 @@ class SetupDetector:
             res = cls._eval(df.iloc[:n], symbol)
             if res is not None:
                 return res
-        return Setup(symbol, False, "", 0, 0, 0, 0, 0, 0, 0, 0, "", 0, ["no completed pattern in last 3 sessions"])
+        return Setup(
+            symbol,
+            False,
+            "",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            "",
+            0,
+            ["no completed pattern in last 3 sessions"],
+        )
 
     @classmethod
     def _eval(cls, df: pd.DataFrame, symbol: str):

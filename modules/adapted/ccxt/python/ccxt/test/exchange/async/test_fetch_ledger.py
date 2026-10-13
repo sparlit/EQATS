@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_ledger_entry,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_ledger_entry  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_ledger(exchange, skipped_properties, code):
@@ -46,7 +46,7 @@ async def test_fetch_ledger(exchange, skipped_properties, code):
     items = await exchange.fetch_ledger(code)
     test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, items, code)
     now = exchange.milliseconds()
-    for i in range(len(items)):
+    for i in range(0, len(items)):
         test_ledger_entry(exchange, skipped_properties, method, items[i], code, now)
     test_shared_methods.assert_timestamp_order(exchange, method, code, items)
     return True

@@ -49,11 +49,12 @@ async def main():
     )
     await exchange.load_markets()
     try:
-        await exchange.eapiPublicGetMark(
+        response = await exchange.eapiPublicGetMark(
             {
                 # 'symbol': market_id,  # optional
             }
         )
+        pprint(response)
     except Exception as e:
         print("eapiPublicGetMark() failed")
         print(e)

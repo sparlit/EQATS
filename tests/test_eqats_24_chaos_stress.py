@@ -1,10 +1,11 @@
-from typing import Any
 import unittest
+
 import config
 import connector
 import database
 import eqats_planes
 import main
+
 
 class TestEQATS24ChaosStressCompliance(unittest.TestCase):
     """

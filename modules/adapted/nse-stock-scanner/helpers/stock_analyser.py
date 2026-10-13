@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
-import plotly.graph_objects as go
 import plotly.io as pio
 from ta.trend import ADXIndicator, cci, macd_diff
 from ta.volatility import average_true_range
@@ -70,19 +68,22 @@ class AnalyseStocks(DataHandler):
                     return self.indices[index]
             return "Other"
 
-        result = []
-        for index in self.indices:
-            if symbol in self.data[index]:
-                result.append(self.indices[index])
-                break
+        else:
+            result = []
+            for index in self.indices:
+                if symbol in self.data[index]:
+                    result.append(self.indices[index])
+                    break
 
-        for group_name in ["sectoral_indices", "thematic_indices"]:
-            for sector in self.data[group_name]:
-                if symbol in self.data[group_name][sector]:
-                    result.append(sector)
-        return result
+            for group_name in ["sectoral_indices", "thematic_indices"]:
+                for sector in self.data[group_name]:
+                    if symbol in self.data[group_name][sector]:
+                        result.append(sector)
+            return result
 
-    def is_ma_eligible(self, df, limit: float, mv=44, names: tuple = ("DATE", "OPEN", "CLOSE", "LOW", "HIGH")):
+    def is_ma_eligible(
+        self, df, limit: float, mv=44, names: tuple = ("DATE", "OPEN", "CLOSE", "LOW", "HIGH")
+    ):
         """
         Find the Positive Stocks which are about to rise on the Moving average line
         args:
@@ -91,10 +92,12 @@ class AnalyseStocks(DataHandler):
             mv: Moving Average to Consider
             names: Tuple of column names showing ('DATE','OPEN','CLOSE','LOW','HIGH')
         """
-        _Date, Open, Close, Low, High = names
-        Average = f"{mv!s}-SMA"
+        Date, Open, Close, Low, High = names
+        Average = f"{str(mv)}-SMA"
 
-        stocks = df.sort_index(ascending=False)  # Sort the values else Moving average for new values will be empty
+        stocks = df.sort_index(
+            ascending=False,
+        )  # Sort the values else Moving average for new values will be empty
         stocks[Average] = stocks[Close].rolling(mv, min_periods=1).mean()
 
         last_traded = stocks.iloc[-1, :]
@@ -110,7 +113,7 @@ class AnalyseStocks(DataHandler):
         if (close < avg) or (close < open_):  # if red candle or below Average Line, Discard
             return False
 
-        limit = limit or low * 0.0015  # assume limit to be 5% of low
+        limit = limit if limit else low * 0.0015  # assume limit to be 5% of low
         diff = min(
             abs(low - avg), (abs(high - avg)), abs(open_ - avg), abs(close - avg)
         )  # min diff between any of the 4 values
@@ -155,7 +158,9 @@ class AnalyseStocks(DataHandler):
 
         return ticker.iloc[0, -2:]
 
-    def Ichimoku_Cloud(self, df, names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"), return_df: bool = True):
+    def Ichimoku_Cloud(
+        self, df, names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"), return_df: bool = True
+    ):
         """
         Get the values of Lines for Ichimoku Cloud
         args:
@@ -163,7 +168,7 @@ class AnalyseStocks(DataHandler):
             nameS: Names of Columns containing these Attributes
             return_df = Whether to rturn the whole df or just recent values
         """
-        _Open, Close, Low, High = names
+        Open, Close, Low, High = names
         d = df.copy()
         if (
             d.iloc[0, 0] > d.iloc[1, 0]
@@ -207,7 +212,15 @@ class AnalyseStocks(DataHandler):
     def Ichi_count(
         self,
         data,
-        names=("LOW", "HIGH", "cloud_green_line_a", "cloud_red_line_b", "lagging_line", "blue_line", "red_line"),
+        names=(
+            "LOW",
+            "HIGH",
+            "cloud_green_line_a",
+            "cloud_red_line_b",
+            "lagging_line",
+            "blue_line",
+            "red_line",
+        ),
     ):
         """
         Get The Count of how many Ichimoku Conditions this certain Data Holds. Conditions being:
@@ -221,7 +234,9 @@ class AnalyseStocks(DataHandler):
         count = 0
 
         if isinstance(data, pd.DataFrame):
-            LOW, HIGH, cloud_green_line_a, cloud_red_line_b, lagging_line, blue_line, red_line = names
+            LOW, HIGH, cloud_green_line_a, cloud_red_line_b, lagging_line, blue_line, red_line = (
+                names
+            )
             df = data.copy()
             if (
                 df.iloc[0, 0] < df.iloc[1, 0]
@@ -229,12 +244,16 @@ class AnalyseStocks(DataHandler):
                 df.sort_index(ascending=True, inplace=True)
 
             current = df.iloc[0, :]
-            if current[cloud_green_line_a] < current[LOW] and current[cloud_red_line_b] < current[LOW]:  # Cloud Below
+            if (
+                current[cloud_green_line_a] < current[LOW]
+                and current[cloud_red_line_b] < current[LOW]
+            ):  # Cloud Below
                 count += 1
             if df.loc[26, lagging_line] > df.loc[26, HIGH]:  # Lagging Line
                 count += 1
             if (
-                df.loc[1, blue_line] <= df.loc[1, red_line].min() and current[blue_line] >= current[red_line]
+                df.loc[1, blue_line] <= df.loc[1, red_line].min()
+                and current[blue_line] >= current[red_line]
             ):  # Cross Over
                 count += 1
 
@@ -291,8 +310,12 @@ class AnalyseStocks(DataHandler):
             ma_down = down.ewm(com=periods - 1, min_periods=periods).mean()
 
         else:  # Use simple moving average
-            ma_up = up.rolling(window=periods).mean()
-            ma_down = down.rolling(window=periods).mean()
+            ma_up = up.rolling(
+                window=periods,
+            ).mean()
+            ma_down = down.rolling(
+                window=periods,
+            ).mean()
 
         rsi = ma_up / ma_down
         rsi = 100 - (100 / (1 + rsi))
@@ -303,11 +326,15 @@ class AnalyseStocks(DataHandler):
             return df
 
         if signal_only:
-            if (df.iloc[0, -1] > 80) or ((df.iloc[0, -1] < 70) and (df.iloc[1, -1] > 70)):  # Coming up from above
+            if (df.iloc[0, -1] > 80) or (
+                (df.iloc[0, -1] < 70) and (df.iloc[1, -1] > 70)
+            ):  # Coming up from above
                 signal = "Sell"
 
             elif (
-                (df.iloc[0, -1] > 30) and (df.iloc[1, -1] < 30) and (df.loc[0, Close] > df.loc[0, "200-MA"])
+                (df.iloc[0, -1] > 30)
+                and (df.iloc[1, -1] < 30)
+                and (df.loc[0, Close] > df.loc[0, "200-MA"])
             ):  # Cutting RSI from below but still over 200 MA
                 signal = "Buy"
 
@@ -318,7 +345,13 @@ class AnalyseStocks(DataHandler):
 
         return df.iloc[0, -1]  # return Recent RSI value
 
-    def get_ATR(self, df, window: int = 14, names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"), return_df: bool = False):
+    def get_ATR(
+        self,
+        df,
+        window: int = 14,
+        names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"),
+        return_df: bool = False,
+    ):
         """
         Get the Average True Range. Concept of Volatility
         args:
@@ -327,7 +360,7 @@ class AnalyseStocks(DataHandler):
             names: Column names showing ('OPEN','CLOSE','LOW','HIGH') in the same order
             return_df: Whether to return the whole Df or the latest value
         """
-        _Open, Close, Low, High = names
+        Open, Close, Low, High = names
         data = df.copy()
         if (
             data.iloc[0, 0] > data.iloc[1, 0]
@@ -359,14 +392,14 @@ class AnalyseStocks(DataHandler):
             simple: Whether to return Simple or Exponential Moving Average
             return_df: Whether to return DF or the most recent values
         """
-        _Open, Close, _Low, _High = names
+        Open, Close, Low, High = names
         data = df.copy()
         if (
             data.iloc[0, 0] > data.iloc[1, 0]
         ):  # if the first Date entry [0,0] is > previous data entry [1,0] then it is in descending order, then reverse it for calculation
             data.sort_index(ascending=False, inplace=True)
 
-        Average = f"{window!s}-MA"
+        Average = f"{str(window)}-MA"
         if simple:
             data[Average] = data[Close].rolling(window, min_periods=1).mean()
         else:
@@ -395,7 +428,7 @@ class AnalyseStocks(DataHandler):
             return_df: Whether to return the whoe DataFrame or the Recent Value
             generate signal: Whether to generate the CCI Buy or Sell Signal only instead of value
         """
-        _Open, Close, Low, High, _Date = names
+        Open, Close, Low, High, Date = names
         df = data.copy()
         if (
             df.iloc[0, 0] > df.iloc[1, 0]
@@ -443,7 +476,7 @@ class AnalyseStocks(DataHandler):
             return_df: Whether to return the whoe DataFrame or the Recent Value
             return_adx_only: Return only the Average value. Esle it returns all of Negative, Positive, Average
         """
-        _Open, Close, Low, High = names
+        Open, Close, Low, High = names
         df = data.copy()
         if (
             df.iloc[0, 0] > df.iloc[1, 0]
@@ -488,7 +521,7 @@ class AnalyseStocks(DataHandler):
         out:
             Returns either the Array containing (fast_line,slow_line) values or the entire DataFrame
         """
-        _OPEN, CLOSE, LOW, HIGH = names
+        OPEN, CLOSE, LOW, HIGH = names
         df = data.copy()
         if (
             df.iloc[0, 0] > df.iloc[1, 0]
@@ -502,7 +535,9 @@ class AnalyseStocks(DataHandler):
         df["n_low"] = df[LOW].rolling(k_period).min()
 
         # Uses the min/max values to calculate the %k (as a percentage)
-        df["Blue Line"] = (df[CLOSE] - df["n_low"]) * 100 / (df["n_high"] - df["n_low"])  # %K or so called Fast Line
+        df["Blue Line"] = (
+            (df[CLOSE] - df["n_low"]) * 100 / (df["n_high"] - df["n_low"])
+        )  # %K or so called Fast Line
 
         if smooth_k > 1:  # Smoothen the Fast, Blue line
             df["Blue Line"] = df["Blue Line"].rolling(smooth_k).mean()
@@ -562,7 +597,9 @@ class AnalyseStocks(DataHandler):
         results.append(self.get_RSI(data, signal_only=True))
         results.append(self.Ichi_count(self.Ichimoku_Cloud(data)))
 
-        results.append(CP.find_name(data.loc[0, Open], data.loc[0, Close], data.loc[0, Low], data.loc[0, High]))
+        results.append(
+            CP.find_name(data.loc[0, Open], data.loc[0, Close], data.loc[0, Low], data.loc[0, High])
+        )
         results.append(CP.double_candle_pattern(data))
         results.append(CP.triple_candle_pattern(data))
 
@@ -589,7 +626,7 @@ class AnalyseStocks(DataHandler):
         if data.shape[0] < long_mv:
             return False
 
-        _Open, Close, _Low, _High = names
+        Open, Close, Low, High = names
         df = data.copy()
         if (
             df.iloc[0, 0] > df.iloc[1, 0]
@@ -607,7 +644,9 @@ class AnalyseStocks(DataHandler):
 
         return (last_short <= last_long) and (current_short > current_long)
 
-    def near_52(self, df, names: tuple = ("LOW", "HIGH", "52W L", "52W H"), threshold: float = 0.05):
+    def near_52(
+        self, df, names: tuple = ("LOW", "HIGH", "52W L", "52W H"), threshold: float = 0.05
+    ):
         """
         Get if Stock is Near 52 Week High or low. If near low, chances are that it'll keep on getting lower and vice versa. if high or low within 5% of 52 Week high or Low
         args:
@@ -616,9 +655,13 @@ class AnalyseStocks(DataHandler):
             threshold: Fraction of the 52W high. if 0.05, it means that difference between current high/low and 52W high/low must be within 5% of 52 Week number
         """
         Low, High, _52wl, _52wh = names
-        if abs(df.loc[0, High] - df.loc[0, _52wh]) <= df.loc[0, _52wh] * threshold:  # Near 52 W H means Rising:
+        if (
+            abs(df.loc[0, High] - df.loc[0, _52wh]) <= df.loc[0, _52wh] * threshold
+        ):  # Near 52 W H means Rising:
             return "Rising High"
-        if abs(df.loc[0, Low] - df.loc[0, _52wl]) <= df.loc[0, _52wl] * threshold:  # Near 52 W Low means Falling
+        elif (
+            abs(df.loc[0, Low] - df.loc[0, _52wl]) <= df.loc[0, _52wl] * threshold
+        ):  # Near 52 W Low means Falling
             return "Falling Low"
         return "Undeterministic"
 
@@ -648,7 +691,7 @@ class AnalyseStocks(DataHandler):
         return signal
 
     def get_Pivot_Points(
-        self, data, names: list | None = None, cpr: bool = True, num_days_back: int = 5, plot: bool = False
+        self, data, names: list = None, cpr: bool = True, num_days_back: int = 5, plot: bool = False
     ):
         """
         Get 'Traditional Daily' Pivot Pointswith 3 support and 3 Resistance. Also it gives Central Pivot Line, Lower Boundary and Upper Boundary
@@ -666,15 +709,20 @@ class AnalyseStocks(DataHandler):
             names = ["OPEN", "CLOSE", "HIGH", "LOW", "DATE"]
         df = data.copy()
 
-        if df.iloc[0, 0] < df.iloc[1, 0]:  # If data is in reverse order, sort again because We want the dat for recent
+        if (
+            df.iloc[0, 0] < df.iloc[1, 0]
+        ):  # If data is in reverse order, sort again because We want the dat for recent
             df.sort_index(ascending=False, inplace=True)
 
         pivots = {}
 
         for index in df.index[:num_days_back]:
-            _open, close, high, low, DATE = df.loc[index, names].values
+            open, close, high, low, DATE = df.loc[index, names].values
 
-            DATE = df.loc[0, names[-1]] + timedelta(days=1) if index == 0 else df.loc[index - 1, names[-1]]
+            if index == 0:
+                DATE = df.loc[0, names[-1]] + timedelta(days=1)
+            else:
+                DATE = df.loc[index - 1, names[-1]]
 
             piv = round((high + low + close) / 3, 2)
             r1 = round((2 * piv) - low, 2)
@@ -684,7 +732,15 @@ class AnalyseStocks(DataHandler):
             s2 = round(piv - (high - low), 2)
             s3 = round(s1 - (high - low), 2)
 
-            result = {"Pivot": piv, "S-1": s1, "R-1": r1, "S-2": s2, "R-2": r2, "S-3": s3, "R-3": r3}
+            result = {
+                "Pivot": piv,
+                "S-1": s1,
+                "R-1": r1,
+                "S-2": s2,
+                "R-2": r2,
+                "S-3": s3,
+                "R-3": r3,
+            }
 
             if cpr:
                 result["LB"] = round((high + low) / 2, 2)
@@ -700,7 +756,7 @@ class AnalyseStocks(DataHandler):
     def get_recent_info(
         self,
         nifty: int = 200,
-        custom_list: tuple | None = None,
+        custom_list: tuple = None,
         col_names: tuple = ("DATE", "OPEN", "CLOSE", "LOW", "HIGH"),
         **kwargs,
     ):
@@ -715,12 +771,12 @@ class AnalyseStocks(DataHandler):
             for key in self.recent_info:
                 if nifty == key:
                     return self.recent_info[nifty]
-                if nifty < key:
+                elif nifty < key:
                     return self.recent_info[key][self.recent_info[key]["Index"] == f"Nifty {nifty}"]
         else:
             nif = custom_list
 
-        DATE, _Open, Close, _Low, _High = col_names
+        DATE, Open, Close, Low, High = col_names
         names = []
         over_20 = []
         over_50 = []
@@ -817,7 +873,7 @@ class AnalyseStocks(DataHandler):
         returns:
                 Dictonary containing {stock_name:no of candles}
         """
-        OPEN, CLOSE, _LOW, _HIGH = names
+        OPEN, CLOSE, LOW, HIGH = names
         result = {}
 
         for name in self.data[stocks]:

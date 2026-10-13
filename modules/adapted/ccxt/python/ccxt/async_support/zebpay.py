@@ -60,6 +60,7 @@ from ccxt.base.types import (
     OrderBook,
     OrderSide,
     OrderType,
+    Position,
     Status,
     Str,
     Strings,
@@ -166,6 +167,7 @@ class zebpay(Exchange, ImplicitAPI):
                                 "v2/system/time": {"cost": 10},
                                 "v2/system/status": {"cost": 10},
                                 "v2/market/orderbook": {"cost": 10},
+                                "v2/market/orderbook/ticker": {"cost": 10},
                                 "v2/market/trades": {"cost": 10},
                                 "v2/market/ticker": {"cost": 10},
                                 "v2/market/allTickers": {"cost": 10},
@@ -181,9 +183,12 @@ class zebpay(Exchange, ImplicitAPI):
                                 "v1/system/status": {"cost": 10},
                                 "v1/exchange/tradefee": {"cost": 10},
                                 "v1/exchange/tradefees": {"cost": 10},
+                                "v1/exchange/exchangeInfo": {"cost": 10},
+                                "v1/exchange/pairs": {"cost": 10},
                                 "v1/market/orderBook": {"cost": 10},
                                 "v1/market/ticker24Hr": {"cost": 10},
                                 "v1/market/markets": {"cost": 10},
+                                "v1/market/marketInfo": {"cost": 10},
                                 "v1/market/aggTrade": {"cost": 10},
                             },
                             "post": {
@@ -200,6 +205,7 @@ class zebpay(Exchange, ImplicitAPI):
                                 "v2/ex/orders": {"cost": 10},
                                 "v2/account/balance": {"cost": 10},
                                 "v2/ex/tradefee": {"cost": 10},
+                                "v2/ex/myfee/{symbol}": {"cost": 10},
                                 "v2/ex/order": {"cost": 10},
                                 "v2/ex/order/fills": {"cost": 10},
                             },
@@ -214,10 +220,12 @@ class zebpay(Exchange, ImplicitAPI):
                                 "v1/wallet/balance": {"cost": 10},
                                 "v1/trade/order": {"cost": 10},
                                 "v1/trade/order/open-orders": {"cost": 10},
+                                "v1/trade/order/history": {"cost": 10},
                                 "v1/trade/userLeverages": {"cost": 10},
                                 "v1/trade/userLeverage": {"cost": 10},
                                 "v1/trade/positions": {"cost": 10},
                                 "v1/trade/history": {"cost": 10},
+                                "v1/trade/transaction/history": {"cost": 10},
                             },
                             "post": {
                                 "v1/trade/order": {"cost": 10},
@@ -228,6 +236,10 @@ class zebpay(Exchange, ImplicitAPI):
                                 "v1/trade/update/userLeverage": {"cost": 10},
                             },
                             "delete": {
+                                "v1/trade/order": {"cost": 10},
+                                "v1/trade/order/all": {"cost": 10},
+                            },
+                            "patch": {
                                 "v1/trade/order": {"cost": 10},
                             },
                         },
@@ -278,7 +290,7 @@ class zebpay(Exchange, ImplicitAPI):
             },
         )
 
-    async def fetch_status(self, params=None) -> Status:
+    async def fetch_status(self, params: dict = None) -> Status:
         """
         the latest known information on the availability of the exchange API
 
@@ -290,16 +302,15 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("fetchStatus", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params("fetchStatus", None, params)
         isSpot = type == "spot"
         response = None
         data = {}
         if isSpot:
-            response = await self.publicSpotGetV2SystemStatus(params)
+            response = await self.publicSpotGetV2SystemStatus(paramsMarketType)
             data = response
         else:
-            response = await self.publicSwapGetV1SystemStatus(params)
+            response = await self.publicSwapGetV1SystemStatus(paramsMarketType)
             data = self.safe_dict(response, "data", {})
         #
         # {
@@ -321,7 +332,7 @@ class zebpay(Exchange, ImplicitAPI):
             "info": response,
         }
 
-    async def fetch_time(self, params=None) -> Int:
+    async def fetch_time(self, params: dict = None) -> Int:
         """
         fetches the current integer timestamp in milliseconds from the poloniexfutures server
 
@@ -333,16 +344,15 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("fetchTime", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params("fetchTime", None, params)
         isSpot = type == "spot"
         response = None
         data = {}
         if isSpot:
-            response = await self.publicSpotGetV2SystemTime(params)
+            response = await self.publicSpotGetV2SystemTime(paramsMarketType)
             data = response
         else:
-            response = await self.publicSwapGetV1SystemTime(params)
+            response = await self.publicSwapGetV1SystemTime(paramsMarketType)
             data = self.safe_dict(response, "data", {})
         #
         # {
@@ -355,9 +365,10 @@ class zebpay(Exchange, ImplicitAPI):
         #     "customMessage": ["OK"]
         # }
         #
-        return self.safe_integer(data, "timestamp")
+        time = self.safe_integer(data, "timestamp")
+        return time
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
         retrieves data on all markets for zebpay
 
@@ -373,22 +384,25 @@ class zebpay(Exchange, ImplicitAPI):
         fetchMarketsOptions = self.safe_dict(self.options, "fetchMarkets")
         defaultMarkets = ["spot", "swap"]
         types = self.safe_list(fetchMarketsOptions, "types", defaultMarkets)
-        for i in range(len(types)):
-            type = types[i]
+        for i in range(0, len(types)):
+            type = self.safe_string(types, i)
             if type == "spot":
                 promisesUnresolved.append(self.fetch_spot_markets(params))
             elif type == "swap":
                 promisesUnresolved.append(self.fetch_swap_markets(params))
             else:
                 raise ExchangeError(
-                    self.id + ' fetchMarkets() self.options fetchMarkets "' + type + '" is not a supported market type'
+                    self.id
+                    + ' fetchMarkets() self.options fetchMarkets "'
+                    + type
+                    + '" is not a supported market type'
                 )
         promises = await asyncio.gather(*promisesUnresolved)
         spotMarkets = self.safe_list(promises, 0, [])
         futureMarkets = self.safe_list(promises, 1, [])
         return self.array_concat(spotMarkets, futureMarkets)
 
-    async def fetch_currencies(self, params=None) -> Currencies:
+    async def fetch_currencies(self, params: dict = None) -> Currencies:
         """
         fetches all available currencies on an exchange
 
@@ -409,7 +423,7 @@ class zebpay(Exchange, ImplicitAPI):
         #                     "fullName": "150",
         #                     "precision": "0.2",
         #                     "type": "fiat",
-        #                     "isDebitEnabled": False,
+        #                     "isDebitEnabled": false,
         #                     "chains": [
         #                         {
         #                             "chainName": "Bitcoin",
@@ -438,7 +452,9 @@ class zebpay(Exchange, ImplicitAPI):
         currencyId = self.safe_string(rawCurrency, "currency")
         code = self.safe_currency_code(currencyId)
         name = self.safe_string(rawCurrency, "name")
-        precision = self.parse_number(self.parse_precision(self.safe_string(rawCurrency, "precision")))
+        precision = self.parse_number(
+            self.parse_precision(self.safe_string(rawCurrency, "precision"))
+        )
         chains = self.safe_list(rawCurrency, "chains", [])
         networks = {}
         minWithdrawFeeString = None
@@ -446,14 +462,14 @@ class zebpay(Exchange, ImplicitAPI):
         minDepositString = None
         deposit = False
         withdraw = False
-        for j in range(len(chains)):
+        for j in range(0, len(chains)):
             chain = chains[j]
             networkId = self.safe_string(chain, "chainId")
             networkCode = self.network_id_to_code(networkId, code)
-            depositAllowed = self.safe_bool(chain, "isDepositEnabled") is True
-            deposit = (depositAllowed) or deposit
-            withdrawAllowed = self.safe_bool(chain, "isWithdrawEnabled") is True
-            withdraw = (withdrawAllowed) or withdraw
+            depositAllowed = self.safe_bool(chain, "isDepositEnabled", False)
+            deposit = depositAllowed if (depositAllowed) else deposit
+            withdrawAllowed = self.safe_bool(chain, "isWithdrawEnabled", False)
+            withdraw = withdrawAllowed if (withdrawAllowed) else withdraw
             withdrawFeeString = self.safe_string(chain, "withdrawalFee")
             if withdrawFeeString is not None:
                 minWithdrawFeeString = (
@@ -525,7 +541,7 @@ class zebpay(Exchange, ImplicitAPI):
             }
         )
 
-    async def fetch_trading_fee(self, symbol: str, params=None) -> TradingFeeInterface:
+    async def fetch_trading_fee(self, symbol: str, params: dict = None) -> TradingFeeInterface:
         """
         fetch the trading fees for a market
 
@@ -543,7 +559,7 @@ class zebpay(Exchange, ImplicitAPI):
             await self.load_markets()
         market = self.market(symbol)
         response = None
-        data
+        data = None
         request = {
             "symbol": market["id"],
         }
@@ -557,7 +573,7 @@ class zebpay(Exchange, ImplicitAPI):
             #         "symbol": "BTCINR",
             #         "takerFeeRate": "0.01",
             #         "makerFeeRate": "0.05",
-            #         "percentage": True
+            #         "percentage": true
             #       } ,
             #     "statusCode": 200,
             # }
@@ -583,7 +599,7 @@ class zebpay(Exchange, ImplicitAPI):
             data = self.safe_dict(responseData, 0, {})
         return self.parse_trading_fee(data, market)
 
-    async def fetch_trading_fees(self, params=None) -> TradingFees:
+    async def fetch_trading_fees(self, params: dict = None) -> TradingFees:
         """
         fetch the trading fees for multiple markets
 
@@ -594,13 +610,14 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("fetchTradingFees", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params(
+            "fetchTradingFees", None, params
+        )
         response = None
         if type == "spot":
-            response = await self.publicSpotGetV2ExTradefees(params)
+            response = await self.publicSpotGetV2ExTradefees(paramsMarketType)
         else:
-            response = await self.publicSwapGetV1ExchangeTradefees(params)
+            response = await self.publicSwapGetV1ExchangeTradefees(paramsMarketType)
         #
         # {
         #     "statusDescription": "OK",
@@ -617,14 +634,16 @@ class zebpay(Exchange, ImplicitAPI):
         #
         fees = self.safe_list(response, "data", [])
         result = {}
-        for i in range(len(fees)):
+        for i in range(0, len(fees)):
             fee = self.parse_trading_fee(fees[i])
             symbol = fee["symbol"]
             if symbol is not None:
                 result[symbol] = fee
         return result
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def fetch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
 
@@ -632,7 +651,7 @@ class zebpay(Exchange, ImplicitAPI):
         [Swap] https://github.com/zebpay/zebpay-api-references/blob/main/futures/api-reference/public-endpoints/market.md#get-order-book
 
         :param str symbol: unified symbol of the market to fetch the order book for
-        :param int [limit]: the maximum amount of order book entries to return
+        :param int [limit]: the maximum amount of order book entries to return.
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :returns dict: an `order book structure <https://docs.ccxt.com/?id=order-book-structure>`
         """
@@ -644,19 +663,19 @@ class zebpay(Exchange, ImplicitAPI):
         request = {
             "symbol": market["id"],
         }
+        if limit is not None:
+            request["limit"] = limit
         response = None
         if market["spot"] is True:
-            if limit is not None:
-                request["limit"] = limit
             #
             #       {
             #         "asks": [
-            #                 [5000, 1000],           #Price, quantity
-            #                 [6000, 1983]            #Price, quantity
+            #                 [5000, 1000],           //Price, quantity
+            #                 [6000, 1983]            //Price, quantity
             #         ],
             #         "bids": [
-            #                 [3200, 800],            #Price, quantity
-            #                 [3100, 100]             #Price, quantity
+            #                 [3200, 800],            //Price, quantity
+            #                 [3100, 100]             //Price, quantity
             #         ],
             #       }
             # }
@@ -668,7 +687,7 @@ class zebpay(Exchange, ImplicitAPI):
         orderbook["nonce"] = self.safe_integer(bookData, "nonce")
         return orderbook
 
-    async def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
 
@@ -713,7 +732,7 @@ class zebpay(Exchange, ImplicitAPI):
         data = self.safe_dict(response, "data", {})
         return self.parse_ticker(data, market)
 
-    async def fetch_tickers(self, symbols: Strings = None, params=None) -> Tickers:
+    async def fetch_tickers(self, symbols: Strings = None, params: dict = None) -> Tickers:
         """
         fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
 
@@ -725,14 +744,13 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("fetchTickers", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params("fetchTickers", None, params)
         if type != "spot":
             raise NotSupported(self.id + " fetchTickers() does not support " + type + " markets")
         if self.markets is None:
             await self.load_markets()
-        symbols = self.market_symbols(symbols)
-        response = await self.publicSpotGetV2MarketAllTickers(params)
+        symbolsNormalized = self.market_symbols(symbols)
+        response = await self.publicSpotGetV2MarketAllTickers(paramsMarketType)
         #
         #     [
         #        {
@@ -752,10 +770,10 @@ class zebpay(Exchange, ImplicitAPI):
         #     ]
         #
         tickerList = self.safe_list(response, "data", [])
-        return self.parse_tickers(tickerList, symbols)
+        return self.parse_tickers(tickerList, symbolsNormalized)
 
     async def fetch_ohlcv(
-        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params=None
+        self, symbol: str, timeframe="1m", since: Int = None, limit: Int = None, params: dict = None
     ) -> list[list]:
         """
         fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
@@ -766,9 +784,11 @@ class zebpay(Exchange, ImplicitAPI):
         :param str symbol: unified symbol of the market to fetch OHLCV data for
         :param str timeframe: the length of time each candle represents
         :param int [since]: timestamp in ms of the earliest candle to fetch
-        :param int [limit]: the maximum amount of candles to fetch
+        :param int [limit]: the maximum amount of candles to fetch. Swap: 1–1000, omit for 1000
         :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param int [params.until]: timestamp in ms of the latest candle to fetch(inclusive). Swap: requires since
         :param int [params.endtime]: the latest time in ms to fetch orders for
+        :param str [params.priceType]: *swap only* LTP(default) or MARK_PRICE
         :returns int[][]: A list of candles ordered as timestamp, open, high, low, close, volume
         """
         if params is None:
@@ -776,35 +796,42 @@ class zebpay(Exchange, ImplicitAPI):
         if self.markets is None:
             await self.load_markets()
         market = self.market(symbol)
-        if limit is None:
-            limit = 100  # default is 200
         request = {
             "symbol": market["id"],
         }
-        if market["spot"] is True:
-            request["interval"] = self.safe_string(self.timeframes, timeframe, timeframe)
-        else:
-            request["interval"] = timeframe
-        if (market["contract"] is True) and (limit is not None):
-            request["limit"] = limit
-        if since is not None:
-            if market["spot"] is True:
-                request["startTime"] = since
-            else:
-                request["since"] = since
         until = self.safe_integer_2(params, "until", "endtime")
-        if until is not None:
-            request["endTime"] = until
-            params = self.omit(params, ["endtime", "until"])
+        paramsOmitted = self.omit(params, ["until", "endtime", "endTime", "interval", "startTime"])
         response = None
+        limitResolved = limit
         if market["spot"] is True:
+            if limit is None:
+                limitResolved = 100
+            request["interval"] = self.safe_string(self.timeframes, timeframe, timeframe)
+            if since is not None:
+                request["startTime"] = since
+            if until is not None:
+                request["endTime"] = until
             if until is None or since is None:
                 raise ArgumentsRequired(
-                    self.id + " fetchOHLCV() requires a both a since and until/endtime parameter for spot markets"
+                    self.id
+                    + " fetchOHLCV() requires a both a since and until/endtime parameter for spot markets"
                 )
-            response = await self.publicSpotGetV2MarketKlines(self.extend(request, params))
+            paramsSpot = self.omit(paramsOmitted, "priceType")
+            response = await self.publicSpotGetV2MarketKlines(self.extend(request, paramsSpot))
         else:
-            response = await self.publicSwapPostV1MarketKlines(self.extend(request, params))
+            request["timeframe"] = timeframe
+            if limit is not None:
+                request["limit"] = limit
+            if since is not None:
+                request["since"] = since
+            if until is not None:
+                if since is None:
+                    raise ArgumentsRequired(
+                        self.id
+                        + ' fetchOHLCV() requires a since argument when params["until"] is used'
+                    )
+                request["until"] = until
+            response = await self.publicSwapPostV1MarketKlines(self.extend(request, paramsOmitted))
         #
         #             [
         #                 [
@@ -837,9 +864,11 @@ class zebpay(Exchange, ImplicitAPI):
         #             ]
         #
         data = self.safe_list(response, "data", [])
-        return self.parse_ohlcvs(data, market, timeframe, since, limit)
+        return self.parse_ohlcvs(data, market, timeframe, since, limitResolved)
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -883,7 +912,7 @@ class zebpay(Exchange, ImplicitAPI):
         return self.parse_trades(data, market, since, limit)
 
     async def fetch_my_trades(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
@@ -903,17 +932,19 @@ class zebpay(Exchange, ImplicitAPI):
         market = None
         if symbol is not None:
             market = self.market(symbol)
-        type = None
-        type, params = self.handle_market_type_and_params("fetchMyTrades", market, params)
+        type, paramsMarketType = self.handle_market_type_and_params("fetchMyTrades", market, params)
         response = None
         if type == "spot":
             raise NotSupported(self.id + " fetchMyTrades() does not support spot markets")
-        response = await self.privateSwapGetV1TradeHistory(params)
+        else:
+            response = await self.privateSwapGetV1TradeHistory(paramsMarketType)
         data = self.safe_dict(response, "data", {})
         items = self.safe_list(data, "items", [])
         return self.parse_trades(items, market, since, limit)
 
-    async def fetch_order_trades(self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params=None):
+    async def fetch_order_trades(
+        self, id: str, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         fetch all the trades made from a single order
 
@@ -928,16 +959,19 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("fetchOrderTrades", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params(
+            "fetchOrderTrades", None, params
+        )
         if type != "spot":
-            raise NotSupported(self.id + " fetchOrderTrades() does not support " + type + " markets")
+            raise NotSupported(
+                self.id + " fetchOrderTrades() does not support " + type + " markets"
+            )
         if self.markets is None:
             await self.load_markets()
         request = {
             "orderId": id,
         }
-        response = await self.privateSpotGetV2ExOrderFills(self.extend(request, params))
+        response = await self.privateSpotGetV2ExOrderFills(self.extend(request, paramsMarketType))
         #
         #         {
         #             "orderId": "456789",
@@ -988,7 +1022,7 @@ class zebpay(Exchange, ImplicitAPI):
         #     firstTradeId: '7018766077',
         #     lastTradeId: '7018766081',
         #     tradeTime: '1765381971447',
-        #     isBuyerMarketMaker: True
+        #     isBuyerMarketMaker: true
         #   }
         #
         #
@@ -996,8 +1030,8 @@ class zebpay(Exchange, ImplicitAPI):
         orderId = self.safe_string_2(trade, "id", "order")
         timestamp = self.safe_integer_2(trade, "timestamp", "tradeTime")
         marketId = self.safe_string(trade, "symbol")
-        market = self.safe_market(marketId, market, "_")
-        symbol = market["symbol"]
+        marketResolved = self.safe_market(marketId, market, "_")
+        symbol = marketResolved["symbol"]
         side = self.safe_string_lower(trade, "side")
         priceString = self.safe_string(trade, "price")
         amountString = self.safe_string_2(trade, "amount", "quantity")
@@ -1017,10 +1051,10 @@ class zebpay(Exchange, ImplicitAPI):
                 "cost": self.safe_string(trade, "cost"),
                 "fee": self.safe_dict(trade, "fee"),
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
 
@@ -1034,14 +1068,13 @@ class zebpay(Exchange, ImplicitAPI):
             params = {}
         if self.markets is None:
             await self.load_markets()
-        type = None
-        type, params = self.handle_market_type_and_params("fetchBalance", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params("fetchBalance", None, params)
         isSpot = type == "spot"
         response = None
         if isSpot:
-            response = await self.privateSpotGetV2AccountBalance(params)
+            response = await self.privateSpotGetV2AccountBalance(paramsMarketType)
         else:
-            response = await self.privateSwapGetV1WalletBalance(params)
+            response = await self.privateSwapGetV1WalletBalance(paramsMarketType)
         #
         #     {
         #         "data": [
@@ -1063,8 +1096,14 @@ class zebpay(Exchange, ImplicitAPI):
         return self.parse_balance(response)
 
     async def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         Create an order on the exchange
 
@@ -1092,38 +1131,47 @@ class zebpay(Exchange, ImplicitAPI):
         upperCaseType = type.upper()
         takeProfitPrice = self.safe_string(params, "takeProfitPrice")
         stopLossPrice = self.safe_string(params, "stopLossPrice")
-        params = self.omit(params, ["marginAsset", "takeProfitPrice", "takeProfitPrice"])
-        if side is None:
-            raise ArgumentsRequired(self.id + " createOrder() requires a side argument")
+        query = self.omit(params, ["marginAsset", "takeProfitPrice", "takeProfitPrice"])
+        self.check_required_argument("createOrder", side, "side")
         request = {
             "symbol": market["id"],
             "side": side.upper(),
         }
         response = None
         if market["spot"] is True:
-            request, params = self.order_request(symbol, type, amount, request, price, params)
-            response = await self.privateSpotPostV2ExOrders(self.extend(request, params))
+            request, query = self.order_request(symbol, type, amount, request, price, query)
+            response = await self.privateSpotPostV2ExOrders(self.extend(request, query))
         else:
-            marginAsset = self.safe_string(params, "marginAsset", "INR")
-            formType = self.safe_string_upper(params, "formType", "ORDER_FORM")
+            marginAsset = self.safe_string(query, "marginAsset", "INR")
+            formType = self.safe_string_upper(query, "formType", "ORDER_FORM")
             request["formType"] = formType
-            request["amount"] = self.parse_to_numeric(self.amount_to_precision(market["id"], amount))
+            request["amount"] = self.parse_to_numeric(
+                self.amount_to_precision(market["id"], amount)
+            )
             request["marginAsset"] = marginAsset
             hasTP = takeProfitPrice is not None
             hasSL = stopLossPrice is not None
             if hasTP or hasSL:
                 if hasTP:
-                    request["takeProfitPrice"] = self.parse_to_numeric(self.price_to_precision(symbol, takeProfitPrice))
+                    request["takeProfitPrice"] = self.parse_to_numeric(
+                        self.price_to_precision(symbol, takeProfitPrice)
+                    )
                 if hasSL:
-                    request["stopLossPrice"] = self.parse_to_numeric(self.price_to_precision(symbol, stopLossPrice))
-                response = await self.privateSwapPostV1TradeOrderAddTPSL(self.extend(request, params))
+                    request["stopLossPrice"] = self.parse_to_numeric(
+                        self.price_to_precision(symbol, stopLossPrice)
+                    )
+                response = await self.privateSwapPostV1TradeOrderAddTPSL(
+                    self.extend(request, query)
+                )
             else:
                 request["type"] = upperCaseType
                 if type == "limit":
                     if price is None:
-                        raise ArgumentsRequired(self.id + " createOrder() requires a price argument for limit orders")
+                        raise ArgumentsRequired(
+                            self.id + " createOrder() requires a price argument for limit orders"
+                        )
                     request["price"] = self.parse_to_numeric(self.price_to_precision(symbol, price))
-                response = await self.privateSwapPostV1TradeOrder(self.extend(request, params))
+                response = await self.privateSwapPostV1TradeOrder(self.extend(request, query))
         #
         #    {
         #        "data": {
@@ -1135,7 +1183,13 @@ class zebpay(Exchange, ImplicitAPI):
         return self.parse_order(data, market)
 
     def order_request(
-        self, symbol: object, type: object, amount: object, request: object, price: Num = None, params=None
+        self,
+        symbol: str,
+        type: str,
+        amount: Num,
+        request: dict,
+        price: Num = None,
+        params: dict = None,
     ):
         if params is None:
             params = {}
@@ -1144,7 +1198,7 @@ class zebpay(Exchange, ImplicitAPI):
         quoteOrderQty = self.safe_string_2(params, "quoteOrderQty", "cost", None)
         timeInForce = self.safe_string(params, "timeInForce", "GTC")
         clientOrderId = self.safe_string(params, "clientOrderId", self.uuid())
-        params = self.omit(params, ["stopLossPrice", "cost", "timeInForce", "clientOrderId"])
+        paramsOmitted = self.omit(params, ["stopLossPrice", "cost", "timeInForce", "clientOrderId"])
         request["type"] = upperCaseType
         request["clientOrderId"] = clientOrderId
         request["timeInForce"] = timeInForce
@@ -1157,9 +1211,9 @@ class zebpay(Exchange, ImplicitAPI):
                 request["stopLossPrice"] = self.price_to_precision(symbol, triggerPrice)
             request["amount"] = self.amount_to_precision(symbol, amount)
             request["price"] = self.price_to_precision(symbol, price)
-        return [request, params]
+        return [request, paramsOmitted]
 
-    async def cancel_order(self, id: str, symbol: Str = None, params=None):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         cancels an open order
 
@@ -1185,7 +1239,9 @@ class zebpay(Exchange, ImplicitAPI):
         else:
             clientOrderId = self.safe_string(params, "clientOrderId")
             if clientOrderId is None:
-                raise ArgumentsRequired(self.id + " cancelOrder() requires a clientOrderId parameter for swap orders")
+                raise ArgumentsRequired(
+                    self.id + " cancelOrder() requires a clientOrderId parameter for swap orders"
+                )
             request["clientOrderId"] = clientOrderId
             request["symbol"] = market["id"]
             response = await self.privateSwapDeleteV1TradeOrder(self.extend(request, params))
@@ -1199,7 +1255,7 @@ class zebpay(Exchange, ImplicitAPI):
         #
         return self.parse_order(self.safe_dict(response, "data", {}))
 
-    async def cancel_all_orders(self, symbol: Str = None, params=None):
+    async def cancel_all_orders(self, symbol: Str = None, params: dict = None) -> list[Order]:
         """
         cancels all open orders
 
@@ -1212,13 +1268,12 @@ class zebpay(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        type = None
-        type, params = self.handle_market_type_and_params("cancelAllOrders", None, params)
+        type, paramsMarketType = self.handle_market_type_and_params("cancelAllOrders", None, params)
         if type != "spot":
             raise NotSupported(self.id + " cancelAllOrders() does not support " + type + " markets")
         if self.markets is None:
             await self.load_markets()
-        response = await self.privateSpotDeleteV2ExOrdersCancelAll(params)
+        response = await self.privateSpotDeleteV2ExOrdersCancelAll(paramsMarketType)
         #
         #    {
         #        "data": {
@@ -1232,7 +1287,7 @@ class zebpay(Exchange, ImplicitAPI):
         return [parsedOrder]
 
     async def fetch_open_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetches information on multiple open orders made by the user
@@ -1298,7 +1353,7 @@ class zebpay(Exchange, ImplicitAPI):
         #
         return self.parse_orders(orders, market, None, limit)
 
-    async def fetch_order(self, id: str, symbol: Str = None, params=None):
+    async def fetch_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         fetches information on an order made by the user
 
@@ -1372,8 +1427,8 @@ class zebpay(Exchange, ImplicitAPI):
         #      }
         #
         marketId = self.safe_string(order, "symbol")
-        market = self.safe_market(marketId, market)
-        symbol = market["symbol"]
+        marketResolved = self.safe_market(marketId, market)
+        symbol = marketResolved["symbol"]
         type = self.safe_string(order, "type")
         timestamp = self.safe_number(order, "timestamp")
         datetime = self.iso8601(timestamp)
@@ -1384,7 +1439,7 @@ class zebpay(Exchange, ImplicitAPI):
         timeInForce = self.safe_string(order, "timeInForce")
         status = self.safe_string_lower(order, "status")
         orderId = self.safe_string(order, "orderId")
-        return self.safe_order(
+        parsedOrder = self.safe_order(
             {
                 "id": orderId,
                 "clientOrderId": clientOrderId,
@@ -1410,10 +1465,11 @@ class zebpay(Exchange, ImplicitAPI):
                 "average": None,
                 "trades": None,
             },
-            market,
+            marketResolved,
         )
+        return parsedOrder
 
-    async def close_position(self, symbol: str, side: OrderSide = None, params=None) -> Order:
+    async def close_position(self, symbol: str, side: Str = None, params: dict = None) -> Order:
         """
         closes open positions for a market
 
@@ -1437,7 +1493,7 @@ class zebpay(Exchange, ImplicitAPI):
         data = self.safe_dict(response, "data", {})
         return self.parse_order(data, market)
 
-    async def fetch_leverages(self, symbols: Strings = None, params=None) -> Leverages:
+    async def fetch_leverages(self, symbols: Strings = None, params: dict = None) -> Leverages:
         """
         fetch the set leverage for all contract and margin markets
 
@@ -1467,7 +1523,7 @@ class zebpay(Exchange, ImplicitAPI):
         leveragePreferences = self.safe_list(response, "data", [])
         return self.parse_leverages(leveragePreferences, symbols, "symbol")
 
-    async def fetch_leverage(self, symbol: str, params=None) -> Leverage:
+    async def fetch_leverage(self, symbol: str, params: dict = None) -> Leverage:
         """
         fetch the set leverage for a market
 
@@ -1488,13 +1544,13 @@ class zebpay(Exchange, ImplicitAPI):
         response = await self.privateSwapGetV1TradeUserLeverage(self.extend(request, params))
         #
         #     {
-        #         "data": {symbol: "ETHINR", longLeverage: 1, shortLeverage: 1, marginMode: "isolated"}
+        #         "data": { symbol: "ETHINR", longLeverage: 1, shortLeverage: 1, marginMode: "isolated" }
         #     }
         #
         data = self.safe_dict(response, "data", {})
         return self.parse_leverage(data, market)
 
-    async def set_leverage(self, leverage: int, symbol: Str = None, params=None):
+    async def set_leverage(self, leverage: int, symbol: Str = None, params: dict = None):
         """
         set the level of leverage for a market
 
@@ -1517,11 +1573,12 @@ class zebpay(Exchange, ImplicitAPI):
             "symbol": market["id"],
         }
         #
-        # {data: {"symbol", "longLeverage": 10, "shortLeverage": 1, "marginMode": "isolated"}
+        # { data: { "symbol", "longLeverage": 10, "shortLeverage": 1, "marginMode": "isolated" }
         #
-        return await self.privateSwapPostV1TradeUpdateUserLeverage(self.extend(request, params))
+        response = await self.privateSwapPostV1TradeUpdateUserLeverage(self.extend(request, params))
+        return response
 
-    async def fetch_positions(self, symbols: Strings = None, params=None):
+    async def fetch_positions(self, symbols: Strings = None, params: dict = None) -> list[Position]:
         """
 
         [Swap] https://github.com/zebpay/zebpay-api-references/blob/main/futures/api-reference/private-endpoints/trade.md#--get-positions
@@ -1554,9 +1611,11 @@ class zebpay(Exchange, ImplicitAPI):
         #
         positions = self.safe_list(response, "data", [])
         result = self.parse_positions(positions)
-        return self.filter_by_array_positions(result, "symbol", symbols, False)
+        return self.filter_by_array_positions(result, "symbol", symbols)
 
-    async def add_margin(self, symbol: str, amount: float, params=None) -> MarginModification:
+    async def add_margin(
+        self, symbol: str, amount: float, params: dict = None
+    ) -> MarginModification:
         """
         add margin
 
@@ -1606,7 +1665,9 @@ class zebpay(Exchange, ImplicitAPI):
             },
         )
 
-    async def reduce_margin(self, symbol: str, amount: float, params=None) -> MarginModification:
+    async def reduce_margin(
+        self, symbol: str, amount: float, params: dict = None
+    ) -> MarginModification:
         """
         add margin
 
@@ -1650,7 +1711,9 @@ class zebpay(Exchange, ImplicitAPI):
             },
         )
 
-    async def fetch_spot_markets(self, params: object = {}) -> list[Market]:
+    async def fetch_spot_markets(self, params: dict = None) -> list[Market]:
+        if params is None:
+            params = {}
         response = await self.publicSpotGetV2ExExchangeInfo(params)
         #
         #    {
@@ -1666,20 +1729,22 @@ class zebpay(Exchange, ImplicitAPI):
         #            "quoteMaxSize": "2000",
         #            "baseIncrement": "0.00001"
         #            "quoteIncrement": "0.00001",
-        #            "enableTrading": True
+        #            "enableTrading": true
         #        }
         #    }
         #
         result = []
         data = self.safe_dict(response, "data", {})
         markets = self.safe_list(data, "symbols", [])
-        for i in range(len(markets)):
+        for i in range(0, len(markets)):
             market = markets[i]
             id = self.safe_string(market, "symbol")
             baseId = self.safe_string(market, "baseAsset")
             quoteId = self.safe_string(market, "quoteAsset")
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
+            if (base is None) or (quote is None):
+                continue
             symbol = base + "/" + quote
             result.append(
                 {
@@ -1724,7 +1789,9 @@ class zebpay(Exchange, ImplicitAPI):
             )
         return result
 
-    async def fetch_swap_markets(self, params: object = {}) -> list[Market]:
+    async def fetch_swap_markets(self, params: dict = None) -> list[Market]:
+        if params is None:
+            params = {}
         response = await self.publicSwapGetV1MarketMarkets(params)
         #
         #    {
@@ -1738,7 +1805,7 @@ class zebpay(Exchange, ImplicitAPI):
         #            "quantityPrecision": 0.05,
         #            "baseAssetPrecision": 0,
         #            "quotePrecision": 0,
-        #            "orderType": ["LIMIT", "MARKET"]
+        #            "orderType": ["LIMIT", "MARKET" ]
         #            "timeInForce": ["GTC"],
         #            "makerFee": "0.01",
         #            "takerFee": "0.01",
@@ -1752,13 +1819,15 @@ class zebpay(Exchange, ImplicitAPI):
         result = []
         data = self.safe_dict(response, "data", {})
         markets = self.safe_list(data, "symbols", [])
-        for i in range(len(markets)):
+        for i in range(0, len(markets)):
             market = markets[i]
             id = self.safe_string(market, "symbol")
             baseId = self.safe_string(market, "baseAsset")
             quoteId = self.safe_string(market, "quoteAsset")
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
+            if (base is None) or (quote is None):
+                continue
             settle = self.safe_currency_code(quoteId)
             status = self.safe_string(market, "status")
             symbol = base + "/" + quote
@@ -1806,8 +1875,8 @@ class zebpay(Exchange, ImplicitAPI):
             "datetime": None,
         }
         currencyList = self.safe_list(response, "data", [])
-        for i in range(len(currencyList)):
-            entry = currencyList[i]
+        for i in range(0, len(currencyList)):
+            entry = self.safe_dict(currencyList, i)
             account = self.account()
             account["total"] = self.safe_string(entry, "total")
             account["free"] = self.safe_string(entry, "free")
@@ -1833,7 +1902,7 @@ class zebpay(Exchange, ImplicitAPI):
         leverage = self.safe_number(position, "leverage")
         datetime = self.safe_string(position, "datetime")
         marketId = self.safe_string(position, "symbol")
-        market = self.safe_market(marketId, market)
+        marketResolved = self.safe_market(marketId, market)
         return {
             "info": position,
             "symbol": marketId,
@@ -1848,12 +1917,12 @@ class zebpay(Exchange, ImplicitAPI):
             "leverage": leverage,
             "unrealizedPnl": None,
             "contracts": self.safe_number(position, "contracts"),
-            "contractSize": self.safe_number(market, "contractSize"),
+            "contractSize": self.safe_number(marketResolved, "contractSize"),
             "marginRatio": None,
             "liquidationPrice": self.safe_number(position, "liquidationPrice"),
             "markPrice": None,
             "collateral": None,
-            "marginType": "isolated",
+            "marginMode": "isolated",
             "side": self.safe_string(position, "side"),
             "percentage": None,
         }
@@ -1905,7 +1974,7 @@ class zebpay(Exchange, ImplicitAPI):
         #
         timestamp = self.safe_integer_2(ticker, "timestamp", "ts")
         marketId = self.safe_string(ticker, "symbol")
-        market = self.safe_market(marketId)
+        marketResolved = self.safe_market(marketId)
         close = self.safe_string(ticker, "close")
         last = self.safe_string(ticker, "last")
         percentage = self.safe_string(ticker, "percentage")
@@ -1913,8 +1982,7 @@ class zebpay(Exchange, ImplicitAPI):
         askVolume = self.safe_string(ticker, "askVolume")
         return self.safe_ticker(
             {
-                "id": marketId,
-                "symbol": market["symbol"],
+                "symbol": marketResolved["symbol"],
                 "timestamp": timestamp,
                 "datetime": self.iso8601(timestamp),
                 "high": self.safe_string(ticker, "high"),
@@ -1936,10 +2004,10 @@ class zebpay(Exchange, ImplicitAPI):
                 "markPrice": None,
                 "info": ticker,
             },
-            market,
+            marketResolved,
         )
 
-    def parse_margin_modification(self, info: object, market: Market = None) -> MarginModification:
+    def parse_margin_modification(self, info: dict, market: Market = None) -> MarginModification:
         #
         #    {
         #         "symbol": "BTCINR",
@@ -1949,7 +2017,6 @@ class zebpay(Exchange, ImplicitAPI):
         #         "status": "ok"
         #    }
         #
-        timestamp = self.milliseconds()
         return {
             "info": info,
             "symbol": self.safe_string(market, "id"),
@@ -1959,62 +2026,79 @@ class zebpay(Exchange, ImplicitAPI):
             "total": None,
             "code": self.safe_string(info, "code"),
             "status": self.safe_string(info, "status"),
-            "timestamp": timestamp,
-            "datetime": self.iso8601(timestamp),
+            "timestamp": None,
+            "datetime": None,
         }
 
     def sign(
         self,
-        path: object,
+        path: str,
         api: object = "public",
         method="GET",
-        params: dict | None = None,
-        headers: dict | None = None,
+        params: dict = None,
+        headers: dict = None,
         body: Str = None,
-    ):
+    ) -> dict:
         if params is None:
             params = {}
-        params = self.omit(params, "defaultType")
+        bodySigned = None
+        headersSigned = None
+        paramsOmitted = self.omit(params, "defaultType")
         isV1 = path.find("v1/") > -1
-        marketType = "swap" if isV1 else "spot"
-        url = self.urls["api"][marketType]
-        tail = "/api/" + self.implode_params(path, params)
+        marketType = "spot"
+        if isV1:
+            marketType = "swap"
+        baseApiUrl = self.safe_string(self.urls["api"], marketType)
+        if baseApiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        url = baseApiUrl
+        tail = "/api/" + self.implode_params(path, paramsOmitted)
         url += tail
         timestamp = str(self.milliseconds())
         signature = ""
-        query = self.omit(params, self.extract_params(path))
+        query = self.omit(paramsOmitted, self.extract_params(path))
         queryLength = len(query)
         access = self.safe_string(api, 0, "public")
         if access == "public":
-            if method in {"GET", "DELETE"}:
-                if (queryLength is not None) and (queryLength != 0):
+            if method == "GET" or method == "DELETE":
+                if queryLength != 0:
                     url += "?" + self.urlencode(query)
             else:
-                body = json.dumps(params)
-                headers = {
+                priceType = self.safe_string(paramsOmitted, "priceType")
+                paramsBody = self.omit(paramsOmitted, "priceType")
+                if priceType is not None:
+                    url += "?" + self.urlencode({"priceType": priceType})
+                bodySigned = json.dumps(paramsBody)
+                headersSigned = {
                     "Referrer": "ccxt",
                     "Content-Type": "application/json",
                 }
         else:
             self.check_required_credentials()
             isSpot = marketType == "spot"
-            params["timestamp"] = timestamp
+            paramsOmitted["timestamp"] = timestamp
             if method == "GET" or (method == "DELETE" and isSpot):
                 # For GET/DELETE: Append params to URL and sign the query string
-                queryString = self.urlencode(params)
-                signature = self.hmac(self.encode(queryString), self.encode(self.secret), hashlib.sha256, "hex")
+                queryString = self.urlencode(paramsOmitted)
+                signature = self.hmac(
+                    self.encode(queryString), self.encode(self.secret), hashlib.sha256, "hex"
+                )
                 url += "?" + queryString
             else:
                 # For POST/PUT: Convert body to JSON and sign the stringified payload
-                body = self.json(params)
-                signature = self.hmac(self.encode(body), self.encode(self.secret), hashlib.sha256, "hex")
-            headers = {
+                bodySigned = self.json(paramsOmitted)
+                signature = self.hmac(
+                    self.encode(bodySigned), self.encode(self.secret), hashlib.sha256, "hex"
+                )
+            headersSigned = {
                 "Referrer": "ccxt",
                 "X-AUTH-APIKEY": self.apiKey,
                 "X-AUTH-SIGNATURE": signature,
             }
-            headers["Content-Type"] = "application/json"
-        return {"url": url, "method": method, "body": body, "headers": headers}
+            headersSigned["Content-Type"] = "application/json"
+        headersResolved = headers if (headersSigned is None) else headersSigned
+        bodyResolved = body if (bodySigned is None) else bodySigned
+        return {"url": url, "method": method, "body": bodyResolved, "headers": headersResolved}
 
     def handle_errors(
         self,
@@ -2030,12 +2114,12 @@ class zebpay(Exchange, ImplicitAPI):
     ):
         if response is None:
             self.throw_broadly_matched_exception(self.exceptions["broad"], body, body)
-            return
+            return None
         #
         # bad
-        #     {"code": "400100", "msg": "validation.createOrder.clientOidIsRequired"}
+        #     { "code": "400100", "msg": "validation.createOrder.clientOidIsRequired" }
         # good
-        #     {code: "200000", data: {...}}
+        #     { code: "200000", data: { ... }}
         # {"statusDescription":"Order quantity is out of range","data":{},"statusCode":400,"customMessage":["Order quantity is out of range"]}
         #
         errorCode = self.safe_string_2(response, "code", "statusCode")
@@ -2044,4 +2128,4 @@ class zebpay(Exchange, ImplicitAPI):
         self.throw_broadly_matched_exception(self.exceptions["broad"], message, feedback)
         self.throw_exactly_matched_exception(self.exceptions["exact"], message, feedback)
         self.throw_exactly_matched_exception(self.exceptions["exact"], errorCode, feedback)
-        return
+        return None

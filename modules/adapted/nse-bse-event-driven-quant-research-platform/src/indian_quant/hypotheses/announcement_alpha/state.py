@@ -24,13 +24,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-import pandas as pd
-
 if TYPE_CHECKING:
-    from indian_quant.adapters.announcements.filter import AnnouncementFilter
+    pass
 
 
 @dataclass
@@ -49,9 +47,7 @@ class AnnouncementAlphaState:
     def is_processed(self, symbol: str, isin: str | None = None) -> bool:
         if symbol.upper() in self.processed_symbols:
             return True
-        if isin and isin in self.processed_isins:
-            return True
-        return False
+        return bool(isin and isin in self.processed_isins)
 
     def add_order(self, order: dict) -> None:
         self.paper_orders_placed.append(order)

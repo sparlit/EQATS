@@ -59,7 +59,9 @@ def half_ends(frm, to):
     out = []
     for y in range(frm // 10000 - 1, to // 10000 + 1):
         for q in (y * 10000 + 930, (y + 1) * 10000 + 331):
-            if q >= FLOOR and frm <= q + 10000 and q <= to:  # (listing mid-half: that half is still reportable)
+            if (
+                q >= FLOOR and frm <= q + 10000 and q <= to
+            ):  # (listing mid-half: that half is still reportable)
                 out.append(q)
     return sorted(set(out))
 
@@ -68,7 +70,9 @@ def plan():
     today = datetime.date.today()
     cutoff = int((today - datetime.timedelta(days=LAG)).strftime("%Y%m%d"))
     st = json.load(open(os.path.join(DOCS, "bse_sme_ipo", "stints.json")))["stints"]
-    bf = json.load(open(os.path.join(DOCS, "bse_fundamentals.json"), encoding="utf-8")).get("px", {})
+    bf = json.load(open(os.path.join(DOCS, "bse_fundamentals.json"), encoding="utf-8")).get(
+        "px", {}
+    )
     sf = json.load(open(os.path.join(DOCS, "sf_fundamentals.json")))
     L = PX.load()["px"]
     first = {}
@@ -91,11 +95,15 @@ def plan():
                     end_i = (runs[j + 1][0] - 1) if j + 1 < len(runs) else len(e["d"]) - 1
                     last_sme_i = end_i
             if last_sme_i is not None and last_sme_i < len(e["d"]) - 1:
-                sme_end = min(cutoff, e["d"][last_sme_i])  # left the SME groups: its halves up to that day
+                sme_end = min(
+                    cutoff, e["d"][last_sme_i]
+                )  # left the SME groups: its halves up to that day
         due = [q for q in half_ends(listing, sme_end) if q <= cutoff]
         cells = bf.get(code) or {}
         tk = s.get("id")
-        sfq = {r[0] for r in sf.get(tk, []) if r[1] is not None or r[3] is not None} if tk else set()
+        sfq = (
+            {r[0] for r in sf.get(tk, []) if r[1] is not None or r[3] is not None} if tk else set()
+        )
         have = [
             q
             for q in due
@@ -121,7 +129,8 @@ def main():
     a = sys.argv[1:]
     tl, stats = plan()
     print(
-        "plan: %(members)d members, %(due)d SME-era half-years due, %(have)d stored, %(ask)d to ask" % stats,
+        "plan: %(members)d members, %(due)d SME-era half-years due, %(have)d stored, %(ask)d to ask"
+        % stats,
         "(%d scrips)" % len(tl),
     )
     if "--plan" in a:

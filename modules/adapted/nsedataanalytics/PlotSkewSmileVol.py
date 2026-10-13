@@ -41,6 +41,10 @@ if __name__ == "__main__":
     data = pd.read_sql(sql % (symbol, symbol), db)
     db.close()
     data = data.set_index("TIME")
-    data["HIST_VOL"] = pd.rolling_std(data.SETTLE_PR.pct_change(), window=22) * 100 * math.sqrt(252 / 22)
-    data.plot(subplots=True)
+    data["HIST_VOL"] = (
+        pd.rolling_std(data.SETTLE_PR.pct_change(), window=22) * 100 * math.sqrt(252 / 22)
+    )
+    data.plot(
+        subplots=True,
+    )
     plt.show()

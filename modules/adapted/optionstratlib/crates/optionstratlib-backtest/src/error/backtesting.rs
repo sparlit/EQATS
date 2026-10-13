@@ -1,0 +1,119 @@
+/******************************************************************************
+   Author: Joaquín Béjar García
+   Email: jb@taunais.com
+   Date: 21/9/25
+******************************************************************************/
+//! Target crate (ADR-0001 D2): **backtest**. Owns `BacktestError`.
+//!
+//! A backtest drives a strategy through a simulation, so it can fail for a
+//! strategy reason or a simulation reason. Backtesting is the layer that
+//! composes both, so it owns the error and keeps each cause typed instead of
+//! flattening it into a message (#511). Neither `StrategyError` nor
+//! `SimulationError` may name the other.
+
+use optionstratlib_core::error::{DecimalError, OptionsError};
+use optionstratlib_pricing::error::PricingError;
+use optionstratlib_simulation::error::SimulationError;
+use optionstratlib_strategies::error::StrategyError;
+use thiserror::Error;
+
+/// Failure of a backtest run.
+#[derive(Debug, Error)]
+pub enum BacktestError {
+    /// The strategy under test failed, for example while reading its legs or
+    /// its fees.
+    #[error(transparent)]
+    Strategy(Box<StrategyError>),
+
+    /// The simulation driving the backtest failed.
+    #[error(transparent)]
+    Simulation(Box<SimulationError>),
+
+    /// Pricing the leg at a step failed.
+    #[error(transparent)]
+    Pricing(Box<PricingError>),
+
+    /// The option being priced is invalid.
+    #[error(transparent)]
+    Options(Box<OptionsError>),
+
+    /// Decimal arithmetic on a premium or a statistic overflowed.
+    #[error(transparent)]
+    Decimal(Box<DecimalError>),
+
+    /// A value that must stay strictly positive left its range.
+    #[error(transparent)]
+    Positive(#[from] optionstratlib_core::model::PositiveError),
+
+    /// A run counter kept by the backtest reached the top of its range.
+    #[error("backtest counter `{counter}` overflowed")]
+    CounterOverflow {
+        /// Name of the counter that could not advance.
+        counter: &'static str,
+    },
+}
+
+impl BacktestError {
+    /// Creates a [`BacktestError::CounterOverflow`] for `counter`.
+    #[cold]
+    #[inline(never)]
+    #[must_use]
+    pub fn counter_overflow(counter: &'static str) -> Self {
+        BacktestError::CounterOverflow { counter }
+    }
+}
+
+impl From<PricingError> for BacktestError {
+    #[inline]
+    fn from(error: PricingError) -> Self {
+        BacktestError::Pricing(Box::new(error))
+    }
+}
+
+impl From<OptionsError> for BacktestError {
+    #[inline]
+    fn from(error: OptionsError) -> Self {
+        BacktestError::Options(Box::new(error))
+    }
+}
+
+impl From<DecimalError> for BacktestError {
+    #[inline]
+    fn from(error: DecimalError) -> Self {
+        BacktestError::Decimal(Box::new(error))
+    }
+}
+
+impl From<StrategyError> for BacktestError {
+    #[inline]
+    fn from(error: StrategyError) -> Self {
+        BacktestError::Strategy(Box::new(error))
+    }
+}
+
+impl From<SimulationError> for BacktestError {
+    #[inline]
+    fn from(error: SimulationError) -> Self {
+        BacktestError::Simulation(Box::new(error))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_counter_overflow_names_the_counter() {
+        let error = BacktestError::counter_overflow("total_simulations");
+        assert!(matches!(
+            error,
+            BacktestError::CounterOverflow {
+                counter: "total_simulations"
+            }
+        ));
+        assert_eq!(
+            error.to_string(),
+            "backtest counter `total_simulations` overflowed"
+        );
+    }
+}

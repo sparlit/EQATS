@@ -25,14 +25,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Independent 1M/3M/6M/12M scores for the shadow engine."""
 
-from typing import TYPE_CHECKING
-
 import numpy as np
+import pandas as pd
 
 from .config import CONFIRMING_SCORE, MIN_AVG_VOLUME, MIN_HISTORY, MIN_PRICE, QUALIFIED_SCORE
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 HORIZONS = ("1M", "3M", "6M", "12M")
 
@@ -60,22 +56,32 @@ def score(
         eligible &= ~data["symbol"].isin(blocked_symbols)
     data["eligible"] = eligible
     trend = (
-        (data["close"] > data["sma50"]) & (data["sma50"] > data["sma150"]) & (data["sma150"] > data["sma200"])
+        (data["close"] > data["sma50"])
+        & (data["sma50"] > data["sma150"])
+        & (data["sma150"] > data["sma200"])
     ).astype(float) * 25
     volume = (data["volume"] >= 1.2 * data["volume_sma20"]).astype(float) * 10
     delivery = (data["delivery_pct"] >= data["delivery_median60"]).fillna(False).astype(float) * 5
-    near_high = (data["close"] >= 0.85 * data["previous_252d_high"]).fillna(False).astype(float) * 10
+    near_high = (data["close"] >= 0.85 * data["previous_252d_high"]).fillna(False).astype(
+        float
+    ) * 10
     returns = {"1M": "return_1m", "3M": "return_3m", "6M": "return_6m", "12M": "return_12m"}
     for horizon, column in returns.items():
         benchmark_return = (benchmark_returns or {}).get(horizon)
         excess = data[column] - benchmark_return if benchmark_return is not None else data[column]
         data[f"excess_return_{horizon.lower()}"] = excess
-        data[f"rs_{horizon.lower()}"] = _percentile(excess.where(eligible)).reindex(data.index, fill_value=0)
+        data[f"rs_{horizon.lower()}"] = _percentile(excess.where(eligible)).reindex(
+            data.index, fill_value=0
+        )
         momentum = data[f"rs_{horizon.lower()}"] * 0.25
         rsi_component = ((data["rsi14"] >= 50) & (data["rsi14"] <= 75)).astype(float) * 8
-        trend_strength = ((data["adx14"] >= 20) & (data["bb_width_change"] > 0)).fillna(False).astype(float) * 2
+        trend_strength = ((data["adx14"] >= 20) & (data["bb_width_change"] > 0)).fillna(
+            False
+        ).astype(float) * 2
         trigger = (
-            (data["close"] > data["previous_20d_high"]) if horizon == "1M" else (data["close"] > data["ema20"])
+            (data["close"] > data["previous_20d_high"])
+            if horizon == "1M"
+            else (data["close"] > data["ema20"])
         ).fillna(False).astype(float) * 15
         structural = (
             near_high
@@ -83,20 +89,35 @@ def score(
             else ((data["close"] >= data["ema20"]).fillna(False).astype(float) * 10)
         )
         data[f"score_{horizon.lower()}"] = (
-            (trend + momentum + rsi_component + trend_strength + volume + delivery + trigger + structural)
+            (
+                trend
+                + momentum
+                + rsi_component
+                + trend_strength
+                + volume
+                + delivery
+                + trigger
+                + structural
+            )
             .clip(upper=100)
             .round(2)
         )
     score_columns = [f"score_{h.lower()}" for h in HORIZONS]
-    data["primary_horizon"] = data[score_columns].idxmax(axis=1).str.replace("score_", "", regex=False).str.upper()
+    data["primary_horizon"] = (
+        data[score_columns].idxmax(axis=1).str.replace("score_", "", regex=False).str.upper()
+    )
     data["primary_score"] = data[score_columns].max(axis=1)
     data["confirming_horizons"] = data.apply(
         lambda row: [
-            h for h in HORIZONS if row[f"score_{h.lower()}"] >= CONFIRMING_SCORE and h != row["primary_horizon"]
+            h
+            for h in HORIZONS
+            if row[f"score_{h.lower()}"] >= CONFIRMING_SCORE and h != row["primary_horizon"]
         ],
         axis=1,
     )
-    data["confluence_score"] = data[score_columns].ge(CONFIRMING_SCORE).sum(axis=1) / len(HORIZONS) * 100
+    data["confluence_score"] = (
+        data[score_columns].ge(CONFIRMING_SCORE).sum(axis=1) / len(HORIZONS) * 100
+    )
     data["qualified"] = data["eligible"] & (data["primary_score"] >= QUALIFIED_SCORE)
     data["market_regime"] = regime
     data["principal_bucket"] = np.where(

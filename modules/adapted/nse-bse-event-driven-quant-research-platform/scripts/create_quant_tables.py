@@ -291,7 +291,8 @@ def verify_tables(engine: sa.engine.Engine) -> None:
     with engine.connect() as conn:
         result = conn.execute(
             sa.text(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' ORDER BY table_name"
             )
         )
         tables = [r[0] for r in result.fetchall()]

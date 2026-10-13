@@ -70,7 +70,9 @@ def is_non_stock(name, isin=""):
     # ISINs starting "INF" are mutual-fund / ETF UNITS by construction (NSDL assigns INF to fund
     # schemes) — the name regex missed e.g. INFRA ("Mirae Asset Nifty India Infrastructure &
     # Logistics") and 56 Nippon segregated-portfolio units on BSE (measured 2026-09-23, §145).
-    return (bool(name) and bool(NONSTOCK_RE.search(name))) or str(isin or "").upper().startswith("INF")
+    return (bool(name) and bool(NONSTOCK_RE.search(name))) or str(isin or "").upper().startswith(
+        "INF"
+    )
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -131,7 +133,9 @@ for b in bse_scrips:
         continue
     sid = (b.get("scrip_id") or "").strip()
     code = (b.get("SCRIP_CD") or "").strip()
-    name = BN.clean_scrip_name(b.get("Scrip_Name"))  # BSE alternates "UNO Minda Ltd-$" / "UNO Minda Ltd" (§204)
+    name = BN.clean_scrip_name(
+        b.get("Scrip_Name")
+    )  # BSE alternates "UNO Minda Ltd-$" / "UNO Minda Ltd" (§204)
     isin = (b.get("ISIN_NUMBER") or "").strip()
     try:
         mcap = float(b.get("Mktcap") or 0)
@@ -159,7 +163,9 @@ for b in bse_scrips:
         key = ("NS", sid)
     else:
         primary = f"{code}.BO" if code else f"{sid}.BO"
-        alts = ([f"{sid}.BO"] if sid and code else []) + ([f"{sid}.NS"] if sid and not other_co else [])
+        alts = ([f"{sid}.BO"] if sid and code else []) + (
+            [f"{sid}.NS"] if sid and not other_co else []
+        )
         display = sid or code
         key = ("BO", code or sid)
     if key in seen:
@@ -231,14 +237,18 @@ DAILY_START_TS = int(_dt.datetime(2020, 1, 1).timestamp())
 START_TS = WEEKLY_START_TS  # this is what we tell the dashboard
 
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-NEW_LISTING_MAX_AGE_S = 7 * 86400  # a one-bar series is a listing-day stock only if that bar is this recent
+NEW_LISTING_MAX_AGE_S = (
+    7 * 86400
+)  # a one-bar series is a listing-day stock only if that bar is this recent
 
 
 def fetch_chart(ticker, p1, p2, interval):
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={p1}&period2={p2}&interval={interval}"
     try:
         res = subprocess.run(
-            ["curl", "-s", "--max-time", "12", "-A", UA, *BH.CURL_ARGS, url], capture_output=True, timeout=15
+            ["curl", "-s", "--max-time", "12", "-A", UA, *BH.CURL_ARGS, url],
+            capture_output=True,
+            timeout=15,
         )
         body = res.stdout
         if not body:
@@ -249,7 +259,10 @@ def fetch_chart(ticker, p1, p2, interval):
             return None
         result = result[0]
         # Yahoo sometimes mis-classifies BSE scrips as MUTUALFUND; reject those
-        if result.get("meta", {}).get("instrumentType") and result["meta"]["instrumentType"] != "EQUITY":
+        if (
+            result.get("meta", {}).get("instrumentType")
+            and result["meta"]["instrumentType"] != "EQUITY"
+        ):
             return None
         ts = result.get("timestamp") or []
         closes = (result.get("indicators", {}).get("quote") or [{}])[0].get("close") or []
@@ -308,7 +321,9 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=30) as ex:
             )
 
 elapsed = time.time() - start
-print(f"\nDone: {len(results)} with data, {len(empty)} without, total {len(universe)} ({elapsed:.0f}s)")
+print(
+    f"\nDone: {len(results)} with data, {len(empty)} without, total {len(universe)} ({elapsed:.0f}s)"
+)
 
 universe.sort(key=lambda u: -u["mcap"])
 

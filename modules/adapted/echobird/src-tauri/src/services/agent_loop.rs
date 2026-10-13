@@ -1188,15 +1188,19 @@ async fn build_system_prompt(request: &AgentRequest, ssh_pool: &SSHPool) -> Stri
         | Claude Code | Anthropic | `@anthropic-ai/claude-code` | claude |\n\
         | Codex CLI | OpenAI | `@openai/codex` | codex |\n\
         | OpenCode v2 | Anomaly | `@opencode/cli` | opencode |\n\
+        | Cline CLI | Cline | `cline` | cline |\n\
+        | Cline Desktop (Cline 桌面端) | Cline | none; official desktop installer | cline-app.exe / Cline.app |\n\
         | OpenClaw | Community | `openclaw` | openclaw |\n\
         | MiMo CLI (MiMo Code) | Xiaomi | `@mimo-ai/cli` | mimo |\n\
         | MiMo Desktop (MiMo 桌面端) | Xiaomi | none; official desktop installer | Xiaomi MiMo.exe / Xiaomi MiMo.app |\n\
         | Kilo Code | Kilo | `@kilocode/cli` | kilo |\n\
         | Kimi CLI | Moonshot AI | `@moonshot-ai/kimi-code` | kimi |\n\
         | Kimi Desktop (Kimi 桌面端) | Moonshot AI | none; official desktop installer | Kimi Code.exe / Kimi Code.app |\n\
+        MiniMax has two entries: MiniMax CLI (`minimaxcode`, command mcode) and MiniMax Desktop / MiniMax 桌面端 (`minimaxdesktop`). Before installing Desktop, ask the user to choose China or international unless they already specified the edition; follow that edition in the embedded minimaxdesktop reference. Both editions share the same app icon, executable name and native API config, but can coexist at separate paths. EchoBird supports API model switching only for MiniMax; leave account login to the native client. If the request only says MiniMax Code, resolve CLI/Desktop from context or ask before installing.\n\
         When the user says 'install Codex', install `@openai/codex`. Do NOT install Claude Code.\n\
         When the user says 'install Claude Code', install via `irm https://claude.ai/install.ps1 | iex` (Windows) or `curl -fsSL https://claude.ai/install.sh | bash`. Do NOT install Codex.\n\
         When the user says 'install OpenCode', follow the `opencode` reference and install v2 (`@opencode/cli`, or the official v2 installer). Do NOT install Codex or Claude Code.\n\
+        Cline has separate CLI (`cline`) and Desktop (`clinedesktop`) install references. npm `cline` installs only the CLI. For Desktop use the official desktop release channel, not the CLI or VS Code extension. If context does not identify the edition, ask Desktop or CLI before installing.\n\
         When the user says 'install MiMo CLI' or 'install MiMo Code', follow the `mimocode` reference and install `@mimo-ai/cli` (or `curl -fsSL https://mimo.xiaomi.com/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `@opencode/cli`.\n\
         When the user says 'install MiMo Desktop', 'MiMo 桌面端', or 'MiMo デスクトップ', follow the `mimodesktop` reference for the official Xiaomi MiMo desktop installer. Do NOT install `@mimo-ai/cli`. If the user only says 'MiMo' and the conversation does not identify the edition, ask whether they want Desktop or CLI before installing.\n\
         When the user says 'install Kilo Code', install `@kilocode/cli` (or `curl -fsSL https://kilo.ai/cli/install | bash` on macOS/Linux). It is a fork of OpenCode but a SEPARATE product — do NOT install `@opencode/cli`.\n\
@@ -1309,7 +1313,7 @@ Do NOT offer WSL2 as a workaround.\n\
         - OpenClaw remote: npm uninstall -g openclaw && pkill -f 'openclaw gateway' || true\n\
         - NEVER delete ~/.openclaw/openclaw.json unless user explicitly requests -- it contains the channel pairing token.\n\n\
         ## Tool Install Reference\n\
-        When the user asks to install any tool, ALWAYS read the install reference from the **Embedded Install References** section appended at the end of this system prompt — it contains the install JSON for every supported tool (openclaw, opencode, mimocode, mimodesktop, kilo, kimicode, kimidesktop, claudecode, claudescience, openscience, codex, hermes, grok, workbuddy, zcode, dsh).\n\
+        When the user asks to install any tool, ALWAYS read the install reference from the **Embedded Install References** section appended at the end of this system prompt — it contains the install JSON for every supported tool.\n\
         Do NOT `web_fetch` `https://echobird.ai/api/tools/install/...` — that content is already embedded in this prompt and works offline.\n\
         Use `web_fetch` on the tool's official site when the tool is not in the embedded list, when its reference explicitly requires current download links or repository setup instructions, or when an install failure indicates an outdated endpoint, package, prerequisite, or installer option. Verify replacements before retrying.\n\n\
         ## Network Pre-Check (MANDATORY Before Installation)\n\
@@ -1438,10 +1442,14 @@ fn is_shared_tool(name: &str) -> bool {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AgentTarget {
+    Cline,
+    ClineDesktop,
     OpenClaw,
     OpenCode,
     MiMoCode,
     MiMoDesktop,
+    MiniMaxCode,
+    MiniMaxDesktop,
     KiloCode,
     KimiCode,
     KimiDesktop,
@@ -1452,10 +1460,14 @@ enum AgentTarget {
 impl AgentTarget {
     fn label(&self) -> &'static str {
         match self {
+            Self::Cline => "Cline CLI",
+            Self::ClineDesktop => "Cline Desktop (Cline 桌面端)",
             Self::OpenClaw => "OpenClaw",
             Self::OpenCode => "OpenCode",
             Self::MiMoCode => "MiMo CLI (MiMo Code)",
             Self::MiMoDesktop => "MiMo Desktop (MiMo 桌面端)",
+            Self::MiniMaxCode => "MiniMax CLI",
+            Self::MiniMaxDesktop => "MiniMax Desktop (MiniMax 桌面端)",
             Self::KiloCode => "Kilo Code",
             Self::KimiCode => "Kimi CLI",
             Self::KimiDesktop => "Kimi Desktop (Kimi 桌面端)",
@@ -1465,10 +1477,14 @@ impl AgentTarget {
     }
     fn canonical_install(&self) -> &'static str {
         match self {
+            Self::Cline => "npm install -g cline",
+            Self::ClineDesktop => "Follow the embedded clinedesktop install reference for the official desktop installer; npm cline installs only the CLI.",
             Self::OpenClaw => "npm install -g openclaw",
             Self::OpenCode => "npm install -g @opencode/cli  (or  curl -fsSL https://opencode.ai/v2/install | bash)",
             Self::MiMoCode => "npm install -g @mimo-ai/cli  (or  curl -fsSL https://mimo.xiaomi.com/install | bash)",
             Self::MiMoDesktop => "Follow the embedded mimodesktop install reference for the official Xiaomi MiMo desktop installer.",
+            Self::MiniMaxCode => "Follow the embedded minimaxcode install reference; package @minimax-ai/code, command mcode.",
+            Self::MiniMaxDesktop => "Follow the embedded minimaxdesktop install reference; ask China or international before installation unless already specified.",
             Self::KiloCode => "npm install -g @kilocode/cli  (or  curl -fsSL https://kilo.ai/cli/install | bash)",
             Self::KimiCode => "npm install -g @moonshot-ai/kimi-code  (or  curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash)",
             Self::KimiDesktop => "Follow the embedded kimidesktop install reference for the official Kimi desktop installer.",
@@ -1502,8 +1518,35 @@ fn detect_user_intent(messages: &[Message]) -> Option<AgentTarget> {
         };
         // Order matters: more specific names first to avoid "claude code" matching
         // a generic "claude" mention.
+        if text.contains("clinedesktop")
+            || text.contains("cline desktop")
+            || text.contains("cline 桌面")
+            || text.contains("cline桌面")
+            || text.contains("cline デスクトップ")
+        {
+            return Some(AgentTarget::ClineDesktop);
+        }
+        if text.contains("cline cli")
+            || text.contains("cline 命令行")
+            || text.contains("cline命令行")
+        {
+            return Some(AgentTarget::Cline);
+        }
         if text.contains("openclaw") || text.contains("open claw") || text.contains("openclaude") {
             return Some(AgentTarget::OpenClaw);
+        }
+        if text.contains("minimaxdesktop")
+            || text.contains("minimax desktop")
+            || text.contains("minimax 桌面")
+            || text.contains("minimax桌面")
+        {
+            return Some(AgentTarget::MiniMaxDesktop);
+        }
+        if text.contains("minimaxcode")
+            || text.contains("minimax cli")
+            || text.contains("minimax code cli")
+        {
+            return Some(AgentTarget::MiniMaxCode);
         }
         // Desktop first: its shared config path can also mention mimocode.
         if text.contains("mimodesktop")
@@ -1580,12 +1623,30 @@ fn detect_command_target(command: &str) -> Option<AgentTarget> {
                 || cmd.contains("install.ps1")
                 || cmd.contains("| bash")
                 || cmd.contains("| sh")))
-        || cmd.contains("kimi-code/desktop/download/");
+        || cmd.contains("kimi-code/desktop/download/")
+        || cmd.contains("/minimax-agent-prod/release/")
+        || cmd.contains("/minimax-agent/release/")
+        || cmd.contains("cline/cline/releases/download/desktop-");
     if !is_install_op {
         return None;
     }
 
     // Order matters: check the more-specific package strings first.
+    if cmd.contains("cline/cline/releases/download/desktop-") {
+        return Some(AgentTarget::ClineDesktop);
+    }
+    if cmd
+        .split_whitespace()
+        .any(|part| part.trim_matches(['\'', '"', ';']) == "cline" || part.starts_with("cline@"))
+    {
+        return Some(AgentTarget::Cline);
+    }
+    if cmd.contains("/minimax-agent-prod/release/") || cmd.contains("/minimax-agent/release/") {
+        return Some(AgentTarget::MiniMaxDesktop);
+    }
+    if cmd.contains("@minimax-ai/code") || cmd.contains("filecdn.minimax.chat/public/install.") {
+        return Some(AgentTarget::MiniMaxCode);
+    }
     if cmd.contains("@anthropic-ai/claude-code") || cmd.contains("claude.ai/install") {
         return Some(AgentTarget::ClaudeCode);
     }
@@ -1681,11 +1742,60 @@ fn is_legacy_opencode_install(command: &str) -> bool {
 mod install_intent_tests {
     use super::*;
 
+    #[test]
+    fn cline_cli_and_desktop_install_targets_are_distinct() {
+        let desktop = "https://github.com/cline/cline/releases/download/desktop-v0.0.39/Cline_0.0.39_x64-setup.exe";
+        for name in [
+            "clinedesktop",
+            "Cline Desktop",
+            "Cline 桌面端",
+            "Cline桌面端",
+            "Cline デスクトップ",
+        ] {
+            let messages = request(&format!("Install {name}"));
+            assert!(validate_install_intent(desktop, &messages).is_ok());
+            for cli in ["npm install -g cline", "npm install -g cline@3.0.66"] {
+                assert!(validate_install_intent(cli, &messages).is_err());
+                assert!(validate_install_intent(cli, &request("Install Cline CLI")).is_ok());
+            }
+            assert!(validate_install_intent("cline --version", &messages).is_ok());
+        }
+        assert!(validate_install_intent(desktop, &request("Install Cline CLI")).is_err());
+        assert_eq!(detect_user_intent(&request("Install Cline")), None);
+    }
+
     fn request(text: &str) -> Vec<Message> {
         vec![Message {
             role: "user".into(),
             content: MessageContent::Text(text.into()),
         }]
+    }
+
+    #[test]
+    fn minimax_desktop_editions_share_one_target_separate_from_cli() {
+        let cli = "npm install -g @minimax-ai/code";
+        let desktop_commands = [
+            "https://filecdn.minimax.chat/public/minimax-agent/release/MiniMax%20Code%20Setup.exe",
+            "https://file.cdn.minimax.io/public/minimax-agent/release/MiniMax%20Code%20Setup.exe",
+            "https://filecdn.minimax.chat/public/minimax-agent-prod/release/MiniMax%20Code%20Setup.exe",
+        ];
+        for name in [
+            "minimaxdesktop",
+            "MiniMax 桌面端",
+            "MiniMax桌面端",
+            "MiniMax Desktop",
+            "MiniMax Desktop 国内版",
+            "MiniMax 桌面端（国际版）",
+        ] {
+            let messages = request(&format!("Install {name}"));
+            assert!(validate_install_intent(cli, &messages).is_err());
+            for command in desktop_commands {
+                assert!(validate_install_intent(command, &messages).is_ok());
+                assert!(validate_install_intent(command, &request("Install MiniMax CLI")).is_err());
+            }
+        }
+        assert!(validate_install_intent(cli, &request("Install MiniMax CLI")).is_ok());
+        assert_eq!(detect_user_intent(&request("Install MiniMax Code")), None);
     }
 
     #[test]

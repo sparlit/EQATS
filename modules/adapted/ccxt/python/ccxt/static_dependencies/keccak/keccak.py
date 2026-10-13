@@ -92,7 +92,10 @@ def keccak_f_1600(state):
     # load64()/store64() previously built a Python-level generator and summed
     # it byte-by-byte; int.from_bytes()/int.to_bytes() do the same job in C.
     A = [
-        [int.from_bytes(bytes(state[8 * (x + 5 * y) : 8 * (x + 5 * y) + 8]), "little") for y in range(5)]
+        [
+            int.from_bytes(bytes(state[8 * (x + 5 * y) : 8 * (x + 5 * y) + 8]), "little")
+            for y in range(5)
+        ]
         for x in range(5)
     ]
 
@@ -114,7 +117,11 @@ def keccak_f_1600(state):
         current = A[1][0]
         for x, y, offset in _PI_RHO_SCHEDULE:
             a = A[x][y]
-            A[x][y] = current if offset == 0 else (((current >> (64 - offset)) | (current << offset)) & _MASK64)
+            A[x][y] = (
+                current
+                if offset == 0
+                else (((current >> (64 - offset)) | (current << offset)) & _MASK64)
+            )
             current = a
 
         for y in range(5):

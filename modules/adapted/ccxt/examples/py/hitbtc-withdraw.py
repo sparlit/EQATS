@@ -54,5 +54,14 @@ exchange = ccxt.hitbtc(
 trading_balance = exchange.fetch_balance()
 account_balance = exchange.fetch_balance({"type": "account"})
 
+pprint("Trading balance:")
+pprint(get_positive_accounts(trading_balance["total"]))
+pprint("Account balance:")
+pprint(get_positive_accounts(account_balance["total"]))
+
 
 withdraw = exchange.withdraw("ETH", 0.01, "0x811DCfeb6dC0b9ed825808B6B060Ca469b83fB81")
+
+
+pprint("Withdraw:")
+pprint(withdraw)

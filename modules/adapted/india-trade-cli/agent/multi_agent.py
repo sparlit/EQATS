@@ -71,13 +71,11 @@ import queue as _queue_mod
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any
 
+from agent.tools import ToolRegistry
 from rich.console import Console
 from rich.table import Table
-
-if TYPE_CHECKING:
-    from agent.tools import ToolRegistry
 
 console = Console()
 
@@ -118,10 +116,14 @@ class AnalystScorecard:
     weighted_total: float  # sum(score * weight)
     verdict: str  # derived from total
     agreement: float  # 0-100, how much analysts agree
-    conflicts: list[str] = field(default_factory=list)  # e.g. "Technical BULLISH vs Fundamental BEARISH"
+    conflicts: list[str] = field(
+        default_factory=list
+    )  # e.g. "Technical BULLISH vs Fundamental BEARISH"
 
     def summary(self) -> str:
-        parts = [f"Scorecard: {self.verdict} (total: {self.weighted_total:+.1f}, agreement: {self.agreement:.0f}%)"]
+        parts = [
+            f"Scorecard: {self.verdict} (total: {self.weighted_total:+.1f}, agreement: {self.agreement:.0f}%)"
+        ]
         for name, score in self.scores.items():
             w = self.weights.get(name, 0)
             parts.append(f"  {name:20s}: {score:+6.1f} (weight: {w:.0%})")
@@ -269,7 +271,9 @@ class TechnicalAnalyst(BaseAnalyst):
 
     def analyze(self, symbol: str, exchange: str = "NSE") -> AnalystReport:
         try:
-            result = self.registry.execute("technical_analyse", {"symbol": symbol, "exchange": exchange})
+            result = self.registry.execute(
+                "technical_analyse", {"symbol": symbol, "exchange": exchange}
+            )
             if isinstance(result, dict) and "error" in result:
                 return AnalystReport(
                     analyst=self.name,
@@ -286,13 +290,17 @@ class TechnicalAnalyst(BaseAnalyst):
             points = []
             if result.get("rsi") is not None:
                 rsi = result["rsi"]
-                points.append(f"RSI: {rsi:.1f} ({'overbought' if rsi > 70 else 'oversold' if rsi < 30 else 'neutral'})")
+                points.append(
+                    f"RSI: {rsi:.1f} ({'overbought' if rsi > 70 else 'oversold' if rsi < 30 else 'neutral'})"
+                )
             if result.get("macd") is not None:
                 macd_signal = "bullish" if result.get("macd_signal") == "BUY" else "bearish"
                 points.append(f"MACD: {macd_signal} crossover")
             if result.get("ema20") and result.get("ema50"):
                 trend = "above" if result["ema20"] > result["ema50"] else "below"
-                points.append(f"EMA20 {trend} EMA50 (short-term trend {'up' if trend == 'above' else 'down'})")
+                points.append(
+                    f"EMA20 {trend} EMA50 (short-term trend {'up' if trend == 'above' else 'down'})"
+                )
             if result.get("support"):
                 points.append(f"Support: {result['support']}")
             if result.get("resistance"):
@@ -458,8 +466,7 @@ class FundamentalAnalyst(BaseAnalyst):
             )
 
             if not perplexity_finance_available():
-                msg = "no key"
-                raise RuntimeError(msg)
+                raise RuntimeError("no key")
 
             result = finance_fundamentals_for_symbol(symbol)
             if not result.ok or not result.summary:
@@ -487,7 +494,8 @@ class FundamentalAnalyst(BaseAnalyst):
             verdict="UNKNOWN",
             confidence=0,
             score=0,
-            error=fallback_error or "fundamental_analyse failed; yfinance and Perplexity Finance also unavailable",
+            error=fallback_error
+            or "fundamental_analyse failed; yfinance and Perplexity Finance also unavailable",
         )
 
 
@@ -542,7 +550,9 @@ class OptionsAnalyst(BaseAnalyst):
                     verdict="UNAVAILABLE",
                     confidence=0,
                     score=0,
-                    key_points=["Options data unavailable for this symbol (no broker or no F&O segment)"],
+                    key_points=[
+                        "Options data unavailable for this symbol (no broker or no F&O segment)"
+                    ],
                     data={"options_available": False},
                 )
 
@@ -688,7 +698,11 @@ class NewsMacroAnalyst(BaseAnalyst):
                         data["finance_search_citations"] = fin_result.citations
                         points.append(
                             "Perplexity Finance: live data fetched"
-                            + (f" ({len(fin_result.citations)} sources)" if fin_result.citations else "")
+                            + (
+                                f" ({len(fin_result.citations)} sources)"
+                                if fin_result.citations
+                                else ""
+                            )
                         )
             except Exception:
                 pass  # finance search is always best-effort
@@ -781,7 +795,7 @@ class NewsMacroAnalyst(BaseAnalyst):
                     headlines.append(f"- [Market] {title}")
 
         if not headlines:
-            return (*self._keyword_sentiment([]), [])
+            return self._keyword_sentiment([]) + ([],)
 
         headlines_text = "\n".join(headlines[:12])
 
@@ -830,7 +844,9 @@ class NewsMacroAnalyst(BaseAnalyst):
 
         try:
             if self._llm:
-                console.print(f"  [dim cyan]Analyzing news sentiment for {symbol} via LLM...[/dim cyan]")
+                console.print(
+                    f"  [dim cyan]Analyzing news sentiment for {symbol} via LLM...[/dim cyan]"
+                )
             response = self._llm.chat(
                 messages=[{"role": "user", "content": prompt}],
                 stream=False,
@@ -838,8 +854,10 @@ class NewsMacroAnalyst(BaseAnalyst):
             return self._parse_sentiment_response(response)
         except Exception as e:
             # LLM failed — fall back to keyword sentiment
-            console.print(f"  [dim yellow]LLM sentiment failed: {e} — using keyword fallback[/dim yellow]")
-            return (*self._keyword_sentiment([]), [f"LLM sentiment unavailable: {e}"])
+            console.print(
+                f"  [dim yellow]LLM sentiment failed: {e} — using keyword fallback[/dim yellow]"
+            )
+            return self._keyword_sentiment([]) + ([f"LLM sentiment unavailable: {e}"],)
 
     def _parse_sentiment_response(self, response: str) -> tuple[str, float, int, list[str]]:
         """Parse the structured LLM sentiment response."""
@@ -869,7 +887,7 @@ class NewsMacroAnalyst(BaseAnalyst):
                 with contextlib.suppress(ValueError, IndexError):
                     confidence = int(line.split(":", 1)[1].strip().rstrip("%"))
 
-            elif line.startswith(("- ", "* ")):
+            elif line.startswith("- ") or line.startswith("* "):
                 points.append(line.lstrip("-* ").strip())
 
         # If no points parsed, use the whole response as a single point
@@ -883,14 +901,18 @@ class NewsMacroAnalyst(BaseAnalyst):
     @staticmethod
     def _keyword_sentiment(points: list[str]) -> tuple[str, float, int]:
         """Fallback: count bullish/bearish keywords in existing points."""
-        bullish_signals = sum(1 for p in points if any(w in p.lower() for w in ["buying", "strong", "rally", "surge"]))
+        bullish_signals = sum(
+            1 for p in points if any(w in p.lower() for w in ["buying", "strong", "rally", "surge"])
+        )
         bearish_signals = sum(
-            1 for p in points if any(w in p.lower() for w in ["selling", "weak", "decline", "crash", "fall"])
+            1
+            for p in points
+            if any(w in p.lower() for w in ["selling", "weak", "decline", "crash", "fall"])
         )
 
         if bullish_signals > bearish_signals:
             return "BULLISH", 30, 40
-        if bearish_signals > bullish_signals:
+        elif bearish_signals > bullish_signals:
             return "BEARISH", -30, 40
         return "NEUTRAL", 0, 30
 
@@ -1051,7 +1073,9 @@ class SectorRotationAnalyst(BaseAnalyst):
                     if sorted_sectors:
                         top = sorted_sectors[0]
                         bottom = sorted_sectors[-1]
-                        points.append(f"Strongest sector: {top.get('name', '?')} ({top.get('change_pct', 0):+.1f}%)")
+                        points.append(
+                            f"Strongest sector: {top.get('name', '?')} ({top.get('change_pct', 0):+.1f}%)"
+                        )
                         points.append(
                             f"Weakest sector: {bottom.get('name', '?')} ({bottom.get('change_pct', 0):+.1f}%)"
                         )
@@ -1068,10 +1092,14 @@ class SectorRotationAnalyst(BaseAnalyst):
                         data["stock_sector"] = sector
                         data["sector_change"] = chg
                         if chg > 0.5:
-                            points.append(f"{symbol}'s sector ({sector}) is outperforming: {chg:+.1f}%")
+                            points.append(
+                                f"{symbol}'s sector ({sector}) is outperforming: {chg:+.1f}%"
+                            )
                             score += 20
                         elif chg < -0.5:
-                            points.append(f"{symbol}'s sector ({sector}) is underperforming: {chg:+.1f}%")
+                            points.append(
+                                f"{symbol}'s sector ({sector}) is underperforming: {chg:+.1f}%"
+                            )
                             score -= 20
                         else:
                             points.append(f"{symbol}'s sector ({sector}) is flat: {chg:+.1f}%")
@@ -1142,7 +1170,9 @@ class RiskAnalyst(BaseAnalyst):
                 holdings = self.registry.execute("get_holdings", {})
                 if isinstance(holdings, list):
                     existing = [
-                        h for h in holdings if isinstance(h, dict) and h.get("symbol", "").upper() == symbol.upper()
+                        h
+                        for h in holdings
+                        if isinstance(h, dict) and h.get("symbol", "").upper() == symbol.upper()
                     ]
                     if existing:
                         points.append(f"Already holding {symbol} — check concentration risk")
@@ -1572,7 +1602,11 @@ class MultiAgentAnalyzer:
                     report = future.result(timeout=30)
                     reports.append(report)
                     if self.verbose:
-                        status = "[green]OK[/green]" if not report.error else f"[red]FAIL: {report.error[:50]}[/red]"
+                        status = (
+                            "[green]OK[/green]"
+                            if not report.error
+                            else f"[red]FAIL: {report.error[:50]}[/red]"
+                        )
                         console.print(f"  [dim]{analyst.name:<15}[/dim] {status}")
                     if self.progress_callback:
                         self.progress_callback(
@@ -1625,7 +1659,11 @@ class MultiAgentAnalyzer:
                 report = analyst.analyze(symbol, exchange)
                 reports.append(report)
                 if self.verbose:
-                    status = "[green]OK[/green]" if not report.error else f"[red]FAIL: {report.error[:50]}[/red]"
+                    status = (
+                        "[green]OK[/green]"
+                        if not report.error
+                        else f"[red]FAIL: {report.error[:50]}[/red]"
+                    )
                     console.print(f"  [dim]{analyst.name:<15}[/dim] {status}")
             except Exception as e:
                 reports.append(
@@ -1726,7 +1764,10 @@ class MultiAgentAnalyzer:
         Falls back to verbose summary_text() if not provided.
         """
         # Use compact Stage 1 signals if available — saves ~800 tokens per call
-        analyst_context = compact_signals or "\n\n".join(r.summary_text() for r in reports if not r.error)
+        if compact_signals:
+            analyst_context = compact_signals
+        else:
+            analyst_context = "\n\n".join(r.summary_text() for r in reports if not r.error)
 
         # ── Round 1: Opening arguments ───────────────────────
         if self.verbose:
@@ -1911,7 +1952,9 @@ class MultiAgentAnalyzer:
                 f"VIX: {risk_report.data.get('vix', 'N/A')}"
             )
 
-        debate_summary = f"Investment debate winner: {debate.winner}\nFacilitator summary: {debate.facilitator}"
+        debate_summary = (
+            f"Investment debate winner: {debate.winner}\nFacilitator summary: {debate.facilitator}"
+        )
         scorecard_summary = scorecard.summary()
 
         shared_context = {
@@ -1926,15 +1969,21 @@ class MultiAgentAnalyzer:
         if self.verbose:
             console.print("[bold red]Aggressive[/bold red] debater — maximum upside, tight risk...")
         aggressive_view = self.llm.chat(
-            messages=[{"role": "user", "content": AGGRESSIVE_DEBATER_PROMPT.format(**shared_context)}],
+            messages=[
+                {"role": "user", "content": AGGRESSIVE_DEBATER_PROMPT.format(**shared_context)}
+            ],
             stream=self.verbose,
         )
 
         # Conservative debater
         if self.verbose:
-            console.print("\n[bold blue]Conservative[/bold blue] debater — capital preservation first...")
+            console.print(
+                "\n[bold blue]Conservative[/bold blue] debater — capital preservation first..."
+            )
         conservative_view = self.llm.chat(
-            messages=[{"role": "user", "content": CONSERVATIVE_DEBATER_PROMPT.format(**shared_context)}],
+            messages=[
+                {"role": "user", "content": CONSERVATIVE_DEBATER_PROMPT.format(**shared_context)}
+            ],
             stream=self.verbose,
         )
 
@@ -1988,7 +2037,10 @@ class MultiAgentAnalyzer:
         If non-empty, injected into the prompt as non-negotiable limits.
         """
         # Use compact Stage 1 signals if available (Stage 2 — LLM only synthesizes)
-        analyst_context = compact_signals or "\n\n".join(r.summary_text() for r in reports if not r.error)
+        if compact_signals:
+            analyst_context = compact_signals
+        else:
+            analyst_context = "\n\n".join(r.summary_text() for r in reports if not r.error)
 
         # Include risk data
         risk_report = next((r for r in reports if r.analyst == "Risk Manager"), None)
@@ -2032,7 +2084,8 @@ class MultiAgentAnalyzer:
 
         # Build debate section with full multi-round context
         debate_text = (
-            f"## Bull Case (Round 1)\n{debate.bull_argument}\n\n## Bear Case (Round 1)\n{debate.bear_argument}\n\n"
+            f"## Bull Case (Round 1)\n{debate.bull_argument}\n\n"
+            f"## Bear Case (Round 1)\n{debate.bear_argument}\n\n"
         )
         if debate.bull_rebuttal:
             debate_text += f"## Bull Rebuttal (Round 2)\n{debate.bull_rebuttal}\n\n"

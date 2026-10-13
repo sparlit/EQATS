@@ -89,7 +89,9 @@ def nse_declared(qe):
     total = 0
     try:
         while True:
-            jb = json.loads(NB._get(base + "&page=%d&size=500" % page, headers=hdr, jar=jar, timeout=60))
+            jb = json.loads(
+                NB._get(base + "&page=%d&size=500" % page, headers=hdr, jar=jar, timeout=60)
+            )
             rows = jb if isinstance(jb, list) else (jb.get("data", []) or [])
             MON = {
                 "jan": 1,
@@ -111,7 +113,9 @@ def nse_declared(qe):
                 m = re.match(r"(\d{1,2})-([A-Za-z]{3})-(\d{4})", qd)  # NSE format: 30-JUN-2026
                 if not (sym and m):
                     continue
-                qi = int(m.group(3)) * 10000 + MON.get(m.group(2).lower(), 0) * 100 + int(m.group(1))
+                qi = (
+                    int(m.group(3)) * 10000 + MON.get(m.group(2).lower(), 0) * 100 + int(m.group(1))
+                )
                 if qi != qe:
                     continue
                 # match update_fundamentals' filter: only filings with a parseable XBRL P&L (not
@@ -153,7 +157,8 @@ def bse_declared(qe, univ_codes):
         while page <= 40:
             url = (
                 "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=Result"
-                "&strPrevDate=%s&strToDate=%s&strScrip=&strSearch=P&strType=C&subcategory=-1" % (page, F, T)
+                "&strPrevDate=%s&strToDate=%s&strScrip=&strSearch=P&strType=C&subcategory=-1"
+                % (page, F, T)
             )
             try:
                 tab = json.loads(B.get(op, url)).get("Table", []) or []
@@ -183,7 +188,9 @@ def main():
     print("=== Coverage audit for quarter %d ===" % qe)
     sf = load(os.path.join(DOCS, "sf_fundamentals.json"), {})
     bf = load(os.path.join(DOCS, "bse_fundamentals.json"), {"px": {}}).get("px", {})
-    univ = {str(r[0]): r for r in load(os.path.join(DOCS, "bse_universe.json"), {"rows": []})["rows"]}
+    univ = {
+        str(r[0]): r for r in load(os.path.join(DOCS, "bse_universe.json"), {"rows": []})["rows"]
+    }
 
     # covered — sf_fundamentals[SYM] is a LIST of [qe, std, annStd, con, annCon] rows
     def rows_of(qs):
@@ -228,11 +235,15 @@ def main():
         "qe": qe,
         "nse_missing": nse_miss,
         "bse_missing": [
-            {"scrip": c, "tkr": univ.get(c, ["", "?"])[1], "mcap": univ.get(c, [0] * 7)[6]} for c in bse_miss
+            {"scrip": c, "tkr": univ.get(c, ["", "?"])[1], "mcap": univ.get(c, [0] * 7)[6]}
+            for c in bse_miss
         ],
     }
     json.dump(out, open(os.path.join(HERE, "_coverage_gap.json"), "w"), separators=(",", ":"))
-    print("\nWrote scripts/_coverage_gap.json (%d NSE + %d BSE-only missing)" % (len(nse_miss), len(bse_miss)))
+    print(
+        "\nWrote scripts/_coverage_gap.json (%d NSE + %d BSE-only missing)"
+        % (len(nse_miss), len(bse_miss))
+    )
 
 
 if __name__ == "__main__":

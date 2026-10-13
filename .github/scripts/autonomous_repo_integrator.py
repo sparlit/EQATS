@@ -51,7 +51,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 class AutonomousRepoIntegrator:
-    def __init__(self, repositories_file: str = "repositories.txt", ledger_path: str = "ingestion_blueprint.json", tasks_path: str = "todo_tasks.md"):
+    def __init__(
+        self,
+        repositories_file: str = "repositories.txt",
+        ledger_path: str = "ingestion_blueprint.json",
+        tasks_path: str = "todo_tasks.md",
+    ):
         self.root_dir = Path.cwd()
         self.sandbox_dir = self.root_dir / "_tmp_workspace"
         self.repositories_file = self.root_dir / repositories_file
@@ -69,7 +74,11 @@ class AutonomousRepoIntegrator:
     def load_repository_list(self) -> list[dict[str, str]]:
         """Parses repository targets from repositories.txt or repo_list.md."""
         repos = []
-        source = self.repositories_file if self.repositories_file.exists() else self.root_dir / "repo_list.md"
+        source = (
+            self.repositories_file
+            if self.repositories_file.exists()
+            else self.root_dir / "repo_list.md"
+        )
 
         if source.exists():
             with source.open("r", encoding="utf-8") as f:
@@ -83,12 +92,24 @@ class AutonomousRepoIntegrator:
                             target = parts[1]
                             repo_parts = target.split("/")
                             repo_name = repo_parts[-1]
-                            repos.append({"name": repo_name, "target": target, "url": f"https://github.com/{target}"})
+                            repos.append(
+                                {
+                                    "name": repo_name,
+                                    "target": target,
+                                    "url": f"https://github.com/{target}",
+                                }
+                            )
                     else:
                         parts = line_str.split("/")
                         if len(parts) >= 2:
                             repo_name = parts[-1]
-                            repos.append({"name": repo_name, "target": line_str, "url": f"https://github.com/{line_str}"})
+                            repos.append(
+                                {
+                                    "name": repo_name,
+                                    "target": line_str,
+                                    "url": f"https://github.com/{line_str}",
+                                }
+                            )
         return repos
 
     def load_ledger(self):
@@ -157,7 +178,9 @@ class AutonomousRepoIntegrator:
         """Executes a shell command with built-in auto-retry loop for network or transient events."""
         for attempt in range(1, retries + 1):
             try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False)
+                result = subprocess.run(
+                    cmd, shell=True, capture_output=True, text=True, cwd=cwd, check=False
+                )
                 if result.returncode == 0 or attempt == retries:
                     return (result.returncode, result.stdout + "\n" + result.stderr)
                 time.sleep(delay)
@@ -183,7 +206,9 @@ class AutonomousRepoIntegrator:
             return None
         return target_dir
 
-    def sanitize_and_adapt_code(self, file_path: Path, target_dir: Path, repo_name: str) -> Path | None:
+    def sanitize_and_adapt_code(
+        self, file_path: Path, target_dir: Path, repo_name: str
+    ) -> Path | None:
         """Extracts code file while preserving relative directory hierarchy (`rel_path`),
 
         removes stub comments safely, places `IST_SESSION_HELPER` after `from __future__` imports,
@@ -217,7 +242,13 @@ class AutonomousRepoIntegrator:
                     other_lines.append(line)
 
             if future_imports:
-                content = "\n".join(future_imports) + "\n\n" + IST_SESSION_HELPER + "\n\n" + "\n".join(other_lines)
+                content = (
+                    "\n".join(future_imports)
+                    + "\n\n"
+                    + IST_SESSION_HELPER
+                    + "\n\n"
+                    + "\n".join(other_lines)
+                )
             else:
                 content = IST_SESSION_HELPER + "\n\n" + content
 
@@ -272,7 +303,7 @@ class AutonomousRepoIntegrator:
                     self._auto_fix_mypy(file_path, mypy_out)
 
             if file_path.suffix == ".py":
-                pytest_cmd = f"{py_exec} -m pytest {file_path} -k \"not gui\""
+                pytest_cmd = f'{py_exec} -m pytest {file_path} -k "not gui"'
                 exit_code, test_out = self.run_cmd(pytest_cmd)
                 if exit_code in (0, 5):
                     print(f"  [+] Self-Healing Loop PASSED for {file_path.name}.")
@@ -298,7 +329,10 @@ class AutonomousRepoIntegrator:
         if err.lineno and err.lineno <= len(lines):
             line_idx = err.lineno - 1
             line = lines[line_idx]
-            if any(line.strip().startswith(kw) for kw in ["def ", "class ", "if ", "elif ", "else", "for ", "while "]) and not line.strip().endswith(":"):
+            if any(
+                line.strip().startswith(kw)
+                for kw in ["def ", "class ", "if ", "elif ", "else", "for ", "while "]
+            ) and not line.strip().endswith(":"):
                 lines[line_idx] = line.rstrip() + ":\n"
 
         with file_path.open("w", encoding="utf-8") as f:
@@ -310,7 +344,12 @@ class AutonomousRepoIntegrator:
             content = f.read()
 
         missing_types = ["Any", "Optional", "Dict", "List", "Union", "Callable", "Tuple"]
-        needed = [t for t in missing_types if f"Name '{t}' is not defined" in mypy_output and f"from typing import {t}" not in content]
+        needed = [
+            t
+            for t in missing_types
+            if f"Name '{t}' is not defined" in mypy_output
+            and f"from typing import {t}" not in content
+        ]
 
         if needed:
             content = f"from typing import {', '.join(needed)}\n" + content
@@ -351,6 +390,7 @@ class AutonomousRepoIntegrator:
 
         try:
             from openai import OpenAI
+
             client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key)
             code = file_path.read_text(encoding="utf-8")
 
@@ -359,7 +399,7 @@ class AutonomousRepoIntegrator:
                 model="meta/llama-3.3-70b-instruct",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=2048,
-                temperature=0.1
+                temperature=0.1,
             )
             fixed_code = response.choices[0].message.content.strip()
             fixed_code = re.sub(r"^```python\n?", "", fixed_code)
@@ -414,7 +454,9 @@ class AutonomousRepoIntegrator:
         pr_title = f"Integration: {target['target']}"
         pr_body = f"Autonomous institutional integration and self-healing pass for {target['url']}."
 
-        pr_code, pr_out = self.run_cmd(f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main')
+        pr_code, pr_out = self.run_cmd(
+            f'gh pr create --title "{pr_title}" --body "{pr_body}" --head {branch_name} --base main'
+        )
         pr_url = None
         if pr_code == 0:
             pr_match = re.search(r"https://github\.com/[^\s]+/pull/\d+", pr_out)
@@ -424,15 +466,19 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
             self.run_cmd('git commit -m "docs: record PR metadata in state ledger" --allow-empty')
             self.run_cmd(f"git push origin {branch_name} --force", retries=3)
 
-            merge_code, _merge_out = self.run_cmd(f"gh pr merge {branch_name} --auto --merge --delete-branch")
+            merge_code, _merge_out = self.run_cmd(
+                f"gh pr merge {branch_name} --auto --merge --delete-branch"
+            )
             if merge_code != 0:
                 self.run_cmd("git checkout main")
                 self.run_cmd("git pull origin main --rebase")
-                self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"')
+                self.run_cmd(
+                    f'git merge {branch_name} --no-ff -m "Auto-merge PR for {target["target"]}"'
+                )
                 self.run_cmd("git push origin main", retries=3)
             print(f"[+] Auto-Merge Loop completed for {branch_name}.")
         else:
@@ -440,12 +486,16 @@ class AutonomousRepoIntegrator:
             target["merged"] = True
             self.save_ledger()
 
-            self.run_cmd('git add ingestion_blueprint.json ingestion_blueprint.md')
-            self.run_cmd('git commit -m "docs: record direct merge metadata in state ledger" --allow-empty')
+            self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
+            self.run_cmd(
+                'git commit -m "docs: record direct merge metadata in state ledger" --allow-empty'
+            )
 
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase")
-            self.run_cmd(f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"')
+            self.run_cmd(
+                f'git merge {branch_name} --no-ff -m "Auto-merge branch for {target["target"]}"'
+            )
             self.run_cmd("git push origin main", retries=3)
 
         self.run_cmd("git checkout main")
@@ -460,12 +510,16 @@ class AutonomousRepoIntegrator:
 
         target = self.ledger["repositories"][index]
         print("\n=======================================================")
-        print(f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}")
+        print(
+            f"PROCESSING REPOSITORY [{index + 1}/{len(self.ledger['repositories'])}]: {target['target']}"
+        )
         print("=======================================================")
 
         target_dir = self.clone_repository(target)
         if not target_dir or not target_dir.exists():
-            print(f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update.")
+            print(
+                f"[-] Repository clone failed for {target['target']}. Record as skipped and push state update."
+            )
             target["status"] = "Skipped: Private/Non-Existent (404/403)"
             target["merged"] = False
             self.ledger["current_index"] += 1
@@ -474,7 +528,9 @@ class AutonomousRepoIntegrator:
             self.run_cmd("git checkout main")
             self.run_cmd("git pull origin main --rebase", retries=3)
             self.run_cmd("git add ingestion_blueprint.json ingestion_blueprint.md")
-            self.run_cmd(f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"')
+            self.run_cmd(
+                f'git commit -m "docs: advance ledger index past inaccessible repo {target["target"]}"'
+            )
             self.run_cmd("git push origin main", retries=3)
 
             return True
@@ -500,13 +556,17 @@ class AutonomousRepoIntegrator:
 
         success, pr_url = self.execute_auto_pr_and_merge_loop(target)
 
-        print(f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved.")
+        print(
+            f"[+] Integrated {integrated_count} modules from [{target['target']}]. Progress saved."
+        )
         return True
 
     def run_pipeline(self, batch_size: int = 1):
         """Runs the autonomous pipeline sequentially for batch_size targets."""
         processed = 0
-        while processed < batch_size and self.ledger["current_index"] < len(self.ledger["repositories"]):
+        while processed < batch_size and self.ledger["current_index"] < len(
+            self.ledger["repositories"]
+        ):
             idx = self.ledger["current_index"]
             has_more = self.process_single_repository(idx)
             processed += 1
@@ -518,8 +578,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="EQATS Autonomous Repository Integrator")
-    parser.add_argument("--batch", type=int, default=1, help="Number of repositories to process in this run")
-    parser.add_argument("--repo-index", type=int, default=None, help="Explicit repository index to process")
+    parser.add_argument(
+        "--batch", type=int, default=1, help="Number of repositories to process in this run"
+    )
+    parser.add_argument(
+        "--repo-index", type=int, default=None, help="Explicit repository index to process"
+    )
     args = parser.parse_args()
 
     integrator = AutonomousRepoIntegrator()

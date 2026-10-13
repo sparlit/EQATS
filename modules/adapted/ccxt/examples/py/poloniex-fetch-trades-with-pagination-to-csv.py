@@ -26,8 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-import pandas as pd
-
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
 
@@ -66,7 +64,14 @@ while True:
         break
 
 all_trades = exchange.sort_by(all_trades.values(), "id")
-print("Fetched", len(all_trades), "trades since", all_trades[0]["datetime"], "till", all_trades[-1]["datetime"])
+print(
+    "Fetched",
+    len(all_trades),
+    "trades since",
+    all_trades[0]["datetime"],
+    "till",
+    all_trades[-1]["datetime"],
+)
 
 # omitted_keys = ['fee', 'info']
 # all_trades = [exchange.omit(trade, omitted_keys) for trade in all_trades]

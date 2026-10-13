@@ -36,6 +36,7 @@ import functools
 import inspect
 import pickle
 import warnings
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -43,7 +44,6 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
-    Optional,
     Union,
     cast,
 )
@@ -52,6 +52,7 @@ import numpy as np
 import pandas as pd
 from joblib import delayed
 from numba import njit
+from numpy.typing import NDArray
 
 from pybroker.cache import CacheDateFields, ModelCacheKey
 from pybroker.common import (
@@ -78,10 +79,6 @@ from pybroker.interval import (
 from pybroker.parallel import _effective_n_jobs, parallel
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
-
-    from numpy.typing import NDArray
-
     from pybroker.scope import SymbolArrayStore
 
 # --- Model input and lag helpers (formerly timeseries.py) ---
@@ -214,12 +211,11 @@ class ModelInput:
         if not keep.any():
             offenders = self._all_nan_lag_columns()
             detail = f" Lag columns with no finite values: {offenders}." if offenders else ""
-            msg = (
+            raise ValueError(
                 "Lag features are undefined for every training row, so there "
                 f"is nothing left to train on with lags={self.lags}."
                 f"{detail}"
             )
-            raise ValueError(msg)
         if keep.all():
             return self
         arrays = {col: values[keep] for col, values in self.arrays.items()}
@@ -265,7 +261,11 @@ class ModelInput:
         """Returns the lag columns that hold no finite value at all."""
         if not self.lag_columns:
             return ()
-        return tuple(col for col in self.lag_columns if col in self.arrays and not np.isfinite(self.arrays[col]).any())
+        return tuple(
+            col
+            for col in self.lag_columns
+            if col in self.arrays and not np.isfinite(self.arrays[col]).any()
+        )
 
     def to_dataframe(self) -> pd.DataFrame:
         """Materializes a DataFrame of the input columns."""
@@ -443,8 +443,7 @@ def symbol_history_arrays(
     }
     for col in columns:
         if col not in arrays:
-            msg = f"Column {col!r} not found in data for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Column {col!r} not found in data for {symbol!r}.")
     return dates, arrays
 
 
@@ -497,8 +496,12 @@ def merge_lag_series_cache_from_store(
             elif col in indicator_set and indicator_data is not None:
                 ind_sym = IndicatorSymbol(col, sym)
                 if ind_sym in indicator_data:
-                    col_arrays[col] = _indicator_values_for_dates(indicator_data[ind_sym], sym_dates)
-        merge_lag_series_cache_from_arrays(cache, sym, columns, lags, history_dates[sym], col_arrays)
+                    col_arrays[col] = _indicator_values_for_dates(
+                        indicator_data[ind_sym], sym_dates
+                    )
+        merge_lag_series_cache_from_arrays(
+            cache, sym, columns, lags, history_dates[sym], col_arrays
+        )
     return cache
 
 
@@ -537,11 +540,10 @@ def merge_lag_series_cache_from_arrays(
         # cause instead of raising a bare KeyError.
         values = column_arrays.get(col)
         if values is None:
-            msg = (
+            raise ValueError(
                 f"Column {col!r} not found for {symbol!r}. lag_cols must "
                 "name a data column or an Indicator registered on the model."
             )
-            raise ValueError(msg)
         values = _as_float64_contiguous(values)
         stacked = _build_stacked_lags(values, lags)
         _store_stacked_lags_in_cache(cache, symbol, col, lags, stacked)
@@ -576,12 +578,11 @@ def merge_interval_lag_series_cache(
             if col_data is None and bars is not None:
                 col_data = _bars_column_array(bars, col)
             if col_data is None:
-                msg = (
+                raise ValueError(
                     f"Column {col!r} not found for {sym!r} on interval "
                     f"{interval!r}. lag_cols must name a data column or an "
                     "Indicator registered on the model."
                 )
-                raise ValueError(msg)
             values = _as_float64_contiguous(np.asarray(col_data))
             stacked = _build_stacked_lags(values, lags)
             _store_stacked_lags_in_cache(cache, sym, col, lags, stacked, interval)
@@ -595,11 +596,9 @@ def history_date_offset(history_dates: np.ndarray, row_dates: np.ndarray) -> int
     offset = int(np.searchsorted(history_dates, row_dates[0]))
     end = offset + len(row_dates)
     if end > len(history_dates):
-        msg = "Row dates exceed available history."
-        raise ValueError(msg)
+        raise ValueError("Row dates exceed available history.")
     if not np.array_equal(history_dates[offset:end], row_dates):
-        msg = "Row dates are not contiguous in history."
-        raise ValueError(msg)
+        raise ValueError("Row dates are not contiguous in history.")
     return offset
 
 
@@ -657,22 +656,19 @@ def _checked_stacked_lags(
     stacked = lag_cache.get(key)
     interval_msg = f" on interval {interval!r}" if interval else ""
     if stacked is None:
-        msg = f"Lag history missing for {symbol!r} column {col!r}{interval_msg}."
-        raise ValueError(msg)
+        raise ValueError(f"Lag history missing for {symbol!r} column {col!r}{interval_msg}.")
     n_lag_rows = stacked.shape[0] if stacked.ndim == 2 else 0
     if n_lag_rows < lags + 1:
-        msg = (
+        raise ValueError(
             f"Lag history for {symbol!r} column {col!r}{interval_msg} holds "
             f"{n_lag_rows} lag rows but {lags + 1} are required."
         )
-        raise ValueError(msg)
     if offset < 0 or offset + n_rows > stacked.shape[1]:
-        msg = (
+        raise ValueError(
             f"Lag history for {symbol!r} column {col!r}{interval_msg} covers "
             f"{stacked.shape[1]} bars but rows through {offset + n_rows} "
             "were requested."
         )
-        raise ValueError(msg)
     return stacked
 
 
@@ -824,13 +820,12 @@ def apply_prepare_input_data(
     n_rows = len(model_input.dates)
     df = prepare_fn(model_input.to_dataframe())
     if len(df.columns) and len(df) != n_rows:
-        msg = (
+        raise ValueError(
             f"input_data_fn returned {len(df)} rows for {n_rows} bars. "
             "Model input must stay aligned one row per bar; return NaN "
             "warmup rows instead of dropping them, or use lags= which "
             "drops warmup rows from training data only."
         )
-        raise ValueError(msg)
     result = model_input_from_frame(df, columns=tuple(df.columns), dates=model_input.dates)
     result.lag_features = model_input.lag_features
     result.lags = model_input.lags
@@ -943,7 +938,9 @@ def _symbol_model_input_from_store(
         if col in sym_data:
             arrays[col] = sym_data[col]
         elif col in indicators:
-            arrays[col] = _indicator_values_for_dates(indicator_data[IndicatorSymbol(col, symbol)], dates)
+            arrays[col] = _indicator_values_for_dates(
+                indicator_data[IndicatorSymbol(col, symbol)], dates
+            )
     return model_input_from_arrays(columns_tuple, arrays, dates)
 
 
@@ -963,7 +960,9 @@ def _pooled_model_input_from_store(
     columns_tuple = _model_input_columns(indicators, frozenset(available), pooled=True)
     sym_parts: list[NDArray] = []
     date_parts: list[NDArray] = []
-    col_parts: dict[str, list[NDArray]] = {col: [] for col in columns_tuple if col not in (sym_col, date_col)}
+    col_parts: dict[str, list[NDArray]] = {
+        col: [] for col in columns_tuple if col not in (sym_col, date_col)
+    }
     has_rows = False
     for sym in symbols:
         if sym not in store.sym_arrays:
@@ -981,7 +980,9 @@ def _pooled_model_input_from_store(
             if col in sym_data:
                 col_parts[col].append(sym_data[col])
             elif col in indicators:
-                col_parts[col].append(_indicator_values_for_dates(indicator_data[IndicatorSymbol(col, sym)], dates))
+                col_parts[col].append(
+                    _indicator_values_for_dates(indicator_data[IndicatorSymbol(col, sym)], dates)
+                )
     if not has_rows:
         return _empty_model_input(columns_tuple, pooled=True)
     sym_vals = np.concatenate(sym_parts)
@@ -1024,7 +1025,9 @@ def _symbol_model_input(
         if col in df.columns:
             arrays[col] = df[col].to_numpy(copy=False)[rows]
         elif col in indicators:
-            arrays[col] = _indicator_values_for_dates(indicator_data[IndicatorSymbol(col, symbol)], dates)
+            arrays[col] = _indicator_values_for_dates(
+                indicator_data[IndicatorSymbol(col, symbol)], dates
+            )
     return model_input_from_arrays(columns_tuple, arrays, dates)
 
 
@@ -1173,8 +1176,7 @@ class ModelSource:
             df_cols = frozenset(df.columns)
             for ind_name in self.indicators:
                 if ind_name not in df_cols:
-                    msg = f"Indicator {ind_name!r} not found in DataFrame."
-                    raise ValueError(msg)
+                    raise ValueError(f"Indicator {ind_name!r} not found in DataFrame.")
             return df[[*self.indicators]]
         return self._input_data_fn(df)
 
@@ -1212,11 +1214,12 @@ class ModelSource:
             :class:`.IntervalBoundModel` binding this model to ``intervals``.
         """
         if not isinstance(self, ModelTrainer):
-            msg = f"Pretrained model {self.name!r} is not trained per interval and cannot be bound to intervals."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Pretrained model {self.name!r} is not trained per interval "
+                "and cannot be bound to intervals."
+            )
         if not intervals:
-            msg = "ModelSource.intervals() requires at least one interval."
-            raise ValueError(msg)
+            raise ValueError("ModelSource.intervals() requires at least one interval.")
         return IntervalBoundModel(
             source=self,
             intervals=normalize_intervals(intervals, "intervals", allow_base=True),
@@ -1462,12 +1465,11 @@ def _validate_lagged_train_fn(name: str, fn: Callable, kwargs: Mapping[str, Any]
     """Validates that a lagged ``train_fn`` accepts lag matrix kwargs."""
     for reserved in ("lag_train", "lag_test"):
         if reserved in kwargs:
-            msg = (
+            raise ValueError(
                 f"Model {name!r}: {reserved!r} is reserved for the lag "
                 "feature matrix passed to train_fn and cannot be used as a "
                 "model kwarg."
             )
-            raise ValueError(msg)
     try:
         sig = inspect.signature(fn)
     except (ValueError, TypeError):
@@ -1485,13 +1487,12 @@ def _validate_lagged_train_fn(name: str, fn: Callable, kwargs: Mapping[str, Any]
         )
     }
     if "lag_train" not in accepted or "lag_test" not in accepted:
-        msg = (
+        raise ValueError(
             f"Model {name!r} is registered with lags= but its train_fn does "
             "not accept the lag feature matrices. Expected a signature like "
             "train_fn(symbol, train_data, test_data, lag_train, lag_test)"
             " (pooled models take symbols instead of symbol)."
         )
-        raise ValueError(msg)
 
 
 def _parse_lag_cols(
@@ -1502,8 +1503,7 @@ def _parse_lag_cols(
     if lag_cols is None:
         return (), ()
     if lags is None:
-        msg = "lag_cols requires lags to be set, e.g. lags=3."
-        raise ValueError(msg)
+        raise ValueError("lag_cols requires lags to be set, e.g. lags=3.")
     reserved = (DataCol.DATE.value, DataCol.SYMBOL.value)
     names: list[str] = []
     ind_names: list[str] = []
@@ -1515,18 +1515,16 @@ def _parse_lag_cols(
         elif isinstance(col, str):
             name = col
         else:
-            msg = f"lag_cols must contain column names or Indicators, got {type(col).__name__}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"lag_cols must contain column names or Indicators, got {type(col).__name__}."
+            )
         if not name:
-            msg = "lag_cols cannot contain an empty column name."
-            raise ValueError(msg)
+            raise ValueError("lag_cols cannot contain an empty column name.")
         if name in reserved:
-            msg = f"lag_cols cannot contain reserved column {name!r}."
-            raise ValueError(msg)
+            raise ValueError(f"lag_cols cannot contain reserved column {name!r}.")
         names.append(name)
     if not names:
-        msg = "lag_cols cannot be empty."
-        raise ValueError(msg)
+        raise ValueError("lag_cols cannot be empty.")
     # Declaration order sets the feature block order, so dedupe in place.
     return tuple(dict.fromkeys(names)), tuple(dict.fromkeys(ind_names))
 
@@ -1640,16 +1638,13 @@ def model(
     """
     if lags is not None:
         if not isinstance(lags, int) or lags <= 0:
-            msg = "lags must be a positive integer."
-            raise ValueError(msg)
+            raise ValueError("lags must be a positive integer.")
         if not pretrained:
             _validate_lagged_train_fn(name, fn, kwargs)
     if per_bar and pooled:
-        msg = "per_bar=True is not supported with pooled=True."
-        raise ValueError(msg)
+        raise ValueError("per_bar=True is not supported with pooled=True.")
     if per_bar and predict_fn is None:
-        msg = "per_bar=True requires predict_fn to be set."
-        raise ValueError(msg)
+        raise ValueError("per_bar=True requires predict_fn to be set.")
     validate_source_name(name, "model")
     scope = StaticScope.instance()
     lag_col_names, lag_col_inds = _parse_lag_cols(lag_cols, lags)
@@ -1658,22 +1653,20 @@ def model(
         # A binding NamedTuple is iterable, so a scalar one would silently
         # unpack into its fields below; reject it by its own type name.
         if isinstance(indicators, tuple) and hasattr(indicators, "_fields"):
-            msg = (
+            raise ValueError(
                 "model() indicators must contain Indicators, got "
                 f"{type(indicators).__name__}. Interval bindings are only "
                 "valid in add_execution(); a model's input indicators "
                 "follow the model's own interval binding."
             )
-            raise ValueError(msg)
         for ind in indicators:
             if not isinstance(ind, Indicator):
-                msg = (
+                raise ValueError(
                     "model() indicators must contain Indicators, got "
                     f"{type(ind).__name__}. Interval bindings are only "
                     "valid in add_execution(); a model's input indicators "
                     "follow the model's own interval binding."
                 )
-                raise ValueError(msg)
             ind_name_set.add(ind.name)
     indicator_names = tuple(sorted(ind_name_set | set(lag_col_inds)))
     if pretrained:
@@ -1691,20 +1684,21 @@ def model(
         )
         scope.set_model_source(loader)
         return loader
-    trainer = ModelTrainer(
-        name=name,
-        train_fn=fn,
-        indicator_names=indicator_names,
-        input_data_fn=input_data_fn,
-        predict_fn=predict_fn,
-        pooled=pooled,
-        kwargs=kwargs,
-        lags=lags,
-        lag_cols=lag_col_names,
-        per_bar=per_bar,
-    )
-    scope.set_model_source(trainer)
-    return trainer
+    else:
+        trainer = ModelTrainer(
+            name=name,
+            train_fn=fn,
+            indicator_names=indicator_names,
+            input_data_fn=input_data_fn,
+            predict_fn=predict_fn,
+            pooled=pooled,
+            kwargs=kwargs,
+            lags=lags,
+            lag_cols=lag_col_names,
+            per_bar=per_bar,
+        )
+        scope.set_model_source(trainer)
+        return trainer
 
 
 class CachedModel(NamedTuple):
@@ -1743,7 +1737,9 @@ SymTrainerReturn = tuple[Literal["sym"], SymTrainResult]
 TrainerReturn = Union[PooledTrainerReturn, SymTrainerReturn]
 
 
-def _infer_input_cols(train_data: ModelInput, pooled: bool, indicators: tuple[str, ...]) -> tuple[str, ...]:
+def _infer_input_cols(
+    train_data: ModelInput, pooled: bool, indicators: tuple[str, ...]
+) -> tuple[str, ...]:
     # Columns registered with register_columns() are part of the training
     # frame, so they belong in the inferred input columns too. Filtering on
     # the DataCol enum instead would drop them here while the prediction side
@@ -1777,13 +1773,17 @@ def _lag_feature_cols(
         missing = tuple(col for col in lag_cols if col not in train_data)
         if missing:
             available = sorted(train_data.columns)
-            msg = f"Column {missing[0]!r} in lag_cols not found in model input. Available columns: {available}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Column {missing[0]!r} in lag_cols not found in model input. "
+                f"Available columns: {available}."
+            )
         return lag_cols
     date_col = DataCol.DATE.value
     indicator_set = frozenset(indicators)
     return tuple(
-        col for col in _infer_input_cols(train_data, pooled, indicators) if col != date_col and col not in indicator_set
+        col
+        for col in _infer_input_cols(train_data, pooled, indicators)
+        if col != date_col and col not in indicator_set
     )
 
 
@@ -1795,10 +1795,10 @@ def _parse_model_result(
 ) -> tuple[Any, tuple[str] | None]:
     if isinstance(model_result, tuple):
         model = model_result[0]
-        input_cols = cast("tuple[str]", tuple(model_result[1]))
+        input_cols = cast(tuple[str], tuple(model_result[1]))
     else:
         model = model_result
-        input_cols = cast("tuple[str]", _infer_input_cols(train_data, pooled, indicators))
+        input_cols = cast(tuple[str], _infer_input_cols(train_data, pooled, indicators))
     return model, input_cols
 
 
@@ -1808,7 +1808,7 @@ def _train_model_sym(
     sym_train_data: ModelInput,
     sym_test_data: ModelInput,
 ) -> SymTrainResult:
-    _model_name, sym = model_sym
+    model_name, sym = model_sym
     model_result = source(
         sym,
         sym_train_data.to_dataframe(),
@@ -1957,7 +1957,9 @@ class ModelsMixin:
         models, uncached_model_syms = self._get_cached_models(
             model_syms, cache_date_fields, pooled_model_groups, lookahead
         )
-        if not uncached_model_syms and not self._has_uncached_pooled_groups(model_syms, models, pooled_model_groups):
+        if not uncached_model_syms and not self._has_uncached_pooled_groups(
+            model_syms, models, pooled_model_groups
+        ):
             scope.logger.loaded_models()
             scope.logger.info_loaded_models(model_syms)
             return models
@@ -1979,12 +1981,10 @@ class ModelsMixin:
             base_name, interval = parse_model_interval_name(model_name)
             source = scope.get_model_source(base_name)
             if not isinstance(source, ModelTrainer) or not source.pooled:
-                msg = f"ModelSource {model_name!r} is not a pooled ModelTrainer."
-                raise TypeError(msg)
+                raise TypeError(f"ModelSource {model_name!r} is not a pooled ModelTrainer.")
             if interval is not None:
                 if interval_data is None:
-                    msg = f"Timeframe data required to train model {model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(f"Timeframe data required to train model {model_name!r}.")
                 pooled_train_data, pooled_test_data = self._prepare_pooled_interval_data(
                     symbols,
                     interval,
@@ -2032,11 +2032,12 @@ class ModelsMixin:
             source = scope.get_model_source(base_name)
             if interval is not None:
                 if isinstance(source, ModelLoader):
-                    msg = f"Pretrained model {base_name!r} does not support multi-interval training on {interval!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Pretrained model {base_name!r} does not support "
+                        f"multi-interval training on {interval!r}."
+                    )
                 if interval_data is None:
-                    msg = f"Timeframe data required to train model {model_name!r}."
-                    raise ValueError(msg)
+                    raise ValueError(f"Timeframe data required to train model {model_name!r}.")
                 sym_train_data, sym_test_data = self._prepare_interval_symbol_data(
                     sym,
                     interval,
@@ -2052,13 +2053,21 @@ class ModelsMixin:
                 if source.pooled:
                     continue
                 if train_store is not None:
-                    sym_train_data = _symbol_model_input_from_store(train_store, sym, indicator_data, source.indicators)
+                    sym_train_data = _symbol_model_input_from_store(
+                        train_store, sym, indicator_data, source.indicators
+                    )
                 else:
-                    sym_train_data = _symbol_model_input(sym, train_data, indicator_data, source.indicators)
+                    sym_train_data = _symbol_model_input(
+                        sym, train_data, indicator_data, source.indicators
+                    )
                 if test_store is not None:
-                    sym_test_data = _symbol_model_input_from_store(test_store, sym, indicator_data, source.indicators)
+                    sym_test_data = _symbol_model_input_from_store(
+                        test_store, sym, indicator_data, source.indicators
+                    )
                 else:
-                    sym_test_data = _symbol_model_input(sym, test_data, indicator_data, source.indicators)
+                    sym_test_data = _symbol_model_input(
+                        sym, test_data, indicator_data, source.indicators
+                    )
                 if source.lags is not None:
                     lag_cols = _lag_feature_cols(
                         sym_train_data,
@@ -2110,17 +2119,18 @@ class ModelsMixin:
                 )
             elif isinstance(source, ModelLoader):
                 if interval is not None:
-                    msg = f"Pretrained model {base_name!r} does not support multi-interval training on {interval!r}."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        f"Pretrained model {base_name!r} does not support "
+                        f"multi-interval training on {interval!r}."
+                    )
                 loader_syms.append((source, model_sym))
             else:
-                msg = f"Invalid ModelSource type: {type(source)}"
-                raise TypeError(msg)
+                raise TypeError(f"Invalid ModelSource type: {type(source)}")
 
         trainer_results = self._run_model_trainers(trainer_tasks, parallel_models)
         for task, trainer_result in zip(trainer_tasks, trainer_results, strict=False):
             if trainer_result[0] == "pooled":
-                _, pooled_result = cast("PooledTrainerReturn", trainer_result)
+                _, pooled_result = cast(PooledTrainerReturn, trainer_result)
                 model_name, symbols, model, input_cols = pooled_result
                 # Recorded so prediction builds lag features from the same
                 # columns the model was trained on.
@@ -2147,7 +2157,7 @@ class ModelsMixin:
                     )
                     scope.logger.info_train_model_completed(model_sym)
             else:
-                _, sym_result = cast("SymTrainerReturn", trainer_result)
+                _, sym_result = cast(SymTrainerReturn, trainer_result)
                 model_sym, model, input_cols = sym_result
                 model_name, _ = model_sym
                 lag_columns = task.train_data.lag_columns
@@ -2183,7 +2193,9 @@ class ModelsMixin:
             # unset, the lag matrix is built from whatever columns load_fn
             # returned -- every OHLCV column, say -- so predict_fn receives a
             # differently shaped matrix than the model was fitted on.
-            lag_columns = tuple(source.lag_cols) if source.lags is not None and source.lag_cols else None
+            lag_columns = (
+                tuple(source.lag_cols) if source.lags is not None and source.lag_cols else None
+            )
             models[model_sym] = TrainedModel(
                 name=model_name,
                 instance=model,
@@ -2227,7 +2239,10 @@ class ModelsMixin:
             # see the same values it would see running sequentially.
             scope = StaticScope.instance()
             with parallel() as pool:
-                return pool(delayed(run_with_scope)(scope, _run_trainer_task, task) for task in trainer_tasks)
+                return pool(
+                    delayed(run_with_scope)(scope, _run_trainer_task, task)
+                    for task in trainer_tasks
+                )
         return [_run_trainer_task(task) for task in trainer_tasks]
 
     def _prepare_pooled_data(
@@ -2248,13 +2263,21 @@ class ModelsMixin:
     ) -> tuple[ModelInput, ModelInput]:
         del train_dates, test_dates
         if train_store is not None:
-            pooled_train_input = _pooled_model_input_from_store(train_store, symbols, indicator_data, source.indicators)
+            pooled_train_input = _pooled_model_input_from_store(
+                train_store, symbols, indicator_data, source.indicators
+            )
         else:
-            pooled_train_input = _pooled_model_input(train_data, symbols, indicator_data, source.indicators)
+            pooled_train_input = _pooled_model_input(
+                train_data, symbols, indicator_data, source.indicators
+            )
         if test_store is not None:
-            pooled_test_input = _pooled_model_input_from_store(test_store, symbols, indicator_data, source.indicators)
+            pooled_test_input = _pooled_model_input_from_store(
+                test_store, symbols, indicator_data, source.indicators
+            )
         else:
-            pooled_test_input = _pooled_model_input(test_data, symbols, indicator_data, source.indicators)
+            pooled_test_input = _pooled_model_input(
+                test_data, symbols, indicator_data, source.indicators
+            )
         if source.lags is not None:
             lag_cols = _lag_feature_cols(
                 pooled_train_input,
@@ -2314,8 +2337,7 @@ class ModelsMixin:
         for sym in symbols:
             key = (sym, interval)
             if key not in interval_data.compressed:
-                msg = f"Interval {interval!r} data not found for {sym!r}."
-                raise ValueError(msg)
+                raise ValueError(f"Interval {interval!r} data not found for {sym!r}.")
             compressed = interval_data.compressed[key]
             sym_columns, arrays, bar_dates = build_compressed_symbol_arrays(
                 sym,
@@ -2325,14 +2347,16 @@ class ModelsMixin:
                 source.indicators,
                 sorted(scope.custom_data_cols),
             )
-            columns = (*sym_columns, sym_col)
+            columns = sym_columns + (sym_col,)
             history_dates[sym] = np.asarray(bar_dates, dtype="datetime64[ns]")
             # Retained for the lag cache: these hold full-history indicator
             # values, which compressed bars do not carry.
             full_arrays[sym] = arrays
             # Per symbol, not hoisted: each symbol has its own compressed bar
             # history and therefore its own first test compressed index.
-            effective_train_dates, dropped = lookahead_train_dates(bar_dates, train_dates, test_dates, lookahead)
+            effective_train_dates, dropped = lookahead_train_dates(
+                bar_dates, train_dates, test_dates, lookahead
+            )
             total_dropped += dropped
             _, train_arrays, train_dates_arr = slice_arrays_by_dates(
                 sym_columns,
@@ -2440,8 +2464,7 @@ class ModelsMixin:
         scope = StaticScope.instance()
         key = (symbol, interval)
         if key not in interval_data.compressed:
-            msg = f"Interval {interval!r} data not found for {symbol!r}."
-            raise ValueError(msg)
+            raise ValueError(f"Interval {interval!r} data not found for {symbol!r}.")
         compressed = interval_data.compressed[key]
         columns, arrays, bar_dates = build_compressed_symbol_arrays(
             symbol,
@@ -2454,7 +2477,9 @@ class ModelsMixin:
         # The walkforward split holds out lookahead bars of the base
         # timeframe, but this model is fitted on compressed bars — re-measure
         # the hold-out in compressed-bar units or it silently collapses.
-        effective_train_dates, dropped = lookahead_train_dates(bar_dates, train_dates, test_dates, lookahead)
+        effective_train_dates, dropped = lookahead_train_dates(
+            bar_dates, train_dates, test_dates, lookahead
+        )
         _, train_arrays, train_dates = slice_arrays_by_dates(
             columns,
             arrays,
@@ -2517,7 +2542,10 @@ class ModelsMixin:
             sym_train_data = sym_train_data.drop_lag_warmup()
         if dropped and sym_train_data.empty():
             warnings.warn(
-                _empty_interval_train_warning(source.name, interval, repr(symbol), lookahead, dropped), stacklevel=2
+                _empty_interval_train_warning(
+                    source.name, interval, repr(symbol), lookahead, dropped
+                ),
+                stacklevel=2,
             )
         return sym_train_data, sym_test_data
 
@@ -2612,7 +2640,9 @@ class ModelsMixin:
             return models, model_syms
         # Trained under a hyperparameter the key does not carry, so the cache
         # cannot tell two fits apart. Treat them as uncached throughout.
-        hyperparam_syms = [model_sym for model_sym in model_syms if self._uses_hyperparams(model_sym.model_name)]
+        hyperparam_syms = [
+            model_sym for model_sym in model_syms if self._uses_hyperparams(model_sym.model_name)
+        ]
         if hyperparam_syms:
             skipped = set(hyperparam_syms)
             model_syms = [model_sym for model_sym in model_syms if model_sym not in skipped]

@@ -49,6 +49,13 @@ LABEL TEMPLATES (census over 9,609 cached pages — three P&L templates plus the
               "(f) Finance costs", EPS rows "Basic EPS for continuing operations" and
               "... for continued and discontinued operations" — the latter is a 0.00 PLACEHOLDER on
               321 of 378 pages while the continuing-ops row carries the figure.
+              ⚠ The "(f) Finance costs" cell REPEATS the "Tax expense" figure (runbook §211: ARE&M
+              Mar-2017 4,885 lakh in both, PBT 14,804 − 4,885 = PAT 9,919; the filing's finance
+              costs are 150). The cell is refused; the page residual (Total expenses − every other
+              itemised expense row) is journalled as `fc_resid`, and a proven figure comes from
+              xtra_fc_fix.json — the residual alone is wrong wherever the filer spread its
+              expenses differently over NSE's form (NCC Dec-2017: 92.72 cr against 104.32).
+              "Profit / (Loss) from before exceptional items" prints 0.00 here and is not read.
   Banking     "Interest Expended" (int_exp), "Employees cost", "Other Income", "Tax Expense",
               "% of Gross/Net NPA" (TWO numbers after one label), "Return on Assets",
               "Capital Adequacy Ratio"; no finance-cost / depreciation / materials rows.
@@ -58,11 +65,15 @@ LABEL TEMPLATES (census over 9,609 cached pages — three P&L templates plus the
 GATES (nothing lands without all of them):
   identity   page Symbol == the symbol asked (or one of its era names); Period Ended == qe;
              "Non-Cumulative" (a Cumulative page is YTD, refused); declared basis -> s|c.
-  anchor     the page's PAT (owners row / period row / signed template / consolidated-net row)
-             must reproduce the STORED PAT of that basis within max(2.0 cr, 3%) — the same anchor
-             _nse_archive_revop.py uses. It proves page, quarter, basis and the declared unit at
-             once; a page with no stored PAT on that basis is refused (`no-stored-anchor`), never
-             read blind.
+  anchor     the page's PAT (owners row / period row / signed template / consolidated-net row, then
+             every other PAT-labelled row, strictly last) must reproduce the STORED PAT of that basis
+             within max(2.0 cr, 3%) — the anchor _nse_archive_revop.py uses — AND within half of the
+             larger figure (§215, anchor_ok). It proves page, quarter, basis and UNIT at once: the
+             archive prints "Amount(Rs. in lakhs)" on every page (4,701 of 4,701 cached, 2005-2017)
+             whatever the filer typed — RAIN / LINDEINDIA typed millions, TTKPRESTIG crores — and the
+             2-cr floor alone let a 10x/100x reading through below ~2.2 cr. A proven other unit comes
+             only from xtra_unit_fix.json; a page with no stored PAT on that basis is refused
+             (`no-stored-anchor`), never read blind.
   eps        the basic-EPS row is cross-checked against PAT via paid-up equity / face value
              (PAT == eps × eqcap / fv within 6%, §53e GATE E). A miss refuses the EPS fields
              only; missing inputs are journalled as unchecked, not refused.
@@ -79,7 +90,6 @@ Run:  python3 scripts/xtra_nse_html.py [--universe n500|all] [--years 2005-2017]
       Without --apply: journal only (scripts/_xtra_html_reads.json + _xtra_html_skips.json).
       --apply merges the journalled reads into scripts/xbrl_extra.json and re-gzips it.
 """
-import collections
 import gzip
 import html as html_lib
 import json
@@ -95,6 +105,8 @@ import contextlib
 
 import _n500_member_bin as MB  # PIT Nifty-500 membership, rename-folded
 import _nse_archive_revop as NAR  # list_rows / get_detail / aliases / cache / close()
+import xtra_cell_fix  # §214a F3: proven single cells (filer XBRL slips)
+import xtra_fc_fix  # §211: proven finance costs where the page printed the tax
 
 FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 LEDGER = os.path.join(HERE, "xbrl_extra.json")
@@ -106,17 +118,46 @@ CACHE = NAR.CACHE
 MON = NAR.MON
 NUM = re.compile(r"^-?[\d,]+\.?\d*$")
 EPS_TOL = 0.06
+# §215: the PAT anchor. NAR.close()'s 2-cr absolute floor let a page read 10x or 100x off through whenever the
+# stored PAT is under ~2.2 cr (RAIN Dec-2017 std: "Amount(Rs. in lakhs)" over figures in MILLIONS, PAT -3.98 read
+# as -0.04 cr against the stored -0.40). The header is the archive's template text, the same on every page, so the
+# anchor is the only unit proof there is. A power-of-ten miss is always >= 90% of the larger figure, so the floor
+# may never exceed half of it; PAT_ABS_MIN is rounding (a 2-dp crore store against an exact page). Measured over
+# the 1,453 pages with a stored PAT under 2.23 cr: every page within 50% reads as before; of the 27 beyond it, 15
+# now anchor on the right PAT row, 1 at 2%, and 11 refuse (3 unit errors, 1 stored 0.00, 7 page-vs-store 2-8x).
+PAT_REL_CAP = 0.5
+PAT_ABS_MIN = 0.011
+UNIT_DIV = (("crores", 1.0), ("millions", 10.0), ("lakhs", 100.0), ("thousands", 10000.0))
+# A page whose figures are NOT in lakhs, proven per page by independent readers (§215). The reader never switches
+# units on the PAT anchor alone: a power-of-ten miss says only that the page and the stored PAT disagree —
+# BFUTILITIE Mar-2017 std prints lakhs correctly (-0.31 cr = Moneycontrol) against a stored 0.00 that "thousands"
+# would have matched, and TTKPRESTIG Sep-2017's crores page is matched in lakhs by a stored PAT 1/100 off.
+UNIT_FIX = os.path.join(HERE, "xtra_unit_fix.json")
+_UNIT_FIX = None
+
+
+def unit_fix():
+    """{archive file name: entry} from xtra_unit_fix.json (empty when the file is absent)."""
+    global _UNIT_FIX
+    if _UNIT_FIX is None:
+        _UNIT_FIX = {}
+        if os.path.exists(UNIT_FIX):
+            for e in json.load(open(UNIT_FIX)).get("fixes", []):
+                _UNIT_FIX[e["file"]] = e
+    return _UNIT_FIX
 
 
 # ---- row regexes: anchored, case-insensitive; tried in the listed order, first row in page order ----
 def rx(*pats):
-    return [re.compile(p, re.IGNORECASE) for p in pats]
+    return [re.compile(p, re.I) for p in pats]
 
 
 R = {
     "oi": rx(r"^other income$"),
     "fc": rx(r"^finance costs?$", r"^\(?[a-z]?\)?\s*finance costs?$", r"^interest$"),
-    "dep": rx(r"^depreciation and amortisation expenses?$", r"^depreciation$", r"^less:?\s*depreciation$"),
+    "dep": rx(
+        r"^depreciation and amortisation expenses?$", r"^depreciation$", r"^less:?\s*depreciation$"
+    ),
     "tax": rx(r"^tax expenses?$"),
     "exc": rx(r"^exceptional items?$"),
     "pbt": rx(r"from ordinary activities before tax$", r"^profit\s*/?\s*\(?loss\)?\s*before tax$"),
@@ -140,11 +181,12 @@ R_EPS = {
         "cont": rx(r"^diluted eps for continuing operations"),
     },
 }
-R_NPA = re.compile(r"^%\s*of gross\s*/\s*net npa", re.IGNORECASE)
-R_TOTINC = re.compile(r"^total income$", re.IGNORECASE)
-R_TOTOPS = re.compile(r"^total income from operations", re.IGNORECASE)
-R_EQCAP = re.compile(r"paid-?up equity share capital", re.IGNORECASE)
-R_FV = re.compile(r"^face value", re.IGNORECASE)
+R_NPA = re.compile(r"^%\s*of gross\s*/\s*net npa", re.I)
+R_TOTINC = re.compile(r"^total income$", re.I)
+R_TOTOPS = re.compile(r"^total income from operations", re.I)
+R_TOTEXP = re.compile(r"^total expenses?$", re.I)
+R_EQCAP = re.compile(r"paid-?up equity share capital", re.I)
+R_FV = re.compile(r"^face value", re.I)
 ROWNUM = NAR.ROWNUM
 MONEY_FIELDS = ("oi", "fc", "dep", "tax", "exc", "pbt", "emp", "mat", "int_exp")
 
@@ -174,7 +216,7 @@ def parse_page(page):
             meta[c] = nxt
         if c in ("Banking", "Non Banking"):
             meta["fmt"] = c
-        m = re.match(r"Amount\s*\(\s*Rs\.?\s*in\s*(lakhs?|crores?|thousands?|millions?)", c, re.IGNORECASE)
+        m = re.match(r"Amount\s*\(\s*Rs\.?\s*in\s*(lakhs?|crores?|thousands?|millions?)", c, re.I)
         if m:
             meta["unit"] = m.group(1).lower()
         if not NUM.match(c) and NUM.match(nxt):
@@ -212,13 +254,59 @@ def pick_row(rows, pats):
     return None, None
 
 
+def fc_block(rows):
+    """Ind-AS 2016-17 template: the expense rows sit between "Total Income" (a variant prints no such
+    row — HINDZINC Mar-2016 — and starts after "Total income from operations") and "Total expenses".
+    -> (finance-cost cell, residual) in the page's unit, residual = Total expenses − every other
+    itemised expense row; None when the page has no such block with exactly one finance-cost row
+    (the older templates print "Finance costs" below "Profit from operations before other income,
+    finance costs …" and are read as printed)."""
+    i_ti = next((i for i, r in enumerate(rows) if R_TOTINC.search(r[0])), None)
+    if i_ti is None:
+        i_ti = next((i for i, r in enumerate(rows) if R_TOTOPS.search(r[0])), None)
+    if i_ti is None:
+        return None
+    i_te = next((i for i in range(i_ti + 1, len(rows)) if R_TOTEXP.search(rows[i][0])), None)
+    if i_te is None:
+        return None
+    items = rows[i_ti + 1 : i_te]
+    fcs = [
+        k
+        for k, r in enumerate(items)
+        if R["fc"][0].search(r[0])
+        or R["fc"][1].search(r[0])
+        or R["fc"][0].search(ROWNUM.sub("", r[0]))
+    ]
+    if len(fcs) != 1:
+        return None
+    others = sum(r[1] for k, r in enumerate(items) if k != fcs[0])
+    return items[fcs[0]][1], rows[i_te][1] - others
+
+
 def iso_qe(s):
     return NAR.iso_qe(s)
 
 
-R_EPS_HDR = re.compile(r"^earnings? per share.*\((before|after) extra\s?ordinary items\)", re.IGNORECASE)
-R_SUB_B = re.compile(r"^\(?a\)?\s*basic\b", re.IGNORECASE)
-R_SUB_D = re.compile(r"^\(?b\)?\s*diluted\b", re.IGNORECASE)
+def anchor_ok(page_pat, stored):
+    """NAR.close() (max 2 cr, 3%) with a relative cap on the absolute floor: a small figure must agree within
+    half of itself, so no power of ten can pass (runbook §215)."""
+    if not NAR.close(page_pat, stored):
+        return False
+    return abs(page_pat - stored) <= max(PAT_ABS_MIN, PAT_REL_CAP * max(abs(page_pat), abs(stored)))
+
+
+def other_unit(raw_pats, div, stored):
+    """Diagnosis for a refused anchor: the other units whose PAT would pass it. Never adopted here — either the
+    page is not in lakhs (RAIN Dec-2017: millions) or the stored PAT is off (BFUTILITIE Mar-2017: 0.00); a proven
+    page goes into xtra_unit_fix.json, a proven PAT through the fundamentals ledgers."""
+    return [
+        unit for unit, d in UNIT_DIV if d != div and any(anchor_ok(c / d, stored) for c in raw_pats)
+    ]
+
+
+R_EPS_HDR = re.compile(r"^earnings? per share.*\((before|after) extra\s?ordinary items\)", re.I)
+R_SUB_B = re.compile(r"^\(?a\)?\s*basic\b", re.I)
+R_SUB_D = re.compile(r"^\(?b\)?\s*diluted\b", re.I)
 
 
 def section_eps(cells):
@@ -277,12 +365,30 @@ def page_pat(rows, basis, isbank):
         cands.append(pick(NAR.R_PAT_CONNET))
     if isbank:
         cands.append(pick(NAR.R_PAT_OWN))
-    return [c for c in cands if c is not None]
+    cands = [c for c in cands if c is not None]
+    # §215: every OTHER PAT-labelled row, in page order, strictly last. pick() returns one row per pattern, and on
+    # the 2005-2012 template R_PAT_ANY and R_PAT_SIGNED both stop at "Net Profit(+)/Loss(-) from Ordinary
+    # Activities after tax" — OMAXAUTO Dec-2008 std: 1 lakh there, 112 lakh (= the stored 1.12 cr) in "Net Profit
+    # (+) / Loss (-) for the period" below its extraordinary items. The 2-cr floor hid that; the relative cap does
+    # not. Tried last, so no page that resolves on the rows above changes.
+    pats = (NAR.R_PAT_OWN, NAR.R_PAT_ANY, NAR.R_PAT_SIGNED) + (
+        (NAR.R_PAT_CONNET,) if basis == "c" else ()
+    )
+    for lab, v in r2:
+        if v not in cands and any(p.search(lab) or p.search(ROWNUM.sub("", lab)) for p in pats):
+            cands.append(v)
+    return cands
 
 
-def read_page(page, sym, qe, stored_pat_by_basis):
-    """-> (basis, fields, note) or (None, None, refusal). fields carry only what the page proves."""
+def read_page(page, sym, qe, stored_pat_by_basis, fname=None):
+    """-> (basis, fields, note) or (None, None, refusal). fields carry only what the page proves. `fname` (the
+    archive file name) looks the page up in xtra_unit_fix.json: a proven unit replaces the declared one."""
     meta, rows = parse_page(page)
+    ufix = unit_fix().get(fname) if fname else None
+    if ufix:
+        meta["unit_declared"] = meta.get("unit", "lakhs")
+        meta["unit"] = ufix["unit"]
+        meta["div"] = dict(UNIT_DIV)[ufix["unit"]]
     psym = (meta.get("Symbol") or "").strip().upper()
     ok_syms = {sym.upper()} | {a.upper() for a in NAR.aliases(sym)}
     if not psym:
@@ -301,10 +407,23 @@ def read_page(page, sym, qe, stored_pat_by_basis):
     stored = stored_pat_by_basis.get(basis)
     if stored is None:
         return basis, None, f"no-stored-anchor({basis})"
-    cands = [c / div for c in page_pat(rows, basis, isbank)]
-    hit = next((c for c in cands if NAR.close(c, stored)), None)
+    raw_pats = page_pat(rows, basis, isbank)
+    hit = next((c / div for c in raw_pats if anchor_ok(c / div, stored)), None)
     if hit is None:
-        return basis, None, f"pat-anchor {[round(c, 2) for c in cands[:3]] if cands else None} vs stored {stored}"
+        alt = other_unit(raw_pats, div, stored)
+        return (
+            basis,
+            None,
+            "pat-anchor {} vs stored {}{}".format(
+                [round(c / div, 2) for c in raw_pats[:3]] if raw_pats else None,
+                stored,
+                " (would pass in {}: the page's unit or the stored PAT is off by a power of ten, §215)".format(
+                    "/".join(alt)
+                )
+                if alt
+                else "",
+            ),
+        )
     money_vals = [v for lab, v, _ in rows if any(p.search(lab) for f in MONEY_FIELDS for p in R[f])]
     if abs(hit) < 1e-9 and money_vals and all(abs(v) < 1e-9 for v in money_vals):
         return basis, None, "blank-template(all-zero page)"
@@ -319,6 +438,17 @@ def read_page(page, sym, qe, stored_pat_by_basis):
         if v is not None:
             out[f] = round(v / div, 2)
             jn[f] = lab[:50]
+    fc_note = {}
+    blk = None if isbank else fc_block(rows)
+    if blk is not None and "fc" in out:
+        _, tax_raw = pick_row(rows, R["tax"])
+        if tax_raw is not None and blk[0] == tax_raw:
+            # §211: this template repeats the TAX in its "(f) Finance costs" cell. Never land it; the
+            # residual is a candidate only (an un-itemised expense lands in it too) — xtra_fc_fix.json
+            # carries the figure each cell was proven to have, re-asserted in apply_reads.
+            out.pop("fc")
+            jn["fc"] = "refused: '(f) Finance costs' cell == 'Tax expense' (template defect, §211)"
+            fc_note["fc_resid"] = round(blk[1] / div, 2)
     if "oi" not in out:
         # Ind-AS 2016-17 template: no Other income row; Total Income − Total income from operations
         _, ti = pick_row(rows, [R_TOTINC])
@@ -406,6 +536,7 @@ def read_page(page, sym, qe, stored_pat_by_basis):
         out["aud"] = "U" if aud.startswith("un") else "A"
     if not out:
         return basis, None, "no-rows-read"
+    unit_note = {"unit_declared": meta["unit_declared"]} if ufix else {}
     return (
         basis,
         out,
@@ -414,7 +545,9 @@ def read_page(page, sym, qe, stored_pat_by_basis):
             "fmt": meta.get("fmt", "?"),
             "anchor": round(hit, 2),
             "labels": jn,
+            **unit_note,
             **eps_note,
+            **fc_note,
         },
     )
 
@@ -464,10 +597,14 @@ def load_ledger():
 
 
 def apply_reads(reads, ledger):
-    n = 0
+    n = stale = 0
     for sym, qs in reads.items():
         for qe, per_basis in qs.items():
             for b, ent in per_basis.items():
+                fname = str(ent.get("src", "")).split(":", 1)[-1]
+                if fname in unit_fix() and not (ent.get("chk") or {}).get("unit_declared"):
+                    stale += 1  # read under the declared unit before §215 proved it wrong
+                    continue
                 cell = ledger.setdefault(sym, {}).setdefault(str(qe), {})
                 cur = cell.get(b)
                 if cur and "src" not in cur:
@@ -484,6 +621,19 @@ def apply_reads(reads, ledger):
                         new["src_mc"] = keep
                 cell[b] = new
                 n += 1
+    # the proven finance costs of the §211 cells: a re-read leaves fc blank there (and an old journal
+    # still carries the tax) — re-assert them, or a replay would undo the heal
+    nf = xtra_fc_fix.reassert(ledger)
+    if nf:
+        print("xtra_fc_fix: re-asserted %d cells" % nf)
+    nc = xtra_cell_fix.reassert(ledger)
+    if nc:
+        print("xtra_cell_fix: re-asserted %d cells" % nc)
+    if stale:
+        print(
+            "xtra_unit_fix: skipped %d journal reads made under a page's wrong declared unit"
+            % stale
+        )
     return n
 
 
@@ -521,11 +671,17 @@ def main():
         n = apply_reads(merged, ledger)
         json.dump(ledger, open(LEDGER, "w"), separators=(",", ":"))
         open(LEDGER_GZ, "wb").write(gzip.compress(open(LEDGER, "rb").read(), 9))
-        print("applied %d basis-cells from %d symbols -> %s (+gz)" % (n, len(merged), os.path.basename(LEDGER)))
+        print(
+            "applied %d basis-cells from %d symbols -> %s (+gz)"
+            % (n, len(merged), os.path.basename(LEDGER))
+        )
         return
 
     if "--targets" in argv:
-        targets = {s: {int(q): b for q, b in v.items()} for s, v in json.load(open(opt("--targets"))).items()}
+        targets = {
+            s: {int(q): b for q, b in v.items()}
+            for s, v in json.load(open(opt("--targets"))).items()
+        }
     else:
         targets = build_targets(universe, y0, y1, ledger, refresh=refresh)
     if refresh:
@@ -540,7 +696,9 @@ def main():
         syms = syms[:limit]
     ncell = sum(len(targets[s]) for s in syms)
     print(
-        "targets: %d symbols, %d quarter-cells (universe=%s years=%s)" % (len(syms), ncell, universe, yrs), flush=True
+        "targets: %d symbols, %d quarter-cells (universe=%s years=%s)"
+        % (len(syms), ncell, universe, yrs),
+        flush=True,
     )
 
     NAR.JAR = None
@@ -562,7 +720,7 @@ def main():
             continue
         lists = [
             os.path.join(CACHE, "list_{}.json".format(re.sub(r"[^A-Z0-9]", "_", s.upper())))
-            for s in [sym, *NAR.aliases(sym)]
+            for s in [sym] + NAR.aliases(sym)
         ]
         if not any(os.path.exists(p) for p in lists) and no_fetch:
             skips[f"{sym}|list"] = "no-cached-list(no-fetch)"
@@ -579,7 +737,9 @@ def main():
             link = (r.get("resultDetailedDataLink") or "").strip()
             if not link:
                 continue
-            row_basis = "c" if str(r.get("consolidated", "")).strip().lower() == "consolidated" else "s"
+            row_basis = (
+                "c" if str(r.get("consolidated", "")).strip().lower() == "consolidated" else "s"
+            )
             if row_basis not in pending[qe] or row_basis in done.get(str(qe), {}):
                 continue
             dp = os.path.join(CACHE, re.sub(r"[^A-Za-z0-9_.]", "_", link.rsplit("/", 1)[-1]))
@@ -591,21 +751,28 @@ def main():
             except Exception as e:
                 skips["%s|%d|%s" % (sym, qe, row_basis)] = f"fetch:{type(e).__name__}"
                 continue
-            basis, fields, note = read_page(page, sym, qe, pending[qe])
+            basis, fields, note = read_page(
+                page, sym, qe, pending[qe], fname=link.rsplit("/", 1)[-1]
+            )
             key = "%s|%d|%s" % (sym, qe, basis or row_basis)
             if fields is None:
                 skips[key] = note
                 continue
             skips.pop(key, None)
             src = "nse-html:{}".format(link.rsplit("/", 1)[-1])
-            reads.setdefault(sym, {}).setdefault(str(qe), {})[basis] = {"fields": fields, "src": src, "chk": note}
+            reads.setdefault(sym, {}).setdefault(str(qe), {})[basis] = {
+                "fields": fields,
+                "src": src,
+                "chk": note,
+            }
             done = reads[sym]
             landed += 1
         if si % 10 == 0 or si == len(syms):
             json.dump(reads, open(reads_p, "w"), separators=(",", ":"))
             json.dump(skips, open(skips_p, "w"), indent=0, sort_keys=True)
             print(
-                "  [%d/%d] %d landed, %d skips, %.0fs" % (si, len(syms), landed, len(skips), time.time() - t0),
+                "  [%d/%d] %d landed, %d skips, %.0fs"
+                % (si, len(syms), landed, len(skips), time.time() - t0),
                 flush=True,
             )
         if not no_fetch:

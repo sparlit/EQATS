@@ -48,6 +48,8 @@ from ccxt.base.types import (
     Int,
     Market,
     Num,
+    OrderSide,
+    OrderType,
     PredictionEvent,
     PredictionOrder,
     PredictionOrderBook,
@@ -104,7 +106,7 @@ class opinion(PredictionExchange, ImplicitAPI):
                 },
                 "timeframes": {
                     # live-verified via GET /token/price-history: only 1h/1d are recognized,
-                    # any other interval value(including 1m/1w) silently falls back to 1d
+                    # any other interval value (including 1m/1w) silently falls back to 1d
                     "1h": "1h",
                     "1d": "1d",
                 },
@@ -121,34 +123,34 @@ class opinion(PredictionExchange, ImplicitAPI):
                     "opinion": {
                         "public": {
                             "get": {
-                                "market": 1,
-                                "market/{marketId}": 1,
-                                "market/categorical/{marketId}": 1,
-                                "market/slug/{slug}": 1,
+                                "market": {"cost": 1},
+                                "market/{marketId}": {"cost": 1},
+                                "market/categorical/{marketId}": {"cost": 1},
+                                "market/slug/{slug}": {"cost": 1},
                                 "label": 1,
-                                "token/latest-price": 1,
-                                "token/orderbook": 1,
-                                "token/price-history": 1,
-                                "quoteToken": 1,
+                                "token/latest-price": {"cost": 1},
+                                "token/orderbook": {"cost": 1},
+                                "token/price-history": {"cost": 1},
+                                "quoteToken": {"cost": 1},
                             },
                         },
                         "private": {
                             "get": {
-                                "order": 1,
-                                "order/{orderId}": 1,
-                                "positions/user/{walletAddress}": 1,
-                                "trade/user/{walletAddress}": 1,
-                                "auth/api-key": 1,
-                                "user/auth": 1,
-                                "user/balance": 1,
+                                "order": {"cost": 1},
+                                "order/{orderId}": {"cost": 1},
+                                "positions/user/{walletAddress}": {"cost": 1},
+                                "trade/user/{walletAddress}": {"cost": 1},
+                                "auth/api-key": {"cost": 1},
+                                "user/auth": {"cost": 1},
+                                "user/balance": {"cost": 1},
                             },
                             "post": {
-                                "auth/api-key": 1,
-                                "order": 1,
-                                "order/cancel": 1,
+                                "auth/api-key": {"cost": 1},
+                                "order": {"cost": 1},
+                                "order/cancel": {"cost": 1},
                             },
                             "delete": {
-                                "auth/api-key": 1,
+                                "auth/api-key": {"cost": 1},
                             },
                         },
                     },
@@ -178,7 +180,7 @@ class opinion(PredictionExchange, ImplicitAPI):
                         "11004": AuthenticationError,  # "Self-service key issuance is temporarily disabled"
                         "11005": AuthenticationError,  # "Wallet is not a registered Opinion account"
                         "11009": AuthenticationError,  # "API key already exists"
-                        "11010": AuthenticationError,  # "No API key found for self wallet"
+                        "11010": AuthenticationError,  # "No API key found for this wallet"
                         "11011": AuthenticationError,  # "Invalid signature"
                         "11012": AuthenticationError,  # "Signature expired"
                         "11013": AuthenticationError,  # "Signature already used"
@@ -190,7 +192,7 @@ class opinion(PredictionExchange, ImplicitAPI):
                     },
                 },
                 "streaming": {
-                    # the venue closes idle sockets without an application-level HEARTBEAT(see ping)
+                    # the venue closes idle sockets without an application-level HEARTBEAT (see ping)
                     "keepAlive": 25000,
                 },
                 "options": {
@@ -207,7 +209,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             },
         )
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
                fetches every kind of opinion market
         categorical parents double as our unified "events" and are cached into self.events as a side effect
@@ -226,7 +228,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         maxPages = self.safe_integer(self.options, "maxMarketsPages", 50)
         flatMarkets = []
         # seen-guard keyed by the event handle; the events themselves go through setEvents below
-        # so the cache gets the base indexing(id + handle + slug) instead of a raw assignment
+        # so the cache gets the base indexing (id + handle + slug) instead of a raw assignment
         seenEvents = {}
         eventsList = []
         page = 1
@@ -244,16 +246,16 @@ class opinion(PredictionExchange, ImplicitAPI):
             fetchedRawCount = self.sum(fetchedRawCount, rawMarketsLength)
             # categorical parents expand into several flatMarkets entries each, so the raw,
             # unflattened row count in 'total' must be compared against fetchedRawCount, not
-            # len(flatMarkets) - otherwise expansion makes the comparison meaningless
+            # flatMarkets.length - otherwise expansion makes the comparison meaningless
             total = self.safe_integer(result, "total")
-            for i in range(rawMarketsLength):
+            for i in range(0, rawMarketsLength):
                 raw = rawMarkets[i]
                 marketType = self.safe_integer(raw, "marketType")
                 if marketType == 1:
                     event = self.parse_event(raw)
                     childMarkets = event["markets"]
                     childMarketsLength = len(childMarkets)
-                    for ci in range(childMarketsLength):
+                    for ci in range(0, childMarketsLength):
                         flatMarkets.append(childMarkets[ci])
                     eventKey = self.safe_string(event, "event")
                     if (eventKey is not None) and (eventKey != "") and eventKey not in seenEvents:
@@ -280,7 +282,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         """
         @ignore
                resolves a single outcome; a bare numeric token id carries no search text for
-        the base's fetchEvents-driven resolution(opinion has no per-id lookup endpoint, unlike
+        the base's fetchEvents-driven resolution (opinion has no per-id lookup endpoint, unlike
         kalshi/polymarket), so bulk-warm the outcome cache via loadOutcomes() first for id-form input
                :param str outcomeSymbol: the outcome handle or token id
                :returns dict: the outcome cache
@@ -304,7 +306,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #     "conditionId": "469db44df1309dac7cf9fcaa142562f3c89719d47277e095d021c1561166539a",
         #     "createdAt": 1778750719,
         #     "cutoffAt": 0,
-        #     "isResolvableByAI": True,
+        #     "isResolvableByAI": true,
         #     "marketId": 16565,
         #     "marketTitle": "10–15s",
         #     "noLabel": "No",
@@ -345,7 +347,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         ]
         outcomes = []
         resolvedOutcome = None
-        for i in range(len(outcomeLabels)):
+        for i in range(0, len(outcomeLabels)):
             label = outcomeLabels[i]
             tokenId = outcomeTokenIds[i]
             outcomeHandle = self.slug_to_outcome_symbol(effectiveEventSlug, slug, label)
@@ -371,7 +373,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             )
         marketResolvedOutcome = resolvedOutcome
         # the venue sends cutoffAt 0 for markets without a scheduled cutoff - map it to
-        # None instead of the epoch, same for the event-level end date
+        # undefined instead of the epoch, same for the event-level end date
         expiryTimestamp = None
         if self.safe_integer(raw, "cutoffAt", 0) != 0:
             expiryTimestamp = self.safe_timestamp(raw, "cutoffAt")
@@ -444,11 +446,24 @@ class opinion(PredictionExchange, ImplicitAPI):
         slug = self.safe_string(params, "slug")
         if (eventId is not None) or (slug is not None):
             singleRest = self.omit(
-                params, ["eventId", "slug", "query", "queries", "tags", "status", "sort", "searchIn", "limit"]
+                params,
+                [
+                    "eventId",
+                    "slug",
+                    "query",
+                    "queries",
+                    "tags",
+                    "status",
+                    "sort",
+                    "searchIn",
+                    "limit",
+                ],
             )
             singleResponse = None
             if slug is not None:
-                singleResponse = await self.opinionPublicGetMarketSlugSlug(self.extend({"slug": slug}, singleRest))
+                singleResponse = await self.opinionPublicGetMarketSlugSlug(
+                    self.extend({"slug": slug}, singleRest)
+                )
             else:
                 singleResponse = await self.opinionPublicGetMarketCategoricalMarketId(
                     self.extend({"marketId": eventId}, singleRest)
@@ -458,7 +473,9 @@ class opinion(PredictionExchange, ImplicitAPI):
             single = self.parse_event(singleData)
             self.index_event_outcomes(single)
             return self.apply_event_fetch_params([single], params, queries)
-        rest = self.omit(params, ["query", "queries", "tags", "status", "sort", "searchIn", "limit"])
+        rest = self.omit(
+            params, ["query", "queries", "tags", "status", "sort", "searchIn", "limit"]
+        )
         pageLimit = self.safe_integer(self.options, "defaultFetchEventsLimit", 20)
         userLimit = self.safe_integer(params, "limit")
         # bound how many events are actually FETCHED: the user limit when given, otherwise
@@ -474,7 +491,8 @@ class opinion(PredictionExchange, ImplicitAPI):
         while True:
             reqLimit = pageLimit
             remaining = fetchCap - fetchedRawCount
-            reqLimit = min(reqLimit, remaining)
+            if remaining < reqLimit:
+                reqLimit = remaining
             if reqLimit <= 0:
                 break
             request = {
@@ -487,7 +505,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             pageEvents = self.safe_list(result, "list", [])
             pageEventsLength = len(pageEvents)
             fetchedRawCount = self.sum(fetchedRawCount, pageEventsLength)
-            for i in range(pageEventsLength):
+            for i in range(0, pageEventsLength):
                 rawEvents.append(pageEvents[i])
             total = self.safe_integer(result, "total")
             if (
@@ -502,19 +520,19 @@ class opinion(PredictionExchange, ImplicitAPI):
         parsedEvents = []
         if self.markets is None:
             self.markets = self.create_safe_dictionary()
-        for i in range(rawEventsLength):
+        for i in range(0, rawEventsLength):
             event = self.parse_event(rawEvents[i])
             parsedEvents.append(event)
             # register the parsed markets so populateOutcomes can index their outcomes
             eventMarkets = self.safe_list(event, "markets", [])
             eventMarketsLength = len(eventMarkets)
-            for mi in range(eventMarketsLength):
+            for mi in range(0, eventMarketsLength):
                 m = eventMarkets[mi]
                 self.markets[m["market"]] = m
         self.populate_outcomes()
         return self.apply_event_fetch_params(parsedEvents, params, queries)
 
-    async def fetch_event(self, id: str, params=None) -> PredictionEvent:
+    async def fetch_event(self, id: str, params: dict = None) -> PredictionEvent:
         """
         fetches a single prediction-market event by its market id, or slug
 
@@ -531,7 +549,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         if isSlug:
             response = await self.opinionPublicGetMarketSlugSlug(self.extend({"slug": id}, params))
         else:
-            response = await self.opinionPublicGetMarketCategoricalMarketId(self.extend({"marketId": id}, params))
+            response = await self.opinionPublicGetMarketCategoricalMarketId(
+                self.extend({"marketId": id}, params)
+            )
         result = self.safe_dict(response, "result", {})
         data = self.safe_dict(result, "data", {})
         event = self.parse_event(data)
@@ -553,7 +573,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #             "conditionId": "469db44df1309dac7cf9fcaa142562f3c89719d47277e095d021c1561166539a",
         #             "createdAt": 1778750719,
         #             "cutoffAt": 0,
-        #             "isResolvableByAI": True,
+        #             "isResolvableByAI": true,
         #             "marketId": 16565,
         #             "marketTitle": "10–15s",
         #             "noLabel": "No",
@@ -578,7 +598,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #             "conditionId": "c4054e23e1afc96c93bbc05378414f8286b2f3e3107bb80944ba8a7581428812",
         #             "createdAt": 1778750720,
         #             "cutoffAt": 0,
-        #             "isResolvableByAI": True,
+        #             "isResolvableByAI": true,
         #             "marketId": 16566,
         #             "marketTitle": "15s+",
         #             "noLabel": "No",
@@ -603,7 +623,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #     "coverUrl": "",
         #     "createdAt": 1778750719,
         #     "cutoffAt": 1778803200,
-        #     "isResolvableByAI": False,
+        #     "isResolvableByAI": false,
         #     "labelIds": [
         #         1
         #     ],
@@ -622,7 +642,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #     },
         #     "resolvedAt": 0,
         #     "resultTokenId": "",
-        #     "rules": "This market resolves based on the length of the longest qualifying handshake between Donald Trump and Xi Jinping on May 14, 2026(Beijing local time), the day of their bilateral meeting at the Great Hall of the People.\nBaseline already established: Video footage from the welcome ceremony confirms a qualifying handshake within the 10–15s range. The remaining question is whether any additional handshake on the same day produces a longer measured duration.\nOutcomes:\n\n10–15s — resolves YES if no qualifying handshake on May 14, 2026 exceeds 15 seconds.\n15s+ — resolves YES if any qualifying handshake on May 14, 2026 is measured at more than 15 seconds.\n\nMeasurement: Duration is measured from the exact moment hands make initial physical contact until the exact moment either party breaks contact. Where multiple video sources exist, the highest-resolution footage is used; where measurements differ, the consensus reading across major media is applied. A duration falling exactly on the 15s boundary resolves to 15s+.\nQualifying handshake: voluntary, intentional, in-person; direct hand-to-hand contact(gloves permitted); clearly visible on video from start to finish. Fist bumps, hugs, waves, back pats, and other non-handshake contact are excluded from the measured duration even if they occur during the same greeting.\nResolution window: All qualifying handshakes occurring on May 14, 2026 in Beijing local time are eligible, including those at arrival, bilateral sessions, signing ceremonies, state dinners, and departure. Handshakes on any other date do not count.\nResolution source: video footage from May 14, 2026.",
+        #     "rules": "This market resolves based on the length of the longest qualifying handshake between Donald Trump and Xi Jinping on May 14, 2026 (Beijing local time), the day of their bilateral meeting at the Great Hall of the People.\nBaseline already established: Video footage from the welcome ceremony confirms a qualifying handshake within the 10–15s range. The remaining question is whether any additional handshake on the same day produces a longer measured duration.\nOutcomes:\n\n10–15s — resolves YES if no qualifying handshake on May 14, 2026 exceeds 15 seconds.\n15s+ — resolves YES if any qualifying handshake on May 14, 2026 is measured at more than 15 seconds.\n\nMeasurement: Duration is measured from the exact moment hands make initial physical contact until the exact moment either party breaks contact. Where multiple video sources exist, the highest-resolution footage is used; where measurements differ, the consensus reading across major media is applied. A duration falling exactly on the 15s boundary resolves to 15s+.\nQualifying handshake: voluntary, intentional, in-person; direct hand-to-hand contact (gloves permitted); clearly visible on video from start to finish. Fist bumps, hugs, waves, back pats, and other non-handshake contact are excluded from the measured duration even if they occur during the same greeting.\nResolution window: All qualifying handshakes occurring on May 14, 2026 in Beijing local time are eligible, including those at arrival, bilateral sessions, signing ceremonies, state dinners, and departure. Handshakes on any other date do not count.\nResolution source: video footage from May 14, 2026.",
         #     "slug": "how-long-will-trump-and-xi-shake-hands-when-they-meet",
         #     "status": 1,
         #     "statusEnum": "Created",
@@ -636,11 +656,12 @@ class opinion(PredictionExchange, ImplicitAPI):
         eventId = self.safe_string(rawEvent, "marketId")
         slug = self.safe_string(rawEvent, "slug")
         title = self.safe_string(rawEvent, "marketTitle")
-        eventHandle = self.shorten_slug(title) if (title is not None) else self.shorten_slug(slug)
+        eventHandle = None
+        eventHandle = self.shorten_slug(title) if title is not None else self.shorten_slug(slug)
         rawChildren = self.safe_list(rawEvent, "childMarkets", [])
         rawChildrenLength = len(rawChildren)
         marketsList = []
-        for i in range(rawChildrenLength):
+        for i in range(0, rawChildrenLength):
             marketsList.append(self.parse_opinion_market(rawChildren[i], slug))
         statusEnum = self.safe_string(rawEvent, "statusEnum")
         active = statusEnum == "Activated"
@@ -672,7 +693,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             }
         )
 
-    async def fetch_ticker(self, outcome: str, params=None) -> PredictionTicker:
+    async def fetch_ticker(self, outcome: str, params: dict = None) -> PredictionTicker:
         """
         fetches the latest trade price and top of book for a single outcome token
 
@@ -707,12 +728,12 @@ class opinion(PredictionExchange, ImplicitAPI):
         #         "price": {
         #             "errmsg": "",
         #             "errno": 0,
-        #             "result": {"price": "0.002", "side": "buy-limit", "size": "205.03", "timestamp": 1766844546000, "tokenId": "..."}
+        #             "result": { "price": "0.002", "side": "buy-limit", "size": "205.03", "timestamp": 1766844546000, "tokenId": "..." }
         #         },
         #         "book": {
         #             "errmsg": "",
         #             "errno": 0,
-        #             "result": {"asks": [{"price": "0.999", "size": "5500"}], "bids": [], "market": "...", "timestamp": ..., "tokenId": "..."}
+        #             "result": { "asks": [ { "price": "0.999", "size": "5500" } ], "bids": [], "market": "...", "timestamp": ..., "tokenId": "..." }
         #         }
         #     }
         #
@@ -726,7 +747,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         bestBid = self.safe_dict(bids, 0, {})
         bestAsk = self.safe_dict(asks, 0, {})
         last = self.safe_number(priceResult, "price")
-        timestamp = self.safe_integer(priceResult, "timestamp", self.milliseconds())
+        timestamp = self.safe_integer(priceResult, "timestamp")
+        if timestamp == 0:
+            timestamp = None  # the venue reports timestamp 0 for outcomes that have not traded yet
         return self.safe_prediction_ticker(
             {
                 "outcome": self.safe_string(marketAny, "outcome"),
@@ -754,7 +777,9 @@ class opinion(PredictionExchange, ImplicitAPI):
             market,
         )
 
-    async def fetch_tickers(self, outcomes: Strings = None, params=None) -> PredictionTickers:
+    async def fetch_tickers(
+        self, outcomes: Strings = None, params: dict = None
+    ) -> PredictionTickers:
         """
         fetches tickers for multiple outcome tokens - opinion has no all-tickers endpoint, each token needs its own latest-price + orderbook request
 
@@ -769,19 +794,23 @@ class opinion(PredictionExchange, ImplicitAPI):
         if outcomes is None:
             raise ArgumentsRequired(
                 self.id
-                + " fetchTickers() requires an outcomes argument — the venue has no all-tickers endpoint; pass the outcome handles or token ids to fetch(discover them via fetchEvents())"
+                + " fetchTickers() requires an outcomes argument — the venue has no all-tickers endpoint; pass the outcome handles or token ids to fetch (discover them via fetchEvents ())"
             )
         await self.load_outcomes(outcomes)
         outcomesLength = len(outcomes)
         promises = []
-        for i in range(outcomesLength):
+        for i in range(0, outcomesLength):
             outcomeObj = self.outcome(outcomes[i])
             tokenId = outcomeObj["outcomeId"]
-            promises.append(self.opinionPublicGetTokenLatestPrice(self.extend({"token_id": tokenId}, params)))
-            promises.append(self.opinionPublicGetTokenOrderbook(self.extend({"token_id": tokenId}, params)))
+            promises.append(
+                self.opinionPublicGetTokenLatestPrice(self.extend({"token_id": tokenId}, params))
+            )
+            promises.append(
+                self.opinionPublicGetTokenOrderbook(self.extend({"token_id": tokenId}, params))
+            )
         responses = await asyncio.gather(*promises)
         result = {}
-        for i in range(outcomesLength):
+        for i in range(0, outcomesLength):
             outcomeObj = self.outcome(outcomes[i])
             priceIndex = i * 2
             priceResponse = responses[priceIndex]
@@ -793,7 +822,9 @@ class opinion(PredictionExchange, ImplicitAPI):
                 result[symbolKey] = ticker
         return result
 
-    async def fetch_order_book(self, outcome: Str, limit: Int = None, params=None) -> PredictionOrderBook:
+    async def fetch_order_book(
+        self, outcome: str, limit: Int = None, params: dict = None
+    ) -> PredictionOrderBook:
         """
         fetches the order book for a single outcome token
 
@@ -818,7 +849,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #         "errno": 0,
         #         "result": {
         #             "asks": [
-        #                 {"price": "0.999", "size": "5500"}
+        #                 { "price": "0.999", "size": "5500" }
         #             ],
         #             "bids": [],
         #             "market": "ff7d2d935d0cce2922ea05a363e5a87439e1f8f86f01dacf7238d4c4cc542f6c",
@@ -830,12 +861,23 @@ class opinion(PredictionExchange, ImplicitAPI):
         result = self.safe_dict(response, "result", {})
         timestamp = self.safe_integer(result, "timestamp")
         orderbook = self.parse_order_book(
-            result, self.safe_outcome_symbol(outcome, outcomeObj), timestamp, "bids", "asks", "price", "size"
+            result,
+            self.safe_outcome_symbol(outcome, outcomeObj),
+            timestamp,
+            "bids",
+            "asks",
+            "price",
+            "size",
         )
         return self.safe_prediction_order_book(orderbook, outcomeObj)
 
     async def fetch_ohlcv(
-        self, outcome: str, timeframe="1d", since: Int = None, limit: Int = None, params=None
+        self,
+        outcome: str,
+        timeframe="1d",
+        since: Int = None,
+        limit: Int = None,
+        params: dict = None,
     ) -> list[list]:
         """
         fetches historical candlestick data for an outcome token
@@ -878,7 +920,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #         "errno": 0,
         #         "result": {
         #             "history": [
-        #                 {"p": "0.001", "t": 1785495600}
+        #                 { "p": "0.001", "t": 1785495600 }
         #             ]
         #         }
         #     }
@@ -887,8 +929,8 @@ class opinion(PredictionExchange, ImplicitAPI):
         history = self.safe_list(result, "history", [])
         candles = []
         historyLength = len(history)
-        for i in range(historyLength):
-            point = history[i]
+        for i in range(0, historyLength):
+            point = self.safe_dict(history, i)
             price = self.safe_number(point, "p")
             timestamp = self.safe_timestamp(point, "t")
             if (price is not None) and (timestamp is not None):
@@ -903,9 +945,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         :param dict [market]: the outcome object the candle belongs to
         :returns int[]: a candle ordered as timestamp, open, high, low, close, volume
         """
-        # Unused: fetchOHLCV maps {p, t} points directly.
+        # Unused: fetchOHLCV maps { p, t } points directly.
         #
-        #     {"p": "0.001", "t": 1785495600}
+        #     { "p": "0.001", "t": 1785495600 }
         #
         price = self.safe_number(ohlcv, "p")
         return [self.safe_timestamp(ohlcv, "t"), price, price, price, price, None]
@@ -929,7 +971,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         list = self.safe_list(result, "list", [])
         listLength = len(list)
         quoteTokens = {}
-        for i in range(listLength):
+        for i in range(0, listLength):
             entry = list[i]
             address = self.safe_string_lower(entry, "quoteTokenAddress")
             if address is not None:
@@ -937,7 +979,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         self.options["quoteTokens"] = quoteTokens
         quoteToken = self.safe_dict(quoteTokens, cacheKey)
         if quoteToken is None:
-            raise ExchangeError(self.id + " loadQuoteToken() could not find quote token " + quoteTokenAddress)
+            raise ExchangeError(
+                self.id + " loadQuoteToken() could not find quote token " + quoteTokenAddress
+            )
         return quoteToken
 
     async def load_multi_sign_address(self) -> str:
@@ -981,11 +1025,18 @@ class opinion(PredictionExchange, ImplicitAPI):
         }
         encoded = self.eth_encode_structured_data(domain, messageTypes, order)
         sig = self.sign_message(encoded, self.privateKey)
-        return "0x" + self.remove0x_prefix(sig["r"]) + self.remove0x_prefix(sig["s"]) + self.int_to_base16(sig["v"])
+        return (
+            "0x"
+            + self.remove0x_prefix(sig["r"])
+            + self.remove0x_prefix(sig["s"])
+            + self.int_to_base16(sig["v"])
+        )
 
-    def opinion_order_raw_amounts(self, isMarket: bool, side: str, amount: Num, price: Num, decimals: float) -> dict:
+    def opinion_order_raw_amounts(
+        self, isMarket: bool, side: str, amount: Num, price: Num, decimals: float
+    ) -> dict:
         decimalsStr = "1"
-        for _i in range(decimals):
+        for _i in range(0, decimals):
             decimalsStr = decimalsStr + "0"
         amountStr = self.number_to_string(amount)
         if isMarket and (side == "BUY"):
@@ -998,7 +1049,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         priceInt = self.safe_string(priceParts, 0, "0")
         priceFrac = self.safe_string(priceParts, 1, "")
         priceDenom = "1000000"
-        priceNum = Precise.string_add(Precise.string_mul(priceInt, priceDenom), priceFrac.ljust(6, "0"))
+        priceNum = Precise.string_add(
+            Precise.string_mul(priceInt, priceDenom), priceFrac.ljust(6, "0")
+        )
         if priceNum == "0":
             raise InvalidOrder(self.id + " createOrder() invalid price " + priceStr)
         makerRaw = amountStr
@@ -1020,7 +1073,13 @@ class opinion(PredictionExchange, ImplicitAPI):
         return {"makerAmount": makerAmount, "takerAmount": takerAmount}
 
     async def create_order(
-        self, outcome: str, type: Str, side: Str, amount: Num, price: Num = None, params=None
+        self,
+        outcome: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
     ) -> PredictionOrder:
         """
         places a limit or market order on the CLOB for the given outcome token
@@ -1046,10 +1105,14 @@ class opinion(PredictionExchange, ImplicitAPI):
         sideStr = side.upper()
         if price is None:
             if not isMarket:
-                raise ArgumentsRequired(self.id + " createOrder() requires a price for limit orders")
+                raise ArgumentsRequired(
+                    self.id + " createOrder() requires a price for limit orders"
+                )
             if sideStr == "SELL":
-                # the reference(worst acceptable) price the taker amount is computed from
-                raise ArgumentsRequired(self.id + " createOrder() requires a price for market sell orders")
+                # the reference (worst acceptable) price the taker amount is computed from
+                raise ArgumentsRequired(
+                    self.id + " createOrder() requires a price for market sell orders"
+                )
         marketOrderPrice = "0"
         if isMarket and (sideStr == "SELL"):
             marketOrderPrice = self.number_to_string(price)
@@ -1069,7 +1132,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         maker = await self.load_multi_sign_address()
         # Ethereum addresses are case-insensitive - a checksummed multiSignAddress compared
         # against a differently-cased walletAddress with strict equality would pick the wrong
-        # signatureType(0 EOA vs 2 Gnosis Safe) and break order signing/validation
+        # signatureType (0 EOA vs 2 Gnosis Safe) and break order signing/validation
         makerLower = maker.lower()
         walletAddressLower = self.walletAddress.lower()
         signatureType = 0 if (makerLower == walletAddressLower) else 2
@@ -1122,7 +1185,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         orderData = self.safe_dict(result, "orderData", {})
         return self.parse_prediction_order(orderData, outcomeObj)
 
-    async def cancel_order(self, id: Str, outcome: Str = None, params=None) -> PredictionOrder:
+    async def cancel_order(
+        self, id: str, outcome: Str = None, params: dict = None
+    ) -> PredictionOrder:
         """
         cancels a single open order by id
 
@@ -1140,9 +1205,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         response = await self.opinionPrivatePostOrderCancel(self.extend(request, params))
         result = self.safe_dict(response, "result", {})
         canceled = self.safe_bool(result, "result", False)
-        # a False result does NOT mean the order is still open — it may already be filled,
+        # a false result does NOT mean the order is still open — it may already be filled,
         # already cancelled, or unknown; don't invent a status the venue didn't report.
-        # error responses with an errno never reach self line, handleErrors throws on them
+        # error responses with an errno never reach this line, handleErrors throws on them
         status = "canceled" if (canceled is True) else None
         return self.safe_prediction_order({"id": id, "status": status, "info": response})
 
@@ -1187,7 +1252,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         #         "statusEnum": "Pending",
         #         "createdAt": 1785500000,
         #         "expiresAt": 0,
-        #         "postOnly": False
+        #         "postOnly": false
         #     }
         #
         id = self.safe_string(order, "orderId")
@@ -1214,7 +1279,7 @@ class opinion(PredictionExchange, ImplicitAPI):
                 "side": sideEnum,
                 "price": self.safe_number(order, "price"),
                 "amount": self.safe_number(order, "orderShares"),
-                # cost is the FILLED portion's collateral(unified cost = filled * price) — orderAmount
+                # cost is the FILLED portion's collateral (unified cost = filled * price) — orderAmount
                 # is the full requested orderShares * price, wrong for a partially filled order
                 "cost": self.safe_number(order, "filledAmount"),
                 "filled": self.safe_number(order, "filledShares"),
@@ -1225,7 +1290,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         )
 
     async def fetch_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches all of the authenticated user's orders
@@ -1252,7 +1317,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         orders = self.safe_list(result, "list", [])
         return self.parse_prediction_orders(orders, outcomeObj, since, limit)
 
-    async def fetch_order(self, id: Str, outcome: Str = None, params=None) -> PredictionOrder:
+    async def fetch_order(
+        self, id: str, outcome: Str = None, params: dict = None
+    ) -> PredictionOrder:
         """
         fetches a single order by id
 
@@ -1275,7 +1342,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         return self.parse_prediction_order(orderData, outcomeObj)
 
     async def fetch_open_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches the authenticated user's open orders
@@ -1295,7 +1362,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         return await self.fetch_orders(outcome, since, limit, self.extend(request, params))
 
     async def fetch_closed_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         fetches the authenticated user's closed orders
@@ -1315,7 +1382,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         return await self.fetch_orders(outcome, since, limit, self.extend(request, params))
 
     async def fetch_my_trades(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionTrade]:
         """
         fetches the authenticated user's trades
@@ -1343,7 +1410,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         result = self.safe_dict(response, "result", {})
         trades = self.safe_list(result, "list", [])
         tradesLength = len(trades)
-        for i in range(tradesLength):
+        for i in range(0, tradesLength):
             trade = trades[i]
             tokenId = self.safe_string(trade, "tokenId")
             marketId = self.safe_integer(trade, "marketId")
@@ -1352,7 +1419,9 @@ class opinion(PredictionExchange, ImplicitAPI):
                 info = self.safe_dict(tradeMarket, "info", {})
                 isYes = self.safe_string_lower(trade, "outcomeSideEnum") == "yes"
                 trade["tokenId"] = (
-                    self.safe_string(info, "yesTokenId") if isYes else self.safe_string(info, "noTokenId")
+                    self.safe_string(info, "yesTokenId")
+                    if isYes
+                    else self.safe_string(info, "noTokenId")
                 )
         return self.parse_prediction_trades(trades, outcomeObj, since, limit)
 
@@ -1417,7 +1486,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             }
         )
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         fetches the authenticated user's quote-token balances
 
@@ -1434,7 +1503,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         result = self.safe_dict(response, "result", {})
         rawBalances = self.safe_list(result, "balances", [])
         rawBalancesLength = len(rawBalances)
-        for i in range(rawBalancesLength):
+        for i in range(0, rawBalancesLength):
             rawBalance = rawBalances[i]
             quoteTokenAddress = self.safe_string(rawBalance, "quoteToken")
             quoteToken = await self.load_quote_token(quoteTokenAddress)
@@ -1452,8 +1521,8 @@ class opinion(PredictionExchange, ImplicitAPI):
         data = self.safe_dict(response, "result", {})
         balances = self.safe_list(data, "balances", [])
         balancesLength = len(balances)
-        for i in range(balancesLength):
-            balance = balances[i]
+        for i in range(0, balancesLength):
+            balance = self.safe_dict(balances, i)
             code = self.safe_string(balance, "symbol", "USDT")
             result[code] = {
                 "free": self.safe_number(balance, "availableBalance"),
@@ -1462,7 +1531,9 @@ class opinion(PredictionExchange, ImplicitAPI):
             }
         return self.safe_balance(result)
 
-    async def fetch_positions(self, outcomes: Strings = None, params=None) -> list[PredictionPosition]:
+    async def fetch_positions(
+        self, outcomes: Strings = None, params: dict = None
+    ) -> list[PredictionPosition]:
         """
         fetches the authenticated user's open positions
 
@@ -1482,7 +1553,9 @@ class opinion(PredictionExchange, ImplicitAPI):
             outcomesLength = len(outcomes)
             await self.load_outcomes(outcomes)
         request = {"walletAddress": self.walletAddress}
-        response = await self.opinionPrivateGetPositionsUserWalletAddress(self.extend(request, params))
+        response = await self.opinionPrivateGetPositionsUserWalletAddress(
+            self.extend(request, params)
+        )
         result = self.safe_dict(response, "result", {})
         positions = self.safe_list(result, "list", [])
         parsed = self.parse_prediction_positions(positions)
@@ -1491,13 +1564,13 @@ class opinion(PredictionExchange, ImplicitAPI):
         wantedTokenIds = {}
         # copy to a plain list so the strict null checks see one shape
         outcomesList = [] if (outcomes is None) else outcomes
-        for i in range(len(outcomesList)):
+        for i in range(0, len(outcomesList)):
             outcomeObj = self.outcome(outcomesList[i])
             tokenId = self.safe_string(outcomeObj, "outcomeId")
             if tokenId is not None:
                 wantedTokenIds[tokenId] = True
         filtered = []
-        for i in range(len(parsed)):
+        for i in range(0, len(parsed)):
             position = parsed[i]
             info = self.safe_dict(position, "info", {})
             tokenId = self.safe_string(info, "tokenId")
@@ -1505,7 +1578,9 @@ class opinion(PredictionExchange, ImplicitAPI):
                 filtered.append(position)
         return filtered
 
-    def parse_prediction_position(self, position: dict, market: Market = None) -> PredictionPosition:
+    def parse_prediction_position(
+        self, position: dict, market: Market = None
+    ) -> PredictionPosition:
         """
         @ignore
                parses a raw opinion position object into a unified position object
@@ -1550,7 +1625,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         return self.sign_hash(self.hash_message(message), privateKey[-64:])
 
     def sign_api_key_auth(self, walletAddress: str, action: str, timestamp: str) -> str:
-        # EIP-712 signature used to create/get/delete an API key(wallet-authenticated key management)
+        # EIP-712 signature used to create/get/delete an API key (wallet-authenticated key management)
         domain = {
             "name": "Opinion OpenAPI",
             "version": "1",
@@ -1570,9 +1645,14 @@ class opinion(PredictionExchange, ImplicitAPI):
         }
         encoded = self.eth_encode_structured_data(domain, messageTypes, messageData)
         sig = self.sign_message(encoded, self.privateKey)
-        return "0x" + self.remove0x_prefix(sig["r"]) + self.remove0x_prefix(sig["s"]) + self.int_to_base16(sig["v"])
+        return (
+            "0x"
+            + self.remove0x_prefix(sig["r"])
+            + self.remove0x_prefix(sig["s"])
+            + self.int_to_base16(sig["v"])
+        )
 
-    async def create_api_key(self, params=None) -> dict:
+    async def create_api_key(self, params: dict = None) -> dict:
         """
                self-service creation of an Open API key linked to self.walletAddress via
         an EIP-712-signed request - there is no "generate key" button in the Opinion GUI, self is
@@ -1589,7 +1669,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         result = self.safe_dict(response, "result", {})
         return self.set_api_credentials(result)
 
-    async def fetch_api_key(self, params=None) -> dict:
+    async def fetch_api_key(self, params: dict = None) -> dict:
         """
         fetches the currently active Open API key for self.walletAddress
 
@@ -1604,7 +1684,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         result = self.safe_dict(response, "result", {})
         return self.set_api_credentials(result)
 
-    async def delete_api_key(self, params=None) -> dict:
+    async def delete_api_key(self, params: dict = None) -> dict:
         """
         revokes the Open API key for self.walletAddress
 
@@ -1617,9 +1697,9 @@ class opinion(PredictionExchange, ImplicitAPI):
             params = {}
         response = await self.opinionPrivateDeleteAuthApiKey(params)
         self.options["apiKey"] = None
-        # sign() prefers self.apiKey over options['apiKey'] - clear it too, or a directly-set
+        # sign() prefers this.apiKey over options['apiKey'] - clear it too, or a directly-set
         # exchange.apiKey would keep being used for private calls after the key is revoked.
-        # an empty string, not None: the strict base types the credential, and
+        # an empty string, not undefined: the strict base types the credential as string, and
         # sign() treats an empty key as absent
         self.apiKey = ""
         return response
@@ -1640,27 +1720,28 @@ class opinion(PredictionExchange, ImplicitAPI):
             return optionsKey
         if (self.walletAddress is None) or (self.privateKey is None):
             raise AuthenticationError(
-                self.id + " private endpoints require an apiKey, or a walletAddress and privateKey to self-issue one"
+                self.id
+                + " private endpoints require an apiKey, or a walletAddress and privateKey to self-issue one"
             )
         creds = None
         try:
             creds = await self.fetch_api_key()
         except Exception:
-            # no key exists for self wallet yet(11010) - self-issue one; any other
-            # failure(unregistered wallet, disabled issuance) surfaces from the create call
+            # no key exists for this wallet yet (11010) - self-issue one; any other
+            # failure (unregistered wallet, disabled issuance) surfaces from the create call
             creds = await self.create_api_key()
         return self.safe_string(creds, "apiKey")
 
     def set_api_credentials(self, response: dict) -> dict:
         #
-        #     {"apiKey": "...", "walletAddress": "..."}
+        #     { "apiKey": "...", "walletAddress": "..." }
         #
         creds = {
             "apiKey": self.safe_string(response, "apiKey"),
             "walletAddress": self.safe_string(response, "walletAddress"),
         }
         self.options["apiKey"] = creds["apiKey"]
-        # checkRequiredCredentials()(called by createOrder()) checks self.apiKey, not
+        # checkRequiredCredentials() (called by createOrder()) checks this.apiKey, not
         # options['apiKey'] - keep both in sync, same as deleteApiKey() clearing both
         self.apiKey = creds["apiKey"]
         return creds
@@ -1675,7 +1756,8 @@ class opinion(PredictionExchange, ImplicitAPI):
         apiKey = self.apiKey if (hasDirectApiKey) else self.safe_string(self.options, "apiKey")
         if apiKey is None:
             raise AuthenticationError(
-                self.id + " websocket requires an apiKey - set it directly or call createApiKey()/fetchApiKey() first"
+                self.id
+                + " websocket requires an apiKey - set it directly or call createApiKey()/fetchApiKey() first"
             )
         wsUrl = self.safe_string(self.urls["api"], "ws", "")
         return wsUrl + "?apikey=" + apiKey
@@ -1684,7 +1766,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         # the venue keeps the socket open only while application-level heartbeats arrive
         return {"action": "HEARTBEAT"}
 
-    async def subscribe_opinion_channel(self, messageHash: str, channel: str, marketId: Int) -> object:
+    async def subscribe_opinion_channel(
+        self, messageHash: str, channel: str, marketId: Int
+    ) -> object:
         """
         @ignore
                subscribes to one venue channel scoped by the binary marketId and waits on the given message hash
@@ -1732,8 +1816,8 @@ class opinion(PredictionExchange, ImplicitAPI):
             return None
         marketKeys = list(self.markets.keys())
         marketKeysLength = len(marketKeys)
-        for i in range(marketKeysLength):
-            market = self.markets[marketKeys[i]]
+        for i in range(0, marketKeysLength):
+            market = self.safe_dict(self.markets, marketKeys[i])
             info = self.safe_dict(market, "info", {})
             if self.safe_integer(info, "marketId") == marketId:
                 outcomes = self.safe_list(market, "outcomes", [])
@@ -1741,7 +1825,9 @@ class opinion(PredictionExchange, ImplicitAPI):
                 return self.safe_dict(outcomes, index)
         return None
 
-    async def watch_order_book(self, outcome: str, limit: Int = None, params=None) -> PredictionOrderBook:
+    async def watch_order_book(
+        self, outcome: str, limit: Int = None, params: dict = None
+    ) -> PredictionOrderBook:
         """
         streams the order book of an outcome token; the channel is delta-only so the live book is seeded from the REST snapshot
 
@@ -1779,14 +1865,14 @@ class opinion(PredictionExchange, ImplicitAPI):
         orderbook = await future
         return orderbook.limit()
 
-    async def seed_order_book(self, outcome: Str, sym: Str, limit: Int = None):
+    async def seed_order_book(self, outcome: str, sym: Str, limit: Int = None):
         # the depth channel streams single-level deltas only, so seed the live book from the REST snapshot
         snapshot = await self.fetch_order_book(outcome, limit)
         orderbook = self.order_book({})
         orderbook.reset(snapshot)
         self.orderbooks[sym] = orderbook
 
-    def handle_order_book(self, client: object, message: object):
+    def handle_order_book(self, client: object, message: dict):
         #
         #     {
         #         "marketId": 2764,
@@ -1812,12 +1898,11 @@ class opinion(PredictionExchange, ImplicitAPI):
         price = self.safe_number(message, "price")
         size = self.safe_number(message, "size")
         bookSide.storeArray([price, size])
-        now = self.milliseconds()
-        orderbook["timestamp"] = now
-        orderbook["datetime"] = self.iso8601(now)
+        orderbook["timestamp"] = None
+        orderbook["datetime"] = None
         client.resolve(orderbook, "orderbook::" + sym)
 
-    async def watch_ticker(self, outcome: str, params=None) -> PredictionTicker:
+    async def watch_ticker(self, outcome: str, params: dict = None) -> PredictionTicker:
         """
         streams last-price updates of an outcome token
 
@@ -1836,7 +1921,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         messageHash = "ticker::" + sym
         return await self.subscribe_opinion_channel(messageHash, "market.last.price", marketId)
 
-    def handle_ticker(self, client: object, message: object):
+    def handle_ticker(self, client: object, message: dict):
         #
         #     {
         #         "tokenId": "19120407572139442221452465677574895365338028945317996490376653704877573103648",
@@ -1851,7 +1936,6 @@ class opinion(PredictionExchange, ImplicitAPI):
         sym = self.safe_string(outcomeObj, "outcome")
         if sym is None:
             return
-        now = self.milliseconds()
         last = self.safe_number(message, "price")
         ticker = self.safe_prediction_ticker(
             {
@@ -1859,8 +1943,8 @@ class opinion(PredictionExchange, ImplicitAPI):
                 "outcomeId": tokenId,
                 "label": self.safe_string(outcomeObj, "label"),
                 "market": self.safe_string(outcomeObj, "market"),
-                "timestamp": now,
-                "datetime": self.iso8601(now),
+                "timestamp": None,
+                "datetime": None,
                 "close": last,
                 "last": last,
                 "info": message,
@@ -1871,7 +1955,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         client.resolve(ticker, "ticker::" + sym)
 
     async def watch_trades(
-        self, outcome: str, since: Int = None, limit: Int = None, params=None
+        self, outcome: str, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionTrade]:
         """
         streams public trades of an outcome token
@@ -1894,7 +1978,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         trades = await self.subscribe_opinion_channel(messageHash, "market.last.trade", marketId)
         return self.filter_by_since_limit(trades, since, limit, "timestamp", True)
 
-    def handle_trades(self, client: object, message: object):
+    def handle_trades(self, client: object, message: dict):
         #
         #     {
         #         "tokenId": "19120407572139442221452465677574895365338028945317996490376653704877573103648",
@@ -1912,13 +1996,12 @@ class opinion(PredictionExchange, ImplicitAPI):
         sym = self.safe_string(outcomeObj, "outcome")
         if sym is None:
             return
-        now = self.milliseconds()
         trade = self.safe_prediction_trade(
             {
                 "id": None,
                 "info": message,
-                "timestamp": now,
-                "datetime": self.iso8601(now),
+                "timestamp": None,
+                "datetime": None,
                 "outcome": sym,
                 "outcomeId": tokenId,
                 "label": self.safe_string(outcomeObj, "label"),
@@ -1944,7 +2027,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         client.resolve(stored, "trades::" + sym)
 
     async def watch_orders(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionOrder]:
         """
         streams the authenticated user's order updates of one market - the venue channel is per-market, so the outcome argument is required
@@ -1961,7 +2044,8 @@ class opinion(PredictionExchange, ImplicitAPI):
             params = {}
         if outcome is None:
             raise ArgumentsRequired(
-                self.id + " watchOrders() requires an outcome(the order update channel is per-market)"
+                self.id
+                + " watchOrders() requires an outcome (the order update channel is per-market)"
             )
         outcomeObj = await self.load_outcome(outcome)
         info = self.safe_dict(outcomeObj, "info", {})
@@ -1969,7 +2053,9 @@ class opinion(PredictionExchange, ImplicitAPI):
         messageHash = "orders"
         orders = await self.subscribe_opinion_channel(messageHash, "trade.order.update", marketId)
         sym = self.safe_outcome_symbol(outcome, outcomeObj)
-        return self.filter_by_value_since_limit(orders, "outcome", sym, since, limit, "timestamp", True)
+        return self.filter_by_value_since_limit(
+            orders, "outcome", sym, since, limit, "timestamp", True
+        )
 
     def parse_ws_order_status(self, status: Int) -> Str:
         """
@@ -1991,7 +2077,7 @@ class opinion(PredictionExchange, ImplicitAPI):
             return "rejected"
         return None
 
-    def handle_order(self, client: object, message: object):
+    def handle_order(self, client: object, message: dict):
         #
         #     {
         #         "orderUpdateType": "orderConfirm",
@@ -2018,12 +2104,16 @@ class opinion(PredictionExchange, ImplicitAPI):
         outcomeSide = self.safe_integer(message, "outcomeSide")
         outcomeObj = self.opinion_outcome_by_market_id_side(marketId, outcomeSide)
         timestamp = self.safe_timestamp(message, "createdAt")
-        # unlike the REST order body(0 buy / 1 sell), the websocket channel uses 1 buy / 2 sell
+        # unlike the REST order body (0 buy / 1 sell), the websocket channel uses 1 buy / 2 sell
         # per the docs and confirmed live
         sideInt = self.safe_integer(message, "side")
-        side = "buy" if (sideInt == 1) else "sell"
+        side = "sell"
+        if sideInt == 1:
+            side = "buy"
         tradingMethod = self.safe_integer(message, "tradingMethod")
-        type = "market" if (tradingMethod == 1) else "limit"
+        type = "limit"
+        if tradingMethod == 1:
+            type = "market"
         order = self.safe_prediction_order(
             {
                 "id": self.safe_string(message, "orderId"),
@@ -2056,7 +2146,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         client.resolve(stored, "orders")
 
     async def watch_my_trades(
-        self, outcome: Str = None, since: Int = None, limit: Int = None, params=None
+        self, outcome: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[PredictionTrade]:
         """
         streams the authenticated user's executed trades of one market - the venue channel is per-market, so the outcome argument is required
@@ -2073,7 +2163,8 @@ class opinion(PredictionExchange, ImplicitAPI):
             params = {}
         if outcome is None:
             raise ArgumentsRequired(
-                self.id + " watchMyTrades() requires an outcome(the trade record channel is per-market)"
+                self.id
+                + " watchMyTrades() requires an outcome (the trade record channel is per-market)"
             )
         outcomeObj = await self.load_outcome(outcome)
         info = self.safe_dict(outcomeObj, "info", {})
@@ -2081,9 +2172,11 @@ class opinion(PredictionExchange, ImplicitAPI):
         messageHash = "myTrades"
         trades = await self.subscribe_opinion_channel(messageHash, "trade.record.new", marketId)
         sym = self.safe_outcome_symbol(outcome, outcomeObj)
-        return self.filter_by_value_since_limit(trades, "outcome", sym, since, limit, "timestamp", True)
+        return self.filter_by_value_since_limit(
+            trades, "outcome", sym, since, limit, "timestamp", True
+        )
 
-    def handle_my_trade(self, client: object, message: object):
+    def handle_my_trade(self, client: object, message: dict):
         #
         #     {
         #         "orderId": "3c7af25f-e21f-11f0-9714-0a58a9feac02",
@@ -2154,22 +2247,24 @@ class opinion(PredictionExchange, ImplicitAPI):
         requestBody: object,
     ):
         if response is None:
-            return
+            return None
         errno = self.safe_integer(response, "errno")
         if (errno is not None) and (errno != 0):
             errmsg = self.safe_string(response, "errmsg", "")
             feedback = self.id + " " + body
-            self.throw_exactly_matched_exception(self.exceptions["exact"], self.number_to_string(errno), feedback)
+            self.throw_exactly_matched_exception(
+                self.exceptions["exact"], self.number_to_string(errno), feedback
+            )
             self.throw_broadly_matched_exception(self.exceptions["broad"], errmsg, feedback)
             raise ExchangeError(feedback)
-        return
+        return None
 
     def sign(
         self,
-        path: object,
+        path: str,
         api: object = "opinion",
         method="GET",
-        params=None,
+        params: dict = None,
         headers: object = None,
         body: object = None,
     ):
@@ -2193,7 +2288,7 @@ class opinion(PredictionExchange, ImplicitAPI):
         url = baseUrl + "/" + self.implode_params(path, params)
         query = self.omit(params, self.extract_params(path))
         existingHeaders = headers if (headers is not None) else {}
-        headers = self.extend(
+        headersExtended = self.extend(
             {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
@@ -2204,18 +2299,24 @@ class opinion(PredictionExchange, ImplicitAPI):
             if path == "auth/api-key":
                 # wallet-signature scheme: no apiKey involved, the signature itself is the credential
                 if (self.walletAddress is None) or (self.privateKey is None):
-                    raise ArgumentsRequired(self.id + " " + path + " requires a walletAddress and privateKey")
+                    raise ArgumentsRequired(
+                        self.id + " " + path + " requires a walletAddress and privateKey"
+                    )
                 actionByMethod = {"POST": "create", "GET": "get", "DELETE": "delete"}
                 action = self.safe_string(actionByMethod, method, "get")
                 timestamp = self.number_to_string(self.seconds())
-                headers["OPINION_ADDRESS"] = self.walletAddress
-                headers["OPINION_SIGNATURE"] = self.sign_api_key_auth(self.walletAddress, action, timestamp)
-                headers["OPINION_TIMESTAMP"] = timestamp
+                headersExtended["OPINION_ADDRESS"] = self.walletAddress
+                headersExtended["OPINION_SIGNATURE"] = self.sign_api_key_auth(
+                    self.walletAddress, action, timestamp
+                )
+                headersExtended["OPINION_TIMESTAMP"] = timestamp
             else:
-                # an empty self.apiKey counts as absent - deleteApiKey clears it to ''(the
-                # strict base types the credential, None can not be assigned)
+                # an empty this.apiKey counts as absent - deleteApiKey clears it to '' (the
+                # strict base types the credential as string, undefined can not be assigned)
                 hasDirectApiKey = not self.is_empty_string(self.apiKey)
-                apiKey = self.apiKey if (hasDirectApiKey) else self.safe_string(self.options, "apiKey")
+                apiKey = (
+                    self.apiKey if (hasDirectApiKey) else self.safe_string(self.options, "apiKey")
+                )
                 if apiKey is None:
                     raise AuthenticationError(
                         self.id
@@ -2223,10 +2324,11 @@ class opinion(PredictionExchange, ImplicitAPI):
                         + path
                         + " requires an apiKey - set it directly or call createApiKey()/fetchApiKey() first"
                     )
-                headers["apikey"] = apiKey
+                headersExtended["apikey"] = apiKey
+        bodyValue = body
         if method == "GET":
             if len(query) > 0:
                 url += "?" + self.urlencode(query)
         else:
-            body = self.json(query)
-        return {"url": url, "method": method, "body": body, "headers": headers}
+            bodyValue = self.json(query)
+        return {"url": url, "method": method, "body": bodyValue, "headers": headersExtended}

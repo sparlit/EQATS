@@ -80,12 +80,10 @@ def clean_number(value):
 # ============================================================
 
 if not DATA_FILE.exists():
-    msg = f"OHLCV file not found: {DATA_FILE}"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError(f"OHLCV file not found: {DATA_FILE}")
 
 if not SIGNALS_FILE.exists():
-    msg = f"Scanner results not found: {SIGNALS_FILE}"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError(f"Scanner results not found: {SIGNALS_FILE}")
 
 
 data = pd.read_csv(DATA_FILE)
@@ -117,21 +115,34 @@ signal_tp1_col = find_column(signals, ["tp1", "tp_1", "target1"])
 
 signal_tp2_col = find_column(signals, ["tp2", "tp_2", "target2"])
 
-signal_date_col = find_column(signals, ["confirmation", "confirmation_date", "signal_date", "date", "datetime"])
+signal_date_col = find_column(
+    signals, ["confirmation", "confirmation_date", "signal_date", "date", "datetime"]
+)
 
 
-required_data = [data_symbol_col, data_date_col, data_open_col, data_high_col, data_low_col, data_close_col]
+required_data = [
+    data_symbol_col,
+    data_date_col,
+    data_open_col,
+    data_high_col,
+    data_low_col,
+    data_close_col,
+]
 
-required_signals = [signal_symbol_col, signal_entry_col, signal_tp1_col, signal_tp2_col, signal_date_col]
+required_signals = [
+    signal_symbol_col,
+    signal_entry_col,
+    signal_tp1_col,
+    signal_tp2_col,
+    signal_date_col,
+]
 
 
 if any(x is None for x in required_data):
-    msg = "Could not identify required OHLCV columns."
-    raise ValueError(msg)
+    raise ValueError("Could not identify required OHLCV columns.")
 
 if any(x is None for x in required_signals):
-    msg = "Could not identify required scanner result columns."
-    raise ValueError(msg)
+    raise ValueError("Could not identify required scanner result columns.")
 
 
 # ============================================================
@@ -142,9 +153,13 @@ data[data_date_col] = pd.to_datetime(data[data_date_col], errors="coerce")
 
 signals[signal_date_col] = pd.to_datetime(signals[signal_date_col], errors="coerce")
 
-data = data.dropna(subset=[data_symbol_col, data_date_col, data_high_col, data_low_col, data_close_col])
+data = data.dropna(
+    subset=[data_symbol_col, data_date_col, data_high_col, data_low_col, data_close_col]
+)
 
-signals = signals.dropna(subset=[signal_symbol_col, signal_date_col, signal_entry_col, signal_tp1_col, signal_tp2_col])
+signals = signals.dropna(
+    subset=[signal_symbol_col, signal_date_col, signal_entry_col, signal_tp1_col, signal_tp2_col]
+)
 
 data = data.sort_values([data_symbol_col, data_date_col])
 
@@ -298,7 +313,9 @@ for _index, signal in signals.iterrows():
         exit_date = tp2_date
 
         # 50% at TP1 + 50% at TP2
-        return_pct = TP1_PART * ((tp1 - entry) / entry * 100) + TP2_PART * ((tp2 - entry) / entry * 100)
+        return_pct = TP1_PART * ((tp1 - entry) / entry * 100) + TP2_PART * (
+            (tp2 - entry) / entry * 100
+        )
 
     elif tp1_hit:
         status = "TP1 HIT"

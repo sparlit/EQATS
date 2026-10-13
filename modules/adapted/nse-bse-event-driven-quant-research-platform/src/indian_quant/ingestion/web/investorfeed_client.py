@@ -200,7 +200,7 @@ class InvestorFeedClient:
 
     def discover_api_endpoints(self) -> dict[str, Any]:
         """Discover and document available API endpoints."""
-        return {
+        endpoints = {
             "profiles": {
                 "url": PROFILES_URL,
                 "params": {"limit": "int", "offset": "int", "symbol": "str"},
@@ -221,3 +221,4 @@ class InvestorFeedClient:
                 "description": "Available filters for feed",
             },
         }
+        return endpoints

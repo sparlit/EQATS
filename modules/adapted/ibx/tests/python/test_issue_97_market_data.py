@@ -102,10 +102,14 @@ class MarketDataWrapper(EWrapper):
         self.depth_updates.append((req_id, position, operation, side, price, size))
         self.got_depth.set()
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         if self._depth_cancelled and req_id == 2:
             self.depth_after_cancel = True
-        self.depth_l2_updates.append((req_id, position, market_maker, operation, side, price, size, is_smart_depth))
+        self.depth_l2_updates.append(
+            (req_id, position, market_maker, operation, side, price, size, is_smart_depth)
+        )
         self.got_depth.set()
 
     def mkt_depth_exchanges(self, depth_mkt_data_descriptions):
@@ -215,7 +219,9 @@ class TestMarketDataAndDepth:
 
         # Leak check
         time.sleep(3)
-        assert not self.wrapper.depth_after_cancel, "Depth updates still arriving after cancelMktDepth"
+        assert not self.wrapper.depth_after_cancel, (
+            "Depth updates still arriving after cancelMktDepth"
+        )
 
     def test_combined_tob_and_depth(self):
         """Run top-of-book and L2 depth simultaneously, cancel independently."""

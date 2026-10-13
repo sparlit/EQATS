@@ -45,8 +45,8 @@ Migration notes
 - Adoption is opt-in per tool; see PR notes for the current opt-in set.
 """
 
-from enum import Enum, StrEnum
-from typing import Any, Union
+from enum import StrEnum
+from typing import Any
 
 
 class ErrorCode(StrEnum):
@@ -107,7 +107,11 @@ def is_error(payload: Any) -> bool:
     false positives against legacy string-error payloads (which had
     ``payload["error"]`` as a string, not a dict).
     """
-    return isinstance(payload, dict) and isinstance(payload.get("error"), dict) and "code" in payload["error"]
+    return (
+        isinstance(payload, dict)
+        and isinstance(payload.get("error"), dict)
+        and "code" in payload["error"]
+    )
 
 
 class ScreenerServiceError(RuntimeError):
@@ -182,7 +186,10 @@ class PartialDataError(Exception):
         total_batches: int,
         aborted_reason: str,
     ) -> None:
-        super().__init__(f"Partial scan: {batches_attempted}/{total_batches} batches before abort ({aborted_reason})")
+        super().__init__(
+            f"Partial scan: {batches_attempted}/{total_batches} batches before abort "
+            f"({aborted_reason})"
+        )
         self.rows = rows
         self.batches_attempted = batches_attempted
         self.total_batches = total_batches

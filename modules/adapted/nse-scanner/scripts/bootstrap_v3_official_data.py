@@ -50,7 +50,9 @@ IMPORTS = {
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Restore, backfill, import and audit V3 official data")
+    parser = argparse.ArgumentParser(
+        description="Restore, backfill, import and audit V3 official data"
+    )
     parser.add_argument("--date", required=True, help="Completed NSE session YYYY-MM-DD")
     parser.add_argument("--db", default="nse_scanner.db")
     parser.add_argument("--input-dir", default="manual_import")
@@ -82,7 +84,9 @@ def main() -> int:
         "readiness": readiness.__dict__,
     }
     Path("output").mkdir(exist_ok=True)
-    Path("output/v3_bootstrap_result.json").write_text(json.dumps(result, indent=2, default=list), encoding="utf-8")
+    Path("output/v3_bootstrap_result.json").write_text(
+        json.dumps(result, indent=2, default=list), encoding="utf-8"
+    )
     Path("output/v3_operational_readiness.json").write_text(
         json.dumps(readiness.__dict__, indent=2, default=list), encoding="utf-8"
     )

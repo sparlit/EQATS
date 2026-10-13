@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import sys
 import warnings
 from argparse import ArgumentParser
 from datetime import datetime
@@ -34,7 +33,8 @@ from defs.utils import loadJson, writeJson
 
 if __name__ == "__main__":
     warnings.warn(
-        "plot.py is deprecated and will be removed in a future version. Please use chart.py instead.",
+        "plot.py is deprecated and will be removed in a future version. "
+        "Please use chart.py instead.",
         FutureWarning,
         stacklevel=2,
     )
@@ -84,7 +84,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--rs", action="store_true", help="Dorsey Relative strength indicator.")
 
-    parser.add_argument("--m-rs", action="store_true", help="Mansfield Relative strength indicator.")
+    parser.add_argument(
+        "--m-rs", action="store_true", help="Mansfield Relative strength indicator."
+    )
 
     parser.add_argument(
         "--tf",
@@ -159,7 +161,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.tf == "weekly" and args.dlv:
-        sys.exit("WARN: Delivery data not available on Weekly Timeframe")
+        exit("WARN: Delivery data not available on Weekly Timeframe")
 
     plotter = Plotter(args, config, plugin, parser, DIR)
 
@@ -174,7 +176,7 @@ if __name__ == "__main__":
         with ProcessPoolExecutor() as executor:
             for sym in symList:
                 executor.submit(processPlot, plotter.plot(sym), plotter.plot_args)
-        sys.exit("Done")
+        exit("Done")
 
     # PROMPT BETWEEN EACH CHART
     plotter.idx = 0
@@ -217,7 +219,7 @@ if __name__ == "__main__":
         if answer in ("n", "a"):
             if plotter.idx == plotter.len:
                 save_selected(selected)
-                sys.exit("\nDone")
+                exit("\nDone")
             plotter.idx += 1
 
         elif answer == "p":
@@ -233,7 +235,7 @@ if __name__ == "__main__":
                 userObj["PLOT_RESUME"] = {"watch": args.watch, "idx": plotter.idx}
                 writeJson(plotter.configPath, userObj)
             save_selected(selected)
-            sys.exit("\nquiting")
+            exit("\nquiting")
 
     save_selected(selected)
     print("\nDone")

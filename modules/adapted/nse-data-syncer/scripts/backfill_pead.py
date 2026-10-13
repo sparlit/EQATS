@@ -47,7 +47,10 @@ DB_URL = os.environ.get(
 )
 
 NSE_API = "https://www.nseindia.com/api/corporate-announcements"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 
 RESULT_KEYWORDS = [
     "financial result",
@@ -136,7 +139,9 @@ def main():
     cur = conn.cursor()
 
     # Find dates already fully covered so we can skip them
-    cur.execute("SELECT DATE(announced_at AT TIME ZONE 'Asia/Kolkata') FROM pead_announcements GROUP BY 1")
+    cur.execute(
+        "SELECT DATE(announced_at AT TIME ZONE 'Asia/Kolkata') FROM pead_announcements GROUP BY 1"
+    )
     already_done = {r[0] for r in cur.fetchall()}
     print(f"Dates already in DB: {len(already_done)}")
 
@@ -168,7 +173,10 @@ def main():
             # No board meetings in DB for this date — store all result announcements anyway
             filtered = result_anns
 
-        print(f"  {len(all_anns)} total, {len(result_anns)} results, {len(filtered)} matched calendar", end="")
+        print(
+            f"  {len(all_anns)} total, {len(result_anns)} results, {len(filtered)} matched calendar",
+            end="",
+        )
 
         inserted = 0
         for ann in filtered:

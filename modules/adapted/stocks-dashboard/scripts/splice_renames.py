@@ -52,7 +52,9 @@ for new, old in renames:
     flds = [f for f in FIELDS if f in o and f in n]
     for f in flds:
         n[f] = [o[f][i] for i in idx] + n[f]
-    print("%s spliced %d pts from %s -> starts %d n=%d" % (new, len(idx), old, n["d"][0], len(n["d"])))
+    print(
+        "%s spliced %d pts from %s -> starts %d n=%d" % (new, len(idx), old, n["d"][0], len(n["d"]))
+    )
 buf = gzip.compress(json.dumps(D, separators=(",", ":")).encode())
 open(path, "wb").write(buf)
 print("SAVED", len(buf), "bytes")

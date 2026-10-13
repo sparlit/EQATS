@@ -44,7 +44,9 @@ def get_portfolio_risk() -> dict | None:
         n_positions, n_sectors, top_sector_pct
     """
     engine = get_engine()
-    result = engine.execute(sa.text("SELECT * FROM portfolio_risk ORDER BY snapshot_date DESC LIMIT 1"))
+    result = engine.execute(
+        sa.text("SELECT * FROM portfolio_risk ORDER BY snapshot_date DESC LIMIT 1")
+    )
     row = result.mappings().first()
     return dict(row) if row else None
 

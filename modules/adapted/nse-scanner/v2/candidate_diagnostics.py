@@ -30,10 +30,8 @@ from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from statistics import mean
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .candidates import Candidate
+from .candidates import Candidate
 
 _SCORE_BUCKETS = ("90-100", "80-89", "70-79", "60-69", "<60")
 
@@ -99,7 +97,8 @@ def build_scanner_diagnostics(
     quality_qualified = 0
     for candidate in candidates:
         if any(
-            "insufficient_history" not in score.get("hard_blocks", ()) for score in candidate.horizon_scores.values()
+            "insufficient_history" not in score.get("hard_blocks", ())
+            for score in candidate.horizon_scores.values()
         ):
             history_eligible += 1
         if candidate.eligible_horizons:
@@ -118,7 +117,9 @@ def build_scanner_diagnostics(
                     component_values[component].append(float(points))
 
     component_averages = {
-        component: round(mean(values), 2) for component, values in sorted(component_values.items()) if values
+        component: round(mean(values), 2)
+        for component, values in sorted(component_values.items())
+        if values
     }
     benchmark_reason = (
         "Official NIFTY index history unavailable; equal-weight NSE universe used"
@@ -143,9 +144,13 @@ def build_scanner_diagnostics(
         rejection_reasons=dict(rejection_reasons.most_common(20)),
         component_averages=component_averages,
         action_average_score=round(mean([row.score for row in actions]), 2) if actions else 0.0,
-        action_average_rr_t1=round(mean([row.reward_risk_t1 for row in actions]), 2) if actions else 0.0,
+        action_average_rr_t1=round(mean([row.reward_risk_t1 for row in actions]), 2)
+        if actions
+        else 0.0,
         watch_average_score=round(mean([row.score for row in watches]), 2) if watches else 0.0,
-        watch_average_trade_plan_score=round(mean([row.trade_plan_score for row in watches]), 2) if watches else 0.0,
+        watch_average_trade_plan_score=round(mean([row.trade_plan_score for row in watches]), 2)
+        if watches
+        else 0.0,
     )
 
 

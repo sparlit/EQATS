@@ -41,7 +41,7 @@ import os
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 DEFAULT_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache")
 Path(DEFAULT_CACHE_DIR).mkdir(parents=True, exist_ok=True)
@@ -62,7 +62,9 @@ def cache_path(cache_dir: str, key: str) -> str:
     return os.path.join(cache_dir, f"{_safe_key(key)}.json")
 
 
-def read_cache(key: str, cache_dir: str = DEFAULT_CACHE_DIR, max_age_seconds: int | None = None) -> dict | None:
+def read_cache(
+    key: str, cache_dir: str = DEFAULT_CACHE_DIR, max_age_seconds: int | None = None
+) -> dict | None:
     """
     Read a cached payload by key. Returns None if missing or older than max_age_seconds.
     """
@@ -149,12 +151,11 @@ def cached_call[T](
             # Poisoned entry (e.g. historical rate-limit payload) — drop it.
             delete_cache(key, cache_dir=cache_dir)
     result = fn(*args, **kwargs)
-    if not os.environ.get(NO_CACHE_ENV_VAR):
-        if should_cache is None or should_cache(result):
-            try:
-                write_cache(key, result, cache_dir=cache_dir)
-            except (OSError, TypeError):
-                # Cache write failure must not break the caller. On-disk cache
-                # is best-effort; the next call will simply recompute.
-                pass
+    if not os.environ.get(NO_CACHE_ENV_VAR) and (should_cache is None or should_cache(result)):
+        try:
+            write_cache(key, result, cache_dir=cache_dir)
+        except (OSError, TypeError):
+            # Cache write failure must not break the caller. On-disk cache
+            # is best-effort; the next call will simply recompute.
+            pass
     return result

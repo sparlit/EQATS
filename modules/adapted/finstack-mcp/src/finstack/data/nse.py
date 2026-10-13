@@ -153,10 +153,10 @@ def get_nse_quote(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching NSE quote for {symbol}: {e}")
+        logger.error(f"Error fetching NSE quote for {symbol}: {e}")
         return {
             "error": True,
-            "message": f"Failed to fetch data for '{symbol}': {e!s}",
+            "message": f"Failed to fetch data for '{symbol}': {str(e)}",
             "suggestion": "Try again in a moment. NSE data may be temporarily unavailable.",
         }
 
@@ -204,10 +204,10 @@ def get_bse_quote(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching BSE quote for {symbol}: {e}")
+        logger.error(f"Error fetching BSE quote for {symbol}: {e}")
         return {
             "error": True,
-            "message": f"Failed to fetch BSE data for '{symbol}': {e!s}",
+            "message": f"Failed to fetch BSE data for '{symbol}': {str(e)}",
         }
 
 
@@ -264,8 +264,8 @@ def get_index_data(index_name: str = "NIFTY50") -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching index {index_name}: {e}")
-        return {"error": True, "message": f"Failed to fetch index '{index_name}': {e!s}"}
+        logger.error(f"Error fetching index {index_name}: {e}")
+        return {"error": True, "message": f"Failed to fetch index '{index_name}': {str(e)}"}
 
 
 # ===== HISTORICAL DATA =====
@@ -345,8 +345,8 @@ def get_historical_data(
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching historical data for {symbol}: {e}")
-        return {"error": True, "message": f"Failed to fetch history for '{symbol}': {e!s}"}
+        logger.error(f"Error fetching historical data for {symbol}: {e}")
+        return {"error": True, "message": f"Failed to fetch history for '{symbol}': {str(e)}"}
 
 
 # ===== MARKET MOVERS =====
@@ -474,8 +474,8 @@ def get_market_movers(mover_type: str = "gainers") -> dict:
         }
 
     except Exception as e:
-        logger.exception(f"Error fetching market movers: {e}")
-        return {"error": True, "message": f"Failed to fetch {mover_type}: {e!s}"}
+        logger.error(f"Error fetching market movers: {e}")
+        return {"error": True, "message": f"Failed to fetch {mover_type}: {str(e)}"}
 
 
 # ===== MARKET STATUS =====

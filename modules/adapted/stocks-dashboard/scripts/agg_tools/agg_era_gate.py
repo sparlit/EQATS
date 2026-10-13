@@ -160,7 +160,11 @@ def site_fy(q, ann, cand, fyend):
     vals = [(q.get(x) or {}).get(cand) for x in qs]
     target = (ann.get(fyend) or {}).get(cand)
     if target is None or any(v is None for v in vals):
-        return "NO-TEST", {"fy_end": fyend, "have": sum(v is not None for v in vals), "annual": target}
+        return "NO-TEST", {
+            "fy_end": fyend,
+            "have": sum(v is not None for v in vals),
+            "annual": target,
+        }
     s = round(sum(vals), 2)
     return (
         "OK" if _close(s, target) else "RESTATED",
@@ -193,7 +197,11 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
 
     ours = G.ours_series(sym, field)
     other = G.ours_series(sym, G.OTHER[field])
-    rep["our_series"] = {"n": len(ours), "first": min(ours, default=None), "last": max(ours, default=None)}
+    rep["our_series"] = {
+        "n": len(ours),
+        "first": min(ours, default=None),
+        "last": max(ours, default=None),
+    }
 
     for cand in G.FIELD_CANDS[field]:
         hits = [
@@ -217,7 +225,9 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
             )
             continue
         if len(bad) > MAX_BAD or (len(bad) / float(len(hits))) > MAX_BAD_RATE:
-            rep.setdefault("rejected", []).append("%s: GATE-E1 %d/%d disagreements" % (cand, len(bad), len(hits)))
+            rep.setdefault("rejected", []).append(
+                "%s: GATE-E1 %d/%d disagreements" % (cand, len(bad), len(hits))
+            )
             continue
         nearbad = [q for q, _, _ in bad if abs(qord(q) - qord(qe)) <= NEAR_BAD_Q]
         if nearbad:
@@ -231,11 +241,15 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
             rep.setdefault("rejected", []).append("%s: site has no value at %d" % (cand, qe))
             continue
         if val == 0:
-            rep.setdefault("rejected", []).append(f"{cand}: GATE-B printed 0 = not-reported sentinel")
+            rep.setdefault("rejected", []).append(
+                f"{cand}: GATE-B printed 0 = not-reported sentinel"
+            )
             continue
         ov = other.get(qe)
         if ov is not None and abs(ov - val) <= max(G.EXACT_ABS, abs(ov) * G.EXACT_REL):
-            rep.setdefault("rejected", []).append(f"{cand}: GATE-C equals our stored {G.OTHER[field]} ({ov})")
+            rep.setdefault("rejected", []).append(
+                f"{cand}: GATE-C equals our stored {G.OTHER[field]} ({ov})"
+            )
             continue
 
         prev_q, next_q = qde(qord(qe) - 1), qde(qord(qe) + 1)
@@ -246,7 +260,7 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
             )
             continue
 
-        ann, _anote = A.read_annual(site, sym, con) if ident is None else (_era_annual(ident, con))
+        ann, anote = A.read_annual(site, sym, con) if ident is None else (_era_annual(ident, con))
         fem, femwhy = fy_end_month_near(ann, qe)
         _, fyend = fy_of(qe, fem)
         a5 = {}
@@ -254,7 +268,13 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
         if field in ("opS", "opC") and E2_VINTAGE_FOR_OP:
             vcand = E2_VINTAGE_FOR_OP
             r["op_fy_identity"] = {
-                t: dict(zip(("verdict", "detail"), site_fy(series, ann, cand, qde(qord(fyend) + off)), strict=False))
+                t: dict(
+                    zip(
+                        ("verdict", "detail"),
+                        site_fy(series, ann, cand, qde(qord(fyend) + off)),
+                        strict=False,
+                    )
+                )
                 for t, off in (("target", 0), ("prev", -4), ("next", 4))
             }
         for tag, off in (("target", 0), ("prev", -4), ("next", 4)):
@@ -285,7 +305,9 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
             rep["fy_detail"] = r["A5"]
             continue
         if a5["target"][0] == "NO-TEST":
-            rep.setdefault("rejected", []).append(f"{cand}: GATE-E2 no FY identity available at the target ({notest})")
+            rep.setdefault("rejected", []).append(
+                f"{cand}: GATE-E2 no FY identity available at the target ({notest})"
+            )
             rep["fy_detail"] = r["A5"]
             continue
 
@@ -302,10 +324,15 @@ def check(sym, qe, field="patS", site="mc", ident=None, excused=None):
                 "verdict": "CONFIRMED" if _close(s, annv) else "MISMATCH",
             }
             if not _close(s, annv):
-                rep.setdefault("rejected", []).append(f"{cand}: our-FY identity MISMATCH ({s} vs {annv})")
+                rep.setdefault("rejected", []).append(
+                    f"{cand}: our-FY identity MISMATCH ({s} vs {annv})"
+                )
                 continue
         else:
-            r["our_fy_identity"] = {"verdict": "NO-TEST", "have": sum(1 for _, v in mine if v is not None)}
+            r["our_fy_identity"] = {
+                "verdict": "NO-TEST",
+                "have": sum(1 for _, v in mine if v is not None),
+            }
 
         worst = max(abs(o - s) for _, o, s in good)
         near = min(abs(qord(q) - qord(qe)) for q, _, _ in good)
@@ -343,7 +370,9 @@ def _era_annual(ident, con):
         "https://appfeeds.moneycontrol.com/jsonapi/stocks/yearly_results_responsive"
         "?sc_id={}&type_format={}&start=0&limit=200".format(ident["sc_id"], tf)
     )
-    txt = A._get("appfeeds.moneycontrol.com", url, A.MC_PACE, "mc", "y_{}_{}".format(ident["sc_id"], tf))
+    txt = A._get(
+        "appfeeds.moneycontrol.com", url, A.MC_PACE, "mc", "y_{}_{}".format(ident["sc_id"], tf)
+    )
     out = {}
     if not txt:
         return out, "mc: no annual body"
@@ -456,7 +485,10 @@ def main():
     for i, (sym, qe, field) in enumerate(sorted(cells)):
         ident = idcache.get(sym)
         if reach.get(sym) and not reach[sym].get("resolved"):
-            reports["%s|%d|%s" % (sym, qe, field)] = {"state": "UNRESOLVED", "why": reach[sym].get("why")}
+            reports["%s|%d|%s" % (sym, qe, field)] = {
+                "state": "UNRESOLVED",
+                "why": reach[sym].get("why"),
+            }
             continue
         val, rep = check(sym, int(qe), field, ident=ident, excused=excuse.get(sym))
         key = "%s|%d|%s" % (sym, qe, field)
@@ -482,7 +514,9 @@ def main():
                 % (i + 1, len(cells), sym, qe, rep.get("state", "?"), time.time() - t0, len(props))
             )
             sys.stdout.flush()
-            json.dump({"proposals": props, "reports": reports}, open(a.out, "w"), indent=1, sort_keys=True)
+            json.dump(
+                {"proposals": props, "reports": reports}, open(a.out, "w"), indent=1, sort_keys=True
+            )
 
     json.dump(
         {
@@ -496,7 +530,10 @@ def main():
         sort_keys=True,
     )
     by = collections.Counter(r.get("state", "?") for r in reports.values())
-    print("\n%d of %d cells passed GATE E -> %s (%.0fs)" % (len(props), len(cells), a.out, time.time() - t0))
+    print(
+        "\n%d of %d cells passed GATE E -> %s (%.0fs)"
+        % (len(props), len(cells), a.out, time.time() - t0)
+    )
     for k, v in by.most_common():
         print("   %-22s %d" % (k, v))
 

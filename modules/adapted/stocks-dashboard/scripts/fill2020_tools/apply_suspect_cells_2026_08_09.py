@@ -60,8 +60,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-FUND = (os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json"))
-REVOP = (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json"))
+FUND = (
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+)
+REVOP = (
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(SCRIPTS, "revop_fundamentals.json"),
+)
 SUSPECTS = os.path.join(SCRIPTS, "_fund_suspect_cells.json")
 LEDGER = os.path.join(SCRIPTS, "owners_basis_heals.json")
 NPCON, NPSTD = 3, 1
@@ -101,7 +107,10 @@ def main():
     dry = "--apply" not in sys.argv
     print("%-12s %-10s %-5s %11s %11s  %s" % ("sym", "quarter", "slot", "was", "now", "why"))
     for (sym, qe), f in sorted(FIX.items()):
-        print("%-12s %-10d %-5s %11s %11s  %s" % (sym, qe, "npCon", f["con"][0], f["con"][1], f["why"]))
+        print(
+            "%-12s %-10d %-5s %11s %11s  %s"
+            % (sym, qe, "npCon", f["con"][0], f["con"][1], f["why"])
+        )
         if f["std"]:
             print("%-12s %-10d %-5s %11s %11s" % ("", qe, "npStd", f["std"][0], f["std"][1]))
 
@@ -121,7 +130,8 @@ def main():
                     continue
                 if cur is None or abs(cur - was) > 0.005:
                     sys.exit(
-                        "GUARD %s %d slot%d in %s: %s expected %s" % (sym, qe, idx, os.path.basename(path), cur, was)
+                        "GUARD %s %d slot%d in %s: %s expected %s"
+                        % (sym, qe, idx, os.path.basename(path), cur, was)
                     )
                 row[idx] = now
                 n += 1

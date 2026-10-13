@@ -92,7 +92,9 @@ assert json.dumps(led, indent=1) + NL == raw, "ledger not indent=1 round-trippab
 n = cells = 0
 for param, (frm, to, cnt) in HOLES.items():
     assert param in led, f"{param} not a ledger param key"
-    assert "PATANJALI" not in led[param], f"PATANJALI already has a {param} entry - use the L5 widen path, not this"
+    assert "PATANJALI" not in led[param], (
+        f"PATANJALI already has a {param} entry - use the L5 widen path, not this"
+    )
     led[param]["PATANJALI"] = {
         "class": "C-basis (no consolidated statement exists for this span - filing-read + Gate-1 v2 floor)",
         "from": frm,

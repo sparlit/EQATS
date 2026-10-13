@@ -75,8 +75,7 @@ def get_checksum_address(address: str) -> str:
     :return: Checksum address
     """
     if not address.lower().startswith(HEX_PREFIX):
-        msg = f"{address} is not a valid hexadecimal address."
-        raise ValueError(msg)
+        raise ValueError(f"{address} is not a valid hexadecimal address.")
 
     int_address = int(address, 16)
     string_address = address[2:].zfill(64)

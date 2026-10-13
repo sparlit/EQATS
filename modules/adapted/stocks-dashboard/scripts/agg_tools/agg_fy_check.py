@@ -156,7 +156,11 @@ def main():
         ann = _ANN[(site, sym, con)][1]
         target = (ann.get(fy) or {}).get(cand)
         if target is None or any(v is None for v in have.values()):
-            b = {"verdict": "NO-TEST", "missing": [q for q, v in have.items() if v is None], "site_annual": target}
+            b = {
+                "verdict": "NO-TEST",
+                "missing": [q for q, v in have.items() if v is None],
+                "site_annual": target,
+            }
         else:
             s = sum(have.values())
             b = {
@@ -171,7 +175,7 @@ def main():
         # §62 different-axis confirmation and it costs nothing; a MISMATCH means the candidate does
         # not fit the financial year it claims to belong to.
         if b["verdict"] == "MISMATCH":
-            veto = [*veto, "our-FY-identity"]
+            veto = veto + ["our-FY-identity"]
         rec = {
             "A5": {t: {"verdict": v, **det} for t, (v, det) in a5.items()},
             "our_fy_identity": b,

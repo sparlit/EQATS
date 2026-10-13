@@ -35,7 +35,7 @@ Detects stocks approaching lower circuit by combining:
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.circuit")
 
@@ -162,22 +162,30 @@ def predict_circuit(symbol: str) -> dict:
     # 1. Price near 52W low
     if price_data.get("near_52w_low"):
         pct = price_data.get("pct_above_52w_low", 0)
-        red_flags.append(f"Price only {pct:.1f}% above 52W low — breakdown imminent if support fails")
+        red_flags.append(
+            f"Price only {pct:.1f}% above 52W low — breakdown imminent if support fails"
+        )
         score += 3
     elif price_data.get("pct_above_52w_low") and price_data["pct_above_52w_low"] <= 25:
-        red_flags.append(f"Price {price_data['pct_above_52w_low']:.1f}% above 52W low — weak structure")
+        red_flags.append(
+            f"Price {price_data['pct_above_52w_low']:.1f}% above 52W low — weak structure"
+        )
         score += 1
 
     # 2. Volume dry-up
     if vol_data.get("volume_drying_up"):
-        red_flags.append(f"Volume collapsed to {vol_data['volume_ratio_5d']:.1f}x average — no buyers present")
+        red_flags.append(
+            f"Volume collapsed to {vol_data['volume_ratio_5d']:.1f}x average — no buyers present"
+        )
         score += 2
 
     # 3. Promoter pledge danger
     pledge_risk = pledge.get("risk_level", "")
     pledge_pct = pledge.get("pledge_pct", 0) or 0
     if pledge_risk in ("critical", "danger"):
-        red_flags.append(f"Promoter pledge {pledge_pct:.1f}% — margin call risk can trigger forced selling")
+        red_flags.append(
+            f"Promoter pledge {pledge_pct:.1f}% — margin call risk can trigger forced selling"
+        )
         score += 3
     elif pledge_risk == "watch":
         red_flags.append(f"Promoter pledge rising ({pledge_pct:.1f}%) — monitor closely")

@@ -47,7 +47,7 @@ async def main():
     )
     await exchange.load_markets()
     try:
-        pass  # Fetch your transfer history
+        pprint(await exchange.fetch_transfers())  # Fetch your transfer history
         # pprint(await exchange.transfer('USDT', 1.0, 'swap', 'spot'))  # Transfer to the spot wallet
         # pprint(await exchange.transfer('USDT', 1.0, 'spot', 'future'))  # Transfer to the Derivatives wallet
         # pprint(await exchange.transfer('USDT', 1.0, 'spot', 'swap'))  # Transfer to the Derivatives wallet

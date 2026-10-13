@@ -24,9 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import argparse
-import json
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))

@@ -1,9 +1,14 @@
 """
 Unit and Integration Tests for Quant Backtest Pro Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.quant_backtest_pro_engine import MultiAssetMathEngine, HighPrecisionOrderMatchingEngine, SymbolConfig, Candle, PositionSide
+from institutional_integrations.quant_backtest_pro_engine import (
+    Candle,
+    HighPrecisionOrderMatchingEngine,
+    MultiAssetMathEngine,
+    PositionSide,
+    SymbolConfig,
+)
+
 
 def test_multi_asset_math_pnl_and_margin() -> None:
     cfg = SymbolConfig(symbol='EURUSD', contract_size=100000.0, leverage=100.0, commission_per_lot=7.0)

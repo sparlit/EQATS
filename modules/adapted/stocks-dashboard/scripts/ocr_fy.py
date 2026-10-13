@@ -88,15 +88,22 @@ def main():
             if "auditor" in low or "deloitte" in low or "b s r" in low or "independent au" in low:
                 continue
             imgs = doc[pi].get_images()
-            if (any(im[2] > 800 and im[3] > 800 for im in imgs) and len(t) < 600) or (
-                len(re.findall(r"\d[\d,]*\.\d\d", t)) > 25 and "profit" in low
+            if (
+                any(im[2] > 800 and im[3] > 800 for im in imgs)
+                and len(t) < 600
+                or len(re.findall(r"\d[\d,]*\.\d\d", t)) > 25
+                and "profit" in low
             ):
                 cands.append(pi)
         best = None
         for pi in cands[:8]:
             pm = doc[pi].get_pixmap(dpi=300)
             im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-            im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            im = (
+                cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+                if pm.n == 3
+                else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+            )
             rows = ocr_rows(im)
             blob = " ".join(t for r in rows for _, t in r).lower()
             if "segment" in blob[:120]:
@@ -106,12 +113,19 @@ def main():
                 txt = " ".join(t for _, t in r)
                 low = txt.lower()
                 if (
-                    "profit" in low and ("owner" in low or "for the" in low or "after tax" in low or "period" in low)
+                    "profit" in low
+                    and (
+                        "owner" in low or "for the" in low or "after tax" in low or "period" in low
+                    )
                 ) or "attributable to" in low:
                     nums = [v for v in (tonum(t) for _, t in r) if v is not None]
                     if len(nums) >= 4:
                         prof.append([txt[:55], nums])
-            sc = ("consolidat" in blob) + len(prof) + ("total income" in blob or "revenue from oper" in blob)
+            sc = (
+                ("consolidat" in blob)
+                + len(prof)
+                + ("total income" in blob or "revenue from oper" in blob)
+            )
             if prof and (best is None or sc > best[0]):
                 best = (sc, pi, prof)
         if best:

@@ -102,8 +102,7 @@ def to_iso(v):
     s = str(v).strip()
     if len(s) == 10 and s[2] == "-" and s[5] == "-":
         return s[6:] + "-" + s[3:5] + "-" + s[:2]
-    msg = f"unparsed date {v!r}"
-    raise SystemExit(msg)
+    raise SystemExit(f"unparsed date {v!r}")
 
 
 def main():
@@ -113,10 +112,11 @@ def main():
     raw = []
     for r in range(1, sh.nrows):
         _, dv, name, desc = sh.row_values(r)[:4]
-        kind = "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        kind = (
+            "inc" if "inclusion" in desc.lower() else "exc" if "exclusion" in desc.lower() else None
+        )
         if not kind:
-            msg = f"unknown description {desc!r}"
-            raise SystemExit(msg)
+            raise SystemExit(f"unknown description {desc!r}")
         raw.append((to_iso(dv), name.strip(), kind))
 
     def sym_for(n, d):

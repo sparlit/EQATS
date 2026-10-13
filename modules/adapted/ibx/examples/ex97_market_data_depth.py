@@ -100,10 +100,14 @@ class Wrapper(EWrapper):
         self.depth_updates.append((req_id, position, operation, side, price, size))
         self.got_depth.set()
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         if self._depth_cancelled and req_id == 2:
             self.depth_after_cancel = True
-        self.depth_l2_updates.append((req_id, position, market_maker, operation, side, price, size, is_smart_depth))
+        self.depth_l2_updates.append(
+            (req_id, position, market_maker, operation, side, price, size, is_smart_depth)
+        )
         self.got_depth.set()
 
     def mkt_depth_exchanges(self, depth_mkt_data_descriptions):
@@ -134,7 +138,12 @@ def run_example():
 
     w = Wrapper()
     c = EClient(w)
-    c.connect(username=username, password=password, host=os.environ.get("IB_HOST", "cdc1.ibllc.com"), paper=True)
+    c.connect(
+        username=username,
+        password=password,
+        host=os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+        paper=True,
+    )
     t = threading.Thread(target=c.run, daemon=True)
     t.start()
     assert w.connected.wait(timeout=15), "Connection failed"
@@ -237,7 +246,10 @@ def run_example():
         tick_count_after = len(w.ticks_price)
 
         if tick_count_after > tick_count_before:
-            print(f"  TOB kept streaming after depth cancel: {tick_count_before} → {tick_count_after} ticks ✓")
+            print(
+                f"  TOB kept streaming after depth cancel: "
+                f"{tick_count_before} → {tick_count_after} ticks ✓"
+            )
         else:
             print(f"  TOB tick count unchanged ({tick_count_before}) — market may be slow")
 

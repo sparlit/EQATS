@@ -25,17 +25,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Telegram Message 2: persistent V2 position lifecycle report."""
 
-from datetime import date
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 import pandas as pd
 
 from .lifecycle import Position, TradeState
 from .preview import HORIZON_LABELS
 from .v3_telegram import currency, text, ticker
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 
 def _price(value: float | None) -> str:
@@ -50,11 +46,15 @@ def _sessions_held(position: Position, trade_date: str) -> int:
 def _current_r(position: Position) -> str:
     if position.last_price is None or position.initial_stop >= position.entry:
         return "-"
-    return f"{(position.last_price - position.entry) / (position.entry - position.initial_stop):+.2f}R"
+    return (
+        f"{(position.last_price - position.entry) / (position.entry - position.initial_stop):+.2f}R"
+    )
 
 
 def _pnl(position: Position) -> tuple[float, float]:
-    unrealised = position.remaining_quantity * ((position.last_price or position.entry) - position.entry)
+    unrealised = position.remaining_quantity * (
+        (position.last_price or position.entry) - position.entry
+    )
     return position.realised_pnl, unrealised
 
 
@@ -83,7 +83,7 @@ def render_portfolio_message(positions: Iterable[Position], trade_date: str) -> 
         "━━━━━━━━━━━━━━━━━━",
     ]
     if not rows:
-        return "\n".join([*lines, "No active positions or lifecycle changes today."])
+        return "\n".join(lines + ["No active positions or lifecycle changes today."])
 
     for position in rows:
         quantity = f"{position.remaining_quantity:g}/{position.quantity:g} open"
@@ -114,5 +114,7 @@ def positions_for_message(before: Iterable[Position], after: Iterable[Position])
     """Include every active position plus positions closed/cancelled on this run."""
     previous = {p.trade_id: p for p in before}
     return [
-        p for p in after if p.state not in {TradeState.CLOSED, TradeState.CANCELLED} or previous.get(p.trade_id) != p
+        p
+        for p in after
+        if p.state not in {TradeState.CLOSED, TradeState.CANCELLED} or previous.get(p.trade_id) != p
     ]

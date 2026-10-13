@@ -137,7 +137,8 @@ def load_candles(symbol: str, date: str, interval: str):
 
     df = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, format="mixed").dt.tz_convert(IST)
-    return df.set_index("timestamp")
+    df = df.set_index("timestamp")
+    return df
 
 
 def save_candles(symbol: str, interval: str, df: pd.DataFrame) -> None:
@@ -186,7 +187,7 @@ def save_daily_summary(rows: list[dict]) -> None:
         )
 
 
-def load_trades(symbol: str | None = None, date_from: str | None = None, date_to: str | None = None) -> pd.DataFrame:
+def load_trades(symbol: str = None, date_from: str = None, date_to: str = None) -> pd.DataFrame:
     """Load trades from the log with optional filters. Returns a DataFrame."""
     query = "SELECT * FROM trades WHERE 1=1"
     params = []

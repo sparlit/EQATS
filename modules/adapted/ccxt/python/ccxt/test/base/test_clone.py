@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_clone():
@@ -127,9 +127,11 @@ def test_clone():
         "other1": "x",
         "other2": "y",
     }
-    # TODO: results are different across langs.
+    # todo: results are different across langs.
     # to avoid delay to this PR, I comment out this now, but will return to this after this PR merged
-    test_shared_methods.assert_deep_equal(exchange, None, "testDeepExtend", deep_extended, compare_to)
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testDeepExtend", deep_extended, compare_to
+    )
     # -------------------------------------------------------------------------
     # test immutability / no cross-mutation between clone and original
     # -------------------------------------------------------------------------
@@ -162,7 +164,9 @@ def test_clone():
     nested_clone = exchange.clone(nested_orig)
     # top-level scalar: independent
     nested_clone["top"] = "cloned"
-    assert nested_orig["top"] == "original", "clone B: top-level scalar independence – original unchanged"
+    assert nested_orig["top"] == "original", (
+        "clone B: top-level scalar independence – original unchanged"
+    )
     assert nested_clone["top"] == "cloned", "clone B: top-level scalar independence – clone updated"
     nested_orig["top"] = "changed_orig"
     assert nested_clone["top"] == "cloned", "clone B: changing original top must not affect clone"

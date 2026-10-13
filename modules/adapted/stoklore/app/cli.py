@@ -68,9 +68,13 @@ def scan(skill_names, limit, model, watchlist=None, on_progress=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scan stock movers, analyze with local LLM, store in Postgres.")
+    parser = argparse.ArgumentParser(
+        description="Scan stock movers, analyze with local LLM, store in Postgres."
+    )
     parser.add_argument(
-        "--skills", default="movement,volume", help=f"comma list, available: {skills.available_skills()}"
+        "--skills",
+        default="movement,volume",
+        help=f"comma list, available: {skills.available_skills()}",
     )
     parser.add_argument("--limit", type=int, default=10, help="max tickers to analyze")
     parser.add_argument(

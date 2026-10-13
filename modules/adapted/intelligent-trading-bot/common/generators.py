@@ -22,11 +22,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import asyncio
-from typing import Tuple
 
-import numpy as np
 import pandas as pd
-import pandas.api.types as ptypes
 from common.gen_features import *
 from common.gen_labels_highlow import generate_labels_highlow, generate_labels_highlow2
 from common.gen_labels_topbot import generate_labels_topbot, generate_labels_topbot2
@@ -58,7 +55,7 @@ def generate_feature_set(
         f_df = df[f_cols]  # Alternatively: f_df = df.loc[:, df.columns.str.startswith(cf)]
         # Remove prefix because feature generators are generic (a prefix will be then added to derived features before adding them back to the main frame)
         f_df = f_df.rename(
-            columns=lambda x: x.removeprefix(cp)
+            columns=lambda x: x[len(cp) :] if x.startswith(cp) else x
         )  # Alternatively: f_df.columns = f_df.columns.str.replace(cp, "")
     else:
         f_df = df[
@@ -118,8 +115,9 @@ def generate_feature_set(
         # Resolve generator name to a function reference
         generator_fn = resolve_generator_name(generator)
         if generator_fn is None:
-            msg = f"Unknown feature generator name or name cannot be resolved: {generator}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Unknown feature generator name or name cannot be resolved: {generator}"
+            )
 
         # Call this function
         f_df, features = generator_fn(f_df, gen_config, config, model_store, last_rows=last_rows)
@@ -135,7 +133,7 @@ def generate_feature_set(
     new_features = f_df.columns.to_list()
 
     # Delete new columns if they already exist
-    df = df.drop(list(set(df.columns) & set(new_features)), axis=1)
+    df.drop(list(set(df.columns) & set(new_features)), axis=1, inplace=True)
 
     df = df.join(f_df)  # Attach all derived features to the main frame
 
@@ -158,7 +156,9 @@ def predict_feature_set(df, fs, config, model_store: ModelStore) -> tuple[pd.Dat
             score_column_name = label + label_algo_separator + algo_name
 
             # It is an entry from loaded model dict
-            model_pair = model_store.get_model_pair(score_column_name)  # Trained model from model registry
+            model_pair = model_store.get_model_pair(
+                score_column_name
+            )  # Trained model from model registry
 
             print(
                 f"Predict '{score_column_name}'. Algorithm {algo_name}. Label: {label}. Train length {len(train_df)}. Train columns {len(train_df.columns)}"
@@ -181,8 +181,7 @@ def predict_feature_set(df, fs, config, model_store: ModelStore) -> tuple[pd.Dat
 
                 df_y_hat = predict_svc(model_pair, train_df, model_config)
             else:
-                msg = f"Unknown algorithm type {algo_type}. Check algorithm list."
-                raise ValueError(msg)
+                raise ValueError(f"Unknown algorithm type {algo_type}. Check algorithm list.")
 
             out_df[score_column_name] = df_y_hat
             features.append(score_column_name)
@@ -241,8 +240,7 @@ def train_feature_set(df, fs, config) -> dict:
                 model_pair = train_svc(df_X, df_y, model_config)
                 models[score_column_name] = model_pair
             else:
-                msg = f"Unknown algorithm type {algo_type}. Check algorithm list."
-                raise ValueError(msg)
+                raise ValueError(f"Unknown algorithm type {algo_type}. Check algorithm list.")
 
     return models
 
@@ -276,8 +274,7 @@ def get_features_labels_algorithms(fs, config) -> tuple[list, list, list]:
         if isinstance(alg, str):  # Find in the list of algorithms
             alg = find_algorithm_by_name(algorithms_all, alg)
         elif not isinstance(alg, dict):
-            msg = "Algorithm has to be either dict or name"
-            raise ValueError(msg)
+            raise ValueError("Algorithm has to be either dict or name")
         algorithms.append(alg)
     if not algorithms:
         algorithms = algorithms_all
@@ -312,8 +309,9 @@ async def output_feature_set(df, fs: dict, config: dict, model_store: ModelStore
         # Resolve generator name to a function reference
         generator_fn = resolve_generator_name(generator)
         if generator_fn is None:
-            msg = f"Unknown feature generator name or name cannot be resolved: {generator}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Unknown feature generator name or name cannot be resolved: {generator}"
+            )
 
     # Call the resolved function
     if asyncio.iscoroutinefunction(generator_fn):

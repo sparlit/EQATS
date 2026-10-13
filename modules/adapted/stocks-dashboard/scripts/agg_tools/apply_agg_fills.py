@@ -87,7 +87,10 @@ def main():
     props = json.load(open(a.props))["proposals"]
     journal, skipped, wrote, created = {}, [], 0, []
 
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         base = os.path.basename(path)
         n = 0
@@ -129,7 +132,9 @@ def main():
                 field: p["value"],
                 "state": p["state"],
                 "precision": ch["precision"],
-                "src": "{} quarterly-results API (runbook §81)".format(SITE_NAME.get(ch["site"], ch["site"])),
+                "src": "{} quarterly-results API (runbook §81)".format(
+                    SITE_NAME.get(ch["site"], ch["site"])
+                ),
                 "row_label": ch["row"],
                 "evidence": p.get("evidence")
                 or (

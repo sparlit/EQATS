@@ -28,6 +28,7 @@ Activates sector gate (B1) + sector layer in Top Picks / meta model.
 import time
 
 import db
+import universe_helper as U
 
 
 def _upsert(conn, sym, sec, name):
@@ -49,13 +50,7 @@ def refresh(limit=900):
     import yfinance as yf
 
     conn = db.get_conn()
-    syms = [
-        r[0]
-        for r in conn.execute(
-            "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 AND 8000 ORDER BY mcap_cr DESC LIMIT ?",
-            (limit,),
-        )
-    ]
+    syms = U.band_universe(conn, limit)
     n = 0
     for sym in syms:
         row = conn.execute("SELECT sector FROM stocks WHERE symbol=?", (sym,)).fetchone()

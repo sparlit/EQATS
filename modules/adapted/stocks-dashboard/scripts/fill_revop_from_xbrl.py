@@ -46,8 +46,6 @@ USAGE
   python3 scripts/fill_revop_from_xbrl.py --worklist <path> [--limit N] [--dry]
 """
 import argparse
-import gzip
-import io
 import json
 import os
 import re
@@ -83,10 +81,16 @@ def list_rows(sym):
 def iso_qe(s):
     M = {
         m: i
-        for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+        for i, m in enumerate(
+            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+        )
     }
     mm = re.match(r"(\d{1,2})-([A-Za-z]{3})-(\d{4})", (s or "").strip())
-    return "%04d%02d%02d" % (int(mm.group(3)), M[mm.group(2).title()], int(mm.group(1))) if mm else None
+    return (
+        "%04d%02d%02d" % (int(mm.group(3)), M[mm.group(2).title()], int(mm.group(1)))
+        if mm
+        else None
+    )
 
 
 def urls_for(sym, qe):
@@ -190,7 +194,9 @@ def filed_days_after(filed, qe):
         return None
     M = {
         x: i
-        for i, x in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+        for i, x in enumerate(
+            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+        )
     }
     try:
         f = datetime.date(int(m.group(3)), M[m.group(2).title()], int(m.group(1)))
@@ -212,8 +218,11 @@ def period_ok(m, filed, qe):
     end = m.get("_end")
     if end is not None:
         return (
-            end == qe
-        ), None if end == qe else f"period-mismatch: XBRL context ends {end}, target {qe} (index double-indexing, §45)"
+            (end == qe),
+            None
+            if end == qe
+            else f"period-mismatch: XBRL context ends {end}, target {qe} (index double-indexing, §45)",
+        )
     d = filed_days_after(filed, qe)
     if d is None:
         return False, "no-period-in-xbrl and no parseable filing date"
@@ -260,7 +269,9 @@ def main():
             v = m.get(tag)
             if v is not None and abs(v - sp) <= max(0.02, abs(sp) * 0.02):
                 return (sp, tag), None
-        return None, "anchor-mismatch stored={} got pat={} owners={}".format(sp, m.get("pat"), m.get("owners"))
+        return None, "anchor-mismatch stored={} got pat={} owners={}".format(
+            sp, m.get("pat"), m.get("owners")
+        )
 
     done = 0
     for item in WL:
@@ -282,7 +293,11 @@ def main():
                 if row is None or (len(row) > ci and row[ci] is None):
                     need.add((f, "con"))
         if row is not None:
-            need = {(f, b) for (f, b) in need if len(row) <= SLOT[f][b == "con"] or row[SLOT[f][b == "con"]] is None}
+            need = {
+                (f, b)
+                for (f, b) in need
+                if len(row) <= SLOT[f][b == "con"] or row[SLOT[f][b == "con"]] is None
+            }
         if not need:
             stats["already"] += 1
             continue
@@ -298,7 +313,9 @@ def main():
             pr = None
             for attempt in (1, 2):
                 try:
-                    pr = parse(fetch(url), basis_hint=("consolidated" if basis == "con" else "standalone"))
+                    pr = parse(
+                        fetch(url), basis_hint=("consolidated" if basis == "con" else "standalone")
+                    )
                     break
                 except Exception as e:
                     if attempt == 1:
@@ -306,7 +323,12 @@ def main():
                         continue
                     stats["fetch_fail"] += 1
                     refusals.append(
-                        {"sym": sym, "qe": qe, "why": f"fetch/parse: {type(e).__name__} {str(e)[:60]}", "url": url}
+                        {
+                            "sym": sym,
+                            "qe": qe,
+                            "why": f"fetch/parse: {type(e).__name__} {str(e)[:60]}",
+                            "url": url,
+                        }
                     )
             if pr is None:
                 continue
@@ -344,7 +366,12 @@ def main():
                     }
                 )
                 continue
-            if f == "rev" and m.get(f) is not None and round(m[f], 2) <= 0 and not m.get("_insurer"):
+            if (
+                f == "rev"
+                and m.get(f) is not None
+                and round(m[f], 2) <= 0
+                and not m.get("_insurer")
+            ):
                 # <= 0, on the ROUNDED value: HBSL Mar-2022 carried a sub-paisa revenue that `== 0` let
                 # through as 0.0, and DHRUV Dec-2025 / DHARAN Sep-2023 landed NEGATIVE revenue from an
                 # industrial XBRL. Only insurer formats may legitimately be negative (runbook §55, MTM).
@@ -367,7 +394,14 @@ def main():
             if not pok:
                 stats["period_fail"] = stats.get("period_fail", 0) + 1
                 refusals.append(
-                    {"sym": sym, "qe": qe, "basis": b, "field": f, "why": perr, "url": filed_at.get(b, ("?", "?"))[1]}
+                    {
+                        "sym": sym,
+                        "qe": qe,
+                        "basis": b,
+                        "field": f,
+                        "why": perr,
+                        "url": filed_at.get(b, ("?", "?"))[1],
+                    }
                 )
                 continue
             anc, err = anchor_ok(sym, qe, b, m)
@@ -408,14 +442,28 @@ def main():
         if done % 40 == 0:
             print("  %d pairs processed · %s" % (done, stats), flush=True)
             if not a.dry:
-                json.dump(REVOP, open(os.path.join(DOCS, "sf_revop.json"), "w"), separators=(",", ":"))
-                json.dump(RF, open(os.path.join(HERE, "revop_fundamentals.json"), "w"), separators=(",", ":"))
-                json.dump(LED, open(os.path.join(HERE, "nse_xbrl_rev_fills.json"), "w"), separators=(",", ":"))
+                json.dump(
+                    REVOP, open(os.path.join(DOCS, "sf_revop.json"), "w"), separators=(",", ":")
+                )
+                json.dump(
+                    RF,
+                    open(os.path.join(HERE, "revop_fundamentals.json"), "w"),
+                    separators=(",", ":"),
+                )
+                json.dump(
+                    LED,
+                    open(os.path.join(HERE, "nse_xbrl_rev_fills.json"), "w"),
+                    separators=(",", ":"),
+                )
 
     if not a.dry:
         json.dump(REVOP, open(os.path.join(DOCS, "sf_revop.json"), "w"), separators=(",", ":"))
-        json.dump(RF, open(os.path.join(HERE, "revop_fundamentals.json"), "w"), separators=(",", ":"))
-        json.dump(LED, open(os.path.join(HERE, "nse_xbrl_rev_fills.json"), "w"), separators=(",", ":"))
+        json.dump(
+            RF, open(os.path.join(HERE, "revop_fundamentals.json"), "w"), separators=(",", ":")
+        )
+        json.dump(
+            LED, open(os.path.join(HERE, "nse_xbrl_rev_fills.json"), "w"), separators=(",", ":")
+        )
     json.dump(refusals, open(os.path.join(HERE, "_revop_fill_refusals.json"), "w"), indent=0)
     print("FINAL:", stats)
     print("refusals:", len(refusals), "->scripts/_revop_fill_refusals.json")

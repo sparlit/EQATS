@@ -133,7 +133,9 @@ def get_nse_session() -> requests.Session:
 # ─────────────────────────────────────────────────────────────
 
 
-def fetch_nse_announcements(session: requests.Session, symbol: str, days: int = NEWS_DAYS_DEFAULT) -> list:
+def fetch_nse_announcements(
+    session: requests.Session, symbol: str, days: int = NEWS_DAYS_DEFAULT
+) -> list:
     """
     Fetch corporate announcements for one stock from NSE API.
 
@@ -206,23 +208,61 @@ def classify_announcement(subject: str) -> str:
 
     if any(w in s for w in ["order", "contract", "award", "win", "bagged", "secured"]):
         return "ORDER_WIN"
-    if any(w in s for w in ["result", "quarterly", "annual", "q1", "q2", "q3", "q4", "profit", "revenue", "earnings"]):
+    if any(
+        w in s
+        for w in [
+            "result",
+            "quarterly",
+            "annual",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "profit",
+            "revenue",
+            "earnings",
+        ]
+    ):
         return "RESULTS"
     if any(w in s for w in ["dividend", "bonus", "split", "buyback", "rights"]):
         return "CORPORATE_ACTION"
     if any(
-        w in s for w in ["acquisition", "merger", "amalgamation", "takeover", "joint venture", "partnership", "mou"]
+        w in s
+        for w in [
+            "acquisition",
+            "merger",
+            "amalgamation",
+            "takeover",
+            "joint venture",
+            "partnership",
+            "mou",
+        ]
     ):
         return "DEAL"
-    if any(w in s for w in ["fundrais", "qip", "fpo", "ncd", "debenture", "preferential", "allotment"]):
+    if any(
+        w in s for w in ["fundrais", "qip", "fpo", "ncd", "debenture", "preferential", "allotment"]
+    ):
         return "FUNDRAISING"
     if any(w in s for w in ["board meeting", "agm", "egm", "postal ballot"]):
         return "MEETING"
-    if any(w in s for w in ["regulatory", "sebi", "penalty", "show cause", "litigation", "court", "arbitration"]):
+    if any(
+        w in s
+        for w in [
+            "regulatory",
+            "sebi",
+            "penalty",
+            "show cause",
+            "litigation",
+            "court",
+            "arbitration",
+        ]
+    ):
         return "REGULATORY"
     if any(w in s for w in ["insider", "promoter", "pledge", "encumber"]):
         return "PROMOTER"
-    if any(w in s for w in ["expansion", "capex", "plant", "capacity", "commissioning", "production"]):
+    if any(
+        w in s for w in ["expansion", "capex", "plant", "capacity", "commissioning", "production"]
+    ):
         return "EXPANSION"
 
     return "GENERAL"
@@ -251,8 +291,14 @@ def fetch_bulk_block_deals(session: requests.Session, symbol: str, days: int = 5
 
     # Try bulk deals first
     for deal_type, url in [
-        ("BULK", "https://www.nseindia.com/api/bulk-deal-archives?number=10&type=bulk_deals&category=bulk_deals"),
-        ("BLOCK", "https://www.nseindia.com/api/block-deal-archives?number=10&type=block_deals&category=block_deals"),
+        (
+            "BULK",
+            "https://www.nseindia.com/api/bulk-deal-archives?number=10&type=bulk_deals&category=bulk_deals",
+        ),
+        (
+            "BLOCK",
+            "https://www.nseindia.com/api/block-deal-archives?number=10&type=block_deals&category=block_deals",
+        ),
     ]:
         try:
             resp = session.get(url, timeout=REQUEST_TIMEOUT)
@@ -318,7 +364,9 @@ def assess_deal_flag(client: str, buy_sell: str) -> str:
     bs = buy_sell.upper()
 
     # Promoter selling = red flag
-    if bs == "S" and any(w in c for w in ["promoter", "director", "founder", "managing", "chairman"]):
+    if bs == "S" and any(
+        w in c for w in ["promoter", "director", "founder", "managing", "chairman"]
+    ):
         return "NEGATIVE_PROMOTER_SELL"
 
     # Institution buying = confirmation
@@ -489,9 +537,10 @@ def classify_headline_sentiment(title: str) -> str:
 
     if pos_count > neg_count:
         return "POSITIVE"
-    if neg_count > pos_count:
+    elif neg_count > pos_count:
         return "NEGATIVE"
-    return "NEUTRAL"
+    else:
+        return "NEUTRAL"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -499,7 +548,9 @@ def classify_headline_sentiment(title: str) -> str:
 # ─────────────────────────────────────────────────────────────
 
 
-def get_news_for_symbol(session: requests.Session, symbol: str, days: int = NEWS_DAYS_DEFAULT) -> dict:
+def get_news_for_symbol(
+    session: requests.Session, symbol: str, days: int = NEWS_DAYS_DEFAULT
+) -> dict:
     """
     Collect all news for one stock from all 3 sources.
 
@@ -547,18 +598,21 @@ def get_news_for_symbol(session: requests.Session, symbol: str, days: int = NEWS
             direction = "BUY" if "BUY" in flag else "SELL"
             category = "INSTITUTION" if "INSTITUTION" in flag else "PROMOTER"
             flags.append(
-                f"DEAL:{category}_{direction} — {deal['client'][:40]} qty={deal['quantity']:,} @ {deal['price']}"
+                f"DEAL:{category}_{direction} — {deal['client'][:40]} "
+                f"qty={deal['quantity']:,} @ {deal['price']}"
             )
 
     # Overall sentiment from headlines
     sentiments = [h["sentiment"] for h in headlines]
     pos_count = sentiments.count("POSITIVE")
     neg_count = sentiments.count("NEGATIVE")
-    news_tone = "POSITIVE" if pos_count > neg_count else "NEGATIVE" if neg_count > pos_count else "NEUTRAL"
+    news_tone = (
+        "POSITIVE" if pos_count > neg_count else "NEGATIVE" if neg_count > pos_count else "NEUTRAL"
+    )
 
     has_news = bool(announcements or deals or headlines)
 
-    return {
+    result = {
         "symbol": symbol,
         "collected_at": datetime.now().isoformat(),
         "days_back": days,
@@ -572,6 +626,8 @@ def get_news_for_symbol(session: requests.Session, symbol: str, days: int = NEWS
         "deal_count": len(deals),
         "headline_count": len(headlines),
     }
+
+    return result
 
 
 # ─────────────────────────────────────────────────────────────
@@ -615,7 +671,7 @@ def get_news_for_stocks(symbols: list, days: int = NEWS_DAYS_DEFAULT) -> dict:
                     print(f"    FLAG: {flag}")
 
         except Exception as e:
-            log.exception(f"Failed to collect news for {symbol}: {e}")
+            log.error(f"Failed to collect news for {symbol}: {e}")
             results[symbol] = {
                 "symbol": symbol,
                 "error": str(e),
@@ -635,7 +691,7 @@ def get_news_for_stocks(symbols: list, days: int = NEWS_DAYS_DEFAULT) -> dict:
 # ─────────────────────────────────────────────────────────────
 
 
-def save_news(news_data: dict, report_date: date | None = None) -> str:
+def save_news(news_data: dict, report_date: date = None) -> str:
     """Save collected news to JSON file in output/ folder."""
     if report_date is None:
         report_date = date.today()
@@ -652,7 +708,7 @@ def save_news(news_data: dict, report_date: date | None = None) -> str:
     return fpath
 
 
-def load_news(report_date: date | None = None) -> dict:
+def load_news(report_date: date = None) -> dict:
     """Load previously saved news from JSON file."""
     if report_date is None:
         report_date = date.today()
@@ -683,14 +739,19 @@ def print_news_summary(news_data: dict):
             print(f"\n  {symbol}: ERROR — {data['error']}")
             continue
 
-        tone_icon = {"POSITIVE": "+", "NEGATIVE": "!", "NEUTRAL": "~"}.get(data.get("news_tone", "NEUTRAL"), "~")
+        tone_icon = {"POSITIVE": "+", "NEGATIVE": "!", "NEUTRAL": "~"}.get(
+            data.get("news_tone", "NEUTRAL"), "~"
+        )
 
         print(f"\n  {symbol}  [{tone_icon}] {data.get('news_tone', 'NEUTRAL')}")
         print(f"  {'─' * 40}")
 
         # Top announcements
         for ann in data.get("announcements", [])[:3]:
-            print(f"  [ANN] {ann.get('date', '')[:10]}  {ann.get('type', ''):<20}  {ann.get('subject', '')[:50]}")
+            print(
+                f"  [ANN] {ann.get('date', '')[:10]}  {ann.get('type', ''):<20}"
+                f"  {ann.get('subject', '')[:50]}"
+            )
 
         # Deals
         for deal in data.get("deals", []):
@@ -705,7 +766,13 @@ def print_news_summary(news_data: dict):
 
         # Top headlines
         for hl in data.get("headlines", [])[:3]:
-            icon = "+" if hl["sentiment"] == "POSITIVE" else "-" if hl["sentiment"] == "NEGATIVE" else "~"
+            icon = (
+                "+"
+                if hl["sentiment"] == "POSITIVE"
+                else "-"
+                if hl["sentiment"] == "NEGATIVE"
+                else "~"
+            )
             print(f"  [NEWS {icon}] {hl.get('date', '')[:10]}  {hl.get('title', '')[:55]}")
 
         # Risk flags
@@ -790,9 +857,14 @@ Examples:
     parser.add_argument("--symbols", type=str, help="Comma-separated symbols e.g. DIXON,KAYNES")
     parser.add_argument("--date", type=str, help="Scan date DD-MM-YYYY (default: today)")
     parser.add_argument(
-        "--days", type=int, default=NEWS_DAYS_DEFAULT, help=f"Days of news to fetch (default: {NEWS_DAYS_DEFAULT})"
+        "--days",
+        type=int,
+        default=NEWS_DAYS_DEFAULT,
+        help=f"Days of news to fetch (default: {NEWS_DAYS_DEFAULT})",
     )
-    parser.add_argument("--save", action="store_true", help="Save results to output/news_DDMMYYYY.json")
+    parser.add_argument(
+        "--save", action="store_true", help="Save results to output/news_DDMMYYYY.json"
+    )
 
     args = parser.parse_args()
 
@@ -823,7 +895,9 @@ Examples:
 
             # Take HC + Watchlist stocks only
             if "conviction" in results.columns:
-                shortlist = results[results["conviction"].isin(["HIGH CONVICTION", "Watchlist"])]["symbol"].tolist()
+                shortlist = results[results["conviction"].isin(["HIGH CONVICTION", "Watchlist"])][
+                    "symbol"
+                ].tolist()
             else:
                 shortlist = results.head(10)["symbol"].tolist()
 

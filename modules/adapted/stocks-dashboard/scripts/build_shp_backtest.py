@@ -138,7 +138,10 @@ def main():
     hist = json.load(open(HIST, encoding="utf-8"))
     syms = [s for s in hist if not s.startswith("_")]
     qes = sorted({qe for s in syms for qe in hist[s]})
-    print("history: %d symbols, %d quarters %s..%s" % (len(syms), len(qes), qes[0], qes[-1]), flush=True)
+    print(
+        "history: %d symbols, %d quarters %s..%s" % (len(syms), len(qes), qes[0], qes[-1]),
+        flush=True,
+    )
 
     res = resolve_map(data)
 
@@ -261,7 +264,11 @@ def main():
                     return None
                 if sign < 0 and d > -MIN_STEP:
                     return None
-            cum += (val(a, "fii") - val(b, "fii")) if metric != "dii" else (val(a, "dii") - val(b, "dii"))
+            cum += (
+                (val(a, "fii") - val(b, "fii"))
+                if metric != "dii"
+                else (val(a, "dii") - val(b, "dii"))
+            )
             q = pq
         lm = "dii" if metric == "dii" else "fii"
         if sign > 0 and val(cell(sym, qe0), lm) < MIN_LEVEL:
@@ -345,7 +352,9 @@ def main():
                 per_reb_returns.append((rr, (b1 / b0 - 1) if (b0 and b1) else None))
             started = True
             # per-pick forward return needs next reb; fill later (baseline stores no picks — no signal)
-            picks = [] if (metric == "ew" and not rank) else [[s, c] for s, bk, c in qual[:PICKS_CAP]]
+            picks = (
+                [] if (metric == "ew" and not rank) else [[s, c] for s, bk, c in qual[:PICKS_CAP]]
+            )
             rebal_rows.append(
                 {
                     "qe": qe,
@@ -389,7 +398,11 @@ def main():
                         book = [(bk, close_at(bk, dint), w) for s, bk, c in qual]
                     else:
                         book = []
-                cur = sum(w * ((close_at(bk, dint) or ec) / ec) for bk, ec, w in book) if book else nav_run
+                cur = (
+                    sum(w * ((close_at(bk, dint) or ec) / ec) for bk, ec, w in book)
+                    if book
+                    else nav_run
+                )
                 dates_out.append(dint)
                 nav_out.append(round(cur, 3))
                 nav_run = nav_run if book else nav_run
@@ -426,7 +439,9 @@ def main():
             stats["rebs"] = len(rebal_rows)
             stats["avgHold"] = round(sum(held_counts) / len(held_counts), 1) if held_counts else 0
             wins = [
-                1 for r in rebal_rows if r.get("ret") is not None and r.get("bret") is not None and r["ret"] > r["bret"]
+                1
+                for r in rebal_rows
+                if r.get("ret") is not None and r.get("bret") is not None and r["ret"] > r["bret"]
             ]
             comp = [r for r in rebal_rows if r.get("ret") is not None and r.get("bret") is not None]
             stats["winPct"] = round(100 * len(wins) / len(comp), 0) if comp else None
@@ -435,7 +450,9 @@ def main():
             stats["worstQ"] = min(rets) if rets else None
             b0 = bpx.get(iso_of(dates_out[0]))
             b1 = bpx.get(iso_of(dates_out[-1]))
-            stats["cagrBench"] = round((((b1 / b0) ** (1 / yrs)) - 1) * 100, 1) if (b0 and b1) else None
+            stats["cagrBench"] = (
+                round((((b1 / b0) ** (1 / yrs)) - 1) * 100, 1) if (b0 and b1) else None
+            )
 
         # next-rebalance preview from the newest (possibly still-filing) quarter
         nxt = None
@@ -491,7 +508,9 @@ def main():
         )
 
     # common benchmark curve over the widest variant span
-    all_dates = sorted({d for v in results for d in v["dates"][:1]} | {d for v in results for d in v["dates"][-1:]})
+    all_dates = sorted(
+        {d for v in results for d in v["dates"][:1]} | {d for v in results for d in v["dates"][-1:]}
+    )
     if all_dates:
         lo, hi = all_dates[0], all_dates[-1]
         bd = [d for d in axis if lo <= d <= hi and iso_of(d) in bpx]

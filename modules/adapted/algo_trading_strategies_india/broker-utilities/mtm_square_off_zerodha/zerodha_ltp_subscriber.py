@@ -35,14 +35,11 @@ Key Features:
 - Real-time monitoring and subscription management
 """
 
-import json
 import logging
 import sqlite3
-import struct
 import time
 from datetime import datetime
 from threading import Lock, Thread
-from typing import Dict, List, Optional
 
 import yaml
 from kiteconnect import KiteConnect, KiteTicker
@@ -96,7 +93,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info("Configuration loaded successfully")
 
         except Exception as e:
-            self.logger.exception(f"Error loading config: {e}")
+            self.logger.error(f"Error loading config: {e}")
             raise
 
     def setup_kite_client(self):
@@ -105,7 +102,9 @@ class EnhancedZerodhaLTPSubscriber:
             self.kite = KiteConnect(api_key=self.api_key)
 
             # Load access token from file
-            access_token_path = "/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt"
+            access_token_path = (
+                "/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt"
+            )
             with open(access_token_path) as f:
                 access_token = f.read().strip()
 
@@ -116,7 +115,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info(f"Connected to Kite API. User: {profile['user_name']}")
 
         except Exception as e:
-            self.logger.exception(f"Error setting up Kite client: {e}")
+            self.logger.error(f"Error setting up Kite client: {e}")
             raise
 
     def setup_websocket(self):
@@ -135,7 +134,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info("Enhanced WebSocket client initialized")
 
         except Exception as e:
-            self.logger.exception(f"Error setting up WebSocket: {e}")
+            self.logger.error(f"Error setting up WebSocket: {e}")
             raise
 
     def setup_database(self):
@@ -203,7 +202,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info("Enhanced database setup completed with WAL mode")
 
         except Exception as e:
-            self.logger.exception(f"Error setting up database: {e}")
+            self.logger.error(f"Error setting up database: {e}")
             raise
 
     def check_daily_reset(self):
@@ -288,10 +287,12 @@ class EnhancedZerodhaLTPSubscriber:
 
             # Log tick activity every 100 ticks
             if tick_count > 0:
-                self.logger.debug(f"📈 Processed {tick_count} ticks, batch size: {len(self.batch_data)}")
+                self.logger.debug(
+                    f"📈 Processed {tick_count} ticks, batch size: {len(self.batch_data)}"
+                )
 
         except Exception as e:
-            self.logger.exception(f"Error processing ticks: {e}")
+            self.logger.error(f"Error processing ticks: {e}")
 
     def get_symbol_info(self, instrument_token: int) -> dict | None:
         """Get symbol info from positions table with caching"""
@@ -311,7 +312,7 @@ class EnhancedZerodhaLTPSubscriber:
                     return {"tradingsymbol": result[0], "exchange": result[1]}
                 return None
         except Exception as e:
-            self.logger.exception(f"Error getting symbol info for token {instrument_token}: {e}")
+            self.logger.error(f"Error getting symbol info for token {instrument_token}: {e}")
             return None
 
     def flush_batch_data(self):
@@ -342,7 +343,7 @@ class EnhancedZerodhaLTPSubscriber:
                 self.last_batch_time = time.time()
 
         except Exception as e:
-            self.logger.exception(f"Error flushing batch data: {e}")
+            self.logger.error(f"Error flushing batch data: {e}")
 
     def fetch_current_positions(self):
         """
@@ -371,9 +372,9 @@ class EnhancedZerodhaLTPSubscriber:
                 if attempt < max_retries - 1:
                     time.sleep(2)  # Wait before retry
                     continue
-                self.logger.exception(f"Failed to fetch positions after {max_retries} attempts")
-                return []
-        return None
+                else:
+                    self.logger.error(f"Failed to fetch positions after {max_retries} attempts")
+                    return []
 
     def update_positions_in_db(self, positions: list[dict]):
         """Update positions table with current open positions"""
@@ -417,7 +418,7 @@ class EnhancedZerodhaLTPSubscriber:
                 self.logger.info(f"💾 Updated {len(position_data)} positions in database")
 
         except Exception as e:
-            self.logger.exception(f"Error updating positions in database: {e}")
+            self.logger.error(f"Error updating positions in database: {e}")
 
     def subscribe_to_positions(self):
         """
@@ -441,7 +442,9 @@ class EnhancedZerodhaLTPSubscriber:
 
                 self.logger.info("📈 Current positions:")
                 for pos in current_positions:
-                    self.logger.info(f"   {pos['tradingsymbol']} | Qty: {pos['quantity']} | Product: {pos['product']}")
+                    self.logger.info(
+                        f"   {pos['tradingsymbol']} | Qty: {pos['quantity']} | Product: {pos['product']}"
+                    )
             else:
                 self.logger.info("📊 No current positions")
 
@@ -457,7 +460,9 @@ class EnhancedZerodhaLTPSubscriber:
 
                     self.logger.info(f"🔔 Subscribed to {len(new_tokens)} new instruments")
 
-                self.logger.info(f"📡 Total active WebSocket subscriptions: {len(self.subscribed_tokens)} instruments")
+                self.logger.info(
+                    f"📡 Total active WebSocket subscriptions: {len(self.subscribed_tokens)} instruments"
+                )
 
                 # Log what we're tracking
                 self.log_subscribed_instruments()
@@ -465,7 +470,7 @@ class EnhancedZerodhaLTPSubscriber:
                 self.logger.info("📊 No instruments to track yet today")
 
         except Exception as e:
-            self.logger.exception(f"Error in enhanced subscription management: {e}")
+            self.logger.error(f"Error in enhanced subscription management: {e}")
 
     def log_subscribed_instruments(self):
         """Log currently subscribed instruments for debugging"""
@@ -509,17 +514,20 @@ class EnhancedZerodhaLTPSubscriber:
                     data_age = time.time() - timestamp
 
                     # Enhanced freshness check for options (stricter)
-                    freshness_limit = 5 if any(x in symbol for x in ["SENSEX", "NIFTY", "BANKNIFTY"]) else 10
+                    freshness_limit = (
+                        5 if any(x in symbol for x in ["SENSEX", "NIFTY", "BANKNIFTY"]) else 10
+                    )
 
                     if data_age <= freshness_limit:
                         return price
-                    self.logger.warning(f"⚠️ LTP data for {symbol} is {data_age:.1f}s old")
-                    return price  # Still return stale data rather than None
+                    else:
+                        self.logger.warning(f"⚠️ LTP data for {symbol} is {data_age:.1f}s old")
+                        return price  # Still return stale data rather than None
 
                 return None
 
         except Exception as e:
-            self.logger.exception(f"Error getting LTP for token {instrument_token}: {e}")
+            self.logger.error(f"Error getting LTP for token {instrument_token}: {e}")
             return None
 
     def monitor_and_update_subscriptions(self):
@@ -528,10 +536,16 @@ class EnhancedZerodhaLTPSubscriber:
         Runs in a separate thread.
         """
         # Faster checking intervals for active trading
-        check_interval = self.config.get("websocket", {}).get("position_check_interval", 2)  # 2 seconds
-        error_retry_interval = self.config.get("websocket", {}).get("error_retry_interval", 15)  # 15 seconds
+        check_interval = self.config.get("websocket", {}).get(
+            "position_check_interval", 2
+        )  # 2 seconds
+        error_retry_interval = self.config.get("websocket", {}).get(
+            "error_retry_interval", 15
+        )  # 15 seconds
 
-        self.logger.info(f"🔄 Enhanced position monitoring started (checking every {check_interval}s)")
+        self.logger.info(
+            f"🔄 Enhanced position monitoring started (checking every {check_interval}s)"
+        )
 
         while True:
             try:
@@ -552,7 +566,7 @@ class EnhancedZerodhaLTPSubscriber:
                         self.subscribe_to_positions()
 
             except Exception as e:
-                self.logger.exception(f"Error in enhanced subscription monitor: {e}")
+                self.logger.error(f"Error in enhanced subscription monitor: {e}")
                 time.sleep(error_retry_interval)
 
     def get_realtime_status(self) -> dict:
@@ -599,11 +613,21 @@ class EnhancedZerodhaLTPSubscriber:
                         )
                     else:
                         status.update(
-                            {"fresh_ltp_count": 0, "stale_ltp_count": 0, "oldest_ltp_age": 0, "newest_ltp_age": 0}
+                            {
+                                "fresh_ltp_count": 0,
+                                "stale_ltp_count": 0,
+                                "oldest_ltp_age": 0,
+                                "newest_ltp_age": 0,
+                            }
                         )
                 else:
                     status.update(
-                        {"fresh_ltp_count": 0, "stale_ltp_count": 0, "oldest_ltp_age": 0, "newest_ltp_age": 0}
+                        {
+                            "fresh_ltp_count": 0,
+                            "stale_ltp_count": 0,
+                            "oldest_ltp_age": 0,
+                            "newest_ltp_age": 0,
+                        }
                     )
 
                 return status
@@ -643,7 +667,7 @@ class EnhancedZerodhaLTPSubscriber:
                 return status
 
         except Exception as e:
-            self.logger.exception(f"Error getting subscription status: {e}")
+            self.logger.error(f"Error getting subscription status: {e}")
             return {"error": str(e)}
 
     def start(self):
@@ -665,7 +689,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info("⏹️ Stopping Enhanced LTP subscriber...")
             self.stop()
         except Exception as e:
-            self.logger.exception(f"Error starting Enhanced LTP subscriber: {e}")
+            self.logger.error(f"Error starting Enhanced LTP subscriber: {e}")
             raise
 
     def stop(self):
@@ -689,7 +713,7 @@ class EnhancedZerodhaLTPSubscriber:
             self.logger.info("✅ Enhanced LTP subscriber stopped successfully")
 
         except Exception as e:
-            self.logger.exception(f"Error stopping LTP subscriber: {e}")
+            self.logger.error(f"Error stopping LTP subscriber: {e}")
 
 
 def main():

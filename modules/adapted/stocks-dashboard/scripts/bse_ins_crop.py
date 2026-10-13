@@ -45,13 +45,14 @@ VP = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.environ.get("VP
 os.makedirs(VP, exist_ok=True)
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?%?$")
 PATLAB = re.compile(
-    r"(net\s*profit|profit\s*/?\s*\(?\s*loss\s*\)?)\s*(after\s*tax|for\s*the\s*(?:period|quarter|year))", re.IGNORECASE
+    r"(net\s*profit|profit\s*/?\s*\(?\s*loss\s*\)?)\s*(after\s*tax|for\s*the\s*(?:period|quarter|year))",
+    re.I,
 )
 EXCL = re.compile(
     r"before\s*tax|comprehensive|exceptional|operating|segment|per\s*(?:equity\s*)?share|earnings?\s*per|premium|claim|commission|dividend|appropriat",
-    re.IGNORECASE,
+    re.I,
 )
-QEND = re.compile(r"ended\s+(?:\d{1,2}(?:st|nd|rd|th)?\s+)?([a-z]+)[,\s]+(\d{4})", re.IGNORECASE)
+QEND = re.compile(r"ended\s+(?:\d{1,2}(?:st|nd|rd|th)?\s+)?([a-z]+)[,\s]+(\d{4})", re.I)
 MON = {
     "january": 3,
     "february": 3,
@@ -130,23 +131,29 @@ def locate(doc):
         elif re.search(r"standalone\s+(statement|financial|results|profit|segment)", low):
             con = False
         words = [(x0, y0, x1, y1, w) for x0, y0, x1, y1, w, b, l, n in pg.get_text("words")]
-        for cells in rows_by_y(pg).values():
+        for _k, cells in rows_by_y(pg).items():
             cells = sorted(cells)
             txt = " ".join(c[4] for c in cells)
             if not PATLAB.search(txt) or EXCL.search(txt):
                 continue
             yc = sum((c[1] + c[3]) / 2 for c in cells) / len(cells)
             rh = max(c[3] - c[1] for c in cells)
-            labx = max([c[0] for c in cells if re.search(r"[a-z]", c[4], re.IGNORECASE)] or [-1])
+            labx = max([c[0] for c in cells if re.search(r"[a-z]", c[4], re.I)] or [-1])
             band = []  # numeric cells in a y-band around the label (handles label/number y-misalignment)
             for x0, y0, _x1, y1, w in words:
-                if x0 > labx and abs((y0 + y1) / 2 - yc) <= max(rh * 0.9, 5) and NUM.match(w.replace(",", "")):
+                if (
+                    x0 > labx
+                    and abs((y0 + y1) / 2 - yc) <= max(rh * 0.9, 5)
+                    and NUM.match(w.replace(",", ""))
+                ):
                     v = to_val(w)
                     if v is not None:
                         band.append((x0, v))
             band.sort()
             nums = [v for _, v in band]
-            if len(nums) >= 3 and any(abs(v) >= 10 for v in nums):  # real PAT row (carries a crore-scale value)
+            if len(nums) >= 3 and any(
+                abs(v) >= 10 for v in nums
+            ):  # real PAT row (carries a crore-scale value)
                 y0 = min(c[1] for c in cells)
                 y1 = max(c[3] for c in cells)
                 loc = (pi, y0, y1, unit, qe, nums[0])
@@ -194,7 +201,11 @@ def main():
             continue
         try:
             doc = fitz.open(stream=pdf, filetype="pdf")
-            idt = " ".join(doc[p].get_text() for p in range(min(len(doc), 6))).lower().replace(" ", "")
+            idt = (
+                " ".join(doc[p].get_text() for p in range(min(len(doc), 6)))
+                .lower()
+                .replace(" ", "")
+            )
             if expect not in idt:
                 print("  ann=%d ident-miss" % ann, flush=True)
                 continue
@@ -215,14 +226,30 @@ def main():
         clip = fitz.Rect(pg.rect.x0, max(pg.rect.y0, y0 - 12), pg.rect.x1, min(pg.rect.y1, y1 + 10))
         pix = pg.get_pixmap(dpi=300, clip=clip)
         img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) if pix.n == 3 else cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+        img = (
+            cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            if pix.n == 3
+            else cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+        )
         fn = "%s_%d.png" % (sym, qe)
         cv2.imwrite(os.path.join(VP, fn), img)
-        man.append({"sym": sym, "qe": qe, "ann": ann, "unit": unit, "img": fn, "page": pi, "preview": first})
+        man.append(
+            {
+                "sym": sym,
+                "qe": qe,
+                "ann": ann,
+                "unit": unit,
+                "img": fn,
+                "page": pi,
+                "preview": first,
+            }
+        )
         json.dump(man, open(MF, "w"), indent=0)
         seen.add(qe)
         done += 1
-        print("  stored %s ann=%d unit=%s pg=%d preview=%s" % (fn, ann, unit, pi, first), flush=True)
+        print(
+            "  stored %s ann=%d unit=%s pg=%d preview=%s" % (fn, ann, unit, pi, first), flush=True
+        )
         time.sleep(0.3)
     print("DONE %s: %d crops" % (sym, done), flush=True)
 

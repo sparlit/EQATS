@@ -179,12 +179,13 @@ def detect_bos_choch(df: pd.DataFrame, left: int = 2, right: int = 2) -> dict:
         elif last_close < sl_px:
             result["choch"] = True
             result["direction"] = "SHORT"
-    elif last_close < sl_px:
-        result["bos"] = True
-        result["direction"] = "SHORT"
-    elif last_close > sh_px:
-        result["choch"] = True
-        result["direction"] = "LONG"
+    else:
+        if last_close < sl_px:
+            result["bos"] = True
+            result["direction"] = "SHORT"
+        elif last_close > sh_px:
+            result["choch"] = True
+            result["direction"] = "LONG"
 
     return result
 
@@ -214,13 +215,25 @@ def detect_order_block(df: pd.DataFrame, direction: str, lookback: int = 30) -> 
             body_top, body_bot = o, c
             future_lows = df["low"].iloc[i + 1 : n - 1]
             if len(future_lows) == 0 or float(future_lows.min()) > body_bot:
-                return {"valid": True, "high": h, "low": l, "body_top": body_top, "body_bot": body_bot}
+                return {
+                    "valid": True,
+                    "high": h,
+                    "low": l,
+                    "body_top": body_top,
+                    "body_bot": body_bot,
+                }
 
         elif direction == "SHORT" and c > o:  # bullish candle = bearish OB
             body_top, body_bot = c, o
             future_highs = df["high"].iloc[i + 1 : n - 1]
             if len(future_highs) == 0 or float(future_highs.max()) < body_top:
-                return {"valid": True, "high": h, "low": l, "body_top": body_top, "body_bot": body_bot}
+                return {
+                    "valid": True,
+                    "high": h,
+                    "low": l,
+                    "body_top": body_top,
+                    "body_bot": body_bot,
+                }
 
     return empty
 
@@ -235,7 +248,14 @@ def detect_fvg(df: pd.DataFrame, direction: str, lookback: int = 20) -> dict:
     3-candle imbalance pattern.
     Returns: {exists/valid, upper/top, lower/bot, filled, direction}
     """
-    empty = {"valid": False, "exists": False, "top": None, "bot": None, "filled": False, "direction": direction}
+    empty = {
+        "valid": False,
+        "exists": False,
+        "top": None,
+        "bot": None,
+        "filled": False,
+        "direction": direction,
+    }
     n = len(df)
     if n < 3:
         return empty
@@ -284,7 +304,9 @@ def detect_fvg(df: pd.DataFrame, direction: str, lookback: int = 20) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 
-def detect_liquidity_sweep(df: pd.DataFrame, direction: str, pdh=None, pdl=None, tol_pct: float = 0.0015) -> tuple:
+def detect_liquidity_sweep(
+    df: pd.DataFrame, direction: str, pdh=None, pdl=None, tol_pct: float = 0.0015
+) -> tuple:
     """
     Buy  setup: wick below equal lows / PDL / swing low, close recovers above.
     Sell setup: wick above equal highs / PDH / swing high, close recovers below.
@@ -360,19 +382,27 @@ def detect_ote(df: pd.DataFrame, direction: str) -> dict:
         lower = sh_px - 0.790 * rng
         in_zone = lower <= close <= upper
         fib = round((sh_px - close) / rng * 100, 1) if rng else None
-        return {"in_zone": in_zone, "fib_level": fib, "zone": {"upper": round(upper, 4), "lower": round(lower, 4)}}
+        return {
+            "in_zone": in_zone,
+            "fib_level": fib,
+            "zone": {"upper": round(upper, 4), "lower": round(lower, 4)},
+        }
 
-    # SHORT
-    sh_idx, sh_px = highs[-1]
-    sl_idx, sl_px = lows[-1]
-    if sl_idx <= sh_idx or sh_px <= sl_px:
-        return empty
-    rng = sh_px - sl_px
-    lower = sl_px + 0.618 * rng
-    upper = sl_px + 0.790 * rng
-    in_zone = lower <= close <= upper
-    fib = round((close - sl_px) / rng * 100, 1) if rng else None
-    return {"in_zone": in_zone, "fib_level": fib, "zone": {"upper": round(upper, 4), "lower": round(lower, 4)}}
+    else:  # SHORT
+        sh_idx, sh_px = highs[-1]
+        sl_idx, sl_px = lows[-1]
+        if sl_idx <= sh_idx or sh_px <= sl_px:
+            return empty
+        rng = sh_px - sl_px
+        lower = sl_px + 0.618 * rng
+        upper = sl_px + 0.790 * rng
+        in_zone = lower <= close <= upper
+        fib = round((close - sl_px) / rng * 100, 1) if rng else None
+        return {
+            "in_zone": in_zone,
+            "fib_level": fib,
+            "zone": {"upper": round(upper, 4), "lower": round(lower, 4)},
+        }
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -392,9 +422,10 @@ def detect_vwap_reclaim(df: pd.DataFrame, direction: str) -> bool:
         dipped = (recent["close"].iloc[:-1] < recent["vwap"].iloc[:-1]).any()
         reclaim = float(recent["close"].iloc[-1]) > float(recent["vwap"].iloc[-1])
         return dipped and reclaim
-    spiked = (recent["close"].iloc[:-1] > recent["vwap"].iloc[:-1]).any()
-    lost = float(recent["close"].iloc[-1]) < float(recent["vwap"].iloc[-1])
-    return spiked and lost
+    else:
+        spiked = (recent["close"].iloc[:-1] > recent["vwap"].iloc[:-1]).any()
+        lost = float(recent["close"].iloc[-1]) < float(recent["vwap"].iloc[-1])
+        return spiked and lost
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -416,7 +447,8 @@ def detect_rejection_candle(df: pd.DataFrame, direction: str, ob: dict) -> bool:
     ob_bot = ob.get("body_bot", ob.get("low", 0)) or 0
     if direction == "LONG":
         return l <= ob_top and c > ob_bot and c > o and (c - l) / rng > 0.55
-    return h >= ob_bot and c < ob_top and c < o and (h - c) / rng > 0.55
+    else:
+        return h >= ob_bot and c < ob_top and c < o and (h - c) / rng > 0.55
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -468,8 +500,16 @@ def validate_trade_params(
             "sl_pct": sl_pct,
         }
 
-    t1 = round(entry + risk * min_rr_t1, 4) if direction == "LONG" else round(entry - risk * min_rr_t1, 4)
-    t2 = round(entry + risk * min_rr_t2, 4) if direction == "LONG" else round(entry - risk * min_rr_t2, 4)
+    t1 = (
+        round(entry + risk * min_rr_t1, 4)
+        if direction == "LONG"
+        else round(entry - risk * min_rr_t1, 4)
+    )
+    t2 = (
+        round(entry + risk * min_rr_t2, 4)
+        if direction == "LONG"
+        else round(entry - risk * min_rr_t2, 4)
+    )
     rr_t1 = round(abs(t1 - entry) / risk, 2)
     rr_t2 = round(abs(t2 - entry) / risk, 2)
 

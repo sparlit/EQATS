@@ -354,8 +354,8 @@ class TestShortStrangleStrategy:
         assert len(legs) == 2
         assert all(l["transaction"] == "SELL" for l in legs)
         # CE should be above ATM, PE should be below
-        ce_leg = next(l for l in legs if l["type"] == "CE")
-        pe_leg = next(l for l in legs if l["type"] == "PE")
+        ce_leg = [l for l in legs if l["type"] == "CE"][0]
+        pe_leg = [l for l in legs if l["type"] == "PE"][0]
         assert ce_leg["strike_offset"] == 100
         assert pe_leg["strike_offset"] == -100
 
@@ -364,7 +364,7 @@ class TestShortStrangleStrategy:
 
         s = ShortStrangleStrategy(otm_offset=200)
         legs = s.should_enter(date.today(), 22500, 0.20, dte=0, vix=15)
-        ce_leg = next(l for l in legs if l["type"] == "CE")
+        ce_leg = [l for l in legs if l["type"] == "CE"][0]
         assert ce_leg["strike_offset"] == 200
 
 

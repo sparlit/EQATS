@@ -26,13 +26,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Performance, expectancy and drawdown analytics for V2 backtests."""
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-if TYPE_CHECKING:
-    from .backtest import BacktestTrade
+from .backtest import BacktestTrade
 
 
 @dataclass(frozen=True)
@@ -84,7 +82,9 @@ def summarize_performance(trades: list[BacktestTrade]) -> PerformanceReport:
         profit_factor=round(profit_factor, 4) if np.isfinite(profit_factor) else profit_factor,
         cumulative_r=round(float(r.sum()), 4) if len(r) else 0.0,
         max_drawdown_r=round(max_drawdown, 4),
-        average_holding_sessions=round(float(np.mean([t.holding_sessions for t in entered])), 2) if entered else 0.0,
+        average_holding_sessions=round(float(np.mean([t.holding_sessions for t in entered])), 2)
+        if entered
+        else 0.0,
         t1_or_better_rate=round(t1_rate, 4),
     )
 

@@ -81,16 +81,22 @@ async def main():
 
     results = []
 
-    for _i in range(10):
+    for _i in range(0, 10):
         started = exchange.milliseconds()
         order = await exchange.create_order(symbol, "limit", "buy", amount, price)
         ended = exchange.milliseconds()
         elapsed = ended - started
         results.append(elapsed)
         await exchange.cancel_order(order["id"], order["symbol"])
+        pprint(order)
+        pprint(results)
 
     rtt = int(sum(results) / len(results))
-    print("Successfully tested 10 orders, the average round-trip time per order is", rtt, "milliseconds")
+    print(
+        "Successfully tested 10 orders, the average round-trip time per order is",
+        rtt,
+        "milliseconds",
+    )
 
     await exchange.close()
 

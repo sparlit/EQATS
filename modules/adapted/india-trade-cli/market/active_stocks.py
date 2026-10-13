@@ -80,12 +80,18 @@ def get_most_active(by: str = "volume", limit: int = 20) -> list[ActiveStock]:
         for item in data.get("data", [])[:limit]:
             try:
                 # NSE uses totalTradedValue (in rupees) and lastPrice
-                traded_val = float(item.get("totalTradedValue", 0) or item.get("turnoverInLakhs", 0) or 0)
-                value_cr = round(traded_val / 1e7, 1) if traded_val > 1e6 else round(traded_val / 100, 1)
+                traded_val = float(
+                    item.get("totalTradedValue", 0) or item.get("turnoverInLakhs", 0) or 0
+                )
+                value_cr = (
+                    round(traded_val / 1e7, 1) if traded_val > 1e6 else round(traded_val / 100, 1)
+                )
                 results.append(
                     ActiveStock(
                         symbol=item.get("symbol", ""),
-                        volume=int(item.get("quantityTraded", 0) or item.get("totalTradedVolume", 0) or 0),
+                        volume=int(
+                            item.get("quantityTraded", 0) or item.get("totalTradedVolume", 0) or 0
+                        ),
                         value_cr=value_cr,
                         ltp=float(item.get("lastPrice", 0) or item.get("ltp", 0) or 0),
                         change_pct=float(item.get("pChange", 0)),

@@ -27,7 +27,7 @@ from importlib import import_module
 from importlib.util import find_spec
 
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import ccxt.pro
 

@@ -28,7 +28,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 BASE_DIR = Path("/home/ec2-user/nse-factor-engine/hmm-factor-engine")
@@ -99,7 +98,7 @@ print(f"  {'-' * 6}")
 
 for period, row in active.iterrows():
     regime = forward.loc[period, "regime"]
-    print(f"  {period!s:<10} {regime:<10}", end="")
+    print(f"  {str(period):<10} {regime:<10}", end="")
     for f in FACTORS:
         print(f"  {row[f]:>10.4f}", end="")
     print(f"  {row['weight_sum']:>6.4f}")
@@ -109,7 +108,9 @@ print(f"\n--- Hard vs Soft weights sample (first 6 months, {ACTIVE_METHOD}) ---"
 print(
     f"  {'Date':<10} {'Regime':<10} {'P_Bull':>7} {'P_Chop':>7} {'P_Cris':>7}  {'Hard mom':>9} {'Soft mom':>9}  {'Hard val':>9} {'Soft val':>9}"
 )
-print(f"  {'-' * 10} {'-' * 10} {'-' * 7} {'-' * 7} {'-' * 7}  {'-' * 9} {'-' * 9}  {'-' * 9} {'-' * 9}")
+print(
+    f"  {'-' * 10} {'-' * 10} {'-' * 7} {'-' * 7} {'-' * 7}  {'-' * 9} {'-' * 9}  {'-' * 9} {'-' * 9}"
+)
 for period, frow in forward.iloc[:6].iterrows():
     regime = frow["regime"]
     hard_mom = wm[ACTIVE_METHOD][regime]["mom"]
@@ -117,7 +118,7 @@ for period, frow in forward.iloc[:6].iterrows():
     soft_mom = active.loc[period, "mom"]
     soft_val = active.loc[period, "value"]
     print(
-        f"  {period!s:<10} {regime:<10} {frow['P_Bull']:>7.3f} {frow['P_Choppy']:>7.3f} {frow['P_Crisis']:>7.3f}  {hard_mom:>9.4f} {soft_mom:>9.4f}  {hard_val:>9.4f} {soft_val:>9.4f}"
+        f"  {str(period):<10} {regime:<10} {frow['P_Bull']:>7.3f} {frow['P_Choppy']:>7.3f} {frow['P_Crisis']:>7.3f}  {hard_mom:>9.4f} {soft_mom:>9.4f}  {hard_val:>9.4f} {soft_val:>9.4f}"
     )
 
 # ── Save ──────────────────────────────────────────────────────────────────────

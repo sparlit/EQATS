@@ -32,9 +32,8 @@ load_dotenv()
 
 import pandas as pd
 from backtest.backtest_engine import BacktestEngine
-from models.predict import Predictor
-
 from database.db import read_sql
+from models.predict import Predictor
 
 print("Loading features from DB...")
 df = read_sql("SELECT * FROM features_macro ORDER BY timestamp")
@@ -47,7 +46,7 @@ ohlcv = read_sql(
 ohlcv["timestamp"] = pd.to_datetime(ohlcv["timestamp"])
 df = df.merge(ohlcv, on="timestamp", how="left", suffixes=("", "_mc"))
 for c in [x for x in df.columns if x.endswith("_mc")]:
-    df = df.drop(columns=[c])
+    df.drop(columns=[c], inplace=True)
 print(f"Features: {df.shape}")
 
 predictor = Predictor()
@@ -87,7 +86,8 @@ if result.avg_loss != 0:
 print(sep)
 
 trades_data = [
-    {"strategy": t.strategy, "direction": t.direction, "pnl": t.pnl, "result": t.result} for t in result.trades
+    {"strategy": t.strategy, "direction": t.direction, "pnl": t.pnl, "result": t.result}
+    for t in result.trades
 ]
 if trades_data:
     tdf = pd.DataFrame(trades_data)

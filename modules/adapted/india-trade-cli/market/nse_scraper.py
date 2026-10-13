@@ -48,8 +48,6 @@ Usage:
 """
 
 
-from typing import Optional
-
 from brokers.base import OptionsContract
 
 _NSE_BASE = "https://www.nseindia.com"

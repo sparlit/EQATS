@@ -28,7 +28,6 @@ anchors on a known stored neighbor (immediate-prev within 3% or year-ago) under 
 (/1,/10,/100). Prefers an 'attributable to owners' row. Outputs _anchor_all.json.
 Run: python -X utf8 bse_anchor_all.py
 """
-import glob
 import json
 import os
 import re
@@ -39,9 +38,12 @@ import fitz
 HERE = os.path.dirname(os.path.abspath(__file__))
 data = json.load(open(os.path.join(os.path.dirname(HERE), "docs", "sf_fundamentals.json")))
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
-OWN = re.compile(r"(owners|equity ?holders|equityholders) of the (parent|company|holding|group)", re.IGNORECASE)
+OWN = re.compile(
+    r"(owners|equity ?holders|equityholders) of the (parent|company|holding|group)", re.I
+)
 PFT = re.compile(
-    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)", re.IGNORECASE
+    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*(after tax\s*)?(for|of)\s*the\s*(period|year|quarter)",
+    re.I,
 )
 DEFUNCT = {
     "DHFL",
@@ -118,7 +120,10 @@ def candidate_rows(doc):
         low = doc[p].get_text().lower()
         if "consolidated" in low:
             con = True
-        elif re.search(r"standalone\s+(statement|financial|results|ind)", low) and "consolidated" not in low:
+        elif (
+            re.search(r"standalone\s+(statement|financial|results|ind)", low)
+            and "consolidated" not in low
+        ):
             con = False
         if not con:
             continue
@@ -151,7 +156,12 @@ def anchor(nums, cprev, cyago):
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 out = []

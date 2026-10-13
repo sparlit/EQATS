@@ -81,12 +81,12 @@ KPI_WORDS = re.compile(
     r"tonnage|mmt|mtpa|mw\b|gw\b|units|bcfe|mmscmd|room|beds|bookings|pre-?sales|collections|"
     r"area|sq\.? ?ft|network|towns|pin ?codes|attach rate|patents|dealers|distributors|"
     r"gross written|apе|persistency|premium|clients|active users|transactions|gmv|take rate",
-    re.IGNORECASE,
+    re.I,
 )
 PERIOD_WORDS = re.compile(
     r"\bQ[1-4]\s*FY|\b[1-4]Q\s*FY|\bFY\s*'?\d{2}|\bH[12]\s*FY|9M\s*FY|"
     r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-' ]?\d{2}",
-    re.IGNORECASE,
+    re.I,
 )
 MON = {m.lower(): i for i, m in enumerate(calendar.month_abbr) if m}
 
@@ -98,13 +98,13 @@ PROFILE_TOKENS = re.compile(
     r"\d[\d,]*\+?\s*(customers?|clients?|countr(?:y|ies)|patents?|manufacturing|facilit(?:y|ies)|plants?|"
     r"dealers?|distributors?|stores?|outlets?|branches?|products?|markets?|cities|towns|subscribers?|"
     r"employees?|scientists?|msf|units|beds|rooms|warehouses?|touchpoints?)",
-    re.IGNORECASE,
+    re.I,
 )
 PROFILE_MARKERS = re.compile(
     r"since inception|at a glance|company overview|business overview|our (?:reach|footprint|presence|journey)|"
     r"key highlights|10[- ]?year|ten[- ]?year|five[- ]?year|5[- ]?year|decade|financial highlights|"
     r"performance (?:highlights|record|trends)|historical (?:financials|performance)|milestones",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -117,7 +117,7 @@ def score_page(text):
     s += 8 * min(len(PROFILE_TOKENS.findall(text)), 8)
     if PROFILE_MARKERS.search(text):
         s += 40
-    if re.search(r"disclaimer|safe harbour|forward.looking statements|cautionary", text, re.IGNORECASE):
+    if re.search(r"disclaimer|safe harbour|forward.looking statements|cautionary", text, re.I):
         s *= 0.2
     return s
 
@@ -212,17 +212,21 @@ def parse_period(label, fy_end_month=3):
     """Printed period label → ('q'|'y'|None, 'YYYYMMDD'|None). None = not a quarter/FY we store."""
     s = str(label or "").strip().replace("’", "'").replace("–", "-")
     low = s.lower()
-    low = re.sub(r"(?<![a-z])f\s?'?(\d{2})\b", r"fy\1", low)  # Mahindra's "F27" / "Q1 F27" / "Q1F25" = FY27
-    low = re.sub(r"\bq\s*([1-4])\s*(\d{2})-(\d{2})\b", r"q\1 fy\3", low)  # Coal India's "Q1 26-27" = Q1 FY27
+    low = re.sub(
+        r"(?<![a-z])f\s?'?(\d{2})\b", r"fy\1", low
+    )  # Mahindra's "F27" / "Q1 F27" / "Q1F25" = FY27
+    low = re.sub(
+        r"\bq\s*([1-4])\s*(\d{2})-(\d{2})\b", r"q\1 fy\3", low
+    )  # Coal India's "Q1 26-27" = Q1 FY27
     SEP = r"[\s,\-–/]*"  # "Q2, FY 26", "Q1-FY27", "Q4/FY26" all mean the same
     m = re.search(
         r"\bq\s*([1-4])" + SEP + r"(?:of\s*)?(?:fy\s*'?\s*)?(\d{4})\s*-\s*(\d{2,4})\b", low
     )  # Q1 FY 2026-27 / Q1 2026-27 → FY27
     if m:
         return "q", _q_end(_yy(m.group(3)), int(m.group(1)), fy_end_month).strftime("%Y%m%d")
-    m = re.search(r"\bq\s*([1-4])" + SEP + r"(?:of\s*)?fy\s*'?\s*(\d{4}|\d{2})\b", low) or re.search(
-        r"\b([1-4])\s*q" + SEP + r"fy\s*'?\s*(\d{4}|\d{2})\b", low
-    )
+    m = re.search(
+        r"\bq\s*([1-4])" + SEP + r"(?:of\s*)?fy\s*'?\s*(\d{4}|\d{2})\b", low
+    ) or re.search(r"\b([1-4])\s*q" + SEP + r"fy\s*'?\s*(\d{4}|\d{2})\b", low)
     if m:
         return "q", _q_end(_yy(m.group(2)), int(m.group(1)), fy_end_month).strftime("%Y%m%d")
     m = re.search(r"\bq\s*([1-4])\s*'?\s*(\d{4}|\d{2})\b", low)  # "Q1'27", "Q4 2026"
@@ -232,9 +236,9 @@ def parse_period(label, fy_end_month=3):
         return None, None
     m = re.search(r"\bfy\s*'?\s*(\d{4})\s*-\s*(\d{2,4})\b", low)  # FY2025-26 → FY26
     if m:
-        return "y", _fy_end(_yy(m.group(2)) if len(m.group(2)) == 2 else int(m.group(2)), fy_end_month).strftime(
-            "%Y%m%d"
-        )
+        return "y", _fy_end(
+            _yy(m.group(2)) if len(m.group(2)) == 2 else int(m.group(2)), fy_end_month
+        ).strftime("%Y%m%d")
     m = re.search(r"\bfy\s*'?\s*(\d{2})\s*-\s*(\d{2})\b", low)  # FY 25-26 → FY26
     if m:
         return "y", _fy_end(_yy(m.group(2)), fy_end_month).strftime("%Y%m%d")
@@ -254,7 +258,9 @@ def parse_period(label, fy_end_month=3):
                 return "q", dt.date(y, mo, d).strftime("%Y%m%d")
             return None, None
     # "30th June, 2025" / "31st Mar, 2026" / "June 30, 2026" / "Jun-26" / "Mar’26"
-    m = re.search(r"\b\d{1,2}(?:st|nd|rd|th)?[-\s]*([a-z]{3})[a-z]*\.?[-\s',]*(\d{4}|\d{2})\b", low) or re.search(
+    m = re.search(
+        r"\b\d{1,2}(?:st|nd|rd|th)?[-\s]*([a-z]{3})[a-z]*\.?[-\s',]*(\d{4}|\d{2})\b", low
+    ) or re.search(
         r"\b([a-z]{3})[a-z]*\.?[-\s',]*(?:\d{1,2}(?:st|nd|rd|th)?[-\s',]+)?(\d{4}|\d{2})\b", low
     )
     if m and m.group(1) in MON:
@@ -398,10 +404,19 @@ def ingest(sym, doc, answer, pages_text, by="?", verbose=True):
             # same quantity, different printed unit → keep as a separate row rather than mixing units
             m2 = None
             for mm in L["metrics"]:
-                if norm_name(mm["name"]) == norm_name(name) and norm_name(mm["unit"]) == norm_name(unit):
+                if norm_name(mm["name"]) == norm_name(name) and norm_name(mm["unit"]) == norm_name(
+                    unit
+                ):
                     m2 = mm
             if m2 is None:
-                m2 = {"name": name[:80], "unit": unit[:24], "kind": kind, "y": {}, "q": {}, "src": {}}
+                m2 = {
+                    "name": name[:80],
+                    "unit": unit[:24],
+                    "kind": kind,
+                    "y": {},
+                    "q": {},
+                    "src": {},
+                }
                 L["metrics"].append(m2)
             m = m2
         for v in met.get("values") or []:
@@ -455,7 +470,13 @@ def ingest(sym, doc, answer, pages_text, by="?", verbose=True):
                 if verbose:
                     print(
                         "   {} {} | {} {} = {} (p{}): {}".format(
-                            "HOLD" if rec in L["held"] else "REJECT", name, per, unit, asp, page, why
+                            "HOLD" if rec in L["held"] else "REJECT",
+                            name,
+                            per,
+                            unit,
+                            asp,
+                            page,
+                            why,
                         )
                     )
                 continue
@@ -515,7 +536,9 @@ def gemini_answer(prompt):
     if not key or GEMINI["dead"]:
         return None
     model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    )
     schema = {
         "type": "OBJECT",
         "properties": {
@@ -564,7 +587,11 @@ def gemini_answer(prompt):
     body = json.dumps(
         {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0, "response_mime_type": "application/json", "response_schema": schema},
+            "generationConfig": {
+                "temperature": 0,
+                "response_mime_type": "application/json",
+                "response_schema": schema,
+            },
         }
     ).encode()
     for attempt in range(6):
@@ -572,7 +599,9 @@ def gemini_answer(prompt):
         if gap > 0:
             time.sleep(gap)
         GEMINI["last"] = time.time()
-        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+        req = urllib.request.Request(
+            url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+        )
         try:
             resp = json.loads(urllib.request.urlopen(req, timeout=240).read())
             GEMINI["calls"] += 1
@@ -593,8 +622,10 @@ def gemini_answer(prompt):
             if ex.code == 429:
                 m = re.search(r'"retryDelay":\s*"(\d+)s"', body_txt)
                 delay = min(int(m.group(1)) + 3, 120) if m else 45
-                print("    gemini 429 attempt %d/6 — wait %ds — %s" % (attempt + 1, delay, flat[:500]))
-                if re.search(r"PerDay|per_day|daily", flat, re.IGNORECASE):
+                print(
+                    "    gemini 429 attempt %d/6 — wait %ds — %s" % (attempt + 1, delay, flat[:500])
+                )
+                if re.search(r"PerDay|per_day|daily", flat, re.I):
                     GEMINI["dead"] = True
                     print("    gemini DAILY quota exhausted — no more reads this run")
                     return None
@@ -621,7 +652,9 @@ def _name_index():
     if _NAMES is None:
         _NAMES = {}
         try:
-            idx = json.load(open(os.path.join(HERE, "..", "docs", "search_index.json"), encoding="utf-8"))
+            idx = json.load(
+                open(os.path.join(HERE, "..", "docs", "search_index.json"), encoding="utf-8")
+            )
             for i, r in enumerate(idx.get("s") or []):
                 if isinstance(r, list) and r and r[0] not in _NAMES:
                     _NAMES[r[0]] = (str(r[1]) if len(r) > 1 and r[1] else r[0], i)
@@ -640,7 +673,9 @@ def universe_symbols(kind="n500"):
     largest market cap first so the most-viewed pages fill first."""
     syms = []
     if kind in ("n500", "all"):
-        h = json.load(open(os.path.join(HERE, "indices_history.json"), encoding="utf-8"))["Nifty 500"]
+        h = json.load(open(os.path.join(HERE, "indices_history.json"), encoding="utf-8"))[
+            "Nifty 500"
+        ]
         syms += list(h[-1]["symbols"])
     extra = os.path.join(LEDGER_DIR, "_extra_symbols.json")
     if os.path.exists(extra):
@@ -661,7 +696,9 @@ def catalog(sym, since, kinds):
     if L.get("catalog_ver") != kpi_docs.CATALOG_VER:
         cat = []  # classification rules changed — re-list
     if cat and c_since and c_since <= since and c_until:
-        fresh = select_docs(sym, (dt.date.fromisoformat(c_until) - dt.timedelta(days=7)).isoformat(), kinds)
+        fresh = select_docs(
+            sym, (dt.date.fromisoformat(c_until) - dt.timedelta(days=7)).isoformat(), kinds
+        )
         have = {d["att"] for d in cat}
         cat = cat + [d for d in fresh if d["att"] not in have]
     else:
@@ -688,7 +725,9 @@ def walk(a, by):
     Never-checked symbols first, then the longest-unchecked; a symbol is re-listed on BSE at most
     once per --recheck-days. Stops at --max-docs reads, --max-syms listings, or a dead quota."""
     if not a.dry and not os.environ.get("GEMINI_API_KEY"):
-        sys.exit("walk: GEMINI_API_KEY is not set — refusing to mark symbols checked without reading anything")
+        sys.exit(
+            "walk: GEMINI_API_KEY is not set — refusing to mark symbols checked without reading anything"
+        )
     syms = universe_symbols(a.universe)
     today = dt.date.today()
 
@@ -725,10 +764,17 @@ def walk(a, by):
             "%s: %d documents, %d unread, reading %d"
             % (sym, len(docs), len([d for d in docs if d["att"] not in have]), len(pending))
         )
-        n = run(sym, pending, "gemini", by, limit=max(0, a.max_docs - read), dry=a.dry) if pending else 0
+        n = (
+            run(sym, pending, "gemini", by, limit=max(0, a.max_docs - read), dry=a.dry)
+            if pending
+            else 0
+        )
         read += n
         if not a.dry:
-            mark_checked(sym, None if docs else f"no presentations / press releases found on BSE since {a.since}")
+            mark_checked(
+                sym,
+                None if docs else f"no presentations / press releases found on BSE since {a.since}",
+            )
     print("walk done: %d symbols listed, %d documents read" % (listed, read))
 
 
@@ -773,17 +819,25 @@ def run(sym, docs, backend, by, limit=None, dry=False):
         prompt = build_prompt(sym, comp, doc, sel, known_metrics(L), fy_end_month)
         if backend == "packet":
             os.makedirs(PACKET_DIR, exist_ok=True)
-            pk = os.path.join(PACKET_DIR, "{}__{}.prompt.txt".format(kpi_docs_slug(sym), doc["att"][:8]))
+            pk = os.path.join(
+                PACKET_DIR, "{}__{}.prompt.txt".format(kpi_docs_slug(sym), doc["att"][:8])
+            )
             with open(pk, "w", encoding="utf-8") as fh:
                 fh.write(prompt)
             meta = {"sym": sym, "doc": doc, "pages": [p for p, _ in sel], "path": path}
             with open(pk.replace(".prompt.txt", ".meta.json"), "w", encoding="utf-8") as fh:
                 json.dump(meta, fh)
-            print("  packet %s (%s %s, %d pages, %d chars)" % (pk, doc["kind"], doc["date"], len(sel), len(prompt)))
+            print(
+                "  packet %s (%s %s, %d pages, %d chars)"
+                % (pk, doc["kind"], doc["date"], len(sel), len(prompt))
+            )
             done += 1
             continue
         if dry:
-            print("  would read %s %s %s (%d pages, %d chars)" % (sym, doc["kind"], doc["date"], len(sel), len(prompt)))
+            print(
+                "  would read %s %s %s (%d pages, %d chars)"
+                % (sym, doc["kind"], doc["date"], len(sel), len(prompt))
+            )
             done += 1
             continue
         ans = gemini_answer(prompt)  # retries 429/5xx internally (up to 6 attempts)
@@ -803,13 +857,27 @@ def run(sym, docs, backend, by, limit=None, dry=False):
         if SAVE_ANSWERS_DIR:
             # persist the raw answer so the commit step can re-ingest it onto origin (§137 clobber fix)
             os.makedirs(SAVE_ANSWERS_DIR, exist_ok=True)
-            stem = os.path.join(SAVE_ANSWERS_DIR, "{}__{}".format(kpi_docs_slug(sym), doc["att"][:8]))
+            stem = os.path.join(
+                SAVE_ANSWERS_DIR, "{}__{}".format(kpi_docs_slug(sym), doc["att"][:8])
+            )
             with open(stem + ".answer.json", "w", encoding="utf-8") as fh:
                 json.dump(ans, fh, ensure_ascii=False)
             with open(stem + ".meta.json", "w", encoding="utf-8") as fh:
-                json.dump({"sym": sym, "doc": doc, "pages": [pp for pp, _ in sel], "path": path, "by": by}, fh)
+                json.dump(
+                    {
+                        "sym": sym,
+                        "doc": doc,
+                        "pages": [pp for pp, _ in sel],
+                        "path": path,
+                        "by": by,
+                    },
+                    fh,
+                )
         w, h, r = ingest(sym, doc, ans, sel, by=by)
-        print("  %s %s %s: written %d, held %d, rejected %d" % (sym, doc["kind"], doc["date"], w, h, r))
+        print(
+            "  %s %s %s: written %d, held %d, rejected %d"
+            % (sym, doc["kind"], doc["date"], w, h, r)
+        )
         done += 1
     return done
 
@@ -830,7 +898,11 @@ def reapply_answers(dirpath):
     whole-file overwrite that silently reverted them (§137). Re-reads each PDF from the cached
     path recorded in the meta; a missing PDF is skipped (the ledger simply keeps origin's cells,
     never a clobber). Idempotent: an answer already merged re-ingests to the same result."""
-    metas = sorted(f for f in os.listdir(dirpath) if f.endswith(".meta.json")) if os.path.isdir(dirpath) else []
+    metas = (
+        sorted(f for f in os.listdir(dirpath) if f.endswith(".meta.json"))
+        if os.path.isdir(dirpath)
+        else []
+    )
     n = tw = th = tr = 0
     for mf in metas:
         meta = json.load(open(os.path.join(dirpath, mf), encoding="utf-8"))
@@ -843,12 +915,17 @@ def reapply_answers(dirpath):
         except Exception as ex:
             print(f"  reapply {mf}: page read FAILED ({str(ex)[:80]}) — skipped")
             continue
-        w, h, r = ingest(meta["sym"], meta["doc"], ans, pages, by=meta.get("by", "gemini"), verbose=False)
+        w, h, r = ingest(
+            meta["sym"], meta["doc"], ans, pages, by=meta.get("by", "gemini"), verbose=False
+        )
         n += 1
         tw += w
         th += h
         tr += r
-    print("reapply: %d answers re-ingested onto current ledgers — written %d, held %d, rejected %d" % (n, tw, th, tr))
+    print(
+        "reapply: %d answers re-ingested onto current ledgers — written %d, held %d, rejected %d"
+        % (n, tw, th, tr)
+    )
 
 
 def main():
@@ -859,7 +936,9 @@ def main():
     ap.add_argument("--backend", default="gemini", choices=["gemini", "packet"])
     ap.add_argument("--by", default=None, help="reader tag stored in provenance")
     ap.add_argument("--limit", type=int, default=None, help="max documents per symbol this run")
-    ap.add_argument("--list", action="store_true", help="only list the documents that would be read")
+    ap.add_argument(
+        "--list", action="store_true", help="only list the documents that would be read"
+    )
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--walk", action="store_true", help="unattended pass over the universe (CI)")
     ap.add_argument("--universe", default="n500")
@@ -869,7 +948,12 @@ def main():
     ap.add_argument("--recheck-days", type=int, default=2)
     ap.add_argument("--ingest", nargs=3, metavar=("SYM", "ATT8", "ANSWER_JSON"))
     ap.add_argument("--show", metavar="SYM")
-    ap.add_argument("--forget", nargs=2, metavar=("SYM", "ATT8"), help="drop a read document so it is read again")
+    ap.add_argument(
+        "--forget",
+        nargs=2,
+        metavar=("SYM", "ATT8"),
+        help="drop a read document so it is read again",
+    )
     ap.add_argument(
         "--next",
         type=int,
@@ -881,8 +965,12 @@ def main():
         metavar="K/N",
         help="with --next: only symbols whose roster index %% N == K, so N parallel routines read disjoint slices",
     )
-    ap.add_argument("--force", action="store_true", help="re-emit packets even for documents already read")
-    ap.add_argument("--report", action="store_true", help="one line per ledger: metrics, cells, docs, held")
+    ap.add_argument(
+        "--force", action="store_true", help="re-emit packets even for documents already read"
+    )
+    ap.add_argument(
+        "--report", action="store_true", help="one line per ledger: metrics, cells, docs, held"
+    )
     ap.add_argument(
         "--save-answers",
         metavar="DIR",
@@ -980,7 +1068,9 @@ def main():
     if a.save_answers:
         globals()["SAVE_ANSWERS_DIR"] = a.save_answers
     by = a.by or (
-        "gemini:" + os.environ.get("GEMINI_MODEL", "gemini-3.6-flash") if a.backend == "gemini" else "claude-session"
+        "gemini:" + os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+        if a.backend == "gemini"
+        else "claude-session"
     )
     if a.walk:
         walk(a, by)
@@ -991,7 +1081,10 @@ def main():
         print("%s: %d documents selected" % (sym, len(docs)))
         if a.list:
             for d in docs:
-                print("  %s %-4s %6.1fMB %s %s" % (d["date"], d["kind"], d["size"] / 1e6, d["att"], d["title"][:50]))
+                print(
+                    "  %s %-4s %6.1fMB %s %s"
+                    % (d["date"], d["kind"], d["size"] / 1e6, d["att"], d["title"][:50])
+                )
             continue
         run(sym, docs, a.backend, by, limit=a.limit, dry=a.dry)
 

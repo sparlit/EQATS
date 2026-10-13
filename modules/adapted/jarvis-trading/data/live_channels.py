@@ -39,7 +39,9 @@ import requests
 from loguru import logger
 
 _CANON = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/watch\?v=([\w-]{11})"')
-_OGURL = re.compile(r'<meta property="og:url" content="https://www\.youtube\.com/watch\?v=([\w-]{11})"')
+_OGURL = re.compile(
+    r'<meta property="og:url" content="https://www\.youtube\.com/watch\?v=([\w-]{11})"'
+)
 _VIDID = re.compile(r'"videoId":"([\w-]{11})"')
 _VIDPATS = (_CANON, _OGURL, _VIDID)
 _EMBED = re.compile(r'"playableInEmbed":(true|false)')
@@ -101,7 +103,14 @@ def _check_api(cid: str, key: str) -> tuple[bool, str | None]:
     try:
         r = requests.get(
             "https://www.googleapis.com/youtube/v3/search",
-            params={"part": "id", "channelId": cid, "eventType": "live", "type": "video", "maxResults": 1, "key": key},
+            params={
+                "part": "id",
+                "channelId": cid,
+                "eventType": "live",
+                "type": "video",
+                "maxResults": 1,
+                "key": key,
+            },
             timeout=10,
         )
         if r.status_code != 200:

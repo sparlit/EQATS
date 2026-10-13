@@ -69,7 +69,9 @@ FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 SCAN = os.path.join(HERE, "_vintage108_scan.json")
 RAW = os.path.join(HERE, "_vintage108_raw.json")
 
-API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 MONTHS = {
     "Jan": 1,
     "Feb": 2,
@@ -254,7 +256,11 @@ def main():
 
     print(
         "candidates pending: %d  (ledger holds %d done)  no-scrip syms: %d"
-        % (len(todo), sum(1 for v in scan["cells"].values() if v.get("state") == "done"), len(scan["no_scrip"]))
+        % (
+            len(todo),
+            sum(1 for v in scan["cells"].values() if v.get("state") == "done"),
+            len(scan["no_scrip"]),
+        )
     )
     todo = todo[:limit]
     if not todo:
@@ -302,10 +308,15 @@ def main():
                 rec["detres"] = cr
                 rec["np_field"] = np_field
                 rec["diff"] = round(cr - st, 4)
-                rec["verdict"] = "FLAG" if abs(cr - st) > max(ABS_TOL, abs(st) * REL_TOL) else "match"
+                rec["verdict"] = (
+                    "FLAG" if abs(cr - st) > max(ABS_TOL, abs(st) * REL_TOL) else "match"
+                )
                 if rec["verdict"] == "FLAG":
                     n_flag += 1
-                    print("  FLAG %-12s %d  stored %10.2f  detres %10.2f  d=%+.2f" % (sym, qe, st, cr, cr - st))
+                    print(
+                        "  FLAG %-12s %d  stored %10.2f  detres %10.2f  d=%+.2f"
+                        % (sym, qe, st, cr, cr - st)
+                    )
         scan["cells"][k] = rec
 
         if i % 20 == 0 or i == len(todo):

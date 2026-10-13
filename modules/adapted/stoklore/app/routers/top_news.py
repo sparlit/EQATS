@@ -74,9 +74,12 @@ def top_news(force: bool = False, offset: int = 0, limit: int = 30):
             token = db.get_cogencis_token()
             if not token:
                 raise HTTPException(
-                    status_code=400, detail="Cogencis isn't configured - add a token in Settings > Cogencis"
+                    status_code=400,
+                    detail="Cogencis isn't configured - add a token in Settings > Cogencis",
                 )
-            db.save_top_news(scraper.get_cogencis_top_news(token, page_no=1, page_size=COGENCIS_PAGE_SIZE))
+            db.save_top_news(
+                scraper.get_cogencis_top_news(token, page_no=1, page_size=COGENCIS_PAGE_SIZE)
+            )
 
         have = db.count_top_news()
         needed = offset + limit
@@ -85,7 +88,9 @@ def top_news(force: bool = False, offset: int = 0, limit: int = 30):
             if token:
                 next_page = have // COGENCIS_PAGE_SIZE + 1
                 while have < needed:
-                    new_items = scraper.get_cogencis_top_news(token, page_no=next_page, page_size=COGENCIS_PAGE_SIZE)
+                    new_items = scraper.get_cogencis_top_news(
+                        token, page_no=next_page, page_size=COGENCIS_PAGE_SIZE
+                    )
                     if not new_items:
                         break
                     db.append_top_news(new_items)
@@ -108,7 +113,9 @@ def top_news(force: bool = False, offset: int = 0, limit: int = 30):
         "items": [
             {
                 **item,
-                "affected_symbols": sorted(symbol_by_isin[i] for i in _isins_in(item["isins"]) if i in symbol_by_isin),
+                "affected_symbols": sorted(
+                    symbol_by_isin[i] for i in _isins_in(item["isins"]) if i in symbol_by_isin
+                ),
             }
             for item in page
         ],

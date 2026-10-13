@@ -81,7 +81,7 @@ def _full_cache_rebuild() -> None:
         else:
             logger.error(f"Cache rebuild failed: {result.stderr[:500]}")
     except Exception as e:
-        logger.exception(f"Cache rebuild error: {e}")
+        logger.error(f"Cache rebuild error: {e}")
 
 
 def _warm_redis() -> None:

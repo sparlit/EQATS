@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.base.decimal_to_precision import ROUND  # noqa: E402
+from ccxt.base.decimal_to_precision import ROUND  # noqa E402
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def helper_str_to_binary(exchange, str):

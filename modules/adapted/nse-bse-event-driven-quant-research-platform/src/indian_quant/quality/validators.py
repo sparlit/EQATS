@@ -26,16 +26,17 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Data quality engine: validators, anomaly checks, completeness, reports."""
 
 
-import itertools
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
+from indian_quant.schemas import MarketBar
+
+if TYPE_CHECKING:
     from indian_quant.instruments.calendar import NSECalendar
-    from indian_quant.schemas import CorporateAction, MarketBar
+    from indian_quant.schemas import CorporateAction
 
 
 @dataclass
@@ -70,7 +71,9 @@ class QualityReport:
             "n_rows": self.n_rows,
             "n_errors": self.n_errors,
             "n_warnings": self.n_warnings,
-            "issues": [{"severity": i.severity, "code": i.code, "detail": i.detail} for i in self.issues],
+            "issues": [
+                {"severity": i.severity, "code": i.code, "detail": i.detail} for i in self.issues
+            ],
         }
 
 
@@ -100,7 +103,9 @@ def detect_duplicates(bars: list[MarketBar], report: QualityReport) -> list[Mark
                     )
                 )
             else:
-                report.add(QualityIssue("warning", "DUPLICATE", f"{bar.instrument_id}@{bar.timestamp}"))
+                report.add(
+                    QualityIssue("warning", "DUPLICATE", f"{bar.instrument_id}@{bar.timestamp}")
+                )
             continue
         seen[key] = bar
         unique.append(bar)
@@ -118,7 +123,7 @@ def detect_price_anomalies(
         by_instrument.setdefault(bar.instrument_id, []).append(bar)
     for instrument_id, series in by_instrument.items():
         ordered = sorted(series, key=lambda b: b.timestamp)
-        for prev, cur in itertools.pairwise(ordered):
+        for prev, cur in zip(ordered, ordered[1:], strict=False):
             if prev.close <= 0:
                 continue
             ret = cur.close / prev.close - 1.0
@@ -127,7 +132,8 @@ def detect_price_anomalies(
                     QualityIssue(
                         "warning",
                         "PRICE_JUMP",
-                        f"{instrument_id} {prev.timestamp.date()}->{cur.timestamp.date()} return {ret:.2%}",
+                        f"{instrument_id} {prev.timestamp.date()}->{cur.timestamp.date()} "
+                        f"return {ret:.2%}",
                     )
                 )
 
@@ -150,12 +156,14 @@ def detect_missing_sessions(
         by_instrument.setdefault(bar.instrument_id, []).append(bar)
     for instrument_id, series in by_instrument.items():
         ordered = sorted(series, key=lambda b: b.timestamp)
-        for prev, cur in itertools.pairwise(ordered):
+        for prev, cur in zip(ordered, ordered[1:], strict=False):
             gap_days = (cur.timestamp.date() - prev.timestamp.date()).days
             if gap_days <= 1 or gap_days > max_gap_days:
                 continue
             if calendar is not None:
-                unexplained = calendar.trading_days_between(prev.timestamp.date(), cur.timestamp.date())
+                unexplained = calendar.trading_days_between(
+                    prev.timestamp.date(), cur.timestamp.date()
+                )
                 unexplained = unexplained[1:-1] if len(unexplained) > 2 else []
             else:
                 missing_weekdays = _weekdays_between(prev.timestamp.date(), cur.timestamp.date())
@@ -165,7 +173,8 @@ def detect_missing_sessions(
                     QualityIssue(
                         "warning",
                         "MISSING_SESSIONS",
-                        f"{instrument_id} missing {len(unexplained)} sessions {unexplained[0]}..{unexplained[-1]}",
+                        f"{instrument_id} missing {len(unexplained)} sessions "
+                        f"{unexplained[0]}..{unexplained[-1]}",
                     )
                 )
 
@@ -185,7 +194,9 @@ def detect_adjustment_discontinuities(
     from indian_quant.schemas import CorporateActionType
 
     price_actions = [
-        a for a in actions if a.action_type in (CorporateActionType.SPLIT, CorporateActionType.BONUS) and a.ex_date
+        a
+        for a in actions
+        if a.action_type in (CorporateActionType.SPLIT, CorporateActionType.BONUS) and a.ex_date
     ]
     if not price_actions:
         return
@@ -201,7 +212,11 @@ def detect_adjustment_discontinuities(
             pre = [b for b in ordered if b.timestamp.date() < ex]
             post = [b for b in ordered if b.timestamp.date() >= ex]
             if not pre or not post:
-                report.add(QualityIssue("warning", "ADJ_NO_WINDOW", f"{instrument_id} no bars around ex-date {ex}"))
+                report.add(
+                    QualityIssue(
+                        "warning", "ADJ_NO_WINDOW", f"{instrument_id} no bars around ex-date {ex}"
+                    )
+                )
                 continue
             pre_close = pre[-1].close
             post_close = post[0].close
@@ -305,7 +320,9 @@ def run_quality_suite(
     validate_ohlc(bars, report)
     unique = detect_duplicates(bars, report)
     detect_price_anomalies(unique, report)
-    detect_missing_sessions(unique, report, holidays=holidays, calendar=calendar, max_gap_days=max_gap_days)
+    detect_missing_sessions(
+        unique, report, holidays=holidays, calendar=calendar, max_gap_days=max_gap_days
+    )
     if actions:
         detect_adjustment_discontinuities(unique, actions, report)
     return report, unique

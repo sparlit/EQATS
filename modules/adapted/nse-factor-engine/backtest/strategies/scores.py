@@ -36,9 +36,14 @@ lowering their effective rank number, making them harder to displace.
 Week 1: no incumbents → no multiplier.
 """
 
-import numpy as np
 import pandas as pd
-from backtest.strategies.config import MOMENTUM_RANK_COLS, SCORE_DEFINITIONS, TIEBREAKER, TIEBREAKER_ASCENDING, N
+from backtest.strategies.config import (
+    MOMENTUM_RANK_COLS,
+    SCORE_DEFINITIONS,
+    TIEBREAKER,
+    TIEBREAKER_ASCENDING,
+    N,
+)
 
 
 def _rerank(df: pd.DataFrame, col: str, ascending: bool) -> pd.Series:
@@ -51,7 +56,7 @@ def apply_score(
     n: int = N,
     tiebreaker: str = TIEBREAKER,
     tiebreaker_ascending: bool = TIEBREAKER_ASCENDING,
-    incumbent_symbols: set | None = None,
+    incumbent_symbols: set = None,
 ) -> pd.DataFrame:
     """
     score_id          : 'C1', 'C3', 'C6', 'C6RSI', 'C7'
@@ -90,9 +95,13 @@ def apply_score(
         if defn.get("incumbent_multiplier") and len(incumbent_symbols) > 0:
             multiplier = defn["incumbent_multiplier"]
             is_incumbent = df["symbol"].isin(incumbent_symbols)
-            df.loc[is_incumbent, "composite_score"] = df.loc[is_incumbent, "composite_score"] / multiplier
+            df.loc[is_incumbent, "composite_score"] = (
+                df.loc[is_incumbent, "composite_score"] / multiplier
+            )
             n_incumbents = is_incumbent.sum()
-            print(f"  [{score_id}] incumbent multiplier {multiplier}x applied to {n_incumbents} stocks")
+            print(
+                f"  [{score_id}] incumbent multiplier {multiplier}x applied to {n_incumbents} stocks"
+            )
 
     # ── weighted composite (future use) ──────────────────────────────────────
     elif defn["type"] == "weighted_composite":
@@ -109,19 +118,24 @@ def apply_score(
         if defn.get("incumbent_multiplier") and len(incumbent_symbols) > 0:
             multiplier = defn["incumbent_multiplier"]
             is_incumbent = df["symbol"].isin(incumbent_symbols)
-            df.loc[is_incumbent, "composite_score"] = df.loc[is_incumbent, "composite_score"] / multiplier
-            print(f"  [{score_id}] incumbent multiplier {multiplier}x applied to {is_incumbent.sum()} stocks")
+            df.loc[is_incumbent, "composite_score"] = (
+                df.loc[is_incumbent, "composite_score"] / multiplier
+            )
+            print(
+                f"  [{score_id}] incumbent multiplier {multiplier}x applied to {is_incumbent.sum()} stocks"
+            )
 
     else:
-        msg = f"Unknown score type: {defn['type']}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown score type: {defn['type']}")
 
     if len(df) == 0:
         print(f"  [{score_id}] WARNING: 0 valid scores — returning empty")
         return pd.DataFrame()
 
     # ── Select top-N with tiebreaker ──────────────────────────────────────────
-    df = df.sort_values(["composite_score", tiebreaker], ascending=[True, tiebreaker_ascending]).reset_index(drop=True)
+    df = df.sort_values(
+        ["composite_score", tiebreaker], ascending=[True, tiebreaker_ascending]
+    ).reset_index(drop=True)
 
     df["final_rank"] = range(1, len(df) + 1)
     top_n = df.head(n).copy()

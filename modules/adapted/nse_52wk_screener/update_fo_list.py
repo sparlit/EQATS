@@ -68,9 +68,16 @@ def fetch() -> pd.DataFrame:
     # the symbol column is typically "SYMBOL" (sometimes with stray spaces)
     sym_col = next((c for c in df.columns if c.upper() == "SYMBOL"), None)
     if sym_col is None:
-        msg = f"no SYMBOL column found; got {list(df.columns)}"
-        raise ValueError(msg)
-    syms = df[sym_col].astype(str).str.strip().str.upper().replace({"": pd.NA}).dropna().drop_duplicates()
+        raise ValueError(f"no SYMBOL column found; got {list(df.columns)}")
+    syms = (
+        df[sym_col]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .replace({"": pd.NA})
+        .dropna()
+        .drop_duplicates()
+    )
     # drop obvious index underlyings; stock intersection with the equity
     # universe drops the rest anyway.
     drop = {"NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50", "SYMBOL"}

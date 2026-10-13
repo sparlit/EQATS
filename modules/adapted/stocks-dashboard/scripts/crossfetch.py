@@ -61,7 +61,8 @@ MONTHS = {
 }
 DEC = re.compile(r"\(?-?[\d,]*\d\.\d\d\)?")
 PFT = re.compile(
-    r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)", re.IGNORECASE
+    r"profit.{0,6}(after tax|for the (period|quarter|year))|profit after tax|net profit|profit/\(loss\)",
+    re.I,
 )
 
 

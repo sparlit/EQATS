@@ -107,7 +107,11 @@ def _create_monitor(email: str, password: str, render_url: str) -> bool:
 
         # Friendly name
         with suppress(Exception):
-            sb.type('input[name="friendly_name"], input[placeholder*="name"]', "NSE-BSE Quant Dashboard", timeout=5)
+            sb.type(
+                'input[name="friendly_name"], input[placeholder*="name"]',
+                "NSE-BSE Quant Dashboard",
+                timeout=5,
+            )
         sb.sleep(0.3)
 
         # URL
@@ -122,7 +126,10 @@ def _create_monitor(email: str, password: str, render_url: str) -> bool:
 
         # Create
         with suppress(Exception):
-            sb.click('button:contains("Create Monitor"), button:contains("Save"), button[type="submit"]', timeout=5)
+            sb.click(
+                'button:contains("Create Monitor"), button:contains("Save"), button[type="submit"]',
+                timeout=5,
+            )
         sb.sleep(3)
 
         # Confirm

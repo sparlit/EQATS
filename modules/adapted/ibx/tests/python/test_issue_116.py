@@ -201,7 +201,9 @@ class TestOrderCallbackGuarantee:
 
         for oid in oids:
             statuses = wrapper._statuses_for(oid)
-            assert len(statuses) > 0, f"Order {oid} produced no order_status callbacks — silent drop in rapid-fire"
+            assert len(statuses) > 0, (
+                f"Order {oid} produced no order_status callbacks — silent drop in rapid-fire"
+            )
 
         # Cancel all
         for oid in oids:

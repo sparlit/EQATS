@@ -692,11 +692,11 @@ Good Volume → Confirmation
 
 def main():
 
-    print()
+    print("")
     print("==============================")
     print(" JOHN'S NSE SCANNER V1")
     print("==============================")
-    print()
+    print("")
 
     results = build_results()
 
@@ -712,7 +712,7 @@ def main():
 
     print("Dashboard:", HTML_FILE)
 
-    print()
+    print("")
 
 
 if __name__ == "__main__":

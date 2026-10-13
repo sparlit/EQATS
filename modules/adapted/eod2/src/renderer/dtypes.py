@@ -26,13 +26,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from defs.config import config
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from .annotations import DrawingManager
     from .breadth_render import BreadthRenderer
     from .candle_render import CandlestickRenderer

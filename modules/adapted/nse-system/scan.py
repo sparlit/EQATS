@@ -38,7 +38,9 @@ def run():
     conn.execute("DELETE FROM scan_results WHERE scan_date=?", (today,))
     conn.execute("DELETE FROM scan_reasons WHERE scan_date=?", (today,))
     medians = scoring.sector_pe_medians(conn)
-    stocks = [r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1 ORDER BY symbol")]
+    stocks = [
+        r[0] for r in conn.execute("SELECT symbol FROM stocks WHERE active=1 ORDER BY symbol")
+    ]
 
     mlmap = {}
     for s, v in conn.execute(
@@ -49,7 +51,8 @@ def run():
         mlmap[s] = v
     sentmap = {}
     for s, v in conn.execute(
-        "SELECT symbol, sentiment_score FROM sentiment_results WHERE created_at >= date('now','-7 days')"
+        "SELECT symbol, sentiment_score FROM sentiment_results "
+        "WHERE created_at >= date('now','-7 days')"
     ).fetchall():
         sentmap[s] = v
     pending = {
@@ -105,7 +108,15 @@ def run():
             flags.append("results pending")
         conn.execute(
             "INSERT OR REPLACE INTO scan_results VALUES (?,?,?,?,?,?,?)",
-            (today, sym, 1 if passed_all else 0, r["composite"], r.get("blend"), "; ".join(flags), None),
+            (
+                today,
+                sym,
+                1 if passed_all else 0,
+                r["composite"],
+                r.get("blend"),
+                "; ".join(flags),
+                None,
+            ),
         )
 
         for name, ok, actual, expected, reason in r["gates"]:
@@ -121,7 +132,11 @@ def run():
                     reason,
                 ),
             )
-        for name, sc, w in [("ROCE", r["roce_s"], 40), ("Growth", r["growth_s"], 30), ("Valuation", r["val_s"], 30)]:
+        for name, sc, w in [
+            ("ROCE", r["roce_s"], 40),
+            ("Growth", r["growth_s"], 30),
+            ("Valuation", r["val_s"], 30),
+        ]:
             conn.execute(
                 "INSERT INTO scan_reasons VALUES (?,?,?,?,?,?,?)",
                 (
@@ -158,7 +173,8 @@ def run():
             )
         elif passed_all and status is None:
             conn.execute(
-                "INSERT INTO pipeline(symbol,status,added_date,updated_date,reason) VALUES(?,?,?,?,?)",
+                "INSERT INTO pipeline(symbol,status,added_date,"
+                "updated_date,reason) VALUES(?,?,?,?,?)",
                 (sym, "Passed Scan", now, now, "Auto: all gates passed"),
             )
         results.append((sym, r["composite"], r.get("blend"), passed_all, recommend))
@@ -166,7 +182,8 @@ def run():
     conn.commit()
     results.sort(key=lambda x: -(x[2] or 0))
     print(
-        f"Scan {today}: scored {len(results)} | passed {passed} | eligible {len(eligible)} | recommended {len(rec_set)}"
+        f"Scan {today}: scored {len(results)} | passed {passed} | "
+        f"eligible {len(eligible)} | recommended {len(rec_set)}"
     )
     print("TOP 10 BY BLEND:")
     for sym, comp, bl, p, rc in results[:10]:

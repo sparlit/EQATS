@@ -69,7 +69,13 @@ PACE_S = 10.0  # trendlyne robots.txt crawl-delay for ClaudeBot — the site's n
 GATE_PP = 1.5  # median |fii diff| vs the Wayback-derived overlap; worse -> drop the batch
 H = {"Accept-Language": "en-US,en;q=0.9"}
 
-INST_START = ("mutual fund", "foreign portfolio", "foreign institutional", "financial institutions", "insurance compan")
+INST_START = (
+    "mutual fund",
+    "foreign portfolio",
+    "foreign institutional",
+    "financial institutions",
+    "insurance compan",
+)
 INST_MORE = (
     "nbfc",
     "alternate investment",
@@ -102,8 +108,8 @@ PUBLIC_MARK = (
 
 def rows_of(page):
     out = []
-    for tr in re.findall(r'<tr class="\s*fw500\s*"\s*>(.*?)</tr>', page, re.DOTALL):
-        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.DOTALL)
+    for tr in re.findall(r'<tr class="\s*fw500\s*"\s*>(.*?)</tr>', page, re.S):
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
         if len(tds) < 2:
             continue
         lab = re.sub(r"\s+", " ", re.sub("<[^>]+>", "", tds[0])).strip()
@@ -191,7 +197,10 @@ def main():
         return s
 
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")])
+        (
+            s["effectiveDate"],
+            [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")],
+        )
         for s in ih["Nifty 500"]
     )
 
@@ -246,7 +255,11 @@ def main():
             time.sleep(PACE_S)
         n += 1
         if n % 25 == 0:
-            print("  ...%d/%d (%.0f min)" % (n, len(todo) + len(overlap_check), (time.time() - t0) / 60), flush=True)
+            print(
+                "  ...%d/%d (%.0f min)"
+                % (n, len(todo) + len(overlap_check), (time.time() - t0) / 60),
+                flush=True,
+            )
         if not page:
             miss += 1
             continue
@@ -259,7 +272,9 @@ def main():
             held += 1
             continue  # no FPI row -> hold, never write a zero
         if (s, qe) in wb:
-            agree.append((abs(agg["fii"] - wb[(s, qe)][1]), abs(agg["dii"] - wb[(s, qe)][2]), s, qe))
+            agree.append(
+                (abs(agg["fii"] - wb[(s, qe)][1]), abs(agg["dii"] - wb[(s, qe)][2]), s, qe)
+            )
         else:
             results[(s, qe)] = agg
 
@@ -276,15 +291,19 @@ def main():
         for w in worst:
             print(f"   worst: {w[2]} {w[3]} fii diff {w[0]:.2f}", flush=True)
         if med_f > GATE_PP:
-            msg = f"STOP: overlap median {med_f:.2f}pp > {GATE_PP:.1f}pp — routes disagree, writing NOTHING"
-            raise SystemExit(msg)
+            raise SystemExit(
+                f"STOP: overlap median {med_f:.2f}pp > {GATE_PP:.1f}pp — routes disagree, writing NOTHING"
+            )
     else:
         print("\n⚠ no overlap sample obtained — refusing to write without validation", flush=True)
         if results:
-            msg = "STOP: unvalidated"
-            raise SystemExit(msg)
+            raise SystemExit("STOP: unvalidated")
 
-    print("assembled %d new cells (%d held for fii=0/no-rows, %d fetch-miss)" % (len(results), held, miss), flush=True)
+    print(
+        "assembled %d new cells (%d held for fii=0/no-rows, %d fetch-miss)"
+        % (len(results), held, miss),
+        flush=True,
+    )
     if a.dry or not results:
         print("(dry run or nothing to write)")
         return

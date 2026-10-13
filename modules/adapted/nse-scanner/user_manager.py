@@ -79,7 +79,10 @@ def log_action(user_id, action):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO user_logs (user_id, action, timestamp) VALUES (?, ?, ?)", (user_id, action, now))
+    c.execute(
+        "INSERT INTO user_logs (user_id, action, timestamp) VALUES (?, ?, ?)",
+        (user_id, action, now),
+    )
     conn.commit()
     conn.close()
 
@@ -93,9 +96,19 @@ def sync_json():
     c = conn.cursor()
     users = []
     for row in c.execute("SELECT * FROM users"):
-        users.append({"id": row[0], "name": row[1], "phone": row[2], "join_date": row[3], "last_active": row[4]})
+        users.append(
+            {
+                "id": row[0],
+                "name": row[1],
+                "phone": row[2],
+                "join_date": row[3],
+                "last_active": row[4],
+            }
+        )
     logs = []
-    for row in c.execute("SELECT user_id, action, timestamp FROM user_logs ORDER BY log_id DESC LIMIT 100"):
+    for row in c.execute(
+        "SELECT user_id, action, timestamp FROM user_logs ORDER BY log_id DESC LIMIT 100"
+    ):
         logs.append({"user_id": row[0], "action": row[1], "timestamp": row[2]})
     conn.close()
     data = {"users": users, "logs": logs}

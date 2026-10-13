@@ -26,18 +26,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Telegram market summary, compact ACTION cards and lifecycle-aware WATCH guidance."""
 
 from collections import Counter
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 from telegram_dashboard import status_icon, status_label
 
+from .candidates import Candidate
+from .freshness import FreshnessStatus
+from .portfolio_risk import Allocation
 from .v3_telegram import currency, paginate_cards, text, ticker
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from .candidates import Candidate
-    from .freshness import FreshnessStatus
-    from .portfolio_risk import Allocation
 
 HORIZON_LABELS = {"1M": "1 month", "3M": "3 months", "6M": "6 months", "12M": "12 months"}
 ACTION_SECTION_LABELS = {
@@ -102,7 +98,10 @@ def _chunk_cards(cards: list[str], header: str, limit: int = 3800) -> list[str]:
     total = len(messages)
     if total == 1:
         return messages
-    return [message.replace(header, f"{header} — {index}/{total}", 1) for index, message in enumerate(messages, 1)]
+    return [
+        message.replace(header, f"{header} — {index}/{total}", 1)
+        for index, message in enumerate(messages, 1)
+    ]
 
 
 def _rank_badge(rank: int) -> str:
@@ -113,9 +112,13 @@ def _timing(candidate: Candidate) -> str:
     return candidate.timing_state or str(candidate.metrics.get("timing_state", "WEAK"))
 
 
-def _action_card(candidate: Candidate, rank: int, allocations: dict[tuple[str, str], Allocation] | None) -> str:
+def _action_card(
+    candidate: Candidate, rank: int, allocations: dict[tuple[str, str], Allocation] | None
+) -> str:
     del allocations
-    trigger = TRIGGER_LABELS.get(candidate.entry_trigger, candidate.entry_trigger.replace("_", " ").upper())
+    trigger = TRIGGER_LABELS.get(
+        candidate.entry_trigger, candidate.entry_trigger.replace("_", " ").upper()
+    )
     _timing(candidate)
     route = candidate.entry_route or "FRESH ENTRY"
     htf = candidate.htf_state or "NEUTRAL"
@@ -141,10 +144,14 @@ def _action_card(candidate: Candidate, rank: int, allocations: dict[tuple[str, s
     return "\n".join(lines)
 
 
-def _action_messages(action_rows: list[Candidate], allocations: dict[tuple[str, str], Allocation] | None) -> list[str]:
+def _action_messages(
+    action_rows: list[Candidate], allocations: dict[tuple[str, str], Allocation] | None
+) -> list[str]:
     if not action_rows:
         return []
-    cards = [_action_card(candidate, rank, allocations) for rank, candidate in enumerate(action_rows, 1)]
+    cards = [
+        _action_card(candidate, rank, allocations) for rank, candidate in enumerate(action_rows, 1)
+    ]
     return paginate_cards(
         "📊 <b>NSE V3 — DAILY WATCHLIST</b>\n<b>ENTRY PLANS • SIMULATED ONLY</b>",
         cards,
@@ -220,7 +227,12 @@ def _watch_card(candidate: Candidate, rank: int) -> str:
             lines.append(f"Planned entry: {_price(low)}–{_price(high)}")
     else:
         lines.append("Planned entry: Awaiting a valid structure")
-    lines.extend([f"Why it is here: {text(_watch_reason(candidate))}", "Next: Wait for a confirmed end-of-day signal."])
+    lines.extend(
+        [
+            f"Why it is here: {text(_watch_reason(candidate))}",
+            "Next: Wait for a confirmed end-of-day signal.",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -304,7 +316,13 @@ def render_candidate_preview(
 ) -> str:
     rows = [candidate for candidates in grouped.values() for candidate in candidates]
     messages = render_candidate_messages(
-        rows[:max_candidates], [], regime, trade_date, freshness=freshness, evaluated=evaluated, allocations=allocations
+        rows[:max_candidates],
+        [],
+        regime,
+        trade_date,
+        freshness=freshness,
+        evaluated=evaluated,
+        allocations=allocations,
     )
     text = "\n\n".join(messages)
     if rows:
@@ -317,6 +335,7 @@ def render_candidate_preview(
             "📊 KJ NSE SCANNER V2\n" + text + f"\n\nEntry Trigger: {_price(first.entry)}\n"
             "Hybrid Hull (fixed):\n"
             f"Daily: {'Bullish' if first.metrics.get('daily_bullish') else 'Not aligned'}\n"
-            f"Weekly: {'Bullish' if first.metrics.get('weekly_bullish') else 'Not aligned'}" + allocation_text
+            f"Weekly: {'Bullish' if first.metrics.get('weekly_bullish') else 'Not aligned'}"
+            + allocation_text
         )
     return text

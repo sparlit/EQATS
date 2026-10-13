@@ -56,13 +56,17 @@ MON = {
     "nov": 11,
     "dec": 12,
 }
-GOOD = re.compile(r"financial result|integrated filing|outcome of board|audited financial|statement of", re.IGNORECASE)
+GOOD = re.compile(
+    r"financial result|integrated filing|outcome of board|audited financial|statement of", re.I
+)
 BAD = re.compile(
     r"newspaper|analyst|investor (presentation|meet)|intimation of|transcript|earnings call|trading window|record date|presentation|press release",
-    re.IGNORECASE,
+    re.I,
 )
-CONS = re.compile(r"consolidat", re.IGNORECASE)
-PFT = re.compile(r"profit.{0,14}(after tax|for the (period|quarter|year))|profit after tax|net profit", re.IGNORECASE)
+CONS = re.compile(r"consolidat", re.I)
+PFT = re.compile(
+    r"profit.{0,14}(after tax|for the (period|quarter|year))|profit after tax|net profit", re.I
+)
 
 
 def parse_an(dt):
@@ -133,7 +137,6 @@ def main():
                 import time as _t
 
                 _t.sleep(3)
-        return None
 
     sget("https://www.nseindia.com/")
     got = 0
@@ -166,7 +169,7 @@ def main():
             pa = parse_an(rec.get("an_dt", ""))
             if not pa or qe_from_ann(*pa) != qe:
                 continue
-            fr = 2 if re.search(r"financial result|audited financial", blob, re.IGNORECASE) else 1
+            fr = 2 if re.search(r"financial result|audited financial", blob, re.I) else 1
             cands.append((fr, rec.get("an_dt", ""), f))
         cands.sort(reverse=True)
         best = None
@@ -185,7 +188,10 @@ def main():
                 break  # have a consolidated PDF
         if best:
             open(os.path.join(VPDF, "%s_%d_nse.pdf" % (sym, qe)), "wb").write(best[0])
-            print("GOT %-11s %d  sc=%.1f %dKB %s" % (sym, qe, bestsc, len(best[0]) // 1024, best[1]), flush=True)
+            print(
+                "GOT %-11s %d  sc=%.1f %dKB %s" % (sym, qe, bestsc, len(best[0]) // 1024, best[1]),
+                flush=True,
+            )
             log[key] = "got" if bestsc >= 5 else "got-nocon"
             got += 1
         else:

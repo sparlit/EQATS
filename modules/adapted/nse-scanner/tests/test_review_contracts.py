@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from pathlib import Path
 
 import pytest
 from src.portfolio_review import (
@@ -88,8 +87,7 @@ def test_validator_rejects_fundamental_claim_without_evidence():
 def test_repository_preserves_monthly_history(tmp_path):
     review = _valid_review()
     dated, latest = save_review(review, tmp_path)
-    assert dated.exists()
-    assert latest.exists()
+    assert dated.exists() and latest.exists()
     assert load_latest_review("TCS", tmp_path)["review_period"] == "2026-08"
     with pytest.raises(ReviewAlreadyExistsError):
         save_review(review, tmp_path)

@@ -77,7 +77,12 @@ def validate_review(review: dict[str, Any], expected_symbol: str | None = None) 
         errors.append("review_date must be YYYY-MM-DD")
 
     period = str(review.get("review_period", ""))
-    if len(period) != 7 or period[4:5] != "-" or not period[:4].isdigit() or not period[5:].isdigit():
+    if (
+        len(period) != 7
+        or period[4:5] != "-"
+        or not period[:4].isdigit()
+        or not period[5:].isdigit()
+    ):
         errors.append("review_period must be YYYY-MM")
     elif not 1 <= int(period[5:]) <= 12:
         errors.append("review_period month must be between 01 and 12")
@@ -114,7 +119,10 @@ def validate_review(review: dict[str, Any], expected_symbol: str | None = None) 
         if review.get("management_status") != "UNKNOWN":
             errors.append("Technical-only/failed evidence requires management_status=UNKNOWN")
 
-    if evidence_status == "FAILED" and review.get("suggested_action") not in {"REVIEW", "INSUFFICIENT_DATA"}:
+    if evidence_status == "FAILED" and review.get("suggested_action") not in {
+        "REVIEW",
+        "INSUFFICIENT_DATA",
+    }:
         errors.append("Failed evidence permits only REVIEW or INSUFFICIENT_DATA")
 
     return errors

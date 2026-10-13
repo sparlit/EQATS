@@ -38,7 +38,7 @@ import ccxt.async_support as ccxt  # noqa: E402
 
 async def main():
     exchange = ccxt.binance()
-    for _i in range(100):
+    for _i in range(0, 100):
         # this can be any call instead of fetch_ticker, really
         print(await exchange.fetch_ticker("ETH/BTC"))
     await exchange.close()

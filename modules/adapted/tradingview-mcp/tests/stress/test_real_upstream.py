@@ -46,11 +46,9 @@ counts as "did not hang".
 """
 
 import asyncio
-import os
 import time
 
 import pytest
-from tradingview_mcp.core.errors import BatchExecutionError, is_error
 
 # Apply the stress marker to every test in this module. Run with
 # ``pytest -m stress`` — otherwise pytest skips them.
@@ -88,7 +86,9 @@ async def test_yahoo_price_returns_within_ceiling():
     result = await asyncio.wait_for(yahoo_price("AAPL"), timeout=SINGLE_SYMBOL_CEILING_S)
     elapsed = time.perf_counter() - t0
 
-    assert elapsed < SINGLE_SYMBOL_CEILING_S, f"yahoo_price took {elapsed:.1f}s (ceiling {SINGLE_SYMBOL_CEILING_S}s)"
+    assert elapsed < SINGLE_SYMBOL_CEILING_S, (
+        f"yahoo_price took {elapsed:.1f}s (ceiling {SINGLE_SYMBOL_CEILING_S}s)"
+    )
     # Either a real quote dict, or an error envelope — both prove the call
     # returned without hanging.
     assert isinstance(result, dict)
@@ -339,7 +339,8 @@ async def test_mixed_parallel_tools_complete():
 
     assert len(results) == 3
     assert elapsed < BATCHED_SCAN_CEILING_S, (
-        f"Mixed parallel run took {elapsed:.1f}s; expected the slowest individual tool. Event loop may be blocked."
+        f"Mixed parallel run took {elapsed:.1f}s; expected the slowest "
+        f"individual tool. Event loop may be blocked."
     )
 
     # None of the three should leak an unhandled exception. Each may return

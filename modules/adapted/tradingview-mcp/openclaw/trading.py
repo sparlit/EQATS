@@ -43,12 +43,18 @@ import json
 import os
 import sys
 
-candidates = glob.glob(os.path.expanduser("~/.local/share/uv/tools/tradingview-mcp-server/lib/python*/site-packages"))
+candidates = glob.glob(
+    os.path.expanduser("~/.local/share/uv/tools/tradingview-mcp-server/lib/python*/site-packages")
+)
 if candidates:
     sys.path.insert(0, candidates[0])
 
 try:
-    from tradingview_mcp.core.services.backtest_service import compare_strategies, run_backtest, walk_forward_backtest
+    from tradingview_mcp.core.services.backtest_service import (
+        compare_strategies,
+        run_backtest,
+        walk_forward_backtest,
+    )
 
     # marketaux_service replaced the old Reddit-based sentiment_service with
     # the same function name and output shape (licensed news sentiment).
@@ -69,7 +75,14 @@ def _require_symbol():
     instead of letting ``args[0]`` raise an opaque IndexError.
     """
     if not args:
-        print(json.dumps({"error": f"Missing required symbol argument for '{cmd}'. Run 'trading.py help' for usage."}))
+        print(
+            json.dumps(
+                {
+                    "error": f"Missing required symbol argument for '{cmd}'. "
+                    f"Run 'trading.py help' for usage."
+                }
+            )
+        )
         sys.exit(1)
     return args[0]
 

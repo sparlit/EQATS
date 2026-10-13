@@ -70,7 +70,10 @@ def code_lookup(code):
         return None
     for r in rows if isinstance(rows, list) else []:
         dis = re.sub(r"<[^>]+>", "", (r.get("pdt_dis_nm") or "")).replace("&nbsp;", " ")
-        m = re.search(r"(INE[0-9A-Z]{9}|IN[0-9A-Z]{10})\s*,\s*(?:([A-Z0-9&_-]+)\s*,\s*)?(\d+)\s*$", dis.strip())
+        m = re.search(
+            r"(INE[0-9A-Z]{9}|IN[0-9A-Z]{10})\s*,\s*(?:([A-Z0-9&_-]+)\s*,\s*)?(\d+)\s*$",
+            dis.strip(),
+        )
         if not m or m.group(3) != str(code):
             continue
         link = r.get("link_src") or ""
@@ -111,11 +114,17 @@ def main():
         if hit:
             hit["resolved_via"] = how
             ids[sym] = hit
-            print("  %-12s -> sc_id %-6s (%s) %s" % (sym, hit["sc_id"], hit.get("name", "")[:30], how))
+            print(
+                "  %-12s -> sc_id %-6s (%s) %s" % (sym, hit["sc_id"], hit.get("name", "")[:30], how)
+            )
         else:
             print(
                 "  %-12s -> UNRESOLVED (alias=%s code=%s)"
-                % (sym, alias.get(sym) or rmap.get(sym), bse.get(sym) or (ov.get(sym) or {}).get("scrip"))
+                % (
+                    sym,
+                    alias.get(sym) or rmap.get(sym),
+                    bse.get(sym) or (ov.get(sym) or {}).get("scrip"),
+                )
             )
     json.dump(ids, open(A._MC_IDS_PATH, "w"), indent=0, sort_keys=True)
 

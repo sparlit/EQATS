@@ -80,7 +80,6 @@ import argparse
 import io
 import re
 import sys
-import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
@@ -243,11 +242,17 @@ def old_bhav_url(d: date):
 
 
 def udiff_url(d: date):
-    return f"https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{d.strftime('%Y%m%d')}_F_0000.csv.zip"
+    return (
+        "https://nsearchives.nseindia.com/content/cm/"
+        f"BhavCopy_NSE_CM_0_0_0_{d.strftime('%Y%m%d')}_F_0000.csv.zip"
+    )
 
 
 def full_bhav_url(d: date):
-    return f"https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{d.strftime('%d%m%Y')}.csv"
+    return (
+        "https://nsearchives.nseindia.com/products/content/"
+        f"sec_bhavdata_full_{d.strftime('%d%m%Y')}.csv"
+    )
 
 
 def candidate_urls(d: date):
@@ -378,7 +383,7 @@ def download_history(days, refresh=False):
         jobs = [pool.submit(download_day, d, False) for d in requested]
 
         for i, fut in enumerate(as_completed(jobs), 1):
-            _d, ok, mode = fut.result()
+            d, ok, mode = fut.result()
 
             if ok:
                 success += 1
@@ -407,12 +412,11 @@ def download_history(days, refresh=False):
     print(f"Unavailable     : {failed:,}")
 
     if not list(DAILY.glob("nse_*.csv")):
-        msg = (
+        raise RuntimeError(
             "\nNSE DOWNLOAD ERROR\n"
             "No valid NSE daily files exist in data/daily.\n"
             "NSE may be temporarily blocking archive requests.\n"
         )
-        raise RuntimeError(msg)
 
 
 # ============================================================
@@ -489,7 +493,12 @@ def normalize_daily(raw, forced_date):
     else:
         out["SERIES"] = ""
 
-    out = out[out["SYMBOL"].notna() & (out["SYMBOL"] != "") & (out["SYMBOL"] != "NAN") & out["CLOSE"].notna()]
+    out = out[
+        out["SYMBOL"].notna()
+        & (out["SYMBOL"] != "")
+        & (out["SYMBOL"] != "NAN")
+        & out["CLOSE"].notna()
+    ]
 
     return out.drop_duplicates(["DATE", "SYMBOL"], keep="last")
 
@@ -519,14 +528,17 @@ def load_all_daily():
             continue
 
     if not frames:
-        msg = "No valid daily data files could be loaded."
-        raise RuntimeError(msg)
+        raise RuntimeError("No valid daily data files could be loaded.")
 
     data = pd.concat(frames, ignore_index=True)
 
     data["DATE"] = pd.to_datetime(data["DATE"])
 
-    data = data.drop_duplicates(["DATE", "SYMBOL"], keep="last").sort_values(["SYMBOL", "DATE"]).reset_index(drop=True)
+    data = (
+        data.drop_duplicates(["DATE", "SYMBOL"], keep="last")
+        .sort_values(["SYMBOL", "DATE"])
+        .reset_index(drop=True)
+    )
 
     latest = data["DATE"].max()
     age = (pd.Timestamp.today().normalize() - latest).days
@@ -536,7 +548,10 @@ def load_all_daily():
 
     if age > STALE_WARNING_DAYS:
         print(f"WARNING: latest available NSE session is {age} calendar days old.")
-        print("The scanner will analyse the latest AVAILABLE session and will not invent a current/future date.")
+        print(
+            "The scanner will analyse the latest AVAILABLE session "
+            "and will not invent a current/future date."
+        )
 
     return data
 
@@ -574,10 +589,11 @@ def RSI(s, n=14):
     rs = ag / al.replace(0, np.nan)
     out = 100 - (100 / (1 + rs))
 
-    return out.where(
+    out = out.where(
         ~((al == 0) & (ag > 0)),
         100,
     )
+    return out
 
 
 def ATR(df, n=14):
@@ -1054,7 +1070,11 @@ def current_factors(df):
 
     # MACD
     factors["MACD"] = (
-        1 if x["MACD_HIST"] > 0 and x["MACD_DELTA"] > 0 else -1 if x["MACD_HIST"] < 0 and x["MACD_DELTA"] < 0 else 0
+        1
+        if x["MACD_HIST"] > 0 and x["MACD_DELTA"] > 0
+        else -1
+        if x["MACD_HIST"] < 0 and x["MACD_DELTA"] < 0
+        else 0
     )
 
     # Gap
@@ -1063,7 +1083,11 @@ def current_factors(df):
     # Delivery
     if pd.notna(x["DELIVERY_PCT"]):
         factors["Delivery"] = (
-            1 if x["RET1"] > 0 and x["DELIVERY_PCT"] >= 50 else -1 if x["RET1"] < 0 and x["DELIVERY_PCT"] >= 50 else 0
+            1
+            if x["RET1"] > 0 and x["DELIVERY_PCT"] >= 50
+            else -1
+            if x["RET1"] < 0 and x["DELIVERY_PCT"] >= 50
+            else 0
         )
     else:
         factors["Delivery"] = 0
@@ -1071,7 +1095,9 @@ def current_factors(df):
     # Liquidity
     avg_value = (df["CLOSE"] * df["VOLUME"].fillna(0)).rolling(20).mean().iloc[-1]
 
-    factors["Liquidity"] = 1 if avg_value >= 100_000_000 else 0 if avg_value >= MIN_AVG_VALUE else -1
+    factors["Liquidity"] = (
+        1 if avg_value >= 100_000_000 else 0 if avg_value >= MIN_AVG_VALUE else -1
+    )
 
     return factors, avg_value
 
@@ -1221,7 +1247,15 @@ def historical_score(hist):
         )
     )
 
-    quality = "STRONG" if score >= 70 else "POSITIVE" if score >= 57 else "NEGATIVE" if score <= 43 else "MIXED"
+    quality = (
+        "STRONG"
+        if score >= 70
+        else "POSITIVE"
+        if score >= 57
+        else "NEGATIVE"
+        if score <= 43
+        else "MIXED"
+    )
 
     return round(score, 2), quality
 
@@ -1293,7 +1327,9 @@ def intraday_score(symbol):
                 "INTRADAY_SCORE": np.nan,
             }
 
-        vwap = (x["CLOSE"] * x["VOLUME"]).rolling(20).sum() / x["VOLUME"].rolling(20).sum().replace(0, np.nan)
+        vwap = (x["CLOSE"] * x["VOLUME"]).rolling(20).sum() / x["VOLUME"].rolling(20).sum().replace(
+            0, np.nan
+        )
 
         last = x.iloc[-1]
         s = 0
@@ -1397,7 +1433,9 @@ def analyse_symbol(symbol, raw_df):
         else 50
     )
 
-    swing_score = 0.35 * tech_score_100 + 0.40 * swing_hist_win + 0.15 * hscore + 0.10 * trend_quality
+    swing_score = (
+        0.35 * tech_score_100 + 0.40 * swing_hist_win + 0.15 * hscore + 0.10 * trend_quality
+    )
 
     # High volatility is not automatically bad, but it increases risk.
     atr_pct = safe_float(x["ATR_PCT"])
@@ -1633,7 +1671,9 @@ def position_selection(all_results, next_day, swing):
 
     # Overall research score. This is a ranking aid, not a price forecast.
     df["POSITION_SCORE"] = (
-        (0.30 * next_s + 0.30 * swing_s + 0.25 * hist_s + 0.15 * intra_component - risk_penalty).clip(0, 100).round(2)
+        (0.30 * next_s + 0.30 * swing_s + 0.25 * hist_s + 0.15 * intra_component - risk_penalty)
+        .clip(0, 100)
+        .round(2)
     )
 
     # Explicit agreement classification.
@@ -1675,7 +1715,7 @@ def position_selection(all_results, next_day, swing):
         ascending=[False, False, False, False],
     ).reset_index(drop=True)
     df.insert(0, "POSITION_RANK", np.arange(1, len(df) + 1))
-    df = df.drop(columns=["_CONF_RANK"])
+    df.drop(columns=["_CONF_RANK"], inplace=True)
 
     overlap = df[df["OVERLAP"]].copy()
     return df, overlap
@@ -1707,9 +1747,13 @@ def save_results(all_results):
     )
 
     # Separate ranks.
-    all_ranked["NEXT_DAY_RANK"] = all_ranked["NEXT_DAY_SCORE"].rank(method="min", ascending=False).astype(int)
+    all_ranked["NEXT_DAY_RANK"] = (
+        all_ranked["NEXT_DAY_SCORE"].rank(method="min", ascending=False).astype(int)
+    )
 
-    all_ranked["SWING_RANK"] = all_ranked["SWING_SCORE"].rank(method="min", ascending=False).astype(int)
+    all_ranked["SWING_RANK"] = (
+        all_ranked["SWING_SCORE"].rank(method="min", ascending=False).astype(int)
+    )
 
     next_day = next_day.copy()
     swing = swing.copy()
@@ -2007,7 +2051,11 @@ def train_ml(panel):
         m = make_pipeline(
             SimpleImputer(strategy="median"),
             HistGradientBoostingRegressor(
-                max_iter=300, learning_rate=0.05, max_leaf_nodes=31, l2_regularization=1.0, random_state=ML_RANDOM_STATE
+                max_iter=300,
+                learning_rate=0.05,
+                max_leaf_nodes=31,
+                l2_regularization=1.0,
+                random_state=ML_RANDOM_STATE,
             ),
         )
         m.fit(a[features], a[target])
@@ -2071,7 +2119,9 @@ def apply_ml(data, results):
         latest["ML_NEXTDAY_RANK"] = latest["ML_NEXTDAY_SCORE"].rank(ascending=False, method="min")
         latest["ML_SWING_RANK"] = latest["ML_SWING_SCORE"].rank(ascending=False, method="min")
         out = results.merge(
-            latest[["SYMBOL", "ML_NEXTDAY_SCORE", "ML_SWING_SCORE", "ML_NEXTDAY_RANK", "ML_SWING_RANK"]],
+            latest[
+                ["SYMBOL", "ML_NEXTDAY_SCORE", "ML_SWING_SCORE", "ML_NEXTDAY_RANK", "ML_SWING_RANK"]
+            ],
             on="SYMBOL",
             how="left",
         )
@@ -2089,7 +2139,8 @@ def apply_ml(data, results):
             .fillna(50)
             .where(
                 out["ML_SWING_SCORE"].isna(),
-                0.70 * pd.to_numeric(out["SWING_SCORE"], errors="coerce").fillna(50) + 0.30 * out["ML_SWING_SCORE"],
+                0.70 * pd.to_numeric(out["SWING_SCORE"], errors="coerce").fillna(50)
+                + 0.30 * out["ML_SWING_SCORE"],
             )
         )
         out["ML_DIRECTION"] = np.where(
@@ -2166,8 +2217,14 @@ def main():
     print("=" * 72)
     print("SCAN COMPLETE")
     print("=" * 72)
-    print("Historical statistics describe what happened after similar historical setups; they are not guarantees.")
-    print("5x leverage magnifies losses as well as gains. LEVERAGE_RISK is a warning, not a recommendation.")
+    print(
+        "Historical statistics describe what happened after "
+        "similar historical setups; they are not guarantees."
+    )
+    print(
+        "5x leverage magnifies losses as well as gains. "
+        "LEVERAGE_RISK is a warning, not a recommendation."
+    )
 
     return 0
 

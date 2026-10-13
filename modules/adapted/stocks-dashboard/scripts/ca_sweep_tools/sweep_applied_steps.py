@@ -90,7 +90,10 @@ t0 = time.time()
 D = json.loads(gzip.decompress(open(BIN, "rb").read()))
 data = D.get("data", D)
 syms = [s for s, v in data.items() if isinstance(v, dict) and v.get("d")]
-print("bin: %d symbols, end %s, loaded %.0fs" % (len(syms), D.get("end"), time.time() - t0), flush=True)
+print(
+    "bin: %d symbols, end %s, loaded %.0fs" % (len(syms), D.get("end"), time.time() - t0),
+    flush=True,
+)
 
 # era-name -> bin-key bridge (same rule update_sf_data.raw_close uses)
 rmap = json.load(open(os.path.join(SCR, "_rename_map.json")))
@@ -209,7 +212,7 @@ for s in syms:
     if zc:
         zero_close[s] = zc
     ok = (rc > 0) & (c > 0)
-    cover[s] = [int(ok.sum()), len(c)]
+    cover[s] = [int(ok.sum()), int(len(c))]
     fbar = {bar_of(s, d): f for d, f in fact.get(s, {}).items()}
     kbar = {bar_of(s, d) for d in keep.get(s, ())}
     dbar = {bar_of(s, d): f for d, f in dem.get(s, {}).items()}
@@ -298,17 +301,29 @@ summary = {
     "steps_by_class": dict(Counter(r["cls"] for r in steps)),
     "inferred_by_verdict": dict(Counter(r.get("verdict") for r in steps if r["cls"] == "inferred")),
     "inferred_phantom_candidates_by_year": dict(
-        Counter(str(r["ymd"])[:4] for r in steps if r["cls"] == "inferred" and r.get("verdict") == "crash-like")
+        Counter(
+            str(r["ymd"])[:4]
+            for r in steps
+            if r["cls"] == "inferred" and r.get("verdict") == "crash-like"
+        )
     ),
     "unapplied_by_class": dict(Counter(r["cls"] for r in unapplied)),
-    "unadjusted_move_by_verdict": dict(Counter(r.get("verdict") for r in unapplied if r["cls"] == "unadjusted_move")),
+    "unadjusted_move_by_verdict": dict(
+        Counter(r.get("verdict") for r in unapplied if r["cls"] == "unadjusted_move")
+    ),
     "zero_close_symbols": len(zero_close),
     "zero_close_bars": sum(zero_close.values()),
     "symbols_with_no_raw_coverage": sum(1 for s in syms if cover[s][0] == 0),
     "elapsed_s": round(time.time() - t0),
 }
 json.dump(
-    {"summary": summary, "steps": steps, "unapplied": unapplied, "zero_close": zero_close, "coverage": cover},
+    {
+        "summary": summary,
+        "steps": steps,
+        "unapplied": unapplied,
+        "zero_close": zero_close,
+        "coverage": cover,
+    },
     open(OUT, "w"),
 )
 print(json.dumps(summary, indent=1), flush=True)

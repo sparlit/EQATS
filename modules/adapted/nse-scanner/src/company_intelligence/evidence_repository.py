@@ -27,15 +27,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from datetime import UTC, datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .evidence_registry import RegisteredEvidence
 from .models import EvidenceItem
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 
 class EvidenceRepository:
@@ -52,8 +49,7 @@ class EvidenceRepository:
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{category}_{record.evidence_id[:16]}.json"
         if path.exists():
-            msg = f"Evidence record already exists: {path}"
-            raise FileExistsError(msg)
+            raise FileExistsError(f"Evidence record already exists: {path}")
 
         payload = {
             **record.to_dict(),

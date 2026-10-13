@@ -30,7 +30,9 @@ from sklearn.pipeline import Pipeline
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )
     X = df.text
     y = df.label
     return X, y
@@ -39,7 +41,13 @@ def readcsv():
 def knn_ngram(X, y):
     """Different feature sets with KNN"""
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
-    knn = Pipeline([("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("knn", KNeighborsClassifier())])
+    knn = Pipeline(
+        [
+            ("vect", CountVectorizer()),
+            ("tfidf", TfidfTransformer()),
+            ("knn", KNeighborsClassifier()),
+        ]
+    )
     knn = knn.fit(X_train, y_train)
     ypredknn = knn.predict(X_test)
     print("Original Accuracy: Unigram tfidf")
@@ -58,7 +66,11 @@ def knn_ngram(X, y):
     print(metrics.accuracy_score(y_test, ypredknn))
     print(metrics.classification_report(y_test, ypredknn))
     knn = Pipeline(
-        [("vect", CountVectorizer(ngram_range=(1, 2))), ("tfidf", TfidfTransformer()), ("knn", KNeighborsClassifier())]
+        [
+            ("vect", CountVectorizer(ngram_range=(1, 2))),
+            ("tfidf", TfidfTransformer()),
+            ("knn", KNeighborsClassifier()),
+        ]
     )
     knn = knn.fit(X_train, y_train)
     ypredknn = knn.predict(X_test)
@@ -72,7 +84,11 @@ def knn_ngram(X, y):
     print(metrics.accuracy_score(y_test, ypredknn))
     print(metrics.classification_report(y_test, ypredknn))
     knn = Pipeline(
-        [("vect", CountVectorizer(ngram_range=(1, 3))), ("tfidf", TfidfTransformer()), ("knn", KNeighborsClassifier())]
+        [
+            ("vect", CountVectorizer(ngram_range=(1, 3))),
+            ("tfidf", TfidfTransformer()),
+            ("knn", KNeighborsClassifier()),
+        ]
     )
     knn = knn.fit(X_train, y_train)
     ypredknn = knn.predict(X_test)

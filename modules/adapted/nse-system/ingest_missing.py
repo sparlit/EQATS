@@ -35,7 +35,10 @@ def main():
     r = conn.execute("SELECT MAX(date) FROM prices_daily").fetchone()
     latest = data_quality._parse_date(r[0])
     cutoff = (latest - dt.timedelta(days=10)).isoformat()
-    recent = {x[0] for x in conn.execute("SELECT DISTINCT symbol FROM prices_daily WHERE date>=?", (cutoff,))}
+    recent = {
+        x[0]
+        for x in conn.execute("SELECT DISTINCT symbol FROM prices_daily WHERE date>=?", (cutoff,))
+    }
     tracked = data_quality._get_universe_symbols(conn)
     missing = [s for s in tracked if s not in recent]
     conn.close()
@@ -64,7 +67,9 @@ def main():
                 )
             )
         conn.executemany(
-            "INSERT OR REPLACE INTO prices_daily (symbol, date, open, high, low, close, volume) VALUES (?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO prices_daily "
+            "(symbol, date, open, high, low, close, volume) "
+            "VALUES (?,?,?,?,?,?,?)",
             rows,
         )
         conn.commit()

@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def create_order_after_delay(exchange):
@@ -57,7 +59,7 @@ async def test_un_watch_positions(exchange, skipped_properties, symbol):
         positions_subscription = await exchange.watch_positions()
     except Exception as e:
         if not test_shared_methods.is_temporary_failure(e):
-            raise
+            raise e
         # If we can't subscribe, we can't test unsubscribe, so skip this test
         return False
     # Verify that we have a subscription
@@ -83,8 +85,8 @@ async def test_un_watch_positions(exchange, skipped_properties, symbol):
         response_all = await exchange.un_watch_positions()
     except Exception as e:
         if not test_shared_methods.is_temporary_failure(e):
-            raise
-        raise
+            raise e
+        raise e
     # Verify the response for unwatching all positions
     assert response_all is not None, (
         exchange.id
@@ -101,9 +103,12 @@ async def test_un_watch_positions(exchange, skipped_properties, symbol):
         resubscribe_response = await exchange.watch_positions()
     except Exception as e:
         if not test_shared_methods.is_temporary_failure(e):
-            raise
+            raise e
         raise Error(
-            exchange.id + " " + method + " failed to resubscribe after unwatch, indicating potential cleanup issues"
+            exchange.id
+            + " "
+            + method
+            + " failed to resubscribe after unwatch, indicating potential cleanup issues"
         )
     # Verify resubscription works
     assert isinstance(resubscribe_response, list), (

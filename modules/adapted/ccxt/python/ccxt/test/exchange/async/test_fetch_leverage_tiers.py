@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_leverage_tier,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_leverage_tier  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_leverage_tiers(exchange, skipped_properties, symbol):
@@ -51,10 +51,14 @@ async def test_fetch_leverage_tiers(exchange, skipped_properties, symbol):
     # };
     test_shared_methods.assert_dictionary_response(exchange, method, tiers, symbol)
     tier_keys = list(tiers.keys())
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, tier_keys, symbol)
-    for i in range(len(tier_keys)):
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, tier_keys, symbol
+    )
+    for i in range(0, len(tier_keys)):
         tiers_for_symbol = tiers[tier_keys[i]]
-        test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, tiers_for_symbol, symbol)
-        for j in range(len(tiers_for_symbol)):
+        test_shared_methods.assert_non_emtpy_array(
+            exchange, skipped_properties, method, tiers_for_symbol, symbol
+        )
+        for j in range(0, len(tiers_for_symbol)):
             test_leverage_tier(exchange, skipped_properties, method, tiers_for_symbol[j])
     return True

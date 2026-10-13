@@ -129,7 +129,10 @@ def cffi_get(url, h):
 
         s = cr.Session(impersonate="chrome")
         s.get("https://www.nseindia.com/", timeout=30)
-        s.get("https://www.nseindia.com/companies-listing/corporate-filings-financial-results", timeout=30)
+        s.get(
+            "https://www.nseindia.com/companies-listing/corporate-filings-financial-results",
+            timeout=30,
+        )
         _cffi["s"] = s
     r = _cffi["s"].get(url, headers=h, timeout=150)
     if r.status_code != 200:
@@ -173,26 +176,33 @@ def list_filings(window_days):
                     else:
                         import urllib.request
 
-                        u = "%s/?filings=%s&from=%s&to=%s&page=%d&size=200" % (WORKER, idx, frm, to, page)
+                        u = "%s/?filings=%s&from=%s&to=%s&page=%d&size=200" % (
+                            WORKER,
+                            idx,
+                            frm,
+                            to,
+                            page,
+                        )
                         body = (
-                            urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": B.UA}), timeout=150)
+                            urllib.request.urlopen(
+                                urllib.request.Request(u, headers={"User-Agent": B.UA}), timeout=150
+                            )
                             .read()
                             .decode("utf-8", "replace")
                         )
                     parsed = json.loads(body)
                     if isinstance(parsed, dict) and parsed.get("error"):
-                        msg = "worker: {}".format(parsed["error"])
-                        raise RuntimeError(msg)
+                        raise RuntimeError("worker: {}".format(parsed["error"]))
                     jb = parsed
                     break
                 except Exception as e:
                     print(
-                        "  [%s] page %d attempt %d [%s] failed: %s" % (idx, page, attempt + 1, transport, str(e)[:90])
+                        "  [%s] page %d attempt %d [%s] failed: %s"
+                        % (idx, page, attempt + 1, transport, str(e)[:90])
                     )
             if jb is None:
                 if idx == "equities" and page == 1:
-                    msg = "mainboard filings list yielded nothing — NSE locked down?"
-                    raise RuntimeError(msg)
+                    raise RuntimeError("mainboard filings list yielded nothing — NSE locked down?")
                 break
             d = jb.get("data", []) if isinstance(jb, dict) else jb
             rows.extend(d or [])
@@ -228,7 +238,12 @@ def fetch_new(rows, max_fetch=None):
         if fname in have:
             continue
         try:
-            xml = B._get(xb, headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, jar=jar, timeout=60)
+            xml = B._get(
+                xb,
+                headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"},
+                jar=jar,
+                timeout=60,
+            )
         except Exception:
             try:
                 xml = cffi_get(xb, {"User-Agent": B.UA})
@@ -251,7 +266,9 @@ def prune_cache(days):
     """Drop cache files older than `days` (CI's rolling window only — see PRUNE_MAX_FILES)."""
     names = os.listdir(CACHE)
     if len(names) > PRUNE_MAX_FILES:
-        print("prune skipped: %d files looks like the full local cache, not a CI window" % len(names))
+        print(
+            "prune skipped: %d files looks like the full local cache, not a CI window" % len(names)
+        )
         return
     cutoff = time.time() - days * 86400
     gone = 0
@@ -311,7 +328,9 @@ def main():
         if "--seed-seen" in args:  # CI: first night, nothing restored from the Actions cache
             os.makedirs(CACHE)
         else:
-            sys.exit(f"ABORT: cache dir {CACHE} missing — set XBRL_CACHE to the main checkout's scripts/_xbrl_cache")
+            sys.exit(
+                f"ABORT: cache dir {CACHE} missing — set XBRL_CACHE to the main checkout's scripts/_xbrl_cache"
+            )
     # Seed the seen-set BEFORE fetching: everything already cached was extracted by an earlier
     # run, everything downloaded below is new. (Cold cache ⇒ empty seed ⇒ extract all.)
     if seen_repo:
@@ -325,7 +344,8 @@ def main():
 
     env = dict(os.environ, XBRL_CACHE=CACHE)
     r = subprocess.run(
-        [sys.executable, "-X", "utf8", os.path.join(HERE, "build_xbrl_extra.py"), "--incremental"], env=env
+        [sys.executable, "-X", "utf8", os.path.join(HERE, "build_xbrl_extra.py"), "--incremental"],
+        env=env,
     )
     if r.returncode != 0:
         sys.exit("ABORT: incremental extraction failed (rc %d)" % r.returncode)
@@ -342,7 +362,7 @@ def main():
     if push:
 
         def git(*a):
-            return subprocess.run(["git", "-C", ROOT, *list(a)], capture_output=True, text=True)
+            return subprocess.run(["git", "-C", ROOT] + list(a), capture_output=True, text=True)
 
         st = git("status", "--porcelain", "--", "scripts/xbrl_extra.json.gz").stdout.strip()
         if not st:

@@ -3,7 +3,7 @@
 use super::common::*;
 
 pub(super) fn phase_ib_error_handling(conns: Conns) -> Conns {
-    println!("--- Phase 104: IB-Side Error Handling (invalid requests) ---");
+    phase!("--- Phase 104: IB-Side Error Handling (invalid requests) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -26,7 +26,7 @@ pub(super) fn phase_ib_error_handling(conns: Conns) -> Conns {
         order_id: oid, instrument: bogus_inst, side: Side::Buy, qty: 1,
     })).unwrap();
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(15);
@@ -55,7 +55,7 @@ pub(super) fn phase_ib_error_handling(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if got_error_or_reject {
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
         // The order may have been silently ignored or the hot loop handled it
         println!("  SKIP: No rejection/error received (order may have been filtered)\n");
@@ -66,7 +66,7 @@ pub(super) fn phase_ib_error_handling(conns: Conns) -> Conns {
 // ─── Phase 114: Pacing violation recovery — rapid historical requests (issue #94) ───
 
 pub(super) fn phase_pacing_violation_recovery(conns: Conns) -> Conns {
-    println!("--- Phase 114: Pacing Violation Recovery (10 rapid historical requests) ---");
+    phase!("--- Phase 114: Pacing Violation Recovery (10 rapid historical requests) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -79,17 +79,18 @@ pub(super) fn phase_pacing_violation_recovery(conns: Conns) -> Conns {
     let end_dt = format_utc_timestamp(now);
 
     // Fire 10 historical requests in rapid succession (IB pacing limit is ~60/10min)
-    let num_requests = 10u32;
+    let num_requests = 10i64;
     for i in 0..num_requests {
         control_tx.send(ControlCommand::FetchHistorical {
+            sec_type: "STK".into(), exchange: "SMART".into(),
             req_id: 14000 + i, con_id: 756733, symbol: "SPY".to_string(),
             end_date_time: end_dt.clone(), duration: "1 d".to_string(),
             bar_size: "5 mins".to_string(), what_to_show: "TRADES".to_string(), use_rth: true,
-        keep_up_to_date: false,
+        keep_up_to_date: false, include_expired: false, format_date: 1,
         }).unwrap();
     }
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -131,9 +132,9 @@ pub(super) fn phase_pacing_violation_recovery(conns: Conns) -> Conns {
         // Historical server may be fully rate-limited from prior historical phases
         println!("  SKIP: No responses — HMDS likely pacing-limited from prior phases\n");
     } else if responses_received.len() == num_requests as usize {
-        println!("  PASS (all {} requests completed)\n", num_requests);
+        pass!("  PASS (all {} requests completed)\n", num_requests);
     } else {
-        println!("  PASS ({}/{} completed — pacing may have throttled some)\n", responses_received.len(), num_requests);
+        pass!("  PASS ({}/{} completed — pacing may have throttled some)\n", responses_received.len(), num_requests);
     }
     conns
 }

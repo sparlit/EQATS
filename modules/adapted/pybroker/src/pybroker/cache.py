@@ -35,17 +35,15 @@ This code is licensed under Apache 2.0 with Commons Clause license
 import contextlib
 import os
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass, is_dataclass
 from datetime import datetime
 from threading import RLock
-from typing import TYPE_CHECKING, Any, Final, Optional
+from typing import Any, Final
 
 from diskcache import Cache
 
 from pybroker.scope import StaticScope
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 _DEFAULT_CACHE_DIRNAME: Final = ".pybrokercache"
 
@@ -307,8 +305,7 @@ class ModelCacheKey:
 
 def _get_cache_dir(cache_dir: str | None, namespace: str, sub_dir: str) -> str:
     if not namespace:
-        msg = "Cache namespace cannot be empty."
-        raise ValueError(msg)
+        raise ValueError("Cache namespace cannot be empty.")
     base_dir = os.path.join(os.getcwd(), _DEFAULT_CACHE_DIRNAME) if cache_dir is None else cache_dir
     return os.path.join(base_dir, namespace, sub_dir)
 
@@ -355,8 +352,7 @@ def clear_data_source_cache():
     scope = StaticScope.instance()
     cache = scope.data_source_cache
     if cache is None:
-        msg = "Data source cache needs to be enabled before clearing."
-        raise ValueError(msg)
+        raise ValueError("Data source cache needs to be enabled before clearing.")
     cache.clear()
     scope.logger.debug_clear_data_source_cache(cache.directory)
 
@@ -400,8 +396,7 @@ def clear_indicator_cache():
     scope = StaticScope.instance()
     cache = scope.indicator_cache
     if cache is None:
-        msg = "Indicator cache needs to be enabled before clearing."
-        raise ValueError(msg)
+        raise ValueError("Indicator cache needs to be enabled before clearing.")
     cache.clear()
     scope.logger.debug_clear_indicator_cache(cache.directory)
 
@@ -445,8 +440,7 @@ def clear_model_cache():
     scope = StaticScope.instance()
     cache = scope.model_cache
     if cache is None:
-        msg = "Model cache needs to be enabled before clearing."
-        raise ValueError(msg)
+        raise ValueError("Model cache needs to be enabled before clearing.")
     cache.clear()
     scope.logger.debug_clear_model_cache(cache.directory)
 

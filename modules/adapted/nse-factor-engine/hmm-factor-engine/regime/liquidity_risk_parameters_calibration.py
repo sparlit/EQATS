@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-import os
 
 import numpy as np
 import pandas as pd
@@ -72,7 +71,9 @@ def compute_calibration(df, univ_name):
             # so narrative compares raw skew directly against these.
             cal[measure] = {
                 f"p{p}": round(v, 6)
-                for p, v in zip(pct_list, np.percentile(df[measure].dropna(), pct_list), strict=False)
+                for p, v in zip(
+                    pct_list, np.percentile(df[measure].dropna(), pct_list), strict=False
+                )
             }
             # Also store p5, p50, p95 for context
             cal[measure]["p5"] = round(float(np.percentile(df[measure].dropna(), 5)), 6)
@@ -82,7 +83,9 @@ def compute_calibration(df, univ_name):
 
         scale = 1e10 if measure == "amihud" else 1.0
         pct_values = np.percentile(series, pct_list)
-        cal[measure] = {f"p{p}": round(float(v) * scale, 6) for p, v in zip(pct_list, pct_values, strict=False)}
+        cal[measure] = {
+            f"p{p}": round(float(v) * scale, 6) for p, v in zip(pct_list, pct_values, strict=False)
+        }
         # Store p5, p50, p95 for context / display
         cal[measure]["p5"] = round(float(np.percentile(series, 5)) * scale, 6)
         cal[measure]["p50"] = round(float(np.percentile(series, 50)) * scale, 6)

@@ -61,7 +61,7 @@ def main():
     results = []
     num_iterations = 50
 
-    for _i in range(num_iterations):
+    for _i in range(0, num_iterations):
         started = exchange.milliseconds()
         exchange.fetch_order_book(symbol)
         ended = exchange.milliseconds()
@@ -69,8 +69,16 @@ def main():
         print(elapsed, "ms")
         results.append(elapsed)
 
+    pprint(results)
+
     rtt = int(sum(results) / len(results))
-    print("Successfully tested", num_iterations, "calls, the average round-trip time per call is", rtt, "milliseconds")
+    print(
+        "Successfully tested",
+        num_iterations,
+        "calls, the average round-trip time per call is",
+        rtt,
+        "milliseconds",
+    )
 
 
 main()

@@ -60,7 +60,7 @@ import time
 import uuid
 from datetime import datetime
 
-from app.core import alerts, db, llm
+from app.core import db, llm
 from app.core.config import IST
 from app.services import workflow_notify
 from app.services.agent import REAL_TOOL_IMPLS
@@ -69,8 +69,6 @@ from app.services.agent import REAL_TOOL_IMPLS
 TEMPLATE = re.compile(r"\{\{\s*([A-Za-z0-9_\-.]+)\s*\}\}")
 
 # What sets a workflow off lives in workflow_triggers.py; re-exported for the callers that read it here.
-from app.services.workflow_triggers import TRIGGER_KINDS  # noqa: E402
-
 NODE_KINDS = ("trigger", "tool", "agent", "condition", "collect", "output")
 
 #: A node that failed for a transient reason - a rate limit, a 5xx, a dropped connection - is worth
@@ -94,7 +92,7 @@ OPERATORS = {
     # then pass only when the sentinel is absent. A sentinel, not "none" - "none of the others" is
     # ordinary prose and would silence a real finding.
     "not_contains": lambda a, b: _stringify(b).lower() not in _stringify(a).lower(),
-    "not_empty": lambda a, _b: bool(a) and a not in ([], {}),
+    "not_empty": lambda a, _b: bool(a) and a != [] and a != {},
 }
 
 #: A branch that a condition switched off. Not an error - nothing went wrong, the workflow simply
@@ -124,8 +122,7 @@ def topo_order(nodes, edges):
     while len(done) < len(by_id):
         ready = [i for i in by_id if i not in done and all(p in done for p in parents[i])]
         if not ready:
-            msg = "this workflow has a cycle - a node can't wait on itself"
-            raise ValueError(msg)
+            raise ValueError("this workflow has a cycle - a node can't wait on itself")
         # Sorted so a graph always executes in the same order, which is what makes a run
         # reproducible and its diagram stable between runs.
         for node_id in sorted(ready):
@@ -180,7 +177,9 @@ def resolve(template, context):
         head, *path = whole.group(1).split(".")
         return _dig(context.get(head), path)
     return TEMPLATE.sub(
-        lambda m: _stringify(_dig(context.get(m.group(1).split(".")[0]), m.group(1).split(".")[1:])),
+        lambda m: _stringify(
+            _dig(context.get(m.group(1).split(".")[0]), m.group(1).split(".")[1:])
+        ),
         template,
     )
 
@@ -218,8 +217,7 @@ def _run_node(node, context, model, run=None):
         left = resolve(data.get("left") or "", context)
         op = OPERATORS.get(data.get("op") or "gt")
         if op is None:
-            msg = f"'{data.get('op')}' isn't a comparison this app knows"
-            raise ValueError(msg)
+            raise ValueError(f"'{data.get('op')}' isn't a comparison this app knows")
         passed = bool(op(left, resolve(data.get("right") or "", context)))
         return {"passed": passed, "left": left}
 
@@ -245,8 +243,7 @@ def _run_node(node, context, model, run=None):
 
     name = data.get("tool")
     if name not in TOOLS:
-        msg = f"'{name}' isn't a tool this app has"
-        raise ValueError(msg)
+        raise ValueError(f"'{name}' isn't a tool this app has")
     return TOOLS[name](**(render(data.get("args") or {}, context)))
 
 
@@ -264,7 +261,12 @@ def execute(workflow, run_id=None, on_node=None, payload=None):
 
     model = db.get_active_model()
     context, summary = {}, []
-    run = {"workflow": workflow, "run_id": run_id, "payload": payload or {}, "fallback_model": db.get_fallback_model()}
+    run = {
+        "workflow": workflow,
+        "run_id": run_id,
+        "payload": payload or {},
+        "fallback_model": db.get_fallback_model(),
+    }
 
     collected = []
 
@@ -303,25 +305,25 @@ def execute(workflow, run_id=None, on_node=None, payload=None):
                 for item in each:
                     try:
                         result.append(_attempt(node, {**scope, "item": item}, model, kind, run))
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         result.append({"error": str(e)})
                 if result and all(isinstance(r, dict) and set(r) == {"error"} for r in result):
                     # Nothing answered: that is an outage, not data. Passing on a list of errors
                     # lets the next step "decide" there is nothing to report.
-                    msg = f"every item failed - first: {result[0]['error']}"
-                    raise ValueError(msg)
+                    raise ValueError(f"every item failed - first: {result[0]['error']}")
             else:
-                msg = f"for_each on '{label}' needs a list, got {type(each).__name__}"
-                raise ValueError(msg)
+                raise ValueError(f"for_each on '{label}' needs a list, got {type(each).__name__}")
             context[node["id"]] = result
             error = None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - one bad node reports itself and stops the branch
             context[node["id"]] = None
             result, error = None, str(e)
 
         if kind == "collect" and not error:
             rows = result if isinstance(result, list) else [result]
-            collected.append((data.get("series") or "data", [r for r in rows if isinstance(r, dict)]))
+            collected.append(
+                (data.get("series") or "data", [r for r in rows if isinstance(r, dict)])
+            )
 
         if on_node:
             # A fan-out has no single set of arguments. Rendering them against a scope with no
@@ -339,7 +341,9 @@ def execute(workflow, run_id=None, on_node=None, payload=None):
             summary.append(_stringify(result))
 
     if run.get("fell_back_to"):
-        summary.append(f"(answered by {', '.join(sorted(run['fell_back_to']))} - {model} wasn't reachable)")
+        summary.append(
+            f"(answered by {', '.join(sorted(run['fell_back_to']))} - {model} wasn't reachable)"
+        )
     text = "\n\n".join(s for s in summary if s)
     if not text:
         # Every branch was gated off. Saying so beats "Workflow finished", which reads like it
@@ -353,7 +357,9 @@ def _empty_fanout(template, scope, label):
     """Why a for_each found nothing to loop over, said in terms of the fix."""
     whole = TEMPLATE.fullmatch(str(template).strip())
     if not whole:
-        return f"'{label}' runs once per item of {template}, which isn't a single {{{{ reference }}}}"
+        return (
+            f"'{label}' runs once per item of {template}, which isn't a single {{{{ reference }}}}"
+        )
     head, *path = whole.group(1).split(".")
     if head not in scope:
         return f"'{label}' loops over {template}, but '{head}' isn't wired into it - draw an edge from '{head}'"
@@ -362,7 +368,9 @@ def _empty_fanout(template, scope, label):
         return f"'{label}' loops over {template}, but '{head}' produced nothing - check that step first"
     if isinstance(value, list) and path:
         sample = next((v for v in value if isinstance(v, dict) and v), None)
-        field = f", and read a field of each with {{{{ item.{next(iter(sample))} }}}}" if sample else ""
+        field = (
+            f", and read a field of each with {{{{ item.{next(iter(sample))} }}}}" if sample else ""
+        )
         return (
             f"'{label}' loops over {template}, but '{head}' is already a list of {len(value)} - "
             f"loop over {{{{ {head} }}}} instead{field}"
@@ -387,7 +395,7 @@ def _attempt(node, scope, model, kind, run=None):
     for delay in RETRY_DELAYS:
         try:
             return _run_node(node, scope, model, run)
-        except Exception:
+        except Exception:  # noqa: BLE001 - the last attempt below is the one that raises
             time.sleep(delay)
     return _run_node(node, scope, model, run)
 
@@ -402,7 +410,13 @@ def workflow_engine_run(workflow, run_id=None, payload=None):
     `payload` is what triggered it (see workflow_triggers.py) - handed to the trigger node.
     """
     run_id = run_id or str(uuid.uuid4())
-    db.create_run(run_id, None, f"Workflow: {workflow['name']}", db.get_active_model(), workflow_id=workflow["id"])
+    db.create_run(
+        run_id,
+        None,
+        f"Workflow: {workflow['name']}",
+        db.get_active_model(),
+        workflow_id=workflow["id"],
+    )
     seq = {"n": 0}
     failed = []
 
@@ -435,10 +449,13 @@ def workflow_engine_run(workflow, run_id=None, payload=None):
             db.finish_run(run_id, reply=summary)
             db.set_fail_streak(workflow["id"], 0)
             workflow_notify.notify(
-                workflow, "success", f"✓ '{workflow['name']}' finished: {summary}"[:600], run_id=run_id
+                workflow,
+                "success",
+                f"✓ '{workflow['name']}' finished: {summary}"[:600],
+                run_id=run_id,
             )
             status = "done"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a cycle, or a graph that can't be ordered at all
         db.finish_run(run_id, error=str(e))
         _report_failure(workflow, str(e), run_id)
         summary, status = None, "failed"
@@ -469,7 +486,8 @@ def _report_failure(workflow, error, run_id=None):
     workflow_notify.notify(
         workflow,
         "failure",
-        f"⚠️ '{workflow['name']}' failed: {error}" + (f" ({streak} runs in a row)" if streak > 1 else ""),
+        f"⚠️ '{workflow['name']}' failed: {error}"
+        + (f" ({streak} runs in a row)" if streak > 1 else ""),
         run_id=run_id,
         extra={"fail_streak": streak},
     )

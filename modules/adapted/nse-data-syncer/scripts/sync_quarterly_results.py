@@ -38,7 +38,6 @@ import argparse
 import json
 import logging
 import os
-import re
 import sys
 from urllib.parse import urlparse
 
@@ -67,8 +66,7 @@ def login_to_screener() -> requests.Session:
     username = os.environ.get("SCREENER_USERNAME")
     password = os.environ.get("SCREENER_PASSWORD")
     if not username or not password:
-        msg = "SCREENER_USERNAME and SCREENER_PASSWORD must be set in web/.env"
-        raise RuntimeError(msg)
+        raise RuntimeError("SCREENER_USERNAME and SCREENER_PASSWORD must be set in web/.env")
 
     session = requests.Session()
     session.headers.update(
@@ -86,8 +84,7 @@ def login_to_screener() -> requests.Session:
     soup = BeautifulSoup(resp.text, "html.parser")
     csrf_input = soup.find("input", {"name": "csrfmiddlewaretoken"})
     if not csrf_input:
-        msg = "Could not find CSRF token on Screener.in login page"
-        raise RuntimeError(msg)
+        raise RuntimeError("Could not find CSRF token on Screener.in login page")
 
     resp = session.post(
         f"{BASE_URL}/login/",
@@ -104,8 +101,7 @@ def login_to_screener() -> requests.Session:
     resp.raise_for_status()
 
     if "/login/" in resp.url:
-        msg = "Login failed — check SCREENER_USERNAME / SCREENER_PASSWORD"
-        raise RuntimeError(msg)
+        raise RuntimeError("Login failed — check SCREENER_USERNAME / SCREENER_PASSWORD")
 
     logger.info("Logged into Screener.in successfully")
     return session
@@ -242,8 +238,7 @@ def fetch_company_page(session: requests.Session, symbol: str) -> BeautifulSoup:
         default_soup = BeautifulSoup(r.text, "html.parser")
 
     if consolidated_soup is None and default_soup is None:
-        msg = f"Could not fetch page for {symbol}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Could not fetch page for {symbol}")
 
     if consolidated_soup is None:
         logger.info(f"Fetched page: {default_url} (no consolidated available)")
@@ -258,7 +253,9 @@ def fetch_company_page(session: requests.Session, symbol: str) -> BeautifulSoup:
     dflt_date = _latest_quarter_month(default_soup)
 
     if dflt_date > cons_date:
-        logger.info(f"Fetched page: {default_url} (standalone is more recent: {dflt_date} vs {cons_date})")
+        logger.info(
+            f"Fetched page: {default_url} (standalone is more recent: {dflt_date} vs {cons_date})"
+        )
         return default_soup
 
     logger.info(f"Fetched page: {consolidated_url} (consolidated preferred)")
@@ -275,13 +272,11 @@ def scrape_quarterly_results_from_soup(soup: BeautifulSoup, symbol: str):
 
     section = soup.find("section", {"id": "quarters"})
     if not section:
-        msg = f"No #quarters section found for {symbol}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"No #quarters section found for {symbol}")
 
     table = section.find("table")
     if not table:
-        msg = f"No table in #quarters section for {symbol}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"No table in #quarters section for {symbol}")
 
     # Parse column headers — try thead>th, then thead>td, then first tbody row
     quarter_cols = []
@@ -301,8 +296,7 @@ def scrape_quarterly_results_from_soup(soup: BeautifulSoup, symbol: str):
     if not quarter_cols:
         # Last resort: dump raw HTML to help debug future failures
         logger.debug("Table HTML: %s", table.prettify()[:2000])
-        msg = "No quarter columns found in table"
-        raise RuntimeError(msg)
+        raise RuntimeError("No quarter columns found in table")
 
     # Parse body rows into {field: [val_q0, val_q1, ...]}
     field_values: dict[str, list] = {}
@@ -320,7 +314,8 @@ def scrape_quarterly_results_from_soup(soup: BeautifulSoup, symbol: str):
             field = _match_row(label)
             if field:
                 vals = [
-                    cells[i].get_text(strip=True) if i < len(cells) else "" for i in range(1, len(quarter_cols) + 1)
+                    cells[i].get_text(strip=True) if i < len(cells) else ""
+                    for i in range(1, len(quarter_cols) + 1)
                 ]
                 field_values[field] = vals
 
@@ -412,7 +407,10 @@ def scrape_shareholding(soup: BeautifulSoup) -> list:
             if not cells:
                 continue
             label = cells[0].get_text(strip=True)
-            vals = [cells[i].get_text(strip=True) if i < len(cells) else "" for i in range(1, len(quarter_cols) + 1)]
+            vals = [
+                cells[i].get_text(strip=True) if i < len(cells) else ""
+                for i in range(1, len(quarter_cols) + 1)
+            ]
             if "no. of shareholders" in label.lower():
                 num_shareholders = vals
             else:
@@ -444,7 +442,10 @@ def scrape_shareholding(soup: BeautifulSoup) -> list:
 
 def save_shareholding_to_db(stock_id: int, results: list, conn) -> int:
     cur = conn.cursor()
-    cur.execute("DELETE FROM shareholding_patterns WHERE stock_id = %s AND quarter ~ '^Q[1-4] [0-9]{4}$'", (stock_id,))
+    cur.execute(
+        "DELETE FROM shareholding_patterns WHERE stock_id = %s AND quarter ~ '^Q[1-4] [0-9]{4}$'",
+        (stock_id,),
+    )
     upserted = 0
     for rec in results:
         try:
@@ -487,8 +488,7 @@ def save_shareholding_to_db(stock_id: int, results: list, conn) -> int:
 def _open_db_conn():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        msg = "DATABASE_URL not set"
-        raise RuntimeError(msg)
+        raise RuntimeError("DATABASE_URL not set")
     parsed = urlparse(db_url)
     return psycopg2.connect(
         host=parsed.hostname,
@@ -508,8 +508,7 @@ def save_to_db(symbol: str, results: list) -> int:
     if not row:
         cur.close()
         conn.close()
-        msg = f"Stock '{symbol}' not found in database"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Stock '{symbol}' not found in database")
     stock_id = row[0]
 
     upserted = _save_quarterly(stock_id, results, conn)
@@ -523,7 +522,10 @@ def _save_quarterly(stock_id: int, results: list, conn) -> int:
     cur = conn.cursor()
     # Remove legacy "Q1 YYYY" / "Q2 YYYY" etc. rows — old sync used calendar-based
     # quarter labels that conflict with the "MMM YYYY" format Screener returns.
-    cur.execute("DELETE FROM quarterly_results WHERE stock_id = %s AND quarter ~ '^Q[1-4] [0-9]{4}$'", (stock_id,))
+    cur.execute(
+        "DELETE FROM quarterly_results WHERE stock_id = %s AND quarter ~ '^Q[1-4] [0-9]{4}$'",
+        (stock_id,),
+    )
     upserted = 0
     for rec in results:
         try:
@@ -600,15 +602,16 @@ def main():
 
         quarterly = scrape_quarterly_results_from_soup(soup, symbol)
         shareholding = scrape_shareholding(soup)
-        logger.info(f"Scraped {len(quarterly)} quarters, {len(shareholding)} shareholding rows for {symbol}")
+        logger.info(
+            f"Scraped {len(quarterly)} quarters, {len(shareholding)} shareholding rows for {symbol}"
+        )
 
         conn = _open_db_conn()
         cur = conn.cursor()
         cur.execute("SELECT id FROM stocks WHERE nse_symbol = %s", (symbol,))
         row = cur.fetchone()
         if not row:
-            msg = f"Stock '{symbol}' not found in database"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"Stock '{symbol}' not found in database")
         stock_id = row[0]
 
         saved_q = _save_quarterly(stock_id, quarterly, conn)
@@ -631,7 +634,7 @@ def main():
         )
 
     except Exception as exc:
-        logger.exception(str(exc))
+        logger.error(str(exc))
         print(json.dumps({"success": False, "error": str(exc)}))
         sys.exit(1)
 

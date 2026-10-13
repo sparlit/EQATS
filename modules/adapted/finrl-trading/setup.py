@@ -43,7 +43,12 @@ def read_requirements():
     with open("requirements.txt") as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith("#") and not line.startswith("tensorflow") and not line.startswith("torch"):
+            if (
+                line
+                and not line.startswith("#")
+                and not line.startswith("tensorflow")
+                and not line.startswith("torch")
+            ):
                 requirements.append(line)
     return requirements
 

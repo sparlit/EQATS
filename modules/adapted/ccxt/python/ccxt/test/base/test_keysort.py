@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_keysort():
@@ -45,7 +45,7 @@ def test_keysort():
             "id": "sampleexchange",
         }
     )
-    # temporarily disable, as this test doesn't make sense in lib (bcz of GO) # TODO: do something
+    # temporarily disable, as this test doesn't make sense in lib (bcz of GO) # todo: do something
     if exchange.milliseconds() > 0:
         return
     # Test 1: Basic key sorting

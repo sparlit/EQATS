@@ -39,7 +39,6 @@ import io
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -94,8 +93,7 @@ def is_configured() -> bool:
 def _api_client() -> upstox_client.ApiClient:
     token = get_access_token()
     if not token:
-        msg = "Upstox token not set. Run: python backend/upstox_setup.py"
-        raise RuntimeError(msg)
+        raise RuntimeError("Upstox token not set. Run: python backend/upstox_setup.py")
     cfg = upstox_client.Configuration()
     cfg.access_token = token
     return upstox_client.ApiClient(cfg)
@@ -128,8 +126,7 @@ def symbol_to_key(symbol: str) -> str:
         df = _load_instruments(refresh=True)
         row = df[df["tradingsymbol"] == sym]
     if row.empty:
-        msg = f"Symbol '{sym}' not found in NSE instrument master"
-        raise ValueError(msg)
+        raise ValueError(f"Symbol '{sym}' not found in NSE instrument master")
     return row.iloc[0]["instrument_key"]
 
 
@@ -138,7 +135,7 @@ def symbol_to_key(symbol: str) -> str:
 
 def _resample_ohlcv(df: pd.DataFrame, rule: str) -> pd.DataFrame:
     """Resample 1-minute OHLCV to a coarser interval."""
-    return (
+    agg = (
         df.resample(rule, closed="left", label="left")
         .agg(
             {
@@ -151,6 +148,7 @@ def _resample_ohlcv(df: pd.DataFrame, rule: str) -> pd.DataFrame:
         )
         .dropna(subset=["open"])
     )
+    return agg
 
 
 def fetch_upstox(
@@ -203,8 +201,9 @@ def fetch_upstox(
                 break
             except ApiException as e:
                 if "401" in str(e):
-                    msg = "Upstox token expired. Run: python backend/upstox_setup.py"
-                    raise RuntimeError(msg) from e
+                    raise RuntimeError(
+                        "Upstox token expired. Run: python backend/upstox_setup.py"
+                    ) from e
                 if attempt == 2:
                     # Skip this chunk — some ranges 400 sporadically; a hole in
                     # the cache is better than losing the whole symbol.

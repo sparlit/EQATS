@@ -28,7 +28,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Streamlit must not load this file. It is a GitHub-Actions-only intermediate.
 
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -97,15 +97,13 @@ def clean_group(series: pd.Series) -> pd.Series:
 def main() -> None:
     print("========== STOCK HISTORY BUILD START ==========")
     if not INPUT_FILE.exists():
-        msg = f"Missing required file: {INPUT_FILE}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing required file: {INPUT_FILE}")
 
     source = pd.read_parquet(INPUT_FILE)
     required = ["date", "symbol", "sector", "industry", "basic_industry"]
     missing = [column for column in required if column not in source.columns]
     if missing:
-        msg = f"Stock feature file missing required columns: {missing}"
-        raise ValueError(msg)
+        raise ValueError(f"Stock feature file missing required columns: {missing}")
 
     available_columns = [column for column in DISPLAY_COLUMNS if column in source.columns]
     data = source[available_columns].copy()
@@ -120,8 +118,7 @@ def main() -> None:
 
     dates = sorted(pd.Timestamp(date) for date in data["date"].dropna().unique())
     if not dates:
-        msg = "No valid dates found in stock features file"
-        raise ValueError(msg)
+        raise ValueError("No valid dates found in stock features file")
     kept_dates = dates[-RECENT_TRADING_DAYS:]
     data = data[data["date"].isin(kept_dates)].copy()
 
@@ -145,16 +142,22 @@ def main() -> None:
     group_keys = ["date", "basic_industry"]
     if "stock_strength_score" in data.columns:
         data["stock_rank_in_basic_industry"] = (
-            data.groupby(group_keys)["stock_strength_score"].rank(method="dense", ascending=False).astype("Int64")
+            data.groupby(group_keys)["stock_strength_score"]
+            .rank(method="dense", ascending=False)
+            .astype("Int64")
         )
         data["stock_strength_percentile_in_basic_industry"] = (
             data.groupby(group_keys)["stock_strength_score"].rank(pct=True, ascending=True) * 100.0
         ).round(1)
 
     if "high_strength_flag" in data.columns:
-        data["high_strength_flag"] = pd.to_numeric(data["high_strength_flag"], errors="coerce").fillna(0).astype(int)
+        data["high_strength_flag"] = (
+            pd.to_numeric(data["high_strength_flag"], errors="coerce").fillna(0).astype(int)
+        )
         data["basic_industry_members"] = data.groupby(group_keys)["symbol"].transform("nunique")
-        data["high_strength_count"] = data.groupby(group_keys)["high_strength_flag"].transform("sum")
+        data["high_strength_count"] = data.groupby(group_keys)["high_strength_flag"].transform(
+            "sum"
+        )
         data["pct_high_strength"] = (
             data["high_strength_count"] / data["basic_industry_members"].clip(lower=1) * 100.0
         ).round(1)
@@ -169,10 +172,13 @@ def main() -> None:
     data.to_parquet(OUTPUT_FILE, index=False)
 
     metadata = {
-        "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "rows": len(data),
+        "generated_at_utc": datetime.now(UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "rows": int(len(data)),
         "symbols": int(data["symbol"].nunique()),
-        "dates": len(kept_dates),
+        "dates": int(len(kept_dates)),
         "start_date": kept_dates[0].strftime("%Y-%m-%d"),
         "latest_date": kept_dates[-1].strftime("%Y-%m-%d"),
         "streamlit_usage": "Do not load in Streamlit; use per-date dashboard snapshots instead.",

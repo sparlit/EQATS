@@ -33,7 +33,6 @@ import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import MetaTrader5 as mt5
 import pandas as pd
@@ -51,7 +50,9 @@ client = None
 #
 CHUNK_SIZE = 10000  # (int): The number of bars to request in each chunk. How many bars worth of duration to request in each chunk
 TICK_CHUNK_SIZE = 5  # How many ticks worth of duration to request in each chunk
-RATE_LIMIT_DELAY = 0.1  # (float): The delay in seconds between requests. Small delay between requests (seconds)
+RATE_LIMIT_DELAY = (
+    0.1  # (float): The delay in seconds between requests. Small delay between requests (seconds)
+)
 default_start_dt = datetime(2014, 1, 1, tzinfo=timezone)  # Or get from config if needed
 
 time_column = "timestamp"
@@ -63,8 +64,7 @@ def init_client(parameters, client_args):
     authorized = collector_mt5.connect_mt5(**client_args)
     if not authorized:
         log.error("Failed to connect to MT5. Check credentials and server details.")
-        msg = "Failed to connect to MT5. Check credentials and server details."
-        raise ConnectionError(msg)
+        raise ConnectionError("Failed to connect to MT5. Check credentials and server details.")
     collector_mt5.client = mt5
 
 
@@ -102,16 +102,22 @@ async def fetch_klines(config: dict, start_from_dt) -> dict[str, pd.DataFrame] |
     mt5_password = config.get("mt5_password")
     mt5_server = config.get("mt5_server")
     if mt5_account_id and mt5_password and mt5_server:
-        authorized = connect_mt5(int(mt5_account_id), password=str(mt5_password), server=str(mt5_server))
+        authorized = connect_mt5(
+            int(mt5_account_id), password=str(mt5_password), server=str(mt5_server)
+        )
         if not authorized:
-            log.error(f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}")
+            log.error(
+                f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}"
+            )
             return None
 
     # How many records are missing (and to be requested) for each symbol (not used here)
     # missing_klines_counts = [App.analyzer.get_missing_klines_count(sym) for sym in symbols]
 
     # Create a list of tasks for retrieving data
-    tasks = [asyncio.create_task(request_symbol_klines(s, mt5_timeframe, start_from_dt)) for s in symbols]
+    tasks = [
+        asyncio.create_task(request_symbol_klines(s, mt5_timeframe, start_from_dt)) for s in symbols
+    ]
 
     results = {}
     timeout = 10  # Seconds to wait for the result
@@ -171,7 +177,9 @@ async def request_symbol_klines(symbol: str, mt5_timeframe: int, start_from_dt) 
     else:
         # Define a default historical start if no file exists | 2017 | 2024
         current_start_dt = default_start_dt
-        log.info(f"No existing data found. Starting download from {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}.")
+        log.info(
+            f"No existing data found. Starting download from {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}."
+        )
 
     all_klines_list = []
 
@@ -181,7 +189,7 @@ async def request_symbol_klines(symbol: str, mt5_timeframe: int, start_from_dt) 
                 # Calculate the duration for CHUNK_SIZE bars
                 chunk_duration = get_timedelta_for_mt5_timeframe(mt5_timeframe, CHUNK_SIZE)
             except ValueError as e:
-                log.exception(f"Error calculating duration: {e}. Stopping download for {symbol}.")
+                log.error(f"Error calculating duration: {e}. Stopping download for {symbol}.")
                 break
 
             # Calculate the temporary end date for this chunk request
@@ -220,11 +228,12 @@ async def request_symbol_klines(symbol: str, mt5_timeframe: int, start_from_dt) 
                 if current_start_dt >= end_dt:
                     log.info("  Reached end date after empty range.")
                     break
-                log.info(
-                    f"  Advancing start time to {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')} and continuing."
-                )
-                time.sleep(RATE_LIMIT_DELAY)  # Still pause slightly
-                continue  # Try the next chunk
+                else:
+                    log.info(
+                        f"  Advancing start time to {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')} and continuing."
+                    )
+                    time.sleep(RATE_LIMIT_DELAY)  # Still pause slightly
+                    continue  # Try the next chunk
 
             chunk_df = pd.DataFrame(rates)
             # Convert 'time' (Unix seconds) to datetime objects (UTC)
@@ -240,7 +249,7 @@ async def request_symbol_klines(symbol: str, mt5_timeframe: int, start_from_dt) 
             time.sleep(RATE_LIMIT_DELAY)
 
     except Exception as e:
-        log.exception(f"Exception while requesting klines: {e}")
+        log.error(f"Exception while requesting klines: {e}")
         return {}
 
     df = pd.concat(all_klines_list, axis=0, ignore_index=False)
@@ -269,7 +278,10 @@ async def health_check() -> int:
 
 
 def connect_mt5(
-    mt5_account_id: int | None = None, mt5_password: str | None = None, mt5_server: str | None = None, **kwargs
+    mt5_account_id: int | None = None,
+    mt5_password: str | None = None,
+    mt5_server: str | None = None,
+    **kwargs,
 ):
     """
     Initializes the MetaTrader 5 connection and attempts to log in with the provided credentials.
@@ -281,9 +293,13 @@ def connect_mt5(
     log.info(f"MT5 Initialized. Version: {mt5.version()}")
 
     if mt5_account_id and mt5_password and mt5_server:
-        authorized = mt5.login(int(mt5_account_id), password=str(mt5_password), server=str(mt5_server), **kwargs)
+        authorized = mt5.login(
+            int(mt5_account_id), password=str(mt5_password), server=str(mt5_server), **kwargs
+        )
         if not authorized:
-            log.error(f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}")
+            log.error(
+                f"MT5 Login failed for account #{mt5_account_id}, error code: {mt5.last_error()}"
+            )
             mt5.shutdown()
             return False
     return True
@@ -373,7 +389,9 @@ def download_klines(config, data_sources):
             try:
                 print(f"Loading existing data from: {file_name}")
                 # Specify date format for potentially faster parsing if consistent
-                existing_df = pd.read_csv(file_name, parse_dates=[time_column], date_format="ISO8601")
+                existing_df = pd.read_csv(
+                    file_name, parse_dates=[time_column], date_format="ISO8601"
+                )
                 # Ensure timezone is set correctly after parsing
                 if (
                     pd.api.types.is_datetime64_any_dtype(existing_df[time_column])
@@ -383,10 +401,16 @@ def download_klines(config, data_sources):
                 elif pd.api.types.is_datetime64_any_dtype(existing_df[time_column]):
                     existing_df[time_column] = existing_df[time_column].dt.tz_convert("UTC")
                 else:  # Fallback if parsing failed or column is not datetime
-                    print(f"Warning: Column '{time_column}' not parsed as datetime. Attempting conversion.")
-                    existing_df[time_column] = pd.to_datetime(existing_df[time_column], errors="coerce", utc=True)
+                    print(
+                        f"Warning: Column '{time_column}' not parsed as datetime. Attempting conversion."
+                    )
+                    existing_df[time_column] = pd.to_datetime(
+                        existing_df[time_column], errors="coerce", utc=True
+                    )
 
-                existing_df = existing_df.dropna(subset=[time_column])  # Drop rows where conversion failed
+                existing_df = existing_df.dropna(
+                    subset=[time_column]
+                )  # Drop rows where conversion failed
 
                 if not existing_df.empty:
                     # Sort just in case file wasn't sorted
@@ -397,13 +421,19 @@ def download_klines(config, data_sources):
                         f"Existing file found. Will download data starting from {start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}"
                     )
                 else:
-                    print("Existing file was empty or had invalid dates after loading. Starting from historical date.")
+                    print(
+                        "Existing file was empty or had invalid dates after loading. Starting from historical date."
+                    )
                     existing_df = pd.DataFrame()  # Reset to empty
             except Exception as e:
-                print(f"Error loading existing file {file_name}: {e}. Starting from historical date.")
+                print(
+                    f"Error loading existing file {file_name}: {e}. Starting from historical date."
+                )
                 existing_df = pd.DataFrame()  # Reset to empty
         else:
-            print(f"File not found. Starting download from {historical_start_date.strftime('%Y-%m-%d %H:%M:%S %Z')}.")
+            print(
+                f"File not found. Starting download from {historical_start_date.strftime('%Y-%m-%d %H:%M:%S %Z')}."
+            )
             start_dt = historical_start_date  # Ensure start_dt is set
 
         # Define end point for download (now)
@@ -412,7 +442,9 @@ def download_klines(config, data_sources):
         # Check if symbol is available
         symbol_info = mt5.symbol_info(quote)
         if not symbol_info:
-            print(f"Symbol {quote} not found or not available in MT5 terminal. Skipping. Error: {mt5.last_error()}")
+            print(
+                f"Symbol {quote} not found or not available in MT5 terminal. Skipping. Error: {mt5.last_error()}"
+            )
             continue
         if file_type == "ticks" and not symbol_info.trade_tick_size:
             print(f"Ticks data is not available for {quote}. Skipping. Error: {mt5.last_error()}")
@@ -460,7 +492,9 @@ def download_klines(config, data_sources):
 
             # Use copy_rates_range or copy_ticks_range
             if file_type == "ticks":
-                rates = mt5.copy_ticks_range(quote, request_start_dt, temp_end_dt, mt5.COPY_TICKS_ALL)
+                rates = mt5.copy_ticks_range(
+                    quote, request_start_dt, temp_end_dt, mt5.COPY_TICKS_ALL
+                )
                 if rates is None:
                     print(
                         f"  mt5.copy_ticks_range returned None. Error: {mt5.last_error()}. Stopping download for {quote}."
@@ -481,9 +515,12 @@ def download_klines(config, data_sources):
                 if current_start_dt >= end_dt:
                     print("  Reached end date after empty range.")
                     break
-                print(f"  Advancing start time to {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')} and continuing.")
-                time.sleep(RATE_LIMIT_DELAY)  # Still pause slightly
-                continue  # Try the next chunk
+                else:
+                    print(
+                        f"  Advancing start time to {current_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')} and continuing."
+                    )
+                    time.sleep(RATE_LIMIT_DELAY)  # Still pause slightly
+                    continue  # Try the next chunk
 
             chunk_df = pd.DataFrame(rates)
             if file_type == "ticks":
@@ -525,19 +562,23 @@ def download_klines(config, data_sources):
             if existing_df.empty:
                 print(f"No existing or new data for {quote}. Skipping save.")
                 continue
-            print("Saving existing data only (no updates).")
-            final_df = existing_df  # Use existing data if no new data was fetched
+            else:
+                print("Saving existing data only (no updates).")
+                final_df = existing_df  # Use existing data if no new data was fetched
         else:
             print("Combining downloaded data...")
             new_df = pd.concat(all_klines_list, ignore_index=True)
 
             # Combine existing and new data
-            final_df = pd.concat([existing_df, new_df], ignore_index=True) if not existing_df.empty else new_df
+            if not existing_df.empty:
+                final_df = pd.concat([existing_df, new_df], ignore_index=True)
+            else:
+                final_df = new_df
 
             print("Processing combined data (duplicates, sorting, columns)...")
             if file_type == "ticks":
                 # Standardize columns (assuming MT5 names)
-                final_df = final_df.rename(
+                final_df.rename(
                     columns={
                         "time_msc": "time",
                         "flags": "flags",
@@ -546,13 +587,15 @@ def download_klines(config, data_sources):
                         "last": "last",
                         "volume": "volume",
                     },
+                    inplace=True,
                     errors="ignore",
                 )  # Added errors='ignore'
             else:
-                final_df = final_df.rename(
+                final_df.rename(
                     columns={
                         "tick_volume": "volume",  # Use tick_volume as 'volume'
                     },
+                    inplace=True,
                     errors="ignore",
                 )  # Added errors='ignore'
 
@@ -569,7 +612,9 @@ def download_klines(config, data_sources):
             initial_rows = len(final_df)
             final_df = final_df.drop_duplicates(subset=[time_column], keep="last")
             if initial_rows > len(final_df):
-                print(f"  Removed {initial_rows - len(final_df)} duplicate rows based on '{time_column}'.")
+                print(
+                    f"  Removed {initial_rows - len(final_df)} duplicate rows based on '{time_column}'."
+                )
 
             # Sort by timestamp
             final_df = final_df.sort_values(by=time_column)
@@ -611,4 +656,6 @@ def download_klines(config, data_sources):
     # --- Shutdown MT5 (same as before) ---
     print("\nShutting down MetaTrader 5 connection...")
     mt5.shutdown()
-    print(f"\nFinished downloading data for symbols: {', '.join(processed_symbols) if processed_symbols else 'None'}")
+    print(
+        f"\nFinished downloading data for symbols: {', '.join(processed_symbols) if processed_symbols else 'None'}"
+    )

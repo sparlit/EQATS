@@ -1,11 +1,12 @@
-from typing import Any
 import os
 import unittest
+
 import brain
 import connector
 import database
 import indicators
 import main
+
 
 class TestScalperIndicators(unittest.TestCase):
 
@@ -52,9 +53,31 @@ class TestScalperIndicators(unittest.TestCase):
 
 class TestScalperBrainAndConnector(unittest.TestCase):
 
+    def _reset_global_state(self) -> None:
+        try:
+            from institutional_integrations.bayesian_consensus import global_bayesian_consensus
+            global_bayesian_consensus.symbol_state.clear()
+        except Exception:
+            pass
+        try:
+            from institutional_integrations.nofx_ai_terminal_engine import (
+                global_nofx_direction_board,
+            )
+            global_nofx_direction_board.directions.clear()
+        except Exception:
+            pass
+        try:
+            import predictive_brain
+            predictive_brain._predictor_registry.clear()
+            predictive_brain._kronos_registry.clear()
+        except Exception:
+            pass
+
     def setUp(self) -> None:
         import config
         self.orig_db = config.DB_PATH
+        self.orig_active_strategy = getattr(config, 'ACTIVE_STRATEGY', 'AUTO')
+        self.orig_trading_style = getattr(config, 'TRADING_STYLE', 'AUTO')
         for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
             if os.path.exists(db_file):
                 try:
@@ -62,17 +85,23 @@ class TestScalperBrainAndConnector(unittest.TestCase):
                 except Exception:
                     pass
         config.DB_PATH = 'test_scalper_brain.db'
+        config.ACTIVE_STRATEGY = 'AUTO'
+        config.TRADING_STYLE = 'AUTO'
+        self._reset_global_state()
         database.init_db()
 
     def tearDown(self) -> None:
         import config
         config.DB_PATH = getattr(self, 'orig_db', 'scalper_brain.db')
+        config.ACTIVE_STRATEGY = getattr(self, 'orig_active_strategy', 'AUTO')
+        config.TRADING_STYLE = getattr(self, 'orig_trading_style', 'AUTO')
         for db_file in ['test_scalper_brain.db', 'test_scalper_brain.db-wal', 'test_scalper_brain.db-shm']:
             if os.path.exists(db_file):
                 try:
                     os.remove(db_file)
                 except Exception:
                     pass
+        self._reset_global_state()
         database.init_db()
 
     def test_simulator_connector(self) -> None:

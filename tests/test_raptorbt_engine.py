@@ -3,7 +3,8 @@ Unit & Integration Tests for RaptorBT Engine (alphabench/raptorbt Adaptation)
 """
 
 from datetime import datetime
-from institutional_integrations.raptorbt_engine import RaptorBTEngine, MAGIC_NUMBER
+
+from institutional_integrations.raptorbt_engine import MAGIC_NUMBER, RaptorBTEngine
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

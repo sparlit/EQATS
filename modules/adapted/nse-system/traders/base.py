@@ -21,11 +21,20 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-"""
-Shared utilities for trader modules.
-Pure functions, no DB, no side effects.
-"""
+"""Shared scan selection and calculation utilities for trader modules."""
 import datetime as dt
+
+
+def select_scan_symbols(conn, limit, symbols=None):
+    from universe_helper import band_universe
+
+    universe = band_universe(conn, limit=limit)
+    if symbols is None:
+        return universe
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    requested = {str(symbol).strip().upper() for symbol in symbols if str(symbol).strip()}
+    return [symbol for symbol in universe if symbol in requested]
 
 
 # ============================================================
@@ -224,6 +233,14 @@ def bars_to_dicts(df):
     c = df["Close"].astype(float).tolist()
     v = df["Volume"].astype(float).tolist() if "Volume" in df.columns else [0.0] * n
     return [
-        {"index": i, "date": dates[i], "Open": o[i], "High": h[i], "Low": lo[i], "Close": c[i], "Volume": v[i]}
+        {
+            "index": i,
+            "date": dates[i],
+            "Open": o[i],
+            "High": h[i],
+            "Low": lo[i],
+            "Close": c[i],
+            "Volume": v[i],
+        }
         for i in range(n)
     ]

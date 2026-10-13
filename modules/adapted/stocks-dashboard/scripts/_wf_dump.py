@@ -22,10 +22,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 # -*- coding: utf-8 -*-
-import json
 import re
 import sys
-from collections import defaultdict
 
 import fitz
 

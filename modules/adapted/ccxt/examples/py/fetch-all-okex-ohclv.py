@@ -87,7 +87,8 @@ class ohlcv(Exchange):
             except Exception:
                 if num_retries > max_retries:
                     raise
-                continue
+                else:
+                    continue
             i += 1
             ohlcv_dictionary = self.extend(ohlcv_dictionary, self.indexBy(ohlcv, 0))
             ohlcv_list = self.sort_by(ohlcv_dictionary.values(), 0)

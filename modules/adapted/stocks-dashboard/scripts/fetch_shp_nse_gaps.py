@@ -98,7 +98,10 @@ def main():
 
     ih = json.load(open(MEMB, encoding="utf-8"))
     snaps = sorted(
-        (s["effectiveDate"], [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")])
+        (
+            s["effectiveDate"],
+            [norm(x) for x in s["symbols"] if not str(x).upper().startswith("DUMMY")],
+        )
         for s in ih["Nifty 500"]
     )
 

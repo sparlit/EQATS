@@ -33,7 +33,10 @@ def test_gate_blocks_missing_index_and_market_cap(tmp_path):
     V2Database(db).ensure_v3_schema()
     with sqlite3.connect(db) as conn:
         conn.execute("CREATE TABLE daily_prices(symbol TEXT,date TEXT)")
-        conn.executemany("INSERT INTO daily_prices VALUES ('ABC',?)", [(f"2026-01-{i:02d}",) for i in range(1, 10)])
+        conn.executemany(
+            "INSERT INTO daily_prices VALUES ('ABC',?)",
+            [(f"2026-01-{i:02d}",) for i in range(1, 10)],
+        )
     report = audit(str(db))
     assert report.status == "BLOCKED"
     assert "official_index_sessions_below_required" in report.blockers

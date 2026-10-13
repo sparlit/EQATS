@@ -39,4 +39,5 @@ exchange = ccxt.coinone(
 )
 
 markets = exchange.load_markets()
+pprint(markets)
 print("\n", exchange.name, "supports", len(markets), "pairs")

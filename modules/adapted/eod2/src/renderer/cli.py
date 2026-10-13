@@ -105,18 +105,15 @@ def parse_date(value: str) -> datetime:
     try:
         return datetime.fromisoformat(value)
     except ValueError as exc:
-        msg = "date must use ISO format YYYY-MM-DD"
-        raise argparse.ArgumentTypeError(msg) from exc
+        raise argparse.ArgumentTypeError("date must use ISO format YYYY-MM-DD") from exc
 
 
 def validate_file(path: Path) -> None:
     if not path.exists():
-        msg = f"File not found: {path}"
-        raise CliError(msg)
+        raise CliError(f"File not found: {path}")
 
     if not path.is_file():
-        msg = f"Not a file: {path}"
-        raise CliError(msg)
+        raise CliError(f"Not a file: {path}")
 
 
 def plugin_option_name(plugin_key: str, plugin_config: dict[str, Any]) -> str:
@@ -133,8 +130,7 @@ def selected_plugins_from_args(args: argparse.Namespace) -> dict[str, dict[str, 
 
     for plugin_key, plugin_config in config.CHART_PLUGINS.items():
         if not isinstance(plugin_config, dict):
-            msg = f"Plugin config for '{plugin_key}' must be an object"
-            raise CliError(msg)
+            raise CliError(f"Plugin config for '{plugin_key}' must be an object")
 
         if not getattr(args, plugin_dest(plugin_key, plugin_config), False):
             continue
@@ -297,8 +293,7 @@ def build_parser(
 
         for plugin_key, plugin_config in config.CHART_PLUGINS.items():
             if not isinstance(plugin_config, dict):
-                msg = f"Plugin config for '{plugin_key}' must be an object"
-                raise CliError(msg)
+                raise CliError(f"Plugin config for '{plugin_key}' must be an object")
 
             option_name = plugin_option_name(plugin_key, plugin_config)
 
@@ -393,7 +388,6 @@ def normalize_source(args: argparse.Namespace, parser: argparse.ArgumentParser) 
         return PlotSource(kind="watch", watch=WatchCommand(name=watch_name, resume=resume))
 
     parser.error("a chart source is required: use one of --sym, --watch, -f/--file, or --breadth")
-    return None
 
 
 def parse_cli(
@@ -445,15 +439,16 @@ def parse_cli(
     explicit_args_for_merge = namespace_values_to_preset_args(explicit)
 
     if not (SOURCE_KEYS & explicit_args_for_merge.keys()):
-        explicit_parser.error("a chart source is required: use one of --sym, --watch, -f/--file, or --breadth")
+        explicit_parser.error(
+            "a chart source is required: use one of --sym, --watch, -f/--file, or --breadth"
+        )
 
     merged_args = merge_preset_args(preset_args, explicit_args_for_merge)
     command = parse_cli_command(preset_dict_to_argv(merged_args))
 
     if preset_save_name:
         if config_path is None:
-            msg = "Cannot save preset: config path was not provided"
-            raise CliError(msg)
+            raise CliError("Cannot save preset: config path was not provided")
 
         save_preset(preset_save_name.upper(), config_path, command)
 
@@ -506,7 +501,6 @@ def management_action_from_args(
             return CliAction(kind="watch_add", name=name.upper(), path=file_path)
 
     parser.error("Unknown management command")
-    return None
 
 
 def validate_run_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
@@ -520,7 +514,9 @@ def validate_run_args(args: argparse.Namespace, parser: argparse.ArgumentParser)
         parser.error("--index/-i can only be combined with --breadth")
 
 
-def command_from_namespace(args: argparse.Namespace, parser: argparse.ArgumentParser) -> PlotCommand:
+def command_from_namespace(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> PlotCommand:
     tf = args.tf or "d"
 
     period = TF_PERIOD_MAP[tf] if args.period is None else args.period
@@ -620,8 +616,7 @@ def get_preset_args(name: str) -> dict[str, Any]:
     preset = presets.get(name) or presets.get(name.lower())
 
     if preset is None:
-        msg = f"Error: No preset named '{name}'"
-        raise CliError(msg)
+        raise CliError(f"Error: No preset named '{name}'")
 
     return dict(preset)
 
@@ -718,8 +713,7 @@ def remove_preset(config_path: Path, name: str) -> None:
     key = name if name in presets else name.lower()
 
     if key not in presets:
-        msg = f"Error: No preset named '{name}'"
-        raise CliError(msg)
+        raise CliError(f"Error: No preset named '{name}'")
 
     del presets[key]
 
@@ -737,8 +731,7 @@ def remove_watch(name: str, config_path: Path) -> None:
     resume_map = user_config.get("CHART_RESUME", {})
 
     if name not in watch_map:
-        msg = f"Watchlist '{name}' does not exist"
-        raise CliError(msg)
+        raise CliError(f"Watchlist '{name}' does not exist")
 
     del watch_map[name]
 
@@ -778,7 +771,9 @@ def load_symbols_from_file(path: Path) -> list[str]:
 
     validate_file(path)
 
-    return [line.strip().lower() for line in path.read_text(encoding="utf-8-sig").strip().splitlines()]
+    return [
+        line.strip().lower() for line in path.read_text(encoding="utf-8-sig").strip().splitlines()
+    ]
 
 
 def print_available() -> None:
@@ -815,13 +810,11 @@ def resolve_symbols(command: PlotCommand) -> list[str] | list[BreadthOption]:
         name = source.watch.name
 
         if name not in watch_map:
-            msg = f"Unknown watchlist: {name}"
-            raise CliError(msg)
+            raise CliError(f"Unknown watchlist: {name}")
 
         return load_symbols_from_file(Path(watch_map[name]))
 
-    msg = "No symbols available for selected source"
-    raise CliError(msg)
+    raise CliError("No symbols available for selected source")
 
 
 def compute_max_period(cmd: PlotCommand) -> int:
@@ -853,8 +846,7 @@ def compute_max_period(cmd: PlotCommand) -> int:
             plugin_lengths.append(int(lookback))
         except (TypeError, ValueError) as exc:
             plugin_name = plugin_config.get("name", "unknown")
-            msg = f"Plugin lookback must be an integer: {plugin_name}"
-            raise CliError(msg) from exc
+            raise CliError(f"Plugin lookback must be an integer: {plugin_name}") from exc
 
     indicator_lengths = [
         *cmd.sma,

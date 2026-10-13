@@ -42,14 +42,13 @@ Run: python -X utf8 scripts/bse_vision_prep.py [--limit N] [--outdir DIR]
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
+import datetime
 import json
 import os
 import re
 import sys
 import time
-
-import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contextlib
@@ -59,7 +58,12 @@ import bse_render
 import fetch_announcements as FA
 import fitz
 import qe_util as QU
-from results_pending import find_pending, find_pending_late, find_unknown_qe  # shared with build_results_coverage.py
+from results_pending import (  # shared with build_results_coverage.py
+    find_pending,
+    find_pending_ahead,
+    find_pending_late,
+    find_unknown_qe,
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(HERE, "..", "docs")
@@ -125,7 +129,8 @@ def render_pdf_pages(raw):
         # density alone — a results table is wall-to-wall figures whatever words survived OCR — and
         # if no page is dense either, hand back the opening pages so a reader can still LOOK.
         dens = sorted(
-            ((len(NUM_TOK.findall(doc[pi].get_text())), pi) for pi in range(min(len(doc), 30))), key=lambda t: -t[0]
+            ((len(NUM_TOK.findall(doc[pi].get_text())), pi) for pi in range(min(len(doc), 30))),
+            key=lambda t: -t[0],
         )
         keep = sorted(pi for n, pi in dens[:4] if n >= 25) or list(range(min(len(doc), 4)))
     return [doc[pi].get_pixmap(dpi=200).tobytes("png") for pi in keep]
@@ -233,10 +238,15 @@ def enrich_scrips(limit, qe):
     """BSE-only companies we already cover but that are MISSING the year-ago quarter (filled by the
     fast OCR pass, which only grabbed the current quarter) — re-render so vision can add YoY/QoQ."""
     bf = json.load(open(os.path.join(D, "bse_fundamentals.json"), encoding="utf-8"))["px"]
-    univ = {str(r[0]): r for r in json.load(open(os.path.join(D, "bse_universe.json"), encoding="utf-8"))["rows"]}
+    univ = {
+        str(r[0]): r
+        for r in json.load(open(os.path.join(D, "bse_universe.json"), encoding="utf-8"))["rows"]
+    }
     out = []
     for scrip, qs in bf.items():
-        if str(qe) in qs and str(QU.yago(qe)) not in qs and scrip in univ:  # has current, missing year-ago
+        if (
+            str(qe) in qs and str(QU.yago(qe)) not in qs and scrip in univ
+        ):  # has current, missing year-ago
             r = univ[scrip]
             out.append((scrip, (r[1].upper(), r[2], r[6])))
     out.sort(key=lambda kv: -(kv[1][2] or 0))
@@ -267,7 +277,9 @@ def _nse_warm(NB):
 RETRYABLE = {403, 429, 500, 502, 503, 504}
 
 
-def _nse_pdf_with_retry(NB, url, hdr, jar_box, sym, tries=3):  # brief ride-out; BSE fallback covers a hard block
+def _nse_pdf_with_retry(
+    NB, url, hdr, jar_box, sym, tries=3
+):  # brief ride-out; BSE fallback covers a hard block
     import urllib.error
 
     delay = 5
@@ -286,7 +298,10 @@ def _nse_pdf_with_retry(NB, url, hdr, jar_box, sym, tries=3):  # brief ride-out;
         except Exception as ex:
             reason = type(ex).__name__
         if attempt < tries:
-            print("  NSE %-11s %s — retry %d/%d in %ds (re-warm cookie)" % (sym, reason, attempt, tries - 1, delay))
+            print(
+                "  NSE %-11s %s — retry %d/%d in %ds (re-warm cookie)"
+                % (sym, reason, attempt, tries - 1, delay)
+            )
             time.sleep(delay)
             try:
                 jar_box[0] = _nse_warm(NB)  # fresh cookies + pause clears NSE's per-IP throttle
@@ -404,23 +419,40 @@ def _render_nse(nse, qe, outdir, manifest, qfix):
                 # NSE blocked the download — read the SAME result off BSE (dual-listed names)
                 fb = _bse_fallback(sym, by_id, bse_op_box, outdir, qe)
                 if fb:
-                    manifest.append({"exch": "NSE", "sym": sym, "scrip": "", "name": name, "mcap": mcap, "pngs": fb})
+                    manifest.append(
+                        {
+                            "exch": "NSE",
+                            "sym": sym,
+                            "scrip": "",
+                            "name": name,
+                            "mcap": mcap,
+                            "pngs": fb,
+                        }
+                    )
                     print("  rendered NSE %-11s via BSE fallback (%d pages)" % (sym, len(fb)))
                 else:
                     print("  NSE %-11s UNFETCHED (NSE 403 + no BSE copy) — left pending" % sym)
                 continue
             real = pdf_period(raw)  # what the filing itself says
-            if real and str(fdate)[:10] <= "%04d-%02d-%02d" % (real // 10000, real // 100 % 100, real % 100):
+            if real and str(fdate)[:10] <= "%04d-%02d-%02d" % (
+                real // 10000,
+                real // 100 % 100,
+                real % 100,
+            ):
                 # impossible: the "period" ends on/after the filing date — the parse grabbed some other
                 # date in the PDF (validity/meeting/record date). Never ledger an impossible quarter.
-                print("  qfix NSE %-11s filing=%d IMPOSSIBLE vs filed %s — ignored" % (sym, real, fdate))
+                print(
+                    "  qfix NSE %-11s filing=%d IMPOSSIBLE vs filed %s — ignored"
+                    % (sym, real, fdate)
+                )
                 real = 0
             if real and real != qe and pdf_mentions_qe(raw, qe):
                 # AMBIGUOUS, like the qe==0 path below: the filing ALSO prints the target quarter, so a
                 # cover-letter slip can't re-file it. WINSOME|2026-09-23 was ledgered to Jun-2025 off a
                 # cover letter typo while its table heads 30.06.2026 — render it and let the reader decide.
                 print(
-                    "  qfix NSE %-11s parsed %d BUT the filing also prints %d — ambiguous, rendering" % (sym, real, qe)
+                    "  qfix NSE %-11s parsed %d BUT the filing also prints %d — ambiguous, rendering"
+                    % (sym, real, qe)
                 )
             elif real and real != qe:  # NSE caption mislabelled the quarter
                 qfix[f"{sym}|{fdate}"] = real
@@ -432,7 +464,16 @@ def _render_nse(nse, qe, outdir, manifest, qfix):
                 open(p, "wb").write(png)
                 pngs.append(p)
             if pngs:
-                manifest.append({"exch": "NSE", "sym": sym, "scrip": "", "name": name, "mcap": mcap, "pngs": pngs})
+                manifest.append(
+                    {
+                        "exch": "NSE",
+                        "sym": sym,
+                        "scrip": "",
+                        "name": name,
+                        "mcap": mcap,
+                        "pngs": pngs,
+                    }
+                )
                 print("  rendered NSE %-11s (%d pages)" % (sym, len(pngs)))
             else:
                 # The attachment fetched but yielded no page — almost always a cover letter, with the
@@ -440,8 +481,20 @@ def _render_nse(nse, qe, outdir, manifest, qfix):
                 # giving up, and if that fails too, SAY SO. This branch is where the 12 names vanished.
                 fb = _bse_fallback(sym, by_id, bse_op_box, outdir, qe)
                 if fb:
-                    manifest.append({"exch": "NSE", "sym": sym, "scrip": "", "name": name, "mcap": mcap, "pngs": fb})
-                    print("  rendered NSE %-11s via BSE sibling announcement (%d pages)" % (sym, len(fb)))
+                    manifest.append(
+                        {
+                            "exch": "NSE",
+                            "sym": sym,
+                            "scrip": "",
+                            "name": name,
+                            "mcap": mcap,
+                            "pngs": fb,
+                        }
+                    )
+                    print(
+                        "  rendered NSE %-11s via BSE sibling announcement (%d pages)"
+                        % (sym, len(fb))
+                    )
                 else:
                     print(
                         "  ✗ NSE %-11s: attachment carried no P&L page and no BSE sibling filing did "
@@ -455,11 +508,26 @@ def _render_bse(bse, qe, outdir, manifest):
     if bse:
         op = B.session()
         time.sleep(1)
-        for scrip, (tkr, name, mcap) in bse:
+        for scrip, v in bse:
+            tkr, name, mcap = v[:3]
             pngs = []
+            # FIRST the feed row's own attachment — the filing that put this quarter on the to-do list (§218b): newest-
+            # first announcements alone let a later quarter's filings take every slot, so a late filer's older quarter
+            # was skipped by the tripwire below and never rendered. Then the announcement search, its window reaching
+            # back to the quarter (5 months from today missed late filings of older quarters).
+            feed_att = (
+                str(v[3] or "").rstrip("/").rsplit("/", 1)[-1]
+                if len(v) > 3 and v[3] and "bseindia.com" in str(v[3])
+                else ""
+            )
+            qd = datetime.date(qe // 10000, qe // 100 % 100, qe % 100)
+            months = max(5, (datetime.date.today() - qd).days // 30 + 2)
+            cands = ([("feed", feed_att, "feed row")] if feed_att else []) + [
+                c for c in bse_render.announcements(op, scrip, months=months) if c[1] != feed_att
+            ][:3]
             # try the next-best announcement when one yields no P&L pages (a board-outcome cover letter
             # often has none) — costs extra BSE hits only on the names that would otherwise stay empty
-            for annd, att, _hd in bse_render.announcements(op, scrip)[:3]:
+            for annd, att, _hd in cands:
                 raw = bse_render.fetch_pdf(op, att)
                 if not raw:
                     continue
@@ -483,12 +551,22 @@ def _render_bse(bse, qe, outdir, manifest):
                 if pngs:
                     break
             if pngs:
-                manifest.append({"exch": "BSE", "sym": tkr, "scrip": scrip, "name": name, "mcap": mcap, "pngs": pngs})
+                manifest.append(
+                    {
+                        "exch": "BSE",
+                        "sym": tkr,
+                        "scrip": scrip,
+                        "name": name,
+                        "mcap": mcap,
+                        "pngs": pngs,
+                    }
+                )
                 print("  rendered BSE %s %-11s (%d pages)" % (scrip, tkr, len(pngs)))
             else:
                 print(
                     "  ✗ BSE %s %-11s: no candidate yielded a %d P&L — NOT proof it didn't file; check "
-                    "the announcement pick (runbook 17) before concluding anything" % (scrip, tkr, qe)
+                    "the announcement pick (runbook 17) before concluding anything"
+                    % (scrip, tkr, qe)
                 )
 
 
@@ -501,7 +579,9 @@ def main():
     )
     os.makedirs(outdir, exist_ok=True)
     if "--enrich" in sys.argv:  # re-render already-covered names missing year-ago
-        qe = json.load(open(os.path.join(D, "quarterly_results.json"), encoding="utf-8"))["quarters"][0]
+        qe = json.load(open(os.path.join(D, "quarterly_results.json"), encoding="utf-8"))[
+            "quarters"
+        ][0]
         nse, bse = [], enrich_scrips(limit, qe)
     else:
         qe, nse, bse = find_pending(limit)
@@ -560,14 +640,21 @@ def main():
                         if raw:
                             break
             real = pdf_period(raw) if raw else 0
-            if real and str(fdate)[:10] <= "%04d-%02d-%02d" % (real // 10000, real // 100 % 100, real % 100):
+            if real and str(fdate)[:10] <= "%04d-%02d-%02d" % (
+                real // 10000,
+                real // 100 % 100,
+                real % 100,
+            ):
                 print(
                     "  qe? %-11s %s -> %d IMPOSSIBLE (period ends on/after filing date) — left unclassified"
                     % (sym, fdate, real)
                 )
                 real = 0
             if not real:
-                print("  qe? %-11s %s — period unreadable (scanned/blocked), left unclassified" % (sym, fdate))
+                print(
+                    "  qe? %-11s %s — period unreadable (scanned/blocked), left unclassified"
+                    % (sym, fdate)
+                )
                 qeatt[f"{sym}|{fdate}"] = int(qeatt.get(f"{sym}|{fdate}", 0)) + 1
                 continue
             # AMBIGUOUS: pdf_period joins several pages and returns ONE date, so a statement headed
@@ -575,7 +662,9 @@ def main():
             # the wrong quarter. DAULAT|2026-08-14 did exactly that (2026-08-18) and was one merge away
             # from being re-filed into March. A ledgered quarter fix is not a guess we get to make on a
             # coin toss — when the filing prints the target quarter TOO, write nothing and render it.
-            ambiguous = bool(real != qe and pdf_mentions_qe(raw, qe))
+            # (only when the parsed quarter is OLDER: a newer quarter's filing always prints the target quarter as
+            # its "previous quarter" column, so for real > qe the mention proves nothing — §218)
+            ambiguous = bool(real < qe and pdf_mentions_qe(raw, qe))
             if ambiguous:
                 print(
                     "  qe? %-11s %s -> parsed %d BUT the filing also prints %d — ambiguous, no quarter "
@@ -588,10 +677,14 @@ def main():
                     % (sym, fdate, real, " (target quarter — rendering now)" if real == qe else "")
                 )
             qeatt.pop(f"{sym}|{fdate}", None)  # resolved — clear any earlier failed attempts
-            if real == qe or ambiguous:
+            # a NEWER quarter than the page's current one is a season's early filer — render it now too, for
+            # ITS quarter (§218: HIIL Sep-2026 was resolved here, then skipped because the page still showed Jun)
+            if real == qe or ambiguous or real > qe:
                 pngs = []
                 for i, png in enumerate(render_pdf_pages(raw)):
-                    p = os.path.join(outdir, "%s_%s_p%d.png" % ("BSE" if scrip else "NSE", scrip or sym, i))
+                    p = os.path.join(
+                        outdir, "%s_%s_p%d.png" % ("BSE" if scrip else "NSE", scrip or sym, i)
+                    )
                     open(p, "wb").write(png)
                     pngs.append(p)
                 if pngs:
@@ -603,6 +696,7 @@ def main():
                             "name": name,
                             "mcap": mcap,
                             "pngs": pngs,
+                            "qe": str(qe if (real == qe or ambiguous) else real),
                         }
                     )
 
@@ -614,8 +708,13 @@ def main():
         allfix = {}
     allfix.update(qfix)
     if qfix:
-        json.dump(allfix, open(fixp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-        print("WROTE %s: +%d quarter fixes (%d total)" % (os.path.normpath(fixp), len(qfix), len(allfix)))
+        json.dump(
+            allfix, open(fixp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
+        print(
+            "WROTE %s: +%d quarter fixes (%d total)"
+            % (os.path.normpath(fixp), len(qfix), len(allfix))
+        )
     # ⚠️ That repo edit does NOT survive the scheduled routine. The laptop can sleep for hours mid-run, so
     # SKILL step 5 re-syncs (`git reset --hard origin/main`) before merging — which throws this working-tree
     # write away. Re-running prep cannot regenerate it either: the names it resolved are no longer pending,
@@ -635,22 +734,33 @@ def main():
 
     # ---- LATE FILERS for the two quarters before the current one (never on --enrich): when the newest
     # quarter flips (Jun -> Sep) every still-unread Jun filing used to drop off this list for good.
+    # ---- EARLY FILERS for quarters AFTER the current one (§218): the current quarter only advances once
+    # some company's numbers are stored, so a season's first filings (HIIL Sep-2026) were never read.
     if "--enrich" not in sys.argv:
-        for lq, lnse, lbse in find_pending_late(limit):
-            print("late filers, quarter %d — pending: %d NSE, %d BSE-only" % (lq, len(lnse), len(lbse)))
+        for lq, lnse, lbse in find_pending_ahead(limit) + find_pending_late(limit):
+            print(
+                "%s filers, quarter %d — pending: %d NSE, %d BSE-only"
+                % ("early" if lq > qe else "late", lq, len(lnse), len(lbse))
+            )
             start = len(manifest)
             _render_nse(lnse, lq, outdir, manifest, qfix)
             _render_bse(lbse, lq, outdir, manifest)
             for m in manifest[start:]:
                 m["qe"] = str(lq)
-        runp = os.path.join(outdir, "qe_fix_run.json")  # re-journal: late NSE captions can add fixes
-        json.dump(qfix, open(runp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        runp = os.path.join(
+            outdir, "qe_fix_run.json"
+        )  # re-journal: late NSE captions can add fixes
+        json.dump(
+            qfix, open(runp, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
 
     # Persist the qe-probe attempt counts so the NEXT run starts with names it has never tried.
     # Without this the ranking is pure mcap and the same unreadable filings hold the head of the
     # queue on every run — the head-of-line block that left 8 usable probes a day against 79 waiting.
     try:
-        json.dump(qeatt, open(QEFAIL, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        json.dump(
+            qeatt, open(QEFAIL, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
         stuck = sum(1 for v in qeatt.values() if int(v) >= 3)
         print(
             "WROTE %s: %d names with an unread period (%d tried 3+ times — they now sort LAST, "
@@ -661,7 +771,11 @@ def main():
 
     for m in manifest:  # each company is read for ITS quarter (late filers carry an older one)
         mq = int(m.setdefault("qe", str(qe)))
-        m["quarters"] = {"cur": QU.label(mq), "prev": QU.label(QU.prevq(mq)), "yago": QU.label(QU.yago(mq))}
+        m["quarters"] = {
+            "cur": QU.label(mq),
+            "prev": QU.label(QU.prevq(mq)),
+            "yago": QU.label(QU.yago(mq)),
+        }
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"))
     print("WROTE %s/manifest.json: %d companies ready to vision-read" % (outdir, len(manifest)))
 

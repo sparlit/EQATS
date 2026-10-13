@@ -1,9 +1,12 @@
 """
 Unit and Integration Tests for TradingAgents Multi-Agent Suite.
 """
-from typing import Any
-import pytest
-from institutional_integrations.trading_agents_suite import TradingAgentsOrchestrator, BullResearcherAgent, BearResearcherAgent, RiskDebaterAgent
+from institutional_integrations.trading_agents_suite import (
+    BearResearcherAgent,
+    BullResearcherAgent,
+    TradingAgentsOrchestrator,
+)
+
 
 def test_bull_and_bear_agents() -> None:
     bull = BullResearcherAgent()

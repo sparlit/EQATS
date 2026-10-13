@@ -30,7 +30,6 @@ Run: uvicorn backend.api:app --reload --port 8000
 
 import math
 import os
-from typing import Optional
 
 import yfinance as yf
 from fastapi import FastAPI, HTTPException, Query
@@ -57,17 +56,22 @@ from engine import (
     apply_rsi,
     apply_supertrend,
     fetch,
-    fetch_intraday,
     market_status,
     run_backtest,
 )
 from risk import RiskConfig
-from universe import SYMBOL_SECTOR, all_symbols, get_ticker
+from universe import SYMBOL_SECTOR, all_symbols
 
 app = FastAPI(title="Algo Trader API", version="1.0.0")
 
 # Local dev by default; ALGO_CORS_ORIGINS adds deployed frontends.
-_origins = [o for o in os.getenv("ALGO_CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",") if o]
+_origins = [
+    o
+    for o in os.getenv("ALGO_CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(
+        ","
+    )
+    if o
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -135,7 +139,9 @@ def get_market_status():
 
 
 @app.get("/api/live/decision")
-def get_live_decision(symbols: str = Query(..., description="comma-separated NSE symbols"), interval: str = "5m"):
+def get_live_decision(
+    symbols: str = Query(..., description="comma-separated NSE symbols"), interval: str = "5m"
+):
     """
     Today's algorithm decision per symbol: pre_open / observing before 9:45 IST,
     then the chosen strategy arm with entry/SL/TP if a signal has fired.
@@ -174,11 +180,14 @@ def search_stocks(q: str = Query(..., min_length=1)):
     needle = q.strip().upper()
     df = _instruments_cache
     hit = df[
-        df["tradingsymbol"].str.contains(needle, regex=False) | df["name"].str.upper().str.contains(needle, regex=False)
+        df["tradingsymbol"].str.contains(needle, regex=False)
+        | df["name"].str.upper().str.contains(needle, regex=False)
     ]
     # symbol-prefix matches first, then shorter symbols (SBIN before SBICARD)
     hit = hit.assign(_rank=(~hit["tradingsymbol"].str.startswith(needle)).astype(int))
-    hit = hit.sort_values(["_rank", "tradingsymbol"], key=lambda s: s.str.len() if s.name == "tradingsymbol" else s)
+    hit = hit.sort_values(
+        ["_rank", "tradingsymbol"], key=lambda s: s.str.len() if s.name == "tradingsymbol" else s
+    )
     return [
         {"symbol": f"{r.tradingsymbol}.NS", "name": r.name_, "exchange": "NSI"}
         for r in hit.head(12).rename(columns={"name": "name_"}).itertuples()
@@ -317,7 +326,11 @@ def _derive_factors(t) -> dict:
     """Derive reasoning factor scores for the 'Why?' panel."""
     regime_fit = 85 if t.regime == "trending" else 72 if t.regime == "sideways" else 45
     signal_str = min(90, 60 + int(abs(t.pnl_pct) * 4))
-    rr = round(abs(t.tp_price - t.entry_price) / max(abs(t.sl_price - t.entry_price), 0.01), 2) if t.sl_price else 1.5
+    rr = (
+        round(abs(t.tp_price - t.entry_price) / max(abs(t.sl_price - t.entry_price), 0.01), 2)
+        if t.sl_price
+        else 1.5
+    )
     return {
         "regime_fit": regime_fit + random.randint(-5, 5),
         "signal_strength": signal_str,

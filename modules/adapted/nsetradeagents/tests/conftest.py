@@ -26,7 +26,7 @@ from unittest.mock import patch
 
 import pytest
 from app.core.database import Base
-from app.models import models
+from app.models import models  # noqa: F401  (registers tables on Base)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 

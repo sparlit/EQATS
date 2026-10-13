@@ -48,7 +48,6 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import sqlalchemy as sa
 
@@ -135,7 +134,10 @@ def main() -> int:
 
     engine = get_engine()
 
-    start_date = date.fromisoformat(args.from_date) if args.from_date else date.today() - timedelta(days=args.days)
+    if args.from_date:
+        start_date = date.fromisoformat(args.from_date)
+    else:
+        start_date = date.today() - timedelta(days=args.days)
 
     end_date = date.fromisoformat(args.to_date) if args.to_date else date.today()
 

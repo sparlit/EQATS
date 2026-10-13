@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_position,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_position  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_positions(exchange, skipped_properties, symbol):
@@ -54,16 +54,18 @@ async def test_watch_positions(exchange, skipped_properties, symbol):
                 raise Error(exchange.id + " watch returned undefined response")
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             now = exchange.milliseconds()
             # continue;
             success = False
         if success:
             if response is None:
                 raise Error(exchange.id + " watch returned undefined response")
-            test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, response, symbol)
+            test_shared_methods.assert_non_emtpy_array(
+                exchange, skipped_properties, method, response, symbol
+            )
             now = exchange.milliseconds()
-            for i in range(len(response)):
+            for i in range(0, len(response)):
                 test_position(exchange, skipped_properties, method, response[i], None, now)
             test_shared_methods.assert_timestamp_order(exchange, method, symbol, response)
         #
@@ -75,13 +77,17 @@ async def test_watch_positions(exchange, skipped_properties, symbol):
             positions_for_symbols = await exchange.watch_positions([symbol])
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             now = exchange.milliseconds()
             # continue;
             success2 = False
         if success2:
             assert isinstance(positions_for_symbols, list), (
-                exchange.id + " " + method + " must return an array, returned " + exchange.json(positions_for_symbols)
+                exchange.id
+                + " "
+                + method
+                + " must return an array, returned "
+                + exchange.json(positions_for_symbols)
             )
             # max theoretical 4 positions: two for one-way-mode and two for two-way mode
             assert len(positions_for_symbols) <= 4, (
@@ -92,7 +98,11 @@ async def test_watch_positions(exchange, skipped_properties, symbol):
                 + exchange.json(positions_for_symbols)
             )
             now = exchange.milliseconds()
-            for i in range(len(positions_for_symbols)):
-                test_position(exchange, skipped_properties, method, positions_for_symbols[i], symbol, now)
-            test_shared_methods.assert_timestamp_order(exchange, method, symbol, positions_for_symbols)
+            for i in range(0, len(positions_for_symbols)):
+                test_position(
+                    exchange, skipped_properties, method, positions_for_symbols[i], symbol, now
+                )
+            test_shared_methods.assert_timestamp_order(
+                exchange, method, symbol, positions_for_symbols
+            )
     return True

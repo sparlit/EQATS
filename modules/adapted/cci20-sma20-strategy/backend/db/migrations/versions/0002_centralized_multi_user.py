@@ -44,7 +44,12 @@ def upgrade() -> None:
     # ── 1. daily_stock_metrics ──────────────────────────────────────────────────
     op.create_table(
         "daily_stock_metrics",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("ticker", sa.String(20), nullable=False),
         sa.Column("scan_date", sa.Date(), nullable=False, server_default=sa.text("CURRENT_DATE")),
         sa.Column("scanned_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -68,14 +73,18 @@ def upgrade() -> None:
     # ── 2. Add columns to watchlists (if upgrading existing) ────────────────────
     # For clean UUID handling: alter or add columns
     try:
-        op.add_column("watchlists", sa.Column("owner_id", postgresql.UUID(as_uuid=True), nullable=True))
+        op.add_column(
+            "watchlists", sa.Column("owner_id", postgresql.UUID(as_uuid=True), nullable=True)
+        )
         op.execute("UPDATE watchlists SET owner_id = user_id WHERE owner_id IS NULL")
     except Exception:
         pass
 
     try:
         op.add_column("watchlists", sa.Column("share_id", sa.String(32), nullable=True))
-        op.execute("UPDATE watchlists SET share_id = 'sh_' || substr(md5(random()::text), 1, 8) WHERE share_id IS NULL")
+        op.execute(
+            "UPDATE watchlists SET share_id = 'sh_' || substr(md5(random()::text), 1, 8) WHERE share_id IS NULL"
+        )
         op.create_index("ix_watchlists_share_id", "watchlists", ["share_id"], unique=True)
     except Exception:
         pass
@@ -83,14 +92,22 @@ def upgrade() -> None:
     try:
         op.add_column("watchlists", sa.Column("description", sa.String(255), nullable=True))
         op.add_column("watchlists", sa.Column("is_public", sa.Boolean(), server_default="false"))
-        op.add_column("watchlists", sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()))
+        op.add_column(
+            "watchlists",
+            sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        )
     except Exception:
         pass
 
     # ── 3. watchlist_items ──────────────────────────────────────────────────────
     op.create_table(
         "watchlist_items",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("watchlist_id", sa.Integer(), nullable=False),
         sa.Column("ticker", sa.String(20), nullable=False),
         sa.Column("added_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -102,7 +119,12 @@ def upgrade() -> None:
     # ── 4. user_subscriptions ────────────────────────────────────────────────────
     op.create_table(
         "user_subscriptions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("watchlist_id", sa.Integer(), nullable=False),
         sa.Column("subscribed_at", sa.DateTime(timezone=True), server_default=sa.func.now()),

@@ -25,12 +25,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Sequential weekly-discovery to 12-month compounding progression."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum, StrEnum
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
+from enum import StrEnum
 
 
 class ProgressionStage(StrEnum):
@@ -66,7 +63,9 @@ def weekly_discovery(metrics: Mapping[str, object]) -> ProgressionDecision:
             ProgressionStage.WEEKLY_CONFIRMED, True, "weekly_trend_and_relative_strength_confirmed"
         )
     if (bullish or rising) and daily and rs > -0.02:
-        return ProgressionDecision(ProgressionStage.WEEKLY_EMERGING, True, "weekly_structure_improving")
+        return ProgressionDecision(
+            ProgressionStage.WEEKLY_EMERGING, True, "weekly_structure_improving"
+        )
     return ProgressionDecision(ProgressionStage.EXITED, False, "weekly_discovery_not_present")
 
 
@@ -79,15 +78,27 @@ def classify_opportunity(
     previously_exited: bool = False,
 ) -> tuple[str, ProgressionStage]:
     """Return the daily opportunity label and current pre-entry stage."""
-    if actionable_trigger and trade_plan_ready and weekly_stage == ProgressionStage.WEEKLY_CONFIRMED:
+    if (
+        actionable_trigger
+        and trade_plan_ready
+        and weekly_stage == ProgressionStage.WEEKLY_CONFIRMED
+    ):
         stage = ProgressionStage.ENTRY_PENDING
         if previously_exited:
             return "RE_ENTRY", stage
-        if previous_stage in {None, ProgressionStage.WEEKLY_EMERGING.value, ProgressionStage.WEEKLY_CONFIRMED.value}:
+        if previous_stage in {
+            None,
+            ProgressionStage.WEEKLY_EMERGING.value,
+            ProgressionStage.WEEKLY_CONFIRMED.value,
+        }:
             return "FRESH_SIGNAL", stage
         return "CONTINUING", stage
     if weekly_stage == ProgressionStage.WEEKLY_CONFIRMED:
-        label = "NEWLY_QUALIFIED" if previous_stage in {None, ProgressionStage.WEEKLY_EMERGING.value} else "CONTINUING"
+        label = (
+            "NEWLY_QUALIFIED"
+            if previous_stage in {None, ProgressionStage.WEEKLY_EMERGING.value}
+            else "CONTINUING"
+        )
         return label, weekly_stage
     if weekly_stage == ProgressionStage.WEEKLY_EMERGING:
         return "WEEKLY_EMERGING", weekly_stage
@@ -106,28 +117,42 @@ def next_holding_stage(
     current = ProgressionStage(current_stage)
     if not trend_intact:
         return ProgressionDecision(
-            ProgressionStage.TRAILING, current != ProgressionStage.TRAILING, "trend_weakened_protect_position"
+            ProgressionStage.TRAILING,
+            current != ProgressionStage.TRAILING,
+            "trend_weakened_protect_position",
         )
 
     if current in {ProgressionStage.ENTRY_PENDING, ProgressionStage.ACTIVE_1M}:
         if sessions_held >= 20 and _STATE_RANK.get(horizon_states.get("3M", "REJECTED"), 0) >= 2:
-            return ProgressionDecision(ProgressionStage.QUALIFIED_3M, True, "one_month_survived_and_3m_requalified")
+            return ProgressionDecision(
+                ProgressionStage.QUALIFIED_3M, True, "one_month_survived_and_3m_requalified"
+            )
         return ProgressionDecision(
-            ProgressionStage.ACTIVE_1M, current != ProgressionStage.ACTIVE_1M, "one_month_stage_continues"
+            ProgressionStage.ACTIVE_1M,
+            current != ProgressionStage.ACTIVE_1M,
+            "one_month_stage_continues",
         )
 
     if current == ProgressionStage.QUALIFIED_3M:
         if sessions_held >= 60 and _STATE_RANK.get(horizon_states.get("6M", "REJECTED"), 0) >= 2:
             if fundamentals_passed is not True:
-                return ProgressionDecision(current, False, "six_month_fundamental_confirmation_required")
-            return ProgressionDecision(ProgressionStage.QUALIFIED_6M, True, "three_months_survived_and_6m_requalified")
+                return ProgressionDecision(
+                    current, False, "six_month_fundamental_confirmation_required"
+                )
+            return ProgressionDecision(
+                ProgressionStage.QUALIFIED_6M, True, "three_months_survived_and_6m_requalified"
+            )
         return ProgressionDecision(current, False, "three_month_stage_continues")
 
     if current == ProgressionStage.QUALIFIED_6M:
         if sessions_held >= 120 and _STATE_RANK.get(horizon_states.get("12M", "REJECTED"), 0) >= 2:
             if fundamentals_passed is not True:
-                return ProgressionDecision(current, False, "twelve_month_fundamental_confirmation_required")
-            return ProgressionDecision(ProgressionStage.QUALIFIED_12M, True, "six_months_survived_and_12m_requalified")
+                return ProgressionDecision(
+                    current, False, "twelve_month_fundamental_confirmation_required"
+                )
+            return ProgressionDecision(
+                ProgressionStage.QUALIFIED_12M, True, "six_months_survived_and_12m_requalified"
+            )
         return ProgressionDecision(current, False, "six_month_stage_continues")
 
     return ProgressionDecision(current, False, "stage_continues")

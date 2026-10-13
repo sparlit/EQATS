@@ -30,7 +30,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 #   _full_union_2015_v3.json  (977 CURRENT syms, 2015 -> date)
 # Rename layer: _rename_map.json (era->current, 796) + _rename_alias.json if present.
 import json
-import os
 
 
 def load(f):

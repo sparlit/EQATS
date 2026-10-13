@@ -32,7 +32,7 @@ from datetime import datetime, timedelta
 
 import db
 import pandas as pd
-from backtest import Backtester, BacktestResult
+from backtest import Backtester
 from data_sources import ProviderFetchError, get_registry
 from regime import MarketRegime
 from scanner import Screener
@@ -55,7 +55,9 @@ FALLBACK_UNIVERSE = [
 def smallcap_universe(limit=600, min_mcap=1000, max_mcap=8000):
     conn = db.get_conn()
     rows = conn.execute(
-        "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN ? AND ? ORDER BY mcap_cr DESC LIMIT ?",
+        "SELECT symbol FROM universe_broad "
+        "WHERE mcap_cr BETWEEN ? AND ? "
+        "ORDER BY mcap_cr DESC LIMIT ?",
         (min_mcap, max_mcap, limit),
     ).fetchall()
     conn.close()
@@ -78,7 +80,8 @@ def live_scan(universe=None):
     print("\n🌐 MARKET REGIME CHECK")
     reg = MarketRegime.compute()
     print(
-        f"   Index: {reg.index_close}  EMA10: {reg.ema10}  Stance: {'BULLISH ✅' if reg.is_bullish else 'DEFENSIVE 🛑'}"
+        f"   Index: {reg.index_close}  EMA10: {reg.ema10}  "
+        f"Stance: {'BULLISH ✅' if reg.is_bullish else 'DEFENSIVE 🛑'}"
     )
     if not reg.is_bullish:
         print("   ➤ No new entries. Manage open positions only.")

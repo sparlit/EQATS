@@ -27,6 +27,8 @@ use alloy::primitives::Address;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use super::{BatchCancel, BatchOrder, SubDeployerPermission};
+
 // ========================================================
 // HIP-1 / HIP-2 SPOT DEPLOY
 // ========================================================
@@ -118,11 +120,15 @@ pub struct UserGenesis {
     /// Token index.
     pub token: u32,
     /// `(user, wei)` pairs, sorted by user.
+    #[serde(serialize_with = "crate::hypercore::utils::serialize_address_pairs_as_hex")]
     pub user_and_wei: Vec<(Address, String)>,
     /// `(existing token, total wei for its holders)` pairs, sorted by token.
     pub existing_token_and_wei: Vec<(u32, String)>,
     /// `(user, is_blacklisted)` pairs, sorted by user.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "crate::hypercore::utils::serialize_option_address_pairs_as_hex"
+    )]
     pub blacklist_users: Option<Vec<(Address, bool)>>,
 }
 
@@ -237,10 +243,32 @@ pub struct OutcomeVenue {
     pub venue_name: String,
 }
 
-/// HIP-4 outcome market deployment and settlement.
+/// A HIP-4 outcome deployer action, sent as
+/// `{"type": "outcomeDeploy", "venue": "<venue>", "operation": {"<variant>": {...}}}`.
 ///
-/// Sent as its own action, `{"type": "outcomeDeploy", "<variant>": {...}}`. It used to be
-/// nested under `spotDeploy` as an `outcome` field; the exchange stopped parsing that shape.
+/// <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/hip-4-deployer-actions#action-format>
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OutcomeDeploy {
+    /// The deployer's venue name. A sub-deployer passes the venue of the deployer it acts
+    /// for, and settlements can only target that deployer's outcomes and questions.
+    pub venue: String,
+    /// The deployment or settlement to perform.
+    pub operation: OutcomeDeployAction,
+}
+
+impl OutcomeDeploy {
+    /// Builds an action for the given venue.
+    #[must_use]
+    pub fn new(venue: impl Into<String>, operation: OutcomeDeployAction) -> Self {
+        Self {
+            venue: venue.into(),
+            operation,
+        }
+    }
+}
+
+/// HIP-4 outcome market deployment and settlement, carried by [`OutcomeDeploy`].
 ///
 /// <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/hip-4-deployer-actions#action-reference>
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -263,8 +291,8 @@ pub enum OutcomeDeployAction {
     /// Each [`SubDeployerInput::variant`] names an [`OutcomeDeployAction`] variant. The
     /// `settleQuestion` grant authorizes [`SettleQuestion2`](Self::SettleQuestion2).
     ///
-    /// Unlike the HIP-3 form this carries a bare list, with no DEX name: outcome deployers
-    /// have exactly one venue.
+    /// Unlike the HIP-3 form this carries a bare list, with no DEX name: the venue is the
+    /// one in [`OutcomeDeploy::venue`].
     SetSubDeployers(Vec<SubDeployerInput>),
 }
 
@@ -425,6 +453,10 @@ pub enum PerpDeployAction {
     InsertMarginTable(InsertMarginTable),
     /// Permanently disable the DEX.
     DisableDex(String),
+    /// Operate a HIP-3\* venue: manage its allowlist and act on its users' behalf.
+    ///
+    /// HIP-3\* venues are testnet-only.
+    Star(Hip3StarAction),
 }
 
 /// Margin mode for a HIP-3 asset.
@@ -453,14 +485,14 @@ pub struct RegisterAsset2 {
     /// `Some(0)` requests a reserve deployment, which succeeds at the current auction price
     /// even after the auction ends. A reserve deployment is consumed whether or not the
     /// auction has completed, so query the auction status first.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    ///
+    /// Sent as `null` when `None`: the exchange hashes it that way.
     pub max_gas: Option<u64>,
     /// The asset being listed.
     pub asset_request: RegisterAssetRequest2,
     /// Perp DEX name, 2 to 4 lowercase characters.
     pub dex: String,
-    /// New DEX parameters. Present only when creating the DEX.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// New DEX parameters. Present only when creating the DEX; sent as `null` otherwise.
     pub schema: Option<PerpDexSchemaInput>,
 }
 
@@ -469,14 +501,14 @@ pub struct RegisterAsset2 {
 #[serde(rename_all = "camelCase")]
 pub struct RegisterAsset {
     /// Max gas in native token wei. `None` uses the current deploy auction price.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    ///
+    /// Sent as `null` when `None`: the exchange hashes it that way.
     pub max_gas: Option<u64>,
     /// The asset being listed.
     pub asset_request: RegisterAssetRequest,
     /// Perp DEX name, 2 to 4 lowercase characters.
     pub dex: String,
-    /// New DEX parameters. Present only when creating the DEX.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// New DEX parameters. Present only when creating the DEX; sent as `null` otherwise.
     pub schema: Option<PerpDexSchemaInput>,
 }
 
@@ -523,9 +555,19 @@ pub struct PerpDexSchemaInput {
     pub full_name: String,
     /// Collateral token index.
     pub collateral_token: u32,
-    /// Address allowed to push oracle updates. `None` means the deployer.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Address allowed to push oracle updates. `None` means the deployer, and is sent as
+    /// `null`.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_option_address_as_hex",
+        default
+    )]
     pub oracle_updater: Option<Address>,
+    /// Create the DEX as a HIP-3\* venue, with an allowlist and proxied user operations.
+    /// Only settable when the DEX is created. HIP-3\* venues are testnet-only.
+    ///
+    /// Omitted from the request (and from the signing hash) when `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_star: bool,
 }
 
 /// Push oracle, mark, and external prices for a DEX.
@@ -585,6 +627,10 @@ pub struct SetFeeRecipient {
     /// Perp DEX name.
     pub dex: String,
     /// Address receiving the fees.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub fee_recipient: Address,
 }
 
@@ -602,12 +648,112 @@ pub struct SetSubDeployers {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SubDeployerInput {
-    /// The [`PerpDeployAction`] variant being delegated, e.g. `"haltTrading"` or `"setOracle"`.
-    pub variant: String,
+    /// The permission being delegated: a [`PerpDeployAction`] variant such as `"setOracle"`,
+    /// an [`OutcomeDeployAction`] variant such as `"settleOutcome"`, or a HIP-3\* operation
+    /// such as [`SubDeployerPermission::Hip3Star`]. Strings convert with `.into()`.
+    pub variant: SubDeployerPermission,
     /// The sub-deployer.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub user: Address,
     /// `true` adds the sub-deployer to the authorized set, `false` removes it.
     pub allowed: bool,
+}
+
+/// An operation on a HIP-3\* venue.
+///
+/// <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/hip-3-deployer-actions#hip-3-testnet-only>
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Hip3StarAction {
+    /// Perp DEX name.
+    pub dex: String,
+    /// The operation to apply.
+    pub operation: Hip3StarOperation,
+}
+
+/// The operations a HIP-3\* venue supports.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Hip3StarOperation {
+    /// Update the venue's oracle prices.
+    ///
+    /// Needs its own grant, `{"hip3Star": "setOracle"}`: the regular `"setOracle"` grant,
+    /// including the one given to the oracle updater, does not cover it.
+    SetOracle(Hip3StarSetOracle),
+    /// Apply an operation to one user of the venue, sent as `{"proxy": [user, operation]}`.
+    Proxy(
+        #[serde(
+            serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+            deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+        )]
+        Address,
+        Hip3StarProxyOperation,
+    ),
+}
+
+/// An operation the deployer, or a sub-deployer granted it, applies to one user of a
+/// HIP-3\* venue.
+///
+/// Each operation needs its own grant: [`SubDeployerPermission::Hip3Star`] with the
+/// operation's name, e.g. `"modifyApproval"`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum Hip3StarProxyOperation {
+    /// `true` adds the user to the allowlist, `false` removes them and clears their flags.
+    /// Both are no-ops when the user is already in that state, so re-approving an approved
+    /// user keeps their flags; a removed user who is approved again starts with the defaults.
+    ModifyApproval(bool),
+    /// `true` lets an approved user deposit into and withdraw from the venue's backstop
+    /// liquidator via `hip3LiquidatorTransfer`; `false` revokes it.
+    ModifyBackstopLiquidatorApproval(bool),
+    /// `true` restricts an approved user to reducing their positions; `false` restores full
+    /// trading.
+    SetReduceOnly(bool),
+    /// Cancel the user's resting orders by oid.
+    Cancel(BatchCancel),
+    /// Cancel the user's resting orders and TWAPs on the venue.
+    CancelAll(Hip3StarCancelAll),
+    /// Place orders for the user. Every order must be reduce-only.
+    Order(BatchOrder),
+    /// Move collateral from the user's account on the venue to another account on it.
+    SendAsset(Hip3StarSendAsset),
+}
+
+/// Oracle prices for [`Hip3StarOperation::SetOracle`].
+///
+/// HIP-3\* venues send only spot oracle prices. The exchange derives each asset's external
+/// perp price from the main-DEX asset of the same name, and its mark price onchain.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Hip3StarSetOracle {
+    /// `(asset, oracle price)` pairs, sorted by asset.
+    pub oracle_pxs: Vec<(String, String)>,
+}
+
+/// Which assets [`Hip3StarProxyOperation::CancelAll`] cancels on.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Hip3StarCancelAll {
+    /// 1 to 10 asset IDs, or `None` for every asset on the venue. Sent as `null` when `None`.
+    pub assets: Option<Vec<usize>>,
+}
+
+/// Collateral transfer for [`Hip3StarProxyOperation::SendAsset`].
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Hip3StarSendAsset {
+    /// Account on the same venue receiving the collateral.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
+    pub destination: Address,
+    /// Amount of the venue's collateral token.
+    #[serde(with = "rust_decimal::serde::str")]
+    pub amount: Decimal,
 }
 
 /// The deployer's fee settings for one asset.
@@ -734,11 +880,12 @@ mod tests {
         );
     }
 
-    /// `outcomeDeploy` is its own action, not a field of `spotDeploy`.
+    /// `outcomeDeploy` is its own action, carrying the venue and the operation, as documented.
     #[test]
     fn outcome_deploy_is_a_top_level_action() {
-        let action = Action::OutcomeDeploy(
-            OutcomeDeployAction::RegisterStandaloneOutcomeFromTemplate(TemplateInstance::new(
+        let outcome = |operation| Action::OutcomeDeploy(OutcomeDeploy::new("ab", operation));
+        let action = outcome(OutcomeDeployAction::RegisterStandaloneOutcomeFromTemplate(
+            TemplateInstance::new(
                 "abc",
                 [
                     ("underlying".to_string(), "ABC".to_string()),
@@ -746,22 +893,25 @@ mod tests {
                     ("target".to_string(), "100".to_string()),
                 ],
                 dec!(1),
-            )),
-        );
+            ),
+        ));
 
         // Keywords are sorted on construction, as the exchange requires.
         assert_eq!(
             serde_json::to_value(&action).unwrap(),
             json!({
                 "type": "outcomeDeploy",
-                "registerStandaloneOutcomeFromTemplate": {
-                    "id": "abc",
-                    "keywordToValue": [
-                        ["expiry", "20260801-0600"],
-                        ["target", "100"],
-                        ["underlying", "ABC"]
-                    ],
-                    "deployerFeeScale": "1"
+                "venue": "ab",
+                "operation": {
+                    "registerStandaloneOutcomeFromTemplate": {
+                        "id": "abc",
+                        "keywordToValue": [
+                            ["expiry", "20260801-0600"],
+                            ["target", "100"],
+                            ["underlying", "ABC"]
+                        ],
+                        "deployerFeeScale": "1"
+                    }
                 }
             })
         );
@@ -770,23 +920,27 @@ mod tests {
     /// The HIP-4 sub-deployer grant carries a bare list, unlike the HIP-3 one.
     #[test]
     fn outcome_set_sub_deployers_has_no_dex() {
-        let action = Action::OutcomeDeploy(OutcomeDeployAction::SetSubDeployers(vec![
-            SubDeployerInput {
-                variant: "settleOutcome".to_string(),
+        let action = Action::OutcomeDeploy(OutcomeDeploy::new(
+            "ab",
+            OutcomeDeployAction::SetSubDeployers(vec![SubDeployerInput {
+                variant: "settleOutcome".into(),
                 user: Address::ZERO,
                 allowed: true,
-            },
-        ]));
+            }]),
+        ));
 
         assert_eq!(
             serde_json::to_value(&action).unwrap(),
             json!({
                 "type": "outcomeDeploy",
-                "setSubDeployers": [{
-                    "variant": "settleOutcome",
-                    "user": "0x0000000000000000000000000000000000000000",
-                    "allowed": true
-                }]
+                "venue": "ab",
+                "operation": {
+                    "setSubDeployers": [{
+                        "variant": "settleOutcome",
+                        "user": "0x0000000000000000000000000000000000000000",
+                        "allowed": true
+                    }]
+                }
             })
         );
     }
@@ -851,6 +1005,16 @@ mod tests {
         let signer = PrivateKeySigner::random();
         let client = hypercore::testnet();
         let base = chrono::Utc::now().timestamp_millis() as u64;
+        // Mixed-case hex, so a checksummed or byte encoding cannot pass by accident.
+        const USER: Address =
+            alloy::primitives::address!("0x5e89b26d8d66da9888c835c9bfcc2aa51813e152");
+        let outcome = |operation| Action::OutcomeDeploy(OutcomeDeploy::new("zz", operation));
+        let star = |operation| {
+            Action::PerpDeploy(PerpDeployAction::Star(Hip3StarAction {
+                dex: "zzz".into(),
+                operation: Hip3StarOperation::Proxy(USER, operation),
+            }))
+        };
 
         let cases: Vec<(&str, Action)> = vec![
             ("claimRewards", Action::ClaimRewards),
@@ -935,12 +1099,19 @@ mod tests {
                 })),
             ),
             (
+                "perpDeploy/setFeeRecipient",
+                Action::PerpDeploy(PerpDeployAction::SetFeeRecipient(SetFeeRecipient {
+                    dex: "zzz".into(),
+                    fee_recipient: USER,
+                })),
+            ),
+            (
                 "perpDeploy/setSubDeployers",
                 Action::PerpDeploy(PerpDeployAction::SetSubDeployers(SetSubDeployers {
                     dex: "zzz".into(),
                     sub_deployers: vec![SubDeployerInput {
                         variant: "setOracle".into(),
-                        user: Address::ZERO,
+                        user: USER,
                         allowed: true,
                     }],
                 })),
@@ -971,8 +1142,146 @@ mod tests {
                 })),
             ),
             (
+                "perpDeploy/registerAsset2 with schema",
+                Action::PerpDeploy(PerpDeployAction::RegisterAsset2(RegisterAsset2 {
+                    max_gas: Some(1),
+                    asset_request: RegisterAssetRequest2 {
+                        coin: "ABC".into(),
+                        sz_decimals: 2,
+                        oracle_px: "1.0".into(),
+                        margin_table_id: 50,
+                        margin_mode: MarginMode::Normal,
+                    },
+                    dex: "zzz".into(),
+                    schema: Some(PerpDexSchemaInput {
+                        full_name: "zzz".into(),
+                        collateral_token: 0,
+                        oracle_updater: Some(USER),
+                        is_star: false,
+                    }),
+                })),
+            ),
+            (
+                "perpDeploy/registerAsset",
+                Action::PerpDeploy(PerpDeployAction::RegisterAsset(RegisterAsset {
+                    max_gas: None,
+                    asset_request: RegisterAssetRequest {
+                        coin: "ABC".into(),
+                        sz_decimals: 2,
+                        oracle_px: "1.0".into(),
+                        margin_table_id: 50,
+                        only_isolated: false,
+                    },
+                    dex: "zzz".into(),
+                    schema: None,
+                })),
+            ),
+            (
                 "perpDeploy/disableDex",
                 Action::PerpDeploy(PerpDeployAction::DisableDex("zzz".into())),
+            ),
+            (
+                "perpDeploy/registerAsset2 isStar",
+                Action::PerpDeploy(PerpDeployAction::RegisterAsset2(RegisterAsset2 {
+                    max_gas: None,
+                    asset_request: RegisterAssetRequest2 {
+                        coin: "ABC".into(),
+                        sz_decimals: 2,
+                        oracle_px: "1.0".into(),
+                        margin_table_id: 50,
+                        margin_mode: MarginMode::Normal,
+                    },
+                    dex: "zzz".into(),
+                    schema: Some(PerpDexSchemaInput {
+                        full_name: "zzz".into(),
+                        collateral_token: 0,
+                        oracle_updater: None,
+                        is_star: true,
+                    }),
+                })),
+            ),
+            (
+                "perpDeploy/setSubDeployers hip3Star",
+                Action::PerpDeploy(PerpDeployAction::SetSubDeployers(SetSubDeployers {
+                    dex: "zzz".into(),
+                    sub_deployers: vec![SubDeployerInput {
+                        variant: SubDeployerPermission::Hip3Star {
+                            action: "order".into(),
+                        },
+                        user: USER,
+                        allowed: true,
+                    }],
+                })),
+            ),
+            (
+                "perpDeploy/star setOracle",
+                Action::PerpDeploy(PerpDeployAction::Star(Hip3StarAction {
+                    dex: "zzz".into(),
+                    operation: Hip3StarOperation::SetOracle(Hip3StarSetOracle {
+                        oracle_pxs: vec![("zzz:BTC".into(), "100000.0".into())],
+                    }),
+                })),
+            ),
+            (
+                "perpDeploy/star modifyApproval",
+                star(Hip3StarProxyOperation::ModifyApproval(true)),
+            ),
+            (
+                "perpDeploy/star modifyBackstopLiquidatorApproval",
+                star(Hip3StarProxyOperation::ModifyBackstopLiquidatorApproval(
+                    true,
+                )),
+            ),
+            (
+                "perpDeploy/star setReduceOnly",
+                star(Hip3StarProxyOperation::SetReduceOnly(true)),
+            ),
+            (
+                "perpDeploy/star cancel",
+                star(Hip3StarProxyOperation::Cancel(BatchCancel {
+                    cancels: vec![super::super::Cancel {
+                        asset: 110000,
+                        oid: 1,
+                    }],
+                    fast: false,
+                })),
+            ),
+            (
+                "perpDeploy/star cancelAll",
+                star(Hip3StarProxyOperation::CancelAll(Hip3StarCancelAll {
+                    assets: None,
+                })),
+            ),
+            (
+                "perpDeploy/star cancelAll assets",
+                star(Hip3StarProxyOperation::CancelAll(Hip3StarCancelAll {
+                    assets: Some(vec![110000]),
+                })),
+            ),
+            (
+                "perpDeploy/star order",
+                star(Hip3StarProxyOperation::Order(BatchOrder {
+                    orders: vec![super::super::OrderRequest {
+                        asset: 110000,
+                        is_buy: false,
+                        limit_px: dec!(100),
+                        sz: dec!(0.5),
+                        reduce_only: true,
+                        order_type: super::super::OrderTypePlacement::Limit {
+                            tif: super::super::TimeInForce::Ioc,
+                        },
+                        cloid: Default::default(),
+                    }],
+                    grouping: super::super::OrderGrouping::Na,
+                    builder: None,
+                })),
+            ),
+            (
+                "perpDeploy/star sendAsset",
+                star(Hip3StarProxyOperation::SendAsset(Hip3StarSendAsset {
+                    destination: USER,
+                    amount: dec!(100.5),
+                })),
             ),
             (
                 "spotDeploy/registerToken2",
@@ -990,9 +1299,9 @@ mod tests {
                 "spotDeploy/userGenesis",
                 Action::SpotDeploy(SpotDeployAction::UserGenesis(UserGenesis {
                     token: 99999,
-                    user_and_wei: vec![],
+                    user_and_wei: vec![(USER, "1".into())],
                     existing_token_and_wei: vec![],
-                    blacklist_users: None,
+                    blacklist_users: Some(vec![(USER, true)]),
                 })),
             ),
             (
@@ -1062,7 +1371,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/registerStandalone",
-                Action::OutcomeDeploy(OutcomeDeployAction::RegisterStandaloneOutcomeFromTemplate(
+                outcome(OutcomeDeployAction::RegisterStandaloneOutcomeFromTemplate(
                     TemplateInstance::new(
                         "abc",
                         [("expiry".to_string(), "20260801-0600".to_string())],
@@ -1072,7 +1381,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/registerQuestion",
-                Action::OutcomeDeploy(OutcomeDeployAction::RegisterQuestionFromTemplate(
+                outcome(OutcomeDeployAction::RegisterQuestionFromTemplate(
                     RegisterQuestionFromTemplate {
                         question_template_instance: TemplateInstance::new(
                             "abc",
@@ -1088,7 +1397,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/registerAndAssociate",
-                Action::OutcomeDeploy(
+                outcome(
                     OutcomeDeployAction::RegisterAndAssociateNamedOutcomeFromTemplate(
                         RegisterAndAssociateNamedOutcome {
                             question: 3,
@@ -1102,7 +1411,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/settleOutcome",
-                Action::OutcomeDeploy(OutcomeDeployAction::SettleOutcome(OutcomeSettlement {
+                outcome(OutcomeDeployAction::SettleOutcome(OutcomeSettlement {
                     outcome: 7,
                     settle_fraction: dec!(1),
                     details: String::new(),
@@ -1112,7 +1421,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/settleQuestion2",
-                Action::OutcomeDeploy(OutcomeDeployAction::SettleQuestion2(SettleQuestion2 {
+                outcome(OutcomeDeployAction::SettleQuestion2(SettleQuestion2 {
                     question: 3,
                     outcome_settlements: vec![OutcomeSettlement {
                         outcome: 11,
@@ -1126,7 +1435,7 @@ mod tests {
             ),
             (
                 "outcomeDeploy/setSubDeployers",
-                Action::OutcomeDeploy(OutcomeDeployAction::SetSubDeployers(vec![
+                outcome(OutcomeDeployAction::SetSubDeployers(vec![
                     SubDeployerInput {
                         variant: "settleOutcome".into(),
                         user: Address::ZERO,
@@ -1146,6 +1455,7 @@ mod tests {
             ),
         ];
 
+        let mut failures = Vec::new();
         for (i, (label, action)) in cases.into_iter().enumerate() {
             let nonce = base + i as u64;
             let req = action
@@ -1160,13 +1470,21 @@ mod tests {
                 out.chars().take(150).collect::<String>()
             );
 
-            assert!(
-                !out.contains("Failed to deserialize"),
-                "{label}: the exchange no longer parses this action shape: {out}"
-            );
+            if out.contains("Failed to deserialize") {
+                failures.push(format!("{label}: the exchange no longer parses this shape"));
+            }
+            // Parsing is not enough: the signature covers the msgpack encoding, so a field
+            // encoded differently from how the exchange hashes it recovers another address.
+            if let Some(recovered) =
+                crate::hypercore::api::recovered_other_signer(&out, signer.address())
+            {
+                failures.push(format!("{label}: signature recovered to {recovered}"));
+            }
 
             tokio::time::sleep(std::time::Duration::from_millis(120)).await;
         }
+
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
     /// Sorted tuple lists must survive the round trip through msgpack untouched, since the
@@ -1191,10 +1509,102 @@ mod tests {
         );
     }
 
-    /// Optional fields are dropped rather than sent as null, which keeps the signing hash
-    /// identical to what the reference SDKs produce.
+    /// HIP-3* actions serialize as the documented examples.
     #[test]
-    fn absent_optionals_are_omitted() {
+    fn hip3_star_actions_match_the_documented_shapes() {
+        let user: Address = "0x0000000000000000000000000000000000000001"
+            .parse()
+            .unwrap();
+        let star = |operation| {
+            serde_json::to_value(Action::PerpDeploy(PerpDeployAction::Star(Hip3StarAction {
+                dex: "test".into(),
+                operation: Hip3StarOperation::Proxy(user, operation),
+            })))
+            .unwrap()
+        };
+
+        assert_eq!(
+            star(Hip3StarProxyOperation::ModifyApproval(true)),
+            json!({
+                "type": "perpDeploy",
+                "star": {
+                    "dex": "test",
+                    "operation": {"proxy": ["0x0000000000000000000000000000000000000001", {"modifyApproval": true}]}
+                }
+            })
+        );
+        assert_eq!(
+            star(Hip3StarProxyOperation::CancelAll(Hip3StarCancelAll {
+                assets: Some(vec![100001, 100002]),
+            }))["star"]["operation"]["proxy"][1],
+            json!({"cancelAll": {"assets": [100001, 100002]}})
+        );
+        assert_eq!(
+            star(Hip3StarProxyOperation::CancelAll(
+                Hip3StarCancelAll::default()
+            ))["star"]["operation"]["proxy"][1],
+            json!({"cancelAll": {"assets": null}})
+        );
+        assert_eq!(
+            star(Hip3StarProxyOperation::SendAsset(Hip3StarSendAsset {
+                destination: user,
+                amount: dec!(100.0),
+            }))["star"]["operation"]["proxy"][1],
+            json!({"sendAsset": {"destination": "0x0000000000000000000000000000000000000001", "amount": "100.0"}})
+        );
+
+        assert_eq!(
+            serde_json::to_value(Action::PerpDeploy(PerpDeployAction::Star(Hip3StarAction {
+                dex: "test".into(),
+                operation: Hip3StarOperation::SetOracle(Hip3StarSetOracle {
+                    oracle_pxs: vec![
+                        ("test:BTC".into(), "100000.0".into()),
+                        ("test:ETH".into(), "4000.0".into()),
+                    ],
+                }),
+            })))
+            .unwrap(),
+            json!({
+                "type": "perpDeploy",
+                "star": {
+                    "dex": "test",
+                    "operation": {"setOracle": {"oraclePxs": [["test:BTC", "100000.0"], ["test:ETH", "4000.0"]]}}
+                }
+            })
+        );
+
+        let grant = Action::PerpDeploy(PerpDeployAction::SetSubDeployers(SetSubDeployers {
+            dex: "test".into(),
+            sub_deployers: vec![SubDeployerInput {
+                variant: SubDeployerPermission::Hip3Star {
+                    action: "modifyApproval".into(),
+                },
+                user,
+                allowed: true,
+            }],
+        }));
+        assert_eq!(
+            serde_json::to_value(&grant).unwrap()["setSubDeployers"]["subDeployers"][0]["variant"],
+            json!({"hip3Star": "modifyApproval"})
+        );
+
+        let schema = |is_star| {
+            serde_json::to_value(PerpDexSchemaInput {
+                full_name: "Test".into(),
+                collateral_token: 0,
+                oracle_updater: None,
+                is_star,
+            })
+            .unwrap()
+        };
+        assert_eq!(schema(true)["isStar"], json!(true));
+        assert!(schema(false).get("isStar").is_none());
+    }
+
+    /// The exchange hashes an unset `maxGas` and `schema` as `null`, as the Python SDK sends
+    /// them. Omitting either makes the signature recover to a different address.
+    #[test]
+    fn unset_register_asset_fields_are_sent_as_null() {
         let action = Action::PerpDeploy(PerpDeployAction::RegisterAsset2(RegisterAsset2 {
             max_gas: None,
             asset_request: RegisterAssetRequest2 {
@@ -1213,6 +1623,7 @@ mod tests {
             json!({
                 "type": "perpDeploy",
                 "registerAsset2": {
+                    "maxGas": null,
                     "assetRequest": {
                         "coin": "ABC",
                         "szDecimals": 2,
@@ -1220,7 +1631,8 @@ mod tests {
                         "marginTableId": 50,
                         "marginMode": "normal"
                     },
-                    "dex": "abc"
+                    "dex": "abc",
+                    "schema": null
                 }
             })
         );

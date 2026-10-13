@@ -104,11 +104,23 @@ PC = os.path.join(HERE, "phantom_crashes.json")
 
 
 def bhav(dt):
-    url = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{}.csv".format(dt.strftime("%d%m%Y"))
+    url = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{}.csv".format(
+        dt.strftime("%d%m%Y")
+    )
     for _ in range(2):
         try:
             r = subprocess.run(
-                ["curl", "-sL", "-A", UA, "-H", "Referer: https://www.nseindia.com/", "--max-time", "30", url],
+                [
+                    "curl",
+                    "-sL",
+                    "-A",
+                    UA,
+                    "-H",
+                    "Referer: https://www.nseindia.com/",
+                    "--max-time",
+                    "30",
+                    url,
+                ],
                 capture_output=True,
                 timeout=45,
             )
@@ -124,7 +136,9 @@ def bhav(dt):
 try:
     OFFF = {
         s: {int(e[0]) for e in v}
-        for s, v in json.load(open(os.path.join(HERE, "corp_actions.json"))).get("factors", {}).items()
+        for s, v in json.load(open(os.path.join(HERE, "corp_actions.json")))
+        .get("factors", {})
+        .items()
     }
 except Exception:
     OFFF = {}

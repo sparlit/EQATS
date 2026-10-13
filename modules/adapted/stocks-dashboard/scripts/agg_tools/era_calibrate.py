@@ -47,7 +47,6 @@ choosing a cap: a setting whose hold-out mismatch is ~1% cannot be writing many 
   python3 -X utf8 scripts/agg_tools/era_calibrate.py --reach /tmp/reach_0214.json --sample 1500
 """
 import argparse
-import collections
 import json
 import os
 import random
@@ -73,7 +72,9 @@ def main():
 
     reach = json.load(open(a.reach))
     idc = json.load(open(E._ISIN_CACHE))
-    fund = json.load(open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "docs", "sf_fundamentals.json")))
+    fund = json.load(
+        open(os.path.join(os.path.dirname(os.path.dirname(HERE)), "docs", "sf_fundamentals.json"))
+    )
 
     # hold-out population: cells we hold, pre-2015, on companies MC resolved
     pop = []
@@ -85,7 +86,10 @@ def main():
                 pop.append((sym, r[0]))
     random.Random(a.seed).shuffle(pop)
     pop = pop[: a.sample]
-    print("hold-out population: %d cells on %d companies\n" % (pop and len(pop), len({s for s, _ in pop})))
+    print(
+        "hold-out population: %d cells on %d companies\n"
+        % (pop and len(pop), len({s for s, _ in pop}))
+    )
 
     results = {}
     for maxbad, rate in SETTINGS:
@@ -103,7 +107,13 @@ def main():
                 match += 1
             else:
                 misses.append(
-                    {"sym": sym, "qe": qe, "ours": ours[qe], "gate": val, "anchors": rep["chosen"]["anchors"]}
+                    {
+                        "sym": sym,
+                        "qe": qe,
+                        "ours": ours[qe],
+                        "gate": val,
+                        "anchors": rep["chosen"]["anchors"],
+                    }
                 )
         key = "maxbad={} rate={:.0f}%".format("inf" if maxbad == 99 else maxbad, rate * 100)
         results[key] = {
@@ -129,7 +139,9 @@ def main():
         )
         sys.stdout.flush()
 
-    json.dump({"population": len(pop), "settings": results}, open(a.out, "w"), indent=1, sort_keys=True)
+    json.dump(
+        {"population": len(pop), "settings": results}, open(a.out, "w"), indent=1, sort_keys=True
+    )
     print(f"\nwrote {a.out}")
 
 

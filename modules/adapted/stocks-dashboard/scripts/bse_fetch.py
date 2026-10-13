@@ -51,7 +51,9 @@ import time
 import urllib.request
 import zipfile
 
-from bse_headers import HEADERS, UA  # §179: the full standard header set; importing also covers every urllib call
+from bse_headers import (
+    HEADERS,  # §179: the full standard header set; importing also covers every urllib call
+)
 
 # PyMuPDF (fitz) + RapidOCR load LAZILY on first PDF/OCR use: fetch_bse_results.py imports this
 # module for its network helpers alone, from workflows that install neither (a top-level import
@@ -139,7 +141,9 @@ def _finresult_honours_scripcode(op):
     for probe in (500325, 532525):  # Reliance vs Bank of Maharashtra - nothing in common
         cb = int(time.time() * 1000) + random.randint(0, 99999)
         r = get(
-            op, "https://api.bseindia.com/BseIndiaAPI/api/FinancialResult/w?scripcode=%d&type=Q&rnd=%d" % (probe, cb)
+            op,
+            "https://api.bseindia.com/BseIndiaAPI/api/FinancialResult/w?scripcode=%d&type=Q&rnd=%d"
+            % (probe, cb),
         )
         sigs.append(hashlib.md5((r or "").encode("utf8", "replace")).hexdigest())
     ok = sigs[0] != sigs[1]
@@ -162,7 +166,11 @@ def quarters(op, code):
             "does honour its parameter." % code
         )
     cb = int(time.time() * 1000) + random.randint(0, 99999)
-    t = get(op, "https://api.bseindia.com/BseIndiaAPI/api/FinancialResult/w?scripcode=%d&type=Q&rnd=%d" % (code, cb))
+    t = get(
+        op,
+        "https://api.bseindia.com/BseIndiaAPI/api/FinancialResult/w?scripcode=%d&type=Q&rnd=%d"
+        % (code, cb),
+    )
     tbl = json.loads(t).get("Data", "")
     out = {}
     for href, lbl in re.findall(r"href='(/downloads1/[^']+\.zip)'[^>]*>([A-Za-z]+-\d\d)<", tbl):
@@ -177,24 +185,29 @@ def quarters(op, code):
 
 def ocr_boxes(png):
     res, _ = _ocr()(png)
-    return [{"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4} for b, t, sc in (res or [])]
+    return [
+        {"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4}
+        for b, t, sc in (res or [])
+    ]
 
 
 def net_profit(boxes):
     unit = (
         0.01
-        if any(re.search(r"in lakh", b["t"], re.IGNORECASE) for b in boxes)
-        else (1.0 if any(re.search(r"in crore", b["t"], re.IGNORECASE) for b in boxes) else None)
+        if any(re.search(r"in lakh", b["t"], re.I) for b in boxes)
+        else (1.0 if any(re.search(r"in crore", b["t"], re.I) for b in boxes) else None)
     )
     for pat in PAT:
         cand = [
             b
             for b in boxes
-            if re.search(pat, b["t"], re.IGNORECASE)
-            and not re.search(r"before tax|comprehensive|exceptional", b["t"], re.IGNORECASE)
+            if re.search(pat, b["t"], re.I)
+            and not re.search(r"before tax|comprehensive|exceptional", b["t"], re.I)
         ]
         if cand and unit:
-            row = [b for b in boxes if abs(b["y"] - cand[0]["y"]) < 12 and b["x"] > cand[0]["x"] + 5]
+            row = [
+                b for b in boxes if abs(b["y"] - cand[0]["y"]) < 12 and b["x"] > cand[0]["x"] + 5
+            ]
             nums = [num(b["t"]) for b in sorted(row, key=lambda b: b["x"])]
             nums = [n for n in nums if n is not None]
             if nums:
@@ -208,7 +221,9 @@ def pdf_np(op, ziplink, want, expect):
     pdfs = [
         n
         for n in z.namelist()
-        if n.lower().endswith(".pdf") and "presentation" not in n.lower() and "outcome" not in n.lower()
+        if n.lower().endswith(".pdf")
+        and "presentation" not in n.lower()
+        and "outcome" not in n.lower()
     ]
     key = "consol" if want == "con" else "standalone"
     pick = next((n for n in pdfs if key in n.lower()), None) or next(

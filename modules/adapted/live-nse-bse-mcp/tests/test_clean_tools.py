@@ -39,7 +39,9 @@ def test_clean_tools():
     try:
         # Test tools/list with cleaned serialization
         response = requests.post(
-            "http://localhost:8000/jsonrpc", json={"jsonrpc": "2.0", "method": "tools/list", "id": 1}, timeout=5
+            "http://localhost:8000/jsonrpc",
+            json={"jsonrpc": "2.0", "method": "tools/list", "id": 1},
+            timeout=5,
         )
 
         if response.status_code == 200:

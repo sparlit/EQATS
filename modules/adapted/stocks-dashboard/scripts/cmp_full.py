@@ -59,4 +59,6 @@ for d, r, sf, ou, m, miss in rows:
     mm = ",".join(miss[:5]) + ((" +%d" % (len(miss) - 5)) if len(miss) > 5 else "")
     print("%-10s | %4d  | %4d  | %4d | %4d  | %s" % (d, r, sf, ou, m, mm or "-"))
 print()
-print("TOTAL Mar23-Jun26:  TL survivorship-free=%d   match=%d   rate=%.1f%%" % (tT, tM, 100 * tM / tT))
+print(
+    "TOTAL Mar23-Jun26:  TL survivorship-free=%d   match=%d   rate=%.1f%%" % (tT, tM, 100 * tM / tT)
+)

@@ -27,9 +27,15 @@ from NseStockAnalyser.option_chain_analysis import opt_chain_wrapper
 from NseStockAnalyser.put_call_ratio import put_call_wrapper
 
 print("+++++++++++++++++ NSE STOCK ANALYSER ++++++++++++++++++++")
-options = ["Option Chain Analysis", "Put/Call Ratio", "Open Interest Graphs", "Index stocks near 52 week low", "Exit"]
+options = [
+    "Option Chain Analysis",
+    "Put/Call Ratio",
+    "Open Interest Graphs",
+    "Index stocks near 52 week low",
+    "Exit",
+]
 while True:
-    for i in range(len(options)):
+    for i in range(0, len(options)):
         print(f"{i + 1} : {options[i]}")
 
     try:

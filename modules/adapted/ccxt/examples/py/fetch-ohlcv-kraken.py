@@ -68,7 +68,8 @@ def print_chart(exchange, symbol, timeframe):
     # print the chart
     print("\n" + asciichartpy.plot(series[-length:], {"height": height}))  # print the chart
 
-    return ohlcv[len(ohlcv) - 1][index]  # last closing price
+    last = ohlcv[len(ohlcv) - 1][index]  # last closing price
+    return last
 
 
 last = print_chart(exchange, symbol, "1m")

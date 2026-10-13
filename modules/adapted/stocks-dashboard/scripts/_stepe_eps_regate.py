@@ -77,7 +77,10 @@ CACHE = os.path.join(HERE, "_stepe_cache")
 os.makedirs(CACHE, exist_ok=True)
 
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 # The reconciliation partner for the NET PROFIT row is an "after extraordinary items" EPS.
@@ -114,11 +117,18 @@ def detres(scrip, qid):
             return json.load(open(cp, encoding="utf8"))
         except Exception:
             os.remove(cp)
-    u = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%d.00" % (
-        scrip,
-        qid,
+    u = (
+        "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w"
+        "?scrip_cd=%s&qtr=%d.00" % (scrip, qid)
     )
-    d = BF._get(u, headers={"User-Agent": BF.UA, "Accept": "application/json", "Referer": "https://www.bseindia.com/"})
+    d = BF._get(
+        u,
+        headers={
+            "User-Agent": BF.UA,
+            "Accept": "application/json",
+            "Referer": "https://www.bseindia.com/",
+        },
+    )
     if isinstance(d, bytes):
         d = d.decode("utf8", "replace")
     rows = json.loads(d).get("table1", []) or []
@@ -164,7 +174,11 @@ def qid_for(qe):
 
 def main():
     argv = sys.argv
-    years = [int(x) for x in argv[argv.index("--years") + 1].split(",")] if "--years" in argv else [2014]
+    years = (
+        [int(x) for x in argv[argv.index("--years") + 1].split(",")]
+        if "--years" in argv
+        else [2014]
+    )
     limit = int(argv[argv.index("--limit") + 1]) if "--limit" in argv else None
 
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json"), encoding="utf8"))
@@ -223,7 +237,9 @@ def main():
         implied = pat / shares
         tol = max(0.02 * abs(eps), 0.05)
         if abs(implied - eps) > tol:
-            att["%s|%d" % (sym, qe)] = {"reason": f"gate-E FAILS implied={implied:.4f} seen={eps:.4f} tol={tol:.4f}"}
+            att["%s|%d" % (sym, qe)] = {
+                "reason": f"gate-E FAILS implied={implied:.4f} seen={eps:.4f} tol={tol:.4f}"
+            }
             ref += 1
             continue
         # gate E proves the PAT only. Revenue rides along and must clear the

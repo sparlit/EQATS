@@ -42,6 +42,30 @@ static BUNDLED: BundledAssets = BundledAssets {
     install_index_json: include_str!("../../docs/api/tools/install/index.json"),
     install_refs: &[
         (
+            "cline",
+            include_str!("../../docs/api/tools/install/cline.json"),
+        ),
+        (
+            "clinedesktop",
+            include_str!("../../docs/api/tools/install/clinedesktop.json"),
+        ),
+        (
+            "antigravity",
+            include_str!("../../docs/api/tools/install/antigravity.json"),
+        ),
+        (
+            "antigravitydesktop",
+            include_str!("../../docs/api/tools/install/antigravitydesktop.json"),
+        ),
+        (
+            "minimaxcode",
+            include_str!("../../docs/api/tools/install/minimaxcode.json"),
+        ),
+        (
+            "minimaxdesktop",
+            include_str!("../../docs/api/tools/install/minimaxdesktop.json"),
+        ),
+        (
             "claudecode",
             include_str!("../../docs/api/tools/install/claudecode.json"),
         ),
@@ -152,6 +176,14 @@ static BUNDLED: BundledAssets = BundledAssets {
             include_str!("../../docs/api/tools/install/zcode.json"),
         ),
         ("dsh", include_str!("../../docs/api/tools/install/dsh.json")),
+        (
+            "grokbot",
+            include_str!("../../docs/api/tools/install/grokbot.json"),
+        ),
+        (
+            "manus",
+            include_str!("../../docs/api/tools/install/manus.json"),
+        ),
     ],
 };
 
@@ -478,6 +510,31 @@ fn window_state_path() -> Option<std::path::PathBuf> {
     dirs::home_dir().map(|h| h.join(".echobird").join("window-state.json"))
 }
 
+fn initial_window_state(
+    area: &tauri::PhysicalRect<i32, u32>,
+    scale_factor: f64,
+) -> WindowStateRecord {
+    // Leave room around a first-run window, including native macOS decorations.
+    // Sizes in tauri.conf.json are logical; work areas and saved state are physical.
+    let width = (1400.0 * scale_factor)
+        .min(f64::from(area.size.width) * 0.9)
+        .max((960.0 * scale_factor).min(f64::from(area.size.width))) as u32;
+    let height = (900.0 * scale_factor)
+        .min(f64::from(area.size.height) * 0.9)
+        .max((600.0 * scale_factor).min(f64::from(area.size.height))) as u32;
+    fit_window_state_to_work_area(
+        &WindowStateRecord {
+            width,
+            height,
+            x: 0,
+            y: 0,
+            maximized: false,
+        },
+        area,
+        false,
+    )
+}
+
 fn load_window_state() -> Option<WindowStateRecord> {
     let path = window_state_path()?;
     let content = std::fs::read_to_string(&path).ok()?;
@@ -502,18 +559,31 @@ fn apply_window_state(window: &tauri::WebviewWindow, state: &WindowStateRecord) 
     let monitors = window.available_monitors().unwrap_or_default();
     let saved_monitor = monitors
         .iter()
-        .map(|monitor| monitor.work_area())
-        .map(|area| (window_work_area_overlap(state, area), area))
+        .map(|monitor| {
+            (
+                window_work_area_overlap(state, monitor.work_area()),
+                monitor,
+            )
+        })
         .filter(|(overlap, _)| *overlap > 0)
         .max_by_key(|(overlap, _)| *overlap)
-        .map(|(_, area)| area);
+        .map(|(_, monitor)| monitor);
     let fallback_monitor = window
         .current_monitor()
         .ok()
         .flatten()
         .or_else(|| window.primary_monitor().ok().flatten());
+    let monitor = saved_monitor.or(fallback_monitor.as_ref());
+    if let Some(monitor) = monitor {
+        // Even the configured logical minimum can exceed a high-DPI laptop's work area.
+        let area = monitor.work_area();
+        let _ = window.set_min_size(Some(PhysicalSize::new(
+            (960.0 * monitor.scale_factor()).min(f64::from(area.size.width)) as u32,
+            (600.0 * monitor.scale_factor()).min(f64::from(area.size.height)) as u32,
+        )));
+    }
     let restored = saved_monitor
-        .map(|area| fit_window_state_to_work_area(state, area, true))
+        .map(|monitor| fit_window_state_to_work_area(state, monitor.work_area(), true))
         .or_else(|| {
             fallback_monitor
                 .as_ref()
@@ -557,11 +627,8 @@ fn capture_window_state(window: &tauri::WebviewWindow) -> Option<WindowStateReco
 fn force_kill_pid(pid: u32, label: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let status = std::process::Command::new("taskkill")
+        let status = crate::utils::process::command("taskkill")
             .args(["/F", "/PID", &pid.to_string()])
-            .creation_flags(CREATE_NO_WINDOW)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
@@ -576,7 +643,7 @@ fn force_kill_pid(pid: u32, label: &str) -> bool {
 
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
-        let status = std::process::Command::new("kill")
+        let status = crate::utils::process::command("kill")
             .args(["-9", &pid.to_string()])
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -868,8 +935,8 @@ pub fn run() {
             // Restore previous window size + position (saved at ~/.echobird/window-state.json).
             // Manual because the tauri-plugin-window-state plugin intercepts
             // CloseRequested events, fighting our close-to-tray flow.
-            if let Some(state) = load_window_state() {
-                if let Some(win) = app.get_webview_window("main") {
+            if let Some(win) = app.get_webview_window("main") {
+                if let Some(state) = load_window_state() {
                     apply_window_state(&win, &state);
                     log::info!(
                         "[WindowState] Restored {}x{} at ({},{}) maximized={}",
@@ -879,6 +946,14 @@ pub fn run() {
                         state.y,
                         state.maximized
                     );
+                } else if let Some(monitor) = win
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .or_else(|| win.primary_monitor().ok().flatten())
+                {
+                    let state = initial_window_state(monitor.work_area(), monitor.scale_factor());
+                    apply_window_state(&win, &state);
                 }
             }
 
@@ -934,6 +1009,13 @@ pub fn run() {
             mod_stub::app_ready,
             mod_stub::read_log_tail,
             tool_commands::scan_tools,
+            tool_commands::list_antigravity_accounts,
+            tool_commands::start_antigravity_login,
+            tool_commands::poll_antigravity_login,
+            tool_commands::cancel_antigravity_login,
+            tool_commands::switch_antigravity_account,
+            tool_commands::delete_antigravity_account,
+            tool_commands::refresh_antigravity_account,
             tool_commands::apply_model_to_tool,
             tool_commands::restore_tool_to_official,
             tool_commands::list_claude_code_accounts,
@@ -950,6 +1032,20 @@ pub fn run() {
             tool_commands::switch_deepseek_account,
             tool_commands::refresh_deepseek_account_quota,
             tool_commands::delete_deepseek_account,
+            tool_commands::list_grok_bot_accounts,
+            tool_commands::start_grok_bot_login,
+            tool_commands::poll_grok_bot_login,
+            tool_commands::cancel_grok_bot_login,
+            tool_commands::switch_grok_bot_account,
+            tool_commands::delete_grok_bot_account,
+            tool_commands::refresh_grok_bot_account,
+            tool_commands::list_cursor_accounts,
+            tool_commands::start_cursor_login,
+            tool_commands::poll_cursor_login,
+            tool_commands::cancel_cursor_login,
+            tool_commands::switch_cursor_account,
+            tool_commands::delete_cursor_account,
+            tool_commands::refresh_cursor_account,
             tool_commands::start_grok_login,
             tool_commands::poll_grok_login,
             tool_commands::cancel_grok_login,
@@ -957,16 +1053,33 @@ pub fn run() {
             tool_commands::switch_grok_account,
             tool_commands::delete_grok_account,
             tool_commands::refresh_grok_account,
+            tool_commands::list_manus_accounts,
+            tool_commands::start_manus_login,
+            tool_commands::poll_manus_login,
+            tool_commands::cancel_manus_login,
+            tool_commands::switch_manus_account,
+            tool_commands::refresh_manus_account,
+            tool_commands::delete_manus_account,
             tool_commands::list_workbuddy_accounts,
+            tool_commands::list_zcode_accounts,
+            tool_commands::start_zcode_login,
+            tool_commands::poll_zcode_login,
+            tool_commands::cancel_zcode_login,
+            tool_commands::switch_zcode_account,
+            tool_commands::refresh_zcode_account_quota,
+            tool_commands::delete_zcode_account,
             tool_commands::start_workbuddy_login,
             tool_commands::poll_workbuddy_login,
             tool_commands::cancel_workbuddy_login,
             tool_commands::switch_workbuddy_account,
             tool_commands::refresh_workbuddy_account_quota,
+            tool_commands::claim_workbuddy_daily_credits,
             tool_commands::delete_workbuddy_account,
             tool_commands::list_codex_accounts,
             tool_commands::capture_current_codex_account,
             tool_commands::add_codex_account_via_oauth,
+            tool_commands::start_codex_login,
+            tool_commands::cancel_codex_login,
             tool_commands::switch_codex_account,
             tool_commands::refresh_codex_account_quota,
             tool_commands::delete_codex_account,
@@ -989,6 +1102,8 @@ pub fn run() {
             model_commands::has_volc_aksk,
             model_commands::clear_volc_aksk,
             model_commands::get_volc_aksk,
+            model_commands::get_zhipu_team_access,
+            model_commands::save_zhipu_team_access,
             smart_router_commands::get_smart_router_config,
             smart_router_commands::set_smart_router_enabled,
             smart_router_commands::get_smart_router_activity,
@@ -1090,6 +1205,30 @@ pub fn run() {
 mod window_state_tests {
     use super::*;
 
+    #[test]
+    fn install_index_compiled_references_and_mother_prompt_match() {
+        use std::collections::BTreeSet;
+        let index: serde_json::Value = serde_json::from_str(BUNDLED.install_index_json).unwrap();
+        let expected: BTreeSet<_> = index["ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| id.as_str().unwrap())
+            .collect();
+        let compiled: BTreeSet<_> = BUNDLED.install_refs.iter().map(|(id, _)| *id).collect();
+        let prompt_ids: BTreeSet<_> = services::bundled_assets::INSTALLABLE_TOOL_IDS
+            .iter()
+            .copied()
+            .collect();
+        assert_eq!(expected, compiled);
+        assert_eq!(expected, prompt_ids);
+        services::bundled_assets::register(&BUNDLED);
+        let prompt = services::bundled_assets::build_embedded_refs_section();
+        for id in expected {
+            assert!(prompt.contains(&format!("#### `{id}` install reference")));
+        }
+    }
+
     fn state(width: u32, height: u32, x: i32, y: i32) -> WindowStateRecord {
         WindowStateRecord {
             width,
@@ -1129,6 +1268,30 @@ mod window_state_tests {
         assert_eq!(restored.width, 1366);
         assert_eq!(restored.height, 728);
         assert_eq!((restored.x, restored.y), (0, 0));
+    }
+
+    #[test]
+    fn first_window_keeps_default_size_on_a_large_display() {
+        let initial = initial_window_state(&area(3840, 2080), 2.0);
+        assert_eq!((initial.width, initial.height), (2800, 1800));
+        assert_eq!((initial.x, initial.y), (520, 140));
+        assert!(!initial.maximized);
+    }
+
+    #[test]
+    fn first_window_fits_a_laptop_with_system_scaling() {
+        let initial = initial_window_state(&area(1920, 1032), 1.5);
+        assert_eq!((initial.width, initial.height), (1728, 928));
+        assert_eq!((initial.x, initial.y), (96, 52));
+    }
+
+    #[test]
+    fn first_window_fits_even_when_logical_minimum_exceeds_work_area() {
+        let mut small = area(1280, 720);
+        small.position = (-1280, 40).into();
+        let initial = initial_window_state(&small, 1.5);
+        assert_eq!((initial.width, initial.height), (1280, 720));
+        assert_eq!((initial.x, initial.y), (-1280, 40));
     }
 
     #[test]

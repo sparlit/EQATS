@@ -199,7 +199,11 @@ def condition_holds(alert, price, previous=None):
         now_inside, was_inside = _inside(price, alert), _inside(previous, alert)
         if now_inside is None or was_inside is None:
             return False
-        return now_inside and not was_inside if condition == "entering_channel" else (was_inside and not now_inside)
+        return (
+            now_inside and not was_inside
+            if condition == "entering_channel"
+            else (was_inside and not now_inside)
+        )
 
     return False
 
@@ -292,7 +296,7 @@ def sweep(price_fn):
     for symbol in sorted({a["symbol"] for a in alerts if a["symbol"]}):
         try:
             price = price_fn(symbol)
-        except Exception:
+        except Exception:  # noqa: BLE001 - one bad symbol must not halt the sweep
             continue
         if price is None:
             continue
@@ -341,7 +345,9 @@ def record(kind, message, symbol=None, meta=None):
 
     An order alert tagged with `meta.event` also starts the workflows armed on that order event."""
     if kind == "order" and (meta or {}).get("event"):
-        _start_workflows("order_event", {"event": meta["event"], "symbol": symbol, "message": message, **meta})
+        _start_workflows(
+            "order_event", {"event": meta["event"], "symbol": symbol, "message": message, **meta}
+        )
     return db.create_alert(
         kind=kind,
         symbol=symbol,

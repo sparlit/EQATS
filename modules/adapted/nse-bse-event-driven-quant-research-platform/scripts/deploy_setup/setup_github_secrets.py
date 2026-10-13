@@ -111,12 +111,16 @@ def _create_pat(email: str, password: str) -> str:
 
         # Generate new token
         with suppress(Exception):
-            sb.click('button:contains("Generate new token"), a:contains("Generate new token")', timeout=5)
+            sb.click(
+                'button:contains("Generate new token"), a:contains("Generate new token")', timeout=5
+            )
         sb.sleep(2)
 
         # Note
         with suppress(Exception):
-            sb.type('input[name="name"], input[placeholder*="note"]', "nse-bse-quant-deploy", timeout=5)
+            sb.type(
+                'input[name="name"], input[placeholder*="note"]', "nse-bse-quant-deploy", timeout=5
+            )
         sb.sleep(0.3)
 
         # Expiration
@@ -144,7 +148,7 @@ def _create_pat(email: str, password: str) -> str:
                     or token_el.get_attribute("value")
                     or ""
                 )
-                if pat.startswith(("ghp_", "github_pat_")):
+                if pat.startswith("ghp_") or pat.startswith("github_pat_"):
                     return pat.strip()
 
         # Regex fallback

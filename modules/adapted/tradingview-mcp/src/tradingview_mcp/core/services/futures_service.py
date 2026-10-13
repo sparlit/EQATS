@@ -53,8 +53,7 @@ def _futures_query():
     before querying futures or crypto.
     """
     if not _AVAILABLE:
-        msg = "tradingview_screener not installed"
-        raise RuntimeError(msg)
+        raise RuntimeError("tradingview_screener not installed")
     return Query().set_markets("futures")
 
 
@@ -65,11 +64,11 @@ ALL_FUTURES_EXCHANGES = ["CME", "COMEX", "NYMEX", "CBOT", "ICEEUR", "ICESG", "EU
 # Well-known front-month continuous contract symbols
 FUTURES_WATCHLIST: dict[str, list[str]] = {
     "equity_index": [
-        "CME:ES1!",
-        "CME:NQ1!",
-        "CME:RTY1!",
-        "CME:YM1!",
-        "CME:EMD1!",
+        "CME_MINI:ES1!",
+        "CME_MINI:NQ1!",
+        "CME_MINI:RTY1!",
+        "CBOT_MINI:YM1!",
+        "CME_MINI:EMD1!",
         "CME:NKD1!",
     ],
     "energy": [
@@ -95,8 +94,8 @@ FUTURES_WATCHLIST: dict[str, list[str]] = {
         "CBOT:ZS1!",
         "CBOT:ZL1!",
         "CBOT:ZM1!",
-        "CBOT:LE1!",
-        "CBOT:HE1!",
+        "CME:LE1!",
+        "CME:HE1!",
     ],
     "rates": [
         "CBOT:ZN1!",
@@ -255,7 +254,7 @@ def get_futures_category_snapshot(category: str) -> dict[str, Any]:
     q = _tickers_query(symbols)
 
     try:
-        _count, df = q.get_scanner_data(timeout=_SCAN_TIMEOUT_S)
+        count, df = q.get_scanner_data(timeout=_SCAN_TIMEOUT_S)
     except Exception as exc:
         # Do NOT silently fall back to an unrelated volume scan — that returns
         # contracts the caller never asked for, mislabeled under this category.

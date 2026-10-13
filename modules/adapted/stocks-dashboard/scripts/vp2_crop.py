@@ -52,7 +52,12 @@ BATCH = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 15
 
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def conval(s, qe):
@@ -66,9 +71,9 @@ AUD = re.compile(
     r"(independent auditor|auditor.?s report|limited review|review report|we have audited|"
     r"we draw attention|emphasis of matter|our (conclusion|opinion|review)|based on our (review|audit)|"
     r"to the (board|members)|key (standalone )?financial)",
-    re.IGNORECASE,
+    re.I,
 )
-PFT = re.compile(r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax|for the (period|quarter|year))", re.IGNORECASE)
+PFT = re.compile(r"profit\s*/?\s*\(?\s*loss\)?\s*(after tax|for the (period|quarter|year))", re.I)
 DEC = re.compile(r"\d[\d,]*\.\d\d")
 SEG = re.compile(
     r"(segment[\s-]*(wise|revenue|result|report|asset|liabilit)|disclosures? in compliance|"
@@ -76,14 +81,18 @@ SEG = re.compile(
     r"analytical ratio|solvency ratio|combined ratio|incurred claim ratio|net retention ratio|"
     r"foreign exchange (gain|loss)|ipo proceeds|utilisation of (the )?(net )?(ipo|issue) proceeds|"
     r"statement of assets and liabilit|assets and liabilities)",
-    re.IGNORECASE,
+    re.I,
 )
-REV = re.compile(r"(revenue from operations|total income|total revenue|income from operations)", re.IGNORECASE)
-BAL = re.compile(r"(equity and liabilities|total equity and liabilit|non-current assets|total assets)", re.IGNORECASE)
+REV = re.compile(
+    r"(revenue from operations|total income|total revenue|income from operations)", re.I
+)
+BAL = re.compile(
+    r"(equity and liabilities|total equity and liabilit|non-current assets|total assets)", re.I
+)
 PLPFT = re.compile(
     r"(profit\s*/?\s*\(?\s*loss\)?\s*(after tax|for the (period|quarter|year))|"
     r"net profit|profit after tax|profit for the|profit/\(loss\) for)",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -119,7 +128,7 @@ def find_con_page(doc):
 
 
 NPAT = re.compile(
-    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*.{0,18}(after tax|for the (period|quarter|year))", re.IGNORECASE
+    r"(net\s+)?profit\s*/?\s*\(?\s*loss\)?\s*.{0,18}(after tax|for the (period|quarter|year))", re.I
 )
 
 
@@ -147,7 +156,12 @@ def find_pl_page_by_neighbors(doc, cprev, cyago):
         if AUD.search(t) or SEG.search(t):
             continue
         # the P&L page must actually have a profit row (rules out balance-sheet/segment coincidental matches)
-        if not (PFT.search(t) or "profit for the" in low or "net profit" in low or "profit after tax" in low):
+        if not (
+            PFT.search(t)
+            or "profit for the" in low
+            or "net profit" in low
+            or "profit after tax" in low
+        ):
             continue
         nums = _nums_on(t)
         if len(nums) < 4:
@@ -155,7 +169,9 @@ def find_pl_page_by_neighbors(doc, cprev, cyago):
         score = 0.0
         for tgt in tgts:
             for sc in (1.0, 10.0, 100.0):
-                if any(abs(n - tgt * sc) <= abs(tgt * sc) * 0.004 for n in nums):  # 0.4% exact-ish match
+                if any(
+                    abs(n - tgt * sc) <= abs(tgt * sc) * 0.004 for n in nums
+                ):  # 0.4% exact-ish match
                     score += 1.0
                     break
         if score > best_score:
@@ -186,7 +202,9 @@ def find_con_pl_page(doc, cprev, cyago):
         # TABLE density (SCORE, not a hard gate): a real P&L has many rows with >=3 numbers each (multi-
         # column grid); notes/press-release prose pages mention 'consolidated'/'revenue'/'profit' in
         # sentences but have few such rows. Count any number token (incl small/decimal & whole-lakh).
-        rows3 = sum(1 for ln in t.split("\n") if len(re.findall(r"-?\(?[\d,]*\d(?:\.\d+)?\)?", ln)) >= 3)
+        rows3 = sum(
+            1 for ln in t.split("\n") if len(re.findall(r"-?\(?[\d,]*\d(?:\.\d+)?\)?", ln)) >= 3
+        )
         is_con = "consolidated" in low
         is_std_only = ("standalone" in low) and not is_con
         nums = _nums_on(t)
@@ -264,7 +282,11 @@ def render(sym, q, pdfpath, full=False):
     def piece(x0, x1, a, b):
         pm = pg.get_pixmap(dpi=DPI, clip=fitz.Rect(W * x0, H * a, W * x1, H * b))
         im = np.frombuffer(pm.samples, np.uint8).reshape(pm.height, pm.width, pm.n)
-        return cv2.cvtColor(im, cv2.COLOR_RGB2BGR) if pm.n == 3 else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        return (
+            cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+            if pm.n == 3
+            else cv2.cvtColor(im, cv2.COLOR_RGBA2BGR)
+        )
 
     def band(a, b):
         if sbs:
@@ -300,7 +322,7 @@ def render(sym, q, pdfpath, full=False):
         (255, 255, 255),
         2,
     )
-    out = np.vstack([bar, *parts])
+    out = np.vstack([bar] + parts)
     fn = os.path.join(VP2, "%s_%d.png" % (sym, q))
     cv2.imwrite(fn, out)
     return fn
@@ -311,7 +333,9 @@ def main():
         # Re-render ONLY the retry-rezoom-flagged skips (data is in-PDF, finder grabbed a decoy page or
         # the band cut the net-profit row) using the strict consolidated-P&L finder + full-page crop.
         flagged = [
-            k for k, v in read_done.items() if isinstance(v, list) and v[0] is None and "retry-rezoom" in (v[1] or "")
+            k
+            for k, v in read_done.items()
+            if isinstance(v, list) and v[0] is None and "retry-rezoom" in (v[1] or "")
         ]
         manifest = []
         for k in sorted(flagged):

@@ -26,8 +26,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import sys
 from pathlib import Path
 
+import renderer.cli as cli
 from defs.config import config
-from renderer import cli
 from renderer.annotations import DrawingManager, DrawingTool
 from renderer.breadth_render import BreadthRenderer
 from renderer.candle_render import CandlestickRenderer
@@ -58,30 +58,26 @@ def run_action(action: cli.CliAction, paths: AppPaths) -> int:
             return 0
         case "preset_remove":
             if not action.name:
-                msg = "Missing preset name"
-                raise cli.CliError(msg)
+                raise cli.CliError("Missing preset name")
 
             cli.remove_preset(paths.config_path, action.name)
             return 0
         case "watch_add":
             if not action.name or action.path is None:
-                msg = "Missing watchlist name or path"
-                raise cli.CliError(msg)
+                raise cli.CliError("Missing watchlist name or path")
 
             cli.add_watch(action.name, action.path, paths.config_path)
             return 0
         case "watch_remove":
             if not action.name:
-                msg = "Missing watchlist name"
-                raise cli.CliError(msg)
+                raise cli.CliError("Missing watchlist name")
 
             cli.remove_watch(action.name, paths.config_path)
             return 0
         case "run":
             return run_chart(action.command, paths)
 
-    msg = f"Unsupported CLI action: {action.kind}"
-    raise cli.CliError(msg)
+    raise cli.CliError(f"Unsupported CLI action: {action.kind}")
 
 
 def run_chart(cmd, paths: AppPaths) -> int:
@@ -96,7 +92,10 @@ def run_chart(cmd, paths: AppPaths) -> int:
         print("WARN: Watch file is empty. No symbols to display")
         return 1
 
-    context = build_stock_context(cmd, paths) if cmd.source.mode == "stock" else build_breadth_context(cmd, paths)
+    if cmd.source.mode == "stock":
+        context = build_stock_context(cmd, paths)
+    else:
+        context = build_breadth_context(cmd, paths)
 
     if cmd.save:
         save_all(cmd, paths, sym_list, context)
@@ -142,7 +141,7 @@ def build_stock_context(cmd, paths: AppPaths) -> RenderContext:
 
         if idx_df is None:
             print(f"WARN: Could not load index data for {config.PLOT_RS_INDEX}")
-            sys.exit(1)
+            exit(1)
 
         indicator_pipeline.set_index_close(idx_df.Close)
 
@@ -179,8 +178,7 @@ def build_stock_context(cmd, paths: AppPaths) -> RenderContext:
 
 def build_breadth_context(cmd, paths: AppPaths) -> RenderContext:
     if cmd.source.breadth is None:
-        msg = "Breadth command missing breadth source details"
-        raise cli.CliError(msg)
+        raise cli.CliError("Breadth command missing breadth source details")
 
     breadth = cmd.source.breadth
 
@@ -260,4 +258,4 @@ def resume_index(cmd, symbol_count: int) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    exit(main())

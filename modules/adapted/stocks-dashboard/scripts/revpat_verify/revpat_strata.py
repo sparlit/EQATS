@@ -44,10 +44,11 @@ import gzip
 import hashlib
 import json
 import os
-import subprocess
 import sys
 
-TREE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root of THIS checkout
+TREE = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)  # repo root of THIS checkout
 
 # Named members: each exists to exercise a SPECIFIC trap the plan calls out by name.
 PLAN_NAMED = [
@@ -113,7 +114,7 @@ def main():
 
     slim = json.loads(gzip.decompress(open(os.path.join(TREE, "docs/dash_slim.bin"), "rb").read()))
     mcap = {}
-    for r in slim.get("meta", {}).values():
+    for _k, r in slim.get("meta", {}).items():
         if r.get("symbol") and r.get("mcap"):
             mcap[r["symbol"]] = float(r["mcap"])
 
@@ -230,7 +231,8 @@ def main():
         json.dump(doc, fh, indent=1)
 
     print(
-        "universe (current N500, >=8 rev and >=8 pat cells, with mcap): %d  snapshot %s" % (len(universe), latest_snap)
+        "universe (current N500, >=8 rev and >=8 pat cells, with mcap): %d  snapshot %s"
+        % (len(universe), latest_snap)
     )
     for k, v in strata.items():
         print("  %-17s %2d  %s" % (k, len(v), ",".join(v)))

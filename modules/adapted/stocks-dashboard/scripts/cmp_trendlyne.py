@@ -82,8 +82,10 @@ def hl52(s, dint):
     while k >= 0 and a[k] >= lo_int:
         ph = h[k] if h else c[k]
         pl = l[k] if l else c[k]
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
         k -= 1
     return hi, low
 
@@ -125,7 +127,7 @@ def screen(dstr, topn=8):
             continue
         if not SER[s]["d"] or len(SER[s]["d"]) < 15:
             continue
-        p, _i = price_at(s, dint)
+        p, i = price_at(s, dint)
         if p is None:
             continue
         hl = hl52(s, dint)
@@ -195,7 +197,7 @@ def screen_all(dstr, topn=8, floor=0):
     for s in SER:
         if not SER[s]["d"] or len(SER[s]["d"]) < 15:
             continue
-        p, _i = price_at(s, dint)
+        p, i = price_at(s, dint)
         if p is None:
             continue
         hl = hl52(s, dint)
@@ -264,7 +266,10 @@ for label, iso in DATES.items():
     n500_overlap += n_i
     all_overlap += a_i
     tot += len(tl)
-    print("%-13s |  %d/%d  | %d/%d | %s" % (label, n_i, len(tl), a_i, len(tl), ",".join(sorted(u5)) or "(none)"))
+    print(
+        "%-13s |  %d/%d  | %d/%d | %s"
+        % (label, n_i, len(tl), a_i, len(tl), ",".join(sorted(u5)) or "(none)")
+    )
 print(
     "\nTOTAL overlap with Trendlyne: Nifty500-restricted=%d/%d (%.0f%%) | unrestricted=%d/%d (%.0f%%)"
     % (n500_overlap, tot, 100 * n500_overlap / tot, all_overlap, tot, 100 * all_overlap / tot)
@@ -285,7 +290,10 @@ for label, iso in DATES.items():
     us = set(u5)
     tl_fmt = ", ".join((f"**{t}**" if t in us else t) for t in tl)
     u_fmt = ", ".join((f"**{u}**" if u in set(tl) else u) for u in u5) or "—"
-    print("| %s | %s | %s | %d/%d |" % (label.replace(", ", " "), tl_fmt, u_fmt, len(set(tl) & us), len(tl)))
+    print(
+        "| %s | %s | %s | %d/%d |"
+        % (label.replace(", ", " "), tl_fmt, u_fmt, len(set(tl) & us), len(tl))
+    )
 
 print("\n### Trendlyne names your tool MISSED — why (non-Nifty500 member at that date?)")
 miss_non500 = []
@@ -299,15 +307,15 @@ for label, iso in DATES.items():
                 miss_non500.append((label, t))
             else:
                 miss_other.append((label, t))
-from collections import Counter
-
 print("Missed & NOT in Nifty500 (universe diff): %d" % len(miss_non500))
 print("  names:", ", ".join(sorted({t for _, t in miss_non500})))
 print("Missed but WAS in Nifty500 (ranking/data diff): %d" % len(miss_other))
 print("  cases:", ", ".join("{}@{}".format(t, l.split(",")[0]) for l, t in miss_other))
 
 # ---- FULL qualifying lists (no top-5 cap) ----
-print("\n\n### FULL QUALIFYING (your Nifty500 screen, sorted by profit YoY%) — Trendlyne-held in [brackets]")
+print(
+    "\n\n### FULL QUALIFYING (your Nifty500 screen, sorted by profit YoY%) — Trendlyne-held in [brackets]"
+)
 print("| Date | # | All qualifying stocks (profit-growth order; [x]=Trendlyne held it) |")
 print("|---|---|---|")
 for label, iso in DATES.items():

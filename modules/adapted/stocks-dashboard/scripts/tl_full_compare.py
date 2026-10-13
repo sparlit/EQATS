@@ -74,7 +74,8 @@ def d52(s, dn):
     k = i
     while k >= 0 and a[k] >= lo:
         ph = c[k] * (1000 + hb[k]) / 1000 if hb else c[k]
-        hi = max(hi, ph)
+        if ph > hi:
+            hi = ph
         k -= 1
     if hi <= 0:
         return None
@@ -100,7 +101,9 @@ for ds in sorted(mine):
     matched = ours & tl
     ours_only = ours - tl
     tl_only = tl - ours
-    rows.append((ds, len(ours), len(tl), len(matched), len(ours_only), len(tl_only), sorted(tl_only)[:6]))
+    rows.append(
+        (ds, len(ours), len(tl), len(matched), len(ours_only), len(tl_only), sorted(tl_only)[:6])
+    )
 
 print("%-11s %5s %5s %6s %8s %7s" % ("date", "OURS", "TL", "match", "ours_dr", "tl_add"))
 for ds, o, t, m, oo, to, _ex in rows:
@@ -133,6 +136,9 @@ print(
     % (sum(r[3] for r in rows), sum(r[2] for r in rows) + 0 or 1, 0)
 )
 json.dump(
-    [{"d": r[0], "ours": r[1], "tl": r[2], "match": r[3], "ours_only": r[4], "tl_only": r[5]} for r in rows],
+    [
+        {"d": r[0], "ours": r[1], "tl": r[2], "match": r[3], "ours_only": r[4], "tl_only": r[5]}
+        for r in rows
+    ],
     open("scripts/_d52_compare.json", "w"),
 )

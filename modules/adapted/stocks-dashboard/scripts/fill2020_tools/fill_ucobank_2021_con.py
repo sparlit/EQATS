@@ -89,44 +89,36 @@ F = [
         20210331,
         69.39,
         20220513,
-        (
-            'BSE, "Audited Financial Results For The Quarter/Year Ended 31.03.2022" (filed 13-May-2022), '
-            "Consolidated Segment Reporting note, year-ago column: Net Profit 8003 + Share in Profit of Associate "
-            "(1064) = Consolidated Net Profit 6939 (Rs in Lakh)"
-        ),
+        'BSE, "Audited Financial Results For The Quarter/Year Ended 31.03.2022" (filed 13-May-2022), '
+        "Consolidated Segment Reporting note, year-ago column: Net Profit 8003 + Share in Profit of Associate "
+        "(1064) = Consolidated Net Profit 6939 (Rs in Lakh)",
         "Net Profit column 80.03 == stored std 20210331 EXACT",
     ),
     (
         20210630,
         87.67,
         20220805,
-        (
-            'BSE, "Reviewed Financial Results For The Quarter Ended 30.06.2022" (filed 05-Aug-2022), Consolidated '
-            "Segment Reporting note, year-ago column: Net Profit 10181 + Share in Profit of Associate (1414) = "
-            "Consolidated Net Profit 8767 (Rs in Lakh)"
-        ),
+        'BSE, "Reviewed Financial Results For The Quarter Ended 30.06.2022" (filed 05-Aug-2022), Consolidated '
+        "Segment Reporting note, year-ago column: Net Profit 10181 + Share in Profit of Associate (1414) = "
+        "Consolidated Net Profit 8767 (Rs in Lakh)",
         "Net Profit column 101.81 ~= stored std 20210630 101.79 (lakh-rounding, 0.02 residual)",
     ),
     (
         20210930,
         201.29,
         20221103,
-        (
-            'BSE, "Reviewed Financial Results For The Quarter/Half Year Ended 30.09.2022" (filed 03-Nov-2022), '
-            "MAIN Consolidated Results table, year-ago column: Net Profit 20539 + Share in Profit of Associate (410) "
-            "= Consolidated Net Profit 20129 (Rs in Lakh)"
-        ),
+        'BSE, "Reviewed Financial Results For The Quarter/Half Year Ended 30.09.2022" (filed 03-Nov-2022), '
+        "MAIN Consolidated Results table, year-ago column: Net Profit 20539 + Share in Profit of Associate (410) "
+        "= Consolidated Net Profit 20129 (Rs in Lakh)",
         "Net Profit column 205.39 ~= stored std 20210930 205.40 (1 paisa, lakh-rounding)",
     ),
     (
         20211231,
         292.73,
         20220513,
-        (
-            'BSE, "Audited Financial Results For The Quarter/Year Ended 31.03.2022" (filed 13-May-2022), same filing '
-            "as 20210331 above, Consolidated Segment Reporting note, immediately-preceding-quarter column: Net Profit "
-            "31039 + Share in Profit of Associate (1766) = Consolidated Net Profit 29273 (Rs in Lakh)"
-        ),
+        'BSE, "Audited Financial Results For The Quarter/Year Ended 31.03.2022" (filed 13-May-2022), same filing '
+        "as 20210331 above, Consolidated Segment Reporting note, immediately-preceding-quarter column: Net Profit "
+        "31039 + Share in Profit of Associate (1766) = Consolidated Net Profit 29273 (Rs in Lakh)",
         "Net Profit column 310.39 == stored std 20211231 EXACT",
     ),
 ]
@@ -144,7 +136,7 @@ for path in (WT + "docs/sf_fundamentals.json", SCR + "fundamentals.json"):
     o = load(path)
     rows = o["UCOBANK"]
     for qe, con, ann, _src, _anc in F:
-        r = next(x for x in rows if x[0] == qe)
+        r = [x for x in rows if x[0] == qe][0]
         assert r[3] is None and r[4] is None, f"UCOBANK {qe} con already holds {r[3]!r}/{r[4]!r}"
         r[3] = con
         r[4] = ann
@@ -153,7 +145,14 @@ for path in (WT + "docs/sf_fundamentals.json", SCR + "fundamentals.json"):
 p = SCR + "conpat_filing_fills.json"
 led = load(p)
 for qe, con, ann, src, anc in F:
-    led["UCOBANK|%d|con" % qe] = {"con": con, "annCon": ann, "when": WHEN, "basis": "con", "src": src, "evidence": anc}
+    led["UCOBANK|%d|con" % qe] = {
+        "con": con,
+        "annCon": ann,
+        "when": WHEN,
+        "basis": "con",
+        "src": src,
+        "evidence": anc,
+    }
 json.dump(led, open(p, "w"), indent=1)
 
 p = SCR + "con_copy_retractions.json"

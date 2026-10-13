@@ -56,7 +56,10 @@ os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)s  %(message)s",
-    handlers=[logging.FileHandler("logs/parser.log", encoding="utf-8"), logging.StreamHandler(sys.stdout)],
+    handlers=[
+        logging.FileHandler("logs/parser.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 log = logging.getLogger(__name__)
 
@@ -85,7 +88,7 @@ def find_file(folder: str, pattern: str) -> str | None:
 # ═════════════════════════════════════════════════════════════
 
 
-def parse_bhavdata(file_path: str, trade_date: date | None = None) -> pd.DataFrame | None:
+def parse_bhavdata(file_path: str, trade_date: date = None) -> pd.DataFrame | None:
     """
     Parse sec_bhavdata_full_{DDMMYYYY}.csv
 
@@ -207,7 +210,7 @@ def parse_bhavdata(file_path: str, trade_date: date | None = None) -> pd.DataFra
         return df
 
     except Exception as e:
-        log.exception(f"Error parsing bhavdata: {e} | File: {file_path}")
+        log.error(f"Error parsing bhavdata: {e} | File: {file_path}")
         return None
 
 
@@ -263,7 +266,9 @@ def parse_reg_ind(file_path: str) -> set | None:
         # ── Find blacklisted stocks ──
         # A stock is flagged if any flag column has value = 1
         if existing_flags:
-            flagged_mask = df[existing_flags].apply(lambda row: any(str(v).strip() == "1" for v in row), axis=1)
+            flagged_mask = df[existing_flags].apply(
+                lambda row: any(str(v).strip() == "1" for v in row), axis=1
+            )
             blacklisted = set(df.loc[flagged_mask, "Symbol"].str.strip().tolist())
         else:
             blacklisted = set()
@@ -272,7 +277,7 @@ def parse_reg_ind(file_path: str) -> set | None:
         return blacklisted
 
     except Exception as e:
-        log.exception(f"Error parsing REG_IND: {e} | File: {file_path}")
+        log.error(f"Error parsing REG_IND: {e} | File: {file_path}")
         return None
 
 
@@ -351,7 +356,7 @@ def parse_cmvolt(file_path: str) -> pd.DataFrame | None:
         return df
 
     except Exception as e:
-        log.exception(f"Error parsing CMVOLT: {e} | File: {file_path}")
+        log.error(f"Error parsing CMVOLT: {e} | File: {file_path}")
         return None
 
 
@@ -414,7 +419,7 @@ def parse_52wk(file_path: str) -> pd.DataFrame | None:
         return df
 
     except Exception as e:
-        log.exception(f"Error parsing 52W file: {e} | File: {file_path}")
+        log.error(f"Error parsing 52W file: {e} | File: {file_path}")
         return None
 
 
@@ -473,7 +478,7 @@ def parse_pe(file_path: str) -> pd.DataFrame | None:
         return df
 
     except Exception as e:
-        log.exception(f"Error parsing PE: {e} | File: {file_path}")
+        log.error(f"Error parsing PE: {e} | File: {file_path}")
         return None
 
 
@@ -537,7 +542,7 @@ def parse_ind_close(file_path: str) -> pd.DataFrame | None:
         return df
 
     except Exception as e:
-        log.exception(f"Error parsing ind_close: {e} | File: {file_path}")
+        log.error(f"Error parsing ind_close: {e} | File: {file_path}")
         return None
 
 

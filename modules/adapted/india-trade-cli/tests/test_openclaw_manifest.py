@@ -93,7 +93,9 @@ class TestManifestStructure:
 
     def test_each_skill_method_is_post(self):
         for skill in MANIFEST["skills"]:
-            assert skill["method"] == "POST", f"Skill '{skill['name']}' has method {skill['method']}"
+            assert skill["method"] == "POST", (
+                f"Skill '{skill['name']}' has method {skill['method']}"
+            )
 
     def test_each_skill_path_starts_with_slash(self):
         for skill in MANIFEST["skills"]:
@@ -103,7 +105,9 @@ class TestManifestStructure:
         for skill in MANIFEST["skills"]:
             schema = skill["input_schema"]
             assert "type" in schema, f"Skill '{skill['name']}' input_schema missing 'type'"
-            assert "properties" in schema, f"Skill '{skill['name']}' input_schema missing 'properties'"
+            assert "properties" in schema, (
+                f"Skill '{skill['name']}' input_schema missing 'properties'"
+            )
 
 
 class TestMissingSkillsAdded:
@@ -156,4 +160,6 @@ class TestMissingSkillsAdded:
 
     def test_no_duplicate_names(self):
         names = [s["name"] for s in MANIFEST["skills"]]
-        assert len(names) == len(set(names)), f"Duplicate skill names: { {n for n in names if names.count(n) > 1} }"
+        assert len(names) == len(set(names)), (
+            f"Duplicate skill names: { {n for n in names if names.count(n) > 1} }"
+        )

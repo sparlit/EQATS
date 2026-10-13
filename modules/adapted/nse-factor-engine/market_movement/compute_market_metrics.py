@@ -63,7 +63,8 @@ import pandas as pd
 # ── Repo-root guard ──────────────────
 if not Path("signals").is_dir():
     sys.exit(
-        "ERROR: 'signals/' not found in current directory.\nRun from repo root: cd /home/ec2-user/nse-factor-engine/"
+        "ERROR: 'signals/' not found in current directory.\n"
+        "Run from repo root: cd /home/ec2-user/nse-factor-engine/"
     )
 
 # ── Config ───────────────────────────
@@ -147,7 +148,9 @@ def compute_index_metrics(df_sym):
         resistance_20w = weekly.shift(1).rolling(20, min_periods=20).max()
         support_20w = weekly.shift(1).rolling(20, min_periods=20).min()
         above_sma = weekly > sma_30w
-        whipsaw_4w = above_sma.rolling(4, min_periods=4).apply(lambda x: bool(x.any() and not x.all()), raw=True)
+        whipsaw_4w = above_sma.rolling(4, min_periods=4).apply(
+            lambda x: bool(x.any() and not x.all()), raw=True
+        )
 
         v = {
             "close": weekly.iloc[-1] if len(weekly) >= 1 else np.nan,
@@ -190,7 +193,9 @@ def compute_index_metrics(df_sym):
 
     window_252 = close.tail(LOOKBACK_52W_DAYS)
     high_52w = window_252.max()
-    proximity_52w_high = round(latest_close / high_52w, 4) if pd.notna(high_52w) and high_52w != 0 else np.nan
+    proximity_52w_high = (
+        round(latest_close / high_52w, 4) if pd.notna(high_52w) and high_52w != 0 else np.nan
+    )
 
     cummax = close.cummax()
     drawdown_series = (close - cummax) / cummax
@@ -275,7 +280,11 @@ prices["date"] = pd.to_datetime(prices["date"])
 
 # Filter to market_movement tickers only
 prices = prices[prices["symbol"].isin(MM_SYMBOLS)]
-print("\n[1/3] Loaded {} rows | {} market_movement tickers".format(prices.shape[0], prices["symbol"].nunique()))
+print(
+    "\n[1/3] Loaded {} rows | {} market_movement tickers".format(
+        prices.shape[0], prices["symbol"].nunique()
+    )
+)
 
 print("\n[2/3] Computing index metrics...")
 rows = []

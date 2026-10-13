@@ -96,10 +96,10 @@ def _run(name: str, cmd: list[str], timeout: int = 600, check: bool = False) -> 
             log.error(f"FAIL   {name} exit={r.returncode}")
         return r.returncode
     except subprocess.TimeoutExpired:
-        log.exception(f"TIMEOUT {name} after {timeout}s")
+        log.error(f"TIMEOUT {name} after {timeout}s")
         return -1
     except Exception as e:
-        log.exception(f"ERROR  {name}: {e}")
+        log.error(f"ERROR  {name}: {e}")
         return -1
 
 
@@ -267,13 +267,22 @@ def evening_cycle() -> None:
     )
     _run("daily_signals", [str(VENV_PYTHON), "scripts/daily_signals.py"], timeout=180)
     _run("paper_settle", [str(VENV_PYTHON), "scripts/paper_track.py", "settle"], timeout=60)
-    _run("paper_snapshot", [str(VENV_PYTHON), "scripts/paper_track.py", "snapshot", "--capital", "250000"], timeout=300)
+    _run(
+        "paper_snapshot",
+        [str(VENV_PYTHON), "scripts/paper_track.py", "snapshot", "--capital", "250000"],
+        timeout=300,
+    )
     _run("cache_rebuild", [str(VENV_PYTHON), "scripts/cache_signals.py"], timeout=300)
     # Backtest refresh: keep /backtest page in sync with current data
     # (per-signal metrics feed the hypothesis-wise backtest table)
     _run(
         "cluster_backtest",
-        [str(VENV_PYTHON), "scripts/cluster_backtest.py", "--signals", "dz_hi_up,dz_hi_dn,dz_lo_up,spike_70,streak3"],
+        [
+            str(VENV_PYTHON),
+            "scripts/cluster_backtest.py",
+            "--signals",
+            "dz_hi_up,dz_hi_dn,dz_lo_up,spike_70,streak3",
+        ],
         timeout=900,
     )
     # Surveillance data: ASM/GSM from NSE (uses SeleniumBase anti-detection)
@@ -282,13 +291,27 @@ def evening_cycle() -> None:
         [str(VENV_PYTHON), "scripts/scrape_nse_surveillance.py", "--save-json", "--ingest-pg"],
         timeout=180,
     )
-    _run("surveillance_analysis", [str(VENV_PYTHON), "scripts/analyze_surveillance.py", "--top", "15"], timeout=600)
     _run(
-        "surveillance_paper_trade", [str(VENV_PYTHON), "scripts/surveillance_paper_trade.py", "--top", "7"], timeout=120
+        "surveillance_analysis",
+        [str(VENV_PYTHON), "scripts/analyze_surveillance.py", "--top", "15"],
+        timeout=600,
+    )
+    _run(
+        "surveillance_paper_trade",
+        [str(VENV_PYTHON), "scripts/surveillance_paper_trade.py", "--top", "7"],
+        timeout=120,
     )
     # Professional quant layer: fundamentals, institutional, sectors, risk
-    _run("ingest_fundamentals", [str(VENV_PYTHON), "scripts/ingest_fundamentals.py", "--recent"], timeout=600)
-    _run("ingest_institutional", [str(VENV_PYTHON), "scripts/ingest_institutional.py", "--daily"], timeout=300)
+    _run(
+        "ingest_fundamentals",
+        [str(VENV_PYTHON), "scripts/ingest_fundamentals.py", "--recent"],
+        timeout=600,
+    )
+    _run(
+        "ingest_institutional",
+        [str(VENV_PYTHON), "scripts/ingest_institutional.py", "--daily"],
+        timeout=300,
+    )
     _run("ingest_sectors", [str(VENV_PYTHON), "scripts/ingest_sectors.py"], timeout=600)
     _run("compute_risk", [str(VENV_PYTHON), "scripts/compute_risk.py"], timeout=300)
     _run("sugg_settle", [str(VENV_PYTHON), "scripts/suggestion_manager.py", "settle"], timeout=60)
@@ -296,18 +319,38 @@ def evening_cycle() -> None:
     _run("watchlist_update", [str(VENV_PYTHON), "scripts/watchlist_signal_update.py"], timeout=60)
     # Hypothesis framework: generate signals + settle trades
     # Circuit breaker data: NSE price bands + Upstox snapshot
-    _run("circuit_ingest", [str(VENV_PYTHON), "scripts/ingest_circuit_limits.py", "--date", today], timeout=300)
+    _run(
+        "circuit_ingest",
+        [str(VENV_PYTHON), "scripts/ingest_circuit_limits.py", "--date", today],
+        timeout=300,
+    )
     _run("circuit_snapshot", [str(VENV_PYTHON), "scripts/snapshot_circuit_limits.py"], timeout=600)
-    _run("circuit_live_detect", [str(VENV_PYTHON), "scripts/detect_live_circuits.py", "--top", "7"], timeout=300)
-    _run("circuit_patterns", [str(VENV_PYTHON), "scripts/analyze_circuit_patterns.py", "--days", "180"], timeout=600)
+    _run(
+        "circuit_live_detect",
+        [str(VENV_PYTHON), "scripts/detect_live_circuits.py", "--top", "7"],
+        timeout=300,
+    )
+    _run(
+        "circuit_patterns",
+        [str(VENV_PYTHON), "scripts/analyze_circuit_patterns.py", "--days", "180"],
+        timeout=600,
+    )
     # Hypothesis framework: generate signals + settle trades
     # Use yesterday's date: at 18:33 on day T, bulk_ingest has written day T's data,
     # so T-1 cluster_entry (delivery) and continuation (circuit) are confirmed.
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    _run("hypothesis_signals", [str(VENV_PYTHON), "scripts/hypothesis_signals.py", "--date", yesterday], timeout=300)
+    _run(
+        "hypothesis_signals",
+        [str(VENV_PYTHON), "scripts/hypothesis_signals.py", "--date", yesterday],
+        timeout=300,
+    )
     _run("hypothesis_settle", [str(VENV_PYTHON), "scripts/hypothesis_settle.py"], timeout=300)
     # Safety net: cap open paper positions to top 7 per hypothesis
-    _run("cap_positions", [str(VENV_PYTHON), "scripts/cap_hypothesis_positions.py", "--top", "7"], timeout=300)
+    _run(
+        "cap_positions",
+        [str(VENV_PYTHON), "scripts/cap_hypothesis_positions.py", "--top", "7"],
+        timeout=300,
+    )
     _run("status_report", [str(VENV_PYTHON), "scripts/status_report.py"], timeout=30)
     log.info("═══ EVENING CYCLE COMPLETE ═══")
 
@@ -336,10 +379,9 @@ def health_check() -> None:
         start_web()
 
     # MCP only during market/evening hours
-    if is_market or is_evening:
-        if not _port_open(3000):
-            log.warning("Health check: MCP dead, restarting...")
-            start_mcp()
+    if (is_market or is_evening) and not _port_open(3000):
+        log.warning("Health check: MCP dead, restarting...")
+        start_mcp()
 
 
 # ── Scheduler loop ─────────────────────────────────────────────────────────
@@ -384,7 +426,12 @@ def run_scheduler() -> None:
             done_morning = True
 
         # 08:30–15:30 — Market hours refresh every 30 min
-        if _weekday() and 8 <= h < 16 and minute >= 8 * 60 + 30 and (minute - last_refresh >= 30 or last_refresh == 0):
+        if (
+            _weekday()
+            and 8 <= h < 16
+            and minute >= 8 * 60 + 30
+            and (minute - last_refresh >= 30 or last_refresh == 0)
+        ):
             market_hours_refresh()
             last_refresh = minute
 

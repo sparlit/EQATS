@@ -44,7 +44,8 @@ def login():
                 login_user(user, remember=True)
                 return redirect(url_for("views.home"))
 
-            flash("Incorrect password, try again.", category="error")
+            else:
+                flash("Incorrect password, try again.", category="error")
         else:
             flash("Email does not exist.", category="error")
 
@@ -69,23 +70,26 @@ def sign_up():
         user = User.query.filter_by(email=email).first()
         if user:
             flash("Email already exists.", category="error")
-        elif len(email) < 5:
-            flash("Email must be greater than 4 characters", category="error")
-        elif len(first_name) < 3:
-            flash("First Name must be greater than 2 characters", category="error")
-        elif password1 != password2:
-            flash("Passwords do not match", category="error")
-        elif len(password1) < 6:
-            flash("Password must be atleast 6 characters.", category="error")
         else:
-            # add user to database
-            new_user = User(
-                email=email, first_name=first_name, password=generate_password_hash(password1, method="sha256")
-            )
-            db.session.add(new_user)
-            db.session.commit()
-            flash("Account created!", category="success")
-            user = new_user
-            login_user(user, remember=True)
-            return redirect(url_for("views.home"))
+            if len(email) < 5:
+                flash("Email must be greater than 4 characters", category="error")
+            elif len(first_name) < 3:
+                flash("First Name must be greater than 2 characters", category="error")
+            elif password1 != password2:
+                flash("Passwords do not match", category="error")
+            elif len(password1) < 6:
+                flash("Password must be atleast 6 characters.", category="error")
+            else:
+                # add user to database
+                new_user = User(
+                    email=email,
+                    first_name=first_name,
+                    password=generate_password_hash(password1, method="sha256"),
+                )
+                db.session.add(new_user)
+                db.session.commit()
+                flash("Account created!", category="success")
+                user = new_user
+                login_user(user, remember=True)
+                return redirect(url_for("views.home"))
     return render_template("sign_up.html", user=current_user)

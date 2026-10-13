@@ -140,7 +140,7 @@ def conviction_score(row: pd.Series) -> float:
     if macd_h > 0:
         tech += 0.3
     # Price above SMA20
-    if close > sma20 > 0:
+    if close > sma20 and sma20 > 0:
         tech += 0.3
     tech *= 0.10
 
@@ -148,7 +148,10 @@ def conviction_score(row: pd.Series) -> float:
 
 
 def conviction_score_v2(
-    row: pd.Series, fundamentals: dict | None = None, institutional: dict | None = None, sector_data: dict | None = None
+    row: pd.Series,
+    fundamentals: dict | None = None,
+    institutional: dict | None = None,
+    sector_data: dict | None = None,
 ) -> float:
     """Professional conviction score with all 4 layers.
 
@@ -288,8 +291,7 @@ def signal_mask(frame: pd.DataFrame, name: str, z_min: float = 2.0) -> pd.Series
         return frame["deliv_pct"] >= 70
     if name == "streak3":
         return frame["hi_streak"] >= 3
-    msg = f"unknown signal: {name}"
-    raise KeyError(msg)
+    raise KeyError(f"unknown signal: {name}")
 
 
 def prepare_frame(df: pd.DataFrame, *, min_rows: int = 40) -> pd.DataFrame | None:
@@ -382,15 +384,15 @@ SIGNAL_NAMES = (
 
 
 __all__ = [
-    "HORIZON_DAYS",
-    "HORIZON_STOP",
     "SIGNAL_NAMES",
     "add_features",
-    "cluster_entry_mask",
     "conviction_score",
     "horizon_fit",
+    "HORIZON_DAYS",
+    "HORIZON_STOP",
     "prepare_frame",
     "price_band",
+    "cluster_entry_mask",
     "signal_mask",
     "signal_mask_with_filters",
 ]

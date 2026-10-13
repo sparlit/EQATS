@@ -35,7 +35,8 @@ from ingest.financials import parse_xbrl
 class TestCAFactor(unittest.TestCase):
     def test_modern_split_wording(self):
         self.assertAlmostEqual(
-            factor("Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share"), 0.1
+            factor("Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- Per Share"),
+            0.1,
         )
 
     def test_abbreviated_split_wording(self):  # pre-2018 records
@@ -47,8 +48,8 @@ class TestCAFactor(unittest.TestCase):
         self.assertAlmostEqual(factor(" Bonus 17:25"), 25 / 42)
 
     def test_dividend_is_not_adjusting(self):
-        assert factor("Dividend - Rs 5 Per Share") == 1.0
-        assert factor("Annual General Meeting") == 1.0
+        self.assertEqual(factor("Dividend - Rs 5 Per Share"), 1.0)
+        self.assertEqual(factor("Annual General Meeting"), 1.0)
 
     def test_split_and_bonus_combined(self):
         f = factor("Face Value Split From Rs 10 To Re 1 / Bonus 1:1")
@@ -87,21 +88,21 @@ class TestXBRL(unittest.TestCase):
     def test_oned_convention_wins(self):
         """Legacy NSE files reference OneD without declaring it."""
         out = parse_xbrl(XBRL_ONED, pd.Timestamp("2024-03-31"))
-        assert out["net_profit"] == 1234.5  # NOT the FourD YTD
-        assert out["eps"] == 2.5
+        self.assertEqual(out["net_profit"], 1234.5)  # NOT the FourD YTD
+        self.assertEqual(out["eps"], 2.5)
 
     def test_declared_context_fallback_picks_quarter_not_year(self):
         out = parse_xbrl(XBRL_DECLARED, pd.Timestamp("2024-03-31"))
-        assert out["net_profit"] == 1111.0  # ~90-day duration only
+        self.assertEqual(out["net_profit"], 1111.0)  # ~90-day duration only
 
     def test_garbage_returns_none(self):
-        assert parse_xbrl(b"not xml at all", pd.Timestamp("2024-03-31")) is None
+        self.assertIsNone(parse_xbrl(b"not xml at all", pd.Timestamp("2024-03-31")))
 
     def test_banking_taxonomy_the_period(self):
         """Banks file 'ProfitLossForThePeriod' — one extra word, 18% parse
         rate before the fix. HDFC Bank Q3 FY20 real value."""
         out = parse_xbrl(XBRL_BANKING, pd.Timestamp("2019-12-31"))
-        assert out["net_profit"] == 74164800000.0
+        self.assertEqual(out["net_profit"], 74164800000.0)
 
 
 if __name__ == "__main__":

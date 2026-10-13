@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 """
@@ -161,7 +162,10 @@ class TradingOSHTTPServer:
     """
 
     def __init__(
-        self, host: str = "127.0.0.1", port: int = 50005, scalper_instance: Any = None
+        self,
+        host: str = "127.0.0.1",
+        port: int = int(os.environ.get("TRADINGOS_WEB_PORT", 50005)),
+        scalper_instance: Any = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -266,6 +270,49 @@ class TradingOSHTTPServer:
                 "risk_per_trade_percent": config.RISK_PER_TRADE_PERCENT,
                 "max_concurrent_trades": config.MAX_CONCURRENT_TRADES,
             }
+        elif path_clean == "/api/brokers/search":
+            import urllib.parse
+
+            import broker_database
+
+            query_dict = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+            q = query_dict.get("q", [""])[0]
+            seg = query_dict.get("segment", [""])[0]
+            lim_str = query_dict.get("limit", ["50"])[0]
+            try:
+                lim = int(lim_str)
+            except ValueError:
+                lim = 50
+            results = broker_database.search_registered_brokers(keyword=q, segment=seg, limit=lim)
+            return {
+                "status": "SUCCESS",
+                "query": q,
+                "segment": seg,
+                "count": len(results),
+                "brokers": results,
+            }
+        elif path_clean == "/api/brokers/lookup":
+            import urllib.parse
+
+            import broker_database
+
+            query_dict = urllib.parse.parse_qs(urllib.parse.urlparse(path).query)
+            q = (
+                query_dict.get("q", [""])[0]
+                or query_dict.get("name", [""])[0]
+                or query_dict.get("reg_no", [""])[0]
+            )
+            broker = broker_database.get_registered_broker(q)
+            return {
+                "status": "SUCCESS" if broker else "NOT_FOUND",
+                "query": q,
+                "broker": broker,
+            }
+        elif path_clean == "/api/brokers/stats":
+            import broker_database
+
+            stats = broker_database.get_registered_broker_stats()
+            return {"status": "SUCCESS", "stats": stats}
         elif path_clean.startswith("/api/cmd/"):
             cmd = path_clean.replace("/api/cmd/", "")
             return {"command": cmd, "status": "RECEIVED", "timestamp": time.time()}

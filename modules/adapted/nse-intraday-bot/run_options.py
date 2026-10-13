@@ -38,12 +38,10 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 
-import yfinance as yf
 from feeds.index_feed import (
     get_index_data,
     get_india_vix,
     get_prev_day_levels,
-    nearest_strike,
     next_expiry,
 )
 from notifier import telegram_send
@@ -55,7 +53,8 @@ INDICES = ["NIFTY", "BANKNIFTY", "SENSEX"]
 
 # GitHub raw fallback so the dashboard can read the log even on Render/remote
 _OPTIONS_LOG_URL = os.environ.get(
-    "OPTIONS_LOG_URL", "https://raw.githubusercontent.com/lavakus/nse-intraday-bot/main/options_log.json"
+    "OPTIONS_LOG_URL",
+    "https://raw.githubusercontent.com/lavakus/nse-intraday-bot/main/options_log.json",
 )
 
 
@@ -348,7 +347,10 @@ def run_options_watcher():
 
             vix_data = get_india_vix()
             telegram_send(_format_options_alert(sig, vix_data))
-            print(f"[OPTIONS] Alert fired: {sig['index']} {sig['option_type']} {sig['strike']} {sig['expiry']}")
+            print(
+                f"[OPTIONS] Alert fired: {sig['index']} {sig['option_type']} "
+                f"{sig['strike']} {sig['expiry']}"
+            )
 
         time.sleep(5 * 60)
 

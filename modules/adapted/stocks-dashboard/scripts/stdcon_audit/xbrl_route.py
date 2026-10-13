@@ -40,7 +40,6 @@ basis being read. A filing whose contexts do not satisfy that is refused, not gu
 import os
 import re
 import sys
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -101,7 +100,9 @@ def read(sym, qe, want_con):
     cands = rows_for(sym, qe, want_con)
     if not cands:
         n = len([r for r in NA.rows_for(sym) if NAR.iso_qe(r.get("toDate") or "") == qe])
-        return None, {"skip": "no-%s-row (%d list rows for this quarter)" % ("con" if want_con else "std", n)}
+        return None, {
+            "skip": "no-%s-row (%d list rows for this quarter)" % ("con" if want_con else "std", n)
+        }
     os.makedirs(CACHE, exist_ok=True)
     last = None
     for r in cands:
@@ -112,10 +113,15 @@ def read(sym, qe, want_con):
         except Exception as ex:
             last = {"skip": f"fetch:{type(ex).__name__}"}
             continue
-        beg, end = (_strfacts(xml, "DateOfStartOfReportingPeriod"), _strfacts(xml, "DateOfEndOfReportingPeriod"))
-        nat = {k: v.lower() for k, v in _strfacts(xml, "NatureOfReportStandaloneConsolidated").items()}
+        beg, end = (
+            _strfacts(xml, "DateOfStartOfReportingPeriod"),
+            _strfacts(xml, "DateOfEndOfReportingPeriod"),
+        )
+        nat = {
+            k: v.lower() for k, v in _strfacts(xml, "NatureOfReportStandaloneConsolidated").items()
+        }
         symf = {k: v.upper() for k, v in _strfacts(xml, "Symbol").items()}
-        known = {a.upper() for a in ([sym, *NAR.aliases(sym)])}
+        known = {a.upper() for a in ([sym] + NAR.aliases(sym))}
         if symf and not (set(symf.values()) & known):
             last = {"skip": f"symbol-mismatch:{sorted(set(symf.values()))[:2]}"}
             continue

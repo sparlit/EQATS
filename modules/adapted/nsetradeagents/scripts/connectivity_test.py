@@ -102,7 +102,11 @@ try:
     if raw.empty:
         print("   FAIL - empty frame (rate limited or blocked)")
     else:
-        got = len(set(raw.columns.get_level_values(1))) if isinstance(raw.columns, pd.MultiIndex) else 1
+        got = (
+            len(set(raw.columns.get_level_values(1)))
+            if isinstance(raw.columns, pd.MultiIndex)
+            else 1
+        )
         pct = got / len(batch) * 100
         print(f"   rows: {len(raw)}   tickers with data: {got}/{len(batch)} ({pct:.0f}%)")
         print("   PASS" if pct > 90 else "   PARTIAL - some tickers returned nothing")

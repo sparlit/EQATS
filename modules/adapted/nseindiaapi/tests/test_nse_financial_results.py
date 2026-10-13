@@ -27,7 +27,6 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 from context import NSE
 
 DIR = Path(__file__).parent
@@ -39,11 +38,12 @@ class TestNseFinancialResults(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.nse = NSE(download_folder=DIR, server=False)
+        cls.nse = NSE(download_folder=DIR, use_http2=False)
 
     @classmethod
     def tearDownClass(cls):
         cls.nse.exit()
+        cls.nse._transport.cookie_store.clear()
 
     def _mock_req_json(self, payload):
         mock = MagicMock()
@@ -66,19 +66,22 @@ class TestNseFinancialResults(unittest.TestCase):
             to_date=to_dt,
         )
 
-        assert result == sample
+        self.assertEqual(result, sample)
         mock.assert_called_once()
         _, kwargs = mock.call_args
-        assert kwargs["params"] == {
-            "index": "equities",
-            "period": "quarterly",
-            "symbol": "RELIANCE",
-            "from_date": "01-01-2025",
-            "to_date": "31-03-2025",
-        }
+        self.assertEqual(
+            kwargs["params"],
+            {
+                "index": "equities",
+                "period": "quarterly",
+                "symbol": "RELIANCE",
+                "from_date": "01-01-2025",
+                "to_date": "31-03-2025",
+            },
+        )
 
     def test_financial_results_date_validation(self):
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             self.nse.financial_results(
                 from_date=datetime(2025, 3, 1),
                 to_date=datetime(2025, 1, 1),
@@ -90,12 +93,12 @@ class TestNseFinancialResults(unittest.TestCase):
 
         result = self.nse.results_comparison("reliance")
 
-        assert result == sample
-        assert "resCmpData" in result
+        self.assertEqual(result, sample)
+        self.assertIn("resCmpData", result)
         mock.assert_called_once()
         args, kwargs = mock.call_args
-        assert args[0].endswith("/results-comparision")
-        assert kwargs["params"] == {"symbol": "RELIANCE"}
+        self.assertTrue(args[0].endswith("/results-comparision"))
+        self.assertEqual(kwargs["params"], {"symbol": "RELIANCE"})
 
 
 if __name__ == "__main__":

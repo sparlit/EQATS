@@ -74,7 +74,8 @@ def main():
             if "Consolidated" in nats:
                 e["con_qes"] |= qes
     ser = {
-        s: {"nat": sorted(v["nat"]), "filings": v["n"], "con_qes": sorted(v["con_qes"])[:400]} for s, v in out.items()
+        s: {"nat": sorted(v["nat"]), "filings": v["n"], "con_qes": sorted(v["con_qes"])[:400]}
+        for s, v in out.items()
     }
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(ser, f)

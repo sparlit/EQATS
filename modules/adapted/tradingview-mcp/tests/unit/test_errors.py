@@ -149,8 +149,6 @@ class TestHumanizeUpstreamError:
         assert "temporarily unavailable" in msg
 
     def test_socket_timeout_becomes_clean_hint(self):
-        import socket
-
         assert "temporarily unavailable" in self._h(TimeoutError("timed out"))
 
     def test_already_clean_terminal_message_passes_through(self):

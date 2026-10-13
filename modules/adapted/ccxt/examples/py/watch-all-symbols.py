@@ -41,7 +41,9 @@ async def loop(exchange, symbol, n):
                 # i = how many updates there were in total
                 # n = the number of the pair to count subscriptions
                 now = exchange.milliseconds()
-                print(exchange.iso8601(now), n, symbol, i, orderbook["asks"][0], orderbook["bids"][0])
+                print(
+                    exchange.iso8601(now), n, symbol, i, orderbook["asks"][0], orderbook["bids"][0]
+                )
             i += 1
         except Exception as e:
             print(str(e))

@@ -101,7 +101,9 @@ def main():
         # Skip anything already decided. NEEDS-SOURCE is only retried with --retry-source: those
         # cells failed on transport or had no readable statement, and re-attempting them every run
         # consumed the whole --limit before reaching a single NEW cell (74 -> 83 in one chunk).
-        if key in done and (done[key]["verdict"] != "NEEDS-SOURCE" or "--retry-source" not in sys.argv):
+        if key in done and (
+            done[key]["verdict"] != "NEEDS-SOURCE" or "--retry-source" not in sys.argv
+        ):
             continue
         if n >= limit:
             break
@@ -118,7 +120,11 @@ def main():
             json.dump(done, open(OUT, "w"), indent=1)
             continue
         if res.get("state") != "FILLED-EXACT":
-            done[key] = {"verdict": "NEEDS-SOURCE", "why": res.get("state"), "trace": res.get("trace")}
+            done[key] = {
+                "verdict": "NEEDS-SOURCE",
+                "why": res.get("state"),
+                "trace": res.get("trace"),
+            }
         else:
             filing = res["value"]
             med = neighbour_median(r["sym"], int(r["qe"]), r["field"])
@@ -155,7 +161,10 @@ def main():
                 "screener": r["screener"],
                 "evidence": res.get("evidence"),
             }
-            print("  %-14s %-28s filing=%-12s ours=%-12s screener=%s" % (v, key, filing, r["ours"], r["screener"]))
+            print(
+                "  %-14s %-28s filing=%-12s ours=%-12s screener=%s"
+                % (v, key, filing, r["ours"], r["screener"])
+            )
         json.dump(done, open(OUT, "w"), indent=1)
 
     c = collections.Counter(v["verdict"] for v in done.values())

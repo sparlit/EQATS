@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -242,7 +241,9 @@ def get_tasks() -> list[dict[str, Any]]:
     """Return all tasks from the database."""
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, label, completed, context, created_at FROM tasks ORDER BY created_at DESC")
+    cursor.execute(
+        "SELECT id, label, completed, context, created_at FROM tasks ORDER BY created_at DESC"
+    )
     rows = cursor.fetchall()
     conn.close()
     return [

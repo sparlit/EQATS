@@ -75,13 +75,13 @@ CAP = 6  # candidates fetched per window, RANKED first (see main); drops are log
 INC = re.compile(
     r"financial result|outcome of board|board meeting|audited result|un-?audited result"
     r"|standalone|consolidated|results for",
-    re.IGNORECASE,
+    re.I,
 )
 EXC = re.compile(
     r"xbrl|investor|press release|presentation|earnings call|transcript|intimation"
     r"|newspaper|analyst|shareholding|voting|scrutinizer|corporate governance"
     r"|reconciliation of share",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -190,9 +190,9 @@ def codes(syms):
     out = {s: sc[s] for s in syms if s in sc}
     need = [s for s in syms if s not in out]
     if need:
-        meta = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())).get(
-            "meta", {}
-        )
+        meta = json.loads(
+            gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+        ).get("meta", {})
         by_isin = defaultdict(list)
         for r in json.load(open(BSE_MASTER, encoding="utf-8")):
             if (r.get("Segment") or "").strip() != "Equity":
@@ -220,7 +220,9 @@ def main():
         if a == "--limit":
             limit = int(sys.argv[i + 2])
     sel = json.load(open(DECL, encoding="utf-8"))
-    cells = sorted({(v["fix"]["sym"], int(v["fix"]["qe"])) for v in sel.values() if v["fix"]["basis"] == "con"})
+    cells = sorted(
+        {(v["fix"]["sym"], int(v["fix"]["qe"])) for v in sel.values() if v["fix"]["basis"] == "con"}
+    )
     if only:
         cells = [c for c in cells if c[0] in only]
     if "--rev" in sys.argv:  # second worker, walking the list from the other end; DOCS is
@@ -250,10 +252,10 @@ def main():
                         r"financial result|results for|announces q|"
                         r"audited|unaudited|un-audited",
                         r[2],
-                        re.IGNORECASE,
+                        re.I,
                     )
                     else 1
-                    if re.search(r"outcome of board", r[2], re.IGNORECASE)
+                    if re.search(r"outcome of board", r[2], re.I)
                     else 2,
                     r[0],
                 )
@@ -282,7 +284,9 @@ def main():
                         print("      %-8s %s  FAIL %s" % (ann, head[:50], how), flush=True)
                         continue
                     open(path, "wb").write(d)
-                    print("      %-8s %s  %d bytes via %s" % (ann, head[:50], len(d), how), flush=True)
+                    print(
+                        "      %-8s %s  %d bytes via %s" % (ann, head[:50], len(d), how), flush=True
+                    )
                 got["docs"][fn] = {"ann": ann, "att": att, "head": head, "win": lbl}
                 time.sleep(0.4)
             time.sleep(0.5)

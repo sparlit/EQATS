@@ -74,7 +74,9 @@ def main() -> int:
     )
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
-    (output / "daily_run.json").write_text(json.dumps(result.to_dict(), indent=2, default=str), encoding="utf-8")
+    (output / "daily_run.json").write_text(
+        json.dumps(result.to_dict(), indent=2, default=str), encoding="utf-8"
+    )
     (output / "message_1_candidates.txt").write_text(result.candidate_message, encoding="utf-8")
     (output / "message_2_positions.txt").write_text(result.portfolio_message, encoding="utf-8")
     print(json.dumps(result.to_dict(), indent=2, default=str))

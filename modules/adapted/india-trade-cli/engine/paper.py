@@ -145,9 +145,13 @@ class PaperBroker(BrokerAPI):
         return self._profile
 
     def get_funds(self) -> Funds:
-        holdings_value = sum(h["qty"] * self._ltp(sym) for sym, h in self._state["holdings"].items() if h["qty"] > 0)
+        holdings_value = sum(
+            h["qty"] * self._ltp(sym) for sym, h in self._state["holdings"].items() if h["qty"] > 0
+        )
         pos_margin = sum(
-            abs(p["qty"]) * self._ltp(sym) * (MIS_MARGIN if p.get("product", "MIS") == "MIS" else NRML_MARGIN)
+            abs(p["qty"])
+            * self._ltp(sym)
+            * (MIS_MARGIN if p.get("product", "MIS") == "MIS" else NRML_MARGIN)
             for sym, p in self._state["positions"].items()
             if p["qty"] != 0
         )
@@ -253,7 +257,9 @@ class PaperBroker(BrokerAPI):
         except Exception:
             return [Quote(instrument=i, last_price=0.0) for i in instruments]
 
-    def get_options_chain(self, underlying: str, expiry: str | None = None) -> list[OptionsContract]:
+    def get_options_chain(
+        self, underlying: str, expiry: str | None = None
+    ) -> list[OptionsContract]:
         from market.options import get_options_chain
 
         return get_options_chain(underlying, expiry)
@@ -285,7 +291,7 @@ class PaperBroker(BrokerAPI):
 
         if ot == "MARKET":
             return round(ltp + slip if side == "BUY" else ltp - slip, 2)
-        if ot == "LIMIT":
+        elif ot == "LIMIT":
             p = req.price or ltp
             if side == "BUY" and ltp <= p:
                 return round(ltp, 2)
@@ -301,13 +307,18 @@ class PaperBroker(BrokerAPI):
         sym = req.symbol.upper()
         prod = (req.product or "CNC").upper()
         value = fill_price * qty
-        margin = value if prod == "CNC" else (value * MIS_MARGIN if prod == "MIS" else value * NRML_MARGIN)
+        margin = (
+            value
+            if prod == "CNC"
+            else (value * MIS_MARGIN if prod == "MIS" else value * NRML_MARGIN)
+        )
         side = req.transaction_type.upper()
 
         if side == "BUY":
             if self._state["cash"] < margin:
-                msg = f"Insufficient funds: need ₹{margin:,.0f}, have ₹{self._state['cash']:,.0f}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Insufficient funds: need ₹{margin:,.0f}, have ₹{self._state['cash']:,.0f}"
+                )
             self._state["cash"] -= margin
             bucket = "holdings" if prod == "CNC" else "positions"
             entry = self._state[bucket].get(
@@ -321,21 +332,21 @@ class PaperBroker(BrokerAPI):
             entry["exchange"] = req.exchange
             self._state[bucket][sym] = entry
 
-        elif prod == "CNC":
-            h = self._state["holdings"].get(sym, {"qty": 0, "avg_price": 0.0})
-            if h["qty"] < qty:
-                msg_0 = f"Cannot sell {qty} — only {h['qty']} held"
-                raise ValueError(msg_0)
-            realised = (fill_price - h["avg_price"]) * qty
-            self._state["cash"] += value
-            h["qty"] -= qty
-            self._state["holdings"][sym] = h
-        else:
-            p = self._state["positions"].get(sym, {"qty": 0, "avg_price": 0.0, "product": prod})
-            realised = (fill_price - p["avg_price"]) * qty
-            self._state["cash"] += margin + realised
-            p["qty"] -= qty
-            self._state["positions"][sym] = p
+        else:  # SELL
+            if prod == "CNC":
+                h = self._state["holdings"].get(sym, {"qty": 0, "avg_price": 0.0})
+                if h["qty"] < qty:
+                    raise ValueError(f"Cannot sell {qty} — only {h['qty']} held")
+                realised = (fill_price - h["avg_price"]) * qty
+                self._state["cash"] += value
+                h["qty"] -= qty
+                self._state["holdings"][sym] = h
+            else:
+                p = self._state["positions"].get(sym, {"qty": 0, "avg_price": 0.0, "product": prod})
+                realised = (fill_price - p["avg_price"]) * qty
+                self._state["cash"] += margin + realised
+                p["qty"] -= qty
+                self._state["positions"][sym] = p
 
     def _record_order(
         self,

@@ -1,9 +1,8 @@
 """
 Unit and Integration Tests for PySystemTrade Carver Systematic Trading Engine.
 """
-from typing import Any
-import pytest
 from institutional_integrations.systematic_trading_carver import PySystemTradeEngine
+
 
 def test_carver_diversification_multiplier() -> None:
     engine = PySystemTradeEngine()
@@ -26,4 +25,4 @@ def test_carver_scale_forecast_signal() -> None:
     scaled_res = engine.scale_forecast_signal(raw_signals, target_average_abs_forecast=10.0)
     assert scaled_res.scaling_factor > 1.0
     assert len(scaled_res.scaled_forecasts) == 5
-    assert all((-20.0 <= f <= 20.0 for f in scaled_res.scaled_forecasts))
+    assert all(-20.0 <= f <= 20.0 for f in scaled_res.scaled_forecasts)

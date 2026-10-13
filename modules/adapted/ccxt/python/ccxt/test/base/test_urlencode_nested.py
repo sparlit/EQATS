@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_urlencode_nested():
@@ -44,8 +44,8 @@ def test_urlencode_nested():
             "id": "sampleexchange",
         }
     )
-    # TODO: add nulls
-    # TODO: add key sort (for different langs)
+    # todo: add nulls
+    # todo: add key sort (for different langs)
     dict2 = {
         "b": {
             "c": 2,

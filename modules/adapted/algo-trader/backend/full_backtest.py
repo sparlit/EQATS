@@ -193,7 +193,9 @@ def _build_report(all_trades, all_daily_pnl, all_regime_stats, args, symbols, ca
 
     # Per-symbol
     sym_groups = _group_by(all_trades, lambda t: t.symbol.replace(".NS", ""))
-    per_sym = sorted([_period_stats(sym_groups[s], s) for s in sym_groups], key=lambda x: x["pnl"], reverse=True)
+    per_sym = sorted(
+        [_period_stats(sym_groups[s], s) for s in sym_groups], key=lambda x: x["pnl"], reverse=True
+    )
     lines.append("## Per-Symbol Breakdown")
     lines.append("```json")
     lines.append(json.dumps(_clean(per_sym), indent=2))
@@ -260,7 +262,7 @@ def _build_report(all_trades, all_daily_pnl, all_regime_stats, args, symbols, ca
 def main():
     args = _parse_args()
 
-    raw_symbols = args.symbols or DEFAULT_SYMBOLS
+    raw_symbols = args.symbols if args.symbols else DEFAULT_SYMBOLS
     symbols = [s if s.endswith(".NS") else f"{s}.NS" for s in raw_symbols]
 
     out_file = args.out or f"report_{args.start}_{args.end}.md"
@@ -298,7 +300,9 @@ def main():
     running_capital = args.capital  # equity carries forward across years
 
     for i, (b_start, b_end) in enumerate(batches):
-        print(f"\n[Batch {i + 1}/{len(batches)}] {b_start} → {b_end}  (equity: ₹{running_capital:,.0f})")
+        print(
+            f"\n[Batch {i + 1}/{len(batches)}] {b_start} → {b_end}  (equity: ₹{running_capital:,.0f})"
+        )
         try:
             results = run(
                 symbols=symbols,
@@ -334,7 +338,9 @@ def main():
         )
 
         # Write partial report after every batch so you have something even if interrupted
-        partial_report = _build_report(all_trades, all_daily_pnl, all_regime_stats, args, symbols, args.capital)
+        partial_report = _build_report(
+            all_trades, all_daily_pnl, all_regime_stats, args, symbols, args.capital
+        )
         with open(out_file, "w") as f:
             f.write(partial_report)
         print(f"  → partial report saved ({len(all_trades)} trades total)")
@@ -349,7 +355,9 @@ def main():
     if all_trades:
         wins = [t for t in all_trades if t.pnl > 0]
         total_pnl = sum(t.pnl for t in all_trades)
-        print(f"  Win rate     : {round(len(wins) / len(all_trades) * 100, 1)}%  (breakeven: 28.6%)")
+        print(
+            f"  Win rate     : {round(len(wins) / len(all_trades) * 100, 1)}%  (breakeven: 28.6%)"
+        )
         print(f"  Total PnL    : ₹{total_pnl:+,.2f}")
         print(f"  Return       : {round(total_pnl / args.capital * 100, 2):+.2f}%")
         print(f"  Final equity : ₹{running_capital:,.0f}")

@@ -85,7 +85,10 @@ prices = pd.read_parquet(PRICES_PATH)
 print(f"  shape      : {prices.shape}")
 print(f"  date range : {prices['date'].min().date()} -> {prices['date'].max().date()}")
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 print(f"  trading days indexed: {len(all_trading_days)}")
 del prices
@@ -107,7 +110,9 @@ print("\nBuilding Friday-signal -> Monday-open week pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 
 mon_pairs = []
@@ -120,8 +125,12 @@ mon_pairs.sort(key=lambda x: x[1])
 mon_pairs = mon_pairs[:N_WEEKS_LIMIT]
 
 print(f"  pairs : {len(mon_pairs)}")
-print(f"  first : sig={mon_pairs[0][0].date()} exec={mon_pairs[0][1].date()} ({mon_pairs[0][1].day_name()})")
-print(f"  last  : sig={mon_pairs[-1][0].date()} exec={mon_pairs[-1][1].date()} ({mon_pairs[-1][1].day_name()})")
+print(
+    f"  first : sig={mon_pairs[0][0].date()} exec={mon_pairs[0][1].date()} ({mon_pairs[0][1].day_name()})"
+)
+print(
+    f"  last  : sig={mon_pairs[-1][0].date()} exec={mon_pairs[-1][1].date()} ({mon_pairs[-1][1].day_name()})"
+)
 
 print(f"\n{'=' * 70}")
 print(f"RUNNING: fri_signal_mon_open  ({len(mon_pairs)} weeks)  cell={CELL_ID}")
@@ -136,7 +145,9 @@ for i, (sig_date, exec_date, sig_path) in enumerate(mon_pairs):
     signals = pd.read_parquet(sig_path)
     incumbent_symbols = set(state.holdings.keys())
 
-    port_df = get_portfolio(GATE_ID, SCORE_ID, signals, verbose=False, incumbent_symbols=incumbent_symbols)
+    port_df = get_portfolio(
+        GATE_ID, SCORE_ID, signals, verbose=False, incumbent_symbols=incumbent_symbols
+    )
     top25 = port_df["symbol"].tolist() if not port_df.empty else []
 
     meta_cols = [c for c in ["symbol", "final_rank", "composite_score"] if c in port_df.columns]
@@ -150,9 +161,13 @@ for i, (sig_date, exec_date, sig_path) in enumerate(mon_pairs):
     for row in activity:
         sym = row["symbol"]
         if not meta_df.empty and sym in meta_df.index:
-            row["final_rank"] = meta_df.loc[sym, "final_rank"] if "final_rank" in meta_df.columns else np.nan
+            row["final_rank"] = (
+                meta_df.loc[sym, "final_rank"] if "final_rank" in meta_df.columns else np.nan
+            )
             row["composite_score"] = (
-                meta_df.loc[sym, "composite_score"] if "composite_score" in meta_df.columns else np.nan
+                meta_df.loc[sym, "composite_score"]
+                if "composite_score" in meta_df.columns
+                else np.nan
             )
         else:
             row["final_rank"] = np.nan

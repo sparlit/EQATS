@@ -21,13 +21,14 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
-import click
 import pandas as pd
 import yfinance as yf
-from curl_cffi import requests  # Without its Session object, yahoo will reject requests with YFRateLimitError
+from curl_cffi import (
+    requests,  # Without its Session object, yahoo will reject requests with YFRateLimitError
+)
 
 """
 Download quotes from Yahoo
@@ -75,13 +76,15 @@ def download_klines(config, data_sources):
 
             # === Download from the remote server
             # Download more data than we need and then overwrite the older data
-            new_df = yf.download(quote, period=f"{days}d", auto_adjust=True, multi_level_index=False, session=session)
+            new_df = yf.download(
+                quote, period=f"{days}d", auto_adjust=True, multi_level_index=False, session=session
+            )
 
             new_df = new_df.reset_index()
             new_df["Date"] = pd.to_datetime(new_df["Date"], format="ISO8601", utc=True).dt.date
             # del new_df['Close']
             # new_df.rename({'Adj Close': 'Close'}, axis=1, inplace=True)
-            new_df = new_df.rename({"Date": time_column}, axis=1)
+            new_df.rename({"Date": time_column}, axis=1, inplace=True)
             new_df.columns = new_df.columns.str.lower()
 
             df = pd.concat([df, new_df])
@@ -92,13 +95,15 @@ def download_klines(config, data_sources):
 
             # === Download from the remote server
             # df = yf.download(quote, date(1990, 1, 1), auto_adjust=True, multi_level_index=False)
-            df = yf.download(quote, period="max", auto_adjust=True, multi_level_index=False, session=session)
+            df = yf.download(
+                quote, period="max", auto_adjust=True, multi_level_index=False, session=session
+            )
 
             df = df.reset_index()
             df["Date"] = pd.to_datetime(df["Date"], format="ISO8601", utc=True).dt.date
             # del df['Close']
             # df.rename({'Adj Close': 'Close'}, axis=1, inplace=True)
-            df = df.rename({"Date": time_column}, axis=1)
+            df.rename({"Date": time_column}, axis=1, inplace=True)
             df.columns = df.columns.str.lower()
 
             print("Full fetch finished.")

@@ -80,7 +80,7 @@ import backtest as bt
 bt.CACHE_DIR = os.path.join("cache", "sandbox_candles")
 os.makedirs(bt.CACHE_DIR, exist_ok=True)
 
-from scripts import seed_sandbox_data  # noqa: E402
+import scripts.seed_sandbox_data as seed_sandbox_data  # noqa: E402
 
 seed_sandbox_data.seed_if_empty()
 

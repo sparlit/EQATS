@@ -40,7 +40,6 @@ import os
 import sys
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -81,7 +80,7 @@ def format_picks(df: pd.DataFrame) -> list[dict]:
                 "rank": int(r["rank"]),
                 "symbol": r["nse_symbol"],
                 "name": r.get("name") or r["nse_symbol"],
-                "market_cap_cr": round(r["market_cap"] / 1e7) if r["market_cap"] else None,
+                "market_cap_cr": int(round(r["market_cap"] / 1e7)) if r["market_cap"] else None,
                 "weighted_z": round(float(r["weighted_z"]), 4),
                 "mr_3m": round(float(r["mr_3m"]), 4) if pd.notna(r.get("mr_3m")) else None,
                 "mr_6m": round(float(r["mr_6m"]), 4) if pd.notna(r.get("mr_6m")) else None,
@@ -125,7 +124,17 @@ def main():
     session.close()
 
     df = pd.DataFrame(
-        rows, columns=["stock_id", "nse_symbol", "name", "market_cap", "mr_3m", "mr_6m", "mr_1y", "updated_at"]
+        rows,
+        columns=[
+            "stock_id",
+            "nse_symbol",
+            "name",
+            "market_cap",
+            "mr_3m",
+            "mr_6m",
+            "mr_1y",
+            "updated_at",
+        ],
     )
 
     print(f"  {len(df)} eligible stocks found.")
@@ -152,7 +161,7 @@ def main():
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "as_of_date": as_of,
         "universe": f"High Cap (market_cap >= {min_mcap_cr} Cr)",
-        "universe_size": len(df),
+        "universe_size": int(len(df)),
         "picks": {
             "momentum": {
                 "description": "Top 15 by 3M + 6M + 1Y momentum (equal weight)",

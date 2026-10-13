@@ -108,12 +108,14 @@ def main():
         if lim:
             cells = cells[:lim]
     else:
-        cells = [k for k, v in diag.items() if str((v or {}).get("stage", "")).startswith("scanned")]
+        cells = [
+            k for k, v in diag.items() if str((v or {}).get("stage", "")).startswith("scanned")
+        ]
     by = scrip_map()
     o = FI.bse_session()
     out = {}
     for key in sorted(cells):
-        sym, qe, _basis = key.split("|")
+        sym, qe, basis = key.split("|")
         qe = int(qe)
         scrip = by.get(sym)
         rec = {"scrip": scrip}
@@ -142,13 +144,19 @@ def main():
                 continue
             for pi in range(min(len(doc), 40)):
                 txt = doc[pi].get_text()
-                if not BG.PL_PAGE.search(txt) and not re.search(r"interest\s+earned", txt, re.IGNORECASE):
+                if not BG.PL_PAGE.search(txt) and not re.search(r"interest\s+earned", txt, re.I):
                     continue
                 head = txt[:1500]
                 is_con = bool(BG.CON_HDR.search(head))
                 hits = [t for t in toks if t in txt]
                 if is_con and hits:
-                    best = {"ann": annd, "att": att, "page": pi, "date_tokens_found": hits[:3], "chars": len(txt)}
+                    best = {
+                        "ann": annd,
+                        "att": att,
+                        "page": pi,
+                        "date_tokens_found": hits[:3],
+                        "chars": len(txt),
+                    }
                     break
             if best:
                 break
@@ -163,7 +171,10 @@ def main():
         print("%-24s ylfilings=%-2d  %s" % (key, len(fils), rec["verdict"]))
     json.dump(out, open(OUT, "w"), indent=1, sort_keys=True)
     n = sum(1 for v in out.values() if v.get("hit"))
-    print("\n%d of %d scanned cells have a TEXT-BEARING consolidated page a year later" % (n, len(cells)))
+    print(
+        "\n%d of %d scanned cells have a TEXT-BEARING consolidated page a year later"
+        % (n, len(cells))
+    )
     print(f"wrote {os.path.basename(OUT)}")
 
 

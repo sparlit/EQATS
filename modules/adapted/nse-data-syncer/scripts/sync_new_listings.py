@@ -104,8 +104,7 @@ def generate_access_token() -> str:
     resp.raise_for_status()
     data = resp.json()
     if "accessToken" not in data:
-        msg = f"Dhan token generation failed: {data.get('message', data)}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Dhan token generation failed: {data.get('message', data)}")
     return data["accessToken"]
 
 
@@ -183,11 +182,10 @@ def fetch_dhan_history(
         if resp.status_code != 200:
             print(f"    HTTP {resp.status_code}: {resp.text[:300]}")
             if _is_invalid_token(resp):
-                msg = (
+                raise RuntimeError(
                     "Dhan access token invalid/expired mid-run (DH-906) - aborting "
                     "instead of silently failing every remaining request."
                 )
-                raise RuntimeError(msg)
             return pd.DataFrame()
         data = resp.json()
         if not data.get("timestamp"):
@@ -195,7 +193,9 @@ def fetch_dhan_history(
 
         df = pd.DataFrame(
             {
-                "Date": pd.to_datetime(data["timestamp"], unit="s", utc=True).tz_convert("Asia/Kolkata").date,
+                "Date": pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                .tz_convert("Asia/Kolkata")
+                .date,
                 "Open": data.get("open"),
                 "High": data.get("high"),
                 "Low": data.get("low"),
@@ -204,7 +204,8 @@ def fetch_dhan_history(
             }
         )
         df["Date"] = pd.to_datetime(df["Date"])
-        return df.drop_duplicates(subset="Date", keep="last").set_index("Date").sort_index()
+        df = df.drop_duplicates(subset="Date", keep="last").set_index("Date").sort_index()
+        return df
 
     print("    Giving up after repeated rate-limit errors")
     return pd.DataFrame()
@@ -220,7 +221,9 @@ def find_new_symbols(universe: pd.DataFrame, db: DatabaseManager) -> pd.DataFram
     known_isins = {r[0] for r in rows if r[0]}
     known_symbols = {r[1] for r in rows if r[1]}
 
-    missing = universe[(~universe["isin"].isin(known_isins)) & (~universe["symbol"].isin(known_symbols))]
+    missing = universe[
+        (~universe["isin"].isin(known_isins)) & (~universe["symbol"].isin(known_symbols))
+    ]
     return missing.reset_index(drop=True)
 
 
@@ -233,7 +236,9 @@ def load_covered_symbols() -> set:
     return csv_symbols | set(full_list.keys())
 
 
-def find_orphaned_tracked_symbols(universe: pd.DataFrame, covered: set, db: DatabaseManager) -> pd.DataFrame:
+def find_orphaned_tracked_symbols(
+    universe: pd.DataFrame, covered: set, db: DatabaseManager
+) -> pd.DataFrame:
     """Stocks this script discovered (or that otherwise ended up in `stocks`)
     on a previous run, but that still aren't in either CSV app/main.py reads
     from - so its daily sync will never touch them. Without this, such a
@@ -256,7 +261,9 @@ def find_orphaned_tracked_symbols(universe: pd.DataFrame, covered: set, db: Data
 
     orphaned_ids = {r.id: r for r in rows if r.nse_symbol not in covered}
     if not orphaned_ids:
-        return pd.DataFrame(columns=["security_id", "symbol", "name", "isin", "stock_id", "last_date"])
+        return pd.DataFrame(
+            columns=["security_id", "symbol", "name", "isin", "stock_id", "last_date"]
+        )
 
     by_isin = {r.isin: sid for sid, r in orphaned_ids.items() if r.isin}
     by_symbol = {r.nse_symbol: sid for sid, r in orphaned_ids.items() if r.nse_symbol}
@@ -354,12 +361,17 @@ def main():
     # -- Phase 2: catch up previously-discovered stocks still missing from the CSVs --
     caught_up = 0
     for row in orphaned.itertuples(index=False):
-        n = sync_incremental(db, row.stock_id, row.symbol, row.security_id, row.last_date, access_token)
+        n = sync_incremental(
+            db, row.stock_id, row.symbol, row.security_id, row.last_date, access_token
+        )
         if n:
             caught_up += 1
             print(f"  ~ {row.symbol}: +{n} rows (catch-up)")
 
-    print(f"\nDone. Added {added} newly-listed mainboard stock(s), caught up {caught_up} previously-orphaned stock(s).")
+    print(
+        f"\nDone. Added {added} newly-listed mainboard stock(s), "
+        f"caught up {caught_up} previously-orphaned stock(s)."
+    )
 
 
 if __name__ == "__main__":

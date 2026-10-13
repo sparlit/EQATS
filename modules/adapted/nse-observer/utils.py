@@ -33,13 +33,15 @@ from tqdm import tqdm
 def zero_mean_normal_noise(X, std):
     noise = std * np.random.randn(X.shape[0], X.shape[1])
     noise = noise - np.mean(noise)
-    return X + noise
+    X_noisy = X + noise
+    return X_noisy
 
 
 def zero_mean_uniform_noise(X, std):
     noise = np.random.uniform(-std, std, (X.shape[0], X.shape[1]))
     noise = noise - np.mean(noise)
-    return X + noise
+    X_noisy = X + noise
+    return X_noisy
 
 
 def compute_rms(
@@ -66,7 +68,8 @@ def compute_rms(
             vel_x.append(data_temp["u"][int(time_range[0] / dt) : int(time_range[1] / dt)])
             vel_y.append(data_temp["v"][int(time_range[0] / dt) : int(time_range[1] / dt)])
 
-    return np.sqrt(np.mean(0.5 * (np.array(vel_x) ** 2 + np.array(vel_y) ** 2)))
+    rms = np.sqrt(np.mean(0.5 * (np.array(vel_x) ** 2 + np.array(vel_y) ** 2)))
+    return rms
 
 
 def plot_norms(series, titles, figsize=(24, 10), display=False, save_file=None):
@@ -171,7 +174,7 @@ class RandomField:
         in fourier space but the function itself is simulated with shinozuka
         and deodatis method.
         """
-        # TODO: consider reimplementing this with irfftn
+        # todo: consider reimplementing this with irfftn
         seed(self.seed)
         m1, m2 = self.x.shape
         # stream function transform
@@ -186,8 +189,7 @@ class RandomField:
         u = ifftn(u_hat)
         v = ifftn(v_hat)
         if abs(psi.imag).any() > 0:
-            msg = "non-zero imaginary values in psi"
-            raise ValueError(msg)
+            raise ValueError("non-zero imaginary values in psi")
         return psi.real, u.real, v.real
 
     def __single_term(self, n1, n2, M2, delta_kappa, E, psi_hat):

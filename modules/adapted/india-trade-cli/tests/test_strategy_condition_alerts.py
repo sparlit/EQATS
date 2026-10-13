@@ -41,7 +41,7 @@ Covers:
 
 
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -53,9 +53,6 @@ from engine.strategy_condition_monitor import (
     StrategyConditionMonitor,
     compute_adx,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 # ── Helpers ───────────────────────────────────────────────────
 
@@ -125,19 +122,25 @@ class TestStrategyConditionBBPCT:
     def test_bb_pct_between_passes(self):
         snap = make_snapshot(ltp=2800.0, bb_upper=3000.0, bb_lower=2600.0)
         # BB_PCT = 0.5, between 0.4 and 0.6
-        cond = StrategyCondition(indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6)
+        cond = StrategyCondition(
+            indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6
+        )
         assert cond.evaluate(snap) is True
 
     def test_bb_pct_between_fails_below(self):
         snap = make_snapshot(ltp=2640.0, bb_upper=3000.0, bb_lower=2600.0)
         # BB_PCT = 0.1, not between 0.4 and 0.6
-        cond = StrategyCondition(indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6)
+        cond = StrategyCondition(
+            indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6
+        )
         assert cond.evaluate(snap) is False
 
     def test_bb_pct_between_fails_above(self):
         snap = make_snapshot(ltp=2960.0, bb_upper=3000.0, bb_lower=2600.0)
         # BB_PCT = 0.9, not between 0.4 and 0.6
-        cond = StrategyCondition(indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6)
+        cond = StrategyCondition(
+            indicator="BB_PCT", operator="BETWEEN", threshold=0.4, threshold2=0.6
+        )
         assert cond.evaluate(snap) is False
 
     def test_bb_pct_zero_band_width_returns_false(self):
@@ -168,7 +171,9 @@ class TestStrategyConditionVolumeRatio:
 
     def test_volume_between_passes(self):
         snap = make_snapshot(volume_ratio=1.5)
-        cond = StrategyCondition(indicator="VOLUME_RATIO", operator="BETWEEN", threshold=1.0, threshold2=2.0)
+        cond = StrategyCondition(
+            indicator="VOLUME_RATIO", operator="BETWEEN", threshold=1.0, threshold2=2.0
+        )
         assert cond.evaluate(snap) is True
 
 
@@ -193,12 +198,16 @@ class TestStrategyConditionRSI:
 
     def test_rsi_between_passes(self):
         snap = make_snapshot(rsi=55.0)
-        cond = StrategyCondition(indicator="RSI", operator="BETWEEN", threshold=50.0, threshold2=60.0)
+        cond = StrategyCondition(
+            indicator="RSI", operator="BETWEEN", threshold=50.0, threshold2=60.0
+        )
         assert cond.evaluate(snap) is True
 
     def test_rsi_between_fails(self):
         snap = make_snapshot(rsi=45.0)
-        cond = StrategyCondition(indicator="RSI", operator="BETWEEN", threshold=50.0, threshold2=60.0)
+        cond = StrategyCondition(
+            indicator="RSI", operator="BETWEEN", threshold=50.0, threshold2=60.0
+        )
         assert cond.evaluate(snap) is False
 
 
@@ -382,7 +391,9 @@ class TestStrategyConditionMonitorCheckAll:
         conditions = [StrategyCondition(indicator="RSI", operator="ABOVE", threshold=70.0)]
         monitor.add_alert("RELIANCE", "NSE", "RSI Strategy", conditions)
 
-        with patch("engine.strategy_condition_monitor.analyse", side_effect=Exception("network error")):
+        with patch(
+            "engine.strategy_condition_monitor.analyse", side_effect=Exception("network error")
+        ):
             triggered = monitor.check_all()
 
         assert triggered == []

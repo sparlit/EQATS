@@ -77,13 +77,17 @@ def event_study(
         used_events.append(event_time)
 
     if not cars:
-        return EventStudyResult(0, (pre, post), float("nan"), float("nan"), float("nan"), float("nan"), pd.DataFrame())
+        return EventStudyResult(
+            0, (pre, post), float("nan"), float("nan"), float("nan"), float("nan"), pd.DataFrame()
+        )
 
     arr = np.array(paths)
     car_series = np.array(cars)
     mean_car = float(car_series.mean())
     std = float(car_series.std(ddof=1)) if len(car_series) > 1 else float("nan")
-    t_stat = mean_car / (std / np.sqrt(len(car_series))) if std and not np.isnan(std) else float("nan")
+    t_stat = (
+        mean_car / (std / np.sqrt(len(car_series))) if std and not np.isnan(std) else float("nan")
+    )
 
     from math import erf, sqrt
 
@@ -100,7 +104,14 @@ def event_study(
         }
     )
     return EventStudyResult(
-        len(cars), (pre, post), mean_car, float(np.median(car_series)), t_stat, p_value, by_offset, car_series
+        len(cars),
+        (pre, post),
+        mean_car,
+        float(np.median(car_series)),
+        t_stat,
+        p_value,
+        by_offset,
+        car_series,
     )
 
 

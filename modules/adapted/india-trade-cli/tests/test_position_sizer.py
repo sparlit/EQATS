@@ -61,7 +61,9 @@ def _make_ohlcv(n: int = 252, seed: int = 42, base: float = 100.0) -> pd.DataFra
     )
 
 
-def _make_correlated_ohlcv(n: int = 252, seed: int = 0, base: float = 100.0, corr_factor: float = 0.0) -> pd.DataFrame:
+def _make_correlated_ohlcv(
+    n: int = 252, seed: int = 0, base: float = 100.0, corr_factor: float = 0.0
+) -> pd.DataFrame:
     """OHLCV where close is partly driven by a shared factor (for correlation tests)."""
     np.random.seed(seed)
     dates = pd.date_range("2024-01-01", periods=n, freq="B")
@@ -211,8 +213,12 @@ class TestVolatilityScalar:
     def test_high_atr_reduces_size(self):
         """High ATR % → volatility_scalar < 1 → smaller position."""
         sizer = VolatilityAdjustedSizer(total_capital=500_000, target_risk_pct=0.01)
-        result_low = sizer.size_position(symbol="A", win_rate=0.6, avg_win_pct=0.05, avg_loss_pct=0.03, atr_pct=0.01)
-        result_high = sizer.size_position(symbol="A", win_rate=0.6, avg_win_pct=0.05, avg_loss_pct=0.03, atr_pct=0.05)
+        result_low = sizer.size_position(
+            symbol="A", win_rate=0.6, avg_win_pct=0.05, avg_loss_pct=0.03, atr_pct=0.01
+        )
+        result_high = sizer.size_position(
+            symbol="A", win_rate=0.6, avg_win_pct=0.05, avg_loss_pct=0.03, atr_pct=0.05
+        )
         assert result_high.volatility_scalar < result_low.volatility_scalar
         assert result_high.recommended_qty <= result_low.recommended_qty
 

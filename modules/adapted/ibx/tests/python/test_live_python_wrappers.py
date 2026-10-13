@@ -223,7 +223,9 @@ class FullWrapper(EWrapper):
         self._record(("tick_by_tick_all_last", req_id, price, size, exchange))
         self.got_tbt.set()
 
-    def tick_by_tick_bid_ask(self, req_id, time_, bid_price, ask_price, bid_size, ask_size, tick_attrib_bid_ask):
+    def tick_by_tick_bid_ask(
+        self, req_id, time_, bid_price, ask_price, bid_size, ask_size, tick_attrib_bid_ask
+    ):
         self._record(("tick_by_tick_bid_ask", req_id, bid_price, ask_price))
         self.got_tbt.set()
 
@@ -288,21 +290,21 @@ def ib_connection():
 
 class TestConnection:
     def test_is_connected(self, ib_connection):
-        _wrapper, client = ib_connection
+        wrapper, client = ib_connection
         assert client.is_connected()
 
     def test_next_valid_id_positive(self, ib_connection):
-        wrapper, _client = ib_connection
+        wrapper, client = ib_connection
         assert wrapper.next_order_id > 0
 
     def test_managed_accounts_received(self, ib_connection):
-        wrapper, _client = ib_connection
+        wrapper, client = ib_connection
         events = wrapper._get_events("managed_accounts")
         assert len(events) > 0
         assert len(events[0][1]) > 0, "Account list should be non-empty"
 
     def test_account_id_set(self, ib_connection):
-        _wrapper, client = ib_connection
+        wrapper, client = ib_connection
         acct = client.get_account_id()
         assert len(acct) > 0, "Account ID should be set after connect"
 
@@ -404,7 +406,7 @@ class TestMarketData:
 
     def test_subscribe_cancel_no_crash(self, ib_connection):
         """Subscribe then immediately cancel — should not crash."""
-        _wrapper, client = ib_connection
+        wrapper, client = ib_connection
         client.req_mkt_data(4004, make_spy_contract(), "", False)
         time.sleep(0.5)
         client.cancel_mkt_data(4004)
@@ -446,7 +448,10 @@ class TestOrders:
         events = [e for e in wrapper._get_events("order_status") if e[1] == oid]
         statuses = [e[2] for e in events]
         assert (
-            "Submitted" in statuses or "PreSubmitted" in statuses or "Cancelled" in statuses or "Inactive" in statuses
+            "Submitted" in statuses
+            or "PreSubmitted" in statuses
+            or "Cancelled" in statuses
+            or "Inactive" in statuses
         )
 
     def test_stop_order_submit_cancel(self, ib_connection):
@@ -606,7 +611,7 @@ class TestHistoricalData:
 
     def test_cancel_historical_no_crash(self, ib_connection):
         """Request then immediately cancel historical data."""
-        _wrapper, client = ib_connection
+        wrapper, client = ib_connection
         client.req_historical_data(
             5003,
             make_spy_contract(),
@@ -723,7 +728,9 @@ class TestScanner:
         got_params = wrapper.got_scanner_params.wait(timeout=30)
 
         if not got_params:
-            pytest.skip("No scanner parameters received (historical data server may not be connected)")
+            pytest.skip(
+                "No scanner parameters received (historical data server may not be connected)"
+            )
 
         events = wrapper._get_events("scanner_parameters")
         assert len(events) > 0

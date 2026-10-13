@@ -39,8 +39,7 @@ Missing / source-failed status is returned honestly; the UI must fail-open
 (no chip rendered) rather than auto-blocking a PASS.
 """
 
-from datetime import UTC, date, datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, date, datetime
 
 from cache import cached_call
 from source_status import make_status

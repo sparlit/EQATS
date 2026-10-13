@@ -55,7 +55,6 @@ hold). Single-number coincidences at 3 different scales are exactly how wrong ce
   python -X utf8 scripts/fill2020_tools/universal_read.py TARGETS.json [--out OUT.json]
   TARGETS.json: {"SYM|20250331|revC": {"scrip": 500093, "ann": 20250530}, ...}
 """
-import concurrent.futures
 import datetime
 import importlib.util
 import json
@@ -78,7 +77,9 @@ import time
 #
 # Derive the root from __file__ instead, so a tool always reads the tree it was launched from.
 # STOCKS_WT still overrides, for the deliberate cross-tree case.
-WT = os.environ.get("STOCKS_WT") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+WT = os.environ.get("STOCKS_WT") or os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 sys.path.insert(0, os.path.join(WT, "scripts"))
 sys.path.insert(0, os.path.join(WT, "scripts", "fill2020_tools"))
 os.chdir(WT)
@@ -86,7 +87,9 @@ import fetch_insurers as FI  # noqa: E402
 import fitz  # noqa: E402
 import geom_read as GEOM  # noqa: E402
 
-_s = importlib.util.spec_from_file_location("brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py"))
+_s = importlib.util.spec_from_file_location(
+    "brg", os.path.join(WT, "scripts", "backfill_revop_gaps.py")
+)
 BRG = importlib.util.module_from_spec(_s)
 _s.loader.exec_module(BRG)
 
@@ -97,36 +100,43 @@ FUND = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
 # MODE 2 -- both label families, glyph-tolerant. Ordered: most specific first, so a page carrying
 # both "Revenue from operations" and "Total income" resolves to the operating line.
 REV_LABELS = [
-    re.compile(r"t[o0]tal\s+inc[o0]me\s+fr[o0]m\s+[o0]pera", re.IGNORECASE),
-    re.compile(r"revenue\s+fr[o0]m\s+[o0]pera", re.IGNORECASE),
+    re.compile(r"t[o0]tal\s+inc[o0]me\s+fr[o0]m\s+[o0]pera", re.I),
+    re.compile(r"revenue\s+fr[o0]m\s+[o0]pera", re.I),
     # Ind-AS 115 wording. CYIENT prints ONLY this -- no "revenue from operations" line anywhere --
     # so omitting it made a fully-text, perfectly readable filing look like it had no revenue row.
-    re.compile(r"revenue\s+fr[o0]m\s+c[o0]ntracts?\s+with\s+cust[o0]mers", re.IGNORECASE),
-    re.compile(r"inc[o0]me\s+fr[o0]m\s+[o0]pera", re.IGNORECASE),
-    re.compile(r"sales\s*/\s*inc[o0]me\s+fr[o0]m\s+[o0]pera", re.IGNORECASE),
-    re.compile(r"revenue\s+fr[o0]m\s+sale\s+[o0]f", re.IGNORECASE),
-    re.compile(r"^\s*(gr[o0]ss\s+)?(net\s+)?sales\b", re.IGNORECASE),
-    re.compile(r"^\s*turn\s?[o0]ver", re.IGNORECASE),
-    re.compile(r"^\s*t[o0]tal\s+revenue", re.IGNORECASE),
-    re.compile(r"^\s*revenue\s*$", re.IGNORECASE),  # finance layout
-    re.compile(r"^\s*t[o0]tal\s+inc[o0]me", re.IGNORECASE),  # finance layout, last resort
+    re.compile(r"revenue\s+fr[o0]m\s+c[o0]ntracts?\s+with\s+cust[o0]mers", re.I),
+    re.compile(r"inc[o0]me\s+fr[o0]m\s+[o0]pera", re.I),
+    re.compile(r"sales\s*/\s*inc[o0]me\s+fr[o0]m\s+[o0]pera", re.I),
+    re.compile(r"revenue\s+fr[o0]m\s+sale\s+[o0]f", re.I),
+    re.compile(r"^\s*(gr[o0]ss\s+)?(net\s+)?sales\b", re.I),
+    re.compile(r"^\s*turn\s?[o0]ver", re.I),
+    re.compile(r"^\s*t[o0]tal\s+revenue", re.I),
+    re.compile(r"^\s*revenue\s*$", re.I),  # finance layout
+    re.compile(r"^\s*t[o0]tal\s+inc[o0]me", re.I),  # finance layout, last resort
 ]
 PAT_LABELS = [
-    re.compile(r"[o0]wner.{0,25}[o0]f\s+the\s+(parent|c[o0]mpan|h[o0]lding)", re.IGNORECASE),
+    re.compile(r"[o0]wner.{0,25}[o0]f\s+the\s+(parent|c[o0]mpan|h[o0]lding)", re.I),
     # The owners-attributable figure is often a CONTINUATION line under "Profit attributable to:",
     # so the caption carries no "profit" and no "owners" at all. CYIENT prints "Shareholders of the
     # Company" -- values 1704/1223 (Rs million) = our stored 170.4/122.3 con PAT exactly.
-    re.compile(r"(equity\s+)?share\s?h[o0]lders?\s+[o0]f\s+the\s+(c[o0]mpan|parent|h[o0]lding)", re.IGNORECASE),
-    re.compile(r"equity\s+h[o0]lders?\s+[o0]f\s+the\s+(parent|c[o0]mpan)", re.IGNORECASE),
-    re.compile(r"net\s+pr[o0][fl]i?[lt].{0,45}(f[o0]r\s+the\s+(peri[o0]d|quarter|year)|a[fl]ter\s+tax)", re.IGNORECASE),
-    re.compile(r"pr[o0][fl]i?[lt]\s+a[fl]ter\s+tax", re.IGNORECASE),
+    re.compile(
+        r"(equity\s+)?share\s?h[o0]lders?\s+[o0]f\s+the\s+(c[o0]mpan|parent|h[o0]lding)", re.I
+    ),
+    re.compile(r"equity\s+h[o0]lders?\s+[o0]f\s+the\s+(parent|c[o0]mpan)", re.I),
+    re.compile(
+        r"net\s+pr[o0][fl]i?[lt].{0,45}(f[o0]r\s+the\s+(peri[o0]d|quarter|year)|a[fl]ter\s+tax)",
+        re.I,
+    ),
+    re.compile(r"pr[o0][fl]i?[lt]\s+a[fl]ter\s+tax", re.I),
     # "Profit for the quarter / year" -- the plain Ind-AS caption, with no "Net" prefix and no
     # "period". Required "period" before, so CYIENT's PAT row never matched either.
     # NOTE the (?:...)? around the loss alternative. Writing it as `\(?l[o0]ss\)?` made the word
     # "loss" MANDATORY and silently un-matched plain "Profit for the period (VII-VIII)" -- which is
     # BALKRISIND's consolidated PAT row, the exact anchor. A widened pattern that quietly narrows.
-    re.compile(r"pr[o0][fl]i?[lt](?:\s*/\s*\(?l[o0]ss\)?)?\s+f[o0]r\s+the\s+(peri[o0]d|quarter|year)", re.IGNORECASE),
-    re.compile(r"pr[o0][fl]i?[lt]\s+attributable\s+t[o0]", re.IGNORECASE),
+    re.compile(
+        r"pr[o0][fl]i?[lt](?:\s*/\s*\(?l[o0]ss\)?)?\s+f[o0]r\s+the\s+(peri[o0]d|quarter|year)", re.I
+    ),
+    re.compile(r"pr[o0][fl]i?[lt]\s+attributable\s+t[o0]", re.I),
 ]
 NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 SCALES = ((1.0, "crore"), (10.0, "million"), (100.0, "lakh"))
@@ -284,11 +294,9 @@ def scan(doc, sym, qe, field):
                                 for cand in cands:
                                     for j, w in enumerate(cand[:8]):
                                         if j != i and close(w / sc, nb):
-                                            ok2 = "col %d reproduces stored %d %s %.2f at the same scale" % (
-                                                j,
-                                                qn,
-                                                what,
-                                                nb,
+                                            ok2 = (
+                                                "col %d reproduces stored %d %s %.2f at the "
+                                                "same scale" % (j, qn, what, nb)
                                             )
                                             break
                                     if ok2:
@@ -374,12 +382,16 @@ def windows(qe, ann):
     # Always also sweep the whole results season for the quarter itself.
     y0, m0 = qe // 10000, (qe // 100) % 100
     s0 = datetime.date(y0, m0, LAST_DAY[m0]) + datetime.timedelta(days=8)
-    out.append(("own-season", s0.strftime("%Y%m%d"), (s0 + datetime.timedelta(days=85)).strftime("%Y%m%d")))
+    out.append(
+        ("own-season", s0.strftime("%Y%m%d"), (s0 + datetime.timedelta(days=85)).strftime("%Y%m%d"))
+    )
     for tag, k in (("Q+1", 1), ("Q+4", 4)):
         q = shift_q(qe, k)
         y, m = q // 10000, (q // 100) % 100
         s = datetime.date(y, m, LAST_DAY[m]) + datetime.timedelta(days=10)
-        out.append((tag, s.strftime("%Y%m%d"), (s + datetime.timedelta(days=75)).strftime("%Y%m%d")))
+        out.append(
+            (tag, s.strftime("%Y%m%d"), (s + datetime.timedelta(days=75)).strftime("%Y%m%d"))
+        )
     return out
 
 
@@ -409,7 +421,9 @@ def read_cell(sym, qe, field, scrip, ann):
                 ev["doc"] = url.split("/")[-1][:44]
                 return {"state": "FILLED-EXACT", "value": val, "evidence": ev, "trace": trace}
             if ev and ev.get("vision"):
-                vision_hits.append({"window": tag, "doc": url.split("/")[-1][:44], "pages": ev["vision"]})
+                vision_hits.append(
+                    {"window": tag, "doc": url.split("/")[-1][:44], "pages": ev["vision"]}
+                )
         trace.append("%s: %d filings, no anchored column" % (tag, len(fils)))
         time.sleep(0.4)
     if vision_hits:
@@ -421,7 +435,9 @@ def read_cell(sym, qe, field, scrip, ann):
 
 def main():
     tg = json.load(open(sys.argv[1]))
-    out_path = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "/tmp/universal.json"
+    out_path = (
+        sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "/tmp/universal.json"
+    )
     limit = int(sys.argv[sys.argv.index("--limit") + 1]) if "--limit" in sys.argv else 10**9
     out = {}
     if "--resume" in sys.argv and os.path.exists(out_path):

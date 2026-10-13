@@ -40,13 +40,12 @@ Run: python -X utf8 scripts/build_bse_results.py
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
-import bse_headers as BH  # §181 BSE headers
-import os
-import sys
-import json
-import gzip
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import datetime
+import gzip
+import json
+import os
+
 import reaction_timing as RT
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -107,7 +106,14 @@ def reaction(series, ann, after=None):
 
 def main():
     qr = json.load(open(QR, encoding="utf-8"))
-    quarters = qr["quarters"]  # e.g. [20260630, 20260331, …] newest-first
+    quarters = list(qr["quarters"])  # e.g. [20260630, 20260331, …] newest-first
+    # CALENDAR RULE (§218): a new quarter opens on its first IST day even before quarterly_results.json is rebuilt —
+    # else a BSE-only first filer (HIIL Sep-2026) has no column to land in. Same window length; the page lines the two
+    # files up by quarter while they differ.
+    import build_quarterly_results as _BQ
+
+    while quarters and quarters[0] < _BQ.last_ended_qe(_BQ.ist_today()):
+        quarters = [_BQ.next_qe(quarters[0])] + quarters[:-1]
     qidx = {int(q): i for i, q in enumerate(quarters)}
     nse_syms = set(qr["co"].keys())
 
@@ -128,16 +134,22 @@ def main():
             ann = 0
         rx, sr = reaction(series, ann, RT.after_close(ann, scrip=scrip)) if ann else (None, None)
         v = [rec.get("rev"), rec.get("op"), rec.get("pat")]
-        out = (([None] * 3 + v) if rec.get("basis") == "C" else (v + [None] * 3)) + [ann or None, rx, sr]
+        out = (([None] * 3 + v) if rec.get("basis") == "C" else (v + [None] * 3)) + [
+            ann or None,
+            rx,
+            sr,
+        ]
         if rec.get("prov"):
-            out.append(1)  # [9] = provisional Apr-Sep half, not yet closed by the Mar filing (runbook §195, Option A)
+            out.append(
+                1
+            )  # [9] = provisional Apr-Sep half, not yet closed by the Mar filing (runbook §195, Option A)
         return out
 
     for code, qs in fund.items():
         u = univ.get(code)
         if not u:
             continue
-        scrip, tkr, name, _isin, _grp, _fv, mc, sec = u
+        scrip, tkr, name, isin, grp, fv, mc, sec = u
         tkr = bse_resolve.bse_key(tkr)  # 'GSTL-BSE' when GSTL is an unrelated NSE company
         if not tkr or tkr in co:
             continue
@@ -214,7 +226,13 @@ def main():
     print(
         "WROTE %s: %d BSE-only companies with numbers, %d PDF-only, %d dual-listed overlay tickers "
         "(%d quarter-cells that would otherwise be unreachable)"
-        % (os.path.normpath(OUT), len(co), len(pdf_only), len(overlay), sum(len(v) for v in overlay.values()))
+        % (
+            os.path.normpath(OUT),
+            len(co),
+            len(pdf_only),
+            len(overlay),
+            sum(len(v) for v in overlay.values()),
+        )
     )
 
 

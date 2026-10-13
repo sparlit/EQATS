@@ -32,7 +32,7 @@ Run standalone:
 """
 import json
 import sys
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core import netfetch
@@ -68,7 +68,9 @@ def fetch_history(symbol, from_ts, to_ts, resolution="60", currency_code="INR", 
         return []
     return [
         {"time": t, "open": o, "high": h, "low": l, "close": c, "volume": v}
-        for t, o, h, l, c, v in zip(data["t"], data["o"], data["h"], data["l"], data["c"], data["v"], strict=False)
+        for t, o, h, l, c, v in zip(
+            data["t"], data["o"], data["h"], data["l"], data["c"], data["v"], strict=False
+        )
     ]
 
 

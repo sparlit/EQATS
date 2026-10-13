@@ -21,11 +21,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
-import logging
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from decimal import *
-from typing import List, Union
 
 import dateparser
 import numpy as np
@@ -48,7 +45,8 @@ def to_decimal(value):
 
     n = 8
     rr = Decimal(1) / (Decimal(10) ** n)  # Result: 0.00000001
-    return Decimal(str(value)).quantize(rr, rounding=ROUND_DOWN)
+    ret = Decimal(str(value)).quantize(rr, rounding=ROUND_DOWN)
+    return ret
 
 
 def round_str(value, digits):
@@ -68,7 +66,7 @@ def round_down_str(value, digits):
 #
 
 
-def pandas_get_interval(freq: str, timestamp: int | None = None):
+def pandas_get_interval(freq: str, timestamp: int = None):
     """
     Find a discrete interval for the given timestamp and return its start and end.
 
@@ -84,8 +82,9 @@ def pandas_get_interval(freq: str, timestamp: int | None = None):
     elif isinstance(timestamp, int):
         pass
     else:
-        msg = f"Error converting timestamp {timestamp} to millis. Unknown type {type(timestamp)} "
-        raise ValueError(msg)
+        ValueError(
+            f"Error converting timestamp {timestamp} to millis. Unknown type {type(timestamp)} "
+        )
 
     # Interval length for the given frequency
     interval_length_sec = pandas_interval_length_ms(freq) / 1000
@@ -113,7 +112,8 @@ def get_start_dt_for_interval_count(freq: str, interval_count: int):
     interval_length_td = freq_to_timedelta(freq)
     period_length_td = interval_length_td * (interval_count + 1)
     now = datetime.now(UTC)
-    return now - period_length_td
+    start_dt = now - period_length_td
+    return start_dt
 
 
 def freq_to_timedelta(freq: str):
@@ -153,22 +153,34 @@ def freq_to_CronTrigger(freq: str):
         if freq[:-1] == "1":
             trigger = CronTrigger(day="*", hour="0", minute="1", second="0", timezone="UTC")
         else:
-            trigger = CronTrigger(day="*/" + freq[:-1], hour="0", minute="1", second="0", timezone="UTC")
+            trigger = CronTrigger(
+                day="*/" + freq[:-1], hour="0", minute="1", second="0", timezone="UTC"
+            )
     elif freq.endswith("W"):
         if freq[:-1] == "1":
-            trigger = CronTrigger(week="*", day_of_week="1", hour="1", minute="0", second="0", timezone="UTC")
+            trigger = CronTrigger(
+                week="*", day_of_week="1", hour="1", minute="0", second="0", timezone="UTC"
+            )
         else:
             trigger = CronTrigger(
-                day="*/" + freq[:-1], day_of_week="1", hour="1", minute="0", second="0", timezone="UTC"
+                day="*/" + freq[:-1],
+                day_of_week="1",
+                hour="1",
+                minute="0",
+                second="0",
+                timezone="UTC",
             )
     elif freq.endswith("MS"):
         if freq[:-2] == "1":
-            trigger = CronTrigger(month="*", day="1", hour="1", minute="0", second="0", timezone="UTC")
+            trigger = CronTrigger(
+                month="*", day="1", hour="1", minute="0", second="0", timezone="UTC"
+            )
         else:
-            trigger = CronTrigger(month="*/" + freq[:-1], day="1", hour="1", minute="0", second="0", timezone="UTC")
+            trigger = CronTrigger(
+                month="*/" + freq[:-1], day="1", hour="1", minute="0", second="0", timezone="UTC"
+            )
     else:
-        msg = f"Cannot convert frequency '{freq}' to cron."
-        raise ValueError(msg)
+        raise ValueError(f"Cannot convert frequency '{freq}' to cron.")
 
     return trigger
 
@@ -190,16 +202,22 @@ def find_index(df: pd.DataFrame, date_str: str, column_name: str = "timestamp"):
         res = df[df[column_name] == d]
     except TypeError:  # "Cannot compare tz-naive and tz-aware datetime-like objects"
         # Change timezone (set UTC timezone or reset timezone)
-        d = d.replace(tzinfo=pytz.utc) if d.tzinfo is None or d.tzinfo.utcoffset(d) is None else d.replace(tzinfo=None)
+        if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+            d = d.replace(tzinfo=pytz.utc)
+        else:
+            d = d.replace(tzinfo=None)
 
         # Repeat
         res = df[df[column_name] == d]
 
     if res is None or len(res) == 0:
-        msg = f"Cannot find date '{date_str}' in the column '{column_name}'. Either it does not exist or wrong format"
-        raise ValueError(msg)
+        raise ValueError(
+            f"Cannot find date '{date_str}' in the column '{column_name}'. Either it does not exist or wrong format"
+        )
 
-    return res.index[0]
+    id = res.index[0]
+
+    return id
 
 
 def notnull_tail_rows(df):
@@ -212,7 +230,9 @@ def notnull_tail_rows(df):
         return len(df)
 
     # Indexes of last NaN for all columns and then their minimum
-    return nan_df[nan_cols].values[::-1].argmax(axis=0).min()
+    tail_rows = nan_df[nan_cols].values[::-1].argmax(axis=0).min()
+
+    return tail_rows
 
 
 #
@@ -268,7 +288,9 @@ def double_columns(df, shifts: list[int]):
     max(shifts)
 
     # Shift and add same columns
-    return pd.concat(df_list, axis=1)  # keys=('A', 'B')
+    df_out = pd.concat(df_list, axis=1)  # keys=('A', 'B')
+
+    return df_out
 
 
 def append_rows(df, new_df):
@@ -294,13 +316,17 @@ def append_df_drop_concat(df, new_df):
     df_wo_overlap = df[
         : new_df.index[0]
     ]  # Select only records till the first index in the new frame. Assume the rows in the new frame are ordered
-    df_wo_overlap = df_wo_overlap.iloc[:-1]  # Remove last element because slicing above includes the range right side
+    df_wo_overlap = df_wo_overlap.iloc[
+        :-1
+    ]  # Remove last element because slicing above includes the range right side
 
     # Drop explicitly last rows in the overlap range
     # last_idx = df.index.get_loc(new_df.index[0])
     # df_wo_overlap = df.iloc[:last_idx]
 
-    return pd.concat([df_wo_overlap, new_df])  # Append new rows with overlap removed above
+    df3 = pd.concat([df_wo_overlap, new_df])  # Append new rows with overlap removed above
+
+    return df3
 
 
 def append_df_combine_update(df, new_df):
@@ -332,13 +358,15 @@ def merge_data_sources(data_sources: list, time_column: str, freq: str, merge_in
             pass
         else:
             print("ERROR: Timestamp column is absent.")
-            return None
+            return
 
         # Add prefix if not already there
         if ds["column_prefix"]:
             # df = df.add_prefix(ds['column_prefix']+"_")
             df.columns = [
-                ds["column_prefix"] + "_" + col if not col.startswith(ds["column_prefix"] + "_") else col
+                ds["column_prefix"] + "_" + col
+                if not col.startswith(ds["column_prefix"] + "_")
+                else col
                 for col in df.columns
             ]
 
@@ -398,9 +426,17 @@ def compute_scores(y_true, y_hat):
     precision = metrics.precision_score(y_true, y_hat_class)
     recall = metrics.recall_score(y_true, y_hat_class)
 
-    scores = {"auc": auc, "ap": ap, "f1": f1, "precision": precision, "recall": recall}
+    scores = {
+        "auc": auc,
+        "ap": ap,
+        "f1": f1,
+        "precision": precision,
+        "recall": recall,
+    }
 
-    return {key: round(float(value), 3) for (key, value) in scores.items()}
+    scores = {key: round(float(value), 3) for (key, value) in scores.items()}
+
+    return scores
 
 
 def compute_scores_regression(y_true, y_hat):
@@ -453,10 +489,14 @@ def compute_scores_regression(y_true, y_hat):
         "recall": recall,
     }
 
-    return {key: round(float(value), 3) for (key, value) in scores.items()}
+    scores = {key: round(float(value), 3) for (key, value) in scores.items()}
+
+    return scores
 
 
-def first_location_of_crossing_threshold(df, horizon, threshold, close_column_name, price_column_name):
+def first_location_of_crossing_threshold(
+    df, horizon, threshold, close_column_name, price_column_name
+):
     """
     For each point, take its close price as a reference, and then find the distance
     (relative offset, index) to the _first_ future point with the price higher (or lower)
@@ -520,18 +560,21 @@ def first_location_of_crossing_threshold(df, horizon, threshold, close_column_na
         return idx
 
     # Window df will include the current row as well as horizon of past rows with 0 index starting from the oldest row and last index with the current row
-    rl = df[[close_column_name, price_column_name]].rolling(horizon + 1, min_periods=(horizon // 2), method="table")
+    rl = df[[close_column_name, price_column_name]].rolling(
+        horizon + 1, min_periods=(horizon // 2), method="table"
+    )
 
     if threshold > 0:
         df_out = rl.apply(fn_high, raw=True, engine="numba")
     elif threshold < 0:
         df_out = rl.apply(fn_low, raw=True, engine="numba")
     else:
-        msg = "Threshold cannot be zero."
-        raise ValueError(msg)
+        raise ValueError("Threshold cannot be zero.")
 
     # Because rolling apply processes past records while we need future records
     df_out = df_out.shift(-horizon)
 
     # For some unknown reason (bug?), rolling apply (with table and numba) returns several columns rather than one column
-    return df_out.iloc[:, 0]
+    out_column = df_out.iloc[:, 0]
+
+    return out_column

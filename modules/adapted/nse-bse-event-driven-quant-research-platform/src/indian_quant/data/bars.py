@@ -56,8 +56,7 @@ def get_bars(
     """
     path = _DATA_ROOT / "bars_1d" / exchange / f"{symbol.upper()}.parquet"
     if not path.exists():
-        msg = f"No bar data for {symbol} on {exchange}: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No bar data for {symbol} on {exchange}: {path}")
 
     df = pd.read_parquet(path)
     if days and len(df) > days:
@@ -77,7 +76,6 @@ def get_delivery(symbol: str, exchange: str = "NSE") -> pd.DataFrame:
     """
     path = _DATA_ROOT / "delivery" / exchange / f"{symbol.upper()}.parquet"
     if not path.exists():
-        msg = f"No delivery data for {symbol} on {exchange}: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"No delivery data for {symbol} on {exchange}: {path}")
 
     return pd.read_parquet(path)

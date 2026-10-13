@@ -1,9 +1,117 @@
 // Tauri Commands for tool operations — exposed to frontend via invoke()
 
 use crate::models::tool::DetectedTool;
+use crate::services::antigravity_accounts::{
+    self, Account as AntigravityAccount, LoginStart as AntigravityLogin,
+};
 use crate::services::codex_accounts::{self, CodexAccountSummary};
 use crate::services::tool_config_manager::{self, ApplyResult, ModelInfo};
 use crate::services::tool_manager;
+
+#[tauri::command]
+pub async fn list_antigravity_accounts() -> Result<Vec<AntigravityAccount>, String> {
+    antigravity_accounts::list().await
+}
+
+#[tauri::command]
+pub async fn start_antigravity_login() -> Result<AntigravityLogin, String> {
+    antigravity_accounts::start_login().await
+}
+
+#[tauri::command]
+pub async fn poll_antigravity_login(
+    login_id: String,
+) -> Result<Option<AntigravityAccount>, String> {
+    antigravity_accounts::poll_login(&login_id).await
+}
+
+#[tauri::command]
+pub fn cancel_antigravity_login(login_id: String) -> Result<(), String> {
+    antigravity_accounts::cancel_login(&login_id)
+}
+
+#[tauri::command]
+pub async fn switch_antigravity_account(account_id: String) -> Result<AntigravityAccount, String> {
+    antigravity_accounts::switch(&account_id).await
+}
+
+#[tauri::command]
+pub async fn delete_antigravity_account(account_id: String) -> Result<(), String> {
+    antigravity_accounts::delete(&account_id).await
+}
+
+#[tauri::command]
+pub async fn refresh_antigravity_account(account_id: String) -> Result<AntigravityAccount, String> {
+    antigravity_accounts::refresh(&account_id).await
+}
+
+use crate::services::grok_bot_accounts::{
+    self, Account as GrokBotAccount, LoginStart as GrokBotLogin,
+};
+
+#[tauri::command]
+pub async fn list_grok_bot_accounts() -> Result<Vec<GrokBotAccount>, String> {
+    grok_bot_accounts::list().await
+}
+#[tauri::command]
+pub fn start_grok_bot_login() -> Result<GrokBotLogin, String> {
+    grok_bot_accounts::start_login()
+}
+#[tauri::command]
+pub async fn poll_grok_bot_login(login_id: String) -> Result<Option<GrokBotAccount>, String> {
+    grok_bot_accounts::poll_login(&login_id).await
+}
+#[tauri::command]
+pub fn cancel_grok_bot_login(login_id: String) -> Result<(), String> {
+    grok_bot_accounts::cancel_login(&login_id)
+}
+#[tauri::command]
+pub async fn switch_grok_bot_account(account_id: String) -> Result<GrokBotAccount, String> {
+    grok_bot_accounts::switch(&account_id).await
+}
+#[tauri::command]
+pub async fn delete_grok_bot_account(account_id: String) -> Result<(), String> {
+    grok_bot_accounts::delete(&account_id).await
+}
+#[tauri::command]
+pub async fn refresh_grok_bot_account(
+    account_id: String,
+) -> Result<crate::services::cursor_usage::Usage, String> {
+    grok_bot_accounts::refresh(&account_id).await
+}
+
+use crate::services::cursor_accounts::{self, Account as CursorAccount, LoginStart as CursorLogin};
+
+#[tauri::command]
+pub async fn list_cursor_accounts() -> Result<Vec<CursorAccount>, String> {
+    cursor_accounts::list().await
+}
+#[tauri::command]
+pub fn start_cursor_login() -> Result<CursorLogin, String> {
+    cursor_accounts::start_login()
+}
+#[tauri::command]
+pub async fn poll_cursor_login(login_id: String) -> Result<Option<CursorAccount>, String> {
+    cursor_accounts::poll_login(&login_id).await
+}
+#[tauri::command]
+pub fn cancel_cursor_login(login_id: String) -> Result<(), String> {
+    cursor_accounts::cancel_login(&login_id)
+}
+#[tauri::command]
+pub async fn switch_cursor_account(account_id: String) -> Result<CursorAccount, String> {
+    cursor_accounts::switch(&account_id).await
+}
+#[tauri::command]
+pub async fn delete_cursor_account(account_id: String) -> Result<(), String> {
+    cursor_accounts::delete(&account_id).await
+}
+#[tauri::command]
+pub async fn refresh_cursor_account(
+    account_id: String,
+) -> Result<crate::services::cursor_usage::Usage, String> {
+    cursor_accounts::refresh(&account_id).await
+}
 
 /// Copy a built-in tool's bundle to the user's ~/.echobird/<id>/ directory so
 /// the "我的AI项目" page can present real, navigable, editable reference
@@ -151,11 +259,22 @@ pub fn capture_current_codex_account() -> Result<CodexAccountSummary, String> {
 }
 
 #[tauri::command]
+pub fn start_codex_login() -> Result<String, String> {
+    codex_accounts::start_login()
+}
+
+#[tauri::command]
+pub fn cancel_codex_login(login_id: String) -> Result<(), String> {
+    codex_accounts::cancel_login(&login_id)
+}
+
+#[tauri::command]
 pub async fn add_codex_account_via_oauth(
     app_handle: tauri::AppHandle,
+    login_id: String,
     callback_messages: codex_accounts::OAuthCallbackMessages,
 ) -> Result<CodexAccountSummary, String> {
-    codex_accounts::add_account_via_oauth(app_handle, callback_messages).await
+    codex_accounts::add_account_via_oauth(app_handle, login_id, callback_messages).await
 }
 
 #[tauri::command]
@@ -568,6 +687,37 @@ use crate::services::workbuddy_accounts::{
     self, Account as WorkBuddyAccount, Edition as WorkBuddyEdition, LoginStart as WorkBuddyLogin,
 };
 
+use crate::services::zcode_accounts::{self, Account as ZCodeAccount, LoginStart as ZCodeLogin};
+
+#[tauri::command]
+pub async fn list_zcode_accounts() -> Result<Vec<ZCodeAccount>, String> {
+    zcode_accounts::list().await
+}
+#[tauri::command]
+pub async fn start_zcode_login(provider: String) -> Result<ZCodeLogin, String> {
+    zcode_accounts::start_login(&provider).await
+}
+#[tauri::command]
+pub async fn poll_zcode_login(login_id: String) -> Result<Option<ZCodeAccount>, String> {
+    zcode_accounts::poll_login(&login_id).await
+}
+#[tauri::command]
+pub fn cancel_zcode_login(login_id: String) -> Result<(), String> {
+    zcode_accounts::cancel_login(&login_id)
+}
+#[tauri::command]
+pub async fn switch_zcode_account(account_id: String) -> Result<ZCodeAccount, String> {
+    zcode_accounts::switch(&account_id).await
+}
+#[tauri::command]
+pub async fn refresh_zcode_account_quota(account_id: String) -> Result<ZCodeAccount, String> {
+    zcode_accounts::refresh(&account_id).await
+}
+#[tauri::command]
+pub async fn delete_zcode_account(account_id: String) -> Result<(), String> {
+    zcode_accounts::delete(&account_id).await
+}
+
 #[tauri::command]
 pub async fn list_workbuddy_accounts(
     edition: WorkBuddyEdition,
@@ -604,6 +754,14 @@ pub async fn refresh_workbuddy_account_quota(
     account_id: String,
 ) -> Result<WorkBuddyAccount, String> {
     workbuddy_accounts::refresh(edition, &account_id).await
+}
+
+#[tauri::command]
+pub async fn claim_workbuddy_daily_credits(
+    edition: WorkBuddyEdition,
+    account_id: String,
+) -> Result<WorkBuddyAccount, String> {
+    workbuddy_accounts::claim_daily(edition, &account_id).await
 }
 
 #[tauri::command]
@@ -686,4 +844,40 @@ pub async fn refresh_grok_account(
     account_id: String,
 ) -> Result<crate::services::grok_accounts::Account, String> {
     crate::services::grok_accounts::refresh(&account_id).await
+}
+
+#[tauri::command]
+pub async fn list_manus_accounts() -> Result<Vec<crate::services::manus_accounts::Account>, String>
+{
+    crate::services::manus_accounts::list().await
+}
+#[tauri::command]
+pub async fn start_manus_login() -> Result<crate::services::manus_accounts::LoginStart, String> {
+    crate::services::manus_accounts::start_login().await
+}
+#[tauri::command]
+pub async fn poll_manus_login(
+    login_id: String,
+) -> Result<Option<crate::services::manus_accounts::Account>, String> {
+    crate::services::manus_accounts::poll_login(&login_id).await
+}
+#[tauri::command]
+pub async fn cancel_manus_login(login_id: String) -> Result<(), String> {
+    crate::services::manus_accounts::cancel_login(&login_id).await
+}
+#[tauri::command]
+pub async fn switch_manus_account(
+    account_id: String,
+) -> Result<crate::services::manus_accounts::Account, String> {
+    crate::services::manus_accounts::switch(&account_id).await
+}
+#[tauri::command]
+pub async fn refresh_manus_account(
+    account_id: String,
+) -> Result<crate::services::manus_accounts::Account, String> {
+    crate::services::manus_accounts::refresh(&account_id).await
+}
+#[tauri::command]
+pub async fn delete_manus_account(account_id: String) -> Result<(), String> {
+    crate::services::manus_accounts::delete(&account_id).await
 }

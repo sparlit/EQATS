@@ -83,7 +83,9 @@ def main():
                     quarters += len(out)
                 if done % 25 == 0 or done == len(missing):
                     flush()
-                    print("  ...%d/%d  added=%d  quarters=%d" % (done, len(missing), added, quarters))
+                    print(
+                        "  ...%d/%d  added=%d  quarters=%d" % (done, len(missing), added, quarters)
+                    )
     flush()
     print(
         "DONE. added %d symbols (%d quarters) from NSE. %d genuinely not served."

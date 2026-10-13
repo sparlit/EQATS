@@ -89,9 +89,18 @@ def _rs_score(relative_return: float) -> float:
 
 
 def _weekly_metrics(data: pd.DataFrame) -> dict[str, float | bool]:
-    weekly_close = data.set_index(pd.to_datetime(data["trade_date"]))["close"].resample("W-FRI").last().dropna()
+    weekly_close = (
+        data.set_index(pd.to_datetime(data["trade_date"]))["close"]
+        .resample("W-FRI")
+        .last()
+        .dropna()
+    )
     if len(weekly_close) < 52:
-        return {"weekly_bullish": False, "weekly_rising": False, "weekly_count": float(len(weekly_close))}
+        return {
+            "weekly_bullish": False,
+            "weekly_rising": False,
+            "weekly_count": float(len(weekly_close)),
+        }
     weekly21 = hma(weekly_close, 21)
     weekly51 = hma(weekly_close, 51)
     valid = pd.notna(weekly21.iloc[-1]) and pd.notna(weekly51.iloc[-1])
@@ -134,9 +143,13 @@ def score_horizons(
     hybrid = fixed_hybrid_hull_signals(data)
     weekly = _weekly_metrics(data)
     participation = evaluate_participation(data)
-    regime_value = {"BULL": 100.0, "BULLISH": 100.0, "NEUTRAL": 55.0, "BEAR": 0.0, "BEARISH": 0.0}.get(
-        regime.upper(), 0.0
-    )
+    regime_value = {
+        "BULL": 100.0,
+        "BULLISH": 100.0,
+        "NEUTRAL": 55.0,
+        "BEAR": 0.0,
+        "BEARISH": 0.0,
+    }.get(regime.upper(), 0.0)
 
     rs20 = _rs_return(close, benchmark_close, 20)
     rs63 = _rs_return(close, benchmark_close, 63)
@@ -160,9 +173,13 @@ def score_horizons(
         )
     )
     weekly_trend = (
-        100.0 if weekly["weekly_bullish"] and weekly["weekly_rising"] else (55.0 if weekly["weekly_bullish"] else 0.0)
+        100.0
+        if weekly["weekly_bullish"] and weekly["weekly_rising"]
+        else (55.0 if weekly["weekly_bullish"] else 0.0)
     )
-    structure_score = 100.0 if hybrid["daily_persistent"] else (55.0 if hybrid["hull_slope_improving"] else 20.0)
+    structure_score = (
+        100.0 if hybrid["daily_persistent"] else (55.0 if hybrid["hull_slope_improving"] else 20.0)
+    )
     participation_score = float(participation.score)
     alignment_score = (daily_trend + weekly_trend) / 2.0
 
@@ -286,10 +303,16 @@ def score_horizons(
             for name, weight in definition["weights"].items()
         }
         score = round(sum(components.values()), 2)
-        reasons_for = [name for name, points in components.items() if points >= definition["weights"][name] * 0.70]
+        reasons_for = [
+            name
+            for name, points in components.items()
+            if points >= definition["weights"][name] * 0.70
+        ]
         reasons_against = list(blocks)
         reasons_against.extend(
-            name for name, points in components.items() if points < definition["weights"][name] * 0.40
+            name
+            for name, points in components.items()
+            if points < definition["weights"][name] * 0.40
         )
         metrics = {
             **hybrid,

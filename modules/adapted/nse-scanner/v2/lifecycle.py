@@ -26,7 +26,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Persistent, auditable trade lifecycle state machine for NSE Scanner V2."""
 
 from dataclasses import dataclass, replace
-from enum import Enum, StrEnum
+from enum import StrEnum
 from uuid import uuid4
 
 
@@ -74,11 +74,9 @@ def new_position(
     quantity: float = 1.0,
 ) -> Position:
     if not (stop < entry < target1 <= target2):
-        msg = "invalid long trade geometry"
-        raise ValueError(msg)
+        raise ValueError("invalid long trade geometry")
     if quantity <= 0:
-        msg = "quantity must be positive"
-        raise ValueError(msg)
+        raise ValueError("quantity must be positive")
     return Position(
         trade_id=str(uuid4()),
         symbol=symbol,
@@ -127,13 +125,13 @@ def transition(
         )
     if event == "PROMOTE" and state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}:
         if not reason:
-            msg = "promotion requires a progression stage"
-            raise ValueError(msg)
-        return replace(position, updated_date=trade_date, last_price=price, progression_stage=reason)
+            raise ValueError("promotion requires a progression stage")
+        return replace(
+            position, updated_date=trade_date, last_price=price, progression_stage=reason
+        )
     if event == "T1_HIT" and state == TradeState.OPEN:
         if not 0 < partial_fraction < 1:
-            msg = "partial_fraction must be between 0 and 1"
-            raise ValueError(msg)
+            raise ValueError("partial_fraction must be between 0 and 1")
         sold = position.remaining_quantity * partial_fraction
         return replace(
             position,
@@ -141,15 +139,15 @@ def transition(
             updated_date=trade_date,
             remaining_quantity=position.remaining_quantity - sold,
             realised_quantity=position.realised_quantity + sold,
-            realised_pnl=position.realised_pnl + sold * ((price or position.target1) - position.entry),
+            realised_pnl=position.realised_pnl
+            + sold * ((price or position.target1) - position.entry),
             last_price=price or position.target1,
             stop=max(position.stop, position.entry),
             reason=reason or "target1_partial_exit",
         )
     if event == "TRAIL" and state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}:
         if trailing_stop is None or trailing_stop < position.stop:
-            msg = "trailing stop cannot move backward"
-            raise ValueError(msg)
+            raise ValueError("trailing stop cannot move backward")
         return replace(
             position,
             state=TradeState.TRAILING,
@@ -158,8 +156,16 @@ def transition(
             last_price=price,
             reason=reason or "trailing_stop_advanced",
         )
-    if event in {"STOP_HIT", "T2_HIT", "EXIT"} and state in {TradeState.OPEN, TradeState.PARTIAL, TradeState.TRAILING}:
-        exit_price = price if price is not None else (position.stop if event == "STOP_HIT" else position.target2)
+    if event in {"STOP_HIT", "T2_HIT", "EXIT"} and state in {
+        TradeState.OPEN,
+        TradeState.PARTIAL,
+        TradeState.TRAILING,
+    }:
+        exit_price = (
+            price
+            if price is not None
+            else (position.stop if event == "STOP_HIT" else position.target2)
+        )
         sold = position.remaining_quantity
         return replace(
             position,
@@ -182,6 +188,7 @@ def transition(
             reason=reason or "setup_invalidated_before_entry",
         )
     if event == "MARK":
-        return replace(position, updated_date=trade_date, last_price=price, reason=reason or position.reason)
-    msg = f"invalid transition: {state.value} + {event}"
-    raise ValueError(msg)
+        return replace(
+            position, updated_date=trade_date, last_price=price, reason=reason or position.reason
+        )
+    raise ValueError(f"invalid transition: {state.value} + {event}")

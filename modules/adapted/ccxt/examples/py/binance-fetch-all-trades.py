@@ -44,7 +44,9 @@ end = exchange.parse8601(exchange.ymd(now) + "T00:00:00")
 previous_trade_id = None
 filename = exchange.id + "_" + market["id"] + ".csv"
 with open(filename, mode="w") as csv_f:
-    csv_writer = csv.DictWriter(csv_f, delimiter=",", fieldnames=["timestamp", "size", "price", "side"])
+    csv_writer = csv.DictWriter(
+        csv_f, delimiter=",", fieldnames=["timestamp", "size", "price", "side"]
+    )
     csv_writer.writeheader()
     while since < end:
         try:

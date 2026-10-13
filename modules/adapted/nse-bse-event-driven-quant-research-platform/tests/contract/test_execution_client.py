@@ -83,8 +83,7 @@ class TestLifecycle:
             side=OrderSide.BUY,
         )
         rep = await client.submit_order(req)
-        assert rep.order_id == "O1"
-        assert rep.status == "open"
+        assert rep.order_id == "O1" and rep.status == "open"
 
         rep = await client.modify_order("O1", quantity=5)
         assert rep.status == "modified"
@@ -106,18 +105,25 @@ class TestLifecycle:
 
         def rejecting(request: httpx.Request) -> httpx.Response:
             return httpx.Response(
-                200, json={"data": {"order_id": "O9", "status": "rejected", "error": "insufficient funds"}}
+                200,
+                json={
+                    "data": {"order_id": "O9", "status": "rejected", "error": "insufficient funds"}
+                },
             )
 
         client = make_client(rejecting)
         with pytest.raises(RuntimeError, match="rejected"):
-            await client.submit_order(SandboxOrderRequest(instrument_key="K", quantity=1, side=OrderSide.SELL))
+            await client.submit_order(
+                SandboxOrderRequest(instrument_key="K", quantity=1, side=OrderSide.SELL)
+            )
 
     async def test_http_400_surfaces_detail(self, tmp_path, monkeypatch):
         monkeypatch.setenv("UPSTOX_SANDBOX_TOKEN", "SBX")
         client = make_client(lambda r: httpx.Response(400, text="UDAPI100011 invalid key"))
         with pytest.raises(RuntimeError, match="invalid key"):
-            await client.submit_order(SandboxOrderRequest(instrument_key="BAD", quantity=1, side=OrderSide.BUY))
+            await client.submit_order(
+                SandboxOrderRequest(instrument_key="BAD", quantity=1, side=OrderSide.BUY)
+            )
 
 
 class TestSandboxReadGuard:

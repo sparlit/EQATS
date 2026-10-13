@@ -70,7 +70,10 @@ EV = (
 def main():
     dry = "--apply" not in sys.argv
     filled = {}
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         for qe in QES:
             row = d.get(SYM, {}).get(qe)
@@ -88,7 +91,12 @@ def main():
             filled.setdefault(qe, got)
             print(
                 "%-26s %s %s %s"
-                % (os.path.basename(path), qe, "would fill" if dry else "filled", ", ".join(got) or "(nothing null)")
+                % (
+                    os.path.basename(path),
+                    qe,
+                    "would fill" if dry else "filled",
+                    ", ".join(got) or "(nothing null)",
+                )
             )
         if not dry:
             json.dump(d, open(path, "w"), separators=(",", ":"))

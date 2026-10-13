@@ -37,7 +37,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = Flask(__name__)
 CORS(app)  # Allows React to talk to Flask
 
-app.config["JWT_SECRET_KEY"] = "super-secret-stock-key-that-is-very-long-12345"  # Change in production
+app.config["JWT_SECRET_KEY"] = (
+    "super-secret-stock-key-that-is-very-long-12345"  # Change in production
+)
 jwt = JWTManager(app)
 
 
@@ -62,7 +64,8 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id;", (data["email"], hashed_pw)
+            "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id;",
+            (data["email"], hashed_pw),
         )
         user_id = cur.fetchone()["id"]
         conn.commit()

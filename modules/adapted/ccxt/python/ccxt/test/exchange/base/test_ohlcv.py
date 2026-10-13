@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_ohlcv(exchange, skipped_properties, method, entry, symbol, now):
@@ -48,20 +50,31 @@ def test_ohlcv(exchange, skipped_properties, method, entry, symbol, now):
         exchange.parse_number("123.456"),
     ]
     empty_not_allowed_for = [0, 1, 2, 3, 4, 5]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_not_allowed_for)
-    test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry, now, 0)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_not_allowed_for
+    )
+    test_shared_methods.assert_timestamp_and_datetime(
+        exchange, skipped_properties, method, entry, now, 0
+    )
     log_text = test_shared_methods.log_template(exchange, method, entry)
+    #
     assert len(entry) >= 6, "ohlcv array length should be >= 6;" + log_text
     if "roundTimestamp" not in skipped_properties:
-        test_shared_methods.assert_round_minute_timestamp(exchange, skipped_properties, method, entry, 0)
+        test_shared_methods.assert_round_minute_timestamp(
+            exchange, skipped_properties, method, entry, 0
+        )
     high = exchange.safe_string(entry, 2)
     low = exchange.safe_string(entry, 3)
     if "compareOHLCV" in skipped_properties:
         return
     test_shared_methods.assert_less_or_equal(exchange, skipped_properties, method, entry, "1", high)
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "1", low)
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "1", low
+    )
     test_shared_methods.assert_less_or_equal(exchange, skipped_properties, method, entry, "4", high)
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "4", low)
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "4", low
+    )
     assert (symbol is None) or (isinstance(symbol, str)), (
         "symbol " + symbol + " is incorrect" + log_text
-    )  # TODO: check with standard symbol check
+    )  # todo: check with standard symbol check

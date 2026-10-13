@@ -36,11 +36,8 @@ Manages the full order lifecycle from the Product Vision doc (§15):
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from utils.logger import get_logger
-
-from config.settings import SYMBOLS
 
 logger = get_logger("order_manager")
 
@@ -97,7 +94,7 @@ class OrderManager:
         stop_loss: float,
         target: float,
         strategy: str = "",
-        scores: dict | None = None,
+        scores: dict = None,
     ) -> Order:
         """
         Create a new order (not yet placed).
@@ -123,7 +120,9 @@ class OrderManager:
 
         self._orders[order_id] = order
         logger.info(
-            f"Order created: {order_id} {symbol} {side} qty={quantity} @ {entry_price} SL={stop_loss} T={target}"
+            f"Order created: {order_id} {symbol} {side} "
+            f"qty={quantity} @ {entry_price} "
+            f"SL={stop_loss} T={target}"
         )
         return order
 
@@ -176,7 +175,7 @@ class OrderManager:
 
         except Exception as e:
             order.status = "REJECTED"
-            logger.exception(f"Order placement failed: {order.order_id} – {e}")
+            logger.error(f"Order placement failed: {order.order_id} – {e}")
             return False
 
     # ── Convenience: Full Execution Pipeline ──────────────────────────────────
@@ -190,7 +189,7 @@ class OrderManager:
         stop_loss: float,
         target: float,
         strategy: str = "",
-        scores: dict | None = None,
+        scores: dict = None,
     ) -> Order:
         """
         Create and immediately place an order.
@@ -224,6 +223,6 @@ class OrderManager:
                 try:
                     self._broker.cancel_order(order.broker_order_id)
                 except Exception as e:
-                    logger.exception(f"Cancel failed: {e}")
+                    logger.error(f"Cancel failed: {e}")
             order.status = "CANCELLED"
             logger.info(f"Order cancelled: {order_id}")

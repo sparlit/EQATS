@@ -88,8 +88,7 @@ class TestCombinedAnalysisLegFailure:
             return {"market_sentiment": {"momentum": "Bullish", "buy_sell_signal": "BUY"}}
 
         def boom_sentiment(symbol, category):
-            msg = "marketaux down"
-            raise RuntimeError(msg)
+            raise RuntimeError("marketaux down")
 
         def ok_news(symbol, category, limit):
             return {"count": 1, "items": [{"title": "x"}]}

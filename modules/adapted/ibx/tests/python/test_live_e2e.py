@@ -224,13 +224,19 @@ class TestLiveE2E:
         # Wait for cancel confirmation
         time.sleep(3)
         cancel_events = [
-            e for e in self.wrapper.events if e[0] == "order_status" and e[1] == oid and e[2] == "Cancelled"
+            e
+            for e in self.wrapper.events
+            if e[0] == "order_status" and e[1] == oid and e[2] == "Cancelled"
         ]
         # Order may also be rejected if market permissions don't allow
         reject_events = [
-            e for e in self.wrapper.events if e[0] == "order_status" and e[1] == oid and e[2] == "Rejected"
+            e
+            for e in self.wrapper.events
+            if e[0] == "order_status" and e[1] == oid and e[2] == "Rejected"
         ]
-        assert len(cancel_events) > 0 or len(reject_events) > 0, "Order should be cancelled or rejected"
+        assert len(cancel_events) > 0 or len(reject_events) > 0, (
+            "Order should be cancelled or rejected"
+        )
 
     def test_display_groups(self):
         """Verify display group API calls work (issue #90).

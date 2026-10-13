@@ -74,6 +74,8 @@ import contextlib
 import bse_resolve
 import scale_fix
 import xbrl_symbol
+import xtra_cell_fix
+import xtra_fc_fix
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # XBRL_CACHE override: the nightly top-up routine runs from its OWN worktree (one writer per
@@ -106,18 +108,23 @@ try:
 except (OSError, ValueError):
     SME_FILES = set()
 
-RE_SYM = re.compile(r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>')
+RE_SYM = re.compile(
+    r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>'
+)
 RE_SYM2 = re.compile(r"<" + NS + r':Symbol contextRef="OneD"[^>]*>([^<]+)<')
 RE_TS = re.compile(r"(\d{12,14})")
 RE_CTX_BLOCK = re.compile(r'<xbrli:context id="([^"]+)"[^>]*>(.*?)</xbrli:context>', re.DOTALL)
 RE_INSTANT = re.compile(r"<xbrli:instant>(\d{4}-\d{2}-\d{2})<")
 RE_STARTEND = re.compile(
-    r"<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>\s*<xbrli:endDate>(\d{4}-\d{2}-\d{2})<", re.DOTALL
+    r"<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>\s*<xbrli:endDate>(\d{4}-\d{2}-\d{2})<",
+    re.DOTALL,
 )
 # older INDAS files carry the period as facts instead of inside the context block
 RE_DATE = {
     c: {
-        b: re.compile(r"DateOf" + b + r'OfReportingPeriod contextRef="' + c + r'"[^>]*>(\d{4}-\d{2}-\d{2})')
+        b: re.compile(
+            r"DateOf" + b + r'OfReportingPeriod contextRef="' + c + r'"[^>]*>(\d{4}-\d{2}-\d{2})'
+        )
         for b in ("Start", "End")
     }
     for c in ("OneD", "FourD")
@@ -157,12 +164,18 @@ PNL = {  # quarter money, ₹ -> cr
         "ProfitLossFromOrdinaryActivitiesBeforeTax",
     ],
     # non-Ind-AS: "Profit before exceptional and extraordinary items and tax" — the pre-exceptional line
-    "pbet": ["ProfitBeforeExceptionalItemsAndTax", "ProfitBeforeExceptionalAndExtraordinaryItemsAndTax"],
+    "pbet": [
+        "ProfitBeforeExceptionalItemsAndTax",
+        "ProfitBeforeExceptionalAndExtraordinaryItemsAndTax",
+    ],
     "emp": ["EmployeeBenefitExpense", "EmployeesCost"],
     "mat": ["CostOfMaterialsConsumed"],
     "oci": ["OtherComprehensiveIncomeNetOfTaxes"],
     "assoc": ["ShareOfProfitLossOfAssociatesAndJointVenturesAccountedForUsingEquityMethod"],
-    "nci": ["ProfitOrLossAttributableToNonControllingInterests", "ProfitLossAttributableToNonControllingInterests"],
+    "nci": [
+        "ProfitOrLossAttributableToNonControllingInterests",
+        "ProfitLossAttributableToNonControllingInterests",
+    ],
     "dep_amt": ["Deposits"],
     "adv": ["Advances"],
     "int_exp": ["InterestExpended"],
@@ -204,7 +217,10 @@ BS = {  # instant, ₹ -> cr; tuple entries are summed when at least one part is
     ],  # INTEGRATED non-Ind-AS spelling
     "gw": ["Goodwill"],
     "intg": ["OtherIntangibleAssets", "IntangibleAssets"],
-    "iuad": ["IntangibleAssetsUnderDevelopment", "IntangibleAssetsUnderDevelopmentOrWorkInProgress"],
+    "iuad": [
+        "IntangibleAssetsUnderDevelopment",
+        "IntangibleAssetsUnderDevelopmentOrWorkInProgress",
+    ],
     # Screener's "Fixed Assets" = PP&E + Investment Property + Goodwill + Other Intangibles (measured
     # 2026-09-23 against screener on DBREALTY/OBEROIRLTY/PHOENIXLTD/DLF/INA/TCS/RELIANCE, runbook §148c)
     "invprop": ["InvestmentProperty"],
@@ -246,13 +262,20 @@ CF = {  # duration ending at the quarter end; ₹ -> cr
     "divp": ["DividendsPaidClassifiedAsFinancingActivities"],
     "cf_tax": ["IncomeTaxesPaidRefundClassifiedAsOperatingActivities"],
 }
-RE_CAPEX = re.compile(r"<" + NS + r':(PurchaseOfPropertyPlantAndEquipment\w*) contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<')
+RE_CAPEX = re.compile(
+    r"<"
+    + NS
+    + r':(PurchaseOfPropertyPlantAndEquipment\w*) contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<'
+)
 
 ALL_NAMES = sorted(
     {n for d in (PNL, EPS, RATIO, BS, CF) for names in d.values() for n in names}
     | {n for d in (BS_SUM, BS_SUM_ALT) for names in d.values() for n in names}
 )
-RE_FACT = {n: re.compile(r"<" + NS + r":" + n + r' contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<') for n in ALL_NAMES}
+RE_FACT = {
+    n: re.compile(r"<" + NS + r":" + n + r' contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<')
+    for n in ALL_NAMES
+}
 RE_SEGDESC = re.compile(r'DescriptionOfReportableSegment contextRef="([^"]+)"[^>]*>([^<]+)<')
 RE_SEGREV = re.compile(r"<" + NS + r':SegmentRevenue contextRef="([^"]+)"[^>]*>([-0-9.eE+]+)<')
 RE_SEGRES = re.compile(
@@ -403,9 +426,15 @@ def parse_file(path, fname, sym_override=None):
             # (Mar) files still carry the QUARTER in OneD — KTKBANK Mar-2019 OneD 61.73 = stored
             # std, FourD 477.24 = FY; BANKBARODA Sep-2019 con OneD 853.82 = stored 853.41,
             # FourD 1,679.95 = H1 (measured 2026-09-05).
-            q_n = {"first": 1, "second": 2, "half": 2, "third": 3, "fourth": 4, "yearly": 4, "annual": 4}.get(
-                rq.group(1).strip().lower().split()[0]
-            )
+            q_n = {
+                "first": 1,
+                "second": 2,
+                "half": 2,
+                "third": 3,
+                "fourth": 4,
+                "yearly": 4,
+                "annual": 4,
+            }.get(rq.group(1).strip().lower().split()[0])
             end = e.group(1)
             fys = fy.group(1)
             # the end date must sit exactly q_n quarters after the FY start (Apr-1 -> Jun-30 / Sep-30 / Dec-31 / Mar-31)
@@ -710,7 +739,12 @@ def main():
         total = len(files)
         print("incremental: %d new cache files, %d symbols in ledger" % (total, len(data)))
         if not files:
-            print("nothing new — ledger unchanged")
+            nf = xtra_fc_fix.reassert(data) + xtra_cell_fix.reassert(data)
+            if nf:
+                json.dump(data, open(OUT, "w"), separators=(",", ":"))
+                print("nothing new; xtra_fc_fix + xtra_cell_fix re-asserted %d cells" % nf)
+            else:
+                print("nothing new — ledger unchanged")
             return
         start_i = 0
     else:
@@ -744,9 +778,18 @@ def main():
             return
         for b in ("s", "c"):
             if r[b]:
+                if cell.get(b, {}).get("pm") == 6:
+                    # a PROVEN half-year's P&L lives here (fill_sme_halfyear_pnl.py, runbook §213): the page row is the
+                    # six months, so a quarter filing for the same quarter-end only fills what the cell lacks — it never
+                    # blends a quarter's lines into the half's
+                    for k, v in r[b].items():
+                        cell[b].setdefault(k, v)
+                    continue
                 if SRC_KEY in cell.get(b, {}):
                     cell[b] = {}  # XBRL outranks an archive-HTML / MC cell: replace whole
-                cell.setdefault(b, {}).update(r[b])  # per-field latest-wins (non-null only, by construction)
+                cell.setdefault(b, {}).update(
+                    r[b]
+                )  # per-field latest-wins (non-null only, by construction)
                 # fields Moneycontrol added into an XBRL cell (`src_mc`, xtra_mc.py) yield to the
                 # filing once the XBRL supplies them; the list shrinks, and goes when empty
                 if "src_mc" in cell[b]:
@@ -772,10 +815,23 @@ def main():
                 if processed % 10000 == 0:
                     json.dump(data, open(OUT, "w"), separators=(",", ":"))
                     json.dump({"done": start_i + processed}, open(PROG, "w"))
-                    print("  %d/%d files, %d symbols" % (start_i + processed, total, len(data)), flush=True)
+                    print(
+                        "  %d/%d files, %d symbols" % (start_i + processed, total, len(data)),
+                        flush=True,
+                    )
 
     if not incremental and not limit:
         union_committed(data)
+    # §211: the archive cells whose page printed the tax as finance costs carry their proven figure
+    # from xtra_fc_fix.json — re-assert it on every build, so a ledger copy from before the heal (a
+    # nightly that unpacked the .gz before the heal was pushed) cannot bring the tax back
+    nf = xtra_fc_fix.reassert(data)
+    if nf:
+        print("xtra_fc_fix: re-asserted %d cells" % nf)
+    # §214a F3: single cells whose filer XBRL tag is proven wrong (EPS sign / doubled / cash EPS …) — same rule
+    nc = xtra_cell_fix.reassert(data)
+    if nc:
+        print("xtra_cell_fix: re-asserted %d cells" % nc)
     json.dump(data, open(OUT, "w"), separators=(",", ":"))
     if incremental:
         seen.update(files)
@@ -784,7 +840,10 @@ def main():
         json.dump({"done": total}, open(PROG, "w"))
         json.dump(sorted(files), open(SEEN, "w"), separators=(",", ":"))  # seed for --incremental
     n_q = sum(len(q) for q in data.values())
-    print("Wrote %s: %d symbols, %d symbol-quarters, %d files processed" % (OUT, len(data), n_q, processed))
+    print(
+        "Wrote %s: %d symbols, %d symbol-quarters, %d files processed"
+        % (OUT, len(data), n_q, processed)
+    )
     validate(data)
 
 
@@ -822,7 +881,10 @@ def validate(data):
                     if len(examples) < 10:
                         examples.append(f"{sym} {qe} {b}: recon {mine:.2f} vs revop {op:.2f}")
     tot = ok + bad
-    print("op-identity validation vs revop: %d/%d within 1%% (%.1f%%)" % (ok, tot, 100.0 * ok / tot if tot else 0))
+    print(
+        "op-identity validation vs revop: %d/%d within 1%% (%.1f%%)"
+        % (ok, tot, 100.0 * ok / tot if tot else 0)
+    )
     for ex in examples:
         print("   MISMATCH", ex)
 

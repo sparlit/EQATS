@@ -83,13 +83,13 @@ NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 REV_RE = re.compile(
     r"revenue\s+fr[o0]m\s+[o0]pera|t[o0]tal\s+inc[o0]me\s+fr[o0]m\s+[o0]pera|"
     r"revenue\s+fr[o0]m\s+c[o0]ntracts|inc[o0]me\s+fr[o0]m\s+[o0]pera|net\s+sales",
-    re.IGNORECASE,
+    re.I,
 )
 PAT_RE = re.compile(
     r"net\s+pr[o0][fl]i?[lt]\s+a[fl]ter\s+tax|pr[o0][fl]i?[lt]\s+a[fl]ter\s+tax|"
     r"[o0]wners?\s+[o0]f\s+the\s+(c[o0]mpan|parent)|"
     r"pr[o0][fl]i?[lt](?:\s*/\s*\(?l[o0]ss\)?)?\s+f[o0]r\s+the\s+(peri[o0]d|quarter|year)",
-    re.IGNORECASE,
+    re.I,
 )
 # The owners-attributable line, which is the one we store for consolidated PAT (§58). Kept separate
 # from PAT_RE because PAT_RE must still MATCH the total row -- that is the row screener's figure
@@ -98,7 +98,7 @@ OWNERS_RE = re.compile(
     r"[o0]wners?\s+[o0]f\s+the\s+(c[o0]mpan|parent)|"
     r"attributable\s+t[o0]\s+.{0,24}(?:[o0]wners|equity\s+h[o0]lders)|"
     r"min[o0]rity\s+interest\s+and\s+share\s+[o0]f\s+pr[o0][fl]i?[lt]",
-    re.IGNORECASE,
+    re.I,
 )
 OUT = "/tmp/con_copy_reads.json"
 
@@ -128,7 +128,13 @@ def page_rows(page, ytol=3.0):
         while i < len(t):
             x0, x1, w = t[i]
             # "7796" + "69" printed 4pt apart is one number, not two
-            if NUM.match(w) and "." not in w and i + 1 < len(t) and NUM.match(t[i + 1][2]) and t[i + 1][0] - x1 < 4.5:
+            if (
+                NUM.match(w)
+                and "." not in w
+                and i + 1 < len(t)
+                and NUM.match(t[i + 1][2])
+                and t[i + 1][0] - x1 < 4.5
+            ):
                 w = w + "." + t[i + 1][2]
                 x1 = t[i + 1][1]
                 i += 1
@@ -187,7 +193,7 @@ def main():
             got = None
             # the quarter's own filing, then the next one, then the next year's
             for tag, a, bb in U.windows(b["qe"], None):
-                fils, sess, _err = U.filings(scrip, a, bb)
+                fils, sess, err = U.filings(scrip, a, bb)
                 for _d, url, _s2 in (fils or [])[:4]:
                     raw, _ = U.BRG.cached_pdf(sess, url)
                     if not raw:
@@ -219,8 +225,15 @@ def main():
                                         if q2 == b["qe"] or t2 is None:
                                             continue
                                         for x2, w in nums:
-                                            if abs(x2 - x) > 14 and abs(w / sc - t2) <= max(0.6, abs(t2) * 0.012):
-                                                conf = "col x=%.0f == screener %s %s for %d" % (x2, basis, t2, q2)
+                                            if abs(x2 - x) > 14 and abs(w / sc - t2) <= max(
+                                                0.6, abs(t2) * 0.012
+                                            ):
+                                                conf = "col x=%.0f == screener %s %s for %d" % (
+                                                    x2,
+                                                    basis,
+                                                    t2,
+                                                    q2,
+                                                )
                                                 break
                                         if conf:
                                             break
@@ -240,7 +253,8 @@ def main():
                                                 (
                                                     r
                                                     for r in rows
-                                                    if OWNERS_RE.search(r[0]) and GR.at_column(r[1], x) is not None
+                                                    if OWNERS_RE.search(r[0])
+                                                    and GR.at_column(r[1], x) is not None
                                                 ),
                                                 None,
                                             )
@@ -284,7 +298,12 @@ def main():
             json.dump(done, open(out_p, "w"), indent=1)
             print(
                 "  %-26s %s"
-                % (key, ("= %-10s (was %s) %s" % (got["value"], b["our"], got["confirm"][:40])) if got else "NOT FOUND")
+                % (
+                    key,
+                    ("= %-10s (was %s) %s" % (got["value"], b["our"], got["confirm"][:40]))
+                    if got
+                    else "NOT FOUND",
+                )
             )
 
     ok = sum(1 for v in done.values() if v.get("value") is not None)

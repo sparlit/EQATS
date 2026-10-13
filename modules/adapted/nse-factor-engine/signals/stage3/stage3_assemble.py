@@ -45,7 +45,6 @@ Columns: symbol, as_of_date, fip_score, pct_pos_days, pct_neg_days,
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"

@@ -1,0 +1,240 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+# Bollinger Bands Range Crossover Strategy
+
+# BUY
+# If the stock price of the previous day is greater than the previous day's lower band
+# and the current stock price is lesser than the current day’s lower band.
+# IF PREV_STOCK > PREV_LOWERBB & CUR_STOCK < CUR_LOWER_BB => BUY
+
+# SELL
+# If the stock price of the previous day is lesser than the previous day’s upper band
+# and the current stock price is greater than the current day’s upper band,
+# IF PREV_STOCK < PREV_UPPERBB & CUR_STOCK > CUR_UPPER_BB => SELL
+
+# from os import symlink
+import datetime
+import math
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from nseta.common.log import tracelog
+from nseta.resources.resources import *
+from termcolor import colored as cl
+
+__all__ = ["bollingerbandsRangeCrossoverStrategy"]
+
+
+class bollingerbandsRangeCrossoverStrategy:
+    @tracelog
+    def bbands_range_crossover_strategy(self, df):
+        df.set_index("Date")
+        df.index = pd.to_datetime(df.index)
+        df = self.update_bbands_indicator_values(df)
+        strategy = self.update_strategy_position(df)
+        symbol = df.loc[:, "Symbol"].iloc[0]
+        if self.calculate_roi(strategy, symbol):
+            self.plot_strategy(strategy, symbol)
+
+    def sma(self, data, window):
+        sma = data.rolling(window=window).mean()
+        return sma
+
+    def bb(self, data, sma, window):
+        std = data.rolling(window=window).std()
+        upper_bb = sma + std * 2
+        lower_bb = sma - std * 2
+        return upper_bb, lower_bb
+
+    def update_bbands_indicator_values(self, df):
+        df["sma_20"] = self.sma(df["close"], 20)
+        df["upper_bb"], df["lower_bb"] = self.bb(df["close"], df["sma_20"], 20)
+        return df
+
+    @tracelog
+    def run_bbands_range_crossover_strategy(self, data, lower_bb, upper_bb):
+        buy_price = []
+        sell_price = []
+        bb_signal = []
+        signal = 0
+
+        for i in range(len(data)):
+            if data[i - 1] > lower_bb[i - 1] and data[i] < lower_bb[i]:
+                if signal != 1:
+                    buy_price.append(data[i])
+                    sell_price.append(np.nan)
+                    signal = 1
+                    bb_signal.append(signal)
+                else:
+                    buy_price.append(np.nan)
+                    sell_price.append(np.nan)
+                    bb_signal.append(0)
+            elif data[i - 1] < upper_bb[i - 1] and data[i] > upper_bb[i]:
+                if signal != -1:
+                    buy_price.append(np.nan)
+                    sell_price.append(data[i])
+                    signal = -1
+                    bb_signal.append(signal)
+                else:
+                    buy_price.append(np.nan)
+                    sell_price.append(np.nan)
+                    bb_signal.append(0)
+            else:
+                buy_price.append(np.nan)
+                sell_price.append(np.nan)
+                bb_signal.append(0)
+
+        return buy_price, sell_price, bb_signal
+
+    @tracelog
+    def update_strategy_position(self, df):
+        buy_price, sell_price, bb_signal = self.run_bbands_range_crossover_strategy(
+            df["close"], df["lower_bb"], df["upper_bb"]
+        )
+        position = []
+        for i in range(len(bb_signal)):
+            if bb_signal[i] > 1:
+                position.append(0)
+            else:
+                position.append(1)
+
+        for i in range(len(df["close"])):
+            if bb_signal[i] == 1:
+                position[i] = 1
+            elif bb_signal[i] == -1:
+                position[i] = 0
+            else:
+                position[i] = position[i - 1]
+
+        upper_bb = df["upper_bb"]
+        lower_bb = df["lower_bb"]
+        close_price = df["close"]
+        date = df["Date"]
+        sma = df["sma_20"]
+        bb_buy = pd.DataFrame(buy_price).rename(columns={0: "buy_price"}).set_index(df.index)
+        bb_sell = pd.DataFrame(sell_price).rename(columns={0: "sell_price"}).set_index(df.index)
+        bb_signal = pd.DataFrame(bb_signal).rename(columns={0: "bb_signal"}).set_index(df.index)
+        position = pd.DataFrame(position).rename(columns={0: "bb_position"}).set_index(df.index)
+        bb_signal = bb_signal.loc[~bb_signal.index.duplicated(keep="first")]
+        position = position.loc[~position.index.duplicated(keep="first")]
+        upper_bb = upper_bb.loc[~upper_bb.index.duplicated(keep="first")]
+        lower_bb = lower_bb.loc[~lower_bb.index.duplicated(keep="first")]
+        date = date.loc[~date.index.duplicated(keep="first")]
+        bb_buy = bb_buy.loc[~bb_buy.index.duplicated(keep="first")]
+        bb_sell = bb_sell.loc[~bb_sell.index.duplicated(keep="first")]
+        close_price = close_price.loc[~close_price.index.duplicated(keep="first")]
+        sma = sma.loc[~sma.index.duplicated(keep="first")]
+
+        frames = [date, close_price, upper_bb, sma, lower_bb, bb_buy, bb_sell, bb_signal, position]
+        strategy = pd.concat(frames, join="inner", axis=1)
+        strategy = strategy.loc[
+            :,
+            [
+                "Date",
+                "close",
+                "upper_bb",
+                "sma_20",
+                "lower_bb",
+                "buy_price",
+                "sell_price",
+                "bb_signal",
+                "bb_position",
+            ],
+        ]
+        strategy.reset_index(drop=True, inplace=True)
+        return strategy
+
+    @tracelog
+    def calculate_roi(self, strategy, symbol):
+        strategy_copy = strategy.copy(deep=True)
+        strategy_copy = strategy_copy.dropna(subset=["buy_price", "sell_price"], how="all")
+        if len(strategy_copy) <= 0:
+            print("Not enough data yet")
+            return False
+        strategy_copy = strategy_copy.loc[:, ["Date", "close", "bb_signal", "bb_position"]]
+        strategy_copy.loc[:, "Symbol"] = symbol
+        df_ret = pd.DataFrame(np.diff(strategy_copy["close"])).rename(columns={0: "returns"})
+
+        strategy_copy.loc[:, "bb_margin"] = 0
+        strategy_copy.loc[:, "bb_returns"] = 0
+        strategy_copy.loc[:, "bb_rolling_returns"] = 0
+        investment_value_initial = resources.backtest().init_cash
+        investment_value = investment_value_initial
+
+        for i in range(len(df_ret)):
+            returns = df_ret.loc[:, "returns"].iloc[i] * strategy_copy.loc[:, "bb_position"].iloc[i]
+            strategy_copy.loc[:, "bb_margin"].iloc[i + 1] = returns
+            number_of_stocks = math.floor(investment_value / strategy_copy.loc[:, "close"].iloc[i])
+            returns = number_of_stocks * strategy_copy.loc[:, "bb_margin"].iloc[i + 1]
+            strategy_copy.loc[:, "bb_returns"].iloc[i + 1] = returns
+            strategy_copy.loc[:, "bb_rolling_returns"].iloc[i + 1] = round(
+                sum(strategy_copy["bb_returns"]), 2
+            )
+            investment_value = investment_value + returns
+
+        print(f"\n{strategy_copy.to_string(index=False)}\n")
+        total_investment_ret = round(sum(strategy_copy["bb_returns"]), 2)
+        profit_percentage = round((total_investment_ret / investment_value_initial) * 100, 3)
+        print(
+            cl(
+                f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n",
+                attrs=["bold"],
+            )
+        )
+        print(
+            cl(f"\nProfit percentage of the BB strategy : {profit_percentage} %\n", attrs=["bold"])
+        )
+        return True
+
+    @tracelog
+    def plot_strategy(self, df, symbol):
+        plt.style.use("fivethirtyeight")
+        plt.rcParams["figure.figsize"] = (20, 10)
+        xAxisFmt = mdates.DateFormatter("%Y-%m-%d")
+        df.set_index("Date", inplace=True)
+        today = datetime.datetime.today().strftime("%Y-%m-%d")
+        intraday_df = df[df.index >= today]
+        if len(intraday_df) > 1:
+            xAxisFmt = mdates.DateFormatter("%H:%M")
+        else:
+            df.index = pd.to_datetime(df.index)
+            plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=5))
+        plt.gca().xaxis.set_major_formatter(xAxisFmt)
+
+        plt.plot(df.index, df["close"])
+        df["close"].plot(label=f"{symbol} CLOSE Prices", alpha=0.6, linewidth=1, color="skyblue")
+        df["upper_bb"].plot(label="UPPER BB 20", linestyle="--", linewidth=1, color="black")
+        df["sma_20"].plot(label="MIDDLE BB 20", linestyle="--", linewidth=1, color="red")
+        df["lower_bb"].plot(label="LOWER BB 20", linestyle="--", linewidth=1, color="black")
+        plt.scatter(df.index, df["buy_price"], marker="^", color="green", label="BUY", s=200)
+        plt.scatter(df.index, df["sell_price"], marker="v", color="red", label="SELL", s=200)
+        plt.gcf().autofmt_xdate()
+        plt.xlabel("Date/Time")
+        plt.ylabel(f"{symbol} Stock Closing Prices")
+        plt.title(f"{symbol} BB STRATEGY TRADING SIGNALS")
+        plt.legend(loc="best")
+        plt.grid(True)
+        plt.show()

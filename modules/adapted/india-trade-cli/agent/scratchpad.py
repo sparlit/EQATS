@@ -46,7 +46,6 @@ Compaction (auto at COMPACT_AFTER entries):
 import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 # After this many entries, compact() is called automatically
 COMPACT_AFTER: int = 8

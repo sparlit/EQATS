@@ -3,14 +3,12 @@ Unit tests for order execution idempotency and reconciliation.
 Tests that the REST order execution path includes client_order_id
 and performs reconciliation after timeout to prevent duplicate orders.
 """
-from typing import Any
 import json
-import socket
-import time
-from unittest.mock import Mock, patch, MagicMock
-import urllib.request
-import urllib.error
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
+
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
 
 def test_rest_order_includes_client_order_id() -> None:
     """Verify that REST order payload includes client_order_id for idempotency."""
@@ -45,7 +43,7 @@ def test_timeout_triggers_reconciliation() -> Any:
         request_obj = args[0]
         payload = json.loads(request_obj.data.decode('utf-8'))
         captured_client_order_id = payload['client_order_id']
-        raise socket.timeout('Connection timed out')
+        raise TimeoutError('Connection timed out')
 
     def mock_reconcile(client_order_id: Any) -> Any:
         return {'found': True, 'ticket': 'BROKER_RECONCILED_999', 'price': 1.1005, 'status': 'FILLED'}
@@ -68,7 +66,7 @@ def test_reconciliation_prevents_duplicate_on_timeout() -> Any:
     def timeout_on_first_call(*args: Any, **kwargs: Any) -> None:
         nonlocal call_count
         call_count += 1
-        raise socket.timeout('Connection timed out')
+        raise TimeoutError('Connection timed out')
 
     def mock_reconcile(client_order_id: Any) -> Any:
         return {'found': True, 'ticket': 'BROKER_FOUND_888', 'price': 1.101, 'status': 'ACCEPTED'}
@@ -90,7 +88,7 @@ def test_reconciliation_allows_retry_when_order_not_found() -> Any:
         nonlocal call_count
         call_count += 1
         if call_count == 1:
-            raise socket.timeout('Connection timed out')
+            raise TimeoutError('Connection timed out')
         else:
             mock_response = MagicMock()
             mock_response.read.return_value = json.dumps({'ticket': 'BROKER_RETRY_777', 'price': 1.1015}).encode('utf-8')
@@ -118,7 +116,7 @@ def test_same_client_order_id_used_across_retries() -> Any:
         request_obj = args[0]
         payload = json.loads(request_obj.data.decode('utf-8'))
         captured_client_order_ids.append(payload['client_order_id'])
-        raise socket.timeout('Connection timed out')
+        raise TimeoutError('Connection timed out')
 
     def mock_reconcile(client_order_id: Any) -> Any:
         return {'found': False}
@@ -182,7 +180,7 @@ def test_reconcile_handles_query_failure() -> None:
     """Test that reconciliation gracefully handles query failures."""
     config = {'rest_url': 'https://test-broker.example.com', 'failure_threshold': 5}
     gw = UniversalBrokerGateway(protocol='REST_WS', broker_config=config)
-    with patch('urllib.request.urlopen', side_effect=socket.timeout('Query timeout')):
+    with patch('urllib.request.urlopen', side_effect=TimeoutError('Query timeout')):
         result = gw._reconcile_order_status('EQATS_test789_1111111111')
         assert result['found'] is False
 if __name__ == '__main__':

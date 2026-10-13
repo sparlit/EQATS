@@ -29,9 +29,9 @@ EMA10/20/200 + trigger/stop/target lines. Saves PNG, returns path.
 import datetime as dt
 import os
 
-import matplotlib as mpl
+import matplotlib
 
-mpl.use("Agg")
+matplotlib.use("Agg")
 import db
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -43,7 +43,9 @@ def render(sym, setup=None, n=120):
     """setup = dict(trigger, stop, target) or None. Returns png path or None."""
     conn = db.get_conn()
     rows = conn.execute(
-        "SELECT date, open, high, low, close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?", (sym, n)
+        "SELECT date, open, high, low, close FROM prices_daily "
+        "WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        (sym, n),
     ).fetchall()
     if not rows or len(rows) < 30:
         conn.close()
@@ -51,7 +53,9 @@ def render(sym, setup=None, n=120):
     rows = list(reversed(rows))
     df = pd.DataFrame(rows, columns=["date", "open", "high", "low", "close"])
     df["date"] = pd.to_datetime(df["date"])
-    allc = conn.execute("SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)).fetchall()
+    allc = conn.execute(
+        "SELECT date, close FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+    ).fetchall()
     conn.close()
     closes = pd.Series([r[1] for r in allc], index=pd.to_datetime([r[0] for r in allc]))
     e10 = closes.ewm(span=10, adjust=False).mean()
@@ -99,8 +103,15 @@ def render(sym, setup=None, n=120):
     ax.tick_params(colors="#9fb0cc", labelsize=8)
     for s in ax.spines.values():
         s.set_color("#2a3550")
-    ax.set_title(f"{sym} · {df.index[-1].strftime('%d %b %Y')}", color="#edf3ff", fontsize=12, fontweight="bold")
-    ax.legend(loc="upper left", fontsize=7, facecolor="#0b1020", edgecolor="#2a3550", labelcolor="#9fb0cc")
+    ax.set_title(
+        f"{sym} · {df.index[-1].strftime('%d %b %Y')}",
+        color="#edf3ff",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.legend(
+        loc="upper left", fontsize=7, facecolor="#0b1020", edgecolor="#2a3550", labelcolor="#9fb0cc"
+    )
     ax.grid(color="#1c2440", linewidth=0.5)
     fig.tight_layout()
     fig.savefig(path, facecolor=fig.get_facecolor())

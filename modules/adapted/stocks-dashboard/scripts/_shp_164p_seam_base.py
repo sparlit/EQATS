@@ -65,15 +65,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 C = os.path.expanduser("~/stocks-cache/shp")
 W = os.path.join(C, "seambase")
-PAGE_DIRS = [os.path.join(C, d) for d in ("dii_session/aspx_pages", "w164n/aspx_pages", "w164o/aspx_pages")] + [
-    os.path.join(W, "pages")
+PAGE_DIRS = [
+    os.path.join(C, d) for d in ("dii_session/aspx_pages", "w164n/aspx_pages", "w164o/aspx_pages")
+] + [os.path.join(W, "pages")]
+NSE_CACHES = [
+    os.path.expanduser("~/stocks-wt/eps-block/scripts/_nsearch_cache"),
+    os.path.join(HERE, "_nsearch_cache"),
 ]
-NSE_CACHES = [os.path.expanduser("~/stocks-wt/eps-block/scripts/_nsearch_cache"), os.path.join(HERE, "_nsearch_cache")]
 NSE_OWN = os.path.join(W, "nse")
 LISTS = os.path.join(C, "bse_all")
 QE = {83: "2014-09-30", 86: "2015-06-30", 87: "2015-09-30", 88: "2015-12-31", 89: "2016-03-31"}
 UNITS = [1e5, 1e7, 1e6, 1e3, 1.0, 1e4, 1e2]
-UA = {"User-Agent": "stocks-dashboard-research/1.0", "Accept": "text/html,*/*", "Accept-Language": "en-US,en;q=0.9"}
+UA = {
+    "User-Agent": "stocks-dashboard-research/1.0",
+    "Accept": "text/html,*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def qtrid(qe):
@@ -85,10 +92,10 @@ def qtrid(qe):
 # ---------- BSE page (Clause-35 layout incl. the 88/89 re-render) ----------
 def _rows(t):
     out = []
-    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.DOTALL | re.IGNORECASE):
+    for r in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S | re.I):
         c = [
             html.unescape(re.sub(r"<[^>]+>", "", x)).strip()
-            for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.DOTALL | re.IGNORECASE)
+            for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S | re.I)
         ]
         c = [x for x in c if x]
         if c:
@@ -108,7 +115,6 @@ def page(code, q):
         p = os.path.join(d, "%s_%d.html.gz" % (code, q))
         if os.path.exists(p):
             return gzip.open(p).read().decode("utf8", "replace")
-    return None
 
 
 def totals(code, q):
@@ -138,12 +144,11 @@ def _nse_list(sym):
         p = os.path.join(d, f"list_{sym}.json")
         if os.path.exists(p):
             return json.load(open(p))
-    return None
 
 
 def _nse_detail(url):
     f = url.rsplit("/", 1)[1]
-    for d in [*NSE_CACHES, NSE_OWN]:
+    for d in NSE_CACHES + [NSE_OWN]:
         p = os.path.join(d, f)
         if os.path.exists(p):
             return open(p, encoding="utf8", errors="replace").read()
@@ -158,7 +163,7 @@ def _nse_detail(url):
 
 
 def _val(t, k):
-    m = re.search(re.escape(k) + r"\s*</t[dh]>\s*<t[dh][^>]*>(.*?)</t[dh]>", t, re.DOTALL | re.IGNORECASE)
+    m = re.search(re.escape(k) + r"\s*</t[dh]>\s*<t[dh][^>]*>(.*?)</t[dh]>", t, re.S | re.I)
     return _num(html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()) if m else None
 
 
@@ -169,7 +174,13 @@ def puc_first(sym, qe):
     if not L:
         return None
     d = datetime.strptime(qe, "%Y-%m-%d").strftime("%d-%b-%Y")
-    rows = [r for r in L if r.get("toDate") == d and r.get("period") == "Quarterly" and r.get("resultDetailedDataLink")]
+    rows = [
+        r
+        for r in L
+        if r.get("toDate") == d
+        and r.get("period") == "Quarterly"
+        and r.get("resultDetailedDataLink")
+    ]
 
     def bt(r):
         try:
@@ -281,16 +292,28 @@ def rebase(out):
                 (
                     res["hold: paid-up capital is not a share count here"]
                     if drop > 0.001
-                    else res["ok: PUC not a share count (2nd class / offset), page total not below Sep-2015"]
+                    else res[
+                        "ok: PUC not a share count (2nd class / offset), page total not below Sep-2015"
+                    ]
                 ).append(rec)
                 continue
             uq = min(UNITS, key=lambda v: abs(math.log(max(fq["puc"] * v, 1) / (fa["puc"] * u))))
             dRs = fq["puc"] * uq - fa["puc"] * u
-            tol = (0.5 * _gran(round(fa["puc"] * u)) + 0.5 * _gran(round(fq["puc"] * uq))) / fq["fv"]
+            tol = (0.5 * _gran(round(fa["puc"] * u)) + 0.5 * _gran(round(fq["puc"] * uq))) / fq[
+                "fv"
+            ]
             N = Ta + dRs / fq["fv"]
             if abs(dRs / fq["fv"]) <= tol:
                 N = Ta
-            rec.update({"N": round(N), "N_tol": round(tol), "nse_sep15": fa, "nse_q": fq, "unit_rupees": [u, uq]})
+            rec.update(
+                {
+                    "N": round(N),
+                    "N_tol": round(tol),
+                    "nse_sep15": fa,
+                    "nse_q": fq,
+                    "unit_rupees": [u, uq],
+                }
+            )
             if max(2 * tol, 0.001 * N) >= (N - T):
                 res[
                     "ok: page total = documented count"
@@ -308,7 +331,9 @@ def rebase(out):
                 res["skip: stored cell is not the page reading"].append(rec)
                 continue
             k = T / N
-            new = [round(v * k, 4) if isinstance(v, (int, float)) else v for v in st[:5]] + list(st[5:])
+            new = [round(v * k, 4) if isinstance(v, (int, float)) else v for v in st[:5]] + list(
+                st[5:]
+            )
             why = (
                 "§164p seam-quarter base (2026-09-27): BSE's %s page (qtrid %d) prints percentages of %s shares — it leaves "
                 "out %s shares that the Sep-2015 page (%s, block C %s) and the company's paid-up capital still count (NSE "
@@ -373,7 +398,10 @@ def seam_correct(cell, r, main_html):
         if full:
             note.append(
                 "fii add {:.4f} > institutional block {:.2f}: kept the category row {!r} = the block; {} listed inside it".format(
-                    add, other, full[0][1], ", ".join(f"{e[1]!r} {e[2]:.4f}" for e in r["ev"] if e is not full[0])
+                    add,
+                    other,
+                    full[0][1],
+                    ", ".join(f"{e[1]!r} {e[2]:.4f}" for e in r["ev"] if e is not full[0]),
                 )
             )
             add = full[0][2]
@@ -414,12 +442,18 @@ def wrongco_cells(hist):
         for q, v in c.items():
             if v[1] is None or v[2] is None or v[1] < 0.5 or v[2] < 0.5:
                 continue
-            idx[(q, round(v[0] or 0, 2), round(v[1], 2), round(v[2], 2), round(v[3] or 0, 2))].append(s)
+            idx[
+                (q, round(v[0] or 0, 2), round(v[1], 2), round(v[2], 2), round(v[3] or 0, 2))
+            ].append(s)
     out = []
     for k, syms in idx.items():
         if len(syms) < 2:
             continue
-        wb = [s for s in syms if str(((led.get(s) or {}).get(k[0]) or [None] * 8)[7]).startswith("wb:")]
+        wb = [
+            s
+            for s in syms
+            if str(((led.get(s) or {}).get(k[0]) or [None] * 8)[7]).startswith("wb:")
+        ]
         own = [s for s in syms if s not in wb]
         for s in wb:
             for o in own:
@@ -436,7 +470,9 @@ def _read_page_cell(sym, qe, code, hist, verdicts):
 
     q = qtrid(qe)
     st, cell, det = FA.cell_of(
-        {"sym": sym, "qe": qe, "code": int(code), "qtrid": q, "bname": "", "lname": ""}, os.path.join(W, "fa"), None
+        {"sym": sym, "qe": qe, "code": int(code), "qtrid": q, "bname": "", "lname": ""},
+        os.path.join(W, "fa"),
+        None,
     )
     if st != "ok":
         return None, f"page not readable: {st} {det}"
@@ -453,24 +489,36 @@ def _read_page_cell(sym, qe, code, hist, verdicts):
             rows = t.get("Table") if isinstance(t, dict) else t
         ctx = D.SymCtx(sym, rows, verdicts)
         try:
-            r, why = A.reconstruct(sym, int(code), q, ctx, verdicts, known_foreign=A.sibling_foreign_names(int(code)))
+            r, why = A.reconstruct(
+                sym, int(code), q, ctx, verdicts, known_foreign=A.sibling_foreign_names(int(code))
+            )
         except Exception as e:
             r, why = None, f"reconstruct error {e!r}"
         if r is None:
             return None, f"no seam reconstruction: {why}"
         kinds = {e[0] for e in r["ev"]}
         if not (r["lumps"] < 0.05 or "lump-fii" in kinds or r.get("whole_block")):
-            return None, "seam page lump {:.2f} with no FII category row (named holders alone under-count)".format(
-                r["lumps"]
+            return (
+                None,
+                "seam page lump {:.2f} with no FII category row (named holders alone under-count)".format(
+                    r["lumps"]
+                ),
             )
         cell, why = seam_correct(cell, r, gzip.open(dst, "rt", encoding="utf-8").read())
         if cell is None:
             return None, why
     c = hist.get(sym) or {}
     qs = sorted(c)
-    nb = [c[x][1] for x in [x for x in qs if x < qe][-1:] + [x for x in qs if x > qe][:1] if c[x][1] is not None]
+    nb = [
+        c[x][1]
+        for x in [x for x in qs if x < qe][-1:] + [x for x in qs if x > qe][:1]
+        if c[x][1] is not None
+    ]
     if len(nb) >= 2 and not (min(nb) - 3 <= cell[1] <= max(nb) + 3):
-        return None, f"page fii {cell[1]:.2f} outside the neighbours {min(nb):.2f}..{max(nb):.2f} +-3"
+        return (
+            None,
+            f"page fii {cell[1]:.2f} outside the neighbours {min(nb):.2f}..{max(nb):.2f} +-3",
+        )
     return cell, "page read"
 
 
@@ -486,7 +534,6 @@ def wrongco(out, drops_out):
     os.environ["DII_ROWFIX_WORK"] = os.path.join(W, "fa")
     os.environ.setdefault("DII_ROWFIX_LISTS", LISTS)
     import _shp_dii_rowfix as D
-    import bse_headers
 
     verdicts = D.load_verdicts()
     props, drops, log = {}, {}, []
@@ -513,7 +560,11 @@ def wrongco(out, drops_out):
             continue
         q = qtrid(qe)
         # main page into the reader's cache (fetch_shp_bse_aspx layout; cell_of fetches it with bse_headers when absent)
-        src = [p for p in (os.path.join(d, "%s_%d.html.gz" % (code, q)) for d in PAGE_DIRS) if os.path.exists(p)]
+        src = [
+            p
+            for p in (os.path.join(d, "%s_%d.html.gz" % (code, q)) for d in PAGE_DIRS)
+            if os.path.exists(p)
+        ]
         dst = os.path.join(W, "fa", "cache", "%s_%d_New.html.gz" % (code, q))
         if src and not os.path.exists(dst):
             shutil.copy2(src[0], dst)
@@ -522,9 +573,9 @@ def wrongco(out, drops_out):
                 p = os.path.join(W, "fa", "shpperent", "%s_%d.html.gz" % (code, qq))
                 if os.path.exists(p):
                     continue
-                u = "https://www.bseindia.com/corporates/shpperent.aspx?scripcd=%s&qtrid=%d&CompName=X&QtrName=X" % (
-                    code,
-                    qq,
+                u = (
+                    "https://www.bseindia.com/corporates/shpperent.aspx?scripcd=%s&qtrid=%d&CompName=X&QtrName=X"
+                    % (code, qq)
                 )
                 try:
                     body = urllib.request.urlopen(urllib.request.Request(u), timeout=60).read()
@@ -551,7 +602,12 @@ def wrongco(out, drops_out):
             "src": "bseaspx:%s:%d" % (code, q),
             "why": base
             + "Replaced by the company's own BSE page (qtrid %d) read by fetch_shp_bse_aspx.cell_of%s."
-            % (q, " with fii from the §160 seam reconstruction (§164l gates)" if q in (88, 89) else ""),
+            % (
+                q,
+                " with fii from the §160 seam reconstruction (§164l gates)"
+                if q in (88, 89)
+                else "",
+            ),
         }
         log.append((sym, qe, f"replace: {cur[:3]} -> {new[:3]}"))
     json.dump(props, open(out, "w"), indent=1, ensure_ascii=False)
@@ -563,8 +619,6 @@ def wrongco(out, drops_out):
 
 def fix164l(out, drops_out):
     """Re-read every §164l seam fill with seam_correct (the §164l parse left dii holding the block it moved to fii)."""
-    import types
-
     hist = json.load(open(os.path.join(HERE, "shp_history.json")))
     led = json.load(gzip.open(os.path.join(HERE, "shp_fill_seam_aspx.json.gz")))["fills"]
     work = os.path.join(C, "seamholes")
@@ -596,21 +650,33 @@ def fix164l(out, drops_out):
             if os.path.exists(lp):
                 t = json.load(open(lp))
                 rows = t.get("Table") if isinstance(t, dict) else t
-            r, _why = A.reconstruct(
-                s, code, q, D.SymCtx(s, rows, verdicts), verdicts, known_foreign=A.sibling_foreign_names(code)
+            r, why = A.reconstruct(
+                s,
+                code,
+                q,
+                D.SymCtx(s, rows, verdicts),
+                verdicts,
+                known_foreign=A.sibling_foreign_names(code),
             )
             if r is None or abs(r["t_fii"] - cur[1]) > 0.0001:
-                print("  %-11s %s reconstruction now %s (stored fii %s) — skipped" % (s, qe, r and r["t_fii"], cur[1]))
+                print(
+                    "  %-11s %s reconstruction now %s (stored fii %s) — skipped"
+                    % (s, qe, r and r["t_fii"], cur[1])
+                )
                 continue
             main = gzip.open(
-                os.path.join(work, "aspx_pages", "%d_%d.html.gz" % (code, q)), "rt", encoding="utf-8"
+                os.path.join(work, "aspx_pages", "%d_%d.html.gz" % (code, q)),
+                "rt",
+                encoding="utf-8",
             ).read()
             new, note = seam_correct(list(cur), r, main)
             base = "§164p repair of a §164l seam fill (2026-09-27): "
             if new is None:
                 drops.setdefault(s, {})[qe] = {
                     "was": cur,
-                    "why": base + note + " — the fill is retracted (held), the quarter stays unread.",
+                    "why": base
+                    + note
+                    + " — the fill is retracted (held), the quarter stays unread.",
                 }
                 print("  %-11s %s RETRACT: %s" % (s, qe, note))
                 continue
@@ -621,9 +687,14 @@ def fix164l(out, drops_out):
                 "was": cur,
                 "cell": new,
                 "src": str(v[-1]),
-                "why": base + note + " (page institutions: mf/banks/ins in dii, the FII block in fii, never both).",
+                "why": base
+                + note
+                + " (page institutions: mf/banks/ins in dii, the FII block in fii, never both).",
             }
-            print("  %-11s %s fii %s->%s dii %s->%s | %s" % (s, qe, cur[1], new[1], cur[2], new[2], note))
+            print(
+                "  %-11s %s fii %s->%s dii %s->%s | %s"
+                % (s, qe, cur[1], new[1], cur[2], new[2], note)
+            )
     json.dump(props, open(out, "w"), indent=1, ensure_ascii=False)
     json.dump(drops, open(drops_out, "w"), indent=1, ensure_ascii=False)
     print("repairs %d, retractions %d" % (len(props), sum(len(x) for x in drops.values())))

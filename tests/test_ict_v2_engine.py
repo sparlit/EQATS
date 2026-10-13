@@ -1,9 +1,8 @@
 """
 Unit and Integration Tests for ICT System v2 Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.ict_system_v2_engine import ICTSystemV2Engine, MarketBias, PDAZone, StructureType
+from institutional_integrations.ict_system_v2_engine import ICTSystemV2Engine, MarketBias, PDAZone
+
 
 def test_ict_cisd_detection() -> None:
     engine = ICTSystemV2Engine()

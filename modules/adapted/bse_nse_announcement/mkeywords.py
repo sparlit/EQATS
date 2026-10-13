@@ -22,7 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import os
-from datetime import date, datetime
+from datetime import datetime
 
 import pandas as pd
 
@@ -41,7 +41,8 @@ def mkeywords(df):
         if var == keywords:
             output_set.add(set)
     """
-    return df["More Info"]
+    dfnew = df["More Info"]
+    return dfnew
 
 
 if __name__ == "__main__":

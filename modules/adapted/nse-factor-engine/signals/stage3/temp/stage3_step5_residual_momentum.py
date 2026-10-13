@@ -202,13 +202,25 @@ print("\nr2 distribution:")
 print(res_df["r2"].describe(percentiles=[0.05, 0.25, 0.5, 0.75, 0.95]).to_string())
 
 print("\nLow R2 symbols (r2 < 0.05):")
-print(res_df[res_df["r2"] < 0.05][["symbol", "residual_momentum", "r2", "n_obs"]].to_string(index=False))
+print(
+    res_df[res_df["r2"] < 0.05][["symbol", "residual_momentum", "r2", "n_obs"]].to_string(
+        index=False
+    )
+)
 
 print("\nTop 5 residual momentum:")
-print(res_df.nlargest(5, "residual_momentum")[["symbol", "residual_momentum", "r2", "n_obs"]].to_string(index=False))
+print(
+    res_df.nlargest(5, "residual_momentum")[
+        ["symbol", "residual_momentum", "r2", "n_obs"]
+    ].to_string(index=False)
+)
 
 print("\nBottom 5 residual momentum:")
-print(res_df.nsmallest(5, "residual_momentum")[["symbol", "residual_momentum", "r2", "n_obs"]].to_string(index=False))
+print(
+    res_df.nsmallest(5, "residual_momentum")[
+        ["symbol", "residual_momentum", "r2", "n_obs"]
+    ].to_string(index=False)
+)
 
 print("\nJSWDULUX (market-only OLS):")
 print(res_df[res_df["symbol"] == "JSWDULUX"].to_string(index=False))

@@ -59,7 +59,10 @@ DB_URL = os.environ.get(
 )
 
 NSE_API = "https://www.nseindia.com/api/corporate-announcements"
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
 NSE_HEADERS = {
     "User-Agent": UA,
     "Accept": "application/json",
@@ -172,8 +175,12 @@ def iter_weekdays(start: date, end: date):
 
 def main():
     parser = argparse.ArgumentParser(description="Sync NSE documents to DB")
-    parser.add_argument("--from", dest="start", default=None, help="Start date YYYY-MM-DD (default: yesterday)")
-    parser.add_argument("--to", dest="end", default=None, help="End date YYYY-MM-DD (default: today)")
+    parser.add_argument(
+        "--from", dest="start", default=None, help="Start date YYYY-MM-DD (default: yesterday)"
+    )
+    parser.add_argument(
+        "--to", dest="end", default=None, help="End date YYYY-MM-DD (default: today)"
+    )
     args = parser.parse_args()
 
     today = date.today()

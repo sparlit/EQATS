@@ -126,7 +126,9 @@ def ui_space():
             reusable_load_button.pack_forget()
 
             #  Downloading data message
-            reusable_label.config(font="50", fg="green", text="Downloading data from NSE.............")
+            reusable_label.config(
+                font="50", fg="green", text="Downloading data from NSE............."
+            )
             reusable_label.pack()
 
             #  Trigger the api request in json_handler.py
@@ -155,6 +157,8 @@ def ui_space():
     reusable_label.pack()
 
     ui_win.mainloop()
+
+    return
 
 
 if __name__ == "__main__":

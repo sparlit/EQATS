@@ -25,10 +25,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import argparse
 import json
 import sqlite3
-import statistics
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -145,7 +143,9 @@ def main():
     print(
         f"- decision_to_submit_ms: n={len(decision_to_submit)} p50={fmt(percentile(decision_to_submit, 0.50))} p95={fmt(percentile(decision_to_submit, 0.95))}"
     )
-    print(f"- ack_ms: n={len(ack_ms)} p50={fmt(percentile(ack_ms, 0.50))} p95={fmt(percentile(ack_ms, 0.95))}")
+    print(
+        f"- ack_ms: n={len(ack_ms)} p50={fmt(percentile(ack_ms, 0.50))} p95={fmt(percentile(ack_ms, 0.95))}"
+    )
     print(
         f"- api_post_order_ms: n={len(api_post_ms)} p50={fmt(percentile(api_post_ms, 0.50))} p95={fmt(percentile(api_post_ms, 0.95))}"
     )

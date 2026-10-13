@@ -40,7 +40,7 @@ import csv
 import io
 import zipfile
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 
@@ -53,11 +53,11 @@ from indian_quant.schemas import (
     Timeframe,
     make_instrument_id,
 )
+from indian_quant.storage.raw_store import RawStore
 
-if TYPE_CHECKING:
-    from indian_quant.storage.raw_store import RawStore
-
-CM_URL = "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{yyyymmdd}_F_0000.csv.zip"
+CM_URL = (
+    "https://nsearchives.nseindia.com/content/cm/BhavCopy_NSE_CM_0_0_0_{yyyymmdd}_F_0000.csv.zip"
+)
 DELIVERY_URL = "https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_{ddmmyyyy}.csv"
 
 # Series -> canonical segment mapping (verified empirically against live
@@ -73,7 +73,10 @@ CASH_SERIES = {"EQ", "BE", "BZ"}
 UNIVERSE_SERIES = {"EQ", "BE", "BZ", "SM", "ST"}
 
 HEADERS = {
-    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"),
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0 Safari/537.36"
+    ),
     "Accept": "*/*",
 }
 
@@ -118,7 +121,7 @@ class BhavcopyIngester:
             timeout=self.timeout,
             follow_redirects=True,
         )
-        if resp.status_code in {404, 403}:
+        if resp.status_code == 404 or resp.status_code == 403:
             return None, f"unavailable:{resp.status_code}"
         resp.raise_for_status()
         _, digest = self.raw_store.save(
@@ -160,7 +163,9 @@ class BhavcopyIngester:
                     vol = float(row.get("TtlTradgVol") or 0)
                 except (KeyError, ValueError, TypeError):
                     continue
-                ts = datetime.fromisoformat(str(row.get("TradDt") or day.isoformat())).replace(tzinfo=UTC)
+                ts = datetime.fromisoformat(str(row.get("TradDt") or day.isoformat())).replace(
+                    tzinfo=UTC
+                )
                 bars.append(
                     MarketBar(
                         instrument_id=make_instrument_id(Exchange.NSE, segment, symbol.upper()),

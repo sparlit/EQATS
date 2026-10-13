@@ -47,7 +47,14 @@ try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
-    from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import (
+        HRFlowable,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
 except ImportError:
     sys.exit("ERROR: reportlab not installed. Run: pip3 install reportlab --break-system-packages")
 
@@ -91,7 +98,13 @@ WL_BG = colors.HexColor("#FBEFFF")
 
 # ── Styles ─────────────────────────────────────────────────────────────────────
 def S(name, **kw):
-    base = {"fontName": "Helvetica", "fontSize": 10, "textColor": TEXT, "leading": 14, "alignment": TA_LEFT}
+    base = {
+        "fontName": "Helvetica",
+        "fontSize": 10,
+        "textColor": TEXT,
+        "leading": 14,
+        "alignment": TA_LEFT,
+    }
     base.update(kw)
     return ParagraphStyle(name, **base)
 
@@ -102,7 +115,9 @@ S_SEC = S("sc", fontName="Helvetica-Bold", fontSize=11, leading=14)
 S_SYM = S("sy", fontName="Helvetica-Bold", fontSize=11, textColor=TEXT, leading=14)
 S_TIER = S("t", fontSize=8, textColor=MUTED, leading=11)
 S_METRIC = S("m", fontSize=9, textColor=MUTED, leading=12, alignment=TA_RIGHT)
-S_VAL = S("v", fontName="Helvetica-Bold", fontSize=10, textColor=TEXT, leading=13, alignment=TA_RIGHT)
+S_VAL = S(
+    "v", fontName="Helvetica-Bold", fontSize=10, textColor=TEXT, leading=13, alignment=TA_RIGHT
+)
 S_FOOT = S("ft", fontSize=7, textColor=MUTED, alignment=TA_CENTER, leading=9)
 
 
@@ -125,7 +140,14 @@ def fmt(val, suffix="", decimals=0):
 
 def section_header(label, col, bg):
     t = Table(
-        [[Paragraph(label, S("sh", fontName="Helvetica-Bold", fontSize=11, textColor=col, leading=14))]],
+        [
+            [
+                Paragraph(
+                    label,
+                    S("sh", fontName="Helvetica-Bold", fontSize=11, textColor=col, leading=14),
+                )
+            ]
+        ],
         colWidths=[170 * mm],
     )
     t.setStyle(
@@ -248,7 +270,12 @@ def on_page(canvas, doc):
 
 def build_pdf(story, out_path):
     doc = SimpleDocTemplate(
-        str(out_path), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=14 * mm, bottomMargin=12 * mm
+        str(out_path),
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=14 * mm,
+        bottomMargin=12 * mm,
     )
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
 
@@ -270,7 +297,10 @@ def main():
     parquet_path = SIGNALS_DIR / f"portfolio_recommendations_{run_date_str}.parquet"
 
     if not parquet_path.exists():
-        print(f"ERROR: {parquet_path.name} not found. Stage 6 may not have completed.", file=sys.stderr)
+        print(
+            f"ERROR: {parquet_path.name} not found. Stage 6 may not have completed.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     df = pd.read_parquet(parquet_path)[COLS]

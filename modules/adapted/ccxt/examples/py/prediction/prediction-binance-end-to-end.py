@@ -75,7 +75,12 @@ async def main():
         for event in events:
             markets = event.get("markets") or []
             print(
-                "  " + str(event["title"]) + " — " + str(len(markets)) + " markets, ends " + str(event["endDatetime"])
+                "  "
+                + str(event["title"])
+                + " — "
+                + str(len(markets))
+                + " markets, ends "
+                + str(event["endDatetime"])
             )
 
         # 2) pick an active outcome + market data ---------------------------------------------
@@ -132,7 +137,11 @@ async def main():
         orders = await exchange.fetch_orders(None, None, 5)
         print("recent orders:", len(orders))
         my_trades = await exchange.fetch_my_trades(None, None, 5)
-        last_fill = ("last " + str(my_trades[0]["side"]) + " @ " + str(my_trades[0]["price"])) if my_trades else ""
+        last_fill = (
+            ("last " + str(my_trades[0]["side"]) + " @ " + str(my_trades[0]["price"]))
+            if my_trades
+            else ""
+        )
         print("recent fills:", len(my_trades), last_fill)
         positions = await exchange.fetch_positions()
         for position in positions:

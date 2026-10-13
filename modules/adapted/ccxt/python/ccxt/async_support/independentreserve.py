@@ -32,7 +32,7 @@ import hashlib
 from ccxt.abstract.independentreserve import ImplicitAPI
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.base.decimal_to_precision import TICK_SIZE
-from ccxt.base.errors import BadRequest
+from ccxt.base.errors import BadRequest, ExchangeError
 from ccxt.base.precise import Precise
 from ccxt.base.types import (
     Balances,
@@ -184,6 +184,8 @@ class independentreserve(Exchange, ImplicitAPI):
                             "GetRecentTrades": {"cost": 1},
                             "GetFxRates": {"cost": 1},
                             "GetOrderMinimumVolumes": {"cost": 1},
+                            "GetDepositFees": {"cost": 1},
+                            "GetFiatWithdrawalFees": {"cost": 1},
                             "GetCryptoWithdrawalFees": {"cost": 1},
                             "GetCryptoWithdrawalFees2": {"cost": 1},
                             "GetNetworks": {"cost": 1},
@@ -204,11 +206,16 @@ class independentreserve(Exchange, ImplicitAPI):
                             "GetDigitalCurrencyDepositAddresses": {"cost": 1},
                             "GetDigitalCurrencyDepositAddresses2": {"cost": 1},
                             "GetTrades": {"cost": 1},
+                            "GetTradesByOrder": {"cost": 1},
                             "GetBrokerageFees": {"cost": 1},
                             "GetDigitalCurrencyWithdrawal": {"cost": 1},
+                            "GetFiatWithdrawal": {"cost": 1},
+                            "GetDepositLimits": {"cost": 1},
+                            "GetWithdrawalLimits": {"cost": 1},
                             "PlaceLimitOrder": {"cost": 1},
                             "PlaceMarketOrder": {"cost": 1},
                             "CancelOrder": {"cost": 1},
+                            "CancelOrders": {"cost": 1},
                             "SynchDigitalCurrencyDepositAddressWithBlockchain": {"cost": 1},
                             "RequestFiatWithdrawal": {"cost": 1},
                             "WithdrawFiatCurrency": {"cost": 1},
@@ -254,7 +261,7 @@ class independentreserve(Exchange, ImplicitAPI):
                         "createOrders": None,
                         "fetchMyTrades": {
                             "marginMode": False,
-                            "limit": 100,  # TODO
+                            "limit": 100,  # todo
                             "daysBack": None,
                             "untilDays": None,
                             "symbolRequired": False,
@@ -267,7 +274,7 @@ class independentreserve(Exchange, ImplicitAPI):
                         },
                         "fetchOpenOrders": {
                             "marginMode": False,
-                            "limit": 100,  # TODO
+                            "limit": 100,  # todo
                             "trigger": False,
                             "trailing": False,
                             "symbolRequired": False,
@@ -275,7 +282,7 @@ class independentreserve(Exchange, ImplicitAPI):
                         "fetchOrders": None,
                         "fetchClosedOrders": {
                             "marginMode": False,
-                            "limit": 100,  # TODO
+                            "limit": 100,  # todo
                             "daysBack": None,
                             "daysBackCanceled": None,
                             "untilDays": None,
@@ -355,7 +362,7 @@ class independentreserve(Exchange, ImplicitAPI):
             },
         )
 
-    async def fetch_markets(self, params=None) -> list[Market]:
+    async def fetch_markets(self, params: dict = None) -> list[Market]:
         """
         retrieves data on all markets for independentreserve
         :param dict [params]: extra parameters specific to the exchange API endpoint
@@ -382,13 +389,15 @@ class independentreserve(Exchange, ImplicitAPI):
         result = []
         baseCurrencyIds = self.to_array(baseCurrencies)
         quoteCurrencyIds = self.to_array(quoteCurrencies)
-        for i in range(len(baseCurrencyIds)):
+        for i in range(0, len(baseCurrencyIds)):
             baseId = baseCurrencyIds[i]
             base = self.safe_currency_code(baseId)
             minAmount = self.safe_number(limits, baseId)
-            for j in range(len(quoteCurrencyIds)):
+            for j in range(0, len(quoteCurrencyIds)):
                 quoteId = quoteCurrencyIds[j]
                 quote = self.safe_currency_code(quoteId)
+                if (base is None) or (quote is None):
+                    continue
                 id = baseId + "/" + quoteId
                 result.append(
                     {
@@ -445,8 +454,8 @@ class independentreserve(Exchange, ImplicitAPI):
 
     def parse_balance(self, response: object) -> Balances:
         result = {"info": response}
-        for i in range(len(response)):
-            balance = response[i]
+        for i in range(0, len(response)):
+            balance = self.safe_dict(response, i)
             currencyId = self.safe_string(balance, "CurrencyCode")
             code = self.safe_currency_code(currencyId)
             account = self.account()
@@ -456,7 +465,7 @@ class independentreserve(Exchange, ImplicitAPI):
                 result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_balance(self, params=None) -> Balances:
+    async def fetch_balance(self, params: dict = None) -> Balances:
         """
         query for balance and get the amount of funds available for trading or funds locked in orders
         :param dict [params]: extra parameters specific to the exchange API endpoint
@@ -469,7 +478,9 @@ class independentreserve(Exchange, ImplicitAPI):
         response = await self.privatePostGetAccounts(params)
         return self.parse_balance(response)
 
-    async def fetch_order_book(self, symbol: str, limit: Int = None, params=None) -> OrderBook:
+    async def fetch_order_book(
+        self, symbol: str, limit: Int = None, params: dict = None
+    ) -> OrderBook:
         """
         fetches information on open orders with bid(buy) and ask(sell) prices, volumes and other data
         :param str symbol: unified symbol of the market to fetch the order book for
@@ -512,8 +523,8 @@ class independentreserve(Exchange, ImplicitAPI):
         defaultMarketId = None
         if (baseId is not None) and (quoteId is not None):
             defaultMarketId = baseId + "/" + quoteId
-        market = self.safe_market(defaultMarketId, market, "/")
-        symbol = market["symbol"]
+        marketResolved = self.safe_market(defaultMarketId, market, "/")
+        symbol = marketResolved["symbol"]
         last = self.safe_string(ticker, "LastPrice")
         return self.safe_ticker(
             {
@@ -538,10 +549,10 @@ class independentreserve(Exchange, ImplicitAPI):
                 "quoteVolume": None,
                 "info": ticker,
             },
-            market,
+            marketResolved,
         )
 
-    async def fetch_ticker(self, symbol: str, params=None) -> Ticker:
+    async def fetch_ticker(self, symbol: str, params: dict = None) -> Ticker:
         """
         fetches a price ticker, a statistical calculation with the information calculated over the past 24 hours for a specific market
         :param str symbol: unified symbol of the market to fetch the ticker for
@@ -631,11 +642,12 @@ class independentreserve(Exchange, ImplicitAPI):
         if (baseId is not None) and (quoteId is not None):
             base = self.safe_currency_code(baseId)
             quote = self.safe_currency_code(quoteId)
-            symbol = base + "/" + quote
+            if (base is not None) and (quote is not None):
+                symbol = base + "/" + quote
         elif market is not None:
             symbol = market["symbol"]
             base = market["base"]
-            quote = market["quote"]
+            quote = self.safe_string(market, "quote")
         orderType = self.safe_string_2(order, "Type", "OrderType")
         side = None
         if orderType is not None:
@@ -706,7 +718,7 @@ class independentreserve(Exchange, ImplicitAPI):
         }
         return self.safe_string(timeInForces, timeInForce, timeInForce)
 
-    async def fetch_order(self, id: str, symbol: Str = None, params=None):
+    async def fetch_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         fetches information on an order made by the user
         :param str id: order id
@@ -732,7 +744,7 @@ class independentreserve(Exchange, ImplicitAPI):
         return self.parse_order(response, market)
 
     async def fetch_open_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetch all unfilled currently open orders
@@ -752,16 +764,17 @@ class independentreserve(Exchange, ImplicitAPI):
             market = self.market(symbol)
             request["primaryCurrencyCode"] = market["baseId"]
             request["secondaryCurrencyCode"] = market["quoteId"]
-        if limit is None:
-            limit = 50
+        limitResolved = limit
+        if limitResolved is None:
+            limitResolved = 50
         request["pageIndex"] = 1
-        request["pageSize"] = limit
+        request["pageSize"] = limitResolved
         response = await self.privatePostGetOpenOrders(self.extend(request, params))
         data = self.safe_list(response, "Data", [])
-        return self.parse_orders(data, market, since, limit)
+        return self.parse_orders(data, market, since, limitResolved)
 
     async def fetch_closed_orders(
-        self, symbol: Str = None, since: Int = None, limit: Int = None, params=None
+        self, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = None
     ) -> list[Order]:
         """
         fetches information on multiple closed orders made by the user
@@ -781,15 +794,18 @@ class independentreserve(Exchange, ImplicitAPI):
             market = self.market(symbol)
             request["primaryCurrencyCode"] = market["baseId"]
             request["secondaryCurrencyCode"] = market["quoteId"]
-        if limit is None:
-            limit = 50
+        limitResolved = limit
+        if limitResolved is None:
+            limitResolved = 50
         request["pageIndex"] = 1
-        request["pageSize"] = limit
+        request["pageSize"] = limitResolved
         response = await self.privatePostGetClosedOrders(self.extend(request, params))
         data = self.safe_list(response, "Data", [])
-        return self.parse_orders(data, market, since, limit)
+        return self.parse_orders(data, market, since, limitResolved)
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = 50, params=None):
+    async def fetch_my_trades(
+        self, symbol: Str = None, since: Int = None, limit: Int = 50, params: dict = None
+    ) -> list[Trade]:
         """
         fetch all trades made by the user
         :param str symbol: unified market symbol
@@ -803,18 +819,19 @@ class independentreserve(Exchange, ImplicitAPI):
         if self.markets is None:
             await self.load_markets()
         pageIndex = self.safe_integer(params, "pageIndex", 1)
-        if limit is None:
-            limit = 50
+        limitResolved = limit
+        if limitResolved is None:
+            limitResolved = 50
         request = {
             "pageIndex": pageIndex,
-            "pageSize": limit,
+            "pageSize": limitResolved,
         }
         response = await self.privatePostGetTrades(self.extend(request, params))
         market = None
         if symbol is not None:
             market = self.market(symbol)
         data = self.safe_list(response, "Data", [])
-        return self.parse_trades(data, market, since, limit)
+        return self.parse_trades(data, market, since, limitResolved)
 
     def parse_trade(self, trade: dict, market: Market = None) -> Trade:
         timestamp = self.parse8601(trade["TradeTimestampUtc"])
@@ -856,7 +873,9 @@ class independentreserve(Exchange, ImplicitAPI):
             market,
         )
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params=None) -> list[Trade]:
+    async def fetch_trades(
+        self, symbol: str, since: Int = None, limit: Int = None, params: dict = None
+    ) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
         :param str symbol: unified symbol of the market to fetch trades for
@@ -879,7 +898,7 @@ class independentreserve(Exchange, ImplicitAPI):
         trades = self.safe_list(response, "Trades", [])
         return self.parse_trades(trades, market, since, limit)
 
-    async def fetch_trading_fees(self, params=None) -> TradingFees:
+    async def fetch_trading_fees(self, params: dict = None) -> TradingFees:
         """
         fetch the trading fees for multiple markets
         :param dict [params]: extra parameters specific to the exchange API endpoint
@@ -901,7 +920,7 @@ class independentreserve(Exchange, ImplicitAPI):
         #
         fees = {}
         rows = self.to_array(response)
-        for i in range(len(rows)):
+        for i in range(0, len(rows)):
             fee = rows[i]
             currencyId = self.safe_string(fee, "CurrencyCode")
             code = self.safe_currency_code(currencyId)
@@ -913,12 +932,12 @@ class independentreserve(Exchange, ImplicitAPI):
                 }
         result = {}
         symbols = self.symbols
-        for i in range(len(symbols)):
+        for i in range(0, len(symbols)):
             symbol = symbols[i]
             market = self.market(symbol)
-            fee = self.safe_value(fees, market["base"], {})
+            fee = self.safe_dict(fees, market["base"], {})
             result[symbol] = {
-                "info": self.safe_value(fee, "info"),
+                "info": self.safe_dict(fee, "info"),
                 "symbol": symbol,
                 "maker": self.safe_number(fee, "fee"),
                 "taker": self.safe_number(fee, "fee"),
@@ -928,8 +947,14 @@ class independentreserve(Exchange, ImplicitAPI):
         return result
 
     async def create_order(
-        self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: Num = None, params=None
-    ):
+        self,
+        symbol: str,
+        type: OrderType,
+        side: OrderSide,
+        amount: float,
+        price: Num = None,
+        params: dict = None,
+    ) -> Order:
         """
         create a trade order
         :param str symbol: unified symbol of the market to create an order in
@@ -967,7 +992,7 @@ class independentreserve(Exchange, ImplicitAPI):
             market,
         )
 
-    async def cancel_order(self, id: str, symbol: Str = None, params=None):
+    async def cancel_order(self, id: str, symbol: Str = None, params: dict = None) -> Order:
         """
         cancels an open order
 
@@ -1003,7 +1028,7 @@ class independentreserve(Exchange, ImplicitAPI):
         #
         return self.parse_order(response)
 
-    async def fetch_deposit_address(self, code: str, params=None) -> DepositAddress:
+    async def fetch_deposit_address(self, code: str, params: dict = None) -> DepositAddress:
         """
         fetch the deposit address for a currency associated with self account
 
@@ -1021,7 +1046,9 @@ class independentreserve(Exchange, ImplicitAPI):
         request = {
             "primaryCurrencyCode": currency["id"],
         }
-        response = await self.privatePostGetDigitalCurrencyDepositAddress(self.extend(request, params))
+        response = await self.privatePostGetDigitalCurrencyDepositAddress(
+            self.extend(request, params)
+        )
         #
         #    {
         #        Tag: '3307446684',
@@ -1032,7 +1059,9 @@ class independentreserve(Exchange, ImplicitAPI):
         #
         return self.parse_deposit_address(response)
 
-    def parse_deposit_address(self, depositAddress: object, currency: Currency = None) -> DepositAddress:
+    def parse_deposit_address(
+        self, depositAddress: dict, currency: Currency = None
+    ) -> DepositAddress:
         #
         #    {
         #        Tag: '3307446684',
@@ -1051,7 +1080,9 @@ class independentreserve(Exchange, ImplicitAPI):
             "tag": self.safe_string(depositAddress, "Tag"),
         }
 
-    async def withdraw(self, code: str, amount: float, address: str, tag: Str = None, params=None) -> Transaction:
+    async def withdraw(
+        self, code: str, amount: float, address: str, tag: Str = None, params: dict = None
+    ) -> Transaction:
         """
                make a withdrawal
 
@@ -1069,7 +1100,7 @@ class independentreserve(Exchange, ImplicitAPI):
         """
         if params is None:
             params = {}
-        tag, params = self.handle_withdraw_tag_and_params(tag, params)
+        tagWithdrawTag, paramsWithdrawTag = self.handle_withdraw_tag_and_params(tag, params)
         if self.markets is None:
             await self.load_markets()
         currency = self.currency(code)
@@ -1078,13 +1109,14 @@ class independentreserve(Exchange, ImplicitAPI):
             "withdrawalAddress": address,
             "amount": self.currency_to_precision(code, amount),
         }
-        if tag is not None:
-            request["destinationTag"] = tag
-        networkCode = None
-        networkCode, params = self.handle_network_code_and_params(params)
+        if tagWithdrawTag is not None:
+            request["destinationTag"] = tagWithdrawTag
+        networkCode, paramsNetworkCode = self.handle_network_code_and_params(paramsWithdrawTag)
         if networkCode is not None:
-            raise BadRequest(self.id + ' withdraw() does not accept params["networkCode"]')
-        response = await self.privatePostWithdrawDigitalCurrency(self.extend(request, params))
+            raise BadRequest(self.id + ' withdraw () does not accept params["networkCode"]')
+        response = await self.privatePostWithdrawDigitalCurrency(
+            self.extend(request, paramsNetworkCode)
+        )
         #
         #    {
         #        "TransactionGuid": "dc932e19-562b-4c50-821e-a73fd048b93b",
@@ -1156,31 +1188,39 @@ class independentreserve(Exchange, ImplicitAPI):
             "internal": False,
         }
 
+    def nonce(self) -> float:
+        # the venue accepts any strictly-increasing integer, so use milliseconds: with the second-resolution base nonce a burst of N calls would leave incrementingNonce N seconds ahead of the clock
+        return self.milliseconds()
+
     def sign(
         self,
-        path: object,
+        path: str,
         api: object = "public",
         method="GET",
-        params: dict | None = None,
-        headers: dict | None = None,
-        body: object = None,
-    ):
+        params: dict = None,
+        headers: dict = None,
+        body: Str = None,
+    ) -> dict:
         if params is None:
             params = {}
-        url = self.urls["api"][api] + "/" + path
+        apiUrl = self.safe_string(self.urls["api"], api)
+        if apiUrl is None:
+            raise ExchangeError(self.id + " sign() has no API URL for self endpoint")
+        url = apiUrl + "/" + path
         if api == "public":
             if len(params) > 0:
                 url += "?" + self.urlencode(params)
         else:
             self.check_required_credentials()
-            nonce = self.nonce()
+            # independentreserve requires an increasing nonce
+            nonce = self.incrementing_nonce()
             auth = [
                 url,
                 "apiKey=" + self.apiKey,
                 "nonce=" + str(nonce),
             ]
             keys = list(params.keys())
-            for i in range(len(keys)):
+            for i in range(0, len(keys)):
                 key = keys[i]
                 value = str(params[key])
                 auth.append(key + "=" + value)
@@ -1190,9 +1230,10 @@ class independentreserve(Exchange, ImplicitAPI):
             query["apiKey"] = self.apiKey
             query["nonce"] = nonce
             query["signature"] = signature.upper()
-            for i in range(len(keys)):
+            for i in range(0, len(keys)):
                 key = keys[i]
                 query[key] = params[key]
-            body = self.json(query)
-            headers = {"Content-Type": "application/json"}
+            signedBody = self.json(query)
+            signedHeaders = {"Content-Type": "application/json"}
+            return {"url": url, "method": method, "body": signedBody, "headers": signedHeaders}
         return {"url": url, "method": method, "body": body, "headers": headers}

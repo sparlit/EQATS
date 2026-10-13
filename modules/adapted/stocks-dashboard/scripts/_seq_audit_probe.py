@@ -30,7 +30,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
                              print the first ~n (default 2) pages of text via pypdf
 """
 import datetime
-import json
 import os
 import re
 import sys
@@ -48,7 +47,8 @@ def dump(rows, title):
     print("=== %s (%d rows) ===" % (title, len(rows)))
     for r in sorted(rows, key=lambda r: r[0]):
         print(
-            "  %s | %-14s | %-24s | %s | %s" % (r[0][:16], r[1][:14], r[2][:24], "att" if r[4] else "NOATT", r[3][:130])
+            "  %s | %-14s | %-24s | %s | %s"
+            % (r[0][:16], r[1][:14], r[2][:24], "att" if r[4] else "NOATT", r[3][:130])
         )
 
 

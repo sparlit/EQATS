@@ -57,9 +57,30 @@ LEDGER = os.path.join(SCRIPTS, "screener_derived_rev_fills.json")
 # (sym, qe, slot, value, FY total, the three stored quarters that were subtracted)
 CELLS = [
     ("HBLENGINE", "20200331", 1, 262.99, 1092.0, "FY2020 Sales; siblings 264.12/305.85/259.04"),
-    ("INDIANB", "20210630", 1, 9650.04, 38888.0, "FY2022 Revenue; siblings 9476.10/9927.36/9834.50"),
-    ("MAHABANK", "20210630", 1, 3103.39, 13019.0, "FY2022 Revenue; siblings 3207.29/3282.12/3426.20"),
-    ("SHRIRAMCIT", "20200331", 0, 1488.58, 5884.0, "FY2020 Sales; siblings 1437.16/1489.23/1469.03"),
+    (
+        "INDIANB",
+        "20210630",
+        1,
+        9650.04,
+        38888.0,
+        "FY2022 Revenue; siblings 9476.10/9927.36/9834.50",
+    ),
+    (
+        "MAHABANK",
+        "20210630",
+        1,
+        3103.39,
+        13019.0,
+        "FY2022 Revenue; siblings 3207.29/3282.12/3426.20",
+    ),
+    (
+        "SHRIRAMCIT",
+        "20200331",
+        0,
+        1488.58,
+        5884.0,
+        "FY2020 Sales; siblings 1437.16/1489.23/1469.03",
+    ),
     ("TITAGARH", "20220331", 0, 440.11, 1496.0, "FY2022 Sales; siblings 338.23/333.04/384.62"),
 ]
 
@@ -67,7 +88,10 @@ CELLS = [
 def main():
     dry = "--apply" not in sys.argv
     applied = []
-    for path in (os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(SCRIPTS, "revop_fundamentals.json")):
+    for path in (
+        os.path.join(ROOT, "docs", "sf_revop.json"),
+        os.path.join(SCRIPTS, "revop_fundamentals.json"),
+    ):
         d = json.load(open(path))
         for sym, qe, slot, val, fy, note in CELLS:
             row = d.get(sym, {}).get(qe)
@@ -77,14 +101,23 @@ def main():
             while len(row) < 9:
                 row.append(None)
             if row[slot] is not None:
-                print("%-26s %s %s already filled: %s" % (os.path.basename(path), sym, qe, row[slot]))
+                print(
+                    "%-26s %s %s already filled: %s" % (os.path.basename(path), sym, qe, row[slot])
+                )
                 continue
             row[slot] = val
             d[sym][qe] = row
             applied.append((sym, qe, slot, val, fy, note))
             print(
                 "%-26s %s %s %s %s=%s"
-                % (os.path.basename(path), sym, qe, "would fill" if dry else "filled", "revC" if slot else "revS", val)
+                % (
+                    os.path.basename(path),
+                    sym,
+                    qe,
+                    "would fill" if dry else "filled",
+                    "revC" if slot else "revS",
+                    val,
+                )
             )
         if not dry:
             json.dump(d, open(path, "w"), separators=(",", ":"))

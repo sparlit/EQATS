@@ -38,7 +38,7 @@ load_dotenv(os.path.join(base_dir, "web", ".env"))
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import Base, DatabaseManager, MomentumHistory
+from app.database import Base, DatabaseManager
 
 
 def get_month_ends(years=8):
@@ -93,7 +93,13 @@ def calculate_momentum_for_date(session, as_of_date, df_window):
                 continue
 
             results.append(
-                {"stock_id": stock_id, "volatility": volatility, "mr_3m": mr_3m, "mr_6m": mr_6m, "mr_1y": mr_1y}
+                {
+                    "stock_id": stock_id,
+                    "volatility": volatility,
+                    "mr_3m": mr_3m,
+                    "mr_6m": mr_6m,
+                    "mr_1y": mr_1y,
+                }
             )
 
         except Exception:
@@ -117,7 +123,9 @@ def calculate_momentum_for_date(session, as_of_date, df_window):
     df_scores["weighted_z"] = (df_scores["z_3m"] + df_scores["z_6m"] + df_scores["z_1y"]) / 3
 
     # Sort by weighted Z (descending)
-    return df_scores.sort_values("weighted_z", ascending=False)
+    df_scores = df_scores.sort_values("weighted_z", ascending=False)
+
+    return df_scores
 
 
 def populate_history():
@@ -141,7 +149,10 @@ def populate_history():
     total_records = 0
 
     for i, rebalance_date in enumerate(month_ends):
-        print(f"[{i + 1}/{len(month_ends)}] Processing {rebalance_date.strftime('%Y-%m-%d')}...", end=" ")
+        print(
+            f"[{i + 1}/{len(month_ends)}] Processing {rebalance_date.strftime('%Y-%m-%d')}...",
+            end=" ",
+        )
 
         # Fetch price data for the window
         window_start = rebalance_date - timedelta(days=400)  # ~1.5 years
@@ -153,7 +164,9 @@ def populate_history():
             ORDER BY stock_id, date
         """)
 
-        prices = session.execute(query, {"start_date": window_start, "end_date": rebalance_date}).fetchall()
+        prices = session.execute(
+            query, {"start_date": window_start, "end_date": rebalance_date}
+        ).fetchall()
 
         if not prices:
             print("No data")
@@ -161,7 +174,7 @@ def populate_history():
 
         df_window = pd.DataFrame(prices, columns=["stock_id", "date", "close_price"])
         df_window["date"] = pd.to_datetime(df_window["date"])
-        df_window = df_window.set_index(["stock_id", "date"])
+        df_window.set_index(["stock_id", "date"], inplace=True)
 
         # Calculate momentum
         scores_df = calculate_momentum_for_date(session, rebalance_date, df_window)

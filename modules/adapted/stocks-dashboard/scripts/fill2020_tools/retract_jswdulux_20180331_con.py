@@ -126,7 +126,7 @@ def main():
             print(f"  !! {key} missing {SYM} {QE}")
             return 1
         print("  %-9s before: %s" % (key, row))
-        for i in CON_SLOTS:
+        for i, _name in CON_SLOTS.items():
             if len(row) > i and row[i] is not None and apply:
                 row[i] = None
         if apply:
@@ -172,7 +172,9 @@ def main():
         json.dump(st["revdef"], open(paths["revdef"], "w"), indent=1, sort_keys=True)
         json.dump(st["patdef"], open(paths["patdef"], "w"), indent=1, sort_keys=True)
         json.dump(st["vision"], open(paths["vision"], "w"), indent=1, sort_keys=True)
-        print("\nWROTE 7 files (4 payload/mirror, 2 defect journals, 1 provenance ledger neutralised)")
+        print(
+            "\nWROTE 7 files (4 payload/mirror, 2 defect journals, 1 provenance ledger neutralised)"
+        )
     else:
         print("\nDRY RUN — re-run with --apply to write")
     return 0

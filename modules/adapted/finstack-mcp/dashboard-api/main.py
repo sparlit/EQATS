@@ -40,7 +40,7 @@ from pathlib import Path
 # Add finstack-mcp src to path so we can import data functions directly
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import json
+
 from datetime import UTC
 
 from fastapi import FastAPI, HTTPException
@@ -81,7 +81,9 @@ async def start_telegram_polling():
                 if result.get("ok"):
                     print(f"[startup] Telegram webhook registered: {webhook_url}")
                 else:
-                    print(f"[startup] Webhook registration failed: {result} — falling back to polling")
+                    print(
+                        f"[startup] Webhook registration failed: {result} — falling back to polling"
+                    )
                     _tg_poll_task = asyncio.create_task(_poll_forever_safe())
         except Exception as e:
             print(f"[startup] Webhook setup error: {e} — falling back to polling")
@@ -262,12 +264,16 @@ def symbol_search(q: str = ""):
                 continue
             results.append(
                 {
-                    "symbol": sym.replace(".NS", "").replace(".BO", "") if sym.endswith((".NS", ".BO")) else sym,
+                    "symbol": sym.replace(".NS", "").replace(".BO", "")
+                    if sym.endswith((".NS", ".BO"))
+                    else sym,
                     "raw_symbol": sym,
                     "name": item.get("longname") or item.get("shortname") or sym,
                     "exchange": exch,
                     "type": type_,
-                    "is_india": sym.endswith((".NS", ".BO")) or exch in ("NSI", "BSE"),
+                    "is_india": sym.endswith(".NS")
+                    or sym.endswith(".BO")
+                    or exch in ("NSI", "BSE"),
                 }
             )
         return {"results": results}
@@ -300,7 +306,7 @@ def options_chain(symbol: str):
 
 
 @app.get("/api/greeks/{symbol}")
-def options_greeks(symbol: str, expiry: str | None = None):
+def options_greeks(symbol: str, expiry: str = None):
     from finstack.data.market_intelligence import get_options_greeks
 
     return _safe(get_options_greeks, symbol.upper(), expiry=expiry)
@@ -422,9 +428,8 @@ def fno_signals():
       Elevated  (20-28) → score ≥ 6/8
       Fear      (28-40) → score ≥ 7/8
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    import pandas as pd
     import yfinance as yf
 
     results = []
@@ -896,8 +901,6 @@ async def payment_verify(body: dict):
 
     import hashlib
     import hmac
-
-    import razorpay
 
     payment_id = body.get("razorpay_payment_id", "")
     order_id = body.get("razorpay_order_id", "")

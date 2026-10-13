@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_open_interest(exchange, skipped_properties, method, entry):
@@ -47,9 +49,22 @@ def test_open_interest(exchange, skipped_properties, method, entry):
         "datetime": "2022-04-07T23:20:00.000Z",
         "info": {},
     }
-    empty_allowed_for = ["symbol", "timestamp", "openInterestAmount", "openInterestValue", "datetime"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+    empty_allowed_for = [
+        "symbol",
+        "timestamp",
+        "openInterestAmount",
+        "openInterestValue",
+        "datetime",
+    ]
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
     test_shared_methods.assert_symbol(exchange, skipped_properties, method, entry, "symbol")
     test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry)
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "openInterestAmount", "0")
-    test_shared_methods.assert_greater(exchange, skipped_properties, method, entry, "openInterestValue", "0")
+    #
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "openInterestAmount", "0"
+    )
+    test_shared_methods.assert_greater(
+        exchange, skipped_properties, method, entry, "openInterestValue", "0"
+    )

@@ -3,8 +3,13 @@ Unit tests for system_autotune.py.
 Validates hardware auto-detection, performance tier classification,
 and dynamic auto-tuning config derivation.
 """
-from typing import Any
-from institutional_integrations.system_autotune import auto_tune_system_parameters, detect_system_capabilities, global_system_caps, global_tuned_config
+from institutional_integrations.system_autotune import (
+    auto_tune_system_parameters,
+    detect_system_capabilities,
+    global_system_caps,
+    global_tuned_config,
+)
+
 
 def test_detect_system_capabilities_structure() -> None:
     caps = detect_system_capabilities()

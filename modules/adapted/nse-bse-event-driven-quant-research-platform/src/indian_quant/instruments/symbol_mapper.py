@@ -29,12 +29,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import csv
 import gzip
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from indian_quant.schemas import InstrumentIdentity
+from indian_quant.schemas import InstrumentIdentity
 
 
 @dataclass(frozen=True)
@@ -66,8 +63,7 @@ class SymbolMapper:
 
     def resolve(self, instrument_id: str) -> InstrumentIdentity:
         if instrument_id not in self._by_canonical:
-            msg = f"unregistered instrument: {instrument_id}"
-            raise KeyError(msg)
+            raise KeyError(f"unregistered instrument: {instrument_id}")
         return self._by_canonical[instrument_id]
 
     def by_isin(self, isin: str) -> InstrumentIdentity | None:
@@ -80,7 +76,7 @@ class SymbolMapper:
 
             _, segment, local = parse_instrument_id(instrument_id)
         except ValueError:
-            local = instrument_id.rsplit("|", maxsplit=1)[-1]
+            local = instrument_id.split("|")[-1]
             segment = "EQ"
         suffix = {"FO": ".NSEFO", "IDX": ".NSEIDX"}.get(segment, ".NSE")
         return f"{local.replace('|', '-').replace(' ', '_').upper()}{suffix}"

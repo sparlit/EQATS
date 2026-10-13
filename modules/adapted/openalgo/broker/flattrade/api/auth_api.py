@@ -1,0 +1,126 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import hashlib
+import os
+
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def sha256_hash(text):
+    """Generate SHA256 hash."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def authenticate_broker(code, password=None, totp_code=None):
+    """
+    Authenticate with Flattrade using OAuth flow
+    """
+    try:
+        full_api_key = os.getenv("BROKER_API_KEY")
+        logger.debug("Broker API key loaded")
+
+        # Split the API key to get the actual key part
+        BROKER_API_KEY = full_api_key.split(":::")[1]
+        BROKER_API_SECRET = os.getenv("BROKER_API_SECRET")
+
+        logger.debug("Using configured broker API key")
+        logger.debug("Request code received")  # Debug print
+
+        # Create the security hash as per Flattrade docs
+        hash_input = f"{BROKER_API_KEY}{code}{BROKER_API_SECRET}"
+        security_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+        logger.debug("Security hash computed")  # Debug print
+
+        url = "https://authapi.flattrade.in/trade/apitoken"
+        data = {"api_key": BROKER_API_KEY, "request_code": code, "api_secret": security_hash}
+
+        logger.debug("Request data prepared; fields=%s", list(data.keys()))
+
+        # Get the shared httpx client
+        client = get_httpx_client()
+
+        response = client.post(url, json=data)
+
+        logger.debug("Response status: %s", response.status_code)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get("stat") == "Ok" and "token" in response_data:
+                return response_data["token"], None
+            else:
+                error_msg = response_data.get(
+                    "emsg", "Authentication failed without specific error"
+                )
+                logger.error(f"Auth Error: {error_msg}")  # Debug print
+                return None, error_msg
+        else:
+            try:
+                error_detail = response.json()
+                error_msg = f"API error: {error_detail.get('emsg', 'Unknown error')}"
+            except Exception:
+                error_msg = f"API error: Status {response.status_code}, Response: {response.text}"
+            logger.error("Authentication request failed; status=%s", response.status_code)
+            return None, error_msg
+
+    except Exception as e:
+        logger.debug("Authentication exception; type=%s", type(e).__name__)
+        return None, f"An exception occurred: {str(e)}"
+
+
+def authenticate_broker_oauth(code):
+    try:
+        BROKER_API_KEY = os.getenv("BROKER_API_KEY").split(":::")[1]  # Get only the API key part
+        BROKER_API_SECRET = os.getenv("BROKER_API_SECRET")
+
+        # Create the security hash as per Flattrade docs
+        # api_secret:SHA-256 hash of (api_key + request_token + api_secret)
+        hash_input = f"{BROKER_API_KEY}{code}{BROKER_API_SECRET}"
+        security_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+        url = "https://authapi.flattrade.in/trade/apitoken"
+        data = {"api_key": BROKER_API_KEY, "request_code": code, "api_secret": security_hash}
+
+        # Get the shared httpx client
+        client = get_httpx_client()
+
+        response = client.post(url, json=data)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            if response_data.get("stat") == "Ok" and "token" in response_data:
+                return response_data["token"], None
+            else:
+                return None, response_data.get(
+                    "emsg", "Authentication failed without specific error"
+                )
+        else:
+            error_detail = response.json()
+            return None, f"API error: {error_detail.get('emsg', 'Unknown error')}"
+
+    except Exception as e:
+        return None, f"An exception occurred: {str(e)}"

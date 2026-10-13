@@ -31,7 +31,6 @@ import json
 import os
 import queue
 import random
-import sys
 import threading
 import time
 import urllib.error
@@ -46,7 +45,12 @@ URL = "https://nsearchives.nseindia.com/archives/equities/mto/MTO_%s.DAT"
 
 def valid_mto(body):
     head = body[:2000]
-    return (b"10,MTO," in head) and (b"20," in body) and (b"<!DOCTYPE" not in head) and (b"<html" not in head)
+    return (
+        (b"10,MTO," in head)
+        and (b"20," in body)
+        and (b"<!DOCTYPE" not in head)
+        and (b"<html" not in head)
+    )
 
 
 def fetch_one(ymd):

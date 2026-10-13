@@ -22,10 +22,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """Tests for the named hard-gate functions in scanner.py."""
-import math
 
-import numpy as np
-import pytest
+
 from scanner import (
     gate_corporate_actions,
     gate_drawdown,
@@ -37,29 +35,23 @@ from scanner import (
     relative_strength_factor,
 )
 from settings import (
-    DRAWDOWN_LOWER_PCT,
-    DRAWDOWN_UPPER_PCT,
     MIN_ADV_SECONDARY_FLOOR_INR,
     MIN_ADV_VALUE_INR,
     MIN_DELIVERY_VALUE_INR,
     MIN_F_SCORE,
     MIN_HOLDINGS_CONVICTION_PCT,
-    RSI_LOWER,
-    RSI_UPPER,
 )
 
 
 def test_gate_f_score_pass():
     ok, why = gate_f_score(MIN_F_SCORE)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_f_score_fail():
     ok, why = gate_f_score(MIN_F_SCORE - 1)
     assert not ok
-    assert why
-    assert "f_score" in why
+    assert why and "f_score" in why
 
 
 def test_gate_f_score_missing():
@@ -70,8 +62,7 @@ def test_gate_f_score_missing():
 
 def test_gate_drawdown_pass():
     ok, why = gate_drawdown(-25.0)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_drawdown_outside_window():
@@ -88,12 +79,11 @@ def test_gate_drawdown_missing():
 
 def test_gate_rsi_pass():
     ok, why = gate_rsi(32.0)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_rsi_outside_window():
-    ok, _why = gate_rsi(20.0)
+    ok, why = gate_rsi(20.0)
     assert not ok
 
 
@@ -104,8 +94,7 @@ def test_gate_liquidity_pass_via_actual_delivery():
         delivery_kind="actual",
         delivery_status="ok",
     )
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_liquidity_pass_via_adv_when_delivery_thin():
@@ -115,8 +104,7 @@ def test_gate_liquidity_pass_via_adv_when_delivery_thin():
         delivery_kind="actual",
         delivery_status="ok",
     )
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_liquidity_pass_via_adv_when_proxy_only():
@@ -127,8 +115,7 @@ def test_gate_liquidity_pass_via_adv_when_proxy_only():
         delivery_kind="traded_value_proxy",
         delivery_status="ok",
     )
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_liquidity_proxy_only_fails():
@@ -162,8 +149,7 @@ def test_gate_liquidity_adv_below_floor_with_real_delivery_above_passes():
         delivery_kind="actual",
         delivery_status="ok",
     )
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_liquidity_adv_below_floor_fails():
@@ -216,8 +202,7 @@ def test_gate_liquidity_lenient_not_a_parameter():
 
 def test_gate_surveillance_clean():
     ok, why = gate_surveillance(False, "ok")
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_surveillance_restricted():
@@ -229,36 +214,32 @@ def test_gate_surveillance_restricted():
 def test_gate_surveillance_flag_only_passes():
     # flag_only means we couldn't confirm, not that we know it's restricted
     ok, why = gate_surveillance(False, "flag_only")
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_holdings_pass():
     ok, why = gate_holdings({"conviction_pct": 70.0}, "ok")
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_holdings_too_low():
-    ok, _why = gate_holdings({"conviction_pct": MIN_HOLDINGS_CONVICTION_PCT}, "ok")
+    ok, why = gate_holdings({"conviction_pct": MIN_HOLDINGS_CONVICTION_PCT}, "ok")
     assert not ok
 
 
 def test_gate_holdings_source_failed_fails_closed():
-    ok, _why = gate_holdings({"conviction_pct": 80.0}, "source_failed")
+    ok, why = gate_holdings({"conviction_pct": 80.0}, "source_failed")
     assert not ok
 
 
 def test_gate_holdings_source_failed_lenient_passes():
     ok, why = gate_holdings({"conviction_pct": 80.0}, "source_failed", lenient=True)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_holdings_missing_lenient_passes():
     ok, why = gate_holdings(None, "missing", lenient=True)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_holdings_strict_still_rejects_low_conviction_in_lenient_mode():
@@ -270,12 +251,13 @@ def test_gate_holdings_strict_still_rejects_low_conviction_in_lenient_mode():
 
 def test_gate_corporate_actions_no_action():
     ok, why = gate_corporate_actions({"has_excluded_action": False, "actions": []})
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_gate_corporate_actions_excluded():
-    ok, why = gate_corporate_actions({"has_excluded_action": True, "actions": [{"action": "BONUS 2:1"}]})
+    ok, why = gate_corporate_actions(
+        {"has_excluded_action": True, "actions": [{"action": "BONUS 2:1"}]}
+    )
     assert not ok
     assert "BONUS" in why
 
@@ -283,8 +265,7 @@ def test_gate_corporate_actions_excluded():
 def test_gate_corporate_actions_source_failed_passes():
     # If we couldn't fetch, we don't claim to have screened it
     ok, why = gate_corporate_actions(None)
-    assert ok
-    assert why is None
+    assert ok and why is None
 
 
 def test_relative_strength_penalty():

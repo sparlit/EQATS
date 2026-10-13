@@ -73,18 +73,18 @@ def _fetch_ohlcv(symbol: str, period: str = "1y", exchange: str = "NSE") -> pd.D
             df.columns = [c.lower() for c in df.columns]
         df = df.dropna()
         if df.empty:
-            msg = f"No data returned for {ticker}"
-            raise ValueError(msg)
+            raise ValueError(f"No data returned for {ticker}")
         return df
     except ImportError:
-        msg = "yfinance is required for vectorized backtest. Run: pip install yfinance"
-        raise ImportError(msg)
+        raise ImportError("yfinance is required for vectorized backtest. Run: pip install yfinance")
 
 
 # ── Signal generators ──────────────────────────────────────────
 
 
-def _signals_rsi(close: pd.Series, period: int = 14, oversold: int = 30, overbought: int = 70) -> pd.Series:
+def _signals_rsi(
+    close: pd.Series, period: int = 14, oversold: int = 30, overbought: int = 70
+) -> pd.Series:
     """RSI strategy: buy on oversold→above cross, sell on overbought→below cross."""
     delta = close.diff()
     gain = delta.clip(lower=0)
@@ -101,7 +101,9 @@ def _signals_rsi(close: pd.Series, period: int = 14, oversold: int = 30, overbou
     return signal
 
 
-def _signals_macd(close: pd.Series, fast: int = 12, slow: int = 26, signal_period: int = 9) -> pd.Series:
+def _signals_macd(
+    close: pd.Series, fast: int = 12, slow: int = 26, signal_period: int = 9
+) -> pd.Series:
     """MACD crossover: buy when MACD crosses above signal, sell on reverse."""
     ema_fast = close.ewm(span=fast, min_periods=fast).mean()
     ema_slow = close.ewm(span=slow, min_periods=slow).mean()
@@ -195,8 +197,7 @@ def vectorized_backtest(
     """
     close = df["close"].astype(float)
     if len(close) < 30:
-        msg = f"Not enough data: {len(close)} bars (need ≥30)"
-        raise ValueError(msg)
+        raise ValueError(f"Not enough data: {len(close)} bars (need ≥30)")
 
     # Get signal function
     signal_fn = _STRATEGY_MAP.get(strategy_name.lower(), _signals_rsi)
@@ -256,7 +257,13 @@ def vectorized_backtest(
     win_rate = len(wins) / max(len(trade_rets), 1) * 100
     avg_win = float(np.mean(wins)) if wins else 0.0
     avg_loss = float(np.mean(losses)) if losses else 0.0
-    profit_factor = abs(sum(wins)) / max(abs(sum(losses)), 1e-9) if losses else float(sum(wins)) if wins else 0.0
+    profit_factor = (
+        abs(sum(wins)) / max(abs(sum(losses)), 1e-9)
+        if losses
+        else float(sum(wins))
+        if wins
+        else 0.0
+    )
 
     start_date = str(close.index[0])[:10]
     end_date = str(close.index[-1])[:10]

@@ -74,7 +74,9 @@ class DriftReport:
     hold_accuracy: float = 0.0
 
     # Analyst-level drift
-    analyst_accuracy: dict = field(default_factory=dict)  # analyst → win rate when they were bullish
+    analyst_accuracy: dict = field(
+        default_factory=dict
+    )  # analyst → win rate when they were bullish
     worst_analyst: str = ""
     best_analyst: str = ""
 
@@ -138,7 +140,9 @@ class DriftReport:
             table.add_column("Accuracy", justify="right", width=10)
             table.add_column("Trades", justify="right", width=8)
 
-            for analyst, data in sorted(self.analyst_accuracy.items(), key=lambda x: -x[1].get("accuracy", 0)):
+            for analyst, data in sorted(
+                self.analyst_accuracy.items(), key=lambda x: -x[1].get("accuracy", 0)
+            ):
                 acc = data.get("accuracy", 0)
                 n = data.get("count", 0)
                 style = "green" if acc >= 60 else "red" if acc < 40 else "yellow"
@@ -196,7 +200,9 @@ def detect_drift() -> DriftReport:
     if low_vix:
         report.low_vix_win_rate = sum(1 for r in low_vix if r.outcome == "WIN") / len(low_vix) * 100
     if high_vix:
-        report.high_vix_win_rate = sum(1 for r in high_vix if r.outcome == "WIN") / len(high_vix) * 100
+        report.high_vix_win_rate = (
+            sum(1 for r in high_vix if r.outcome == "WIN") / len(high_vix) * 100
+        )
 
     if report.low_vix_win_rate > report.high_vix_win_rate:
         report.best_vix_regime = "Low VIX (<15)"
@@ -244,11 +250,18 @@ def detect_drift() -> DriftReport:
             f"Win rate declining sharply: {report.older_win_rate:.0f}% → {report.recent_win_rate:.0f}%"
         )
 
-    if report.worst_analyst and report.analyst_accuracy.get(report.worst_analyst, {}).get("accuracy", 50) < 35:
-        report.alerts.append(f"{report.worst_analyst} analyst accuracy below 35% — consider reducing its weight")
+    if (
+        report.worst_analyst
+        and report.analyst_accuracy.get(report.worst_analyst, {}).get("accuracy", 50) < 35
+    ):
+        report.alerts.append(
+            f"{report.worst_analyst} analyst accuracy below 35% — consider reducing its weight"
+        )
 
     if report.buy_accuracy > 0 and report.buy_accuracy < 40:
-        report.alerts.append(f"BUY signals only {report.buy_accuracy:.0f}% accurate — model may be too bullish")
+        report.alerts.append(
+            f"BUY signals only {report.buy_accuracy:.0f}% accurate — model may be too bullish"
+        )
 
     return report
 

@@ -124,7 +124,17 @@ class DatabaseManager:
         conn.close()
         logging.info("Table master_accounts verified/created")
 
-    def save_token(self, account_name, user_id, api_key, api_secret, totp_key, password, access_token, request_token):
+    def save_token(
+        self,
+        account_name,
+        user_id,
+        api_key,
+        api_secret,
+        totp_key,
+        password,
+        access_token,
+        request_token,
+    ):
         sql = """
             INSERT INTO master_accounts (name, user_id, api_key, api_secret, totp_key, password,
                                          access_token, request_token, token_generated_at, updated_at)
@@ -139,7 +149,19 @@ class DatabaseManager:
         cursor = conn.cursor()
         now = datetime.now()
         cursor.execute(
-            sql, (account_name, user_id, api_key, api_secret, totp_key, password, access_token, request_token, now, now)
+            sql,
+            (
+                account_name,
+                user_id,
+                api_key,
+                api_secret,
+                totp_key,
+                password,
+                access_token,
+                request_token,
+                now,
+                now,
+            ),
         )
         conn.commit()
         cursor.close()
@@ -184,9 +206,11 @@ class KiteLoginManager:
             return
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         try:
-            requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=5)
+            requests.post(
+                url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=5
+            )
         except Exception as e:
-            logging.exception(f"Telegram error: {e}")
+            logging.error(f"Telegram error: {e}")
 
     def login_single_account(self, account):
         account_name = account["name"]
@@ -202,7 +226,9 @@ class KiteLoginManager:
 
         while retry_count < max_retries:
             try:
-                logging.info(f"Attempting login for {account_name} (Attempt {retry_count + 1}/{max_retries})")
+                logging.info(
+                    f"Attempting login for {account_name} (Attempt {retry_count + 1}/{max_retries})"
+                )
 
                 session = requests.Session()
                 twofa = pyotp.TOTP(totp_key).now()
@@ -227,11 +253,19 @@ class KiteLoginManager:
                     f.write(access_token)
 
                 self.db_manager.save_token(
-                    account_name, user_id, api_key, api_secret, totp_key, password, access_token, request_token
+                    account_name,
+                    user_id,
+                    api_key,
+                    api_secret,
+                    totp_key,
+                    password,
+                    access_token,
+                    request_token,
                 )
 
                 self.telegram_post_message(
-                    f"✅ <b>{account_name}</b>\nAccess token generated!\nUser ID: {user_id}", CHAT_ID_ERROR
+                    f"✅ <b>{account_name}</b>\nAccess token generated!\nUser ID: {user_id}",
+                    CHAT_ID_ERROR,
                 )
                 logging.info(f"Login successful for {account_name}")
                 return {
@@ -245,7 +279,7 @@ class KiteLoginManager:
 
             except Exception as e:
                 retry_count += 1
-                logging.exception(f"Login failed for {account_name}: {e}")
+                logging.error(f"Login failed for {account_name}: {e}")
                 if retry_count >= max_retries:
                     self.telegram_post_message(
                         f"❌ <b>{account_name}</b>\nLogin FAILED after {max_retries} attempts!\nError: {e}",
@@ -259,7 +293,6 @@ class KiteLoginManager:
                         "success": False,
                         "error": str(e),
                     }
-        return None
 
     def login_all_accounts(self):
         self.db_manager.create_table_if_not_exists()
@@ -267,7 +300,9 @@ class KiteLoginManager:
         successful = 0
         failed = 0
 
-        self.telegram_post_message(f"🚀 <b>Starting Kite Login</b>\nTotal accounts: {total}", CHAT_ID_ERROR)
+        self.telegram_post_message(
+            f"🚀 <b>Starting Kite Login</b>\nTotal accounts: {total}", CHAT_ID_ERROR
+        )
 
         for i, account in enumerate(ACCOUNTS, 1):
             logging.info(f"Processing account {i}/{total}: {account['name']}")
@@ -302,7 +337,7 @@ if __name__ == "__main__":
                 print(f"   Error: {r['error']}")
         print("\n" + "=" * 60)
     except Exception as e:
-        logging.exception(f"Critical error: {e}")
+        logging.error(f"Critical error: {e}")
         manager.telegram_post_message(f"Critical Error: {e}", CHAT_ID_ERROR)
     finally:
         manager.stop_server()

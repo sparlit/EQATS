@@ -31,12 +31,17 @@ class ImplicitAPI:
     gateway_public_get_symbols = gatewayPublicGetSymbols = Entry[_List](
         "symbols", ["gateway", "public"], "GET", {"cost": 2}
     )
-    gateway_public_get_query = gatewayPublicGetQuery = Entry[_Dict]("query", ["gateway", "public"], "GET", {"cost": 1})
+    gateway_public_get_query = gatewayPublicGetQuery = Entry[_Dict](
+        "query", ["gateway", "public"], "GET", {"cost": 1}
+    )
     gateway_public_get_edge_query = gatewayPublicGetEdgeQuery = Entry[_Dict](
         "edge/query", ["gateway", "public"], "GET", {"cost": 1}
     )
     gateway_public_post_query = gatewayPublicPostQuery = Entry[_Dict](
         "query", ["gateway", "public"], "POST", {"cost": 1}
+    )
+    gateway_public_post_edge_query = gatewayPublicPostEdgeQuery = Entry[_Dict](
+        "edge/query", ["gateway", "public"], "POST", {"cost": 1}
     )
     gateway_private_post_execute = gatewayPrivatePostExecute = Entry[_Dict](
         "execute", ["gateway", "private"], "POST", {"cost": 1}
@@ -59,6 +64,9 @@ class ImplicitAPI:
     )
     archivev2_public_get_trades = archiveV2PublicGetTrades = Entry[_List](
         "trades", ["archiveV2", "public"], "GET", {"cost": 1}
+    )
+    archivev2_public_get_symbols = archiveV2PublicGetSymbols = Entry[_Dict](
+        "symbols", ["archiveV2", "public"], "GET", {"cost": 1}
     )
     trigger_private_post_execute = triggerPrivatePostExecute = Entry[_Dict](
         "execute", ["trigger", "private"], "POST", {"cost": 1}

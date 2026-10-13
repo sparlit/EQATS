@@ -149,7 +149,12 @@ def adjudicate_symbol(sym, ident, field="patS", hi=20141231):
     overlap = sum(1 for q in series if q in ours and series[q].get(cand) is not None)
     n_out = sum(1 for v in verdicts.values() if v == "OURS-IS-THE-OUTLIER")
     indep, idet = annual_is_independent(series, ann, cand)
-    meta = {"overlap": overlap, "ours_is_outlier": n_out, "annual_independent": indep, "annual_detail": idet}
+    meta = {
+        "overlap": overlap,
+        "ours_is_outlier": n_out,
+        "annual_independent": indep,
+        "annual_detail": idet,
+    }
     # EXCUSAL MUST STAY RARE. Each excusal says "our cell is the broken one"; a series that needs
     # many of them is not a series meeting many of our defects, it is a series that DIFFERS from
     # ours -- and excusing them all would launder a systematically divergent table straight through
@@ -160,11 +165,9 @@ def adjudicate_symbol(sym, ident, field="patS", hi=20141231):
     # under 100 quarters, so AMBUJACEM's 2-in-90 was refused by a rule that could never have
     # admitted it. A symbol qualifies on EITHER a small absolute count OR a small rate.
     elif n_out > MAX_EXCUSED and (not overlap or n_out / float(overlap) > MAX_EXCUSED_RATE):
-        meta["excusal"] = "REFUSED: %d excusals over %d overlapping quarters exceeds the cap (%d, %.0f%%)" % (
-            n_out,
-            overlap,
-            MAX_EXCUSED,
-            MAX_EXCUSED_RATE * 100,
+        meta["excusal"] = (
+            "REFUSED: %d excusals over %d overlapping quarters exceeds the cap "
+            "(%d, %.0f%%)" % (n_out, overlap, MAX_EXCUSED, MAX_EXCUSED_RATE * 100)
         )
     else:
         meta["excusal"] = "ALLOWED"
@@ -264,7 +267,10 @@ def main():
     )
     vc = collections.Counter(v for d in adj_all.values() for k, v in d.items() if k != "_meta")
     print(f"\nadjudicated disagreements: {dict(vc)}")
-    print("%d new cells pass GATE E once the indicted-our-cell vetoes are lifted -> %s" % (len(props), a.out))
+    print(
+        "%d new cells pass GATE E once the indicted-our-cell vetoes are lifted -> %s"
+        % (len(props), a.out)
+    )
     print("%d suspect cells of ours reported -> %s" % (len(suspects), a.suspects))
 
 

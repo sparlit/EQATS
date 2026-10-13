@@ -75,7 +75,7 @@ def load_spot():
 
 
 def paise(x):
-    return round(x * 100) if x is not None else -1
+    return int(round(x * 100)) if x is not None else -1
 
 
 def read_slice(fp):
@@ -117,7 +117,15 @@ def main():
         sys.exit("no cache files")
     # gather per (sym, year)
     slices = defaultdict(
-        lambda: {"dates": [], "spot": [], "spotO": [], "spotH": [], "spotL": [], "days": [], "body": []}
+        lambda: {
+            "dates": [],
+            "spot": [],
+            "spotO": [],
+            "spotH": [],
+            "spotL": [],
+            "days": [],
+            "body": [],
+        }
     )
     n_days = 0
     for fp in files:
@@ -152,7 +160,14 @@ def main():
                     continue
                 e = exps[r["exp"]]
                 if r["ins"] == "FUT":
-                    e["fut"] = [paise(r["h"]), paise(r["l"]), paise(r["c"]), paise(r["s"]), r["v"], r["oi"]]
+                    e["fut"] = [
+                        paise(r["h"]),
+                        paise(r["l"]),
+                        paise(r["c"]),
+                        paise(r["s"]),
+                        r["v"],
+                        r["oi"],
+                    ]
                 elif r["t"] in ("CE", "PE"):
                     e[r["t"].lower()][r["k"]] = r
             day_hdr = []
@@ -171,7 +186,7 @@ def main():
                         continue
                     if spot is None and not (traded or (ce and ce["oi"]) or (pe and pe["oi"])):
                         continue
-                    row = [round(k * 100)]
+                    row = [int(round(k * 100))]
                     for side in (ce, pe):
                         if side:
                             row += [
@@ -207,7 +222,15 @@ def main():
             existing = read_slice(fp)
             sl = slices[(sym, year)]
             have = set(sl["dates"])
-            nd = {"dates": [], "spot": [], "spotO": [], "spotH": [], "spotL": [], "days": [], "body": []}
+            nd = {
+                "dates": [],
+                "spot": [],
+                "spotO": [],
+                "spotH": [],
+                "spotL": [],
+                "days": [],
+                "body": [],
+            }
             # index fresh day bodies
             fresh_off = []
             off = 0

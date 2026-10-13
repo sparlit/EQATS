@@ -42,7 +42,9 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB = json.load(gzip.open(os.path.join(HERE, "sf_poc.json.gz")))
 DATA, META = DB["data"], DB["meta"]
-N500 = sorted(json.load(open(os.path.join(HERE, "n500_hist.json"))), key=lambda s: s["effectiveDate"])
+N500 = sorted(
+    json.load(open(os.path.join(HERE, "n500_hist.json"))), key=lambda s: s["effectiveDate"]
+)
 
 TOPN = 10
 LOOKBACK_D = 91
@@ -115,7 +117,9 @@ def run(start, end):
         for _, sym, p in picks:
             units[sym] = per / p
     final = eq[-1]
-    yrs = (datetime.datetime.strptime(end, "%Y-%m-%d") - datetime.datetime.strptime(start, "%Y-%m-%d")).days / 365.25
+    yrs = (
+        datetime.datetime.strptime(end, "%Y-%m-%d") - datetime.datetime.strptime(start, "%Y-%m-%d")
+    ).days / 365.25
     cagr = (final / cap) ** (1 / yrs) - 1
     peak = -1
     mdd = 0

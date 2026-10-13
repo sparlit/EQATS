@@ -96,7 +96,9 @@ def _mark_ddgs_rate_limited() -> None:
 # whether yfinance moved session handling.
 _session = requests.Session()
 _session.headers["User-Agent"] = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
 )
 yf.utils._session = _session
 # ─── NSE Tickers ───
@@ -217,11 +219,15 @@ def _search_yfinance_sdk(query: str) -> tuple[str | None, str | None]:
             sym = q_item.get("symbol", "")
             exch = q_item.get("exchDisp", "")
             if exch == "NSE" and sym.endswith(".NS"):
-                return sym.replace(".NS", ""), q_item.get("shortname", q_item.get("longname", query))
+                return sym.replace(".NS", ""), q_item.get(
+                    "shortname", q_item.get("longname", query)
+                )
         for q_item in quotes:
             sym = q_item.get("symbol", "")
             if sym.endswith(".NS"):
-                return sym.replace(".NS", ""), q_item.get("shortname", q_item.get("longname", query))
+                return sym.replace(".NS", ""), q_item.get(
+                    "shortname", q_item.get("longname", query)
+                )
     except Exception as e:
         logger.debug("_search_yfinance_sdk(%s) failed: %s", query, e)
     return None, None
@@ -365,7 +371,9 @@ def get_cached_history(ticker: str) -> pd.DataFrame | None:
                     _evict_hist_cache()
                 return hist
         except Exception as e:
-            logger.debug(f"Cache read error for {ticker}: {e}")  # Corrupted or unreadable, fall through to L3
+            logger.debug(
+                f"Cache read error for {ticker}: {e}"
+            )  # Corrupted or unreadable, fall through to L3
 
     # L3 Fallback: fetch directly from yfinance (cheap — yfinance caches internally)
     for suffix in [".NS", ".BO", ""]:
@@ -400,7 +408,9 @@ def _strip_html(text: str) -> str:
     return " ".join(text.split())
 
 
-def _retry_fetch(max_attempts: int = 3, base_wait: float = 1.0, backoff: int = 2) -> Iterator[float]:
+def _retry_fetch(
+    max_attempts: int = 3, base_wait: float = 1.0, backoff: int = 2
+) -> Iterator[float]:
     """Generator that yields attempt numbers for retry loops.
     Uses exponential backoff with full jitter (AWS retry style).
     If _check_rate_limited() is True, skips sleep and yields immediately.
@@ -435,7 +445,7 @@ def _fetch_info_with_retry(ticker: str, suffixes: list[str]) -> tuple[dict[str, 
                 raw = stock.info
                 if raw and isinstance(raw, dict) and len(raw) > 10:
                     info = raw
-                    name_fallback = cast("str", info.get("longName", info.get("shortName", ticker)))
+                    name_fallback = cast(str, info.get("longName", info.get("shortName", ticker)))
                     break
             except Exception as e:
                 # Any yfinance error could be rate-limiting
@@ -486,7 +496,9 @@ def _retry_sparse_info(
     _ind = info.get("industry") if info else None
     _info_sparse = info is None or len(info) < 30
     _has_na = _sec == "N/A" or _ind == "N/A"
-    if (_info_sparse or _has_na) and ((_sec is None or _sec == "N/A") or (_ind is None or _ind == "N/A")):
+    if (_info_sparse or _has_na) and (
+        (_sec is None or _sec == "N/A") or (_ind is None or _ind == "N/A")
+    ):
         for suffix in suffixes:
             try:
                 stock = yf.Ticker(f"{ticker}{suffix}")
@@ -513,7 +525,9 @@ def _retry_sparse_info(
 _PriceTuple = tuple[float | None, float | None, float | None, float | None, float | None, int]
 
 
-def _build_price_fields(hist: pd.DataFrame | None, info: dict[str, Any] | None) -> _PriceTuple | None:
+def _build_price_fields(
+    hist: pd.DataFrame | None, info: dict[str, Any] | None
+) -> _PriceTuple | None:
     """Extract price/volume fields from history (preferred) or info fallback.
     Returns (current_price, change, change_pct, day_high, day_low, volume)
     or None if no usable data source."""
@@ -581,7 +595,8 @@ def get_stock_info(ticker: str) -> dict[str, Any] | None:
         if prices is None:
             # Neither info nor history — give up
             st.error(
-                f"Could not fetch data for {ticker}. Yahoo Finance may be rate-limited — wait a moment and try again."
+                f"Could not fetch data for {ticker}. "
+                "Yahoo Finance may be rate-limited — wait a moment and try again."
             )
             return None
         current_price, change, change_pct, day_high, day_low, volume = prices
@@ -593,7 +608,9 @@ def get_stock_info(ticker: str) -> dict[str, Any] | None:
                     _hist_cache.pop(next(iter(_hist_cache)), None)
 
         result = {
-            "name": info.get("longName", info.get("shortName", name_fallback)) if info else name_fallback,
+            "name": info.get("longName", info.get("shortName", name_fallback))
+            if info
+            else name_fallback,
             "sector": info.get("sector", "N/A") if info else "N/A",
             "industry": info.get("industry", "N/A") if info else "N/A",
             "market_cap": info.get("marketCap") if info else None,
@@ -663,14 +680,24 @@ def _relevant(ticker: str, company_name: str, title: str, body: str | None) -> b
 TICKER_RSS_FEEDS: list[Callable[[str, str], str | None]] = [
     # Google News RSS for ticker-specific results
     lambda t, c: f"https://news.google.com/rss/search?q={t}+NSE+stock&hl=en-IN&gl=IN&ceid=IN:en",
-    lambda t, c: f"https://news.google.com/rss/search?q={c}+NSE&hl=en-IN&gl=IN&ceid=IN:en" if c != t else None,
+    lambda t, c: (
+        f"https://news.google.com/rss/search?q={c}+NSE&hl=en-IN&gl=IN&ceid=IN:en"
+        if c != t
+        else None
+    ),
 ]
 INDIA_RSS_FEEDS = [
     ("Moneycontrol Buzzing", "https://www.moneycontrol.com/rss/buzzingstocks.xml"),
     ("Moneycontrol News", "https://www.moneycontrol.com/rss/latestnews.xml"),
     ("Moneycontrol Reports", "https://www.moneycontrol.com/rss/marketreports.xml"),
-    ("Economic Times Markets", "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"),
-    ("Economic Times Company", "https://economictimes.indiatimes.com/news/company/rssfeeds/2143429.cms"),
+    (
+        "Economic Times Markets",
+        "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
+    ),
+    (
+        "Economic Times Company",
+        "https://economictimes.indiatimes.com/news/company/rssfeeds/2143429.cms",
+    ),
     ("LiveMint Markets", "https://www.livemint.com/rss/markets"),
     ("LiveMint Companies", "https://www.livemint.com/rss/companies"),
     ("LiveMint Industry", "https://www.livemint.com/rss/industry"),
@@ -832,7 +859,10 @@ def search_news(
             continue
     # Indian market RSS feeds — returns (relevant, all, label)
     with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = {pool.submit(_parse_rss_feed, name, url, ticker, company_name): name for name, url in INDIA_RSS_FEEDS}
+        futures = {
+            pool.submit(_parse_rss_feed, name, url, ticker, company_name): name
+            for name, url in INDIA_RSS_FEEDS
+        }
         for future in as_completed(futures):
             items, all_items, label = future.result()
             for item in items:
@@ -881,7 +911,13 @@ def search_news(
         # Cache empty results briefly to avoid hammering feeds on every search
         cache_set(f"news_{ticker}", ([], source_stats), ttl=60)
         st.info("ℹ️ News feed unavailable. Showing price data only.")
-    return all_results[:max_results], cascade_pool, source_stats, dissemination_clusters, dissemination_score
+    return (
+        all_results[:max_results],
+        cascade_pool,
+        source_stats,
+        dissemination_clusters,
+        dissemination_score,
+    )
 
 
 def _ddgs_commodity_search(all_items: list[dict[str, Any]], seen_urls: set[str]) -> None:

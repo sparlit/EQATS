@@ -71,7 +71,9 @@ def main() -> int:
     parser.add_argument("--to", dest="to_date", required=True)
     parser.add_argument("--config", default=None)
     parser.add_argument("--source", choices=["bhavcopy", "mcp"], default="bhavcopy")
-    parser.add_argument("--no-events", action="store_true", help="skip corporate actions/announcements")
+    parser.add_argument(
+        "--no-events", action="store_true", help="skip corporate actions/announcements"
+    )
     args = parser.parse_args()
 
     settings = load_settings(args.config)
@@ -166,8 +168,12 @@ def main() -> int:
         actions, announcements = fetch_events(service, symbol, from_d - timedelta(days=30), to_d)
         if actions:
             df = pd.DataFrame([a.model_dump() for a in actions]).sort_values("ex_date")
-            store.write_frame(df, layer="normalized", dataset="corporate_actions", exchange="NSE", name=symbol)
-            print(f"{len(actions)} corporate actions -> normalized/corporate_actions/NSE/{symbol}.parquet")
+            store.write_frame(
+                df, layer="normalized", dataset="corporate_actions", exchange="NSE", name=symbol
+            )
+            print(
+                f"{len(actions)} corporate actions -> normalized/corporate_actions/NSE/{symbol}.parquet"
+            )
         else:
             print("0 corporate actions")
         if announcements:
@@ -184,8 +190,12 @@ def main() -> int:
                     for a in announcements
                 ]
             ).sort_values("published_at")
-            store.write_frame(adf, layer="normalized", dataset="announcements", exchange="NSE", name=symbol)
-            print(f"{len(announcements)} announcements -> normalized/announcements/NSE/{symbol}.parquet")
+            store.write_frame(
+                adf, layer="normalized", dataset="announcements", exchange="NSE", name=symbol
+            )
+            print(
+                f"{len(announcements)} announcements -> normalized/announcements/NSE/{symbol}.parquet"
+            )
 
     metadata.close()
     return 0

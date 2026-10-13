@@ -50,7 +50,10 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.path.join(HERE, "bse_scrip_isin_conflicts.json")
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
 NSE_CSV_URL = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
 CSV_CACHE = os.path.join(HERE, "_equity_l.csv")
 # NSE Emerge (SME) listings are NOT in EQUITY_L: without this list every SME ticker was "uncheckable",
@@ -67,7 +70,9 @@ def _master(url, cache, min_bytes):
         if raw[:2] == b"\x1f\x8b":
             raw = gzip.decompress(raw)
         if len(raw) < min_bytes:
-            raise RuntimeError("%s too small (%d bytes) — rate limited?" % (os.path.basename(url), len(raw)))
+            raise RuntimeError(
+                "%s too small (%d bytes) — rate limited?" % (os.path.basename(url), len(raw))
+            )
         open(cache, "wb").write(raw)
         return raw
     except Exception as e:
@@ -119,7 +124,12 @@ def main():
 
     fund = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json"), encoding="utf-8"))
     # + every symbol the results page shows (SME names can have results rows without fundamentals)
-    qrco = json.load(open(os.path.join(ROOT, "docs", "quarterly_results.json"), encoding="utf-8")).get("co") or {}
+    qrco = (
+        json.load(open(os.path.join(ROOT, "docs", "quarterly_results.json"), encoding="utf-8")).get(
+            "co"
+        )
+        or {}
+    )
     universe = sorted({s for s in fund if not s.startswith("_")} | set(qrco))
 
     sys.path.insert(0, HERE)
@@ -146,7 +156,9 @@ def main():
             agreed += 1
             continue
         if bse_resolve.page_company(sym)[0] == "bse":
-            bse_page.append(sym)  # §203: the site lists sym as the BSE company (sym.BO, no sym.NS) — the BSE
+            bse_page.append(
+                sym
+            )  # §203: the site lists sym as the BSE company (sym.BO, no sym.NS) — the BSE
             continue  # scrip IS the page; a conflict entry would strip it of its own data
         conflicts[sym] = {
             "nse_isin": nisin,

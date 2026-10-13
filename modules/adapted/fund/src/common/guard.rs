@@ -1,0 +1,602 @@
+//! The hard pre-trade check between orders and the broker: an order goes out only in a symbol the broker reports
+//! tradable, in whole shares where it trades no fraction, and as a fractional buy only when it meets the broker's
+//! minimum; anything it cannot vouch for is refused with its cause.
+
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use crate::common::book::Side;
+use crate::common::market::{DollarVolume, PRICE_SCALE, Price, SHARE_SCALE, Shares, Symbol};
+use crate::common::order::BrokerFailure;
+use crate::common::strategy::Order;
+
+/// The least a fractional buy may be worth, one dollar, under which Alpaca refuses it; a fractional sell has no floor.
+const LEAST_FRACTIONAL_BUY: DollarVolume =
+    DollarVolume::from_units(PRICE_SCALE.unsigned_abs() as u128 * SHARE_SCALE as u128);
+
+/// What the broker reports of a symbol's trading, read before orders go out.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    strum::Display,
+    strum::EnumString,
+    strum::IntoStaticStr,
+    strum::EnumIter,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum Tradability {
+    /// Trades in any amount, fractions included.
+    Fractionable,
+    WholeSharesOnly,
+    /// Listed, but inactive or reported not open to orders.
+    Untradable,
+    Unlisted,
+}
+
+/// Why the guard held an order back.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display, strum::IntoStaticStr,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum GuardCause {
+    Untradable,
+    Unlisted,
+    /// The symbol trades whole shares only and the order holds a fraction.
+    Fractional,
+    /// No reading of the symbol was taken, so nothing vouches for it.
+    Unread,
+    /// A fractional buy worth less than the broker's minimum at `price`, the price it was valued at.
+    BelowMinimum {
+        price: Price,
+    },
+}
+
+/// An order the guard held back, journaled so the gap between a target and the book it reached is explained.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrderGuarded {
+    symbol: Symbol,
+    side: Side,
+    shares: Shares,
+    cause: GuardCause,
+}
+
+impl OrderGuarded {
+    pub fn cause(&self) -> GuardCause {
+        self.cause
+    }
+}
+
+/// The tradability the broker reported for every symbol an execution would trade, journaled when there was one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TradabilityRead {
+    readings: BTreeMap<Symbol, Tradability>,
+}
+
+impl TradabilityRead {
+    pub fn new(readings: BTreeMap<Symbol, Tradability>) -> Self {
+        Self { readings }
+    }
+}
+
+/// A tradability read that failed, journaled with its cause once before every order it leaves unvouched is held.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TradabilityUnread {
+    cause: BrokerFailure,
+}
+
+impl TradabilityUnread {
+    pub fn new(cause: BrokerFailure) -> Self {
+        Self { cause }
+    }
+}
+
+/// `orders` split into those free to go out, in their order, and those held back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Guarded {
+    passed: Vec<Order>,
+    held: Vec<OrderGuarded>,
+}
+
+impl Guarded {
+    pub fn passed(&self) -> &[Order] {
+        &self.passed
+    }
+
+    pub fn held(&self) -> &[OrderGuarded] {
+        &self.held
+    }
+}
+
+/// Lets each order through only when `tradability` vouches for its symbol and size. A fractional buy is held under the
+/// minimum at `price`; one without a price goes out for the broker to judge.
+pub fn guard(
+    orders: Vec<Order>,
+    tradability: &BTreeMap<Symbol, Tradability>,
+    price: impl Fn(&Symbol) -> Option<Price>,
+) -> Guarded {
+    let mut guarded = Guarded {
+        passed: Vec::new(),
+        held: Vec::new(),
+    };
+    for order in orders {
+        let whole = order.shares().is_whole();
+        let cause = match (
+            tradability.get(order.symbol()),
+            whole,
+            below_minimum(&order, &price),
+        ) {
+            (Some(Tradability::Fractionable), false, Some(price)) => {
+                GuardCause::BelowMinimum { price }
+            }
+            (Some(Tradability::Fractionable), true | false, _)
+            | (Some(Tradability::WholeSharesOnly), true, _) => {
+                guarded.passed.push(order);
+                continue;
+            }
+            (Some(Tradability::WholeSharesOnly), false, _) => GuardCause::Fractional,
+            (Some(Tradability::Untradable), true | false, _) => GuardCause::Untradable,
+            (Some(Tradability::Unlisted), true | false, _) => GuardCause::Unlisted,
+            (None, true | false, _) => GuardCause::Unread,
+        };
+        guarded.held.push(OrderGuarded {
+            symbol: order.symbol().clone(),
+            side: order.side(),
+            shares: order.shares(),
+            cause,
+        });
+    }
+    guarded
+}
+
+/// The symbol's known price when `order` is a buy worth less than the broker's minimum at it.
+fn below_minimum(order: &Order, price: impl Fn(&Symbol) -> Option<Price>) -> Option<Price> {
+    match order.side() {
+        Side::Buy => price(order.symbol())
+            .filter(|price| DollarVolume::of(*price, order.shares()) < LEAST_FRACTIONAL_BUY),
+        Side::Sell => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use chrono::TimeDelta;
+
+    use super::*;
+    use crate::common::book::{Book, Cash, Fill, Position};
+    use crate::common::monoid::{Monoid, concatenate};
+    use crate::common::risk::{Limits, risk};
+    use crate::common::strategy::{Target, orders};
+    use crate::common::time::calendar::SessionPhase;
+
+    fn symbol(raw: &str) -> Symbol {
+        Symbol::new(raw).unwrap()
+    }
+
+    #[test]
+    fn test_tradability_names_agree_between_strum_and_serde() {
+        use strum::IntoEnumIterator;
+
+        let names: Vec<&str> = Tradability::iter().map(Into::into).collect();
+        assert_eq!(
+            names,
+            [
+                "fractionable",
+                "whole_shares_only",
+                "untradable",
+                "unlisted"
+            ]
+        );
+        for tradability in Tradability::iter() {
+            assert_eq!(tradability.to_string().parse(), Ok(tradability));
+            assert_eq!(
+                serde_json::to_string(&tradability).unwrap(),
+                format!("\"{tradability}\"")
+            );
+        }
+    }
+
+    /// Buys from an empty book, one per symbol, in the symbol order `orders` gives.
+    fn buys(wanted: &[(&str, u64)]) -> Vec<Order> {
+        orders(
+            &Book::default(),
+            &Target::new(
+                wanted
+                    .iter()
+                    .map(|(raw, units)| (symbol(raw), Shares::from_units(*units)))
+                    .collect(),
+            ),
+        )
+    }
+
+    /// Each reading against a whole and a fractional order, as the paper account reported SPY, VWDRY and SSUNF on
+    /// 2026-10-06, with an unlisted and an unread symbol.
+    #[test]
+    fn test_each_reading_lets_through_only_what_it_vouches_for() {
+        let tradability = BTreeMap::from([
+            (symbol("SPY"), Tradability::Fractionable),
+            (symbol("VWDRY"), Tradability::WholeSharesOnly),
+            (symbol("SSUNF"), Tradability::Untradable),
+            (symbol("ZZZZ"), Tradability::Unlisted),
+        ]);
+        for (units, passed, held) in [
+            (
+                2_000_000,
+                vec!["SPY", "VWDRY"],
+                vec![
+                    ("QQQ", GuardCause::Unread),
+                    ("SSUNF", GuardCause::Untradable),
+                    ("ZZZZ", GuardCause::Unlisted),
+                ],
+            ),
+            (
+                1_500_000,
+                vec!["SPY"],
+                vec![
+                    ("QQQ", GuardCause::Unread),
+                    ("SSUNF", GuardCause::Untradable),
+                    ("VWDRY", GuardCause::Fractional),
+                    ("ZZZZ", GuardCause::Unlisted),
+                ],
+            ),
+        ] {
+            let orders = buys(&[
+                ("SPY", units),
+                ("VWDRY", units),
+                ("SSUNF", units),
+                ("ZZZZ", units),
+                ("QQQ", units),
+            ]);
+            let guarded = guard(orders, &tradability, |_| None);
+            let symbols: Vec<&str> = guarded
+                .passed()
+                .iter()
+                .map(|order| order.symbol().as_str())
+                .collect();
+            assert_eq!(symbols, passed, "{units}");
+            let causes: Vec<(&str, GuardCause)> = guarded
+                .held()
+                .iter()
+                .map(|held| (held.symbol.as_str(), held.cause()))
+                .collect();
+            assert_eq!(causes, held, "{units}");
+        }
+    }
+
+    /// Names agree between strum and serde for every cause.
+    #[test]
+    fn test_guard_causes_read_back_as_written() {
+        // Without `EnumIter` the list below is by hand, so a new cause must first break this match.
+        let _listed = |cause: GuardCause| match cause {
+            GuardCause::Untradable
+            | GuardCause::Unlisted
+            | GuardCause::Fractional
+            | GuardCause::Unread
+            | GuardCause::BelowMinimum { .. } => (),
+        };
+        let causes = [
+            GuardCause::Untradable,
+            GuardCause::Unlisted,
+            GuardCause::Fractional,
+            GuardCause::Unread,
+            GuardCause::BelowMinimum {
+                price: Price::from_ticks(12_500_000).unwrap(),
+            },
+        ];
+        let names: Vec<&str> = causes.iter().map(Into::into).collect();
+        assert_eq!(
+            names,
+            [
+                "untradable",
+                "unlisted",
+                "fractional",
+                "unread",
+                "below_minimum"
+            ]
+        );
+        let written: Vec<String> = causes
+            .iter()
+            .map(|cause| serde_json::to_string(cause).unwrap())
+            .collect();
+        assert_eq!(
+            written,
+            [
+                r#""untradable""#,
+                r#""unlisted""#,
+                r#""fractional""#,
+                r#""unread""#,
+                r#"{"below_minimum":{"price":12500000}}"#,
+            ]
+        );
+        for (cause, json) in causes.iter().zip(&written) {
+            assert_eq!(&serde_json::from_str::<GuardCause>(json).unwrap(), cause);
+        }
+    }
+
+    /// A fractional buy is held below a dollar at its price and passes at one; a sell, a whole share and an unpriced
+    /// buy pass whatever they are worth.
+    #[test]
+    fn test_a_fractional_buy_under_a_dollar_is_held() {
+        let fractionable = BTreeMap::from([(symbol("F"), Tradability::Fractionable)]);
+        let price = |_: &Symbol| Some(Price::from_ticks(10_000_000).unwrap());
+        let held = |order: Order, price: &dyn Fn(&Symbol) -> Option<Price>| {
+            guard(vec![order], &fractionable, price)
+                .held()
+                .iter()
+                .map(OrderGuarded::cause)
+                .collect::<Vec<_>>()
+        };
+        let buy = |units| buys(&[("F", units)]).remove(0);
+        assert_eq!(
+            held(buy(99_999), &price),
+            [GuardCause::BelowMinimum {
+                price: Price::from_ticks(10_000_000).unwrap()
+            }]
+        );
+        assert_eq!(held(buy(100_000), &price), []);
+        assert_eq!(held(buy(99_999), &|_| None), []);
+        let cheap = |_: &Symbol| Some(Price::from_ticks(500_000).unwrap());
+        assert_eq!(held(buy(1_000_000), &cheap), []);
+        let book = Book::of(
+            &crate::common::book::Fill::new(
+                "2026-10-07T18:00:00Z".parse().unwrap(),
+                symbol("F"),
+                Side::Buy,
+                Shares::from_units(150_000),
+                Price::from_ticks(10_000_000).unwrap(),
+                DollarVolume::from_units(0),
+            )
+            .unwrap(),
+        );
+        let sell = orders(
+            &book,
+            &Target::new(BTreeMap::from([(symbol("F"), Shares::from_units(100_000))])),
+        )
+        .remove(0);
+        assert_eq!(sell.side(), Side::Sell);
+        assert_eq!(held(sell, &price), []);
+    }
+
+    const SYMBOLS: [&str; 4] = ["AAPL", "MSFT", "SPY", "QQQ"];
+
+    /// What the live chain is given at one decision: a book, a target, a price for every symbol, risk's inputs and
+    /// limits, and a reading per symbol, absent where none was taken.
+    #[derive(Debug, Clone)]
+    struct Decision {
+        book: Book,
+        wanted: Target,
+        prices: BTreeMap<Symbol, Price>,
+        gross: Cash,
+        per_name: Cash,
+        limits: Limits,
+        phase: SessionPhase,
+        opening: Cash,
+        readings: BTreeMap<Symbol, Tradability>,
+    }
+
+    /// Prices from ten cents to $500, half under a dollar, so a fractional buy can fall under the minimum.
+    fn arbitrary_decision(
+        readings: impl prop::strategy::Strategy<Value = Option<Tradability>>,
+    ) -> impl prop::strategy::Strategy<Value = Decision> {
+        let units = || {
+            prop::collection::btree_map(
+                prop::sample::select(SYMBOLS.to_vec()).prop_map(symbol),
+                0..20_000_000u64,
+                0..4,
+            )
+        };
+        let dollars = |count: i128| Cash::from_units(count * 1_000_000_000_000);
+        (
+            (0..20_000i128, units()),
+            units(),
+            prop::collection::vec(
+                prop_oneof![100_000..1_000_000i64, 1_000_000..500_000_000i64],
+                4,
+            ),
+            (1..20_000i128, 1..20_000i128, 1..20_000i128, 0..20_000i128),
+            prop::option::of(0..390i64),
+            prop::collection::vec(readings, 4),
+        )
+            .prop_map(
+                move |(
+                    (cash, held),
+                    wanted,
+                    ticks,
+                    (gross, per_name, loss, opening),
+                    until_close,
+                    readings,
+                )| {
+                    Decision {
+                        book: Book::reported(
+                            dollars(cash),
+                            held.into_iter().map(|(symbol, units)| {
+                                (symbol, Position::from_units(i128::from(units)))
+                            }),
+                        ),
+                        wanted: Target::new(
+                            wanted
+                                .into_iter()
+                                .map(|(symbol, units)| (symbol, Shares::from_units(units)))
+                                .collect(),
+                        ),
+                        prices: SYMBOLS
+                            .iter()
+                            .zip(ticks)
+                            .map(|(raw, ticks)| (symbol(raw), Price::from_ticks(ticks).unwrap()))
+                            .collect(),
+                        gross: dollars(gross),
+                        per_name: dollars(per_name),
+                        limits: Limits::new(
+                            dollars(gross),
+                            dollars(per_name),
+                            dollars(loss),
+                            TimeDelta::minutes(15),
+                        )
+                        .unwrap(),
+                        phase: until_close.map_or(SessionPhase::AfterClose, |minutes| {
+                            SessionPhase::Open {
+                                until_close: TimeDelta::minutes(minutes),
+                            }
+                        }),
+                        opening: dollars(opening),
+                        readings: SYMBOLS
+                            .iter()
+                            .zip(readings)
+                            .filter_map(|(raw, reading)| Some((symbol(raw), reading?)))
+                            .collect(),
+                    }
+                },
+            )
+    }
+
+    /// The live chain's pure stages: risk's target, the guard over the orders that reach it, and the book after every
+    /// passed order fills at its price.
+    fn chain(decision: &Decision) -> (Target, Guarded, Book) {
+        let price = |symbol: &Symbol| decision.prices.get(symbol).copied();
+        let restrained = risk(
+            &decision.limits,
+            decision.phase,
+            decision.opening,
+            &decision.book,
+            price,
+            decision.wanted.clone(),
+        )
+        .unwrap();
+        let guarded = guard(
+            orders(&decision.book, restrained.target()),
+            &decision.readings,
+            price,
+        );
+        let after = decision
+            .book
+            .clone()
+            .combine(concatenate(guarded.passed().iter().map(|order| {
+                Book::of(
+                    &Fill::new(
+                        "2026-10-08T15:00:00Z".parse().unwrap(),
+                        order.symbol().clone(),
+                        order.side(),
+                        order.shares(),
+                        decision.prices[order.symbol()],
+                        DollarVolume::default(),
+                    )
+                    .unwrap(),
+                )
+            })));
+        (restrained.target().clone(), guarded, after)
+    }
+
+    proptest! {
+        /// Whatever the readings, the orders still owed from the book the passed fills reach to risk's target are
+        /// exactly the held ones, and with none held that book is the target.
+        #[test]
+        fn property_what_the_guard_holds_is_what_the_chain_leaves_owed(
+            decision in arbitrary_decision(prop::sample::select(vec![
+                None,
+                Some(Tradability::Fractionable),
+                Some(Tradability::WholeSharesOnly),
+                Some(Tradability::Untradable),
+                Some(Tradability::Unlisted),
+            ])),
+        ) {
+            let (target, guarded, after) = chain(&decision);
+            let owed: Vec<(Symbol, Side, Shares)> = orders(&after, &target)
+                .into_iter()
+                .map(|order| (order.symbol().clone(), order.side(), order.shares()))
+                .collect();
+            let held: Vec<(Symbol, Side, Shares)> = guarded
+                .held()
+                .iter()
+                .map(|held| (held.symbol.clone(), held.side, held.shares))
+                .collect();
+            prop_assert_eq!(owed, held);
+            if guarded.held().is_empty() {
+                let reached: BTreeMap<Symbol, Shares> = after
+                    .positions()
+                    .iter()
+                    .map(|(symbol, position)| {
+                        (symbol.clone(), Shares::from_units(u64::try_from(position.units()).unwrap()))
+                    })
+                    .collect();
+                prop_assert_eq!(reached.keys().collect::<Vec<_>>(), target.holdings().keys().collect::<Vec<_>>());
+                prop_assert_eq!(&reached, target.holdings());
+            }
+        }
+
+        /// Where every symbol trades fractions, only buys under the minimum are held, so the book the chain reaches
+        /// holds no symbol above risk's target and stays within the per-name and gross limits at the decision's prices.
+        #[test]
+        fn property_a_fractionable_chain_reaches_no_further_than_risk_allows(
+            decision in arbitrary_decision(Just(Some(Tradability::Fractionable))),
+        ) {
+            let (target, guarded, after) = chain(&decision);
+            for held in guarded.held() {
+                prop_assert_eq!(held.side, Side::Buy);
+                let below_minimum = matches!(held.cause, GuardCause::BelowMinimum { .. });
+                prop_assert!(below_minimum, "{:?}", held);
+            }
+            let mut worth = 0_i128;
+            for (symbol, position) in after.positions() {
+                let wanted = target.holdings().get(symbol).copied().unwrap_or_default();
+                prop_assert!(0 <= position.units() && position.units() <= i128::from(wanted.units()));
+                let value = position.units() * i128::from(decision.prices[symbol].ticks());
+                prop_assert!(value <= decision.per_name.units());
+                worth += value;
+            }
+            prop_assert!(worth <= decision.gross.units());
+        }
+
+        /// Every order is either passed or held, never both or neither, and the passed keep their order.
+        #[test]
+        fn property_the_guard_partitions_the_orders(
+            wanted in prop::collection::btree_map(
+                prop::sample::select(vec!["AAPL", "MSFT", "SPY", "QQQ", "VWDRY"]),
+                1..5_000_000u64,
+                0..5,
+            ),
+            readings in prop::collection::vec(
+                prop::sample::select(vec![
+                    Tradability::Fractionable,
+                    Tradability::WholeSharesOnly,
+                    Tradability::Untradable,
+                    Tradability::Unlisted,
+                ]),
+                5,
+            ),
+        ) {
+            let wanted: Vec<(&str, u64)> = wanted.into_iter().collect();
+            let tradability: BTreeMap<Symbol, Tradability> = ["AAPL", "MSFT", "SPY", "QQQ"]
+                .into_iter()
+                .zip(readings)
+                .map(|(raw, reading)| (symbol(raw), reading))
+                .collect();
+            let orders = buys(&wanted);
+            let guarded = guard(orders.clone(), &tradability, |_| None);
+            let mut sorted: Vec<&Symbol> = guarded
+                .passed()
+                .iter()
+                .map(Order::symbol)
+                .chain(guarded.held().iter().map(|held| &held.symbol))
+                .collect();
+            sorted.sort();
+            prop_assert_eq!(sorted, orders.iter().map(Order::symbol).collect::<Vec<_>>());
+            let mut passed = guarded.passed().iter();
+            let mut next = passed.next();
+            for order in &orders {
+                if next == Some(order) {
+                    next = passed.next();
+                }
+            }
+            prop_assert_eq!(next, None);
+        }
+    }
+}

@@ -256,7 +256,9 @@ def get(url, tries=5):
     last = None
     for _ in range(tries):
         try:
-            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
+            return urllib.request.urlopen(
+                urllib.request.Request(url, headers=UA), timeout=60
+            ).read()
         except Exception as e:
             last = e
             time.sleep(3)
@@ -296,7 +298,7 @@ def recent_stems(days=80):
 
 
 DATE_RE = re.compile(
-    r"effective\s+from\s+([A-Z][a-z]+\s+\d{1,2}\s*,\s*\d{4})", re.IGNORECASE
+    r"effective\s+from\s+([A-Z][a-z]+\s+\d{1,2}\s*,\s*\d{4})", re.I
 )  # "December 7 , 2011" (§141e)
 MONTHS = {
     m: i
@@ -334,7 +336,7 @@ def to_iso(d):
 # name — the strict form dropped those WHOLE sections (15092021 lost its Smallcap 50/100 blocks).
 HEAD_RE = re.compile(
     r"^\s*(?:\d+|[a-zA-Z])[\)\.]\s*((?:s&p\s*)?(?:nifty|cnx)[\w &\-]*?)\s*[\*#@\u2020]*\s*(?:\([^)]*\)?)?\s*[\*#@\u2020]*\s*$",
-    re.IGNORECASE,
+    re.I,
 )
 # 2026-09-23 (§141d): a lettered PROSE heading that names one index — how NSE words one-off revisions:
 # "B. Revision in criteria and replacements in Nifty Energy index:" (ind_prs11122024, Energy 10 -> 40).
@@ -344,7 +346,7 @@ HEAD_RE = re.compile(
 HEAD2_RE = re.compile(
     r"^\s*[A-Z][\)\.]\s*(?![^\n]*\b(?:has been|have been|pursuant|on account of its)\b)[^\n]*?\b(?:replacements?|changes?|inclusions?|exclusions?)\s+(?:in|to|from)\s+"
     r"((?:nifty|cnx)[\w &\-]*?)\s*(?:index|indices)?\s*[:\.]?\s*$",
-    re.IGNORECASE,
+    re.I,
 )
 # A data row = serial number, company name, then the ticker as the LAST whitespace token.
 # The ticker is extracted by taking the last token and VALIDATING it (O(n), no regex backtracking):
@@ -367,7 +369,8 @@ SECT_RE = re.compile(
 # change in Nifty Midcap 50 Index which will become effective from July 25, 2011" (ind_prs07062011 —
 # CHENNPETRO out / ADANIPOWER in, the Midcap 50 swap the 2010 and 2012 archived lists bracket). §141e.
 PROSE_RE = re.compile(
-    r"\b(?:decided|effective)\b[^\n]*?\bchanges?\s+in\s+((?:s&p\s*)?(?:nifty|cnx)[\w &\-]*?)\s+index\b", re.IGNORECASE
+    r"\b(?:decided|effective)\b[^\n]*?\bchanges?\s+in\s+((?:s&p\s*)?(?:nifty|cnx)[\w &\-]*?)\s+index\b",
+    re.I,
 )
 SERIAL_RE = re.compile(r"^\s*\d{1,3}\s+\S")
 ROWSER_RE = re.compile(r"^\s*(\d{1,3})\s+(.+)$")
@@ -421,14 +424,21 @@ def _bare_head(lines, i):
 
 # fallback ONLY when no "effective from <date>" parses: IISL notices whose text layer splits that phrase
 # carry the date once as "with effect from December 7 , 2011" (ind_prs01122011, Indiabulls demerger). §141e
-DATE2_RE = re.compile(r"(?:with\s+)?effect\s+from\s+([A-Z][a-z]+\s+\d{1,2}\s*,\s*\d{4})", re.IGNORECASE)
+DATE2_RE = re.compile(r"(?:with\s+)?effect\s+from\s+([A-Z][a-z]+\s+\d{1,2}\s*,\s*\d{4})", re.I)
 # RESCHEDULING NOTICES (2026-09-23, runbook §141f): the preamble first QUOTES the review being amended
 # ("On August 28, 2017 IISL announced replacement of Reliance Capital Ltd. … effective from September
 # 29, 2017"), then gives the new date ("decided to reschedule replacement of Reliance Capital Ltd. …
 # effective from September 05, 2017"). The first "effective from" is the OLD date, so every block of
 # ind_prs29082017 (RELCAPITAL) and ind_prs07032017 (SBBJ / MYSOREBANK / SBT: 16-Mar, not 31-Mar 2017)
 # was dated 15-24 days late. Returns (announced, rescheduled) or None.
-RESCHED_RE = re.compile(r"reschedul", re.IGNORECASE)
+RESCHED_RE = re.compile(r"reschedul", re.I)
+# The same defect without the word "reschedule" (2026-10-04, quantmac round 3): ind_prs06032018 first QUOTES the
+# 21-Feb-2018 review ("replacement of Videocon Industries Ltd. ... effective from April 02, 2018"), then: "NSE vide its
+# circular NSE/CML/37115 dated March 5, 2018 has announced shifting of Videocon Industries Ltd. to 'BZ' series effective
+# from March 13, 2018. In view of above, the IMSC has decided to replace Videocon Industries Ltd. from various indices
+# ... effective from March 13, 2018 (close of March 12, 2018)" — NIFTY 500 / Smallcap 250 / MidSmallcap 400:
+# VIDEOIND out, ERIS in. NSE's IndexInclExcl register dates the Nifty 500 swap 2018-03-13. {stem: (announced, new)}
+RESCHED_OVERRIDES = {"06032018": ("2018-04-02", "2018-03-13")}
 
 
 def resched_dates(txt):
@@ -542,7 +552,11 @@ def parse_revocations(txt):
             continue
         if not active:
             continue
-        if low.startswith("about nse indices") or re.match(r"^\s*[A-Z]\.\s", ln) or "the following compan" in low:
+        if (
+            low.startswith("about nse indices")
+            or re.match(r"^\s*[A-Z]\.\s", ln)
+            or "the following compan" in low
+        ):
             active = False
             cur = None
             continue
@@ -568,7 +582,7 @@ def parse_revocations(txt):
 # effective 2024-08-30). Returns the same (index, eff, action, symbol) tuples as parse_revocations.
 SYM_LIST = re.compile(
     r"\(Symbol:\s*([A-Z0-9&\-]{2,15})\)\s*shall\s+be\s+(excluded\s+from|included\s+in)\s+the\s+following\s+indices",
-    re.IGNORECASE | re.DOTALL,
+    re.I | re.S,
 )
 
 
@@ -620,12 +634,15 @@ def parse_pdf(fp):
 #    member 2020-2024. Verified from the PR text: net 27 out / 27 in on 2024-09-30. 2026-07-03.
 MANUAL_CHANGELOG_FIXES = [
     ("Nifty 500", "2024-09-30", {"IDEA"}, {"PRSMJOHNSN"}, set(), set()),
-    #  - ind_prs10062020 (eff 2020-06-26, the COVID re-done reconstitution): IRCTC & SWSOLAR are missing
-    #    from the parsed N500 include list (very long company names — rows lost across a page break in the
-    #    pypdf text layer). PROOF they entered on 2020-06-26: both are in the 2020-07-25 archived NSE CSV
-    #    (Wayback checkpoint) and NO other event exists between 2020-06-26 and 2020-07-25; their only other
-    #    add (Feb-18-2020) was nulled. Without this they phantom-extend back to listing (Jan-May 2020). 2026-07-10.
-    ("Nifty 500", "2020-06-26", set(), set(), set(), {"IRCTC", "SWSOLAR"}),
+    #  - ind_prs10062020 (eff 2020-06-26, the COVID re-done reconstitution): IRCTC is missing from the parsed
+    #    N500 include list (a very long company name — the row is lost across a page break in the pypdf text
+    #    layer; the notice's text does list "Indian Railway Catering And Tourism Corporation Ltd. IRCTC").
+    #    It is in the 2020-07-25 archived NSE CSV and has no other event in between. 2026-07-10.
+    #    SWSOLAR REMOVED from this add (2026-10-04, quantmac round 3): it is NOT in ind_prs10062020 — it entered
+    #    the Nifty 500 on 2020-03-19 as Yes Bank's replacement (ind_prs16032020 section 3: "NIFTY 500 ... excluded
+    #    Yes Bank Ltd. YESBANK ... included Sterling And Wilson Solar Ltd. SWSOLAR", w.e.f. 19-Mar-2020; NSE's
+    #    IndexInclExcl register the same). The extra 06-26 inclusion made the backward walk drop it 03-19 -> 06-25.
+    ("Nifty 500", "2020-06-26", set(), set(), set(), {"IRCTC"}),
     #  - ind_prs12032020 (Nifty Bank, redated 2020-03-19 above): the notice's next section "B. Replacement
     #    in NIFTY50 Value 20 index" is a lettered heading HEAD_RE does not recognise, so its rows (excluded
     #    Yes Bank, included ITC) bleed into the Nifty Bank block — ITC as a pre-2020 Nifty Bank member.
@@ -653,6 +670,45 @@ MANUAL_CHANGELOG_EVENTS = [
         "index widened 12->14 (SEBI F&O eligibility), ind_prs01122025 section B",
     ),
 ]
+#  - Jio Financial Services (2026-10-04, quantmac round 3): ind_prs17072023 "Corporate Adjustment for Reliance
+#    Industries Ltd." — the spun-off entity "shall be included in following indices effective from July 20, 2023
+#    (close of July 19, 2023)"; ind_prs05092023 "Exclusion of Jio Financial Services Limited from Nifty indices ...
+#    effective from September 7, 2023 (close of September 6, 2023) ... if JIOFIN hits the price band on September 6,
+#    2023, the exclusion shall not be deferred further." Both notices list the indices in a table (no swap rows), so
+#    parse_pdf yields nothing. Same 19-index table in both; the tracked ones below. (JIOFIN re-entered the Nifty 500
+#    on 2024-03-28 through the regular review, 28022024 — already parsed.)
+#    Dated from its LISTING DAY, 21-Aug-2023, not 20-Jul: until listing the index held the spun-off entity at a fixed
+#    price and NSE's own published constituent files of 3 / 8 / 11-Aug-2023 (archived pins: Nifty 100 / 200 / LargeMidcap
+#    250 / Oil & Gas) do not list it — and a stock with no traded price cannot be screened either way.
+for _idx in (
+    "Nifty 50",
+    "Nifty 100",
+    "Nifty 200",
+    "Nifty 500",
+    "Nifty Energy",
+    "Nifty LargeMidcap 250",
+    "Nifty Oil & Gas",
+):
+    MANUAL_CHANGELOG_EVENTS.append(
+        (
+            _idx,
+            "2023-08-21",
+            [],
+            ["JIOFIN"],
+            "17072023",
+            "Reliance demerger: spun-off entity in the index from 20-Jul-2023 (ind_prs17072023), listed 21-Aug-2023",
+        )
+    )
+    MANUAL_CHANGELOG_EVENTS.append(
+        (
+            _idx,
+            "2023-09-07",
+            ["JIOFIN"],
+            [],
+            "05092023",
+            "JIOFIN excluded w.e.f. 7-Sep-2023, ind_prs05092023",
+        )
+    )
 
 
 def apply_revocations(changelog, revs, src):
@@ -700,7 +756,9 @@ def apply_manual_fixes(changelog):
         for s in adi:
             if s not in first["included"]:
                 first["included"].append(s)
-        print(f"  MANUAL FIX {idx} {eff}: -excl{sorted(rmx)} +excl{sorted(adx)} -incl{sorted(rmi)} +incl{sorted(adi)}")
+        print(
+            f"  MANUAL FIX {idx} {eff}: -excl{sorted(rmx)} +excl{sorted(adx)} -incl{sorted(rmi)} +incl{sorted(adi)}"
+        )
 
 
 # 2026-09-23 (runbook §141d): an auto-probed notice that yields events is PERSISTED here, because the
@@ -721,7 +779,9 @@ def main():
     probed_keep = load_probed()
     files_all = list(dict.fromkeys(FILES + probed_keep))
     known = set(files_all)
-    stems = list(dict.fromkeys(files_all + recent_stems()))  # hand-maintained + persisted + auto-probed recent
+    stems = list(
+        dict.fromkeys(files_all + recent_stems())
+    )  # hand-maintained + persisted + auto-probed recent
     print(
         f"Parsing {len(FILES)} known + {len(probed_keep)} persisted + {len(stems) - len(files_all)} auto-probed recent press releases..."
     )
@@ -739,10 +799,13 @@ def main():
         try:
             _rtxt = "\n".join(p.extract_text() or "" for p in PdfReader(fp).pages)
             _revs = parse_revocations(_rtxt) + parse_symbol_lists(_rtxt)
-            _rs = resched_dates(_rtxt)
+            _rs = RESCHED_OVERRIDES.get(stem) or resched_dates(_rtxt)
         except Exception:
             _revs = []
-            _rs = None
+            _rs = RESCHED_OVERRIDES.get(stem)
+        if stem in RESCHED_OVERRIDES:
+            for b in blocks:
+                b["eff"] = RESCHED_OVERRIDES[stem][1]
         if _revs:
             revocations.append((stem, _revs))
         if _rs and blocks:
@@ -803,12 +866,22 @@ def main():
                 or len(set(b["excluded"])) != len(b["excluded"])
                 or len(b["included"]) != len(b["excluded"])
             ):
-                print(f"  SUPPLEMENT {stem} {b['index']}: refused (+{b['included']} -{b['excluded']})")
+                print(
+                    f"  SUPPLEMENT {stem} {b['index']}: refused (+{b['included']} -{b['excluded']})"
+                )
                 continue
             changelog.setdefault(b["index"], []).append(
-                {"eff": b["eff"], "excluded": b["excluded"], "included": b["included"], "src": stem, "hole_fill": True}
+                {
+                    "eff": b["eff"],
+                    "excluded": b["excluded"],
+                    "included": b["included"],
+                    "src": stem,
+                    "hole_fill": True,
+                }
             )
-            print(f"  SUPPLEMENT {stem} {b['index']} {b['eff']}: -{len(b['excluded'])} +{len(b['included'])}")
+            print(
+                f"  SUPPLEMENT {stem} {b['index']} {b['eff']}: -{len(b['excluded'])} +{len(b['included'])}"
+            )
     # SUPERSEDED NOTICES (2026-09-23, runbook §141d): a later notice that says its lists REPLACE an
     # earlier notice's lists for named indices. ind_prs15092021 §C: REIT/InvIT inclusion put on hold,
     # so "the earlier list of replacement of these indices published through a press release on August
@@ -838,7 +911,11 @@ def main():
                 changelog[idx] = [c for c in evs if c["src"] != old_src]
                 if len(changelog[idx]) != n0:
                     print(f"  SUPERSEDED {idx}: {old_src} list replaced by {new_src}")
-    json.dump(sorted(set(probed_keep), key=lambda x: (x[4:8], x[2:4], x[:2], x)), open(PROBED_FILE, "w"), indent=0)
+    json.dump(
+        sorted(set(probed_keep), key=lambda x: (x[4:8], x[2:4], x[:2], x)),
+        open(PROBED_FILE, "w"),
+        indent=0,
+    )
     # --- COVID-2020 NULLED RECONSTITUTION (verified from primary sources 2026-07-10) ---------------
     # The Feb-18 + Mar-12 (+Mar-19) reshuffle (eff 2020-03-27) was DEFERRED on Mar-23 (ind_prs23032020)
     # and declared "shall stand null" by ind_prs13052020 — EXCEPT Nifty 50 & Nifty Bank, which were
@@ -884,7 +961,9 @@ def main():
         hunt = json.load(open(os.path.join(HERE, "_n500_hunt_prs.json")))
     except Exception as e:
         hunt = []
-        print(f"  WARNING: _n500_hunt_prs.json not loaded ({e}) — 2015-2019 N500 reviews will be missing")
+        print(
+            f"  WARNING: _n500_hunt_prs.json not loaded ({e}) — 2015-2019 N500 reviews will be missing"
+        )
     if hunt:
         hstems = {h["file"].replace("ind_prs", "").replace(".pdf", "") for h in hunt}
         n5 = [c for c in changelog.get("Nifty 500", []) if c["src"] not in hstems]
@@ -932,7 +1011,9 @@ def main():
             c["included"] = list(dict.fromkeys(c["included"]))
         nx = sum(len(c["excluded"]) for c in ch)
         ni = sum(len(c["included"]) for c in ch)
-        print(f"  {idx:22s}: {len(ch):3d} events, {nx:3d} out / {ni:3d} in   {ch[0]['eff']}..{ch[-1]['eff']}")
+        print(
+            f"  {idx:22s}: {len(ch):3d} events, {nx:3d} out / {ni:3d} in   {ch[0]['eff']}..{ch[-1]['eff']}"
+        )
     json.dump(changelog, open(os.path.join(HERE, "_changelog.json"), "w"), indent=0)
     print("Wrote _changelog.json")
 

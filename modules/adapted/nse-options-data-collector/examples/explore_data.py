@@ -30,7 +30,6 @@ Usage:
 """
 
 import os
-import sys
 
 import pandas as pd
 
@@ -56,7 +55,11 @@ def show_oi():
         last_ts = latest["timestamp"].max()
         snap = latest[latest["timestamp"] == last_ts]
         print(f"\nLatest snapshot ({last_ts[:19]}):")
-        print(snap[["symbol", "spot", "pcr", "ce_oi_signal", "pe_oi_signal", "oi_change_pct"]].to_string(index=False))
+        print(
+            snap[
+                ["symbol", "spot", "pcr", "ce_oi_signal", "pe_oi_signal", "oi_change_pct"]
+            ].to_string(index=False)
+        )
 
 
 def show_chain():
@@ -64,7 +67,9 @@ def show_chain():
     if not os.path.isdir(chain_dir):
         return
 
-    files = sorted(f for f in os.listdir(chain_dir) if f.startswith("chain_") and f.endswith(".parquet"))
+    files = sorted(
+        f for f in os.listdir(chain_dir) if f.startswith("chain_") and f.endswith(".parquet")
+    )
     print(f"\n=== Option Chain ({len(files)} days) ===")
     for f in files:
         df = pd.read_parquet(os.path.join(chain_dir, f))
@@ -82,7 +87,17 @@ def show_chain():
             print(f"\nNIFTY ATM (spot={spot}):")
             print(
                 near[
-                    ["strike", "ce_ltp", "ce_iv", "ce_delta", "ce_oi", "pe_ltp", "pe_iv", "pe_delta", "pe_oi"]
+                    [
+                        "strike",
+                        "ce_ltp",
+                        "ce_iv",
+                        "ce_delta",
+                        "ce_oi",
+                        "pe_ltp",
+                        "pe_iv",
+                        "pe_delta",
+                        "pe_oi",
+                    ]
                 ].to_string(index=False)
             )
 

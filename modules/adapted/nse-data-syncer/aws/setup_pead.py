@@ -38,7 +38,6 @@ import contextlib
 import io
 import json
 import os
-import sys
 import time
 import zipfile
 
@@ -72,7 +71,12 @@ SQS_POLICY = json.dumps(
         "Statement": [
             {
                 "Effect": "Allow",
-                "Action": ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+                "Action": [
+                    "sqs:SendMessage",
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes",
+                ],
                 "Resource": "*",
             }
         ],
@@ -150,7 +154,9 @@ def setup():
         queue_url = sqs.get_queue_url(QueueName=QUEUE_NAME)["QueueUrl"]
         p(f"Queue already exists: {queue_url}")
 
-    queue_arn = sqs.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"])["Attributes"]["QueueArn"]
+    queue_arn = sqs.get_queue_attributes(QueueUrl=queue_url, AttributeNames=["QueueArn"])[
+        "Attributes"
+    ]["QueueArn"]
 
     # ── 3. Lambda: pead-poller ────────────────────────────────────────────────
     poller_zip = make_zip("poller.py")

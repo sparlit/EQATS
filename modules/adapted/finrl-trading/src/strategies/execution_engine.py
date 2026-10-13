@@ -22,14 +22,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import random
-from typing import Dict, Optional
 
-import numpy as np
 import pandas as pd
-import pandas_market_calendars as mcal
-from strategies.base_signal import BaseSignalEngine
-from strategies.strategylogger import StrategyLogger
-from strategies.universe_manager import UniverseManager
 
 
 class ExecutionManager:
@@ -158,7 +152,9 @@ class ExecutionManager:
                 # use the target weights to cover the current weights matrix
                 weights_df.update(target_df)
                 if self.logger:
-                    self.logger.log_info("[ExecutionManager] Applied _compute_target_weights successfully.")
+                    self.logger.log_info(
+                        "[ExecutionManager] Applied _compute_target_weights successfully."
+                    )
             except Exception as e:
                 if self.logger:
                     self.logger.log_error(f"[ExecutionManager] _compute_target_weights failed: {e}")
@@ -183,7 +179,11 @@ class ExecutionManager:
         if self.rebalance_freq == "W":
             cal = self.universe_mgr.trading_calendar
             # find the trading days of the week
-            week_dates = [d for d in cal if d.isocalendar()[1] == date.isocalendar()[1] and d.year == date.year]
+            week_dates = [
+                d
+                for d in cal
+                if d.isocalendar()[1] == date.isocalendar()[1] and d.year == date.year
+            ]
             if not week_dates:
                 return False
             week_dates = sorted(week_dates)
@@ -198,8 +198,10 @@ class ExecutionManager:
             # 第二个交易日 & 月末最后一个交易日
             second_day = month_dates[1] if len(month_dates) >= 2 else month_dates[0]
             last_day = month_dates[-1]
-            return date.normalize() in [pd.Timestamp(second_day).normalize(), pd.Timestamp(last_day).normalize()]
-        return None
+            return date.normalize() in [
+                pd.Timestamp(second_day).normalize(),
+                pd.Timestamp(last_day).normalize(),
+            ]
 
     # daily execution logic: update self.current_weights
     def step(self, date, signal_series: pd.Series):
@@ -265,7 +267,9 @@ class ExecutionManager:
                 # close-only: do not open new positions; only keep the original position
                 # if the signal turns to 0, close (already covered above)
                 new_w = old_w
-                print(f"[CLOSE-ONLY] {tic} keep position {old_w:.2f} (still have positions in the pool)")
+                print(
+                    f"[CLOSE-ONLY] {tic} keep position {old_w:.2f} (still have positions in the pool)"
+                )
 
             elif effective_sig > 0 and in_uni_today:
                 target_sign = 1
@@ -297,28 +301,27 @@ class ExecutionManager:
                 self.cooldown[tic] = self.cooling_days
 
             # log
-            if self.logger is not None:
-                if abs(old_w - new_w) > 1e-8:
-                    action = "HOLD"
-                    if old_w == 0 and new_w != 0:
-                        action = "OPEN_LONG" if new_w > 0 else "OPEN_SHORT"
-                    elif old_w != 0 and new_w == 0:
-                        action = "CLOSE"
-                    elif old_w * new_w < 0:
-                        action = "FLIP"
-                    else:
-                        action = "ADJUST"
+            if self.logger is not None and abs(old_w - new_w) > 1e-8:
+                action = "HOLD"
+                if old_w == 0 and new_w != 0:
+                    action = "OPEN_LONG" if new_w > 0 else "OPEN_SHORT"
+                elif old_w != 0 and new_w == 0:
+                    action = "CLOSE"
+                elif old_w * new_w < 0:
+                    action = "FLIP"
+                else:
+                    action = "ADJUST"
 
-                    self.logger.log_signal(
-                        date=date,
-                        symbol=tic,
-                        signal=effective_sig,
-                        action=action,
-                        old_weight=old_w,
-                        new_weight=new_w,
-                        close_only=close_only,
-                        cooldown_left=self.cooldown.get(tic, 0),
-                    )
+                self.logger.log_signal(
+                    date=date,
+                    symbol=tic,
+                    signal=effective_sig,
+                    action=action,
+                    old_weight=old_w,
+                    new_weight=new_w,
+                    close_only=close_only,
+                    cooldown_left=self.cooldown.get(tic, 0),
+                )
 
         # ========= portfolio level constraints =========
 
@@ -393,7 +396,7 @@ class ExecutionManager:
         weights_target = pd.DataFrame(index=dates, columns=all_tics, dtype=float).fillna(0.0)
 
         current_holdings = set()
-        last_weights = pd.Series(0.0, index=all_tics)
+        last_weights = pd.Series(0.0, index=all_tics)  #
 
         for date in dates:
             cal = self.universe_mgr.trading_calendar
@@ -448,4 +451,5 @@ class ExecutionManager:
                 weights_target.loc[date] = last_weights
 
         # 最后再清理
-        return weights_target.fillna(0.0)
+        weights_target = weights_target.fillna(0.0)
+        return weights_target

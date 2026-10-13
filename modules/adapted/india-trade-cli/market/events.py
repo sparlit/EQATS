@@ -33,7 +33,6 @@ All data sourced from public endpoints (NSE, RBI websites).
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Optional
 
 import httpx
 
@@ -85,13 +84,16 @@ def _last_thursday(year: int, month: int) -> date:
     """Last Thursday of the given month."""
     # Walk back from last day to find Thursday (weekday 3)
     # Get last day properly
-    last = date(year + 1, 1, 1) - timedelta(days=1) if month == 12 else date(year, month + 1, 1) - timedelta(days=1)
+    if month == 12:
+        last = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        last = date(year, month + 1, 1) - timedelta(days=1)
     while last.weekday() != 3:  # 3 = Thursday
         last -= timedelta(days=1)
     return last
 
 
-def _next_thursday(from_date: date | None = None) -> date:
+def _next_thursday(from_date: date = None) -> date:
     """Next Thursday from given date (or today)."""
     d = from_date or date.today()
     days_ahead = 3 - d.weekday()  # Thursday = 3
@@ -227,7 +229,9 @@ def get_rbi_calendar() -> list[RBIEvent]:
 
 # ── Corporate Actions ─────────────────────────────────────────
 
-NSE_CORP_ACTIONS_URL = "https://www.nseindia.com/api/corporates-corporateActions?index=equities&symbol={symbol}"
+NSE_CORP_ACTIONS_URL = (
+    "https://www.nseindia.com/api/corporates-corporateActions?index=equities&symbol={symbol}"
+)
 
 
 def get_corporate_actions(symbol: str, n: int = 5) -> list[CorporateAction]:
@@ -284,6 +288,8 @@ def get_upcoming_events(days: int = 7) -> dict:
             "days_to_weekly": (expiries.weekly - today).days,
             "days_to_monthly": (expiries.monthly - today).days,
         },
-        "earnings": [{"symbol": e.symbol, "date": e.date, "purpose": e.purpose} for e in earnings[:5]],
+        "earnings": [
+            {"symbol": e.symbol, "date": e.date, "purpose": e.purpose} for e in earnings[:5]
+        ],
         "rbi": [{"date": r.date, "event": r.event} for r in rbi[:2]],
     }

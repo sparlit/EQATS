@@ -33,7 +33,9 @@ class Cleaner:
 
     def read_csv(self, csv_name):
         cleaned_text = []
-        with open("../data/twitter_data/raw_data/" + csv_name + ".csv", newline="", encoding="utf-8") as csvfile:
+        with open(
+            "../data/twitter_data/raw_data/" + csv_name + ".csv", newline="", encoding="utf-8"
+        ) as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 text = row["text"]
@@ -56,26 +58,37 @@ class Cleaner:
         removed_punctuation = removed_retweet.translate(self.remove_punctuations)
         # remove spaces
         remove_g_t = removed_punctuation.replace("&gt", "", True)
-        return remove_g_t.replace("&amp", "", True)
+        remove_a_m_p = remove_g_t.replace("&amp", "", True)
+        final_text = remove_a_m_p
+        return final_text
 
     def pre_cleaning(self, text):
         html_escaped = html.unescape(text)
-        return html_escaped.replace(";", "")
+        final_text = html_escaped.replace(";", "")
+        return final_text
 
     def pre_labeling(self, text):
         lower_case_text = text.lower()
-        return re.sub(r"http\S+", "", lower_case_text)
+        removed_url = re.sub(r"http\S+", "", lower_case_text)
+        return removed_url
 
     def save_cleaned_csv(self, name, tweets_list):
         with open("../data/twitter_data/cleaned_data/" + name + ".csv", "w") as f:
             writer = csv.writer(f)
             writer.writerow(["text"])
             for tweet in tweets_list:
-                writer.writerow([tweet])
+                writer.writerow(
+                    [
+                        tweet,
+                    ]
+                )
+        pass
 
     def save_pre_labled_csv(self, csv_name):
         cleaned_text = []
-        with open("../data/twitter_data/raw_data/" + csv_name + ".csv", newline="", encoding="utf-8") as csvfile:
+        with open(
+            "../data/twitter_data/raw_data/" + csv_name + ".csv", newline="", encoding="utf-8"
+        ) as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 text = row["text"]
@@ -88,7 +101,12 @@ class Cleaner:
             writer = csv.writer(f)
             writer.writerow(["text", "label"])
             for tweet in tweets_list:
-                writer.writerow([tweet])
+                writer.writerow(
+                    [
+                        tweet,
+                    ]
+                )
+        pass
 
 
 if __name__ == "__main__":

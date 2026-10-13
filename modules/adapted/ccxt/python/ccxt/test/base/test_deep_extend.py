@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_deep_extend():
@@ -127,6 +127,8 @@ def test_deep_extend():
         "other1": "x",
         "other2": "y",
     }
-    # TODO: results are different across langs.
+    # todo: results are different across langs.
     # to avoid delay to this PR, I comment out this now, but will return to this after this PR merged
-    test_shared_methods.assert_deep_equal(exchange, None, "testDeepExtend", deep_extended, compare_to)
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testDeepExtend", deep_extended, compare_to
+    )

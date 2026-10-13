@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 # data_screener.py
-import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -77,7 +76,11 @@ def fetch_and_screen_stocks(tickers: list) -> list:
             # 1. Price must be above the 20 EMA (Short-term bullish)
             # 2. 20 EMA must be above 50 EMA (Medium-term trend is up)
             # 3. RSI must be between 40 and 80 (Not deeply oversold, not extremely overbought)
-            if (latest_close > latest_ema20 > latest_ema50) and (40 <= latest_rsi <= 80):
+            if (
+                (latest_close > latest_ema20)
+                and (latest_ema20 > latest_ema50)
+                and (40 <= latest_rsi <= 80)
+            ):
                 # Calculate basic trade setup levels based on current price
                 target = round(latest_close * 1.08, 2)  # 8% profit target
                 stop_loss = round(latest_close * 0.95, 2)  # 5% stop loss risk

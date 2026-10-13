@@ -170,6 +170,8 @@ class TestDhanOrderPlacement:
         broker._session.post.assert_called_once()
         # Verify the payload used Dhan's field names
         call_kwargs = broker._session.post.call_args
-        payload = call_kwargs.kwargs.get("json", call_kwargs.args[1] if len(call_kwargs.args) > 1 else {})
+        payload = call_kwargs.kwargs.get(
+            "json", call_kwargs.args[1] if len(call_kwargs.args) > 1 else {}
+        )
         assert payload.get("exchangeSegment") == "NSE_EQ"
         assert payload.get("productType") == "CNC"

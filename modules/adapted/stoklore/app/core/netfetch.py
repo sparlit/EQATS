@@ -191,7 +191,9 @@ def request(url, *, pool="default", prime=None, **kwargs):
             break
         # Exponential backoff (1s, 2s, 4s...) plus jitter so parallel workers don't all retry on
         # the same beat, unless the server named its own delay.
-        time.sleep(_retry_after_seconds(response) or min(2**attempt + random.uniform(0, 1), MAX_BACKOFF))
+        time.sleep(
+            _retry_after_seconds(response) or min(2**attempt + random.uniform(0, 1), MAX_BACKOFF)
+        )
         # A block is about *this* identity, so retrying on the same cookies/fingerprint mostly
         # wastes the attempt - rotate before trying again.
         reset_sessions()
@@ -221,5 +223,6 @@ def yf_session():
     from curl_cffi import requests as curl_requests
 
     return curl_requests.Session(
-        impersonate=IMPERSONATE, proxies={"https": random.choice(PROXIES), "http": random.choice(PROXIES)}
+        impersonate=IMPERSONATE,
+        proxies={"https": random.choice(PROXIES), "http": random.choice(PROXIES)},
     )

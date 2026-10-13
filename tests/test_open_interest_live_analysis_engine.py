@@ -2,18 +2,16 @@
 Tests for Open Interest Live Analysis Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
 from institutional_integrations.open_interest_live_analysis_engine import (
-    OpenInterestLiveAnalysisEngine,
-    OpenInterestLiveAnalysisBrokerAdapter,
-    round_tick_005,
     MAGIC_NUMBER_OPEN_INTEREST_LIVE_ANALYSIS,
+    OpenInterestLiveAnalysisBrokerAdapter,
+    OpenInterestLiveAnalysisEngine,
 )
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
 )
 
 

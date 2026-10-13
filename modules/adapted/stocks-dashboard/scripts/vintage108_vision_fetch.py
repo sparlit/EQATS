@@ -63,13 +63,13 @@ OUTDIR = os.path.join(HERE, "_vintage108_vision")
 INDEX = os.path.join(HERE, "_vintage108_vision_index.json")
 DPI = 200
 
-CON = re.compile(r"consolidated", re.IGNORECASE)
+CON = re.compile(r"consolidated", re.I)
 PROFIT = re.compile(
     r"profit\s*(for the period|after tax|attributable)|"
     r"non[- ]controlling|minority interest",
-    re.IGNORECASE,
+    re.I,
 )
-NOT_BS = re.compile(r"balance sheet|assets|equity and liabilities|cash flow", re.IGNORECASE)
+NOT_BS = re.compile(r"balance sheet|assets|equity and liabilities|cash flow", re.I)
 
 
 NUMTOK = re.compile(r"\d[\d,]*\.\d{2}")

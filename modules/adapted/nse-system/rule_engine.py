@@ -204,7 +204,9 @@ def _impulse_pullback(c, h, l, lookback=60):
     out["impulse_pct_60d"] = (peak_high - low_before) / low_before
     days_since = n - 1 - peak_idx
     out["days_since_impulse_peak"] = days_since
-    out["pullback_from_peak_pct"] = (peak_high - float(c[-1])) / peak_high if peak_high > 0 else None
+    out["pullback_from_peak_pct"] = (
+        (peak_high - float(c[-1])) / peak_high if peak_high > 0 else None
+    )
     if days_since >= 1:
         cons_high = float(np.max(h[peak_idx + 1 :]))
         cons_low = float(np.min(l[peak_idx + 1 :]))
@@ -309,13 +311,17 @@ def _compute_features(sym, df, fund_row, sector, sector_rs):
 
 def _load_symbol_df(conn, sym, max_bars=300):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume FROM prices_daily "
+        "WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, max_bars),
     ).fetchall()
     if not rows or len(rows) < 60:
         return None
     rows = list(reversed(rows))
-    return pd.DataFrame(rows, columns=["date", "Open", "High", "Low", "Close", "Volume"]).set_index("date")
+    df = pd.DataFrame(rows, columns=["date", "Open", "High", "Low", "Close", "Volume"]).set_index(
+        "date"
+    )
+    return df
 
 
 def _load_fundamentals(conn):
@@ -366,12 +372,9 @@ def _universe_symbols(conn, universe):
     if universe == "active":
         rows = conn.execute("SELECT symbol FROM stocks WHERE active=1").fetchall()
     elif universe == "band":
-        rows = conn.execute(
-            "SELECT symbol FROM universe_broad "
-            "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-            "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-            "ORDER BY mcap_cr DESC LIMIT 800"
-        ).fetchall()
+        from universe_helper import band_universe
+
+        return band_universe(conn, 800)
     elif universe == "combined":
         from universe_helper import combined_universe
 
@@ -609,7 +612,9 @@ SEEDS = {
     },
     "RCP": {
         "name": "RCP — Range Contraction Pattern",
-        "description": ("Stock ran 15-30% up, then meandered 4-12 days retracing 5-20% on lower volume."),
+        "description": (
+            "Stock ran 15-30% up, then meandered 4-12 days retracing 5-20% on lower volume."
+        ),
         "type": "swing",
         "universe": "band",
         "conditions": [
@@ -631,7 +636,8 @@ SEEDS = {
     "EpisodicPivot": {
         "name": "Episodic Pivot",
         "description": (
-            "Downtrend stock suddenly gaps up on high volume within last 15 days. Reaction to news / results / event."
+            "Downtrend stock suddenly gaps up on high volume within "
+            "last 15 days. Reaction to news / results / event."
         ),
         "type": "swing",
         "universe": "band",
@@ -701,7 +707,7 @@ if __name__ == "__main__":
                 fb = c["failed_because_missing"]
                 print(
                     f"    {c['field']:<26} {c['op']:<3} "
-                    f"{c['want']!s:<8}  failed {c['failed']:<5} "
+                    f"{str(c['want']):<8}  failed {c['failed']:<5} "
                     f"(missing {fb:<5})  survived {c['survived_after']}"
                 )
         sys.exit(0)

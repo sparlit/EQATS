@@ -43,7 +43,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 LEDGER = os.path.join(HERE, "revop_cell_fix.json")
-TARGETS = [os.path.join(ROOT, "docs", "sf_revop.json"), os.path.join(HERE, "revop_fundamentals.json")]
+TARGETS = [
+    os.path.join(ROOT, "docs", "sf_revop.json"),
+    os.path.join(HERE, "revop_fundamentals.json"),
+]
 SLOT = {
     "std": 0,
     "con": 1,
@@ -81,7 +84,9 @@ def main():
             if cur is None or abs(cur - f["was"]) > TOL:
                 moved += 1
                 print(
-                    "  MOVED-ON {} {} {}: stored {} != was {} — left alone".format(sym, qe, f["basis"], cur, f["was"])
+                    "  MOVED-ON {} {} {}: stored {} != was {} — left alone".format(
+                        sym, qe, f["basis"], cur, f["was"]
+                    )
                 )
                 continue
             print("  {} {} {}: {} -> {}".format(sym, qe, f["basis"], cur, f["fixed"]))

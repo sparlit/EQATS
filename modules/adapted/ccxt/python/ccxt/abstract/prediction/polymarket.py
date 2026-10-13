@@ -28,17 +28,23 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    gamma_public_get_status = gammaPublicGetStatus = Entry[str]("status", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_status = gammaPublicGetStatus = Entry[str](
+        "status", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_comments = gammaPublicGetComments = Entry[_List](
         "comments", ["gamma", "public"], "GET", {"cost": 1}
     )
     gamma_public_get_comments_id = gammaPublicGetCommentsId = Entry[_List](
         "comments/{id}", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_comments_user_address_user_address = gammaPublicGetCommentsUserAddressUserAddress = Entry[_List](
+    gamma_public_get_comments_user_address_user_address = (
+        gammaPublicGetCommentsUserAddressUserAddress
+    ) = Entry[_List](
         "comments/user_address/{user_address}", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_events = gammaPublicGetEvents = Entry[_List]("events", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_events = gammaPublicGetEvents = Entry[_List](
+        "events", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_events_creators = gammaPublicGetEventsCreators = Entry[_List](
         "events/creators", ["gamma", "public"], "GET", {"cost": 1}
     )
@@ -69,7 +75,9 @@ class ImplicitAPI:
     gamma_public_get_events_id_tweet_count = gammaPublicGetEventsIdTweetCount = Entry[_Dict](
         "events/{id}/tweet-count", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_markets = gammaPublicGetMarkets = Entry[_List]("markets", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_markets = gammaPublicGetMarkets = Entry[_List](
+        "markets", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_markets_keyset = gammaPublicGetMarketsKeyset = Entry[_Dict](
         "markets/keyset", ["gamma", "public"], "GET", {"cost": 1}
     )
@@ -85,7 +93,9 @@ class ImplicitAPI:
     gamma_public_get_markets_id_tags = gammaPublicGetMarketsIdTags = Entry[_List](
         "markets/{id}/tags", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_profiles_user_address_user_address = gammaPublicGetProfilesUserAddressUserAddress = Entry[_Dict](
+    gamma_public_get_profiles_user_address_user_address = (
+        gammaPublicGetProfilesUserAddressUserAddress
+    ) = Entry[_Dict](
         "profiles/user_address/{user_address}", ["gamma", "public"], "GET", {"cost": 1}
     )
     gamma_public_get_public_profile = gammaPublicGetPublicProfile = Entry[_Dict](
@@ -94,7 +104,9 @@ class ImplicitAPI:
     gamma_public_get_public_search = gammaPublicGetPublicSearch = Entry[_Dict](
         "public-search", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_series = gammaPublicGetSeries = Entry[_List]("series", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_series = gammaPublicGetSeries = Entry[_List](
+        "series", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_series_summary_slug_slug = gammaPublicGetSeriesSummarySlugSlug = Entry[_Dict](
         "series-summary/slug/{slug}", ["gamma", "public"], "GET", {"cost": 1}
     )
@@ -107,28 +119,36 @@ class ImplicitAPI:
     gamma_public_get_series_id_comments_count = gammaPublicGetSeriesIdCommentsCount = Entry[_Dict](
         "series/{id}/comments/count", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_sports = gammaPublicGetSports = Entry[_List]("sports", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_sports = gammaPublicGetSports = Entry[_List](
+        "sports", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_sports_market_types = gammaPublicGetSportsMarketTypes = Entry[_Dict](
         "sports/market-types", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_tags = gammaPublicGetTags = Entry[_List]("tags", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_tags = gammaPublicGetTags = Entry[_List](
+        "tags", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_tags_slug_slug = gammaPublicGetTagsSlugSlug = Entry[_Dict](
         "tags/slug/{slug}", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_tags_slug_slug_related_tags = gammaPublicGetTagsSlugSlugRelatedTags = Entry[_List](
-        "tags/slug/{slug}/related-tags", ["gamma", "public"], "GET", {"cost": 1}
+    gamma_public_get_tags_slug_slug_related_tags = gammaPublicGetTagsSlugSlugRelatedTags = Entry[
+        _List
+    ]("tags/slug/{slug}/related-tags", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_tags_slug_slug_related_tags_tags = (
+        gammaPublicGetTagsSlugSlugRelatedTagsTags
+    ) = Entry[_List]("tags/slug/{slug}/related-tags/tags", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_tags_id = gammaPublicGetTagsId = Entry[_Dict](
+        "tags/{id}", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_tags_slug_slug_related_tags_tags = gammaPublicGetTagsSlugSlugRelatedTagsTags = Entry[_List](
-        "tags/slug/{slug}/related-tags/tags", ["gamma", "public"], "GET", {"cost": 1}
-    )
-    gamma_public_get_tags_id = gammaPublicGetTagsId = Entry[_Dict]("tags/{id}", ["gamma", "public"], "GET", {"cost": 1})
     gamma_public_get_tags_id_related_tags = gammaPublicGetTagsIdRelatedTags = Entry[_List](
         "tags/{id}/related-tags", ["gamma", "public"], "GET", {"cost": 1}
     )
     gamma_public_get_tags_id_related_tags_tags = gammaPublicGetTagsIdRelatedTagsTags = Entry[_List](
         "tags/{id}/related-tags/tags", ["gamma", "public"], "GET", {"cost": 1}
     )
-    gamma_public_get_teams = gammaPublicGetTeams = Entry[_List]("teams", ["gamma", "public"], "GET", {"cost": 1})
+    gamma_public_get_teams = gammaPublicGetTeams = Entry[_List](
+        "teams", ["gamma", "public"], "GET", {"cost": 1}
+    )
     gamma_public_get_teams_id = gammaPublicGetTeamsId = Entry[_Dict](
         "teams/{id}", ["gamma", "public"], "GET", {"cost": 1}
     )
@@ -138,15 +158,21 @@ class ImplicitAPI:
     gamma_public_post_markets_information = gammaPublicPostMarketsInformation = Entry[_List](
         "markets/information", ["gamma", "public"], "POST", {"cost": 1}
     )
-    clob_public_get_book = clobPublicGetBook = Entry[_Dict]("book", ["clob", "public"], "GET", {"cost": 1})
-    clob_public_get_books = clobPublicGetBooks = Entry[_List]("books", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_book = clobPublicGetBook = Entry[_Dict](
+        "book", ["clob", "public"], "GET", {"cost": 1}
+    )
+    clob_public_get_books = clobPublicGetBooks = Entry[_List](
+        "books", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_get_builder_trades = clobPublicGetBuilderTrades = Entry[_Dict](
         "builder/trades", ["clob", "public"], "GET", {"cost": 1}
     )
     clob_public_get_clob_markets_condition_id = clobPublicGetClobMarketsConditionId = Entry[_Dict](
         "clob-markets/{condition_id}", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_fee_rate = clobPublicGetFeeRate = Entry[_Dict]("fee-rate", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_fee_rate = clobPublicGetFeeRate = Entry[_Dict](
+        "fee-rate", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_get_fee_rate_token_id = clobPublicGetFeeRateTokenId = Entry[_Dict](
         "fee-rate/{token_id}", ["clob", "public"], "GET", {"cost": 1}
     )
@@ -159,19 +185,27 @@ class ImplicitAPI:
     clob_public_get_markets_by_token_token_id = clobPublicGetMarketsByTokenTokenId = Entry[_Dict](
         "markets-by-token/{token_id}", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_markets_live_activity_condition_id = clobPublicGetMarketsLiveActivityConditionId = Entry[_Dict](
-        "markets/live-activity/{condition_id}", ["clob", "public"], "GET", {"cost": 1}
+    clob_public_get_markets_live_activity_condition_id = (
+        clobPublicGetMarketsLiveActivityConditionId
+    ) = Entry[_Dict]("markets/live-activity/{condition_id}", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_midpoint = clobPublicGetMidpoint = Entry[_Dict](
+        "midpoint", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_midpoint = clobPublicGetMidpoint = Entry[_Dict]("midpoint", ["clob", "public"], "GET", {"cost": 1})
     clob_public_get_midpoints = clobPublicGetMidpoints = Entry[_Dict](
         "midpoints", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_neg_risk = clobPublicGetNegRisk = Entry[_Dict]("neg-risk", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_neg_risk = clobPublicGetNegRisk = Entry[_Dict](
+        "neg-risk", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_get_neg_risk_token_id = clobPublicGetNegRiskTokenId = Entry[_Dict](
         "neg-risk/{token_id}", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_price = clobPublicGetPrice = Entry[_Dict]("price", ["clob", "public"], "GET", {"cost": 1})
-    clob_public_get_prices = clobPublicGetPrices = Entry[_Dict]("prices", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_price = clobPublicGetPrice = Entry[_Dict](
+        "price", ["clob", "public"], "GET", {"cost": 1}
+    )
+    clob_public_get_prices = clobPublicGetPrices = Entry[_Dict](
+        "prices", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_get_prices_history = clobPublicGetPricesHistory = Entry[_Dict](
         "prices-history", ["clob", "public"], "GET", {"cost": 1}
     )
@@ -184,30 +218,36 @@ class ImplicitAPI:
     clob_public_get_rewards_markets_multi = clobPublicGetRewardsMarketsMulti = Entry[_Dict](
         "rewards/markets/multi", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_rewards_markets_condition_id = clobPublicGetRewardsMarketsConditionId = Entry[_Dict](
-        "rewards/markets/{condition_id}", ["clob", "public"], "GET", {"cost": 1}
-    )
+    clob_public_get_rewards_markets_condition_id = clobPublicGetRewardsMarketsConditionId = Entry[
+        _Dict
+    ]("rewards/markets/{condition_id}", ["clob", "public"], "GET", {"cost": 1})
     clob_public_get_sampling_markets = clobPublicGetSamplingMarkets = Entry[_Dict](
         "sampling-markets", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_sampling_simplified_markets = clobPublicGetSamplingSimplifiedMarkets = Entry[_Dict](
-        "sampling-simplified-markets", ["clob", "public"], "GET", {"cost": 1}
-    )
+    clob_public_get_sampling_simplified_markets = clobPublicGetSamplingSimplifiedMarkets = Entry[
+        _Dict
+    ]("sampling-simplified-markets", ["clob", "public"], "GET", {"cost": 1})
     clob_public_get_simplified_markets = clobPublicGetSimplifiedMarkets = Entry[_Dict](
         "simplified-markets", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_spread = clobPublicGetSpread = Entry[_Dict]("spread", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_spread = clobPublicGetSpread = Entry[_Dict](
+        "spread", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_get_tick_size = clobPublicGetTickSize = Entry[_Dict](
         "tick-size", ["clob", "public"], "GET", {"cost": 1}
     )
     clob_public_get_tick_size_token_id = clobPublicGetTickSizeTokenId = Entry[_Dict](
         "tick-size/{token_id}", ["clob", "public"], "GET", {"cost": 1}
     )
-    clob_public_get_time = clobPublicGetTime = Entry[str]("time", ["clob", "public"], "GET", {"cost": 1})
+    clob_public_get_time = clobPublicGetTime = Entry[str](
+        "time", ["clob", "public"], "GET", {"cost": 1}
+    )
     clob_public_post_batch_prices_history = clobPublicPostBatchPricesHistory = Entry[_Dict](
         "batch-prices-history", ["clob", "public"], "POST", {"cost": 1}
     )
-    clob_public_post_books = clobPublicPostBooks = Entry[_List]("books", ["clob", "public"], "POST", {"cost": 1})
+    clob_public_post_books = clobPublicPostBooks = Entry[_List](
+        "books", ["clob", "public"], "POST", {"cost": 1}
+    )
     clob_public_post_last_trades_prices = clobPublicPostLastTradesPrices = Entry[_List](
         "last-trades-prices", ["clob", "public"], "POST", {"cost": 1}
     )
@@ -217,14 +257,18 @@ class ImplicitAPI:
     clob_public_post_midpoints = clobPublicPostMidpoints = Entry[_Dict](
         "midpoints", ["clob", "public"], "POST", {"cost": 1}
     )
-    clob_public_post_prices = clobPublicPostPrices = Entry[_Dict]("prices", ["clob", "public"], "POST", {"cost": 1})
-    clob_public_post_spreads = clobPublicPostSpreads = Entry[_Dict]("spreads", ["clob", "public"], "POST", {"cost": 1})
+    clob_public_post_prices = clobPublicPostPrices = Entry[_Dict](
+        "prices", ["clob", "public"], "POST", {"cost": 1}
+    )
+    clob_public_post_spreads = clobPublicPostSpreads = Entry[_Dict](
+        "spreads", ["clob", "public"], "POST", {"cost": 1}
+    )
     clob_private_get_auth_api_keys = clobPrivateGetAuthApiKeys = Entry[_Dict](
         "auth/api-keys", ["clob", "private"], "GET", {"cost": 1}
     )
-    clob_private_get_auth_ban_status_closed_only = clobPrivateGetAuthBanStatusClosedOnly = Entry[_Dict](
-        "auth/ban-status/closed-only", ["clob", "private"], "GET", {"cost": 1}
-    )
+    clob_private_get_auth_ban_status_closed_only = clobPrivateGetAuthBanStatusClosedOnly = Entry[
+        _Dict
+    ]("auth/ban-status/closed-only", ["clob", "private"], "GET", {"cost": 1})
     clob_private_get_auth_builder_api_key = clobPrivateGetAuthBuilderApiKey = Entry[_List](
         "auth/builder-api-key", ["clob", "private"], "GET", {"cost": 1}
     )
@@ -276,8 +320,12 @@ class ImplicitAPI:
     clob_private_post_heartbeats = clobPrivatePostHeartbeats = Entry[_Dict](
         "heartbeats", ["clob", "private"], "POST", {"cost": 1}
     )
-    clob_private_post_order = clobPrivatePostOrder = Entry[_Dict]("order", ["clob", "private"], "POST", {"cost": 1})
-    clob_private_post_orders = clobPrivatePostOrders = Entry[_List]("orders", ["clob", "private"], "POST", {"cost": 1})
+    clob_private_post_order = clobPrivatePostOrder = Entry[_Dict](
+        "order", ["clob", "private"], "POST", {"cost": 1}
+    )
+    clob_private_post_orders = clobPrivatePostOrders = Entry[_List](
+        "orders", ["clob", "private"], "POST", {"cost": 1}
+    )
     clob_private_post_v1_heartbeats = clobPrivatePostV1Heartbeats = Entry[_Dict](
         "v1/heartbeats", ["clob", "private"], "POST", {"cost": 1}
     )
@@ -302,24 +350,36 @@ class ImplicitAPI:
     clob_private_delete_orders = clobPrivateDeleteOrders = Entry[_Dict](
         "orders", ["clob", "private"], "DELETE", {"cost": 1}
     )
-    data_public_get_activity = dataPublicGetActivity = Entry[_List]("activity", ["data", "public"], "GET", {"cost": 1})
+    data_public_get_activity = dataPublicGetActivity = Entry[_List](
+        "activity", ["data", "public"], "GET", {"cost": 1}
+    )
     data_public_get_closed_positions = dataPublicGetClosedPositions = Entry[_List](
         "closed-positions", ["data", "public"], "GET", {"cost": 1}
     )
-    data_public_get_holders = dataPublicGetHolders = Entry[_List]("holders", ["data", "public"], "GET", {"cost": 1})
+    data_public_get_holders = dataPublicGetHolders = Entry[_List](
+        "holders", ["data", "public"], "GET", {"cost": 1}
+    )
     data_public_get_live_volume = dataPublicGetLiveVolume = Entry[_List](
         "live-volume", ["data", "public"], "GET", {"cost": 1}
     )
-    data_public_get_oi = dataPublicGetOi = Entry[_List]("oi", ["data", "public"], "GET", {"cost": 1})
-    data_public_get_other = dataPublicGetOther = Entry[_List]("other", ["data", "public"], "GET", {"cost": 1})
+    data_public_get_oi = dataPublicGetOi = Entry[_List](
+        "oi", ["data", "public"], "GET", {"cost": 1}
+    )
+    data_public_get_other = dataPublicGetOther = Entry[_List](
+        "other", ["data", "public"], "GET", {"cost": 1}
+    )
     data_public_get_positions = dataPublicGetPositions = Entry[_Dict](
         "positions", ["data", "public"], "GET", {"cost": 1}
     )
     data_public_get_revisions = dataPublicGetRevisions = Entry[_List](
         "revisions", ["data", "public"], "GET", {"cost": 1}
     )
-    data_public_get_traded = dataPublicGetTraded = Entry[_Dict]("traded", ["data", "public"], "GET", {"cost": 1})
-    data_public_get_trades = dataPublicGetTrades = Entry[_List]("trades", ["data", "public"], "GET", {"cost": 1})
+    data_public_get_traded = dataPublicGetTraded = Entry[_Dict](
+        "traded", ["data", "public"], "GET", {"cost": 1}
+    )
+    data_public_get_trades = dataPublicGetTrades = Entry[_List](
+        "trades", ["data", "public"], "GET", {"cost": 1}
+    )
     data_public_get_v1_accounting_snapshot = dataPublicGetV1AccountingSnapshot = Entry[_Dict](
         "v1/accounting/snapshot", ["data", "public"], "GET", {"cost": 1}
     )
@@ -341,16 +401,18 @@ class ImplicitAPI:
     data_public_get_v1_positions_combos = dataPublicGetV1PositionsCombos = Entry[_Dict](
         "v1/positions/combos", ["data", "public"], "GET", {"cost": 1}
     )
-    data_public_get_value = dataPublicGetValue = Entry[_List]("value", ["data", "public"], "GET", {"cost": 1})
+    data_public_get_value = dataPublicGetValue = Entry[_List](
+        "value", ["data", "public"], "GET", {"cost": 1}
+    )
     combos_public_get_v1_rfq_combo_markets = combosPublicGetV1RfqComboMarkets = Entry[_Dict](
         "v1/rfq/combo-markets", ["combos", "public"], "GET", {"cost": 1}
     )
-    combos_private_post_v1_maker_confirmations = combosPrivatePostV1MakerConfirmations = Entry[_Dict](
-        "v1/maker/confirmations", ["combos", "private"], "POST", {"cost": 1}
-    )
+    combos_private_post_v1_maker_confirmations = combosPrivatePostV1MakerConfirmations = Entry[
+        _Dict
+    ]("v1/maker/confirmations", ["combos", "private"], "POST", {"cost": 1})
     combos_private_post_v1_maker_quotes = combosPrivatePostV1MakerQuotes = Entry[_Dict](
         "v1/maker/quotes", ["combos", "private"], "POST", {"cost": 1}
     )
-    combos_private_post_v1_maker_quotes_cancel = combosPrivatePostV1MakerQuotesCancel = Entry[_Dict](
-        "v1/maker/quotes/cancel", ["combos", "private"], "POST", {"cost": 1}
-    )
+    combos_private_post_v1_maker_quotes_cancel = combosPrivatePostV1MakerQuotesCancel = Entry[
+        _Dict
+    ]("v1/maker/quotes/cancel", ["combos", "private"], "POST", {"cost": 1})

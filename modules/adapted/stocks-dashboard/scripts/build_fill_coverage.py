@@ -102,14 +102,19 @@ def main():
     except Exception:
         EV = {}
 
-    fund = {s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3} for s, rows in fund_raw.items()}
+    fund = {
+        s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3} for s, rows in fund_raw.items()
+    }
     revop = {s: {int(q): (v[0], v[1]) for q, v in d.items()} for s, d in revop_raw.items()}
     divq = {}
     for s, rows in fund_raw.items():
         d = [
             r[0]
             for r in rows
-            if len(r) > 3 and r[1] is not None and r[3] is not None and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
+            if len(r) > 3
+            and r[1] is not None
+            and r[3] is not None
+            and abs(r[3] - r[1]) > max(0.05, abs(r[1]) * 0.001)
         ]
         if d:
             divq[s] = set(d)
@@ -164,9 +169,7 @@ def main():
                 return False
             fy = ev.get("first_con_fy")
             # Before the earliest evidence we have, we genuinely do not know -- do not claim a gap.
-            if fy and qe < (fy - 1) * 10000 + 401:
-                return False
-            return True
+            return not (fy and qe < (fy - 1) * 10000 + 401)
         return bool(divq.get(sym, set()) & back4(qe))
 
     rows, tot = [], {"revS": 0, "revC": 0, "patS": 0, "patC": 0}
@@ -176,7 +179,9 @@ def main():
         na = {"patC": 0, "revC": 0}
         for sym in mem:
             fk = resolve(sym, fund)
-            if (ceased.get(fk or sym) and qe >= ceased[fk or sym]) or (ceased.get(sym) and qe >= ceased[sym]):
+            if (ceased.get(fk or sym) and qe >= ceased[fk or sym]) or (
+                ceased.get(sym) and qe >= ceased[sym]
+            ):
                 na["patC"] += 1
                 na["revC"] += 1
                 continue
@@ -215,7 +220,9 @@ def main():
         "baseline": BASELINE,
         "totals": tot,
         "closed": {k: BASELINE[k] - tot[k] for k in BASELINE},
-        "pct_closed": round(100.0 * (sum(BASELINE.values()) - sum(tot.values())) / sum(BASELINE.values()), 1),
+        "pct_closed": round(
+            100.0 * (sum(BASELINE.values()) - sum(tot.values())) / sum(BASELINE.values()), 1
+        ),
         "max_names": MAX_NAMES,
         "rows": rows,
     }

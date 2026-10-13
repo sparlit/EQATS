@@ -56,16 +56,18 @@ class LedgerConfig:
         for value in asdict(self).values():
             number(value)
         if self.capital <= 0 or self.max_open < 1 or self.penny_expiry_sessions < 1:
-            msg = "Invalid ledger capacity"
-            raise ValueError(msg)
+            raise ValueError("Invalid ledger capacity")
         if not all(
-            0 < value <= 1 for value in (self.risk_fraction, self.max_position_fraction, self.max_total_risk_fraction)
+            0 < value <= 1
+            for value in (
+                self.risk_fraction,
+                self.max_position_fraction,
+                self.max_total_risk_fraction,
+            )
         ):
-            msg = "Invalid allocation fraction"
-            raise ValueError(msg)
+            raise ValueError("Invalid allocation fraction")
         if min(self.fee_bps, self.slippage_bps, self.max_gap_pct) < 0 or self.slippage_bps >= 10000:
-            msg = "Invalid execution cost"
-            raise ValueError(msg)
+            raise ValueError("Invalid execution cost")
 
 
 def _summary(state: dict, day: str) -> dict:
@@ -92,8 +94,7 @@ def _bar(raw: dict | None, day: str) -> dict | None:
         <= max(values["open"], values["close"])
         <= values["high"]
     ):
-        msg = "Invalid OHLC bar"
-        raise ValueError(msg)
+        raise ValueError("Invalid OHLC bar")
     return {**raw, **values}
 
 
@@ -101,7 +102,15 @@ def _apply(state: dict, day: str, bars: dict, candidates: list[dict], config: Le
     events = []
 
     def event(kind, trade, **extra):
-        events.append({"date": day, "event": kind, "trade_id": trade["trade_id"], "symbol": trade["symbol"], **extra})
+        events.append(
+            {
+                "date": day,
+                "event": kind,
+                "trade_id": trade["trade_id"],
+                "symbol": trade["symbol"],
+                **extra,
+            }
+        )
 
     def manage(p, bar, *, entry_day=False):
         p.update(last_price=bar["close"], mark_date=day)
@@ -150,7 +159,10 @@ def _apply(state: dict, day: str, bars: dict, candidates: list[dict], config: Le
     survivors = []
     for pending in state["pending"]:
         pending["sessions_waited"] += 1
-        if state["scanner"] == "Penny" and pending["sessions_waited"] > config.penny_expiry_sessions:
+        if (
+            state["scanner"] == "Penny"
+            and pending["sessions_waited"] > config.penny_expiry_sessions
+        ):
             event("EXPIRED", pending)
             continue
         bar = _bar(bars.get(pending["symbol"]), day)
@@ -174,7 +186,9 @@ def _apply(state: dict, day: str, bars: dict, candidates: list[dict], config: Le
             survivors.append(pending)
             continue
         snapshot = _summary(state, day)
-        open_risk = sum(p["remaining_quantity"] * max(p["entry"] - p["stop"], 0) for p in state["positions"])
+        open_risk = sum(
+            p["remaining_quantity"] * max(p["entry"] - p["stop"], 0) for p in state["positions"]
+        )
         quantity = max(
             0,
             min(
@@ -213,13 +227,15 @@ def _apply(state: dict, day: str, bars: dict, candidates: list[dict], config: Le
             continue
         if len(active) >= config.max_open:
             break
-        values = {k: number(c[k]) for k in ("entry", "entry_high", "stop", "target1", "target2", "max_stop_pct")}
+        values = {
+            k: number(c[k])
+            for k in ("entry", "entry_high", "stop", "target1", "target2", "max_stop_pct")
+        }
         if (
             not 0 < values["stop"] < values["entry"] < values["target1"] <= values["target2"]
             or values["entry_high"] < values["entry"]
         ):
-            msg = "Invalid candidate geometry"
-            raise ValueError(msg)
+            raise ValueError("Invalid candidate geometry")
         identity = f"{state['scanner']}:{c['symbol']}:{day}"
         p = {
             **c,
@@ -241,8 +257,7 @@ def _apply(state: dict, day: str, bars: dict, candidates: list[dict], config: Le
             "Security master unavailable; using the existing scanner gateway fallback for this session."
         )
     if result["available_cash"] < -0.01:
-        msg = "New paper ledger cannot borrow cash"
-        raise ValueError(msg)
+        raise ValueError("New paper ledger cannot borrow cash")
     result["events_today"] = events
     return result
 
@@ -265,8 +280,7 @@ def advance(
     fills or silently repricing history. One database contains one scanner only.
     """
     if scanner not in {"Penny", "Momentum Ladder"}:
-        msg = "Only Penny and Ladder use this new lifecycle"
-        raise ValueError(msg)
+        raise ValueError("Only Penny and Ladder use this new lifecycle")
     from datetime import date
 
     date.fromisoformat(day)
@@ -286,17 +300,22 @@ def advance(
     )
     digest = sha256(payload.encode()).hexdigest()
     with sqlite3.connect(target, timeout=30) as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ledger (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)"
+        )
         conn.execute(
             "CREATE TABLE IF NOT EXISTS sessions (day TEXT PRIMARY KEY, digest TEXT NOT NULL, report TEXT NOT NULL)"
         )
         conn.commit()
         conn.execute("BEGIN IMMEDIATE")
-        existing = conn.execute("SELECT digest, report FROM sessions WHERE day=?", (day,)).fetchone()
+        existing = conn.execute(
+            "SELECT digest, report FROM sessions WHERE day=?", (day,)
+        ).fetchone()
         if existing:
             if existing[0] != digest:
-                msg = "Completed session inputs changed; use a separate reconstruction ledger"
-                raise ValueError(msg)
+                raise ValueError(
+                    "Completed session inputs changed; use a separate reconstruction ledger"
+                )
             return json.loads(existing[1])
         stored = conn.execute("SELECT payload FROM ledger WHERE id=1").fetchone()
         state = (
@@ -313,16 +332,22 @@ def advance(
                 "provenance": provenance,
             }
         )
-        if state["scanner"] != scanner or state["config"] != asdict(config) or state["provenance"] != provenance:
-            msg = "Ledger identity/configuration cannot change"
-            raise ValueError(msg)
+        if (
+            state["scanner"] != scanner
+            or state["config"] != asdict(config)
+            or state["provenance"] != provenance
+        ):
+            raise ValueError("Ledger identity/configuration cannot change")
         if state["last_date"] and day <= state["last_date"]:
-            msg = "Cannot append an older session"
-            raise ValueError(msg)
+            raise ValueError("Cannot append an older session")
         if state["last_date"] and previous_session and state["last_date"] != previous_session:
-            msg = "Missing market session; replay the missing dates before advancing"
-            raise ValueError(msg)
+            raise ValueError("Missing market session; replay the missing dates before advancing")
         result = _apply(state, day, bars, candidates, config)
-        conn.execute("INSERT OR REPLACE INTO ledger VALUES (1,?)", (json.dumps(state, allow_nan=False),))
-        conn.execute("INSERT INTO sessions VALUES (?,?,?)", (day, digest, json.dumps(result, allow_nan=False)))
+        conn.execute(
+            "INSERT OR REPLACE INTO ledger VALUES (1,?)", (json.dumps(state, allow_nan=False),)
+        )
+        conn.execute(
+            "INSERT INTO sessions VALUES (?,?,?)",
+            (day, digest, json.dumps(result, allow_nan=False)),
+        )
         return result

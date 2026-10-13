@@ -48,7 +48,8 @@ class TestPFromT:
 class TestCorrections:
     def _hyps(self, ps):
         return [
-            {"source": "s", "name": f"h{i}", "t_stat": 5.0, "n": 100, "p": p, "mean_bps": 10} for i, p in enumerate(ps)
+            {"source": "s", "name": f"h{i}", "t_stat": 5.0, "n": 100, "p": p, "mean_bps": 10}
+            for i, p in enumerate(ps)
         ]
 
     def test_bonferroni_threshold_scales_with_family(self):
@@ -78,7 +79,9 @@ class TestCollect:
             json.dumps({"full": {"dz_hi_up": {"3d": {"n": 6000, "t_stat": 8.6, "mean_bps": 63.7}}}})
         )
         (gen / "delivery_r2b.json").write_text(
-            json.dumps({"dz_hi_up price<100": {"10d": {"n": 1541, "t_stat": 3.14, "mean_bps": 104.8}}})
+            json.dumps(
+                {"dz_hi_up price<100": {"10d": {"n": 1541, "t_stat": 3.14, "mean_bps": 104.8}}}
+            )
         )
         hyps = dc.collect_hypotheses(gen)
         names = [h["name"] for h in hyps]

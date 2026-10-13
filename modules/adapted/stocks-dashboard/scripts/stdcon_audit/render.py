@@ -48,7 +48,9 @@ def render(pdf, page, y0=0.0, y1=1.0, out=None, zoom=3.0):
     clip = fitz.Rect(r.x0, r.y0 + (r.y1 - r.y0) * y0, r.x1, r.y0 + (r.y1 - r.y0) * y1)
     pm = pg.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=clip)
     os.makedirs(SHOT, exist_ok=True)
-    out = out or os.path.join(SHOT, "%s_p%d_%.2f-%.2f.png" % (os.path.basename(path)[:12], page, y0, y1))
+    out = out or os.path.join(
+        SHOT, "%s_p%d_%.2f-%.2f.png" % (os.path.basename(path)[:12], page, y0, y1)
+    )
     pm.save(out)
     return out
 

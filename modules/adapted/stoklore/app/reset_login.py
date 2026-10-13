@@ -52,7 +52,7 @@ def main(argv=None):
 
     try:
         db.init_schema()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - the usual cause is "Postgres isn't running"
         print(f"couldn't reach the database: {e}", file=sys.stderr)
         return 1
 

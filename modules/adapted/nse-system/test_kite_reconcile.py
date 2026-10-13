@@ -93,9 +93,9 @@ class KiteReconcileTests(unittest.TestCase):
         return database
 
     def test_relative_comparison_is_strict_around_zero(self):
-        assert values_agree(0.001, 0.001005, 0.01)
-        assert not values_agree(0, 0.001, 0.01)
-        assert values_agree(0, 0, 0.01)
+        self.assertTrue(values_agree(0.001, 0.001005, 0.01))
+        self.assertFalse(values_agree(0, 0.001, 0.01))
+        self.assertTrue(values_agree(0, 0, 0.01))
 
     def test_attested_snapshot_does_not_overwrite_newer_daily_price(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -108,23 +108,31 @@ class KiteReconcileTests(unittest.TestCase):
 
             result = reconcile(database, apply=True, make_backup=False)
 
-            assert result["newer_daily_price_symbols"] == 1
-            assert result["newer_daily_close_updates_skipped"] == 1
-            assert result["fields"]["current_price"]["stale_not_applied"] == 1
+            self.assertEqual(result["newer_daily_price_symbols"], 1)
+            self.assertEqual(result["newer_daily_close_updates_skipped"], 1)
+            self.assertEqual(result["fields"]["current_price"]["stale_not_applied"], 1)
             conn = sqlite3.connect(database)
-            assert conn.execute(
-                "SELECT current_price,market_cap_cr FROM fundamentals WHERE symbol='EXAMPLE'"
-            ).fetchone() == (90, 1000)
-            assert conn.execute("SELECT close,mcap_cr FROM universe_broad WHERE symbol='EXAMPLE'").fetchone() == (
-                90,
-                1000,
+            self.assertEqual(
+                conn.execute(
+                    "SELECT current_price,market_cap_cr FROM fundamentals WHERE symbol='EXAMPLE'"
+                ).fetchone(),
+                (90, 1000),
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT close,mcap_cr FROM universe_broad WHERE symbol='EXAMPLE'"
+                ).fetchone(),
+                (90, 1000),
             )
             stale_audit = conn.execute(
                 "SELECT agreed,live_before,live_after,universe_before,"
                 "universe_after,latest_daily_price_date,action "
                 "FROM market_data_attestations WHERE field='current_price'"
             ).fetchone()
-            assert stale_audit == (1, 90, 90, 90, 90, "2026-09-28", "attested_stale_snapshot_not_applied")
+            self.assertEqual(
+                stale_audit,
+                (1, 90, 90, 90, 90, "2026-09-28", "attested_stale_snapshot_not_applied"),
+            )
             conn.close()
 
     def test_only_attested_fields_update_live_and_universe_data(self):
@@ -132,17 +140,19 @@ class KiteReconcileTests(unittest.TestCase):
             database = self._database(folder)
             result = reconcile(database, apply=True, make_backup=False)
 
-            assert result["overlap_symbols"] == 1
-            assert result["fundamentals_symbols_refreshed"] == 1
+            self.assertEqual(result["overlap_symbols"], 1)
+            self.assertEqual(result["fundamentals_symbols_refreshed"], 1)
             conn = sqlite3.connect(database)
             live = conn.execute(
                 "SELECT current_price,market_cap_cr,pe,debt_to_equity,"
                 "dividend_yield,roe,data_source FROM fundamentals "
                 "WHERE symbol='EXAMPLE'"
             ).fetchone()
-            assert live == (100, 1000, 18, 0.004, 2, 15, "kite_scanx_attested")
-            broad = conn.execute("SELECT close,mcap_cr FROM universe_broad WHERE symbol='EXAMPLE'").fetchone()
-            assert broad == (100, 1000)
+            self.assertEqual(live, (100, 1000, 18, 0.004, 2, 15, "kite_scanx_attested"))
+            broad = conn.execute(
+                "SELECT close,mcap_cr FROM universe_broad WHERE symbol='EXAMPLE'"
+            ).fetchone()
+            self.assertEqual(broad, (100, 1000))
             audit = {
                 row[0]: row[1:]
                 for row in conn.execute(
@@ -151,17 +161,28 @@ class KiteReconcileTests(unittest.TestCase):
                     "FROM market_data_attestations"
                 )
             }
-            assert audit["current_price"] == (1, 90, 100, 90, 100, "updated_fundamentals_and_universe")
-            assert audit["pe"][0] == 0
-            assert audit["pe"][1:4] == (18, 18, None)
-            assert conn.execute("SELECT COUNT(*) FROM market_data_attestations").fetchone()[0] == 6
+            self.assertEqual(
+                audit["current_price"], (1, 90, 100, 90, 100, "updated_fundamentals_and_universe")
+            )
+            self.assertEqual(audit["pe"][0], 0)
+            self.assertEqual(audit["pe"][1:4], (18, 18, None))
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM market_data_attestations").fetchone()[0], 6
+            )
             conn.close()
 
             rerun = reconcile(database, apply=True, make_backup=False)
-            assert rerun["fundamentals_symbols_refreshed"] == 1
+            self.assertEqual(rerun["fundamentals_symbols_refreshed"], 1)
             conn = sqlite3.connect(database)
-            assert conn.execute("SELECT COUNT(*) FROM fundamentals WHERE symbol='EXAMPLE'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM market_data_attestations").fetchone()[0] == 6
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM fundamentals WHERE symbol='EXAMPLE'").fetchone()[
+                    0
+                ],
+                1,
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM market_data_attestations").fetchone()[0], 6
+            )
             conn.close()
 
 

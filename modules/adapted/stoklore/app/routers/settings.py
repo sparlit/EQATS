@@ -171,7 +171,9 @@ def test_telegram():
     """Sends one message now, so a wrong chat id shows up here rather than as silence at 9am."""
     from app.services import workflow_notify
 
-    error = workflow_notify.send_telegram("Stoklore: workflow notifications will arrive in this chat.")
+    error = workflow_notify.send_telegram(
+        "Stoklore: workflow notifications will arrive in this chat."
+    )
     if error:
         raise HTTPException(status_code=400, detail=error)
     return {"ok": True}
@@ -193,7 +195,9 @@ def get_classifier_config():
 @router.put("/api/settings/classifier")
 def set_classifier_config(req: ClassifierConfigRequest):
     if req.enabled and not classifier.installed():
-        raise HTTPException(status_code=422, detail="the laya package isn't installed - pip install laya")
+        raise HTTPException(
+            status_code=422, detail="the laya package isn't installed - pip install laya"
+        )
     classifier.set_enabled(req.enabled)
     if req.enabled:
         classifier.tag_pending_async()  # backfill tags on news already in the database

@@ -43,7 +43,7 @@ import codecs
 import collections.abc
 import re
 
-from ccxt.static_dependencies.keccak import SHA3 as keccak
+from ..keccak import SHA3 as keccak
 
 
 class EncodingError(Exception):
@@ -77,20 +77,26 @@ def _is_bytes(value):
 
 
 def _is_list_like(value):
-    return not isinstance(value, (bytes, str, bytearray)) and isinstance(value, collections.abc.Sequence)
+    return not isinstance(value, (bytes, str, bytearray)) and isinstance(
+        value, collections.abc.Sequence
+    )
 
 
 def _invalid_value(value, type_str, msg=None, exc=EncodingTypeError):
-    msg_0 = "Value `{}` of type {} cannot be encoded as ABI type {}{}".format(
-        repr(value), type(value), type_str, "" if msg is None else (": " + msg)
+    raise exc(
+        "Value `{}` of type {} cannot be encoded as ABI type {}{}".format(
+            repr(value), type(value), type_str, "" if msg is None else (": " + msg)
+        )
     )
-    raise exc(msg_0)
 
 
 def _to_checksum_address(lower_address):
     # `lower_address` is a lowercase, non-prefixed 40-char hex string
     address_hash = keccak(lower_address.encode("utf-8")).hex()
-    return "".join(lower_address[i].upper() if int(address_hash[i], 16) > 7 else lower_address[i] for i in range(40))
+    return "".join(
+        lower_address[i].upper() if int(address_hash[i], 16) > 7 else lower_address[i]
+        for i in range(40)
+    )
 
 
 def _canonical_address(value, type_str):
@@ -100,16 +106,17 @@ def _canonical_address(value, type_str):
         if _HEX_ADDRESS_RE.fullmatch(value) is None:
             _invalid_value(value, type_str)
         unprefixed = value[2:] if value[:2] in ("0x", "0X") else value
-        is_checksum_formatted = not unprefixed.islower() and not unprefixed.isupper() and not unprefixed.isnumeric()
+        is_checksum_formatted = (
+            not unprefixed.islower() and not unprefixed.isupper() and not unprefixed.isnumeric()
+        )
         if is_checksum_formatted and unprefixed != _to_checksum_address(unprefixed.lower()):
             _invalid_value(value, type_str, msg="invalid EIP-55 checksum")
         return bytes.fromhex(unprefixed.lower())
-    if _is_bytes(value):
+    elif _is_bytes(value):
         if len(value) != 20:
             _invalid_value(value, type_str)
         return bytes(value)
     _invalid_value(value, type_str)
-    return None
 
 
 def _encode_uint(value, bits, type_str):
@@ -177,7 +184,7 @@ class _Encoder:
         self.type_str = type_str
 
     def __call__(self, value):
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 class _UnsignedIntegerEncoder(_Encoder):
@@ -282,8 +289,7 @@ _TYPE_ALIASES = {
 
 def get_encoder(type_str):
     if not isinstance(type_str, str):
-        msg = f"ABI type must be a string, got {type_str!r}"
-        raise ABITypeError(msg)
+        raise ABITypeError(f"ABI type must be a string, got {repr(type_str)}")
     array_match = _ARRAY_RE.match(type_str)
     if array_match is not None:
         item_type, array_size = array_match.groups()
@@ -302,21 +308,18 @@ def get_encoder(type_str):
     if bytes_match is not None:
         size = int(bytes_match.group(1))
         if size < 1 or size > 32:
-            msg = f"Invalid ABI type: {type_str}"
-            raise ABITypeError(msg)
+            raise ABITypeError(f"Invalid ABI type: {type_str}")
         return _FixedBytesEncoder(type_str, size)
     int_match = _INT_RE.match(normalized)
     if int_match is not None:
         base, bits_str = int_match.groups()
         bits = int(bits_str)
         if bits < 8 or bits > 256 or bits % 8 != 0:
-            msg = f"Invalid ABI type: {type_str}"
-            raise ABITypeError(msg)
+            raise ABITypeError(f"Invalid ABI type: {type_str}")
         if base == "uint":
             return _UnsignedIntegerEncoder(type_str, bits)
         return _SignedIntegerEncoder(type_str, bits)
-    msg = f"Unsupported or invalid ABI type: {type_str}"
-    raise ABITypeError(msg)
+    raise ABITypeError(f"Unsupported or invalid ABI type: {type_str}")
 
 
 def encode(types, args):
@@ -327,11 +330,12 @@ def encode(types, args):
     """
     encoders = [get_encoder(type_str) for type_str in types]
     if not _is_list_like(args):
-        msg = f"Values to be encoded must be a list-like object such as array or tuple, got {type(args)}"
-        raise EncodingTypeError(msg)
+        raise EncodingTypeError(
+            "Values to be encoded must be a list-like object such as array or tuple, "
+            f"got {type(args)}"
+        )
     if len(args) != len(encoders):
-        msg = f"Value has {len(args)} items when {len(encoders)} were expected"
-        raise ValueOutOfBounds(msg)
+        raise ValueOutOfBounds(f"Value has {len(args)} items when {len(encoders)} were expected")
     raw_head_chunks = []
     tail_chunks = []
     for value, encoder in zip(args, encoders, strict=False):

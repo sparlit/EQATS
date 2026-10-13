@@ -34,7 +34,7 @@ Completely original signal. No equivalent tool exists for Indian markets.
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.divergence")
 
@@ -178,21 +178,21 @@ def get_fii_retail_divergence(symbol: str) -> dict:
             signal = "BUY"
             confidence = "medium"
             interpretation = f"Both FII (+{fii_change:.1f}%) and retail (+{retail_change:.1f}%) increasing — broad-based accumulation."
-            historical_implication = "Both sides buying is a strong momentum signal but not a divergence play."
+            historical_implication = (
+                "Both sides buying is a strong momentum signal but not a divergence play."
+            )
 
         elif fii_selling and retail_selling:
             divergence_type = "none"
             signal = "SELL"
             confidence = "medium"
-            interpretation = (
-                f"Both FII ({fii_change:.1f}%) and retail ({retail_change:.1f}%) reducing — broad-based exit."
+            interpretation = f"Both FII ({fii_change:.1f}%) and retail ({retail_change:.1f}%) reducing — broad-based exit."
+            historical_implication = (
+                "Both sides selling indicates fundamental concerns. Avoid until stabilisation."
             )
-            historical_implication = "Both sides selling indicates fundamental concerns. Avoid until stabilisation."
 
         else:
-            interpretation = (
-                f"FII change: {fii_change:.1f}%, Retail change: {retail_change:.1f}% — no strong divergence."
-            )
+            interpretation = f"FII change: {fii_change:.1f}%, Retail change: {retail_change:.1f}% — no strong divergence."
             historical_implication = "No actionable divergence signal at this time."
 
     elif fii_change is None and retail_change is None:

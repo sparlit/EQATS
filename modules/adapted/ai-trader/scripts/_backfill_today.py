@@ -34,10 +34,8 @@ load_dotenv()
 
 from datetime import date, datetime
 
-import pandas as pd
 from backtest.option_resolver import get_nearest_expiry
 from data.truedata_adapter import TrueDataAdapter
-
 from database.db import read_sql, upsert_candles
 
 today = date.today()
@@ -66,7 +64,9 @@ else:
     nifty_close = float(bars.iloc[-1]["close"])
     first_ts = str(bars.iloc[0]["timestamp"])
     last_ts = str(bars.iloc[-1]["timestamp"])
-    print(f"NIFTY-I: upserted {len(bars)} candles  [{first_ts} → {last_ts}]  last={nifty_close:.1f}")
+    print(
+        f"NIFTY-I: upserted {len(bars)} candles  [{first_ts} → {last_ts}]  last={nifty_close:.1f}"
+    )
 
 # 2. ATM option candles
 if nifty_close > 0:
@@ -97,7 +97,19 @@ if nifty_close > 0:
                     for col in ["vwap", "oi"]:
                         if col not in ob.columns:
                             ob[col] = 0
-                    ob = ob[["timestamp", "symbol", "open", "high", "low", "close", "volume", "vwap", "oi"]]
+                    ob = ob[
+                        [
+                            "timestamp",
+                            "symbol",
+                            "open",
+                            "high",
+                            "low",
+                            "close",
+                            "volume",
+                            "vwap",
+                            "oi",
+                        ]
+                    ]
                     upsert_candles(ob)
                     print(f"  {sym}: upserted {len(ob)} bars (had {cnt})")
                 else:

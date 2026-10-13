@@ -10,8 +10,8 @@ use crate::broadcast::{
     BroadcastCmd, CacheCmdIn, PriceAsset, PriceData, SubReply, SubscribePayload,
 };
 use hyperliquid_rust_sdk::{
-    AssetMeta, AssetPosition, BaseUrl, Error, InfoClient, LedgerUpdate, LedgerUpdateData, Message,
-    Subscription, UserData,
+    AssetMeta, BaseUrl, Error, InfoClient, LedgerUpdate, LedgerUpdateData, Message, Subscription,
+    UserData,
 };
 use log::warn;
 use rhai::Engine;
@@ -232,12 +232,16 @@ async fn persist_trade(store: &LocalStore, pubkey: &str, item: TradePersistence)
         total_pnl: item.trade.total_pnl,
         fees: item.trade.fees,
         funding: item.trade.funding,
-        open_time: item.trade.open.time as i64,
+        open_time: item.trade.open.time.map(|time| time as i64),
         open_price: item.trade.open.price,
-        open_type: format!("{:?}", item.trade.open.fill_type),
-        close_time: item.trade.close.time as i64,
+        open_type: item.trade.open.fill_type.map(|kind| format!("{kind:?}")),
+        close_time: item.trade.close.time.map(|time| time as i64),
         close_price: item.trade.close.price,
-        close_type: format!("{:?}", item.trade.close.fill_type),
+        close_type: item.trade.close.fill_type.map(|kind| format!("{kind:?}")),
+        managed_pnl: Some(item.trade.managed_pnl()),
+        open_origin: item.trade.open.origin,
+        close_origin: item.trade.close.origin,
+        adoption: item.trade.adoption,
         strategy: item.trade.strategy,
     };
     if let Err(e) = store.append_trade(pubkey, row).await {
@@ -269,7 +273,6 @@ pub struct Bot {
     store: Option<Arc<LocalStore>>,
     rhai_engine: Option<Arc<Engine>>,
     strategy_cache: Option<StrategyCache>,
-    chain_open_positions: Vec<AssetPosition>,
     key_valid: bool,
     builder_approved: bool,
 }
@@ -317,7 +320,6 @@ impl Bot {
                 store: None,
                 rhai_engine: None,
                 strategy_cache: None,
-                chain_open_positions: Vec::new(),
                 key_valid: true,
                 builder_approved: true,
             },
@@ -817,30 +819,22 @@ impl Bot {
             return Ok(());
         }
 
-        self.chain_open_positions = MarginBook::sync_shared(margin_book).await?;
-        if self
-            .chain_open_positions
-            .iter()
-            .any(|p| p.position.coin == asset)
-        {
-            self.send_to_frontend(UpdateFrontend::UserError(format!(
-                "Cannot add a market with open on-chain position({})",
-                asset
-            )))
-            .await;
-            return Ok(());
-        }
-
-        let mut book = margin_book.lock().await;
-        let margin = book.allocate_from_current(asset.clone(), margin_alloc)?;
-        drop(book);
-
         self.send_to_frontend(UpdateFrontend::PreconfirmMarket(asset.clone()))
             .await;
 
         let market_asset = Arc::<str>::from(asset.as_str());
         let had_feed = self.asset_feeds.contains_key(&market_asset);
         let meta = self.ensure_asset_feed(Arc::clone(&market_asset)).await?;
+        let bootstrap = match MarginBook::add_market_shared(margin_book, &asset, margin_alloc).await
+        {
+            Ok(bootstrap) => bootstrap,
+            Err(error) => {
+                if !had_feed {
+                    self.unsubscribe_asset_if_idle(market_asset).await;
+                }
+                return Err(error);
+            }
+        };
         let (price_tx, price_rx) = channel::<PriceAsset>(MARKET_PRICE_CHANNEL_SIZE);
 
         let market_result = Market::new(
@@ -850,7 +844,7 @@ impl Bot {
             self.candle_rx.clone(),
             price_rx,
             meta,
-            margin,
+            bootstrap,
             lev,
             compiled,
             strat_indicators,
@@ -861,6 +855,9 @@ impl Bot {
         let (market, market_tx) = match market_result {
             Ok(result) => result,
             Err(e) => {
+                let total = release_market_margin(&asset, margin_book).await;
+                self.send_to_frontend(UpdateFrontend::UpdateTotalMargin(total))
+                    .await;
                 if !had_feed {
                     self.unsubscribe_asset_if_idle(market_asset).await;
                 }
@@ -869,11 +866,14 @@ impl Bot {
         };
 
         self.markets.insert(asset.clone(), market_tx);
+        let free = margin_book.lock().await.free();
+        self.send_to_frontend(UpdateFrontend::UpdateTotalMargin(free))
+            .await;
         self.market_price_routes.insert(asset.clone(), price_tx);
         self.market_required_assets
             .insert(asset.clone(), HashSet::default());
         let api_key_valid = self.key_valid;
-        let trading_enabled = api_key_valid && self.builder_approved;
+        let trading_enabled = api_key_valid && self.builder_approved && strategy_id.is_some();
         if !api_key_valid {
             self.send_to_frontend(UpdateFrontend::NeedsApiKey(true))
                 .await;
@@ -968,16 +968,40 @@ impl Bot {
         paused
     }
 
-    pub async fn resume_all(&self) -> Vec<String> {
-        let mut resumed = Vec::new();
-        for (asset, tx) in &self.markets {
-            if send_market_command(asset, tx, MarketCommand::Resume, "Resume").await
-                == MarketCommandSendResult::Sent
-            {
-                resumed.push(asset.clone());
-            }
+    async fn resume_market(
+        &self,
+        asset: &str,
+        book: &Arc<Mutex<MarginBook>>,
+        session: &Session,
+    ) -> Result<(), Error> {
+        if !self.key_valid || !self.builder_approved {
+            return Err(Error::Custom(
+                "Authorize the API key and approve builder fees before resuming".into(),
+            ));
         }
-        resumed
+        let paused = session
+            .lock()
+            .await
+            .get(asset)
+            .map(|state| state.is_paused)
+            .ok_or_else(|| Error::Custom(format!("{asset} market is not ready")))?;
+        if !paused {
+            return Ok(());
+        }
+        let bootstrap = MarginBook::resume_market_shared(book, asset).await?;
+        let free = book.lock().await.free();
+        self.send_to_frontend(UpdateFrontend::UpdateTotalMargin(free))
+            .await;
+        match self
+            .send_cmd(
+                asset.to_string(),
+                MarketCommand::ResumeWithPosition(bootstrap),
+            )
+            .await
+        {
+            MarketCommandSendResult::Sent => Ok(()),
+            _ => Err(Error::Custom(format!("Failed to queue resume for {asset}"))),
+        }
     }
 
     pub async fn close_all(&mut self) {
@@ -1023,8 +1047,12 @@ impl Bot {
                     self.handle_user_fills(fills_vec).await;
                 }
                 UserData::Funding(funding_update) => {
-                    self.handle_user_funding(funding_update.coin, funding_update.usdc)
-                        .await;
+                    self.handle_user_funding(
+                        funding_update.coin,
+                        funding_update.usdc,
+                        funding_update.time,
+                    )
+                    .await;
                 }
                 _ => {}
             }
@@ -1072,43 +1100,26 @@ impl Bot {
         }
     }
 
-    async fn handle_user_fills(&mut self, fills_vec: Vec<HLTradeInfo>) {
-        let mut fills_map: FillsMap = HashMap::default();
-
-        for trade in fills_vec.into_iter() {
-            let coin = trade.coin.clone();
-            let oid = trade.oid;
-            fills_map
-                .entry(coin)
-                .or_default()
-                .entry(oid)
-                .or_default()
-                .push(trade);
-        }
-
-        for (coin, map) in fills_map.into_iter() {
-            for (_oid, fills) in map.into_iter() {
-                match TradeFillInfo::try_from(fills) {
-                    Ok(fill) => {
-                        let cmd = MarketCommand::UserEvent(ExecEvent::Fill(fill));
-                        tokio::task::yield_now().await;
-                        self.send_cmd(coin.clone(), cmd).await;
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Failed to aggregate TradeFillInfo for {} market: {}",
-                            coin, e
-                        );
-                    }
+    async fn handle_user_fills(&mut self, mut fills: Vec<HLTradeInfo>) {
+        // Preserve exchange order and individual timestamps/IDs. Grouping by oid
+        // can reorder partial closes and combine fills across an adoption snapshot.
+        fills.sort_by_key(|fill| (fill.time, fill.tid));
+        for fill in fills {
+            let coin = fill.coin.clone();
+            match TradeFillInfo::try_from(vec![fill]) {
+                Ok(fill) => {
+                    self.send_cmd(coin, MarketCommand::UserEvent(ExecEvent::Fill(fill)))
+                        .await;
                 }
+                Err(error) => warn!("Failed to parse fill for {coin}: {error}"),
             }
         }
     }
 
-    async fn handle_user_funding(&mut self, coin: String, usdc: String) {
+    async fn handle_user_funding(&mut self, coin: String, usdc: String, time: u64) {
         match parse_user_funding(&usdc) {
             Ok(fd) => {
-                let cmd = MarketCommand::UserEvent(ExecEvent::Funding(fd));
+                let cmd = MarketCommand::UserEvent(ExecEvent::Funding { amount: fd, time });
                 self.send_cmd(coin, cmd).await;
             }
             Err(err) => warn!("{err}"),
@@ -1297,9 +1308,8 @@ impl Bot {
                                         s.is_paused = paused;
                                         crate::EditMarketInfo::Paused(paused)
                                     }
-                                    crate::EditMarketInfo::Trade(mut trade) => {
-                                        trade.strategy = Some(s.strategy_name.clone());
-                                        s.pnl += trade.pnl;
+                                    crate::EditMarketInfo::Trade(trade) => {
+                                        s.pnl += trade.managed_pnl();
                                         s.trades.push_back(trade.clone());
                                         trade_to_persist = Some((asset.clone(), trade.clone()));
 
@@ -1509,49 +1519,15 @@ impl Bot {
                             }
                         }
 
+                        MarketReady(asset) => {
+                            if self.key_valid && self.builder_approved {
+                                self.send_cmd(asset, MarketCommand::Activate).await;
+                            }
+                        }
                         ResumeMarket(asset) => {
-                            match MarginBook::sync_shared(&margin_user_edit).await {
-                                Ok(positions) => {
-                                    if positions.iter().any(|p| p.position.coin == asset) {
-                                        self.send_to_frontend(UserError(format!(
-                                            "Cannot resume {}: close the on-chain position first",
-                                            asset
-                                        ))).await;
-                                        continue;
-                                    }
-                                }
-                                Err(e) => {
-                                    self.send_to_frontend(UserError(format!(
-                                        "Failed to check on-chain positions: {}", e
-                                    ))).await;
-                                    continue;
-                                }
+                            if let Err(error) = self.resume_market(&asset, &margin_user_edit, &session).await {
+                                self.send_to_frontend(UserError(error.to_string())).await;
                             }
-                            match self.send_cmd(asset.clone(), MarketCommand::Resume).await {
-                                MarketCommandSendResult::Sent => {}
-                                MarketCommandSendResult::TimedOut => {
-                                    self.send_to_frontend(UserError(format!(
-                                        "Resume failed: {} market command queue is full",
-                                        asset
-                                    ))).await;
-                                    continue;
-                                }
-                                MarketCommandSendResult::Closed | MarketCommandSendResult::Missing => {
-                                    self.send_to_frontend(UserError(format!(
-                                        "Resume failed: {} market is not available",
-                                        asset
-                                    ))).await;
-                                    continue;
-                                }
-                            }
-                            let mut guard = session.lock().await;
-                            if let Some(s) = guard.get_mut(&asset) {
-                                s.is_paused = false;
-                            }
-                            drop(guard);
-                            broadcast_to_user(&ws_connections, &pubkey, MarketInfoEdit((
-                                asset, crate::EditMarketInfo::Paused(false),
-                            ))).await;
                         }
 
                         PauseMarket(asset) => {
@@ -1652,23 +1628,10 @@ impl Bot {
                         }
 
                         MarketComm(command) => {
-                            if !self.key_valid && matches!(command.cmd, MarketCommand::Resume) {
-                                self.send_to_frontend(UserError(
-                                    "API key expired or revoked. Please re-authorize in Settings."
-                                        .to_string(),
-                                ))
-                                .await;
-                                self.send_to_frontend(NeedsApiKey(true)).await;
-                                continue;
-                            }
-                            if !self.builder_approved
-                                && matches!(command.cmd, MarketCommand::Resume)
-                            {
-                                self.send_to_frontend(UserError(
-                                    "Builder fee has not been approved. Please approve builder fees in Settings.".to_string(),
-                                ))
-                                .await;
-                                self.send_to_frontend(NeedsBuilderApproval(true)).await;
+                            if matches!(command.cmd, MarketCommand::Resume) {
+                                if let Err(error) = self.resume_market(&command.asset, &margin_user_edit, &session).await {
+                                    self.send_to_frontend(UserError(error.to_string())).await;
+                                }
                                 continue;
                             }
                             if let MarketCommand::UpdateStrategy(_, _, ref name) = command.cmd {
@@ -1918,75 +1881,11 @@ impl Bot {
                         }
 
                         ResumeAll => {
-                            let blocked: Vec<String> = match MarginBook::sync_shared(&margin_user_edit).await {
-                                Ok(positions) => positions
-                                    .iter()
-                                    .filter(|p| self.markets.contains_key(&p.position.coin))
-                                    .map(|p| p.position.coin.clone())
-                                    .collect(),
-                                Err(e) => {
-                                    self.send_to_frontend(UserError(format!(
-                                        "Failed to check on-chain positions: {}", e
-                                    ))).await;
-                                    continue;
+                            let assets: Vec<_> = self.markets.keys().cloned().collect();
+                            for asset in assets {
+                                if let Err(error) = self.resume_market(&asset, &margin_user_edit, &session).await {
+                                    self.send_to_frontend(UserError(format!("Cannot resume {asset}: {error}"))).await;
                                 }
-                            };
-
-                            let blocked_set: HashSet<_> = blocked.iter().cloned().collect();
-                            let mut resumed: Vec<String> = Vec::new();
-                            let mut timed_out: Vec<String> = Vec::new();
-                            for (asset, tx) in self.markets.iter() {
-                                if !blocked_set.contains(asset) {
-                                    match send_market_command(
-                                        asset,
-                                        tx,
-                                        MarketCommand::Resume,
-                                        "Resume",
-                                    )
-                                    .await
-                                    {
-                                        MarketCommandSendResult::Sent => {
-                                            resumed.push(asset.clone());
-                                        }
-                                        MarketCommandSendResult::TimedOut => {
-                                            timed_out.push(asset.clone());
-                                        }
-                                        MarketCommandSendResult::Closed
-                                        | MarketCommandSendResult::Missing => {}
-                                    }
-                                }
-                            }
-
-                            let resumed_set: HashSet<_> = resumed.iter().cloned().collect();
-                            let mut guard = session.lock().await;
-                            for (asset, s) in guard.iter_mut() {
-                                if blocked_set.contains(asset) {
-                                    continue;
-                                }
-                                if resumed_set.contains(asset) {
-                                    s.is_paused = false;
-                                }
-                            }
-                            drop(guard);
-
-                            for asset in resumed {
-                                broadcast_to_user(&ws_connections, &pubkey, MarketInfoEdit((
-                                    asset, crate::EditMarketInfo::Paused(false),
-                                ))).await;
-                            }
-
-                            if !blocked.is_empty() {
-                                self.send_to_frontend(UserError(format!(
-                                    "Cannot resume {}: close on-chain positions first",
-                                    blocked.join(", ")
-                                ))).await;
-                            }
-
-                            if !timed_out.is_empty() {
-                                self.send_to_frontend(UserError(format!(
-                                    "Resume timed out for {}: market command queue is full",
-                                    timed_out.join(", ")
-                                ))).await;
                             }
                         }
 
@@ -2101,12 +2000,6 @@ impl Bot {
     }
 }
 
-type FillsMap = HashMap<
-    String,
-    HashMap<u64, Vec<HLTradeInfo>, BuildHasherDefault<FxHasher>>,
-    BuildHasherDefault<FxHasher>,
->;
-
 fn ledger_update_affects_margin(update: &LedgerUpdateData) -> bool {
     matches!(
         &update.delta,
@@ -2128,6 +2021,8 @@ fn ledger_update_affects_margin(update: &LedgerUpdateData) -> bool {
 #[serde(rename_all = "camelCase")]
 pub enum BotEvent {
     AddMarket(AddMarketInfo),
+    #[serde(skip)]
+    MarketReady(String),
     ResumeMarket(String),
     PauseMarket(String),
     RemoveMarket(String),

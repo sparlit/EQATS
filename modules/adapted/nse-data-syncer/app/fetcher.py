@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import timedelta
-
 import pandas as pd
 import yfinance as yf
 
@@ -129,7 +127,7 @@ def fetch_batch_data(symbols, start_date=None):
                 stock_df = df[yf_sym].copy()
 
                 # Check if we have valid data (Close price shouldn't be NaN)
-                stock_df = stock_df.dropna(subset=["Close"])
+                stock_df.dropna(subset=["Close"], inplace=True)
 
                 if stock_df.empty:
                     continue

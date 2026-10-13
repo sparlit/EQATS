@@ -26,15 +26,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Auditable monthly carry-forward decisions for V2 positions."""
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from .indicators import fixed_hybrid_hull_signals
 from .lifecycle import Position, TradeState
-
-if TYPE_CHECKING:
-    from .portfolio_store import PortfolioStore
+from .portfolio_store import PortfolioStore
 
 PROMOTION_TARGETS = {"SWING_1_3M": "POSITIONAL_3_6M", "POSITIONAL_3_6M": "POSITIONAL_6_12M"}
 MIN_SESSIONS = {"SWING_1_3M": 20, "POSITIONAL_3_6M": 60}
@@ -71,7 +68,9 @@ def _sessions_held(frame: pd.DataFrame, created_date: str) -> int:
 def _current_r(position: Position) -> float | None:
     if position.last_price is None or position.entry <= position.initial_stop:
         return None
-    return round((position.last_price - position.entry) / (position.entry - position.initial_stop), 2)
+    return round(
+        (position.last_price - position.entry) / (position.entry - position.initial_stop), 2
+    )
 
 
 def assess_promotion(position: Position, frame: pd.DataFrame) -> PromotionDecision:
@@ -112,7 +111,9 @@ def assess_promotion(position: Position, frame: pd.DataFrame) -> PromotionDecisi
     )
 
 
-def apply_monthly_promotions(store: PortfolioStore, prices: pd.DataFrame, review_date: str) -> list[PromotionDecision]:
+def apply_monthly_promotions(
+    store: PortfolioStore, prices: pd.DataFrame, review_date: str
+) -> list[PromotionDecision]:
     """Persist only horizon changes; stop, quantity and P&L remain untouched."""
     groups = {str(s): rows.sort_values("trade_date") for s, rows in prices.groupby("symbol")}
     decisions = []
@@ -129,5 +130,7 @@ def apply_monthly_promotions(store: PortfolioStore, prices: pd.DataFrame, review
                 updated_date=review_date,
                 reason=f"monthly_horizon_promoted_to_{decision.target_horizon.lower()}",
             )
-            store.save_position(updated, "HORIZON_PROMOTE", previous_state=position.state, price=position.last_price)
+            store.save_position(
+                updated, "HORIZON_PROMOTE", previous_state=position.state, price=position.last_price
+            )
     return decisions

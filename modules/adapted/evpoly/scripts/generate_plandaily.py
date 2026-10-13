@@ -25,14 +25,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import argparse
 import datetime as dt
 import json
-import math
 import sys
 import urllib.parse
 import urllib.request
-from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
 from zoneinfo import ZoneInfo
 
 UTC = dt.UTC
@@ -51,7 +48,9 @@ class SymbolSpec:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate docs/plandaily.md from Binance 1h candles")
+    parser = argparse.ArgumentParser(
+        description="Generate docs/plandaily.md from Binance 1h candles"
+    )
     parser.add_argument(
         "--start-close-day",
         default="2021-03-01",
@@ -133,7 +132,7 @@ def fmt_pct(v: float) -> str:
 
 def bin_labels(step: float, max_pct: float) -> list[str]:
     bins = []
-    n = round(max_pct / step)
+    n = int(round(max_pct / step))
     for i in range(n):
         lo = i * step
         hi = (i + 1) * step
@@ -142,7 +141,7 @@ def bin_labels(step: float, max_pct: float) -> list[str]:
 
 
 def build_bins(step: float, max_pct: float) -> list[tuple[float, float]]:
-    n = round(max_pct / step)
+    n = int(round(max_pct / step))
     return [(i * step, (i + 1) * step) for i in range(n)]
 
 
@@ -178,8 +177,7 @@ def generate_table(
         int(fetch_end_utc.timestamp() * 1000),
     )
     if not rows:
-        msg = f"no kline data fetched for {spec.symbol}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"no kline data fetched for {spec.symbol}")
 
     # Price at exact hour boundary:
     # - open_price[t] is 1h candle open at t
@@ -258,8 +256,12 @@ def render_markdown(
     lines.append(f"**Period:** {start_close_day.isoformat()} → {end_close_day.isoformat()}")
     lines.append("**Symbols:** " + ", ".join(spec.symbol for spec in specs))
     lines.append("**Windows:** Noon-to-noon ET (DST-corrected)")
-    lines.append("**Grouping:** 2 buckets by ET close day: `Weekday` (Mon-Fri), `Weekend` (Sat-Sun)")
-    lines.append(f"**Checkpoints:** T-{max(checkpoint_hours)}h through T-{min(checkpoint_hours)}h, hourly")
+    lines.append(
+        "**Grouping:** 2 buckets by ET close day: `Weekday` (Mon-Fri), `Weekend` (Sat-Sun)"
+    )
+    lines.append(
+        f"**Checkpoints:** T-{max(checkpoint_hours)}h through T-{min(checkpoint_hours)}h, hourly"
+    )
     lines.append(
         "**Lead bins (per symbol):** BTC uses `0.25%` steps to `5.0%`; ETH/SOL/XRP use `0.5%` steps to `10.0%`"
     )
@@ -300,15 +302,16 @@ def main() -> int:
     args = parse_args()
 
     start_close_day = dt.date.fromisoformat(args.start_close_day)
-    end_close_day = dt.date.fromisoformat(args.end_close_day) if args.end_close_day else default_end_close_day()
+    if args.end_close_day:
+        end_close_day = dt.date.fromisoformat(args.end_close_day)
+    else:
+        end_close_day = default_end_close_day()
 
     if end_close_day < start_close_day:
-        msg = "end-close-day is before start-close-day"
-        raise SystemExit(msg)
+        raise SystemExit("end-close-day is before start-close-day")
 
     if args.start_hour < args.end_hour or args.end_hour <= 0:
-        msg = "checkpoint hours must satisfy start_hour >= end_hour >= 1"
-        raise SystemExit(msg)
+        raise SystemExit("checkpoint hours must satisfy start_hour >= end_hour >= 1")
 
     checkpoint_hours = list(range(args.start_hour, args.end_hour - 1, -1))
 
@@ -322,7 +325,9 @@ def main() -> int:
     tables: dict[str, tuple[int, dict[int, dict[str, list[tuple[int, int]]]]]] = {}
     for spec in specs:
         print(f"[plandaily] fetching/building {spec.symbol} ...", file=sys.stderr)
-        tables[spec.display] = generate_table(spec, start_close_day, end_close_day, checkpoint_hours)
+        tables[spec.display] = generate_table(
+            spec, start_close_day, end_close_day, checkpoint_hours
+        )
 
     md = render_markdown(specs, start_close_day, end_close_day, checkpoint_hours, tables)
 

@@ -38,7 +38,7 @@ from config.settings import (
 )
 
 
-def is_market_open(now: datetime | None = None) -> bool:
+def is_market_open(now: datetime = None) -> bool:
     """Check if NSE market is currently open (9:15 AM – 3:30 PM IST, Mon–Fri)."""
     now = now or datetime.now()
 

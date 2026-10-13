@@ -44,7 +44,15 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from build_results_season import BIN, LIQ, RECENCY_DAYS, TURN_FLOOR_CR, TURN_WINDOW, load_rename, scan_bin_universe
+from build_results_season import (
+    BIN,
+    LIQ,
+    RECENCY_DAYS,
+    TURN_FLOOR_CR,
+    TURN_WINDOW,
+    load_rename,
+    scan_bin_universe,
+)
 
 
 def main():
@@ -70,7 +78,10 @@ def main():
         open(LIQ, "w"),
         separators=(",", ":"),
     )
-    print("Wrote %s: %d symbols, asOf=%s recencyDays=%d (src=%s)" % (LIQ, len(U), end, RECENCY_DAYS, src))
+    print(
+        "Wrote %s: %d symbols, asOf=%s recencyDays=%d (src=%s)"
+        % (LIQ, len(U), end, RECENCY_DAYS, src)
+    )
     return 0
 
 

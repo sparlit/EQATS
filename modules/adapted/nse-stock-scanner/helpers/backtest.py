@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime, time
+from datetime import datetime
 
 import pandas as pd
 from ta.trend import macd_diff
@@ -83,7 +83,9 @@ class Backtest:
         self.history[name]["sell_date"].append(date)
         self.history[name]["sell_price"].append(price)
 
-        self.history[name]["p&l"].append(self.history[name]["sell_price"][-1] - self.history[name]["buy_price"][-1])
+        self.history[name]["p&l"].append(
+            self.history[name]["sell_price"][-1] - self.history[name]["buy_price"][-1]
+        )
         self.history[name]["hold_period"].append(
             (self.history[name]["sell_date"][-1] - self.history[name]["buy_date"][-1]).days
         )
@@ -91,14 +93,19 @@ class Backtest:
         self.sells += 1
         self.can_buy = True
 
-    def update_final_history(self, name: str):
+    def update_final_history(
+        self,
+        name: str,
+    ):
         """
         Update final history per dataframe
         args:
             name: name of the stock
         """
         self.history[name]["buys"] = self.buys  # No of Buying opportunities
-        self.history[name]["sells"] = self.sells  # ideally No of self.buys == self.sells or self.buys = self.sells + 1
+        self.history[name]["sells"] = (
+            self.sells
+        )  # ideally No of self.buys == self.sells or self.buys = self.sells + 1
 
     def calculate_ROI(self, row):
         """
@@ -151,7 +158,10 @@ class Backtest:
         buy_sell_logic = self.strategies[strategy]
         self.history = {}
 
-        data = (In.data["all_stocks"] if stocks == "all" else In.data[stocks]) if isinstance(stocks, str) else stocks
+        if isinstance(stocks, str):
+            data = In.data["all_stocks"] if stocks == "all" else In.data[stocks]
+        else:
+            data = stocks
 
         top_n = top_n if isinstance(top_n, int) else len(data)
 
@@ -164,7 +174,7 @@ class Backtest:
                 self.sells = 0
                 self.can_buy = True
 
-                df = df.sort_index(ascending=False)  # Sort the dataframe
+                df.sort_index(ascending=False, inplace=True)  # Sort the dataframe
 
                 buy_sell_logic(name, df, **kwargs)  # Use buy Sell Logic
                 self.update_final_history(name)
@@ -174,12 +184,14 @@ class Backtest:
             x["sells"] > 0, :
         ]  # No need for those where no sell has been made. Won't be able to produce any win%. Division by Zero error
         # x['Total P&L'] = x['p&l'].apply(lambda x: sum(x))
-        x["ROI"] = x.apply(self.calculate_ROI, axis=1)
+        x["ROI"] = x.apply(lambda row: self.calculate_ROI(row), axis=1)
         x["wins"] = x["p&l"].apply(lambda x: sum([i > 0 for i in x]))
         x["losses"] = x.apply(lambda row: row["sells"] - row["wins"], axis=1)
         x["win%"] = x.apply(lambda row: round((row["wins"]) / row["sells"], 2), axis=1)
 
-        x = x.sort_values(["win%", "wins", "ROI"], ascending=False)  # 3 priorities of sorting in case of conflict
+        x.sort_values(
+            ["win%", "wins", "ROI"], ascending=False, inplace=True
+        )  # 3 priorities of sorting in case of conflict
         return x.iloc[
             :top_n, [-1, -3, -2, -4, 4, 0, 1, 2, 3, 5, 7, 8, 6]
         ]  # just shuffling of columns on "first thing first" basis
@@ -213,9 +225,9 @@ class Backtest:
 
         df = In.get_CCI(df, window=window, names=cols, return_df=True)
 
-        df = df.dropna()
-        df = df.sort_index(ascending=False)
-        df = df.reset_index(drop=True)
+        df.dropna(inplace=True)
+        df.sort_index(ascending=False, inplace=True)
+        df.reset_index(inplace=True, drop=True)
 
         for index in df.index[1:-1]:
             if (
@@ -227,13 +239,14 @@ class Backtest:
             ):  # whrn 50-SMA is above 200-SMA
                 self.buy(name, date=df.loc[index + 1, DATE], price=df.loc[index + 1, OPEN])
 
-            elif not self.can_buy:
-                if ((df.loc[index - 1, "CCI"] > selling_thresh) and (df.loc[index, "CCI"] < selling_thresh)) or (
-                    df.loc[index, "CCI"] > 200
-                ):
-                    selling_price = df.loc[index + 1, OPEN]
+            elif not self.can_buy and (
+                (df.loc[index - 1, "CCI"] > selling_thresh)
+                and (df.loc[index, "CCI"] < selling_thresh)
+                or (df.loc[index, "CCI"] > 200)
+            ):
+                selling_price = df.loc[index + 1, OPEN]
 
-                    self.sell(name, date=df.loc[index + 1, DATE], price=selling_price)
+                self.sell(name, date=df.loc[index + 1, DATE], price=selling_price)
 
     def rsi(
         self,
@@ -264,9 +277,9 @@ class Backtest:
 
         df = In.get_RSI(df, return_df=True)
 
-        df = df.dropna()
-        df = df.sort_index(ascending=False)
-        df = df.reset_index(drop=True)
+        df.dropna(inplace=True)
+        df.sort_index(ascending=False, inplace=True)
+        df.reset_index(inplace=True, drop=True)
 
         for index in df.index[1:-1]:
             if (
@@ -277,13 +290,14 @@ class Backtest:
             ):
                 self.buy(name, date=df.loc[index + 1, DATE], price=df.loc[index + 1, OPEN])
 
-            elif not self.can_buy:
-                if ((df.loc[index - 1, "RSI"] > selling_thresh) and (df.loc[index, "RSI"] < selling_thresh)) or (
-                    df.loc[index, "RSI"] > 80
-                ):
-                    selling_price = df.loc[index + 1, OPEN]
+            elif not self.can_buy and (
+                (df.loc[index - 1, "RSI"] > selling_thresh)
+                and (df.loc[index, "RSI"] < selling_thresh)
+                or (df.loc[index, "RSI"] > 80)
+            ):
+                selling_price = df.loc[index + 1, OPEN]
 
-                    self.sell(name, date=df.loc[index + 1, DATE], price=selling_price)
+                self.sell(name, date=df.loc[index + 1, DATE], price=selling_price)
 
     def macd(
         self,
@@ -307,24 +321,28 @@ class Backtest:
 
         returns: A dictonary of top-n stocks which gave highest returns
         """
-        OPEN, CLOSE, _LOW, _HIGH, DATE = cols
+        OPEN, CLOSE, LOW, HIGH, DATE = cols
 
         df["MACD Diff"] = macd_diff(
             df[CLOSE], window_slow=window_slow, window_fast=window_fast, window_sign=window_sign
         )  # Get MACD DIfference
 
-        df = df.sort_index(ascending=False)  # Sort Again from oldest to newest
-        df = df.dropna()  # Drop the oldest ones
-        df = df.reset_index(drop=True)
+        df.sort_index(ascending=False, inplace=True)  # Sort Again from oldest to newest
+        df.dropna(inplace=True)  # Drop the oldest ones
+        df.reset_index(inplace=True, drop=True)
 
         for index in df.index[1:-1]:  # Has to consider Past and Future candle  so [1:-1]
             if (
-                (df.loc[index - 1, "MACD Diff"] < 0) and (df.loc[index, "MACD Diff"] > 0) and (self.can_buy)
+                (df.loc[index - 1, "MACD Diff"] < 0)
+                and (df.loc[index, "MACD Diff"] > 0)
+                and (self.can_buy)
             ):  # Buy means to decrease the account value
                 self.buy(name, date=df.loc[index + 1, DATE], price=df.loc[index + 1, OPEN])
 
             elif (
-                (df.loc[index - 1, "MACD Diff"] > 0) and (df.loc[index, "MACD Diff"] < 0) and (not self.can_buy)
+                (df.loc[index - 1, "MACD Diff"] > 0)
+                and (df.loc[index, "MACD Diff"] < 0)
+                and (not self.can_buy)
             ):  # Sell means to add to the account
                 self.sell(name, date=df.loc[index + 1, DATE], price=df.loc[index + 1, OPEN])
 
@@ -352,13 +370,17 @@ class Backtest:
         OPEN, CLOSE, LOW, HIGH, DATE = cols
         simple = ma_type == "simple"
 
-        df = In.get_MA(df, window=window, names=(OPEN, CLOSE, LOW, HIGH), simple=simple, return_df=True)
-        df = In.get_MA(df, window=200, names=(OPEN, CLOSE, LOW, HIGH), simple=simple, return_df=True)
+        df = In.get_MA(
+            df, window=window, names=(OPEN, CLOSE, LOW, HIGH), simple=simple, return_df=True
+        )
+        df = In.get_MA(
+            df, window=200, names=(OPEN, CLOSE, LOW, HIGH), simple=simple, return_df=True
+        )
         df = In.get_RSI(df, Close=CLOSE, return_df=True)
 
-        df = df.sort_index(ascending=False)  # Sort Again from oldest to newest
-        df = df.dropna()  # Drop the oldest ones
-        df = df.reset_index(drop=True)
+        df.sort_index(ascending=False, inplace=True)  # Sort Again from oldest to newest
+        df.dropna(inplace=True)  # Drop the oldest ones
+        df.reset_index(inplace=True, drop=True)
 
         for index in df.index[
             1:-1
@@ -391,7 +413,9 @@ class Backtest:
                 elif df.loc[index, LOW] < stop_loss:
                     selling_price = stop_loss
 
-                elif df.loc[index, HIGH] > buying_price + (buying_price * 0.10):  # if we get 10% on investment
+                elif df.loc[index, HIGH] > buying_price + (
+                    buying_price * 0.10
+                ):  # if we get 10% on investment
                     selling_price = buying_price + (buying_price * 0.10)
 
                 else:
@@ -433,15 +457,17 @@ class Backtest:
         """
         OPEN, CLOSE, LOW, HIGH, DATE = cols
 
-        df = In.get_MA(df, window=200, names=(OPEN, CLOSE, LOW, HIGH), return_df=True)  # Buy Only Over 200-MA Closing
+        df = In.get_MA(
+            df, window=200, names=(OPEN, CLOSE, LOW, HIGH), return_df=True
+        )  # Buy Only Over 200-MA Closing
         df = In.Stochastic(
             df, k_period, d_period, smooth_k, names=(OPEN, CLOSE, LOW, HIGH), return_df=True
         )  # Get Values of Stochastic Blue and Red Line
         df["Diff"] = df["Red Line"] - df["Blue Line"]
 
-        df = df.sort_index(ascending=False)  # Sort Again from oldest to newest
-        df = df.dropna()  # Drop the oldest ones which are NaN-s
-        df = df.reset_index(drop=True)
+        df.sort_index(ascending=False, inplace=True)  # Sort Again from oldest to newest
+        df.dropna(inplace=True)  # Drop the oldest ones which are NaN-s
+        df.reset_index(inplace=True, drop=True)
 
         buy_lock = False
         sell_lock = False
@@ -452,13 +478,17 @@ class Backtest:
 
             if (df.loc[index - 1, "Diff"] < 0) and (df.loc[index, "Diff"] > 0):
                 sell_lock = False
-                if (df.loc[index, "Blue Line"] < buying_thresh) and (df.loc[index, "Red Line"] < buying_thresh):
+                if (df.loc[index, "Blue Line"] < buying_thresh) and (
+                    df.loc[index, "Red Line"] < buying_thresh
+                ):
                     buy_lock = True
 
             elif (df.loc[index - 1, "Diff"] > 0) and (df.loc[index, "Diff"] < 0):
                 buy_lock = False
 
-                if (df.loc[index, "Blue Line"] > selling_thresh) and (df.loc[index, "Red Line"] > selling_thresh):
+                if (df.loc[index, "Blue Line"] > selling_thresh) and (
+                    df.loc[index, "Red Line"] > selling_thresh
+                ):
                     sell_lock = True
 
             if (

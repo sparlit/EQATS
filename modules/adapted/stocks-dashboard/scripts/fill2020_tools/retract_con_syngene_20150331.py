@@ -39,7 +39,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
-TWINS = [os.path.join(ROOT, "docs", "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json")]
+TWINS = [
+    os.path.join(ROOT, "docs", "sf_fundamentals.json"),
+    os.path.join(SCRIPTS, "fundamentals.json"),
+]
 LEDGER = os.path.join(SCRIPTS, "con_copy_retractions.json")
 
 
@@ -62,7 +65,9 @@ def main():
             print(f"  [{rel}] already retracted")
             continue
         if row[3] != was_pat or (row[4] not in (was_ann, None)):
-            print(f"  [{rel}] holds con={row[3]} ann={row[4]}, ledger was {was_pat}/{was_ann} — moved on, refusing")
+            print(
+                f"  [{rel}] holds con={row[3]} ann={row[4]}, ledger was {was_pat}/{was_ann} — moved on, refusing"
+            )
             continue
         print(f"  [{rel}] SYNGENE 20150331: con {row[3]}/{row[4]} -> null/null")
         if apply:

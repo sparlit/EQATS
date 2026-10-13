@@ -78,12 +78,24 @@ def fetch_range(frm: date, to: date) -> pd.DataFrame | None:
     t = t[
         [
             c
-            for c in ("filing", "trade", "ticker", "company", "insider", "title", "price", "qty", "value")
+            for c in (
+                "filing",
+                "trade",
+                "ticker",
+                "company",
+                "insider",
+                "title",
+                "price",
+                "qty",
+                "value",
+            )
             if c in t.columns
         ]
     ]
     for c in ("price", "qty", "value"):
-        t[c] = pd.to_numeric(t[c].astype(str).str.replace(r"[$,+]", "", regex=True), errors="coerce")
+        t[c] = pd.to_numeric(
+            t[c].astype(str).str.replace(r"[$,+]", "", regex=True), errors="coerce"
+        )
     t["filing"] = pd.to_datetime(t["filing"], errors="coerce")
     t["trade"] = pd.to_datetime(t["trade"], errors="coerce")
     return t.dropna(subset=["filing", "ticker"])
@@ -105,8 +117,7 @@ def fetch_month(y: int, m: int) -> pd.DataFrame | None:
 def load_all() -> pd.DataFrame:
     files = sorted(DATA.glob("*.parquet"))
     if not files:
-        msg = "No insider data. Run: python -m us.insiders"
-        raise SystemExit(msg)
+        raise SystemExit("No insider data. Run: python -m us.insiders")
     return pd.concat(map(pd.read_parquet, files), ignore_index=True)
 
 

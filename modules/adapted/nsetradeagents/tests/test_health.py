@@ -226,8 +226,7 @@ def test_a_database_failure_degrades_rather_than_500s(monkeypatch):
 
     @contextmanager
     def dead_db():
-        msg = "connection refused"
-        raise RuntimeError(msg)
+        raise RuntimeError("connection refused")
         yield  # pragma: no cover
 
     monkeypatch.setattr(health, "get_db", dead_db)

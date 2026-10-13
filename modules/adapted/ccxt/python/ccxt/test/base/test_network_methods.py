@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def helper_test_network_code_to_id(networks_map):
@@ -55,7 +55,9 @@ def helper_test_network_code_to_id(networks_map):
     #
     #
     assert exchange.network_code_to_id("ETH") == "Ether"
-    assert exchange.network_code_to_id("ERC20") == "Ether"  # inexistent secondary networkCode should match
+    assert (
+        exchange.network_code_to_id("ERC20") == "Ether"
+    )  # inexistent secondary networkCode should match
     # with currencyCode
     assert exchange.network_code_to_id("ETH", "USDC") == "Ether"
     assert exchange.network_code_to_id("ETH", "ETH") == "Ether"
@@ -66,7 +68,9 @@ def helper_test_network_code_to_id(networks_map):
     # CASE #2 : with mainnet key
     #
     #
-    assert exchange.network_code_to_id("TRX") == "Tron"  # inexistent primary networkCode should match
+    assert (
+        exchange.network_code_to_id("TRX") == "Tron"
+    )  # inexistent primary networkCode should match
     assert exchange.network_code_to_id("TRC20") == "Tron"
     # with currencyCode
     assert exchange.network_code_to_id("TRX", "USDC") == "Tron"
@@ -285,13 +289,13 @@ def helper_batch_network_tests():
         "Polygon",
         "POL",
     ]
-    for i in range(len(all_network_codes)):
+    for i in range(0, len(all_network_codes)):
         random_network_code = all_network_codes[i]
-        for j in range(len(all_currency_codes)):
+        for j in range(0, len(all_currency_codes)):
             random_currency_code = all_currency_codes[j]
             result = exchange.network_id_to_code(random_network_code, random_currency_code)
             keys = list(default_network_code_replacements.keys())
-            for k in range(len(keys)):
+            for k in range(0, len(keys)):
                 chain_base_coin = keys[k]
                 chain_mapping = default_network_code_replacements[chain_base_coin]
                 primary_network_code = chain_mapping["primary"]

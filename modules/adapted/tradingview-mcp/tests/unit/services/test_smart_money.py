@@ -70,15 +70,12 @@ class TestComputations:
     def test_composite_separates_accumulation_from_distribution(self):
         acc = sm.compute_smart_money_composite(_accumulation_candles())
         dist = sm.compute_smart_money_composite(_distribution_candles())
-        assert acc["score"] >= 70
-        assert acc["verdict"] == "STRONG_ACCUMULATION"
-        assert dist["score"] <= 30
-        assert dist["verdict"] == "STRONG_DISTRIBUTION"
+        assert acc["score"] >= 70 and acc["verdict"] == "STRONG_ACCUMULATION"
+        assert dist["score"] <= 30 and dist["verdict"] == "STRONG_DISTRIBUTION"
 
     def test_mcdx_banker_high_in_persistent_uptrend(self):
         mcdx = sm.compute_mcdx(_accumulation_candles())
-        assert mcdx["banker"] is not None
-        assert mcdx["banker"] > 10
+        assert mcdx["banker"] is not None and mcdx["banker"] > 10
         # A monotonic melt-up pins every horizon → must not read as fresh
         # banker-only accumulation.
         assert mcdx["signal"] in ("CROWDED", "BANKER_ACCUMULATING")
@@ -157,7 +154,9 @@ class TestEgxScanner:
                 "consensus": {"read": "NEUTRAL"},
             }
 
-        fake_index = {"EGX30": {"get_symbols": lambda: ["EGX:AAA", "EGX:BBB", "EGX:CCC", "EGX:BAD"]}}
+        fake_index = {
+            "EGX30": {"get_symbols": lambda: ["EGX:AAA", "EGX:BBB", "EGX:CCC", "EGX:BAD"]}
+        }
         with (
             patch.object(sm, "analyze_smart_money", side_effect=fake_analyze),
             patch("tradingview_mcp.core.data.egx_indices.EGX_INDICES", fake_index),

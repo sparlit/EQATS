@@ -44,8 +44,7 @@ Usage:
 """
 
 from dataclasses import dataclass
-from enum import Enum, StrEnum
-from typing import Dict
+from enum import StrEnum
 
 
 class RiskLevel(StrEnum):

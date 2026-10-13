@@ -28,8 +28,6 @@ Backtest period: Jan 2016 -> Jun 2026 (126 months)
 Weights: 60/40 (12m:6m momentum, vol-adjusted, z-scored)
 """
 
-import os
-import time
 import warnings
 
 import numpy as np
@@ -49,7 +47,9 @@ PRICES_PATH = "backtest/data/prices_backtest.parquet"
 print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH, columns=["symbol", "date", "open", "close"])
 prices["date"] = pd.to_datetime(prices["date"])
-prices_by_sym = {sym: grp.sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")}
+prices_by_sym = {
+    sym: grp.sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")
+}
 print(f"  {len(prices_by_sym)} symbols")
 del prices
 
@@ -75,9 +75,9 @@ act = pd.read_csv(ACTIVITY_FILE, parse_dates=["friday_date", "signal_date"])
 all_periods = sorted(act["friday_date"].unique())
 period_to_next = {all_periods[i]: all_periods[i + 1] for i in range(len(all_periods) - 1)}
 
-price_lookup = act[act["action"].isin(["BUY", "HOLD", "SELL"])][["friday_date", "symbol", "price"]].rename(
-    columns={"friday_date": "next_period", "price": "next_price"}
-)
+price_lookup = act[act["action"].isin(["BUY", "HOLD", "SELL"])][
+    ["friday_date", "symbol", "price"]
+].rename(columns={"friday_date": "next_period", "price": "next_price"})
 
 holdings = act[act["action"].isin(["BUY", "HOLD"])].copy()
 holdings = holdings[holdings["friday_date"].isin(period_to_next)].copy()
@@ -132,11 +132,18 @@ extra = holdings.groupby("next_period")["extra_trade"].sum().rename("extra_trade
 period_rets = pd.concat([ew_ret, extra], axis=1).reset_index()
 period_rets.columns = ["friday_date", "port_ret", "extra_trades"]
 
-trade_counts = act[act["action"].isin(["BUY", "SELL"])].groupby("friday_date").size().reset_index(name="n_trades")
+trade_counts = (
+    act[act["action"].isin(["BUY", "SELL"])]
+    .groupby("friday_date")
+    .size()
+    .reset_index(name="n_trades")
+)
 period_rets = period_rets.merge(trade_counts, on="friday_date", how="left")
 period_rets["n_trades"] = period_rets["n_trades"].fillna(0)
 period_rets["extra_trades"] = period_rets["extra_trades"].fillna(0)
-period_rets["cost_drag"] = (period_rets["n_trades"] + period_rets["extra_trades"]) * COST / PORTFOLIO_N
+period_rets["cost_drag"] = (
+    (period_rets["n_trades"] + period_rets["extra_trades"]) * COST / PORTFOLIO_N
+)
 period_rets["net_ret"] = period_rets["port_ret"] - period_rets["cost_drag"]
 
 avg_cost = period_rets["cost_drag"].mean()
@@ -158,7 +165,7 @@ print(f"{'=' * 55}")
 print(f"  Periods          : {len(s)}")
 print(f"  Total RSI exits  : {total_extra}")
 print(f"  Avg cost/period  : {avg_cost * 100:.4f}%")
-print()
+print("")
 print(f"  CAGR        : {cagr * 100:.2f}%")
 print(f"  Sharpe      : {sharpe:.3f}")
 print(f"  Max DD      : {max_dd * 100:.2f}%")

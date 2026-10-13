@@ -47,3 +47,4 @@ async def test(id, symbol):
 if __name__ == "__main__":
     id = "binance"
     symbol = "ETH/BTC"
+    pprint(run(test(id, symbol)))

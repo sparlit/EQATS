@@ -42,7 +42,7 @@ A panel's query:
     sort      desc | asc,  limit
 """
 import re
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 SHAPES = ("rows", "timeseries", "aggregate", "stat", "heatmap", "treemap")
 AGGS = ("last", "first", "avg", "sum", "min", "max", "count")
@@ -95,7 +95,9 @@ def resolve(value, variables):
     if whole:
         v = variables.get(whole.group(1))
         return None if v in (None, "", ALL) else v
-    return VAR.sub(lambda m: _s(variables.get(m.group(1)) if variables.get(m.group(1)) != ALL else ""), value)
+    return VAR.sub(
+        lambda m: _s(variables.get(m.group(1)) if variables.get(m.group(1)) != ALL else ""), value
+    )
 
 
 def parse_time(spec, now):
@@ -108,13 +110,16 @@ def parse_time(spec, now):
     if match:
         if not match.group(1):
             return now
-        unit = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days", "w": "weeks"}[match.group(2)]
+        unit = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days", "w": "weeks"}[
+            match.group(2)
+        ]
         return now - timedelta(**{unit: int(match.group(1))})
     try:
-        parsed = datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
-        msg = f"'{text}' isn't a time - use now, now-30m, now-6h, now-7d, now-2w or a date like 2026-09-01"
-        raise ValueError(msg) from None
+        raise ValueError(
+            f"'{text}' isn't a time - use now, now-30m, now-6h, now-7d, now-2w or a date like 2026-09-01"
+        ) from None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=now.tzinfo)
 
 
@@ -123,7 +128,7 @@ def _time(row, field):
     if isinstance(value, datetime):
         return value
     try:
-        return datetime.fromisoformat(str(value))
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
 
@@ -198,7 +203,9 @@ def aggregate(values, agg):
 
 
 def _looks_time(value):
-    return isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}", value) is not None
+    return (
+        isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}", value) is not None
+    )
 
 
 def columns(rows):
@@ -232,15 +239,16 @@ def shape(rows, query, variables=None):
     q = query or {}
     kind = q.get("shape") or "rows"
     if kind not in SHAPES:
-        msg = f"unknown panel shape '{kind}'"
-        raise ValueError(msg)
+        raise ValueError(f"unknown panel shape '{kind}'")
     time_field = q.get("time_field") or "time"
     value = q.get("value") or None
     group_by = q.get("group_by") or None
     agg = q.get("agg") if q.get("agg") in AGGS else "last"
     # No value to aggregate means counting rows, whatever agg says.
     how = agg if value else "count"
-    bucket = q.get("bucket") if q.get("bucket") in BUCKETS else ("day" if kind == "heatmap" else "run")
+    bucket = (
+        q.get("bucket") if q.get("bucket") in BUCKETS else ("day" if kind == "heatmap" else "run")
+    )
     desc = (q.get("sort") or "desc") == "desc"
     limit = _limit(q)
 
@@ -258,7 +266,10 @@ def shape(rows, query, variables=None):
             groups.setdefault(group_of(r), {}).setdefault(start, []).append(pick(r))
         series = []
         for key in sorted(groups):
-            points = [{"time": b.isoformat(), "value": aggregate(v, how)} for b, v in sorted(groups[key].items())]
+            points = [
+                {"time": b.isoformat(), "value": aggregate(v, how)}
+                for b, v in sorted(groups[key].items())
+            ]
             points = [p for p in points if p["value"] is not None]
             if points:
                 series.append({"key": key, "points": points})
@@ -322,7 +333,11 @@ def shape(rows, query, variables=None):
         for (b, y), v in cells.items()
         if b in keep_x and y in keep_y
     ]
-    return {"x": [b.isoformat() for b in keep_x], "y": keep_y, "cells": [c for c in out if c["value"] is not None]}
+    return {
+        "x": [b.isoformat() for b in keep_x],
+        "y": keep_y,
+        "cells": [c for c in out if c["value"] is not None],
+    }
 
 
 def drill(rows, query, point, variables=None):
@@ -333,16 +348,24 @@ def drill(rows, query, point, variables=None):
     time_field = q.get("time_field") or "time"
     point = point or {}
     rows = _ordered(apply_filters(rows, q.get("filters"), variables), time_field)
-    bucket = q.get("bucket") if q.get("bucket") in BUCKETS else ("day" if q.get("shape") == "heatmap" else "run")
+    bucket = (
+        q.get("bucket")
+        if q.get("bucket") in BUCKETS
+        else ("day" if q.get("shape") == "heatmap" else "run")
+    )
     # Buckets first, over every row - exactly as shape() drew them. A run's bucket is timed at its
     # earliest row across ALL groups; narrowing to one group first would re-time the run to that
     # group's own first row, and no row would match the point that was clicked.
     marked = _bucketed(rows, time_field, bucket)
     if point.get("group") is not None and q.get("group_by"):
-        marked = [(start, r) for start, r in marked if _s(r.get(q["group_by"])) == _s(point["group"])]
+        marked = [
+            (start, r) for start, r in marked if _s(r.get(q["group_by"])) == _s(point["group"])
+        ]
     if point.get("bucket"):
         want = parse_time(point["bucket"], datetime.now(UTC))
         marked = [(start, r) for start, r in marked if start == want]
-    rows = [r for _, r in marked] if (point.get("bucket") or point.get("group") is not None) else rows
+    rows = (
+        [r for _, r in marked] if (point.get("bucket") or point.get("group") is not None) else rows
+    )
     rows = list(reversed(rows))[:1000]
     return {"rows": rows, "columns": columns(rows), "total": len(rows)}

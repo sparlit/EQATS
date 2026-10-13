@@ -42,7 +42,6 @@ import subprocess
 import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Optional
 
 
 class EnhancedZerodhaTradingSystemRunner:
@@ -107,7 +106,9 @@ class EnhancedZerodhaTradingSystemRunner:
         # Check access token
         if checks["access_token"]:
             try:
-                with open("/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt") as f:
+                with open(
+                    "/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt"
+                ) as f:
                     token = f.read().strip()
                     if not token:
                         checks["access_token"] = False
@@ -164,15 +165,18 @@ class EnhancedZerodhaTradingSystemRunner:
             time.sleep(3)
 
             if self.ltp_process.poll() is None:
-                self.logger.info(f"Enhanced LTP Subscriber started successfully (PID: {self.ltp_process.pid})")
+                self.logger.info(
+                    f"Enhanced LTP Subscriber started successfully (PID: {self.ltp_process.pid})"
+                )
                 self.process_restart_count["ltp"] = 0  # Reset on successful start
                 return True
-            _stdout, stderr = self.ltp_process.communicate()
-            self.logger.error(f"Enhanced LTP Subscriber failed to start: {stderr}")
-            return False
+            else:
+                stdout, stderr = self.ltp_process.communicate()
+                self.logger.error(f"Enhanced LTP Subscriber failed to start: {stderr}")
+                return False
 
         except Exception as e:
-            self.logger.exception(f"Error starting enhanced LTP subscriber: {e}")
+            self.logger.error(f"Error starting enhanced LTP subscriber: {e}")
             return False
 
     def start_mtm_monitor(self) -> bool:
@@ -198,15 +202,18 @@ class EnhancedZerodhaTradingSystemRunner:
             time.sleep(3)
 
             if self.mtm_process.poll() is None:
-                self.logger.info(f"Enhanced MTM Monitor started successfully (PID: {self.mtm_process.pid})")
+                self.logger.info(
+                    f"Enhanced MTM Monitor started successfully (PID: {self.mtm_process.pid})"
+                )
                 self.process_restart_count["mtm"] = 0  # Reset on successful start
                 return True
-            _stdout, stderr = self.mtm_process.communicate()
-            self.logger.error(f"Enhanced MTM Monitor failed to start: {stderr}")
-            return False
+            else:
+                stdout, stderr = self.mtm_process.communicate()
+                self.logger.error(f"Enhanced MTM Monitor failed to start: {stderr}")
+                return False
 
         except Exception as e:
-            self.logger.exception(f"Error starting enhanced MTM monitor: {e}")
+            self.logger.error(f"Error starting enhanced MTM monitor: {e}")
             return False
 
     def stop_system(self):
@@ -221,7 +228,9 @@ class EnhancedZerodhaTradingSystemRunner:
                 self.mtm_process.wait(timeout=15)  # Longer timeout for enhanced cleanup
                 self.logger.info("Enhanced MTM Monitor stopped gracefully")
             except subprocess.TimeoutExpired:
-                self.logger.warning("Enhanced MTM Monitor did not stop gracefully, forcing termination...")
+                self.logger.warning(
+                    "Enhanced MTM Monitor did not stop gracefully, forcing termination..."
+                )
                 self.mtm_process.kill()
                 self.mtm_process.wait()
 
@@ -233,7 +242,9 @@ class EnhancedZerodhaTradingSystemRunner:
                 self.ltp_process.wait(timeout=15)
                 self.logger.info("Enhanced LTP Subscriber stopped gracefully")
             except subprocess.TimeoutExpired:
-                self.logger.warning("Enhanced LTP Subscriber did not stop gracefully, forcing termination...")
+                self.logger.warning(
+                    "Enhanced LTP Subscriber did not stop gracefully, forcing termination..."
+                )
                 self.ltp_process.kill()
                 self.ltp_process.wait()
 
@@ -269,7 +280,9 @@ class EnhancedZerodhaTradingSystemRunner:
                 import psutil
 
                 proc = psutil.Process(self.ltp_process.pid)
-                status["ltp_subscriber"]["memory_usage"] = proc.memory_info().rss / (1024 * 1024)  # MB
+                status["ltp_subscriber"]["memory_usage"] = proc.memory_info().rss / (
+                    1024 * 1024
+                )  # MB
                 status["ltp_subscriber"]["cpu_usage"] = proc.cpu_percent()
             except (ImportError, psutil.NoSuchProcess):
                 pass
@@ -318,7 +331,9 @@ class EnhancedZerodhaTradingSystemRunner:
         try:
             if os.path.exists(self.ltp_db_path):
                 status["ltp_database"]["exists"] = True
-                status["ltp_database"]["size_mb"] = round(os.path.getsize(self.ltp_db_path) / (1024 * 1024), 2)
+                status["ltp_database"]["size_mb"] = round(
+                    os.path.getsize(self.ltp_db_path) / (1024 * 1024), 2
+                )
 
                 conn = sqlite3.connect(self.ltp_db_path)
                 cursor = conn.cursor()
@@ -352,13 +367,15 @@ class EnhancedZerodhaTradingSystemRunner:
                 conn.close()
 
         except Exception as e:
-            self.logger.exception(f"Error checking LTP database: {e}")
+            self.logger.error(f"Error checking LTP database: {e}")
 
         # Check MTM database
         try:
             if os.path.exists(self.mtm_db_path):
                 status["mtm_database"]["exists"] = True
-                status["mtm_database"]["size_mb"] = round(os.path.getsize(self.mtm_db_path) / (1024 * 1024), 2)
+                status["mtm_database"]["size_mb"] = round(
+                    os.path.getsize(self.mtm_db_path) / (1024 * 1024), 2
+                )
 
                 conn = sqlite3.connect(self.mtm_db_path)
                 cursor = conn.cursor()
@@ -395,7 +412,7 @@ class EnhancedZerodhaTradingSystemRunner:
                 conn.close()
 
         except Exception as e:
-            self.logger.exception(f"Error checking MTM database: {e}")
+            self.logger.error(f"Error checking MTM database: {e}")
 
         return status
 
@@ -439,7 +456,12 @@ class EnhancedZerodhaTradingSystemRunner:
                     """)
                     history = cursor.fetchall()
                     mtm_data["recent_history"] = [
-                        {"mtm": record[0], "positions": record[1], "status": record[2], "timestamp": record[3]}
+                        {
+                            "mtm": record[0],
+                            "positions": record[1],
+                            "status": record[2],
+                            "timestamp": record[3],
+                        }
                         for record in history
                     ]
 
@@ -486,7 +508,7 @@ class EnhancedZerodhaTradingSystemRunner:
                 conn.close()
 
         except Exception as e:
-            self.logger.exception(f"Error getting enhanced MTM data: {e}")
+            self.logger.error(f"Error getting enhanced MTM data: {e}")
             mtm_data["error"] = str(e)
 
         return mtm_data
@@ -535,7 +557,7 @@ class EnhancedZerodhaTradingSystemRunner:
         except ImportError:
             self.logger.debug("psutil not available for system metrics")
         except Exception as e:
-            self.logger.exception(f"Error getting system metrics: {e}")
+            self.logger.error(f"Error getting system metrics: {e}")
 
         return metrics
 
@@ -556,7 +578,7 @@ class EnhancedZerodhaTradingSystemRunner:
 
         if process_type == "ltp":
             return self.start_ltp_subscriber()
-        if process_type == "mtm":
+        elif process_type == "mtm":
             return self.start_mtm_monitor()
 
         return False
@@ -671,7 +693,9 @@ class EnhancedZerodhaTradingSystemRunner:
 
                 # Enhanced LTP subscriber health check
                 if not health["ltp_subscriber"]["running"] and self.running:
-                    self.logger.warning("Enhanced LTP Subscriber not running, attempting restart...")
+                    self.logger.warning(
+                        "Enhanced LTP Subscriber not running, attempting restart..."
+                    )
                     if not self.restart_process_with_backoff("ltp"):
                         self.logger.error("Failed to restart Enhanced LTP subscriber")
 
@@ -695,11 +719,15 @@ class EnhancedZerodhaTradingSystemRunner:
                         if discipline_status:
                             if discipline_status.get("discipline_active", False):
                                 daily_max = discipline_status.get("daily_max_mtm", 0)
-                                discipline_info = f" | Daily Max: ₹{daily_max:.2f} | 🚫 DISCIPLINE ACTIVE"
+                                discipline_info = (
+                                    f" | Daily Max: ₹{daily_max:.2f} | 🚫 DISCIPLINE ACTIVE"
+                                )
                             else:
                                 daily_max = discipline_status.get("daily_max_mtm", 0)
                                 target = discipline_status.get("daily_target", 100)
-                                discipline_info = f" | Daily Max: ₹{daily_max:.2f} | Target: ₹{target}"
+                                discipline_info = (
+                                    f" | Daily Max: ₹{daily_max:.2f} | Target: ₹{target}"
+                                )
 
                         # Status indicators
                         ltp_status = "✅" if health["ltp_subscriber"]["running"] else "❌"
@@ -713,7 +741,9 @@ class EnhancedZerodhaTradingSystemRunner:
                         # Fallback if no MTM data
                         ltp_status = "✅" if health["ltp_subscriber"]["running"] else "❌"
                         mtm_status = "✅" if health["mtm_monitor"]["running"] else "❌"
-                        self.logger.info(f"💹 LTP {ltp_status} | MTM {mtm_status} | No MTM data yet")
+                        self.logger.info(
+                            f"💹 LTP {ltp_status} | MTM {mtm_status} | No MTM data yet"
+                        )
 
                     last_quick_status_log = current_time
 
@@ -760,7 +790,9 @@ class EnhancedZerodhaTradingSystemRunner:
                             f"   Today's Threshold Breaches: {mtm_data.get('threshold_breaches_today', 0)}"
                         )
                         if mtm_data.get("recent_square_offs"):
-                            self.logger.info(f"   Recent Square-offs: {len(mtm_data['recent_square_offs'])}")
+                            self.logger.info(
+                                f"   Recent Square-offs: {len(mtm_data['recent_square_offs'])}"
+                            )
 
                     # Database status
                     db_status = status["databases"]
@@ -780,7 +812,7 @@ class EnhancedZerodhaTradingSystemRunner:
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                self.logger.exception(f"Error in enhanced system monitor: {e}")
+                self.logger.error(f"Error in enhanced system monitor: {e}")
 
     def run_enhanced(self):
         """Main enhanced run method"""
@@ -795,7 +827,7 @@ class EnhancedZerodhaTradingSystemRunner:
         except KeyboardInterrupt:
             self.logger.info("Enhanced shutdown requested by user")
         except Exception as e:
-            self.logger.exception(f"Unexpected error in enhanced system: {e}")
+            self.logger.error(f"Unexpected error in enhanced system: {e}")
         finally:
             self.stop_system()
 
@@ -830,7 +862,7 @@ class EnhancedZerodhaTradingSystemRunner:
             discipline_active = discipline_status.get("discipline_active", False)
             discipline_indicator = "🚫 ACTIVE" if discipline_active else "✅ INACTIVE"
 
-            return f"""
+            summary = f"""
     ╭─────────────────────────────────────────────────────────────╮
     │           ENHANCED ZERODHA TRADING SYSTEM v2.0             │
     ├─────────────────────────────────────────────────────────────┤
@@ -842,6 +874,8 @@ class EnhancedZerodhaTradingSystemRunner:
     │ Monitoring: 5s intervals  │  Time: {datetime.now().strftime("%H:%M:%S"):>8s}            │
     ╰─────────────────────────────────────────────────────────────╯
             """.strip()
+
+            return summary
 
         except Exception as e:
             return f"Error getting enhanced status: {e}"
@@ -860,15 +894,15 @@ def main():
             print(json.dumps(status, indent=2))
             return
 
-        if command == "summary":
+        elif command == "summary":
             print(runner.get_enhanced_live_status_summary())
             return
 
-        if command == "stop":
+        elif command == "stop":
             runner.stop_system()
             return
 
-        if command == "check":
+        elif command == "check":
             prereqs = runner.check_prerequisites()
             print("Enhanced Prerequisites Check:")
             for check, status in prereqs.items():
@@ -876,7 +910,7 @@ def main():
                 print(f"  {check}: {status_text}")
             return
 
-        if command == "help":
+        elif command == "help":
             print("""
 Enhanced Zerodha Trading System Runner Commands:
 

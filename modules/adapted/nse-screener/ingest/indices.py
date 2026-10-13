@@ -65,7 +65,11 @@ def backfill():
             q = min(d + timedelta(days=89), date.today())
             try:
                 r = nse.get(
-                    URL.format(idx=idx.replace(" ", "%20"), frm=d.strftime("%d-%m-%Y"), to=q.strftime("%d-%m-%Y")),
+                    URL.format(
+                        idx=idx.replace(" ", "%20"),
+                        frm=d.strftime("%d-%m-%Y"),
+                        to=q.strftime("%d-%m-%Y"),
+                    ),
                     timeout=60,
                 )
                 if r.status_code == 200 and r.text.strip().startswith(("[", "{")):

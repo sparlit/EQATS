@@ -24,9 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Which gate stopped a candidate — shown in the table, not just on expand."""
 from datetime import date
 
-import pytest
 from app.api.routes import _blocked_by
-from app.core.config import settings
 from app.models.models import DecisionRecord
 
 

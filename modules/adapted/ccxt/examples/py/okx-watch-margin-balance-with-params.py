@@ -46,7 +46,7 @@ async def main():
     )
     while True:
         try:
-            await exchange.watch_balance(
+            balance = await exchange.watch_balance(
                 {
                     # okx watch_balance requires a symbol or an instrument_id
                     "symbol": "BTC/USDT",
@@ -55,6 +55,7 @@ async def main():
             )
             # it will print the balance update when the balance changes
             # if the balance remains unchanged the exchange will not send it
+            pprint(balance)
         except Exception as e:
             print("watch_balance() failed")
             print(e)

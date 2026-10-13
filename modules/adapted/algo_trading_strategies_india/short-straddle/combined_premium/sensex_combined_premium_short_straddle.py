@@ -105,13 +105,15 @@ def get_expiry_date():
 
         if is_expiry_today:
             return current_date  # Return today's date as the expiry date
-        # If it's Friday but not an expiry day, calculate the next expiry date (next Thursday)
-        x = 6  # Days until next Thursday from Friday
-    # For days other than Friday
-    elif wd <= 3:  # If today is Monday through Thursday,
-        x = 3 - wd  # Set x to the number of days until Thursday
-    else:  # If today is Saturday or Sunday,
-        x = 6 - wd + 4  # Set x to days until next week's Thursday
+        else:
+            # If it's Friday but not an expiry day, calculate the next expiry date (next Thursday)
+            x = 6  # Days until next Thursday from Friday
+    else:
+        # For days other than Friday
+        if wd <= 3:  # If today is Monday through Thursday,
+            x = 3 - wd  # Set x to the number of days until Thursday
+        else:  # If today is Saturday or Sunday,
+            x = 6 - wd + 4  # Set x to days until next week's Thursday
 
     # Calculate the tentative expiry date by adding x days to the current date
     exp_date = current_date + dt.timedelta(days=x)
@@ -163,8 +165,7 @@ def get_nifty_ltp():
             a += 1
     # If the LTP could not be retrieved after 10 attempts, raise an error
     if nt_ltp is None:
-        msg = "Failed to retrieve SENSEX LTP after multiple attempts."
-        raise ValueError(msg)
+        raise ValueError("Failed to retrieve SENSEX LTP after multiple attempts.")
     # Return the last traded price
     return nt_ltp
 

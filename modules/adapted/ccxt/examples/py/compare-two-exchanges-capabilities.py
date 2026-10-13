@@ -44,11 +44,13 @@ async def example():
     keys_2 = list(exchange_2.has.keys())
     # check missing from exchange-1
     print("### checking missing functionalities from exchange-1:", exchange_1.id)
-    for i in range(len(keys_2)):
+    for i in range(0, len(keys_2)):
         key = keys_2[i]
         if exchange_2.has[key]:
             if key not in keys_1:
-                print(prefix, key, "does not exist in", exchange_1.id, "as opposed to", exchange_2.id)
+                print(
+                    prefix, key, "does not exist in", exchange_1.id, "as opposed to", exchange_2.id
+                )
             elif exchange_2.has[key] != exchange_1.has[key]:
                 print(
                     prefix,
@@ -64,11 +66,13 @@ async def example():
                 )
     # check missing from exchange-2
     print("### checking missing functionalities from exchange-2:", exchange_2.id)
-    for i in range(len(keys_1)):
+    for i in range(0, len(keys_1)):
         key = keys_1[i]
         if exchange_1.has[key]:
             if key not in keys_2:
-                print(prefix, key, "does not exist in", exchange_2.id, "as opposed to", exchange_1.id)
+                print(
+                    prefix, key, "does not exist in", exchange_2.id, "as opposed to", exchange_1.id
+                )
             elif exchange_1.has[key] != exchange_2.has[key]:
                 print(
                     prefix,

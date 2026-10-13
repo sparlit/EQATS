@@ -43,12 +43,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import pandas as pd
 from indian_quant.config.connections import get_engine
-from indian_quant.features.delivery import add_features, prepare_frame
-from indian_quant.hypotheses import DeliveryMomentum
+from indian_quant.features.delivery import prepare_frame
+from indian_quant.hypotheses import DeliveryMomentum  # noqa: F401 — triggers register
 from indian_quant.hypotheses.registry import (
     HypothesisRegistry,
     get_hypothesis,
-    list_hypotheses,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -228,7 +227,7 @@ def run_signals(
                             "pos_val": round(position_value, 2),
                             "risk": round(risk_amount, 2),
                             "hz_label": f"{hypothesis.default_horizon_days}d",
-                            "cap": capital_per_pos,
+                            "cap": round(capital_per_pos, 2),
                             "conviction": round(sig.strength / 100, 4),
                             "hypo_id": hypo_id,
                         },
@@ -275,7 +274,9 @@ def main() -> int:
     engine = get_engine()
     registry = HypothesisRegistry(engine)
 
-    results = run_signals(registry, hypothesis_name=args.hypothesis, signal_date=args.date, dry_run=args.dry_run)
+    results = run_signals(
+        registry, hypothesis_name=args.hypothesis, signal_date=args.date, dry_run=args.dry_run
+    )
     print(json.dumps(results, indent=2, default=str))
     return 0
 

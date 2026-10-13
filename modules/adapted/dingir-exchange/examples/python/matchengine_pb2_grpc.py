@@ -135,127 +135,109 @@ class MatchengineServicer:
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def BalanceQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def BalanceUpdate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def AssetList(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderPut(self, request, context):
         """rpc AssetSummary(AssetSummaryRequest) returns (AssetSummaryResponse) {}"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def BatchOrderPut(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderCancel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderCancelAll(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderBookDepth(self, request, context):
         """rpc OrderBook(OrderBookRequest) returns (OrderBookResponse) {}"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def OrderDetail(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def MarketList(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def ReloadMarkets(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def MarketSummary(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def Transfer(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def DebugDump(self, request, context):
         """Used only in development"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def DebugReset(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
     def DebugReload(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
-        msg = "Method not implemented!"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_MatchengineServicer_to_server(servicer, server):
@@ -351,7 +333,9 @@ def add_MatchengineServicer_to_server(servicer, server):
             response_serializer=matchengine__pb2.DebugReloadResponse.SerializeToString,
         ),
     }
-    generic_handler = grpc.method_handlers_generic_handler("matchengine.Matchengine", rpc_method_handlers)
+    generic_handler = grpc.method_handlers_generic_handler(
+        "matchengine.Matchengine", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
 
 

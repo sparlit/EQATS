@@ -30,8 +30,8 @@ from datetime import datetime
 from pathlib import Path
 
 import matplotlib.dates as mdates
+import matplotlib.ticker as ticker
 import pandas as pd
-from matplotlib import ticker
 from matplotlib.axes import Axes
 
 
@@ -63,8 +63,7 @@ def iso_to_index(date: str, index: pd.DatetimeIndex) -> float:
         idx = index.get_loc(ts)
 
         if not isinstance(idx, int):
-            msg = f"Expected int got {type(idx)}"
-            raise ValueError(msg)
+            raise ValueError(f"Expected int got {type(idx)}")
 
         return float(idx)
     return float(index.get_indexer([ts], method="nearest")[0])

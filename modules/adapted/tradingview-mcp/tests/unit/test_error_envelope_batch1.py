@@ -63,8 +63,7 @@ def _boom_no_symbols(*args, **kwargs):
 
 
 def _boom_unexpected(*args, **kwargs):
-    msg = "someone divided by a dataframe"
-    raise ValueError(msg)
+    raise ValueError("someone divided by a dataframe")
 
 
 # ── translator unit behavior ───────────────────────────────────────────────────
@@ -96,7 +95,7 @@ def test_translator_maps_unexpected_to_internal_error_with_context():
 
 
 @pytest.mark.parametrize(
-    ("raiser", "expected_code"),
+    "raiser,expected_code",
     [
         (_boom_batch, "ALL_BATCHES_FAILED"),
         (_boom_no_symbols, "NO_DATA"),
@@ -112,7 +111,7 @@ def test_top_losers_never_leaks_raw_exceptions(monkeypatch, raiser, expected_cod
 
 
 @pytest.mark.parametrize(
-    ("raiser", "expected_code"),
+    "raiser,expected_code",
     [
         (_boom_no_symbols, "NO_DATA"),
         (_boom_unexpected, "INTERNAL_ERROR"),

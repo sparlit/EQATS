@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 
 df = pd.read_csv("nse_data.csv")

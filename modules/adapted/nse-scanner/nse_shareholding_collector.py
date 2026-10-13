@@ -38,17 +38,13 @@ import json
 import os
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, timedelta, timezone
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import requests
 from nse_historical_downloader import HEADERS
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
 
 LISTING_URL = "https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&from_date={from_date}&to_date={to_date}"
 RAW_ROOT = Path("corporate_data/raw/shareholding")
@@ -64,7 +60,15 @@ NORMAL_COLUMNS = [
     "source",
     "filing_id",
 ]
-HISTORY_COLUMNS = ["filing_id", "source_url", "listing_signature", "sha256", "status", "error", "processed_at"]
+HISTORY_COLUMNS = [
+    "filing_id",
+    "source_url",
+    "listing_signature",
+    "sha256",
+    "status",
+    "error",
+    "processed_at",
+]
 
 
 @dataclass
@@ -95,15 +99,13 @@ def _available(row: dict) -> tuple[str, bool]:
         value = row.get(name)
         if value and str(value).strip() not in {"-", "nan"}:
             return _date(value), name == "SUBMISSION DATE"
-    msg = "listing has no available date"
-    raise ValueError(msg)
+    raise ValueError("listing has no available date")
 
 
 def filing_id(source_url: str) -> str:
     name = source_url.rstrip("/").rsplit("/", 1)[-1]
     if not name.startswith("SHP_"):
-        msg = "not an NSE shareholding XBRL URL"
-        raise ValueError(msg)
+        raise ValueError("not an NSE shareholding XBRL URL")
     return name.removesuffix("_WEB.xml").removesuffix(".xml")
 
 
@@ -146,17 +148,22 @@ def _write_csv(path: Path, columns: list[str], rows: Iterable[dict]) -> None:
     raise last_error or OSError(f"could not replace {path}")
 
 
-def _request(url: str, session: requests.Session | None = None, retries: int = 3, timeout: int = 30) -> bytes:
+def _request(
+    url: str, session: requests.Session | None = None, retries: int = 3, timeout: int = 30
+) -> bytes:
     client = session or requests.Session()
-    headers = {**HEADERS, "Accept": "application/json,text/plain,*/*", "Referer": "https://www.nseindia.com/"}
+    headers = {
+        **HEADERS,
+        "Accept": "application/json,text/plain,*/*",
+        "Referer": "https://www.nseindia.com/",
+    }
     error: Exception | None = None
     for attempt in range(retries):
         try:
             response = client.get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
             if not response.content:
-                msg = "empty NSE response"
-                raise ValueError(msg)
+                raise ValueError("empty NSE response")
             return response.content
         except Exception as exc:  # preserve last valid data; caller reports degradation
             error = exc
@@ -184,10 +191,11 @@ def fetch_listing(start: date, end: date, session: requests.Session | None = Non
     payload = json.loads(_request(url, session=session).decode("utf-8"))
     rows = payload.get("data", payload) if isinstance(payload, dict) else payload
     if not isinstance(rows, list):
-        msg = "unexpected NSE shareholding listing schema"
-        raise ValueError(msg)
+        raise ValueError("unexpected NSE shareholding listing schema")
     return [
-        _normalize_listing_row(row) for row in rows if isinstance(row, dict) and (row.get("ACTION") or row.get("xbrl"))
+        _normalize_listing_row(row)
+        for row in rows
+        if isinstance(row, dict) and (row.get("ACTION") or row.get("xbrl"))
     ]
 
 
@@ -211,7 +219,9 @@ def _normalize_listing_row(row: dict) -> dict:
     }
 
 
-def _fact_values(root: ET.Element, contexts: dict[str, str], terms: tuple[str, ...], context_hint: str) -> list[float]:
+def _fact_values(
+    root: ET.Element, contexts: dict[str, str], terms: tuple[str, ...], context_hint: str
+) -> list[float]:
     values = []
     for node in root.iter():
         local = _lname(node.tag)
@@ -229,8 +239,7 @@ def parse_xbrl(content: bytes, listing: dict) -> dict:
     try:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
-        msg = f"invalid XML: {exc}"
-        raise ValueError(msg) from exc
+        raise ValueError(f"invalid XML: {exc}") from exc
     contexts = {
         node.attrib.get("id", ""): (
             node.attrib.get("id", "") + " " + " ".join((child.text or "") for child in node.iter())
@@ -242,23 +251,30 @@ def parse_xbrl(content: bytes, listing: dict) -> dict:
         (
             str(node.text).strip().upper()
             for node in root.iter()
-            if _lname(node.tag) in {"symbol", "nse_symbol", "symbolofcompany"} and (node.text or "").strip()
+            if _lname(node.tag) in {"symbol", "nse_symbol", "symbolofcompany"}
+            and (node.text or "").strip()
         ),
         "",
     )
     if not symbol:
-        msg = "XBRL has no NSE symbol"
-        raise ValueError(msg)
-    promoter_contexts = [key for key, text in contexts.items() if "promoter" in text and "group" in text]
+        raise ValueError("XBRL has no NSE symbol")
+    promoter_contexts = [
+        key for key, text in contexts.items() if "promoter" in text and "group" in text
+    ]
     public_contexts = [key for key, text in contexts.items() if "public" in text]
 
     def derive(context_ids: list[str]) -> tuple[float, float] | None:
         for context_id in context_ids:
             text_contexts = {context_id: contexts[context_id]}
             pct = _fact_values(
-                root, text_contexts, ("shareholdingasapercentageoftotalnumberofshares",), contexts[context_id]
+                root,
+                text_contexts,
+                ("shareholdingasapercentageoftotalnumberofshares",),
+                contexts[context_id],
             )
-            shares = _fact_values(root, text_contexts, ("numberof", "paid", "equityshares"), contexts[context_id])
+            shares = _fact_values(
+                root, text_contexts, ("numberof", "paid", "equityshares"), contexts[context_id]
+            )
             # Same-context facts are required.  Fully and partly-paid aggregate
             # quantities may both appear and are additive only at this aggregate level.
             if not pct or not shares:
@@ -274,20 +290,16 @@ def parse_xbrl(content: bytes, listing: dict) -> dict:
     public = derive(public_contexts)
     chosen = promoter if promoter and promoter[1] > 0 else public
     if not chosen:
-        msg = "no compatible aggregate ownership context"
-        raise ValueError(msg)
+        raise ValueError("no compatible aggregate ownership context")
     total, _ = chosen
     listed_promoter = float(str(listing.get("PROMOTER & PROMOTER GROUP (A)", "")).replace(",", ""))
     listed_public = float(str(listing.get("PUBLIC (B)", "")).replace(",", ""))
     if promoter and abs(promoter[1] - listed_promoter) > 0.05:
-        msg = "promoter percentage differs from NSE listing"
-        raise ValueError(msg)
+        raise ValueError("promoter percentage differs from NSE listing")
     if public and abs(public[1] - listed_public) > 0.05:
-        msg = "public percentage differs from NSE listing"
-        raise ValueError(msg)
+        raise ValueError("public percentage differs from NSE listing")
     if promoter and public and abs(promoter[0] - public[0]) / total > 0.005:
-        msg = "aggregate ownership contexts imply inconsistent total shares"
-        raise ValueError(msg)
+        raise ValueError("aggregate ownership contexts imply inconsistent total shares")
     available, degraded = _available(listing)
     return {
         "symbol": symbol,
@@ -325,7 +337,9 @@ def collect(
         listing = fetch_listing(start_date or as_of - timedelta(days=days), as_of, session)
     except Exception as exc:
         if not csv_fallback or not csv_fallback.exists():
-            return CollectionResult("REUSED_LAST_VALID" if output_path.exists() else "DEGRADED", error=str(exc))
+            return CollectionResult(
+                "REUSED_LAST_VALID" if output_path.exists() else "DEGRADED", error=str(exc)
+            )
         try:
             listing = _read_csv(csv_fallback)
             fallback_used = True
@@ -359,8 +373,14 @@ def collect(
     if limit is not None:
         candidates = candidates[:limit]
     if not candidates:
-        status = "DEGRADED" if (fallback_used or excluded) and not output_path.exists() else "NO_NEW_FILINGS"
-        return CollectionResult(status, listed=len(listing), reused=len(eligible), excluded=excluded)
+        status = (
+            "DEGRADED"
+            if (fallback_used or excluded) and not output_path.exists()
+            else "NO_NEW_FILINGS"
+        )
+        return CollectionResult(
+            status, listed=len(listing), reused=len(eligible), excluded=excluded
+        )
     records: list[dict] = []
     additions: list[dict] = []
     rejected = 0
@@ -372,8 +392,7 @@ def collect(
         fid = filing_id(url)
         try:
             if not url.startswith("https://nsearchives.nseindia.com/"):
-                msg = "XBRL host is not nsearchives.nseindia.com"
-                raise ValueError(msg)
+                raise ValueError("XBRL host is not nsearchives.nseindia.com")
             content = _cached_xbrl(fid) or _request(url, session=session)
             ET.fromstring(content)  # validate before caching
             digest = hashlib.sha256(content).hexdigest()
@@ -421,11 +440,10 @@ def collect(
         if throttle_seconds and index + 1 < len(candidates):
             time.sleep(throttle_seconds)
     # A rejected retry must remain eligible next run, while audit history is kept.
-    if records:
-        if db_path:
-            from scripts.import_nse_corporate_data import import_rows
+    if records and db_path:
+        from scripts.import_nse_corporate_data import import_rows
 
-            import_rows(db_path, "shareholding", str(output_path))
+        import_rows(db_path, "shareholding", str(output_path))
     return CollectionResult(
         "FRESH" if records else ("REUSED_LAST_VALID" if output_path.exists() else "DEGRADED"),
         len(listing),

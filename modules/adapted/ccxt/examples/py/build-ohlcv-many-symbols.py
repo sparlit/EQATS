@@ -42,14 +42,18 @@ async def loop(exchange, symbol, timeframe, complete_candles_only=False):
                 current_minute = int(exchange.milliseconds() / duration_in_ms)
                 ohlcvc = exchange.build_ohlcvc(trades, timeframe)
                 if complete_candles_only:
-                    ohlcvc = [candle for candle in ohlcvc if int(candle[0] / duration_in_ms) < current_minute]
+                    ohlcvc = [
+                        candle
+                        for candle in ohlcvc
+                        if int(candle[0] / duration_in_ms) < current_minute
+                    ]
                 if len(ohlcvc) > 0:
                     print("-----------------------------------------------------------")
                     print("Symbol:", symbol, "timeframe:", timeframe)
                     print(ohlcvc)
 
         except Exception as e:
-            print(f"{type(e).__name__}: {e!s}")
+            print(f"{type(e).__name__}: {(str(e))}")
             # raise type(e)(str(e))  # uncomment to break all loops in case of an error in any one of them
             # break  # you can also break just this one loop if it fails
 
@@ -70,7 +74,10 @@ async def main():
         # should be considered
         complete_candles_only = True
         await asyncio.gather(
-            *[loop(exchange, symbol["symbol"], timeframe, complete_candles_only) for symbol in selected_symbols]
+            *[
+                loop(exchange, symbol["symbol"], timeframe, complete_candles_only)
+                for symbol in selected_symbols
+            ]
         )
         await exchange.close()
     else:

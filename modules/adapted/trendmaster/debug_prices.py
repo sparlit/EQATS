@@ -21,12 +21,19 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
-import pandas as pd
 import yfinance as yf
 
 SECTOR_UNIVERSE = {
-    "Banking": ["HDFCBANK", "ICICIBANK", "SBIN", "AXISBANK", "KOTAKBANK", "PNB", "IDFCFIRSTB", "FEDERALBNK"],
+    "Banking": [
+        "HDFCBANK",
+        "ICICIBANK",
+        "SBIN",
+        "AXISBANK",
+        "KOTAKBANK",
+        "PNB",
+        "IDFCFIRSTB",
+        "FEDERALBNK",
+    ],
 }
 
 

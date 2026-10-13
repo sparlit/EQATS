@@ -27,52 +27,110 @@ _Dict = dict[str, object]
 
 
 class ImplicitAPI:
-    zendesk_get_201893608 = zendeskGet201893608 = Entry[_Dict]("201893608", "zendesk", "GET", {"cost": 1})
-    zendesk_get_360000292886 = zendeskGet360000292886 = Entry[_Dict]("360000292886", "zendesk", "GET", {"cost": 1})
+    zendesk_get_201893608 = zendeskGet201893608 = Entry[_Dict](
+        "201893608", "zendesk", "GET", {"cost": 1}
+    )
+    zendesk_get_360000292886 = zendeskGet360000292886 = Entry[_Dict](
+        "360000292886", "zendesk", "GET", {"cost": 1}
+    )
     public_get_time = publicGetTime = Entry[_Dict]("Time", "public", "GET", {"cost": 1})
-    public_get_systemstatus = publicGetSystemStatus = Entry[_Dict]("SystemStatus", "public", "GET", {"cost": 1})
+    public_get_systemstatus = publicGetSystemStatus = Entry[_Dict](
+        "SystemStatus", "public", "GET", {"cost": 1}
+    )
+    public_get_maintenanceschedule = publicGetMaintenanceSchedule = Entry[_Dict](
+        "MaintenanceSchedule", "public", "GET", {"cost": 1}
+    )
     public_get_assets = publicGetAssets = Entry[_Dict]("Assets", "public", "GET", {"cost": 1})
-    public_get_assetpairs = publicGetAssetPairs = Entry[_Dict]("AssetPairs", "public", "GET", {"cost": 1})
+    public_get_assetpairs = publicGetAssetPairs = Entry[_Dict](
+        "AssetPairs", "public", "GET", {"cost": 1}
+    )
     public_get_ticker = publicGetTicker = Entry[_Dict]("Ticker", "public", "GET", {"cost": 1})
     public_get_ohlc = publicGetOHLC = Entry[_Dict]("OHLC", "public", "GET", {"cost": 1.2})
     public_get_depth = publicGetDepth = Entry[_Dict]("Depth", "public", "GET", {"cost": 1.2})
-    public_get_groupedbook = publicGetGroupedBook = Entry[_Dict]("GroupedBook", "public", "GET", {"cost": 1.2})
+    public_get_groupedbook = publicGetGroupedBook = Entry[_Dict](
+        "GroupedBook", "public", "GET", {"cost": 1.2}
+    )
     public_get_trades = publicGetTrades = Entry[_Dict]("Trades", "public", "GET", {"cost": 1.2})
     public_get_spread = publicGetSpread = Entry[_Dict]("Spread", "public", "GET", {"cost": 1})
     public_get_pretrade = publicGetPreTrade = Entry[_Dict]("PreTrade", "public", "GET", {"cost": 1})
-    public_get_posttrade = publicGetPostTrade = Entry[_Dict]("PostTrade", "public", "GET", {"cost": 1})
-    private_post_level3 = privatePostLevel3 = Entry[_Dict]("Level3", "private", "POST", {"cost": 1.2})
-    private_post_balance = privatePostBalance = Entry[_Dict]("Balance", "private", "POST", {"cost": 3})
-    private_post_balanceex = privatePostBalanceEx = Entry[_Dict]("BalanceEx", "private", "POST", {"cost": 3})
-    private_post_creditlines = privatePostCreditLines = Entry[_Dict]("CreditLines", "private", "POST", {"cost": 3})
-    private_post_tradebalance = privatePostTradeBalance = Entry[_Dict]("TradeBalance", "private", "POST", {"cost": 3})
-    private_post_openorders = privatePostOpenOrders = Entry[_Dict]("OpenOrders", "private", "POST", {"cost": 3})
-    private_post_closedorders = privatePostClosedOrders = Entry[_Dict]("ClosedOrders", "private", "POST", {"cost": 3})
-    private_post_queryorders = privatePostQueryOrders = Entry[_Dict]("QueryOrders", "private", "POST", {"cost": 3})
-    private_post_orderamends = privatePostOrderAmends = Entry[_Dict]("OrderAmends", "private", "POST", {"cost": 3})
+    public_get_posttrade = publicGetPostTrade = Entry[_Dict](
+        "PostTrade", "public", "GET", {"cost": 1}
+    )
+    private_post_level3 = privatePostLevel3 = Entry[_Dict](
+        "Level3", "private", "POST", {"cost": 1.2}
+    )
+    private_post_balance = privatePostBalance = Entry[_Dict](
+        "Balance", "private", "POST", {"cost": 3}
+    )
+    private_post_balanceex = privatePostBalanceEx = Entry[_Dict](
+        "BalanceEx", "private", "POST", {"cost": 3}
+    )
+    private_post_creditlines = privatePostCreditLines = Entry[_Dict](
+        "CreditLines", "private", "POST", {"cost": 3}
+    )
+    private_post_tradebalance = privatePostTradeBalance = Entry[_Dict](
+        "TradeBalance", "private", "POST", {"cost": 3}
+    )
+    private_post_openorders = privatePostOpenOrders = Entry[_Dict](
+        "OpenOrders", "private", "POST", {"cost": 3}
+    )
+    private_post_closedorders = privatePostClosedOrders = Entry[_Dict](
+        "ClosedOrders", "private", "POST", {"cost": 3}
+    )
+    private_post_queryorders = privatePostQueryOrders = Entry[_Dict](
+        "QueryOrders", "private", "POST", {"cost": 3}
+    )
+    private_post_orderamends = privatePostOrderAmends = Entry[_Dict](
+        "OrderAmends", "private", "POST", {"cost": 3}
+    )
     private_post_tradeshistory = privatePostTradesHistory = Entry[_Dict](
         "TradesHistory", "private", "POST", {"cost": 6}
     )
-    private_post_querytrades = privatePostQueryTrades = Entry[_Dict]("QueryTrades", "private", "POST", {"cost": 3})
+    private_post_querytrades = privatePostQueryTrades = Entry[_Dict](
+        "QueryTrades", "private", "POST", {"cost": 3}
+    )
     private_post_openpositions = privatePostOpenPositions = Entry[_Dict](
         "OpenPositions", "private", "POST", {"cost": 3}
     )
-    private_post_ledgers = privatePostLedgers = Entry[_Dict]("Ledgers", "private", "POST", {"cost": 6})
-    private_post_queryledgers = privatePostQueryLedgers = Entry[_Dict]("QueryLedgers", "private", "POST", {"cost": 3})
-    private_post_tradevolume = privatePostTradeVolume = Entry[_Dict]("TradeVolume", "private", "POST", {"cost": 3})
-    private_post_addexport = privatePostAddExport = Entry[_Dict]("AddExport", "private", "POST", {"cost": 3})
-    private_post_exportstatus = privatePostExportStatus = Entry[_Dict]("ExportStatus", "private", "POST", {"cost": 3})
+    private_post_ledgers = privatePostLedgers = Entry[_Dict](
+        "Ledgers", "private", "POST", {"cost": 6}
+    )
+    private_post_queryledgers = privatePostQueryLedgers = Entry[_Dict](
+        "QueryLedgers", "private", "POST", {"cost": 3}
+    )
+    private_post_tradevolume = privatePostTradeVolume = Entry[_Dict](
+        "TradeVolume", "private", "POST", {"cost": 3}
+    )
+    private_post_addexport = privatePostAddExport = Entry[_Dict](
+        "AddExport", "private", "POST", {"cost": 3}
+    )
+    private_post_exportstatus = privatePostExportStatus = Entry[_Dict](
+        "ExportStatus", "private", "POST", {"cost": 3}
+    )
     private_post_retrieveexport = privatePostRetrieveExport = Entry[_Dict](
         "RetrieveExport", "private", "POST", {"cost": 3}
     )
-    private_post_removeexport = privatePostRemoveExport = Entry[_Dict]("RemoveExport", "private", "POST", {"cost": 3})
+    private_post_removeexport = privatePostRemoveExport = Entry[_Dict](
+        "RemoveExport", "private", "POST", {"cost": 3}
+    )
     private_post_getapikeyinfo = privatePostGetApiKeyInfo = Entry[_Dict](
         "GetApiKeyInfo", "private", "POST", {"cost": 3}
     )
-    private_post_addorder = privatePostAddOrder = Entry[_Dict]("AddOrder", "private", "POST", {"cost": 0})
-    private_post_amendorder = privatePostAmendOrder = Entry[_Dict]("AmendOrder", "private", "POST", {"cost": 0})
-    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict]("CancelOrder", "private", "POST", {"cost": 0})
-    private_post_cancelall = privatePostCancelAll = Entry[_Dict]("CancelAll", "private", "POST", {"cost": 3})
+    private_post_listwalletaccounts = privatePostListWalletAccounts = Entry[_Dict](
+        "ListWalletAccounts", "private", "POST", {"cost": 3}
+    )
+    private_post_addorder = privatePostAddOrder = Entry[_Dict](
+        "AddOrder", "private", "POST", {"cost": 0}
+    )
+    private_post_amendorder = privatePostAmendOrder = Entry[_Dict](
+        "AmendOrder", "private", "POST", {"cost": 0}
+    )
+    private_post_cancelorder = privatePostCancelOrder = Entry[_Dict](
+        "CancelOrder", "private", "POST", {"cost": 0}
+    )
+    private_post_cancelall = privatePostCancelAll = Entry[_Dict](
+        "CancelAll", "private", "POST", {"cost": 3}
+    )
     private_post_cancelallordersafter = privatePostCancelAllOrdersAfter = Entry[_Dict](
         "CancelAllOrdersAfter", "private", "POST", {"cost": 3}
     )
@@ -85,7 +143,9 @@ class ImplicitAPI:
     private_post_cancelorderbatch = privatePostCancelOrderBatch = Entry[_Dict](
         "CancelOrderBatch", "private", "POST", {"cost": 0}
     )
-    private_post_editorder = privatePostEditOrder = Entry[_Dict]("EditOrder", "private", "POST", {"cost": 0})
+    private_post_editorder = privatePostEditOrder = Entry[_Dict](
+        "EditOrder", "private", "POST", {"cost": 0}
+    )
     private_post_depositmethods = privatePostDepositMethods = Entry[_Dict](
         "DepositMethods", "private", "POST", {"cost": 3}
     )
@@ -101,8 +161,12 @@ class ImplicitAPI:
     private_post_withdrawaddresses = privatePostWithdrawAddresses = Entry[_Dict](
         "WithdrawAddresses", "private", "POST", {"cost": 3}
     )
-    private_post_withdrawinfo = privatePostWithdrawInfo = Entry[_Dict]("WithdrawInfo", "private", "POST", {"cost": 3})
-    private_post_withdraw = privatePostWithdraw = Entry[_Dict]("Withdraw", "private", "POST", {"cost": 3})
+    private_post_withdrawinfo = privatePostWithdrawInfo = Entry[_Dict](
+        "WithdrawInfo", "private", "POST", {"cost": 3}
+    )
+    private_post_withdraw = privatePostWithdraw = Entry[_Dict](
+        "Withdraw", "private", "POST", {"cost": 3}
+    )
     private_post_withdrawstatus = privatePostWithdrawStatus = Entry[_Dict](
         "WithdrawStatus", "private", "POST", {"cost": 3}
     )
@@ -118,7 +182,9 @@ class ImplicitAPI:
     private_post_accounttransfer = privatePostAccountTransfer = Entry[_Dict](
         "AccountTransfer", "private", "POST", {"cost": 3}
     )
-    private_post_earn_allocate = privatePostEarnAllocate = Entry[_Dict]("Earn/Allocate", "private", "POST", {"cost": 3})
+    private_post_earn_allocate = privatePostEarnAllocate = Entry[_Dict](
+        "Earn/Allocate", "private", "POST", {"cost": 3}
+    )
     private_post_earn_deallocate = privatePostEarnDeallocate = Entry[_Dict](
         "Earn/Deallocate", "private", "POST", {"cost": 3}
     )

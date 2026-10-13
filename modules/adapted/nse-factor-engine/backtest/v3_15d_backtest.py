@@ -68,9 +68,15 @@ RUN_DATE = time.strftime("%d%m%Y")
 print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH)
 prices["date"] = pd.to_datetime(prices["date"])
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
-print(f"  {len(all_trading_days)} trading days  ({prices['date'].min().date()} -> {prices['date'].max().date()})")
+print(
+    f"  {len(all_trading_days)} trading days  "
+    f"({prices['date'].min().date()} -> {prices['date'].max().date()})"
+)
 del prices
 gc.collect()
 
@@ -82,7 +88,9 @@ bench.index = pd.DatetimeIndex(bench.index)
 # ── Scoring ───────────────────────────────────────────────────────────────────
 def compute_mr_scores(signals_df, w_12m, w_6m):
     df = signals_df[signals_df["in_universe"]].copy()
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
     if len(df) < 10:
         return pd.DataFrame()
@@ -91,7 +99,9 @@ def compute_mr_scores(signals_df, w_12m, w_6m):
     df["z_12"] = (df["mr_12"] - df["mr_12"].mean()) / df["mr_12"].std(ddof=1)
     df["z_6"] = (df["mr_6"] - df["mr_6"].mean()) / df["mr_6"].std(ddof=1)
     df["weighted_z"] = w_12m * df["z_12"] + w_6m * df["z_6"]
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
     return df.sort_values("mr_rank").reset_index(drop=True)
 
@@ -180,7 +190,9 @@ print("Building bi-weekly (~15d) pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 all_pairs = []
 for fname in fri_files:
@@ -193,7 +205,10 @@ for fname in fri_files:
         continue
 all_pairs.sort(key=lambda x: x[1])
 biweekly_pairs = to_biweekly_pairs(all_pairs, min_days=REBAL_DAYS)
-print(f"  {len(biweekly_pairs)} rebalance periods  ({biweekly_pairs[0][1].date()} -> {biweekly_pairs[-1][1].date()})")
+print(
+    f"  {len(biweekly_pairs)} rebalance periods  "
+    f"({biweekly_pairs[0][1].date()} -> {biweekly_pairs[-1][1].date()})"
+)
 
 # ── Run backtest ──────────────────────────────────────────────────────────────
 print(f"\nRunning {VARIANT_LABEL} (W_12M={W_12M}, W_6M={W_6M}, REBAL={REBAL_DAYS}d) ...")
@@ -209,7 +224,9 @@ for i, (sig_date, exec_date, sig_path) in enumerate(biweekly_pairs):
     current_holdings = set(state.holdings.keys())
     top25_symbols, action_map = reconstitute(ranked_df, current_holdings)
 
-    port_value_post, port_value_pre, activity = state.rebalance(list(top25_symbols), exec_px, exec_date, VARIANT_LABEL)
+    port_value_post, port_value_pre, activity = state.rebalance(
+        list(top25_symbols), exec_px, exec_date, VARIANT_LABEL
+    )
 
     mr_meta = {}
     if not ranked_df.empty:

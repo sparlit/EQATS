@@ -31,17 +31,11 @@ req_matching_symbols, req_current_time, and new EWrapper callbacks.
 
 import time
 
-import pytest
 from ibx import (
-    BarData,
     Contract,
     ContractDescription,
-    ContractDetails,
     EClient,
     EWrapper,
-    TickAttrib,
-    TickAttribBidAsk,
-    TickAttribLast,
 )
 
 
@@ -143,7 +137,9 @@ class Tier1Wrapper(EWrapper):
     def update_mkt_depth(self, req_id, position, operation, side, price, size):
         self.events.append(("update_mkt_depth", req_id, position, operation, side, price, size))
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         self.events.append(("update_mkt_depth_l2", req_id, position, market_maker))
 
     def mkt_depth_exchanges(self, depth_mkt_data_descriptions):
@@ -151,7 +147,18 @@ class Tier1Wrapper(EWrapper):
 
     # Tick option
     def tick_option_computation(
-        self, req_id, tick_type, tick_attrib, implied_vol, delta, opt_price, pv_dividend, gamma, vega, theta, und_price
+        self,
+        req_id,
+        tick_type,
+        tick_attrib,
+        implied_vol,
+        delta,
+        opt_price,
+        pv_dividend,
+        gamma,
+        vega,
+        theta,
+        und_price,
     ):
         self.events.append(("tick_option_computation", req_id, tick_type))
 

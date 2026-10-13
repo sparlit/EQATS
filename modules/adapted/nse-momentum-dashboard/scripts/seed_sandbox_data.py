@@ -99,7 +99,9 @@ def seed_if_empty() -> None:
             entry_date=entry_date,
         )
         exit_price = entry_price * rng.uniform(0.88, 1.25)
-        reason = rng.choice(["stop_hit", "dropped out of top N rank", "closed below 200 EMA", "manual_square_off"])
+        reason = rng.choice(
+            ["stop_hit", "dropped out of top N rank", "closed below 200 EMA", "manual_square_off"]
+        )
         state_db.close_trade(sym, round(exit_price, 2), reason)
 
     for sym in held_symbols:
@@ -125,20 +127,32 @@ def seed_if_empty() -> None:
 
     # --- Job runs (Job Log page)
     for jt, trigger, status, mins_ago, summary, err in [
-        ("rebalance_scan", "scheduled", "success", 60 * 20, "1 buys, 1 sells, 0 stop updates", None),
+        (
+            "rebalance_scan",
+            "scheduled",
+            "success",
+            60 * 20,
+            "1 buys, 1 sells, 0 stop updates",
+            None,
+        ),
         ("gap_check", "scheduled", "success", 60 * 18, "no positions gapped below stop", None),
-        ("screen_run", "scheduled", "success", 60 * 19, "208 candidates (67 passing all gates)", None),
+        (
+            "screen_run",
+            "scheduled",
+            "success",
+            60 * 19,
+            "208 candidates (67 passing all gates)",
+            None,
+        ),
         (
             "rebalance_scan",
             "manual",
             "failed",
             60 * 40,
             None,
-            (
-                "requests.exceptions.ConnectionError: ('Connection aborted.', "
-                "ConnectionResetError(104, 'Connection reset by peer'))\n"
-                "(sandbox synthetic failure for testing)"
-            ),
+            "requests.exceptions.ConnectionError: ('Connection aborted.', "
+            "ConnectionResetError(104, 'Connection reset by peer'))\n"
+            "(sandbox synthetic failure for testing)",
         ),
         ("fundamentals_refresh", "scheduled", "success", 60 * 24 * 2, "208/210 scored", None),
     ]:

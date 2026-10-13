@@ -34,7 +34,7 @@ OUT: _vintage109_byprod.json
 import datetime
 import json
 import os
-from collections import Counter, defaultdict
+from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -64,7 +64,8 @@ def near(a, b):
 def days(a, b):
     try:
         return (
-            datetime.date(b // 10000, (b // 100) % 100, b % 100) - datetime.date(a // 10000, (a // 100) % 100, a % 100)
+            datetime.date(b // 10000, (b // 100) % 100, b % 100)
+            - datetime.date(a // 10000, (a // 100) % 100, a % 100)
         ).days
     except Exception:
         return None
@@ -98,7 +99,10 @@ def main():
         pidx[(v["sym"], v["qe"], v["basis"])] = v
 
     keys = sorted({k for lst in bp.values() for k in lst})
-    print("by-product population: %d cells (%s)" % (len(keys), dict(Counter(k.split("|")[2] for k in keys))))
+    print(
+        "by-product population: %d cells (%s)"
+        % (len(keys), dict(Counter(k.split("|")[2] for k in keys)))
+    )
 
     out, drift = {}, []
     for k in keys:
@@ -113,12 +117,20 @@ def main():
         con_now = frow[3] if frow and len(frow) > 3 else None
         if v.get("stored") is not None and cur is not None and abs(v["stored"] - cur) > 0.005:
             drift.append((k, v["stored"], cur))
-        vints = [x for x in v.get("vintages", []) if x.get("pat") is not None and x.get("cumulative") != "Cumulative"]
+        vints = [
+            x
+            for x in v.get("vintages", [])
+            if x.get("pat") is not None and x.get("cumulative") != "Cumulative"
+        ]
         asf = vints[0] if vints else None
         det = scan.get(nk, {}).get("detres") if basis == "std" else None
         fdet = raw.get(nk, {}) if basis == "std" else {}
         drev, _ = fnum(
-            fdet, "Net Sales/Revenue From Operations", "Total Income From Operations", "Net Sales", "Interest Earned"
+            fdet,
+            "Net Sales/Revenue From Operations",
+            "Total Income From Operations",
+            "Net Sales",
+            "Interest Earned",
         )
         dop, _ = fnum(
             fdet,

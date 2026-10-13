@@ -61,7 +61,9 @@ ROOT = os.path.dirname(HERE)
 SF = os.environ.get("SF_BIN") or os.path.join(ROOT, "docs", "sf_stock_data.bin")
 SLIM = os.path.join(ROOT, "docs", "dash_slim.bin")
 OUT = os.path.join(ROOT, "docs", "search_index.json")
-BSE_UNIV = os.path.join(ROOT, "docs", "bse_universe.json")  # BSE-only universe rows (name/mcap/sector)
+BSE_UNIV = os.path.join(
+    ROOT, "docs", "bse_universe.json"
+)  # BSE-only universe rows (name/mcap/sector)
 BSE_SCRIP = os.path.join(HERE, "bse_scrips.json")  # {by_id:{SYM:scripcode}}
 BSE_PX = os.path.join(ROOT, "docs", "bse_prices.bin")  # who actually has a price series
 
@@ -70,7 +72,7 @@ CHUNK = 1 << 22  # 4 MB of decompressed text per read
 # One token = an escape pair (so a \" inside a string never reads as a quote) or a
 # character that opens/closes nesting. Commas are deliberately NOT tokens: the price
 # arrays hold tens of millions of them and none of them can end a top-level value.
-_TOK = re.compile(r'\\.|["{}\[\]]', re.DOTALL)
+_TOK = re.compile(r'\\.|["{}\[\]]', re.S)
 _SCALAR_END = re.compile(r"[,}\]]")  # what ends a bare number / true / false / null
 
 
@@ -144,8 +146,7 @@ class _Scan:
             j = len(self.buf)
             drop = self.more()
             if drop is None:
-                msg = "truncated JSON: unterminated string"
-                raise ValueError(msg)
+                raise ValueError("truncated JSON: unterminated string")
             i -= drop
             j -= drop
 
@@ -184,8 +185,7 @@ class _Scan:
                 tail -= 1  # lone trailing backslash: its pair spans the join
             self.pos = tail
             if self.more() is None:
-                msg = "truncated JSON: value never closed"
-                raise ValueError(msg)
+                raise ValueError("truncated JSON: value never closed")
 
 
 def _scan_top_level(path, wanted):
@@ -205,8 +205,7 @@ def _scan_top_level(path, wanted):
     sc = _Scan(path)
     try:
         if sc.peek() != "{":
-            msg = f"{path} is not a JSON object"
-            raise ValueError(msg)
+            raise ValueError(f"{path} is not a JSON object")
         sc.pos += 1
         while want:
             c = sc.peek()
@@ -216,12 +215,10 @@ def _scan_top_level(path, wanted):
             if c in ("}", ""):
                 break  # end of the object, or of the file
             if c != '"':
-                msg = f"expected a key in {path}, found {c!r}"
-                raise ValueError(msg)
+                raise ValueError(f"expected a key in {path}, found {c!r}")
             key, sc.pos = sc.take()
             if sc.peek() != ":":
-                msg = f"expected ':' after key {key!r} in {path}"
-                raise ValueError(msg)
+                raise ValueError(f"expected ':' after key {key!r} in {path}")
             sc.pos += 1
             if key in want:
                 found[key], sc.pos = sc.take()
@@ -240,21 +237,18 @@ def _scan_top_level(path, wanted):
 _SELFTEST = [
     (
         "committed-bin order (end before meta)",
-        (
-            '{"start":"2002-01-02","end":"2026-06-13","meta":{"A":{"name":"Aco","alive":1}},'
-            '"data":{"A":{"d":[1,2],"c":[3,4]}}}'
-        ),
+        '{"start":"2002-01-02","end":"2026-06-13","meta":{"A":{"name":"Aco","alive":1}},'
+        '"data":{"A":{"d":[1,2],"c":[3,4]}}}',
     ),
     (
         "release-asset order (data, meta, start, dailyFrom, end LAST)",
-        (
-            '{"data":{"A":{"d":[1,2],"c":[3,4]}},"meta":{"A":{"name":"Aco","alive":1}},'
-            '"start":"2002-01-02","dailyFrom":"2002-01-02","end":"2026-08-07"}'
-        ),
+        '{"data":{"A":{"d":[1,2],"c":[3,4]}},"meta":{"A":{"name":"Aco","alive":1}},'
+        '"start":"2002-01-02","dailyFrom":"2002-01-02","end":"2026-08-07"}',
     ),
     (
         "nested keys named end/meta inside data",
-        ('{"data":{"A":{"end":"1999-01-01","meta":{"x":1},"d":[1]}},"meta":{"A":{"name":"Aco"}},"end":"2026-08-07"}'),
+        '{"data":{"A":{"end":"1999-01-01","meta":{"x":1},"d":[1]}},"meta":{"A":{"name":"Aco"}},'
+        '"end":"2026-08-07"}',
     ),
     (
         "strings carrying braces, commas, quotes and escapes",
@@ -266,11 +260,13 @@ _SELFTEST = [
     ),
     (
         "number / bool / null members around end",
-        ('{"data":{"A":{"d":[1]}},"n":4468,"ok":true,"gap":null,"meta":{"A":{"name":"Aco"}},"end":"2026-08-07"}'),
+        '{"data":{"A":{"d":[1]}},"n":4468,"ok":true,"gap":null,"meta":{"A":{"name":"Aco"}},'
+        '"end":"2026-08-07"}',
     ),
     (
         "pretty-printed whitespace",
-        ('{\n  "data": {\n    "A": {"d": [1, 2]}\n  },\n  "meta": {"A": {"name": "Aco"}},\n  "end": "2026-08-07"\n}'),
+        '{\n  "data": {\n    "A": {"d": [1, 2]}\n  },\n  "meta": {"A": {"name": "Aco"}},\n'
+        '  "end": "2026-08-07"\n}',
     ),
     ("end absent entirely", '{"data":{"A":{"d":[1]}},"meta":{"A":{"name":"Aco"}}}'),
 ]
@@ -295,7 +291,7 @@ def selftest():
             with gzip.open(tmp, "wt", encoding="utf-8") as fh:
                 fh.write(text)
             sizes = []
-            for CHUNK in [*list(range(1, 41)), len(text) - 1, len(text), real]:
+            for CHUNK in list(range(1, 41)) + [len(text) - 1, len(text), real]:
                 try:
                     got = _scan_top_level(tmp, ("meta", "end"))
                 except Exception as e:
@@ -304,12 +300,17 @@ def selftest():
                     sizes.append((CHUNK, got))
             CHUNK = real
             bad += len(sizes)
-            print("  %-52s %s" % (title[:52], "ok" if not sizes else f"FAILED at CHUNK={sizes[:2]!r}"))
+            print(
+                "  %-52s %s" % (title[:52], "ok" if not sizes else f"FAILED at CHUNK={sizes[:2]!r}")
+            )
     finally:
         CHUNK = real
         if os.path.exists(tmp):
             os.remove(tmp)
-    print("selftest: %s" % ("all shapes x all chunk boundaries OK" if not bad else "%d FAILURES" % bad))
+    print(
+        "selftest: %s"
+        % ("all shapes x all chunk boundaries OK" if not bad else "%d FAILURES" % bad)
+    )
     return 1 if bad else 0
 
 
@@ -322,7 +323,9 @@ def main():
     meta = got.get("meta") or {}
     end = got.get("end") or ""
     if len(meta) < 3000:
-        sys.exit("ABORT: sf meta has only %d symbols — refusing to publish a truncated index" % len(meta))
+        sys.exit(
+            "ABORT: sf meta has only %d symbols — refusing to publish a truncated index" % len(meta)
+        )
     # `v` is the ONLY staleness stamp this file carries — feeds.json has no entry for it at all
     # (checked 2026-08-10), and check_fund_alias.py reads its live META from here, where an old
     # cut silently hides every recent rename. An unstamped index is therefore worse than no
@@ -366,7 +369,9 @@ def main():
     if os.path.exists(BSE_UNIV) and os.path.exists(BSE_SCRIP) and os.path.exists(BSE_PX):
         try:
             bu = {str(r[0]): r for r in json.load(open(BSE_UNIV, encoding="utf-8"))["rows"]}
-            code2sym = {str(v): k for k, v in json.load(open(BSE_SCRIP, encoding="utf-8"))["by_id"].items()}
+            code2sym = {
+                str(v): k for k, v in json.load(open(BSE_SCRIP, encoding="utf-8"))["by_id"].items()
+            }
             bpx = json.loads(gzip.decompress(open(BSE_PX, "rb").read()))["px"]
             sys.path.insert(0, HERE)
             from build_bse_slices import owner_takeovers
@@ -379,7 +384,9 @@ def main():
                 {k: v["isin"] for k, v in meta.items() if isinstance(v, dict) and v.get("isin")},
             )
         except Exception as e:
-            print(f"WARN: BSE side unreadable ({e}) — BSE-only names not appended, page owners not applied")
+            print(
+                f"WARN: BSE side unreadable ({e}) — BSE-only names not appended, page owners not applied"
+            )
             bu = None
             take = {}
 
@@ -392,7 +399,7 @@ def main():
             ind_ix[ind] = len(inds)
             inds.append(ind)
         mc = row[6] if len(row) > 6 and isinstance(row[6], (int, float)) else 0
-        return [sym, name, 1, round(mc), ind_ix[ind]]
+        return [sym, name, 1, int(round(mc)), ind_ix[ind]]
 
     inds, ind_ix, rows = [], {}, []
     owned = 0
@@ -409,9 +416,14 @@ def main():
         if ind not in ind_ix:
             ind_ix[ind] = len(inds)
             inds.append(ind)
-        rows.append([sym, name, 1 if m.get("alive") else 0, round(mcap.get(sym, 0)), ind_ix[ind]])
+        rows.append(
+            [sym, name, 1 if m.get("alive") else 0, int(round(mcap.get(sym, 0))), ind_ix[ind]]
+        )
     if take:
-        print("  %d tape tickers are BSE companies' pages (§207) — named from the BSE universe" % owned)
+        print(
+            "  %d tape tickers are BSE companies' pages (§207) — named from the BSE universe"
+            % owned
+        )
 
     # --- BSE-ONLY names (not in the sf payload) that build_bse_slices.py now makes renderable -------
     # Their price slice lives on the sf-data host and their fin slice in docs/fin, so the stock page
@@ -448,7 +460,6 @@ def main():
         "search_index.json: %d symbols (%d live, %d with mcap), %.0f KB raw, end=%s"
         % (len(rows), sum(r[2] for r in rows), len(mcap), len(blob.encode()) / 1024, end)
     )
-    return None
 
 
 if __name__ == "__main__":

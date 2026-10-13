@@ -27,7 +27,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -147,7 +146,9 @@ def compute_risk_metrics(df: pd.DataFrame) -> dict:
     std = float(np.std(returns, ddof=1)) if n > 1 else 0.0
 
     # Annualized (assume ~252 trading days, avg hold ~5 days → ~50 trades/year)
-    trades_per_year = max(1, 252 / max(1, df["days_held"].mean())) if "days_held" in df.columns else 50
+    trades_per_year = (
+        max(1, 252 / max(1, df["days_held"].mean())) if "days_held" in df.columns else 50
+    )
     ann_ret = avg * trades_per_year
     ann_vol = std * np.sqrt(trades_per_year)
     sharpe = ann_ret / ann_vol if ann_vol > 0 else 0.0
@@ -188,7 +189,9 @@ def compute_risk_metrics(df: pd.DataFrame) -> dict:
             "sharpe_ratio": round(sharpe, 2),
             "sortino_ratio": round(sortino, 2),
             "max_drawdown_pct": round(max_dd, 2),
-            "avg_days_held": round(float(df["days_held"].mean()), 1) if "days_held" in df.columns else 0,
+            "avg_days_held": round(float(df["days_held"].mean()), 1)
+            if "days_held" in df.columns
+            else 0,
             "annual_return_pct": round(ann_ret * 100, 2),
             "annual_volatility_pct": round(ann_vol * 100, 2),
         }
@@ -231,7 +234,9 @@ def compute_by_horizon(df: pd.DataFrame) -> list[dict]:
                 "trades": len(grp),
                 "avg_bps": round(avg_bps, 1),
                 "win_rate": round(win_rate, 1),
-                "avg_days_held": round(float(grp["days_held"].mean()), 1) if "days_held" in grp.columns else 0,
+                "avg_days_held": round(float(grp["days_held"].mean()), 1)
+                if "days_held" in grp.columns
+                else 0,
             }
         )
     return result
@@ -278,7 +283,12 @@ def compute_by_signal_type(df: pd.DataFrame) -> list[dict]:
 def compute_streak_analysis(df: pd.DataFrame) -> dict:
     """Win/loss streak analysis."""
     if df.empty:
-        return {"max_win_streak": 0, "max_loss_streak": 0, "current_streak": 0, "streak_type": "none"}
+        return {
+            "max_win_streak": 0,
+            "max_loss_streak": 0,
+            "current_streak": 0,
+            "streak_type": "none",
+        }
 
     wins = (df["realized_net_bps"] > 0).astype(int).values
     max_win = max_loss = 0
@@ -324,7 +334,11 @@ def compute_full_analytics() -> dict:
         else (paper_df if not paper_df.empty else sugg_df)
     )
 
-    equity = compute_equity_curve(combined) if not combined.empty else {"dates": [], "equity": [], "drawdown": []}
+    equity = (
+        compute_equity_curve(combined)
+        if not combined.empty
+        else {"dates": [], "equity": [], "drawdown": []}
+    )
     risk = compute_risk_metrics(combined) if not combined.empty else {}
     monthly = compute_monthly_performance(combined)
     by_horizon = compute_by_horizon(combined)

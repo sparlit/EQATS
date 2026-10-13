@@ -42,8 +42,7 @@ def p(*parts) -> Path:
 
 def read_parquet_safe(path: Path) -> pd.DataFrame:
     if not path.exists():
-        msg = f"Missing required file: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing required file: {path}")
     return pd.read_parquet(path)
 
 

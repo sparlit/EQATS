@@ -10,13 +10,14 @@ The fix ensures:
 2. The same normalized volume is used for validation and execution
 3. Both simulator and live connector use the same volume
 """
-from typing import Any
 import unittest
-from unittest.mock import Mock, MagicMock, patch
-import config
+from typing import Any
+from unittest.mock import MagicMock, Mock
+
 import connector
 import database
 import eqats_planes
+
 
 class TestVolumeNormalizationSecurity(unittest.TestCase):
     """Test suite for volume normalization security fix."""
@@ -59,6 +60,7 @@ class TestVolumeNormalizationSecurity(unittest.TestCase):
         self.assertEqual(normalized_volume, 1.0, 'Volume should be normalized to broker minimum of 1.0')
         self.assertGreater(normalized_volume, brain_calculated_volume, 'Normalized volume should be greater than brain-calculated volume')
         is_valid = self.execution_plane.validate_fat_finger('XRPUSD', normalized_volume, 1.0851)
+        self.assertTrue(is_valid, 'Normalized volume should be valid under fat-finger checks')
         result = self.execution_plane.execute_admitted_order(symbol='XRPUSD', direction='BUY', lot=normalized_volume, sl=1.08, tp=1.1)
         self.assertTrue(result['success'], 'Order execution should succeed')
         self.assertEqual(self.executed_volume, normalized_volume, 'Executed volume must match validated volume')
@@ -75,7 +77,7 @@ class TestVolumeNormalizationSecurity(unittest.TestCase):
         brain_calculated_volume = 0.01
         constraints = sim_conn.get_symbol_volume_constraints('EURUSD')
         vol_min = constraints['volume_min']
-        broker_vol_min = 1.0
+        broker_vol_min = max(1.0, vol_min)
         normalized_volume = max(broker_vol_min, brain_calculated_volume)
         result = sim_conn.execute_order('EURUSD', 'BUY', normalized_volume, 1.08, 1.1)
         self.assertTrue(result['success'])
@@ -138,6 +140,7 @@ class TestVolumeNormalizationSecurity(unittest.TestCase):
         mock_mt5.ORDER_TIME_GTC = 0
         pre_normalized_volume = 1.0
         result = mt5_conn.execute_order('EURUSD', 'BUY', pre_normalized_volume, 1.08, 1.1)
+        self.assertTrue(result['success'], 'MT5 order execution should succeed')
         self.assertEqual(captured_volume, pre_normalized_volume, 'MT5Connector must not modify pre-normalized volume')
         self.assertEqual(captured_volume, 1.0, 'Volume sent to broker must be exactly what was passed in')
 if __name__ == '__main__':

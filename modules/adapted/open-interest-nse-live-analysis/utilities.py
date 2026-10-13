@@ -21,13 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from functools import partial
-
 import lxml.html as lh
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-from matplotlib import animation, style
 
 
 def nse_data(url):
@@ -38,7 +35,15 @@ def nse_data(url):
     ##final output dictionary
     output = {}
     ##0. Help
-    output["Help"] = {1: "Name", 2: "Price", 3: "Time", 4: "Expiry", 5: "Headers", 6: "Data", 7: "Total_C_and_P"}
+    output["Help"] = {
+        1: "Name",
+        2: "Price",
+        3: "Time",
+        4: "Expiry",
+        5: "Headers",
+        6: "Data",
+        7: "Total_C_and_P",
+    }
     ##1.Name,2.Price,3.Time,4.Expiry
     string1 = doc.xpath('//*[@id="wrapper_btm"]/table[1]')[0].text_content()
     string1 = string1.replace("\r", "")
@@ -101,7 +106,7 @@ def bar_graph(url, c_p_or_both="both", values_from_mid=7, quantity="OI"):
         if web_data["Headers"][index] == quantity:
             break
 
-    _fix, _ax = plt.subplots()
+    fix, ax = plt.subplots()
     indices = np.arange(index_end - index_start)
     bar_width = 0.35
     opacity = 0.8
@@ -128,6 +133,7 @@ def bar_graph(url, c_p_or_both="both", values_from_mid=7, quantity="OI"):
     plt.tight_layout()
 
     plt.show()
+    return
 
 
 def save_bar_graph(url, name="Option Chain Data", values_from_mid=7, quantity="OI"):
@@ -154,4 +160,8 @@ def save_bar_graph(url, name="Option Chain Data", values_from_mid=7, quantity="O
     y1 = data[index_start:index_end, index].astype(float)
     y2 = data[index_start:index_end, -1 - index].astype(float)
     print(np.asarray([strike_prices, y1, y2]).shape)
-    np.save("./temperory_saves_while_plotting/" + name + quantity + ".npy", np.asarray([strike_prices, y1, y2]))
+    np.save(
+        "./temperory_saves_while_plotting/" + name + quantity + ".npy",
+        np.asarray([strike_prices, y1, y2]),
+    )
+    return

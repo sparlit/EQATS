@@ -27,12 +27,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import sqlite3
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def load_sources(db: Path, snapshots: Path, symbols: list[str] | None = None):
@@ -59,7 +56,8 @@ def load_sources(db: Path, snapshots: Path, symbols: list[str] | None = None):
         }
         benchmark = (
             pd.read_sql_query(
-                "SELECT date,close FROM index_perf WHERE UPPER(index_name)='NIFTY 500' ORDER BY date", conn
+                "SELECT date,close FROM index_perf WHERE UPPER(index_name)='NIFTY 500' ORDER BY date",
+                conn,
             )
             if "index_perf" in tables
             else pd.DataFrame()
@@ -73,15 +71,13 @@ def load_sources(db: Path, snapshots: Path, symbols: list[str] | None = None):
             continue
         part = pd.read_csv(path, usecols=list(daily.columns))
         if not part.date.astype(str).eq(path.stem).all():
-            msg = f"Snapshot filename/date mismatch: {path.name}"
-            raise ValueError(msg)
+            raise ValueError(f"Snapshot filename/date mismatch: {path.name}")
         if symbols:
             part = part.loc[part.symbol.isin(symbols)]
         chunks.append(part)
     combined = pd.concat(chunks, ignore_index=True).rename(columns={"date": "trade_date"})
     if combined.duplicated(["symbol", "trade_date"]).any():
-        msg = "Conflicting/duplicate source rows"
-        raise ValueError(msg)
+        raise ValueError("Conflicting/duplicate source rows")
     combined = combined.sort_values(["symbol", "trade_date"])
     frames = {s: d.reset_index(drop=True) for s, d in combined.groupby("symbol", sort=True)}
     b = benchmark.set_index("date").close if not benchmark.empty else None
@@ -95,7 +91,9 @@ def load_sources(db: Path, snapshots: Path, symbols: list[str] | None = None):
             "symbols": len(frames),
             "price_rows": len(combined),
             "corporate_table_rows": counts,
-            "price_fingerprint": sha256(pd.util.hash_pandas_object(combined, index=False).values.tobytes()).hexdigest(),
+            "price_fingerprint": sha256(
+                pd.util.hash_pandas_object(combined, index=False).values.tobytes()
+            ).hexdigest(),
             "benchmark_end": None if benchmark.empty else benchmark.date.max(),
             "eligibility_status": "TECHNICAL RESEARCH ONLY; HISTORICAL SECURITY/FUNDAMENTAL ELIGIBILITY NOT CERTIFIED",
             "unavailable": [

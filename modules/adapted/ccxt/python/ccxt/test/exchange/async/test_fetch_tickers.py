@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -38,8 +40,8 @@ sys.path.append(root)
 import asyncio
 
 from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_ticker,
+    test_shared_methods,  # noqa E402
+    test_ticker,  # noqa E402
 )
 
 
@@ -62,23 +64,31 @@ async def fetch_tickers_helper_test(exchange, skipped_properties, arg_symbols, a
         arg_params = {}
     method = "fetchTickers"
     response = await exchange.fetch_tickers(arg_symbols, arg_params)
-    test_shared_methods.assert_dictionary_response(exchange, method, response, exchange.json(arg_symbols))
+    test_shared_methods.assert_dictionary_response(
+        exchange, method, response, exchange.json(arg_symbols)
+    )
     values = list(response.values())
     checked_symbol = None
     if arg_symbols is not None and len(arg_symbols) == 1:
         checked_symbol = arg_symbols[0]
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, values, checked_symbol)
-    for i in range(len(values)):
-        # TODO: symbol check here
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, values, checked_symbol
+    )
+    for i in range(0, len(values)):
+        # todo: symbol check here
         ticker = values[i]
         try:
             test_ticker(exchange, skipped_properties, method, ticker, checked_symbol)
         except Exception as ex:
             ohlcv = None
             ticker_symbol = ticker["symbol"]
-            if (ticker_symbol is not None) and test_shared_methods.ticker_exception_needs_ohlcv(ex, exchange, ticker):
+            if (ticker_symbol is not None) and test_shared_methods.ticker_exception_needs_ohlcv(
+                ex, exchange, ticker
+            ):
                 ohlcv = await exchange.fetch_ohlcv(ticker_symbol, "1d", None, 5)
-            test_shared_methods.validate_ticker_exception_for_percentage(ex, exchange, ticker, ohlcv)
+            test_shared_methods.validate_ticker_exception_for_percentage(
+                ex, exchange, ticker, ohlcv
+            )
     return response
 
 

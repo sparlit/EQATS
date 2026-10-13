@@ -42,7 +42,6 @@ RUN: python3 scripts/vintage117c_adjudicate.py [--verbose]
 """
 import json
 import os
-import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -84,12 +83,20 @@ def main():
         rec = {"slots": {}, "sym": cell["sym"], "qe": cell["qe"]}
 
         ns = f(
-            d, "Net Sales/Revenue From Operations", "Revenue from Operations", "Net Sales", "Revenue From Operations"
+            d,
+            "Net Sales/Revenue From Operations",
+            "Revenue from Operations",
+            "Net Sales",
+            "Revenue From Operations",
         )
         # bank transpose: rev = the interest-earned top line (store's bank rev convention)
         ie2 = f(d, "Interest Earned/Net Income from sales/services")
         ooi = f(
-            d, "Other Operating Income", "Other operating income", "Other Operating Revenues", "Other operating revenue"
+            d,
+            "Other Operating Income",
+            "Other operating income",
+            "Other Operating Revenues",
+            "Other operating revenue",
         )
         ti = f(d, "Total Income", "Total Income from Operations")
         ie = f(d, "Interest Earned")
@@ -112,12 +119,25 @@ def main():
             )
             or 0.0
         )
-        pbet = f(d, "Profit after Interest but before Exceptional Items", "Profit before Exceptional Items and Tax")
-        pbt = f(d, "Profit (+)/ Loss (-) from Ordinary Activities before Tax", "Profit before tax", "Profit Before Tax")
+        pbet = f(
+            d,
+            "Profit after Interest but before Exceptional Items",
+            "Profit before Exceptional Items and Tax",
+        )
+        pbt = f(
+            d,
+            "Profit (+)/ Loss (-) from Ordinary Activities before Tax",
+            "Profit before tax",
+            "Profit Before Tax",
+        )
         base = pbet if pbet is not None else pbt
         op_c = {}
         if base is not None:
-            op_c = {"pbet-oi+fc+da": base - oi + fc + da, "pbet-oi+fc": base - oi + fc, "pbet-oi": base - oi}
+            op_c = {
+                "pbet-oi+fc+da": base - oi + fc + da,
+                "pbet-oi+fc": base - oi + fc,
+                "pbet-oi": base - oi,
+            }
         if pbt is not None and pbet is not None and abs(pbt - pbet) > 0.005:
             op_c["pbt-oi+fc+da"] = pbt - oi + fc + da
         bop = f(
@@ -131,7 +151,9 @@ def main():
         pat_c = {
             "np": f(d, "Net Profit"),
             "np-ord": f(
-                d, "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax", "Net Profit/(Loss) for the period"
+                d,
+                "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax",
+                "Net Profit/(Loss) for the period",
             ),
         }
 

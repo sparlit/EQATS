@@ -57,7 +57,9 @@ def get_user(db: Session, user_id: int):
 
 
 def get_portfolio(db: Session, user_id: int):
-    return db.query(models.PortfolioPosition).filter(models.PortfolioPosition.user_id == user_id).all()
+    return (
+        db.query(models.PortfolioPosition).filter(models.PortfolioPosition.user_id == user_id).all()
+    )
 
 
 def update_user_balance(db: Session, user_id: int, new_balance: float):
@@ -76,8 +78,8 @@ def execute_trade(
     price: float,
     quantity: int,
     type: str,
-    take_profit: float | None = None,
-    stop_loss: float | None = None,
+    take_profit: float = None,
+    stop_loss: float = None,
 ):
     # This acts as both BUY and SELL logic
     user = get_user(db, user_id)
@@ -88,14 +90,21 @@ def execute_trade(
 
     # Record transaction
     tx = models.TransactionHistory(
-        id=str(uuid.uuid4())[:8], user_id=user_id, symbol=symbol, type=type, quantity=quantity, price=price
+        id=str(uuid.uuid4())[:8],
+        user_id=user_id,
+        symbol=symbol,
+        type=type,
+        quantity=quantity,
+        price=price,
     )
     db.add(tx)
 
     # Update position
     pos = (
         db.query(models.PortfolioPosition)
-        .filter(models.PortfolioPosition.user_id == user_id, models.PortfolioPosition.symbol == symbol)
+        .filter(
+            models.PortfolioPosition.user_id == user_id, models.PortfolioPosition.symbol == symbol
+        )
         .first()
     )
 
@@ -106,8 +115,8 @@ def execute_trade(
             total_cost = (pos.quantity * pos.average_price) + cost
             pos.quantity += quantity
             pos.average_price = total_cost / pos.quantity
-            pos.take_profit = take_profit or pos.take_profit
-            pos.stop_loss = stop_loss or pos.stop_loss
+            pos.take_profit = take_profit if take_profit else pos.take_profit
+            pos.stop_loss = stop_loss if stop_loss else pos.stop_loss
         else:
             pos = models.PortfolioPosition(
                 user_id=user_id,
@@ -130,11 +139,13 @@ def execute_trade(
 
 
 def update_limits(
-    db: Session, user_id: int, symbol: str, take_profit: float | None = None, stop_loss: float | None = None
+    db: Session, user_id: int, symbol: str, take_profit: float = None, stop_loss: float = None
 ):
     pos = (
         db.query(models.PortfolioPosition)
-        .filter(models.PortfolioPosition.user_id == user_id, models.PortfolioPosition.symbol == symbol)
+        .filter(
+            models.PortfolioPosition.user_id == user_id, models.PortfolioPosition.symbol == symbol
+        )
         .first()
     )
 

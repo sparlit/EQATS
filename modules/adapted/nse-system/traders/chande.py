@@ -47,7 +47,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.chande")
 
@@ -110,7 +109,8 @@ METHODS = [
     {
         "id": "chande_65sma_3cc",
         "name": "65sma-3cc Trend-Following",
-        "description": "3 consecutive closes above the 65-day SMA → long. Exit on 3 consecutive closes below.",
+        "description": "3 consecutive closes above the 65-day SMA → "
+        "long. Exit on 3 consecutive closes below.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -195,7 +195,8 @@ def _try_emit(sigs, fn):
 # ----------------------------------------------------------------
 def _load_df(conn, sym, limit=500):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -329,14 +330,29 @@ def _exits_block(
             if exhaustion_thesis
             else None
         ),
-        "time_exit": ({"thesis": time_exit_thesis, "sessions": time_exit_sessions} if time_exit_sessions else None),
+        "time_exit": (
+            {"thesis": time_exit_thesis, "sessions": time_exit_sessions}
+            if time_exit_sessions
+            else None
+        ),
     }
 
 
 # ----------------------------------------------------------------
 # Signal constructor
 # ----------------------------------------------------------------
-def _signal(sym, method_id, entry, stop, target, confidence, notes, raw, signal_type="LONG_SETUP", overlaps_with=None):
+def _signal(
+    sym,
+    method_id,
+    entry,
+    stop,
+    target,
+    confidence,
+    notes,
+    raw,
+    signal_type="LONG_SETUP",
+    overlaps_with=None,
+):
     sig = {
         "symbol": sym,
         "trader": SLUG,
@@ -519,7 +535,9 @@ def _detect_cb_pb(sym, df):
                 "This captures the bounce without waiting "
                 "for trend exhaustion."
             ),
-            target_condition=(f"limit @ ₹{_fmt_num(target_hard)}" if target_hard else "trail — see long-term"),
+            target_condition=(
+                f"limit @ ₹{_fmt_num(target_hard)}" if target_hard else "trail — see long-term"
+            ),
             offset_thesis=(
                 "Book: none specific — CB-PB is a pullback "
                 "buy; there is no opposite-signal exit. "
@@ -527,7 +545,9 @@ def _detect_cb_pb(sym, df):
             ),
             offset_trigger="none — see target / trail / time",
             invalidation_thesis=(
-                "Book: a new 20-day low after entry voids the setup — the supposed pullback became a downtrend."
+                "Book: a new 20-day low after entry "
+                "voids the setup — the supposed "
+                "pullback became a downtrend."
             ),
             invalidation_condition="new 20-day low after entry",
             time_exit_sessions=50,
@@ -535,7 +555,8 @@ def _detect_cb_pb(sym, df):
                 "Book (intermediate variant): exit on the "
                 "close of the 50th day in trade. The "
                 "other variant is a trailing stop at the "
-                "lowest low of the last 40 days" + (f" (current: ₹{_fmt_num(trail_40d_low)})" if trail_40d_low else "")
+                "lowest low of the last 40 days"
+                + (f" (current: ₹{_fmt_num(trail_40d_low)})" if trail_40d_low else "")
             ),
         ),
         "overlap_note": (
@@ -611,7 +632,9 @@ def _detect_adx_burst(sym, df):
             ),
             stop_condition=f"close ≤ ₹{_fmt_num(stop_hard)}",
             target_hard=None,
-            target_thesis=("Book does not use a fixed target for ADX burst — it is a momentum-trend hybrid."),
+            target_thesis=(
+                "Book does not use a fixed target for ADX burst — it is a momentum-trend hybrid."
+            ),
             target_condition="trail — see time exit / trailing",
             offset_thesis=(
                 "Book: none specific — this is a momentum "
@@ -620,7 +643,9 @@ def _detect_adx_burst(sym, df):
             ),
             offset_trigger="none — see trailing stop / time exit",
             invalidation_thesis=(
-                "Book: a failed burst (ADX falls back below the entry level and price reverses) voids the setup."
+                "Book: a failed burst (ADX falls back "
+                "below the entry level and price "
+                "reverses) voids the setup."
             ),
             invalidation_condition=("ADX reversal + price below entry level"),
             time_exit_sessions=ADX_BURST_TIME_EXIT,
@@ -716,7 +741,9 @@ def _detect_bottom_fishing(sym, df):
             ),
             stop_condition=f"close ≤ ₹{_fmt_num(stop_hard)}",
             target_hard=None,
-            target_thesis=("Book: no fixed target. Profit-taking is trail-based — see trailing exit below."),
+            target_thesis=(
+                "Book: no fixed target. Profit-taking is trail-based — see trailing exit below."
+            ),
             target_condition="trail-based profit-taking",
             offset_thesis=(
                 "Book (trailing exit): once the trade has "
@@ -724,7 +751,9 @@ def _detect_bottom_fishing(sym, df):
                 "the 5-day low" + (f" (current: ₹{_fmt_num(trail_5d_low)})" if trail_5d_low else "")
             ),
             offset_trigger="after +2× ATR profit — trail at 5-day low",
-            invalidation_thesis=("Book: a new 20-day low after entry voids the capitulation thesis."),
+            invalidation_thesis=(
+                "Book: a new 20-day low after entry voids the capitulation thesis."
+            ),
             invalidation_condition="new 20-day low after entry",
             time_exit_sessions=20,
             time_exit_thesis=(
@@ -815,7 +844,9 @@ def _detect_extraordinary(sym, df):
             stop_condition=f"close ≤ ₹{_fmt_num(stop_hard)}",
             target_hard=None,
             target_thesis=(
-                "Book: no fixed target — the signal identifies exceptional up-moves, which are held until trend decay."
+                "Book: no fixed target — the signal "
+                "identifies exceptional up-moves, which are "
+                "held until trend decay."
             ),
             target_condition="trail-based",
             offset_thesis=(
@@ -825,10 +856,14 @@ def _detect_extraordinary(sym, df):
                 "exit."
             ),
             offset_trigger="SMA7 re-enters the 3% band around SMA50",
-            invalidation_thesis=("Book: same as offset — the extraordinary condition ending is the setup kill."),
+            invalidation_thesis=(
+                "Book: same as offset — the extraordinary condition ending is the setup kill."
+            ),
             invalidation_condition="SMA7 ≤ 1.03 × SMA50",
             time_exit_sessions=20,
-            time_exit_thesis=("Book: exit on the close of the 20th day in trade. Alternative: 3% trailing stop."),
+            time_exit_thesis=(
+                "Book: exit on the close of the 20th day in trade. Alternative: 3% trailing stop."
+            ),
         ),
         "overlap_note": (
             "Overlaps with "
@@ -870,11 +905,13 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=DEFAULT_LIMIT):
+def scan(conn=None, limit=DEFAULT_LIMIT, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Chande scan: {len(syms)} symbols in universe")
 
     signals = []

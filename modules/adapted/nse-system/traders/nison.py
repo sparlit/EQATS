@@ -48,7 +48,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.nison")
 
@@ -113,7 +112,8 @@ METHODS = [
     {
         "id": "nison_rising_window_support",
         "name": "Rising Window as Support",
-        "description": "Gap up + pullback into window + bullish candle holding the window's bottom.",
+        "description": "Gap up + pullback into window + bullish candle "
+        "holding the window's bottom.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -121,7 +121,8 @@ METHODS = [
     {
         "id": "nison_long_white_candle_support",
         "name": "Long White Candle Support Zone",
-        "description": "Tall white candle (body >= 3x avg) + pullback into its upper half + bullish confirmation.",
+        "description": "Tall white candle (body >= 3x avg) + pullback "
+        "into its upper half + bullish confirmation.",
         "direction": "long",
         "scan": True,
         "confidence": "MED",
@@ -145,7 +146,8 @@ METHODS = [
     {
         "id": "nison_new_price_chart_trend",
         "name": "New-Price Chart Trend (TLB / Renko / Kagi)",
-        "description": "Non-time chart turns bullish: TLB white turnaround / Renko white brick / Kagi yang.",
+        "description": "Non-time chart turns bullish: TLB white "
+        "turnaround / Renko white brick / Kagi yang.",
         "direction": "long",
         "scan": True,
         "confidence": "HIGH",
@@ -198,7 +200,8 @@ def _try_emit(sigs, fn):
 # ----------------------------------------------------------------
 def _load_df(conn, sym, limit=500):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -273,14 +276,20 @@ def _is_hammer(s):
     if s is None:
         return False
     if s["body"] < 1e-6:
-        return s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.15 * s["rng"] and s["close_pos"] >= 0.6
+        return (
+            s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.15 * s["rng"] and s["close_pos"] >= 0.6
+        )
     return s["lower"] >= 2.0 * s["body"] and s["upper"] <= 0.2 * s["body"] and s["close_pos"] >= 0.6
 
 
 def _is_dragonfly_doji(s):
     if s is None:
         return False
-    return s["body"] <= 0.15 * s["rng"] and s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.1 * s["rng"]
+    return (
+        s["body"] <= 0.15 * s["rng"]
+        and s["lower"] >= 0.6 * s["rng"]
+        and s["upper"] <= 0.1 * s["rng"]
+    )
 
 
 def _is_bullish_engulfing(df, i):
@@ -292,7 +301,9 @@ def _is_bullish_engulfing(df, i):
         return False
     if prev["is_bull"] or not cur["is_bull"]:
         return False
-    return cur["open"] <= prev["close"] and cur["close"] >= prev["open"] and cur["body"] > prev["body"]
+    return (
+        cur["open"] <= prev["close"] and cur["close"] >= prev["open"] and cur["body"] > prev["body"]
+    )
 
 
 def _is_piercing(df, i):
@@ -366,7 +377,7 @@ def _pivots(values, k=PIVOT_K, lookback=PIVOT_LOOKBACK, kind="low"):
     out = []
     for i in range(start, n - k):
         win = values[i - k : i + k + 1]
-        if (kind == "low" and values[i] == win.min()) or (kind == "high" and values[i] == win.max()):
+        if kind == "low" and values[i] == win.min() or kind == "high" and values[i] == win.max():
             out.append((i, float(values[i])))
     return out
 
@@ -381,9 +392,8 @@ def _nearest_support(df, current_low):
     for _i, lv in piv:
         if lv <= 0:
             continue
-        if abs(current_low - lv) / lv <= TOUCH_TOL:
-            if best is None or lv > best[0]:
-                best = (lv, 1)
+        if abs(current_low - lv) / lv <= TOUCH_TOL and (best is None or lv > best[0]):
+            best = (lv, 1)
     if best is None:
         return None
     # Count touches within 3%
@@ -434,7 +444,14 @@ def _prior_downtrend(df):
 # Exit strategy builder (R30 override for Nison)
 # ----------------------------------------------------------------
 def _mk_exits(
-    stop_price, stop_cond, target_price, target_cond, offset_trigger, invalidation, exhaustion=None, time_exit=None
+    stop_price,
+    stop_cond,
+    target_price,
+    target_cond,
+    offset_trigger,
+    invalidation,
+    exhaustion=None,
+    time_exit=None,
 ):
     return {
         "stop_out": {
@@ -455,7 +472,18 @@ def _mk_exits(
 # ----------------------------------------------------------------
 # Signal constructor
 # ----------------------------------------------------------------
-def _signal(sym, method_id, entry, stop, target, confidence, notes, raw, signal_type="LONG_SETUP", overlaps_with=None):
+def _signal(
+    sym,
+    method_id,
+    entry,
+    stop,
+    target,
+    confidence,
+    notes,
+    raw,
+    signal_type="LONG_SETUP",
+    overlaps_with=None,
+):
     sig = {
         "symbol": sym,
         "trader": SLUG,
@@ -608,7 +636,11 @@ def _detect_rising_window(sym, df):
             time_exit="5 sessions (setup validity window)",
         ),
     }
-    return [_signal(sym, "nison_rising_window_support", entry, stop_price, resistance, "HIGH", notes, raw)]
+    return [
+        _signal(
+            sym, "nison_rising_window_support", entry, stop_price, resistance, "HIGH", notes, raw
+        )
+    ]
 
 
 # ============================================================
@@ -651,7 +683,9 @@ def _detect_long_white_candle(sym, df):
         return []
 
     notes = (
-        f"Pullback into long white candle's upper half (mid ₹{_fmt_num(tall['mid'])} · high ₹{_fmt_num(tall['high'])})"
+        f"Pullback into long white candle's upper half "
+        f"(mid ₹{_fmt_num(tall['mid'])} · high "
+        f"₹{_fmt_num(tall['high'])})"
     )
     raw = {
         "tall_candle_high": tall["high"],
@@ -668,7 +702,11 @@ def _detect_long_white_candle(sym, df):
             time_exit="10 sessions (setup validity window)",
         ),
     }
-    return [_signal(sym, "nison_long_white_candle_support", entry, stop_price, resistance, "MED", notes, raw)]
+    return [
+        _signal(
+            sym, "nison_long_white_candle_support", entry, stop_price, resistance, "MED", notes, raw
+        )
+    ]
 
 
 # ============================================================
@@ -710,8 +748,12 @@ def _detect_disparity_oversold(sym, df):
             stop_cond="close below the bullish candle's low",
             target_price=ma13,
             target_cond=("disparity returns to 0 (mean reversion to the 13-period MA)"),
-            offset_trigger=("disparity index reaches 0 or turns positive (book's overbought signal)"),
-            invalidation=("disparity extends below -15% and price makes new lows without a bullish candle"),
+            offset_trigger=(
+                "disparity index reaches 0 or turns positive (book's overbought signal)"
+            ),
+            invalidation=(
+                "disparity extends below -15% and price makes new lows without a bullish candle"
+            ),
             time_exit="5 sessions after disparity first hits extreme",
         ),
     }
@@ -763,7 +805,19 @@ def _detect_golden_cross(sym, df):
             time_exit=None,
         ),
     }
-    return [_signal(sym, "nison_golden_cross", entry, stop_price, None, "MED", notes, raw, signal_type="TREND_FOLLOW")]
+    return [
+        _signal(
+            sym,
+            "nison_golden_cross",
+            entry,
+            stop_price,
+            None,
+            "MED",
+            notes,
+            raw,
+            signal_type="TREND_FOLLOW",
+        )
+    ]
 
 
 # ============================================================
@@ -794,7 +848,10 @@ def _detect_tlb(sym, df):
     last4 = lines[-4:]
     # White turnaround = last 3 are black, newest is white
     if not (
-        last4[0]["color"] == "b" and last4[1]["color"] == "b" and last4[2]["color"] == "b" and last4[3]["color"] == "w"
+        last4[0]["color"] == "b"
+        and last4[1]["color"] == "b"
+        and last4[2]["color"] == "b"
+        and last4[3]["color"] == "w"
     ):
         return []
     # Only emit on the transition bar (today must be the newest line)
@@ -804,14 +861,20 @@ def _detect_tlb(sym, df):
     entry = closes[-1]
     # Stop: low of the last 3 white lines that preceded the pullback
     prior_whites = [ln for ln in lines[:-3] if ln["color"] == "w"]
-    stop_price = prior_whites[-3]["open"] if len(prior_whites) >= 3 else min(ln["close"] for ln in lines[-4:])
+    stop_price = (
+        prior_whites[-3]["open"]
+        if len(prior_whites) >= 3
+        else min(ln["close"] for ln in lines[-4:])
+    )
 
     notes = "TLB white turnaround — trend flipped bullish"
     raw = {
         "tlb_lines_tail": [dict(l) for l in lines[-6:]],
         "exits": _mk_exits(
             stop_price=stop_price,
-            stop_cond=("black turnaround line (price breaks below the low of the last 3 white lines)"),
+            stop_cond=(
+                "black turnaround line (price breaks below the low of the last 3 white lines)"
+            ),
             target_price=None,
             target_cond="trail — trend following",
             offset_trigger="black turnaround line appears",
@@ -873,7 +936,10 @@ def _detect_renko(sym, df):
     entry = closes[-1]
     stop_price = bricks[-1]["close"] - brick_size  # bottom of the white brick
 
-    notes = f"Renko: new white brick above ₹{_fmt_num(bricks[-1]['close'])} (brick size ₹{_fmt_num(brick_size)})"
+    notes = (
+        f"Renko: new white brick above ₹{_fmt_num(bricks[-1]['close'])} "
+        f"(brick size ₹{_fmt_num(brick_size)})"
+    )
     raw = {
         "brick_size": round(brick_size, 2),
         "last_brick_close": bricks[-1]["close"],
@@ -924,13 +990,14 @@ def _build_kagi(closes, turnaround_pct):
                 trend = "down"
                 extreme = c
                 state.append({"i": i, "trend": trend, "close": c})
-        elif c < extreme:
-            extreme = c
-        elif c >= extreme * (1 + turnaround_pct):
-            trend = "up"
-            extreme = c
-            last_flip = i
-            state.append({"i": i, "trend": trend, "close": c})
+        else:  # down
+            if c < extreme:
+                extreme = c
+            elif c >= extreme * (1 + turnaround_pct):
+                trend = "up"
+                extreme = c
+                last_flip = i
+                state.append({"i": i, "trend": trend, "close": c})
     return state, last_flip
 
 
@@ -938,7 +1005,7 @@ def _detect_kagi(sym, df):
     closes = df["close"].values.astype(float)
     if len(closes) < 30:
         return []
-    _state, flip_idx = _build_kagi(closes, KAGI_TURNAROUND_PCT)
+    state, flip_idx = _build_kagi(closes, KAGI_TURNAROUND_PCT)
     if flip_idx is None:
         return []
     # Flip must be today
@@ -965,7 +1032,15 @@ def _detect_kagi(sym, df):
     }
     return [
         _signal(
-            sym, "nison_new_price_chart_trend", entry, recent_low, None, "HIGH", notes, raw, signal_type="KAGI_YANG"
+            sym,
+            "nison_new_price_chart_trend",
+            entry,
+            recent_low,
+            None,
+            "HIGH",
+            notes,
+            raw,
+            signal_type="KAGI_YANG",
         )
     ]
 
@@ -990,11 +1065,13 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=DEFAULT_LIMIT):
+def scan(conn=None, limit=DEFAULT_LIMIT, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Nison scan: {len(syms)} symbols in universe")
 
     signals = []

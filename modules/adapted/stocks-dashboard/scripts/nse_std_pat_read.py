@@ -52,11 +52,13 @@ import _nse_archive_revop as NAR
 
 NAR.JAR = NAR.BF.nse_jar()
 C = os.path.join(ROOT, "scripts", "_nsearch_cache")
-R_NP = re.compile(r"net profit\s*\(?\+?\)?\s*/?\s*\(?loss\)?\s*\(?-?\)?\s*(for the period|after tax)", re.IGNORECASE)
-R_EPS = re.compile(r"basic\s*eps", re.IGNORECASE)
-R_EPS_AFTER = re.compile(r"basic\s*eps.*after", re.IGNORECASE)
-R_FV = re.compile(r"face value", re.IGNORECASE)
-R_PU = re.compile(r"paid.?up equity", re.IGNORECASE)
+R_NP = re.compile(
+    r"net profit\s*\(?\+?\)?\s*/?\s*\(?loss\)?\s*\(?-?\)?\s*(for the period|after tax)", re.I
+)
+R_EPS = re.compile(r"basic\s*eps", re.I)
+R_EPS_AFTER = re.compile(r"basic\s*eps.*after", re.I)
+R_FV = re.compile(r"face value", re.I)
+R_PU = re.compile(r"paid.?up equity", re.I)
 
 
 def listfile(s):
@@ -64,7 +66,7 @@ def listfile(s):
 
 
 def candidates(sym, qe):
-    names = [sym, *NAR.aliases(sym)]
+    names = [sym] + NAR.aliases(sym)
     rows = []
     nolist = True
     for n in names:
@@ -110,7 +112,9 @@ def judge(sym, qe, row, names):
     basis = (meta.get("Consolidated / Non-Consolidated") or "").strip().lower()
     if basis != "non-consolidated":
         return None, f"G3 basis {basis!r}", meta
-    m = re.search(r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.IGNORECASE)
+    m = re.search(
+        r"Cumulative\s*/\s*Non-?Cumulative\s*\|?\s*(Non-?Cumulative|Cumulative)", html, re.I
+    )
     if m and m.group(1).lower().replace("-", "").startswith("cumulative"):
         return None, "G4 page declares Cumulative (YTD)", meta
     np_ = NAR.pick(rws, R_NP)
@@ -118,7 +122,11 @@ def judge(sym, qe, row, names):
         return None, "G5 no Net Profit row ({})".format(meta.get("fmt")), meta
     if abs(np_) < 1e-9:
         return None, "G5 blank template (Net Profit 0.00)", meta
-    eps = NAR.pick(rws, R_EPS_AFTER) if NAR.pick(rws, R_EPS_AFTER) is not None else NAR.pick(rws, R_EPS)
+    eps = (
+        NAR.pick(rws, R_EPS_AFTER)
+        if NAR.pick(rws, R_EPS_AFTER) is not None
+        else NAR.pick(rws, R_EPS)
+    )
     fv = NAR.pick(rws, R_FV)
     pu = NAR.pick(rws, R_PU)
     if eps is None or fv in (None, 0) or pu in (None, 0) or eps == 0:
@@ -127,7 +135,11 @@ def judge(sym, qe, row, names):
     d = meta.get("div", 100.0)
     tol = max(0.03 * max(abs(np_), abs(imp)), 0.005 * d / 100.0 * pu / fv, 0.02)
     if abs(imp - np_) > tol:
-        return None, f"G6 EPS identity fails: EPS*PU/FV={imp:.2f} vs NP {np_:.2f} (tol {tol:.2f})", meta
+        return (
+            None,
+            f"G6 EPS identity fails: EPS*PU/FV={imp:.2f} vs NP {np_:.2f} (tol {tol:.2f})",
+            meta,
+        )
     meta.update(
         {
             "np": round(np_, 2),
@@ -149,7 +161,11 @@ def run(cells, tag, sf):
         cand, names = candidates(sym, qe)
         k = "%s|%d" % (sym, qe)
         if cand is None:
-            out[k] = {"sym": sym, "qe": qe, "reason": f"no cached list for {names} (list API not called)"}
+            out[k] = {
+                "sym": sym,
+                "qe": qe,
+                "reason": f"no cached list for {names} (list API not called)",
+            }
             continue
         if not cand:
             out[k] = {
@@ -167,9 +183,18 @@ def run(cells, tag, sf):
             else:
                 reasons.append(why)
         if not vals:
-            out[k] = {"sym": sym, "qe": qe, "reason": reasons[0] if reasons else "?", "all_reasons": reasons}
+            out[k] = {
+                "sym": sym,
+                "qe": qe,
+                "reason": reasons[0] if reasons else "?",
+                "all_reasons": reasons,
+            }
         elif len({v for v, _ in vals}) > 1:
-            out[k] = {"sym": sym, "qe": qe, "reason": "multiple candidate pages DISAGREE %s" % [v for v, _ in vals]}
+            out[k] = {
+                "sym": sym,
+                "qe": qe,
+                "reason": "multiple candidate pages DISAGREE %s" % [v for v, _ in vals],
+            }
         else:
             v, meta = vals[0]
             stored = next((r[1] for r in sf.get(sym, []) if r[0] == qe), None)
@@ -201,13 +226,24 @@ def main():
         cal = pool[: a.calibrate]
         cr = run(cal, "calib", sf)
         judged = [v for v in cr.values() if "value" in v]
-        mism = [v for v in judged if abs(v["value"] - v["stored"]) > max(0.05, 0.005 * abs(v["stored"]))]
+        mism = [
+            v for v in judged if abs(v["value"] - v["stored"]) > max(0.05, 0.005 * abs(v["stored"]))
+        ]
         print(
             "CALIBRATION: %d cells asked, %d readable, %d MISMATCH (%.2f%%)"
             % (len(cal), len(judged), len(mism), 100.0 * len(mism) / max(1, len(judged)))
         )
         for v in mism[:20]:
-            print("   ", v["sym"], v["qe"], "read", v["value"], "stored", v["stored"], v["meta"].get("link"))
+            print(
+                "   ",
+                v["sym"],
+                v["qe"],
+                "read",
+                v["value"],
+                "stored",
+                v["stored"],
+                v["meta"].get("link"),
+            )
         result["calibration"] = cr
     rr = run([tuple(x) for x in res], "residue", sf)
     result["residue"] = rr

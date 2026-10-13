@@ -46,7 +46,6 @@ import argparse
 import collections
 import glob
 import json
-import os
 import sys
 
 EXCHANGE_ERA = "2016-06-30"  # first quarter with a real BSE XBRL file (runbook §22f)
@@ -102,7 +101,8 @@ def decide(ours, obs, qe, prov, field="", agree=None, spread_max=None):
     confirm = [
         o
         for o in indep
-        if o["verdict"] in CONFIRMING or (ours is not None and abs(float(o["val"]) - float(ours)) <= AGREE)
+        if o["verdict"] in CONFIRMING
+        or (ours is not None and abs(float(o["val"]) - float(ours)) <= AGREE)
     ]
     contra = [o for o in indep if o not in confirm]
 
@@ -127,7 +127,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--verdicts", nargs="+", required=True, help="verdict JSONLs (globs ok)")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--echo-map", default="", help="prov.json.gz — to re-derive which sites echo which routes")
+    ap.add_argument(
+        "--echo-map", default="", help="prov.json.gz — to re-derive which sites echo which routes"
+    )
     a = ap.parse_args()
 
     paths = [p for pat in a.verdicts for p in sorted(glob.glob(pat))] or []
@@ -194,7 +196,9 @@ def main():
         "\n%d cells need Phase-5 arbitration (CONTRADICTED first — sites agree with each other, not with us):"
         % len(esc)
     )
-    for r in sorted(esc, key=lambda r: (r["decision"] != "CONTRADICTED", -(r["site_spread"] or 0)))[:20]:
+    for r in sorted(esc, key=lambda r: (r["decision"] != "CONTRADICTED", -(r["site_spread"] or 0)))[
+        :20
+    ]:
         print(
             "  %-11s %s %-4s ours=%-8s sites=%s  [%s]"
             % (r["sym"], r["qe"], r["field"], r["ours"], r["sites"], r["decision"])

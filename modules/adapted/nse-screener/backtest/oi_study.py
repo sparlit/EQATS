@@ -27,7 +27,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from backtest import features, monthly
 from ingest import renames
@@ -36,7 +35,9 @@ import config
 
 
 def load_futstk():
-    df = pd.concat(map(pd.read_parquet, Path(config.DATA_DIR / "futstk").glob("*.parquet")), ignore_index=True)
+    df = pd.concat(
+        map(pd.read_parquet, Path(config.DATA_DIR / "futstk").glob("*.parquet")), ignore_index=True
+    )
     df["symbol"] = renames.canonical(df["symbol"])
     # near-month contract per (date, symbol)
     df = df[df["expiry"] >= df["date"]]
@@ -48,7 +49,10 @@ def load_futstk():
 
 def run():
     oi_all, fut_all = load_futstk()
-    for label, start, end in (("IS 2023-26", "2022-01-01", None), ("OOS 2017-22", None, "2022-12-31")):
+    for label, start, end in (
+        ("IS 2023-26", "2022-01-01", None),
+        ("OOS 2017-22", None, "2022-12-31"),
+    ):
         print(f"=== {label} ===")
         p = features._panel(start, end)
         ctx = features._context(p)
@@ -57,7 +61,9 @@ def run():
         fut = fut_all.reindex(index=dates, columns=p["close"].columns)
         oi / oi.shift(21) - 1
         basis = fut / p["close"] - 1
-        bz = (basis - basis.rolling(252, min_periods=126).mean()) / basis.rolling(252, min_periods=126).std()
+        bz = (basis - basis.rolling(252, min_periods=126).mean()) / basis.rolling(
+            252, min_periods=126
+        ).std()
 
         def fo_incumbent(t, m):
             u = oi.loc[t].reindex(m.index).dropna().index
@@ -85,17 +91,30 @@ def run():
 
             return sel
 
-        monthly.report("v4-FO incumbent", monthly.simulate(p, ctx, regime_filter=True, select_fn=fo_incumbent))
-        monthly.report("A: OI-confirm 21d", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay()))
-        monthly.report("A: window 10", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(10)))
-        monthly.report("A: window 42", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(42)))
         monthly.report(
-            "A: contrarian", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(contrarian=True))
+            "v4-FO incumbent", monthly.simulate(p, ctx, regime_filter=True, select_fn=fo_incumbent)
         )
         monthly.report(
-            "B: basis-screen top1dec", monthly.simulate(p, ctx, regime_filter=True, select_fn=basis_screen())
+            "A: OI-confirm 21d",
+            monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay()),
         )
-        monthly.report("B: top2dec", monthly.simulate(p, ctx, regime_filter=True, select_fn=basis_screen(2)))
+        monthly.report(
+            "A: window 10", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(10))
+        )
+        monthly.report(
+            "A: window 42", monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(42))
+        )
+        monthly.report(
+            "A: contrarian",
+            monthly.simulate(p, ctx, regime_filter=True, select_fn=oi_overlay(contrarian=True)),
+        )
+        monthly.report(
+            "B: basis-screen top1dec",
+            monthly.simulate(p, ctx, regime_filter=True, select_fn=basis_screen()),
+        )
+        monthly.report(
+            "B: top2dec", monthly.simulate(p, ctx, regime_filter=True, select_fn=basis_screen(2))
+        )
 
 
 if __name__ == "__main__":

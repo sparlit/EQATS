@@ -59,17 +59,13 @@ LEDGER = os.path.join(ROOT, "scripts", "std_pat_detres_fills.json")
 CELLS = {
     20150331: (
         10.59,
-        (
-            "GATE-X: detres 105.9mn == NSE financial_res_ADVANTA_127466.html "
-            "1058.96 lakh (Q1 CY2015, Non-Consolidated); share-capital cross-match"
-        ),
+        "GATE-X: detres 105.9mn == NSE financial_res_ADVANTA_127466.html "
+        "1058.96 lakh (Q1 CY2015, Non-Consolidated); share-capital cross-match",
     ),
     20150930: (
         15.17,
-        (
-            "GATE-X: detres 151.74mn == NSE financial_res_ADVANTA_1002369.html "
-            "1517.38 lakh (Q3 CY2015, Non-Consolidated, exact); share-capital cross-match"
-        ),
+        "GATE-X: detres 151.74mn == NSE financial_res_ADVANTA_1002369.html "
+        "1517.38 lakh (Q3 CY2015, Non-Consolidated, exact); share-capital cross-match",
     ),
 }
 

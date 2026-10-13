@@ -47,7 +47,8 @@ def check(dayback=0, root="path"):
     sday = dt_1.strftime("%Y-%m-%d")
     # mhol = check(sday)
     custom_holidays = hol(root)
-    return sday in custom_holidays
+    fact = sday in custom_holidays
+    return fact
 
 
 def market_off(dayback=0, root="path"):
@@ -57,7 +58,7 @@ def market_off(dayback=0, root="path"):
     sday = mdate.strftime("%Y-%m-%d")
     mhol = check(dayback, root)
 
-    market_off = not (msday not in {"Saturday", "Sunday"} and not mhol)
+    market_off = not (msday != "Saturday" and msday != "Sunday" and not mhol)
 
     return (market_off, sday)
 

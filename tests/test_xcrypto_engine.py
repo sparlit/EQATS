@@ -2,25 +2,31 @@
 Unit tests for XCryptoEngine and XCryptoBrokerAdapter (Repo 083 Adaptation, Magic 9100080)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
-from institutional_integrations.xcrypto_engine import (
-    XCryptoEngine,
-    XCryptoBrokerAdapter,
-    MAGIC_NUMBER,
-    round_tick_005,
-    is_ist_market_open,
-)
+
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
     SEBIOrderRequest,
     SEBIOrderResponse,
 )
+from institutional_integrations.xcrypto_engine import (
+    MAGIC_NUMBER,
+    XCryptoBrokerAdapter,
+    XCryptoEngine,
+    is_ist_market_open,
+    round_tick_005,
+)
 
 
 def test_xcrypto_engine_pyalgo_signals():
+    now_utc = datetime.now(UTC)
+    assert now_utc is not None
+    assert round_tick_005(100.03) == 100.05
+    assert is_ist_market_open(now_utc) in [True, False]
+
     engine = XCryptoEngine()
     prices = [100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0,
               110.0, 111.0, 112.0, 113.0, 114.0, 115.0, 116.0, 117.0, 118.0, 119.0, 125.0]
@@ -70,6 +76,7 @@ def test_xcrypto_broker_adapter():
     assert positions[0]["symbol"] == "ETHUSDT"
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_xcrypto_broker_adapter_execute_order():
     adapter = XCryptoBrokerAdapter()
     adapter.connect()
@@ -85,6 +92,7 @@ def test_xcrypto_broker_adapter_execute_order():
 
     with patch("institutional_integrations.xcrypto_engine.is_ist_market_open", return_value=True):
         resp = adapter.execute_order(order_req)
+        assert isinstance(resp, SEBIOrderResponse)
         assert resp.success is True
         assert resp.status == "FILLED"
         assert resp.ticket.startswith("XCRYPTO-")

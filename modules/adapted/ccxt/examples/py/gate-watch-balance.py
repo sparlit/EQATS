@@ -33,8 +33,6 @@ sys.path.append(root + "/python")
 # https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#how-to-contribute-code
 
 # ----------------------------------------------------------------------------
-import asyncio
-
 import ccxt.pro as ccxt  # noqa: E402
 
 "use strict"

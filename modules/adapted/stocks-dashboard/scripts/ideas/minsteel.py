@@ -45,7 +45,6 @@ Writes docs/ideas/minsteel_mumbai.json. A failed listing keeps the committed fil
 """
 import argparse
 import datetime
-import glob
 import hashlib
 import json
 import os
@@ -64,7 +63,10 @@ CACHE = os.path.join(HERE, "_cache", "minsteel")
 BASE = "https://steel.gov.in"
 LIST = BASE + "/monthly-summary?page=%d"
 MON = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 PROD = {"tmt": "TMT", "rebar": "TMT", "hrc": "HRC", "crc": "CRC"}
 MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
@@ -77,13 +79,15 @@ TOK = re.compile(
     r"|(?P<m2>(?:" + MONTHS + r"))\s+(?P<d2>\d{1,2}),?\s+(?P<y2>\d{4})"
     r"|(?P<d>\d{1,2})\s*(?:st|nd|rd|th)?\s*(?P<m>[A-Za-z]{3,9})?\.?[,\s’'‘]*(?P<y>(?:20)?\d{2}(?!\d))?"
     r"))",
-    re.IGNORECASE,
+    re.I,
 )
 TITLE = re.compile(
-    r"Monthly\s+(?:Economic\s+Report|Summary)\s+(?:for\s+(?:the\s+month\s+of\s+)?)?(" + MONTHS + r")[,\s-]*(\d{4})",
-    re.IGNORECASE,
+    r"Monthly\s+(?:Economic\s+Report|Summary)\s+(?:for\s+(?:the\s+month\s+of\s+)?)?("
+    + MONTHS
+    + r")[,\s-]*(\d{4})",
+    re.I,
 )
-TITLE2 = re.compile(r"(?:during|for) the month of (" + MONTHS + r")[,\s]*(\d{4})", re.IGNORECASE)
+TITLE2 = re.compile(r"(?:during|for) the month of (" + MONTHS + r")[,\s]*(\d{4})", re.I)
 
 
 def mkdate(y, mo, d):
@@ -107,7 +111,9 @@ def parse(text):
 
         def flush():
             if st["run"] and len(st["names"]) == len(st["run"]):
-                d = st["date"] or (mkdate(title[0], title[1], st["cut"]) if st["cut"] and title else None)
+                d = st["date"] or (
+                    mkdate(title[0], title[1], st["cut"]) if st["cut"] and title else None
+                )
                 if d:
                     for n, v in zip(st["names"], st["run"], strict=False):
                         out.add((d, n, v))
@@ -129,11 +135,13 @@ def parse(text):
                 if re.search(
                     r"(?:over|than)\s+(?:their|its)\s+(?:respective\s+)?prices?\s*(?:as\s*)?$",
                     win[max(0, x.start() - 50) : x.start()],
-                    re.IGNORECASE,
+                    re.I,
                 ):
                     continue  # the comparison date, not the stated one
                 if x.group("nd"):
-                    st["date"] = st["date"] or mkdate(int(x.group("ny")), int(x.group("nm")), int(x.group("nd")))
+                    st["date"] = st["date"] or mkdate(
+                        int(x.group("ny")), int(x.group("nm")), int(x.group("nd"))
+                    )
                 elif x.group("m2"):
                     st["date"] = st["date"] or mkdate(
                         int(x.group("y2")), MON[x.group("m2")[:3].lower()], int(x.group("d2"))
@@ -144,7 +152,9 @@ def parse(text):
                         y = int(x.group("y"))
                         y = y + 2000 if y < 100 else y
                         st["date"] = st["date"] or mkdate(y, MON[mo], int(x.group("d")))
-                    elif (not mo or (title and mo in MON and MON[mo] == title[1])) and st["cut"] is None:
+                    elif (not mo or (title and mo in MON and MON[mo] == title[1])) and st[
+                        "cut"
+                    ] is None:
                         st["cut"] = int(x.group("d"))
         flush()
     return sorted(out)
@@ -165,16 +175,21 @@ def main():
             # 'CERTIFICATE_VERIFY_FAILED' while curl -k saw 200) - same treatment as IBJA and the Rubber Board.
             h = I.get(LIST % pg, timeout=45, ctx=I.LAX)
         except Exception as e:
-            print(f"minsteel: listing page {pg} failed ({str(e)[:80]}); keeping what was listed so far")
+            print(
+                f"minsteel: listing page {pg} failed ({str(e)[:80]}); keeping what was listed so far"
+            )
             break
-        found = [u for u in re.findall(r'href="(/sites/default/files/[^"]+\.pdf)"', h) if "Citizen" not in u]
+        found = [
+            u
+            for u in re.findall(r'href="(/sites/default/files/[^"]+\.pdf)"', h)
+            if "Citizen" not in u
+        ]
         new = [u for u in found if u not in urls]
         if not new:
             break
         urls += new
     if not urls:
-        msg = "minsteel: no report listed; committed file left as it was"
-        raise SystemExit(msg)
+        raise SystemExit("minsteel: no report listed; committed file left as it was")
     vals, per_report, unread = {}, {}, []
     for u in urls:
         fn = os.path.join(CACHE, hashlib.md5(u.encode()).hexdigest()[:10] + ".pdf")
@@ -197,7 +212,9 @@ def main():
         got = parse(text)
         per_report[u] = len(got)
         for d, n, v in got:
-            vals.setdefault((d, n), {}).setdefault(v, []).append(urllib.parse.unquote(u.split("/")[-1]))
+            vals.setdefault((d, n), {}).setdefault(v, []).append(
+                urllib.parse.unquote(u.split("/")[-1])
+            )
     # one date and product must carry one price across every edition that states it
     conflicts = {f"{d} {n}": sorted(v) for (d, n), v in vals.items() if len(v) > 1}
     series = {n: [] for n in ("TMT", "HRC", "CRC")}
@@ -206,7 +223,11 @@ def main():
             price, reps = next(iter(v.items()))
             series[n].append([d, price, reps[0]])
     inverted = sorted({d for d, _, _ in series["CRC"]} & {d for d, _, _ in series["HRC"]})
-    inverted = [d for d in inverted if {x[0]: x[1] for x in series["CRC"]}[d] < {x[0]: x[1] for x in series["HRC"]}[d]]
+    inverted = [
+        d
+        for d in inverted
+        if {x[0]: x[1] for x in series["CRC"]}[d] < {x[0]: x[1] for x in series["HRC"]}[d]
+    ]
     out = {
         "built": ist.stamp(),
         "source": "Ministry of Steel monthly reports (steel.gov.in/monthly-summary): retail price in the Mumbai market",

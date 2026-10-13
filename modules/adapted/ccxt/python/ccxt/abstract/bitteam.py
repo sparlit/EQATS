@@ -28,10 +28,12 @@ _List = list[object]
 
 
 class ImplicitAPI:
-    history_get_api_tw_history_pairname_resolution = historyGetApiTwHistoryPairNameResolution = Entry[_Dict](
-        "api/tw/history/{pairName}/{resolution}", "history", "GET", {"cost": 1}
+    history_get_api_tw_history_pairname_resolution = historyGetApiTwHistoryPairNameResolution = (
+        Entry[_Dict]("api/tw/history/{pairName}/{resolution}", "history", "GET", {"cost": 1})
     )
-    public_get_trade_api_asset = publicGetTradeApiAsset = Entry[_Dict]("trade/api/asset", "public", "GET", {"cost": 1})
+    public_get_trade_api_asset = publicGetTradeApiAsset = Entry[_Dict](
+        "trade/api/asset", "public", "GET", {"cost": 1}
+    )
     public_get_trade_api_currencies = publicGetTradeApiCurrencies = Entry[_Dict](
         "trade/api/currencies", "public", "GET", {"cost": 1}
     )
@@ -44,11 +46,18 @@ class ImplicitAPI:
     public_get_trade_api_pair_name = publicGetTradeApiPairName = Entry[_Dict](
         "trade/api/pair/{name}", "public", "GET", {"cost": 1}
     )
-    public_get_trade_api_pairs = publicGetTradeApiPairs = Entry[_Dict]("trade/api/pairs", "public", "GET", {"cost": 1})
+    public_get_trade_api_pairs = publicGetTradeApiPairs = Entry[_Dict](
+        "trade/api/pairs", "public", "GET", {"cost": 1}
+    )
     public_get_trade_api_pairs_precisions = publicGetTradeApiPairsPrecisions = Entry[_Dict](
         "trade/api/pairs/precisions", "public", "GET", {"cost": 1}
     )
-    public_get_trade_api_rates = publicGetTradeApiRates = Entry[_Dict]("trade/api/rates", "public", "GET", {"cost": 1})
+    public_get_trade_api_rates = publicGetTradeApiRates = Entry[_Dict](
+        "trade/api/rates", "public", "GET", {"cost": 1}
+    )
+    public_get_trade_api_stats = publicGetTradeApiStats = Entry[_Dict](
+        "trade/api/stats", "public", "GET", {"cost": 1}
+    )
     public_get_trade_api_trade_id = publicGetTradeApiTradeId = Entry[_Dict](
         "trade/api/trade/{id}", "public", "GET", {"cost": 1}
     )
@@ -88,9 +97,9 @@ class ImplicitAPI:
     private_get_trade_api_transactionsofuser = privateGetTradeApiTransactionsOfUser = Entry[_Dict](
         "trade/api/transactionsOfUser", "private", "GET", {"cost": 1}
     )
-    private_post_trade_api_ccxt_cancel_all_order = privatePostTradeApiCcxtCancelAllOrder = Entry[_Dict](
-        "trade/api/ccxt/cancel-all-order", "private", "POST", {"cost": 1}
-    )
+    private_post_trade_api_ccxt_cancel_all_order = privatePostTradeApiCcxtCancelAllOrder = Entry[
+        _Dict
+    ]("trade/api/ccxt/cancel-all-order", "private", "POST", {"cost": 1})
     private_post_trade_api_ccxt_cancelorder = privatePostTradeApiCcxtCancelorder = Entry[_Dict](
         "trade/api/ccxt/cancelorder", "private", "POST", {"cost": 1}
     )

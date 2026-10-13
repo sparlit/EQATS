@@ -67,11 +67,15 @@ def main():
             if earlier:
                 note = (
                     "first bar %d is after qe+45d, but %d earlier stored rows carry REAL announce "
-                    "dates before it -> tape/rename seam, §99 floor NOT applied" % (bar, len(earlier))
+                    "dates before it -> tape/rename seam, §99 floor NOT applied"
+                    % (bar, len(earlier))
                 )
                 seam.append("%s %d" % (sym, qe))
             else:
-                note = "qe+45d %d FLOORED UP to the first traded bar %d (pre-listing, §99)" % (ann, bar)
+                note = "qe+45d %d FLOORED UP to the first traded bar %d (pre-listing, §99)" % (
+                    ann,
+                    bar,
+                )
                 ann = bar
                 floored.append("%s %d -> %d" % (sym, qe, bar))
         out[sym][str(qe)] = {
@@ -92,7 +96,9 @@ def main():
     json.dump(out, open(a.out, "w"), indent=1, sort_keys=True)
     n = sum(len(v) for v in out.values())
     print("ledger: %d symbols / %d cells -> %s" % (len(out), n, a.out))
-    print("  banking-schema cells: %d" % sum(1 for v in out.values() for c in v.values() if c["fin"]))
+    print(
+        "  banking-schema cells: %d" % sum(1 for v in out.values() for c in v.values() if c["fin"])
+    )
     print("  ann floored to first bar: %d %s" % (len(floored), floored[:6]))
     print("  floor skipped as a tape seam: %d %s" % (len(seam), seam[:6]))
     return 0

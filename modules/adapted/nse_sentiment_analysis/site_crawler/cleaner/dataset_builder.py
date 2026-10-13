@@ -50,11 +50,19 @@ class Dataset_Builder:
             writer = csv.writer(f)
             line = sentiment.strip()
             cleaned_line = self.cleaner.clean_tweets(line)
-            writer.writerow([cleaned_line, polarity])
+            writer.writerow(
+                [
+                    cleaned_line,
+                    polarity,
+                ]
+            )
+        pass
 
     def extract_sentiment_csv(self, csv_name):
         with open(
-            "../data/twitter_data/labeled_data/unlabeled_" + csv_name + ".csv", newline="", encoding="utf-8"
+            "../data/twitter_data/labeled_data/unlabeled_" + csv_name + ".csv",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:

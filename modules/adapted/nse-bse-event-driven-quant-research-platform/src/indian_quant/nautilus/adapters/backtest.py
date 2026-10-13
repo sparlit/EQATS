@@ -30,8 +30,8 @@ import hashlib
 import json
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
+import pandas as pd
 from nautilus_trader.backtest.engine import BacktestEngine
 from nautilus_trader.backtest.models import FillModel
 from nautilus_trader.config import BacktestEngineConfig, RiskEngineConfig
@@ -40,14 +40,10 @@ from nautilus_trader.model.enums import AccountType, OmsType
 from nautilus_trader.model.identifiers import Venue
 from nautilus_trader.model.objects import Money
 
+from indian_quant.config.settings import Settings
 from indian_quant.nautilus.adapters.fees import IndiaDeliveryFeeModel
 from indian_quant.nautilus.data.catalog import CatalogBridge
 from indian_quant.strategies.sma_cross import SmaCross, SmaCrossConfig
-
-if TYPE_CHECKING:
-    import pandas as pd
-
-    from indian_quant.config.settings import Settings
 
 
 @dataclass
@@ -77,21 +73,23 @@ class BacktestRunner:
         bridge = CatalogBridge(self.settings.catalog_dir)
         instruments = bridge.read_instruments()
         if not instruments:
-            msg = f"catalog at {bridge.catalog_path} has no instruments; run scripts/sync_catalog.py first"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                f"catalog at {bridge.catalog_path} has no instruments; "
+                "run scripts/sync_catalog.py first"
+            )
         target_symbol = symbol.upper()
-        instrument = next((i for i in instruments if str(i.id.symbol).upper() == target_symbol), None)
+        instrument = next(
+            (i for i in instruments if str(i.id.symbol).upper() == target_symbol), None
+        )
         if instrument is None:
-            msg = f"instrument {symbol} not in catalog"
-            raise KeyError(msg)
+            raise KeyError(f"instrument {symbol} not in catalog")
 
         venue_str = str(instrument.id.venue)
         nautilus_instrument_id = str(instrument.id)
 
         bars = bridge.read_bars(nautilus_instrument_id, timeframe)
         if not bars:
-            msg = f"no bars for {instrument.id} in catalog"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"no bars for {instrument.id} in catalog")
 
         config = SmaCrossConfig(
             instrument_id=nautilus_instrument_id,
@@ -109,7 +107,9 @@ class BacktestRunner:
         }
         if bt.risk_max_notional_per_order:
             risk_kwargs["max_notional_per_order"] = bt.risk_max_notional_per_order
-        engine = BacktestEngine(config=BacktestEngineConfig(risk_engine=RiskEngineConfig(**risk_kwargs)))
+        engine = BacktestEngine(
+            config=BacktestEngineConfig(risk_engine=RiskEngineConfig(**risk_kwargs))
+        )
         fill_model = FillModel(prob_fill_on_limit=1.0)
         bt = self.settings.backtest
         fee_model = IndiaDeliveryFeeModel(
@@ -148,8 +148,10 @@ class BacktestRunner:
             "stamp_buy_bps": bt.stamp_buy_bps,
             "flat_fee_per_order": bt.flat_fee_per_order,
         }
-        config_hash = hashlib.sha256(json.dumps(run_config, sort_keys=True).encode()).hexdigest()[:16]
-        return BacktestResult(
+        config_hash = hashlib.sha256(json.dumps(run_config, sort_keys=True).encode()).hexdigest()[
+            :16
+        ]
+        result = BacktestResult(
             run_id=f"sma-{config_hash}-{uuid.uuid4().hex[:8]}",
             instrument_id=nautilus_instrument_id,
             n_fills=len(fills),
@@ -158,6 +160,7 @@ class BacktestRunner:
             account=account,
             config=run_config,
         )
+        return result
 
 
 def _money_to_float(value: object) -> float:
@@ -198,7 +201,7 @@ def summarize_result(result: BacktestResult) -> dict:
         net = float(pnl.sum())
         metrics["net_pnl"] = round(net, 2)
         metrics["gross_pnl"] = round(net + commissions, 2)
-        metrics["n_closed_positions"] = len(result.positions)
+        metrics["n_closed_positions"] = int(len(result.positions))
     if not result.account.empty:
         for col in ("total", "free"):
             if col in result.account.columns:

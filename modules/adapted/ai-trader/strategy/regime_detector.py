@@ -43,8 +43,7 @@ For now this uses a rule-based detector. Once real data is available,
 it can be upgraded to an ML-based classifier (RandomForest / HMM).
 """
 
-from enum import Enum, StrEnum
-from typing import Optional
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
@@ -158,7 +157,9 @@ class RegimeDetector:
             regime = MarketRegime.SIDEWAYS
 
         logger.info(
-            f"Regime: {regime.value} (ema_diff={ema_diff:.4f}, atr%={current_atr_pct:.4f}, range%={range_pct:.4f})"
+            f"Regime: {regime.value} "
+            f"(ema_diff={ema_diff:.4f}, atr%={current_atr_pct:.4f}, "
+            f"range%={range_pct:.4f})"
         )
         return regime
 

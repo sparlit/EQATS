@@ -59,13 +59,15 @@ async def main():
         exchange.verbose = True  # uncomment for debugging
         print("---------------------------------------------------------------")
         print("Futures balance:")
-        await exchange.fetch_balance()
+        futures_balance = await exchange.fetch_balance()
+        pprint(futures_balance)
         print("---------------------------------------------------------------")
         print("Futures symbols:")
         print([market["symbol"] for market in markets.values() if market["future"]])
         print("---------------------------------------------------------------")
         symbol = "BTC/USDT:USDT-201225"  # a futures symbol
-        exchange.market(symbol)
+        market = exchange.market(symbol)
+        pprint(market)
         print("---------------------------------------------------------------")
         type = "1"  # 1:open long 2:open short 3:close long 4:close short for futures
         side = None  # irrelevant for futures
@@ -75,8 +77,9 @@ async def main():
             # 'order_type': '4',  # uncomment for a market order, makes limit price irrelevant
             # 'leverage': '10',  # or '20'
         }
-        await exchange.create_order(symbol, type, side, amount, price, params)
+        order = await exchange.create_order(symbol, type, side, amount, price, params)
         print("Order:")
+        pprint(order)
         print("---------------------------------------------------------------")
     except Exception as e:
         print(type(e).__name__, str(e))

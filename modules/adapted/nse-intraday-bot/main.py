@@ -114,7 +114,11 @@ def _consecutive_losses_today() -> int:
 
         today_str = str(date.today())
         data = _load()
-        closed = [r for r in data if r.get("date") == today_str and r.get("status") in ("TARGET HIT", "SL HIT")]
+        closed = [
+            r
+            for r in data
+            if r.get("date") == today_str and r.get("status") in ("TARGET HIT", "SL HIT")
+        ]
         count = 0
         for r in reversed(closed):
             if r["status"] == "SL HIT":
@@ -199,7 +203,7 @@ def market_watcher():
                     log.info("No new strong setups this cycle")
 
             except Exception as e:
-                log.exception("Scan error: %s", e)
+                log.error("Scan error: %s", e)
 
             # ── End-of-day wrap-up ─────────────────────────────
             t_int = now.hour * 100 + now.minute
@@ -252,5 +256,8 @@ if __name__ == "__main__":
     if run_chatbot is not None:
         threading.Thread(target=run_chatbot, daemon=True).start()
     else:
-        log.warning("telegram_bot module missing — interactive chatbot disabled (NSE scanning + alerts still active)")
+        log.warning(
+            "telegram_bot module missing — interactive chatbot disabled "
+            "(NSE scanning + alerts still active)"
+        )
     market_watcher()

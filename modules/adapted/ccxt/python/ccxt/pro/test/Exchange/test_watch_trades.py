@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_trade,
-)
+from ccxt.test.exchange.base import test_trade  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_trades(exchange, skipped_properties, symbol):
@@ -55,13 +55,15 @@ async def test_watch_trades(exchange, skipped_properties, symbol):
             response = await exchange.watch_trades(symbol)
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             success = False
         now = exchange.milliseconds()
         if success:
-            test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, response)
-            for i in range(len(response)):
-                test_trade(exchange, skipped_properties, method, response[i], symbol, now)
+            test_shared_methods.assert_non_emtpy_array(
+                exchange, skipped_properties, method, response
+            )
+            for i in range(0, len(response)):
+                test_trade(exchange, skipped_properties, method, response[i], symbol, now, True)
             if (now - start_time) > max_idle_time:
                 idle = True
     return True

@@ -47,7 +47,10 @@ def selected_scores(features, blocked=()):
     f["delivery_pct"] = np.nan
     f["delivery_median60"] = np.nan
     d = score(f, blocked_symbols=set(blocked) | set(f.loc[~f.quality_window_ok, "symbol"]))
-    delta = 10 * (d.volume.ge(1.8 * d.volume_sma20).astype(int) - d.volume.ge(1.2 * d.volume_sma20).astype(int))
+    delta = 10 * (
+        d.volume.ge(1.8 * d.volume_sma20).astype(int)
+        - d.volume.ge(1.2 * d.volume_sma20).astype(int)
+    )
     delta += 8 * (d.rsi14.between(50, 70).astype(int) - d.rsi14.between(50, 75).astype(int))
     columns = ["score_" + h.lower() for h in HORIZONS]
     d[columns] = d[columns].add(delta, axis=0).round(2)
@@ -66,13 +69,14 @@ def run_day(database, prices, ledger_path):
     prices = prices.loc[~prices.symbol.isin(EXCLUDED_SYMBOLS)].copy()
     features, calendar = latest_context(prices)
     if features.empty or len(calendar) < 320:
-        msg = "Final Ladder requires at least320 market sessions"
-        raise ValueError(msg)
+        raise ValueError("Final Ladder requires at least320 market sessions")
     day = calendar[-1]
     allowed, gate = _tradeable_prices(prices, database.path)
     blocked = set(features.symbol) - set(allowed.symbol)
     scored = selected_scores(features, blocked)
-    accepted = scored.loc[scored.qualified].sort_values(["primary_score", "symbol"], ascending=[False, True])
+    accepted = scored.loc[scored.qualified].sort_values(
+        ["primary_score", "symbol"], ascending=[False, True]
+    )
     rows = []
     for r in accepted.to_dict("records"):
         levels = build_levels(r)
@@ -111,7 +115,9 @@ def run_day(database, prices, ledger_path):
             prior_10_low=float(r["previous_10d_low"]) if pd.notna(r["previous_10d_low"]) else 0.0,
             prior_trend=bool(r["prior_trend"]),
         )
-        bar["entry_allowed"] = bool(bar["entry_allowed"] and r["quality_window_ok"] and symbol not in blocked)
+        bar["entry_allowed"] = bool(
+            bar["entry_allowed"] and r["quality_window_ok"] and symbol not in blocked
+        )
         bar["review_required"] = bool(bar["review_required"] or r["action_review_now"])
     snapshot = advance(
         ledger_path,
@@ -152,8 +158,7 @@ def run(database_path, ledger_path, as_of=None):
     database = V2Database(database_path)
     prices = load_market_data(database_path, as_of)
     if prices.empty:
-        msg = "No daily data"
-        raise ValueError(msg)
+        raise ValueError("No daily data")
     days = sorted(prices.trade_date.dt.strftime("%Y-%m-%d").unique())
     last = None
     if Path(ledger_path).exists():
@@ -162,11 +167,9 @@ def run(database_path, ledger_path, as_of=None):
             if row:
                 last = json.loads(row[0])["last_date"]
     if last and last not in days:
-        msg = "Ledger date outside restored history; explicit recovery required"
-        raise ValueError(msg)
+        raise ValueError("Ledger date outside restored history; explicit recovery required")
     if last and last > days[-1]:
-        msg = "Cannot run older data against final ledger"
-        raise ValueError(msg)
+        raise ValueError("Cannot run older data against final ledger")
     todo = [d for d in days if last and d > last] or [days[-1]]
     for day in todo:
         report = run_day(database, prices.loc[prices.trade_date <= pd.Timestamp(day)], ledger_path)

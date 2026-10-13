@@ -57,6 +57,7 @@ try:
     # cost = amount * price
     # this line will use the amount * price to calculate the total cost-to-spend (4000)
     order = exchange.create_order(symbol, "market", "buy", amount, price)
+    pprint(order)
 
     print("--------------------------------------------------------------")
 
@@ -68,6 +69,7 @@ try:
     amount = None
     price = None
     order = exchange.create_order(symbol, "market", "buy", amount, price, params)
+    pprint(order)
 
 except Exception as e:
     print(type(e).__name__, str(e))

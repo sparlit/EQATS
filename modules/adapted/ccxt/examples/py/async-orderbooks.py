@@ -30,9 +30,7 @@ from importlib.util import find_spec
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import os
 import sys
-import time
 
-import ccxt
 import ccxt.async_support as ccxta  # noqa: E402
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

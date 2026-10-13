@@ -63,11 +63,17 @@ async def example():
     price = None
     # if order_type is 'limit', then set a price at your desired level
     if order_type == "limit":
-        price = bid_price * 0.95 if (side == "buy") else ask_price * 1.05  # i.e. 5% from current price
+        price = (
+            bid_price * 0.95 if (side == "buy") else ask_price * 1.05
+        )  # i.e. 5% from current price
     # set trigger price for stop-loss/take-profit to 2% from current price
     # (note, across different exchanges "trigger" price can be also mentioned with different synonyms, like "activation price", "stop price", "conditional price", etc. )
-    stop_loss_trigger_price = (last_price if order_type == "market" else price) * (0.98 if side == "buy" else 1.02)
-    take_profit_trigger_price = (last_price if order_type == "market" else price) * (1.02 if side == "buy" else 0.98)
+    stop_loss_trigger_price = (last_price if order_type == "market" else price) * (
+        0.98 if side == "buy" else 1.02
+    )
+    take_profit_trigger_price = (last_price if order_type == "market" else price) * (
+        1.02 if side == "buy" else 0.98
+    )
     # when symbol's price reaches your predefined "trigger price", stop-loss order would be activated as a "market order". but if you want it to be activated as a "limit order", then set a 'price' parameter for it
     params = {
         "stopLoss": {

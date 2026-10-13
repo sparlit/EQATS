@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 import sys
-import time
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(root + "/python")
@@ -58,7 +57,9 @@ try:
 
         if not exchange.has["fetchTickers"]:
             raise ccxt.NotSupported(
-                "Exchange " + exchange.id + " does not have the endpoint to fetch all tickers from the API."
+                "Exchange "
+                + exchange.id
+                + " does not have the endpoint to fetch all tickers from the API."
             )
 
         # load all markets from the exchange
@@ -82,7 +83,11 @@ try:
         except ccxt.RequestTimeout as e:
             print(type(e).__name__, e.args, "Request Timeout (ignoring)")
         except ccxt.ExchangeNotAvailable as e:
-            print(type(e).__name__, e.args, "Exchange Not Available due to downtime or maintenance (ignoring)")
+            print(
+                type(e).__name__,
+                e.args,
+                "Exchange Not Available due to downtime or maintenance (ignoring)",
+            )
         except ccxt.AuthenticationError as e:
             print(type(e).__name__, e.args, "Authentication Error (missing API keys, ignoring)")
     else:

@@ -88,15 +88,26 @@ if eternal_in_universe:
     )
     print("   -> PASS: rank matches actual sorted position")
 
-for metric in ["ret_12m1m", "simple_vol_adj_momentum", "sharpe_style_momentum", "sortino_style_momentum"]:
+for metric in [
+    "ret_12m1m",
+    "simple_vol_adj_momentum",
+    "sharpe_style_momentum",
+    "sortino_style_momentum",
+]:
     r = row[f"rank_{metric}"].values[0]
     fip_r = row[f"rank_fip_{metric}"].values[0]
     in_top100 = pd.notna(r) and r <= 100
     has_fip = pd.notna(fip_r)
     status = "PASS" if (in_top100 == has_fip) else "MISMATCH"
-    print(f"6. [{metric}] rank={r}, in_top100={in_top100}, rank_fip={fip_r}, has_fip={has_fip} -> {status}")
+    print(
+        f"6. [{metric}] rank={r}, in_top100={in_top100}, rank_fip={fip_r}, has_fip={has_fip} -> {status}"
+    )
 
-original_cols = [c for c in df.columns if c not in {"in_universe", "passes_mktcap", "passes_adtv"} | set(rank_cols)]
+original_cols = [
+    c
+    for c in df.columns
+    if c not in {"in_universe", "passes_mktcap", "passes_adtv"} | set(rank_cols)
+]
 null_originals = row[original_cols].isnull().sum().sum()
 print(f"7. Nulls among original Stage2-4 columns for ETERNAL: {null_originals} (investigate if >0)")
 

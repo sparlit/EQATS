@@ -46,10 +46,11 @@ NUM = re.compile(r"^\(?-?[\d,]+\.?\d*\)?$")
 NETPAT = re.compile(
     r"(net\s*profit\s*(/\s*\(loss\)\s*)?\s*(after\s*tax|for\s*the)|"
     r"(\(loss\)\s*/?\s*)?profit\s*(/\s*\(loss\)\s*)?\s*for\s*the\s*(period|quarter|year))",
-    re.IGNORECASE,
+    re.I,
 )
 EXCL = re.compile(
-    r"before\s*tax|comprehensive|margin|debt|earning|share\s*of|associate(?!s)|operating|segment", re.IGNORECASE
+    r"before\s*tax|comprehensive|margin|debt|earning|share\s*of|associate(?!s)|operating|segment",
+    re.I,
 )
 MON = {
     "january": "03",
@@ -66,7 +67,7 @@ MON = {
     "december": "12",
 }
 # quarter-end for "... ended <Mon> <day>, <year>"
-QEND = re.compile(r"ended\s+(\d{1,2})?\s*([a-z]+)[,\s]+(\d{4})", re.IGNORECASE)
+QEND = re.compile(r"ended\s+(\d{1,2})?\s*([a-z]+)[,\s]+(\d{4})", re.I)
 
 
 def to_val(w):
@@ -110,9 +111,10 @@ def data_after_label(cells):
 
 
 UNIT_DECL = re.compile(
-    r"(?:figures?|amounts?|values?|rs\.?|₹|inr)[^.\n]{0,25}?in\s+(crores?|lakhs?|lacs?|millions?)", re.IGNORECASE
+    r"(?:figures?|amounts?|values?|rs\.?|₹|inr)[^.\n]{0,25}?in\s+(crores?|lakhs?|lacs?|millions?)",
+    re.I,
 )
-UNIT_PAREN = re.compile(r"\(\s*(?:₹|rs\.?|inr)?\s*in\s+(crores?|lakhs?|lacs?|millions?)\s*\)", re.IGNORECASE)
+UNIT_PAREN = re.compile(r"\(\s*(?:₹|rs\.?|inr)?\s*in\s+(crores?|lakhs?|lacs?|millions?)\s*\)", re.I)
 
 
 def detect_unit(low):
@@ -156,7 +158,7 @@ def parse_pdf(pdf, ann):
             con_ctx = True
         elif re.search(r"standalone\s+(statement|financial|results|segment|un)", low):
             con_ctx = False
-        for cells in rows_by_y(pg).values():
+        for _key, cells in rows_by_y(pg).items():
             txt = " ".join(w for _, w in cells)
             if NETPAT.search(txt) and not EXCL.search(txt):
                 nums = data_after_label(cells)
@@ -191,7 +193,12 @@ def parse_pdf(pdf, ann):
 
 def prev_q(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}.get(md, 0)
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }.get(md, 0)
 
 
 def consensus(vals):
@@ -220,7 +227,8 @@ def main():
     o = V.session()
     fl = V.filings(o, code, pages=30, since=since)
     print(
-        "%s: %d result filings %s..%s" % (sym, len(fl), min(x[0] for x in fl if x[0]), max(x[0] for x in fl)),
+        "%s: %d result filings %s..%s"
+        % (sym, len(fl), min(x[0] for x in fl if x[0]), max(x[0] for x in fl)),
         flush=True,
     )
     obs = {}

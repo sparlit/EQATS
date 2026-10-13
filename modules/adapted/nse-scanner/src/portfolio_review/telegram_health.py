@@ -57,7 +57,7 @@ def render_portfolio_health_message(health: dict[str, Any], max_positions: int =
     ]
 
     if not rows:
-        return "\n".join([*lines, "No active portfolio positions found."])
+        return "\n".join(lines + ["No active portfolio positions found."])
 
     for row in rows[: max(max_positions, 0)]:
         if not isinstance(row, dict):
@@ -72,7 +72,10 @@ def render_portfolio_health_message(health: dict[str, Any], max_positions: int =
                     f"Fundamental: {row.get('fundamental_status', 'NOT_REVIEWED')}"
                 ),
                 f"Risk: {_RISK_ICON.get(risk, '⚪')} {risk} | Action: {action}",
-                (f"Reviewed: {row.get('review_date') or 'Pending'} | Confidence: {row.get('confidence_score', 0):g}%"),
+                (
+                    f"Reviewed: {row.get('review_date') or 'Pending'} | "
+                    f"Confidence: {row.get('confidence_score', 0):g}%"
+                ),
                 f"View: {row.get('summary', 'No review summary available.')}",
                 "━━━━━━━━━━━━━━━━━━",
             ]
@@ -81,5 +84,7 @@ def render_portfolio_health_message(health: dict[str, Any], max_positions: int =
     omitted = len(rows) - min(len(rows), max(max_positions, 0))
     if omitted > 0:
         lines.append(f"+ {omitted} additional positions in portfolio_health.json")
-    lines.append("AI review supports monitoring only; existing stop-loss rules remain authoritative.")
+    lines.append(
+        "AI review supports monitoring only; existing stop-loss rules remain authoritative."
+    )
     return "\n".join(lines)

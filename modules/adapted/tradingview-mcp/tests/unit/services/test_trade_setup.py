@@ -69,8 +69,7 @@ def test_ccap_shape_entry_never_below_stop():
     assert setup is not None
 
     scenarios = setup["scenarios"]
-    assert "pullback" in scenarios
-    assert "breakout" in scenarios
+    assert "pullback" in scenarios and "breakout" in scenarios
     for sc in scenarios.values():
         _assert_long_invariants(sc)
 

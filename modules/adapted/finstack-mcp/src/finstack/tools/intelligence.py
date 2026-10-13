@@ -338,7 +338,9 @@ def register_intelligence_tools(mcp: FastMCP) -> None:
         return json.dumps(_get(symbol), indent=2, default=str)
 
     @mcp.tool()
-    def evaluate_signal_quality(symbol: str, lookback_months: int = 6, holding_days: int = 20) -> str:
+    def evaluate_signal_quality(
+        symbol: str, lookback_months: int = 6, holding_days: int = 20
+    ) -> str:
         """
         Lightweight evaluation / proof layer for the signal engine's price-action core.
 

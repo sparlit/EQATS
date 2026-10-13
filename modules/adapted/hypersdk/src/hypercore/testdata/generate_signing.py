@@ -68,7 +68,14 @@ for chain, chain_id in [("Mainnet", 42161), ("Testnet", 421614)]:
     ] + [
         (
             "TokenDelegate",
-            dict(type="tokenDelegate", **base, validator=other, wei=100000000, isUndelegate=undelegate, nonce=nonce),
+            dict(
+                type="tokenDelegate",
+                **base,
+                validator=other,
+                wei=100000000,
+                isUndelegate=undelegate,
+                nonce=nonce,
+            ),
             ref.TOKEN_DELEGATE_TYPES,
         )
         for undelegate in [False, True]
@@ -105,7 +112,9 @@ for chain, chain_id in [("Mainnet", 42161), ("Testnet", 421614)]:
                 }
             )
 fixture = {
-    "source": "hyperliquid-python-sdk " + version("hyperliquid-python-sdk") + " hyperliquid/utils/signing.py",
+    "source": "hyperliquid-python-sdk "
+    + version("hyperliquid-python-sdk")
+    + " hyperliquid/utils/signing.py",
     "multisigUser": user,
     "leader": lead,
     "userSigned": cases,

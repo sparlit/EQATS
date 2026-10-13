@@ -50,7 +50,13 @@ class AnnouncementAlphaExecutor:
         return self._client
 
     def place_order(
-        self, symbol: str, exchange: str, instrument_key: str, quantity: int, price: float, tag: str = ""
+        self,
+        symbol: str,
+        exchange: str,
+        instrument_key: str,
+        quantity: int,
+        price: float,
+        tag: str = "",
     ) -> dict:
         client = self._get_client()
         from indian_quant.adapters.upstox.execution import (

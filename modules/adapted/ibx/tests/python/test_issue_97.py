@@ -27,7 +27,6 @@ Verifies that user exceptions in EWrapper callbacks do not crash the bridge
 or abort the dispatch loop. Subsequent callbacks must still fire.
 """
 
-import pytest
 from ibx import EClient, EWrapper
 
 
@@ -39,8 +38,7 @@ class RaisingTickPriceWrapper(EWrapper):
         self.events = []
 
     def tick_price(self, req_id, tick_type, price, attrib):
-        msg = "simulated user error in tick_price"
-        raise RuntimeError(msg)
+        raise RuntimeError("simulated user error in tick_price")
 
     def tick_size(self, req_id, tick_type, size):
         self.events.append(("tick_size", req_id, tick_type, size))
@@ -77,7 +75,9 @@ def test_tick_price_exception_does_not_crash_dispatch():
 
     # tick_size should still fire despite tick_price raising
     size_events = [e for e in w.events if e[0] == "tick_size"]
-    assert len(size_events) > 0, f"tick_size should fire even when tick_price raises. Events: {w.events}"
+    assert len(size_events) > 0, (
+        f"tick_size should fire even when tick_price raises. Events: {w.events}"
+    )
 
 
 def test_subsequent_dispatches_work_after_exception():
@@ -120,33 +120,27 @@ class RaisingAllWrapper(EWrapper):
 
     def tick_price(self, req_id, tick_type, price, attrib):
         self.call_count += 1
-        msg = "tick_price boom"
-        raise ValueError(msg)
+        raise ValueError("tick_price boom")
 
     def tick_size(self, req_id, tick_type, size):
         self.call_count += 1
-        msg = "tick_size boom"
-        raise ValueError(msg)
+        raise ValueError("tick_size boom")
 
     def error(self, req_id, error_code, error_string, advanced_order_reject_json=""):
         self.call_count += 1
-        msg = "error boom"
-        raise ValueError(msg)
+        raise ValueError("error boom")
 
     def connect_ack(self):
         self.call_count += 1
-        msg = "connect_ack boom"
-        raise ValueError(msg)
+        raise ValueError("connect_ack boom")
 
     def next_valid_id(self, order_id):
         self.call_count += 1
-        msg = "next_valid_id boom"
-        raise ValueError(msg)
+        raise ValueError("next_valid_id boom")
 
     def managed_accounts(self, accounts_list):
         self.call_count += 1
-        msg = "managed_accounts boom"
-        raise ValueError(msg)
+        raise ValueError("managed_accounts boom")
 
 
 def test_all_callbacks_raising_does_not_crash():

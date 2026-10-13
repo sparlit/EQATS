@@ -59,7 +59,17 @@ def fetch(d: date) -> pd.DataFrame | None:
     for c in df.select_dtypes("object"):
         df[c] = df[c].str.strip()
     df = df[df["series"].isin(config.SERIES)].copy()
-    num = ["open", "high", "low", "close", "volume", "turnover_lacs", "trades", "deliv_qty", "deliv_pct"]
+    num = [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "turnover_lacs",
+        "trades",
+        "deliv_qty",
+        "deliv_pct",
+    ]
     df[num] = df[num].apply(pd.to_numeric, errors="coerce")
     df["date"] = pd.to_datetime(d)
     return df.drop(columns=["series"])
@@ -80,8 +90,7 @@ def store(d: date) -> bool:
 def load_all() -> pd.DataFrame:
     files = sorted((config.DATA_DIR / "bhav").glob("*.parquet"))
     if not files:
-        msg = "No bhavcopy data. Run backfill.py first."
-        raise SystemExit(msg)
+        raise SystemExit("No bhavcopy data. Run backfill.py first.")
     df = pd.concat(map(pd.read_parquet, files), ignore_index=True)
     # canonicalize renamed tickers so histories merge (Tier 0 hygiene)
     from ingest import renames

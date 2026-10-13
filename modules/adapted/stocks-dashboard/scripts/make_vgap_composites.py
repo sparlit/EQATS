@@ -71,7 +71,8 @@ def main():
         fn = "comp_%02d.png" % ci
         cv2.imwrite(os.path.join(VP, fn), np.vstack(imgs))
         comp_map[fn] = [
-            {"slot": s, "sym": m["sym"], "qe": m["qe"], "unit": m.get("unit", "?")} for s, m in enumerate(batch)
+            {"slot": s, "sym": m["sym"], "qe": m["qe"], "unit": m.get("unit", "?")}
+            for s, m in enumerate(batch)
         ]
 
     for m in items:
@@ -83,7 +84,10 @@ def main():
     if batch:
         flush(batch, ci)
     json.dump(comp_map, open(os.path.join(VP, "comp_map.json"), "w"), indent=0)
-    print("wrote %d composites from %d crops -> _vgap/comp_*.png + comp_map.json" % (len(comp_map), len(items)))
+    print(
+        "wrote %d composites from %d crops -> _vgap/comp_*.png + comp_map.json"
+        % (len(comp_map), len(items))
+    )
 
 
 if __name__ == "__main__":

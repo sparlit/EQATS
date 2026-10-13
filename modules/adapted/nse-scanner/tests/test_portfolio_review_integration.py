@@ -26,14 +26,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """End-to-end contract tests for Sprint 8 portfolio intelligence."""
 
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from src.portfolio_review.health_builder import build_portfolio_health
 from src.portfolio_review.review_repository import save_review
 from src.portfolio_review.telegram_health import render_portfolio_health_message
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _review(symbol: str, period: str = "2026-08") -> dict:
@@ -96,7 +93,9 @@ def test_corrupt_latest_review_is_not_trusted(tmp_path: Path) -> None:
     latest.parent.mkdir(parents=True)
     latest.write_text("{not valid json", encoding="utf-8")
 
-    health = build_portfolio_health(portfolio_path=portfolio_path, reports_root=tmp_path / "reports" / "portfolio")
+    health = build_portfolio_health(
+        portfolio_path=portfolio_path, reports_root=tmp_path / "reports" / "portfolio"
+    )
     item = health["positions"][0]
     assert item["review_status"] != "VALID"
     assert item["suggested_action"] in {"REVIEW", "INSUFFICIENT_DATA"}

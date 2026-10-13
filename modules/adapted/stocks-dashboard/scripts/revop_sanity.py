@@ -68,7 +68,9 @@ def main():
     OK = set(json.load(open(okp))) if os.path.exists(okp) else set()
     rv = json.load(open(RV))
     old = json.loads(
-        subprocess.run(["git", "show", "HEAD:docs/sf_revop.json"], capture_output=True, text=True, cwd=ROOT).stdout
+        subprocess.run(
+            ["git", "show", "HEAD:docs/sf_revop.json"], capture_output=True, text=True, cwd=ROOT
+        ).stdout
         or "{}"
     )
     led = json.load(open(LED)) if os.path.exists(LED) else {}
@@ -110,11 +112,18 @@ def main():
                 and 0 <= a[1] < 0.05 * a[0]
                 and a[1] < 20
             ):
-                kill_con.append((s, qe, a[1], f"junk-tiny-con(con {a[1]:.2f} < 5% of std {a[0]:.2f})"))
+                kill_con.append(
+                    (s, qe, a[1], f"junk-tiny-con(con {a[1]:.2f} < 5% of std {a[0]:.2f})")
+                )
             if not wasold(s, qe):
                 # scale spike, compared against the SAME slot's history (allowlisted cells exempt)
                 ref_max = ref_by_slot[0 if a[0] is not None else 1]
-                if ref_max is not None and ref_max >= 20 and v > 4 * ref_max and f"{s}|{qe}" not in OK:
+                if (
+                    ref_max is not None
+                    and ref_max >= 20
+                    and v > 4 * ref_max
+                    and f"{s}|{qe}" not in OK
+                ):
                     kill.append((s, qe, v, f"scale-spike>4x-established-max({ref_max:.0f})"))
                     continue
                 if v > 50:
@@ -124,7 +133,14 @@ def main():
                 for qe in qs:
                     if f"{s}|{qe}" in OK:  # allowlisted: genuine near-identical as-filed
                         continue
-                    kill.append((s, qe, v, "duplicate-value-across-quarters({})".format(",".join(sorted(qs)))))
+                    kill.append(
+                        (
+                            s,
+                            qe,
+                            v,
+                            "duplicate-value-across-quarters({})".format(",".join(sorted(qs))),
+                        )
+                    )
 
     # de-dup kill list (a cell could hit both rules)
     seen_keys = set()

@@ -46,7 +46,12 @@ _map_cache: dict | None = None
 def refresh() -> pd.DataFrame:
     r = nse.get(URL, timeout=config.TIMEOUT)
     r.raise_for_status()
-    df = pd.read_csv(io.BytesIO(r.content), encoding="latin-1", header=None, names=["company", "old", "new", "date"])
+    df = pd.read_csv(
+        io.BytesIO(r.content),
+        encoding="latin-1",
+        header=None,
+        names=["company", "old", "new", "date"],
+    )
     for c in ("old", "new"):
         df[c] = df[c].astype(str).str.strip()
     df = df[(df["old"] != df["new"]) & (df["old"] != "") & (df["new"] != "")]

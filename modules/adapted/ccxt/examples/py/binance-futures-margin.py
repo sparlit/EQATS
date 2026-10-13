@@ -105,7 +105,7 @@ print("CCXT Version:", ccxt.__version__)
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -132,6 +132,7 @@ print("----------------------------------------------------------------------")
 
 print("Fetching your balance:")
 response = exchange.fetch_balance()
+pprint(response["total"])  # make sure you have enough futures margin...
 # pprint(response['info'])  # more details
 
 print("----------------------------------------------------------------------")

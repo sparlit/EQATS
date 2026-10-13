@@ -57,18 +57,18 @@ def confirmed_pivot(values: pd.Series, strength: int, *, low: bool) -> pd.Series
 
 
 def features(
-    frame: pd.DataFrame, config: ResearchConfig = ResearchConfig(), benchmark: pd.Series | None = None
+    frame: pd.DataFrame,
+    config: ResearchConfig = ResearchConfig(),
+    benchmark: pd.Series | None = None,
 ) -> pd.DataFrame:
     d = frame.rename(columns={"date": "trade_date"}).copy()
     required = {"trade_date", "open", "high", "low", "close", "volume"}
     if required.difference(d):
-        msg = f"Missing daily columns: {sorted(required.difference(d))}"
-        raise ValueError(msg)
+        raise ValueError(f"Missing daily columns: {sorted(required.difference(d))}")
     d["trade_date"] = pd.to_datetime(d["trade_date"]).dt.normalize()
     d = d.sort_values("trade_date").reset_index(drop=True)
     if d.trade_date.duplicated().any():
-        msg = "Duplicate symbol sessions"
-        raise ValueError(msg)
+        raise ValueError("Duplicate symbol sessions")
     for col in required - {"trade_date"}:
         d[col] = pd.to_numeric(d[col], errors="coerce")
     valid = (
@@ -99,14 +99,19 @@ def features(
         b.index = pd.to_datetime(b.index)
         aligned = d.trade_date.map(b)
         d["relative_strength22"] = d.return22 - aligned.pct_change(22, fill_method=None) * 100
-    turnover = pd.to_numeric(d.get("turnover_lacs", pd.Series(np.nan, index=d.index)), errors="coerce") / 100
+    turnover = (
+        pd.to_numeric(d.get("turnover_lacs", pd.Series(np.nan, index=d.index)), errors="coerce")
+        / 100
+    )
     d["turnover20_cr"] = turnover.rolling(20, min_periods=20).median()
     d["turnover5_cr"] = turnover.rolling(5, min_periods=5).median()
     d["turnover_warning"] = d.turnover5_cr.lt(d.turnover20_cr * 0.5)
     vol_base = d.volume.shift(1).rolling(20, min_periods=20).mean()
     d["relative_volume"] = d.volume / vol_base
     d["pullback_volume"] = d.volume.rolling(3).mean() / vol_base
-    delivery = pd.to_numeric(d.get("delivery_pct", pd.Series(np.nan, index=d.index)), errors="coerce")
+    delivery = pd.to_numeric(
+        d.get("delivery_pct", pd.Series(np.nan, index=d.index)), errors="coerce"
+    )
     delivery = delivery.where(delivery.between(0, 100))
     d["delivery5"] = delivery.rolling(5, min_periods=5).mean()
     d["delivery20"] = delivery.rolling(20, min_periods=20).mean()
@@ -126,7 +131,9 @@ def features(
         & c.gt(d.retest_level)
         & d.close_location.ge(0.65)
     )
-    d["recovery"] = c.gt(d.ema21) & c.shift(1).le(d.ema21.shift(1)) & d.ema_slope.gt(d.ema_slope.shift(1))
+    d["recovery"] = (
+        c.gt(d.ema21) & c.shift(1).le(d.ema21.shift(1)) & d.ema_slope.gt(d.ema_slope.shift(1))
+    )
     d["pullback"] = (
         d.ema21.gt(d.ema50)
         & d.ema_slope.gt(0)
@@ -135,7 +142,9 @@ def features(
         & d.close_location.ge(0.6)
     )
     d["range_blocked"] = (
-        (d.ema9 - d.ema50).abs().div(d.atr).lt(0.6) & d.ema_slope.abs().lt(0.15) & d.hull_slope.abs().lt(0.15)
+        (d.ema9 - d.ema50).abs().div(d.atr).lt(0.6)
+        & d.ema_slope.abs().lt(0.15)
+        & d.hull_slope.abs().lt(0.15)
     )
     d["deteriorating"] = c.lt(d.support) | (c.lt(d.hull) & d.hull_slope.lt(0) & d.ema_slope.lt(0))
     d["distance_ema_atr"] = (c - d.ema21) / d.atr
@@ -164,7 +173,12 @@ def features(
         default="BASE FORMING",
     )
     zone = pd.concat(
-        [d.support.where(d.support.lt(c)), d.ema21.where(d.ema21.lt(c)), d.hull.where(d.hull.lt(c))], axis=1
+        [
+            d.support.where(d.support.lt(c)),
+            d.ema21.where(d.ema21.lt(c)),
+            d.hull.where(d.hull.lt(c)),
+        ],
+        axis=1,
     ).max(axis=1)
     d["zone"] = zone.where(~d.retest, d.retest_level)
     d["zone_distance_atr"] = (c - d.zone) / d.atr
@@ -180,12 +194,21 @@ def features(
     risk = d.trigger - d.stop
     d["stop_pct"] = risk / d.trigger * 100
     overhead = pd.concat(
-        [d.resistance.where(d.resistance.gt(d.trigger)), d.prior_high20.where(d.prior_high20.gt(d.trigger))], axis=1
+        [
+            d.resistance.where(d.resistance.gt(d.trigger)),
+            d.prior_high20.where(d.prior_high20.gt(d.trigger)),
+        ],
+        axis=1,
     ).min(axis=1)
     d["room_r"] = (overhead - d.trigger) / risk
     # Unknown resistance is explicitly unknown, not infinity or an automatic pass.
     d["room_known"] = overhead.notna()
-    d["risk_ok"] = risk.gt(0.5 * d.atr) & risk.le(2.5 * d.atr) & d.stop_pct.le(config.max_stop_pct) & d.stop.gt(0)
+    d["risk_ok"] = (
+        risk.gt(0.5 * d.atr)
+        & risk.le(2.5 * d.atr)
+        & d.stop_pct.le(config.max_stop_pct)
+        & d.stop.gt(0)
+    )
     d["volume_ok"] = np.where(
         d.breakout,
         d.relative_volume.ge(config.breakout_volume),
@@ -206,7 +229,12 @@ def features(
     )
     # Friday-labelled bars cannot be used Monday-Thursday. Holiday Fridays become
     # available the following session: conservative without an exchange calendar.
-    weekly = d.set_index("trade_date").resample("W-FRI").agg({"close": "last", "high": "max", "low": "min"}).dropna()
+    weekly = (
+        d.set_index("trade_date")
+        .resample("W-FRI")
+        .agg({"close": "last", "high": "max", "low": "min"})
+        .dropna()
+    )
     wc = weekly.close
     we21 = wc.ewm(span=21, adjust=False, min_periods=21).mean()
     we50 = wc.ewm(span=50, adjust=False, min_periods=50).mean()
@@ -231,15 +259,16 @@ def features(
 
 
 def candidate_mask(
-    d: pd.DataFrame, scanner: str, variant: str = "daily_location", config: ResearchConfig = ResearchConfig()
+    d: pd.DataFrame,
+    scanner: str,
+    variant: str = "daily_location",
+    config: ResearchConfig = ResearchConfig(),
 ) -> pd.Series:
     """Technical research cohorts, never equivalent to native scanner eligibility."""
     if scanner not in {"Hull", "V3", "Momentum Ladder", "Penny"}:
-        msg = "Unknown scanner"
-        raise ValueError(msg)
+        raise ValueError("Unknown scanner")
     if variant not in {"mature_control", "progressive", "with_weekly", "daily_location"}:
-        msg = "Unknown research variant"
-        raise ValueError(msg)
+        raise ValueError("Unknown research variant")
     eligible = d.history_ok & d.turnover20_cr.ge(config.turnover_cr)
     if scanner == "Penny":
         # Preserve the deployed Penny ready-tier data thresholds in this overlay.
@@ -264,7 +293,9 @@ def candidate_mask(
             & d.hull_slope.gt(0)
             & d.risk_ok
         )
-    setup = d.setup.isin(["RETEST", "HEALTHY PULLBACK", "BREAKOUT WATCH", "EARLY RECOVERY", "CONFIRMED TREND"])
+    setup = d.setup.isin(
+        ["RETEST", "HEALTHY PULLBACK", "BREAKOUT WATCH", "EARLY RECOVERY", "CONFIRMED TREND"]
+    )
     if scanner == "Momentum Ladder":
         setup |= d.setup.eq("DEVELOPING") & d.acceleration5.gt(0) & d.ema9.gt(d.ema14)
     mask = eligible & setup & ~d.deteriorating & ~d.range_blocked & d.volume_ok & d.risk_ok

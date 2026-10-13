@@ -59,7 +59,10 @@ def main() -> None:
         }
     )
 
-    print(f"as of {t.date()}  |  regime: {'ON — hold the portfolio' if regime_on else 'OFF — be in cash'}")
+    print(
+        f"as of {t.date()}  |  regime: "
+        f"{'ON — hold the portfolio' if regime_on else 'OFF — be in cash'}"
+    )
     print(out.to_string())
     path = config.DATA_DIR / f"v4_portfolio_{t.date()}.csv"
     out.to_csv(path)

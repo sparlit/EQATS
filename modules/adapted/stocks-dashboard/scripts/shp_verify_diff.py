@@ -64,7 +64,9 @@ MATCH, ROUND_BASE, INVESTIGATE = 0.02, 0.06, 0.50
 
 
 def load_hist(pin):
-    r = subprocess.run(["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO)
+    r = subprocess.run(
+        ["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO
+    )
     if r.returncode:
         sys.exit(f"cannot read shp_history.json at {pin}")
     return json.loads(r.stdout)
@@ -235,9 +237,20 @@ def main():
             if missing and sval is not None:
                 note = "partial sum; labels absent: {}".format(",".join(missing))
             if qe == FORMAT_BOUNDARY:
-                note = (note + "; " if note else "") + "T1 format-boundary quarter — level only, never QoQ"
+                note = (
+                    note + "; " if note else ""
+                ) + "T1 format-boundary quarter — level only, never QoQ"
             rows.append(
-                dict(base, field=field, ours=ours, site_val=sval, delta_pp=delta, verdict=v, prov=route, note=note)
+                dict(
+                    base,
+                    field=field,
+                    ours=ours,
+                    site_val=sval,
+                    delta_pp=delta,
+                    verdict=v,
+                    prov=route,
+                    note=note,
+                )
             )
             tally[v] += 1
 
@@ -259,7 +272,8 @@ def main():
                 tally["NO_DATA_SITE"] += 1
 
     with open(a.out, "w", encoding="utf-8") as f:
-        f.writelines(json.dumps(r, separators=(",", ":")) + "\n" for r in rows)
+        for r in rows:
+            f.write(json.dumps(r, separators=(",", ":")) + "\n")
 
     print("%s: %d verdict rows -> %s" % (site, len(rows), a.out))
     for v, n in tally.most_common():
@@ -270,7 +284,14 @@ def main():
         for r in sorted(bad, key=lambda r: -abs(r.get("delta_pp") or 0))[:10]:
             print(
                 "     %-12s %s %-4s ours=%s site=%s d=%+.2f"
-                % (r["sym"], r["qe"], r["field"], r.get("ours"), r.get("site_val"), r.get("delta_pp") or 0)
+                % (
+                    r["sym"],
+                    r["qe"],
+                    r["field"],
+                    r.get("ours"),
+                    r.get("site_val"),
+                    r.get("delta_pp") or 0,
+                )
             )
 
 

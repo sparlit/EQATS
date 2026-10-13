@@ -57,19 +57,25 @@ def apply_reconstitution(ranked_df: pd.DataFrame, current_holdings: set) -> tupl
     # Holdings not in scored universe at all
     unscored = current_holdings - all_scored
     if unscored:
-        print(f"WARNING: {len(unscored)} holdings not in scored universe (force SELL): {sorted(unscored)}")
+        print(
+            f"WARNING: {len(unscored)} holdings not in scored universe "
+            f"(force SELL): {sorted(unscored)}"
+        )
 
     # ── Step 3: Remove holdings ranked > BUFFER_ZONE or unscored ──────────
     portfolio = {s for s in current_holdings if s in all_scored and rank_lookup[s] <= BUFFER_ZONE}
     forced_out = (current_holdings - portfolio) | unscored
 
-    print(f"\nStep 3 — forced out (rank > {BUFFER_ZONE} or unscored): {len(forced_out)}  {sorted(forced_out)}")
+    print(
+        f"\nStep 3 — forced out (rank > {BUFFER_ZONE} or unscored): "
+        f"{len(forced_out)}  {sorted(forced_out)}"
+    )
 
     # ── Step 4: Non-holders rank <= FORCED_IN_N -> forced in ──────────────
     # Each displaces the lowest momentum score holding unconditionally.
-    forced_in_candidates = df[(df["mr_rank"] <= FORCED_IN_N) & (~df["symbol"].isin(current_holdings))].sort_values(
-        "mr_rank"
-    )
+    forced_in_candidates = df[
+        (df["mr_rank"] <= FORCED_IN_N) & (~df["symbol"].isin(current_holdings))
+    ].sort_values("mr_rank")
 
     step4_forced_in = []
     step4_displaced = []
@@ -84,18 +90,29 @@ def apply_reconstitution(ranked_df: pd.DataFrame, current_holdings: set) -> tupl
         portfolio.add(new_stock)
         step4_forced_in.append(new_stock)
 
-    print(f"Step 4 — forced in  (non-holders rank <= {FORCED_IN_N}): {len(step4_forced_in)}  {sorted(step4_forced_in)}")
-    print(f"Step 4 — displaced  (lowest scoring holdings bumped): {len(step4_displaced)}  {sorted(step4_displaced)}")
+    print(
+        f"Step 4 — forced in  (non-holders rank <= {FORCED_IN_N}): "
+        f"{len(step4_forced_in)}  {sorted(step4_forced_in)}"
+    )
+    print(
+        f"Step 4 — displaced  (lowest scoring holdings bumped): "
+        f"{len(step4_displaced)}  {sorted(step4_displaced)}"
+    )
 
     # ── Step 5: Retained holdings ─────────────────────────────────────────
     retained = sorted(portfolio & current_holdings, key=lambda s: rank_lookup.get(s, 999))
-    print(f"Step 5 — retained   (holdings rank <= {BUFFER_ZONE}, survived): {len(retained)}  {sorted(retained)}")
+    print(
+        f"Step 5 — retained   (holdings rank <= {BUFFER_ZONE}, survived): "
+        f"{len(retained)}  {sorted(retained)}"
+    )
 
     # ── Step 6: Fill remaining slots with non-holders by rank ─────────────
     step6_fills = []
     slots_remaining = PORTFOLIO_N - len(portfolio)
     if slots_remaining > 0:
-        fill_pool = df[~df["symbol"].isin(portfolio) & ~df["symbol"].isin(current_holdings)].sort_values("mr_rank")
+        fill_pool = df[
+            ~df["symbol"].isin(portfolio) & ~df["symbol"].isin(current_holdings)
+        ].sort_values("mr_rank")
         for _, row in fill_pool.iterrows():
             if slots_remaining == 0:
                 break

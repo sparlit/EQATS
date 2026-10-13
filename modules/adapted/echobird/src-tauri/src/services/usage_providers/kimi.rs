@@ -1,147 +1,87 @@
-//! Kimi For Coding usage provider
-//!
-//! API: GET https://api.kimi.com/coding/v1/usages
-//! Response: { limits: [{detail: {limit, remaining, resetTime}}], usage: {limit, remaining, resetTime} }
-
-use super::{now_millis, parse_f64, ModelUsageData, UsageProvider, UsageQuota, UsageResult};
-use reqwest;
-use std::time::Duration;
+//! Kimi Coding usage windows.
+use super::{
+    api_url, fetch_usage, parse_f64, parse_reset_time, QuotaPeriod, UsageProvider, UsageQuota,
+    UsageResult,
+};
+use serde_json::Value;
 
 pub struct KimiProvider;
 
-/// Extract reset time from JSON value, convert to milliseconds
-fn extract_reset_time(value: &serde_json::Value) -> Option<i64> {
-    if let Some(s) = value.as_str() {
-        // ISO 8601 string, parse to timestamp
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
-            return Some(dt.timestamp_millis());
+fn usage_url(base_url: &str) -> Option<String> {
+    let url = api_url(base_url, &["api.kimi.com", "api.kimi.ai"])?;
+    (url.path() == "/coding" || url.path().starts_with("/coding/"))
+        .then(|| format!("https://{}/coding/v1/usages", url.host_str().unwrap()))
+}
+
+fn parse_window(detail: &Value, period: QuotaPeriod) -> Option<UsageQuota> {
+    let limit = parse_f64(&detail["limit"]).filter(|value| value.is_finite() && *value > 0.0)?;
+    let remaining = parse_f64(&detail["remaining"])?;
+    UsageQuota::window(
+        period,
+        (1.0 - remaining / limit) * 100.0,
+        parse_reset_time(&detail["resetTime"]),
+    )
+}
+
+fn parse_quotas(body: &Value) -> Vec<UsageQuota> {
+    let mut quotas = Vec::new();
+    if let Some(limits) = body["limits"].as_array() {
+        for item in limits {
+            if let Some(quota) = parse_window(&item["detail"], QuotaPeriod::FiveHour) {
+                quotas.push(quota);
+                break;
+            }
         }
     }
-    if let Some(n) = value.as_i64() {
-        if n <= 0 {
-            return None;
-        }
-        // Check if seconds or milliseconds
-        let ms = if n < 1_000_000_000_000 { n * 1000 } else { n };
-        return Some(ms);
+    if let Some(quota) = parse_window(&body["usage"], QuotaPeriod::Weekly) {
+        quotas.push(quota);
     }
-    None
+    quotas
 }
 
 #[async_trait::async_trait]
 impl UsageProvider for KimiProvider {
-    async fn query_usage(&self, api_key: &str, _base_url: &str) -> Result<UsageResult, String> {
-        let client = reqwest::Client::new();
-
-        let resp = client
-            .get("https://api.kimi.com/coding/v1/usages")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .header("Accept", "application/json")
-            .timeout(Duration::from_secs(15))
-            .send()
-            .await
-            .map_err(|e| format!("Network error: {}", e))?;
-
-        let status = resp.status();
-        if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some(format!("Authentication failed (HTTP {})", status)),
-            });
-        }
-
-        if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some(format!("API error (HTTP {}): {}", status, body)),
-            });
-        }
-
-        let body: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-        let mut quotas = Vec::new();
-
-        // 5-hour window limit (priority display)
-        if let Some(limits) = body.get("limits").and_then(|v| v.as_array()) {
-            for limit_item in limits {
-                if let Some(detail) = limit_item.get("detail") {
-                    let limit = detail.get("limit").and_then(parse_f64).unwrap_or(1.0);
-                    let remaining = detail.get("remaining").and_then(parse_f64).unwrap_or(0.0);
-                    let reset_at = detail
-                        .get("resetTime")
-                        .and_then(extract_reset_time)
-                        .unwrap_or_else(|| now_millis() + 5 * 60 * 60 * 1000);
-
-                    let used = (limit - remaining).max(0.0);
-                    let percentage = if limit > 0.0 {
-                        (used / limit) * 100.0
-                    } else {
-                        0.0
-                    };
-
-                    quotas.push(UsageQuota {
-                        percentage,
-                        reset_at,
-                        balance: None,
-                        balance_unit: None,
-                    });
-                }
-            }
-        }
-
-        // Weekly limit
-        if let Some(usage) = body.get("usage") {
-            let limit = usage.get("limit").and_then(parse_f64).unwrap_or(1.0);
-            let remaining = usage.get("remaining").and_then(parse_f64).unwrap_or(0.0);
-            let reset_at = usage
-                .get("resetTime")
-                .and_then(extract_reset_time)
-                .unwrap_or_else(|| now_millis() + 7 * 24 * 60 * 60 * 1000);
-
-            let used = (limit - remaining).max(0.0);
-            let percentage = if limit > 0.0 {
-                (used / limit) * 100.0
-            } else {
-                0.0
-            };
-
-            quotas.push(UsageQuota {
-                percentage,
-                reset_at,
-                balance: None,
-                balance_unit: None,
-            });
-        }
-
-        if quotas.is_empty() {
-            return Ok(UsageResult {
-                success: false,
-                data: None,
-                error: Some("No usage data available".to_string()),
-            });
-        }
-
-        Ok(UsageResult {
-            success: true,
-            data: Some(ModelUsageData {
-                quotas,
-                last_updated: Some(now_millis()),
-            }),
-            error: None,
-        })
+    async fn query_usage(&self, api_key: &str, base_url: &str) -> Result<UsageResult, String> {
+        let endpoint = usage_url(base_url).ok_or("Unsupported Kimi endpoint")?;
+        Ok(
+            match fetch_usage(&endpoint, &format!("Bearer {api_key}")).await {
+                Ok(body) => UsageResult::from_quotas(parse_quotas(&body)),
+                Err(error) => UsageResult::failure(error),
+            },
+        )
     }
-
     fn can_handle(&self, base_url: &str) -> bool {
-        base_url.contains("api.kimi.com/coding")
+        usage_url(base_url).is_some()
     }
-
     fn name(&self) -> &'static str {
         "Kimi"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn parses_both_windows_and_never_invents_a_reset() {
+        let quotas = parse_quotas(&json!({
+            "limits":[{"detail":{"limit":"100","remaining":"45","resetTime":"2027-01-01T12:00:00Z"}}],
+            "usage":{"limit":1000,"remaining":800}
+        }));
+        assert_eq!(quotas.len(), 2);
+        assert!((quotas[0].percentage - 55.0).abs() < 0.001);
+        assert_eq!(quotas[1].period, Some(QuotaPeriod::Weekly));
+        assert_eq!(quotas[1].reset_at, 0);
+        assert!(
+            parse_quotas(&json!({"limits":[{"detail":{"limit":0}}],"usage":{"limit":100}}))
+                .is_empty()
+        );
+    }
+    #[test]
+    fn detects_coding_hosts_without_matching_platform_or_spoofed_urls() {
+        assert!(KimiProvider.can_handle("https://api.kimi.ai/coding/v1"));
+        assert!(!KimiProvider.can_handle("https://api.kimi.com/coding-other"));
+        assert!(!KimiProvider.can_handle("https://api.kimi.com.evil.test/coding"));
+        assert!(!KimiProvider.can_handle("https://api.moonshot.cn/v1"));
     }
 }

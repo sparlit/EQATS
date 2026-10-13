@@ -2,6 +2,7 @@ pub mod agent_loop;
 pub mod agent_tools;
 pub mod ai_career;
 pub mod anthropic_proxy;
+pub mod antigravity_accounts;
 pub mod auto_fix;
 pub mod bundled_assets;
 pub mod claude_code_accounts;
@@ -11,17 +12,25 @@ pub mod codex_catalog;
 #[path = "codex_proxy/mod.rs"]
 pub mod codex_runtime;
 pub mod codex_session_merge;
+pub mod cursor_accounts;
+pub(crate) mod cursor_auth;
+pub(crate) mod cursor_usage;
 pub mod datalog;
 pub mod deepseek_accounts;
 pub mod deepseek_oauth;
+pub(crate) mod electron_storage;
 pub mod free_model_directory;
 pub mod grok_accounts;
+pub mod grok_bot_accounts;
 pub mod json_repair;
 pub mod llm_client;
 pub mod local_llm;
 pub(crate) mod local_proxy;
+pub mod manus_accounts;
 pub mod model_directory;
 pub mod model_manager;
+#[cfg(any(windows, test))]
+pub(crate) mod msix;
 pub mod parasite;
 pub mod process_manager;
 pub mod self_update;
@@ -34,3 +43,4 @@ pub mod usage_providers;
 pub mod windows_path;
 
 pub mod workbuddy_accounts;
+pub mod zcode_accounts;

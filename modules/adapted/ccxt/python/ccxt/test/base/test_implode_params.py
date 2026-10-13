@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_implode_params():
@@ -52,4 +52,6 @@ def test_implode_params():
     }
     expected = "v2/watchlists/1m/BTC/USDT"
     result = exchange.implode_params(path, params)
-    assert result == expected, "implodeParams did not produce the expected result: " + result + " != " + expected
+    assert result == expected, (
+        "implodeParams did not produce the expected result: " + result + " != " + expected
+    )

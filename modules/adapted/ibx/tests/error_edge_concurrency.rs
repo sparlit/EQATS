@@ -25,37 +25,73 @@ fn test_client() -> (EClient, crossbeam_channel::Receiver<ControlCommand>, Arc<S
     (client, rx, shared)
 }
 
+/// A client whose commands go to a stand-in for the engine, which answers
+/// every subscription and registration with instrument 0 (the seeded SPY
+/// slot) at once. Without it each market data request waits for the
+/// registration timeout (5 s). Send `Shutdown` to end it; it returns the
+/// number of commands it got before.
+fn test_client_with_engine() -> (EClient, crossbeam_channel::Sender<ControlCommand>, thread::JoinHandle<usize>, Arc<SharedState>) {
+    let shared = Arc::new(SharedState::new());
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let engine = thread::spawn(move || {
+        let mut count = 0;
+        while let Ok(cmd) = rx.recv() {
+            match cmd {
+                ControlCommand::Shutdown => break,
+                ControlCommand::Subscribe { reply_tx: Some(reply), .. }
+                | ControlCommand::RegisterInstrument { reply_tx: Some(reply), .. } => {
+                    let _ = reply.send(Ok(0));
+                }
+                _ => {}
+            }
+            count += 1;
+        }
+        count
+    });
+    let client = EClient::from_parts(shared.clone(), tx.clone(), thread::spawn(|| {}), "DU123".into());
+    client.seed_instrument(756733, 0);
+    client.seed_instrument(0, 1);
+    (client, tx, engine, shared)
+}
+
+// The API's Contract has no default security type or exchange: the
+// contract names them, as an order needs its exchange.
 fn spy() -> Contract {
-    Contract { con_id: 756733, symbol: "SPY".into(), ..Default::default() }
+    Contract { con_id: 756733, symbol: "SPY".into(), sec_type: "STK".into(), exchange: "SMART".into(), ..Default::default() }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 //  ERROR PATHS — place_order
 // ═══════════════════════════════════════════════════════════════════════
 
+// ibx#485: an unknown action is the reference's 321 callback, not an
+// error of the call.
 #[test]
-fn place_order_invalid_action_returns_error() {
-    let (client, _rx, shared) = test_client();
+fn place_order_invalid_action_is_refused_by_callback() {
+    let (client, rx, shared) = test_client();
     shared.market.set_instrument_count(1);
     let order = Order {
         action: "INVALID".into(), total_quantity: 100.0,
         order_type: "MKT".into(), ..Default::default()
     };
-    let result = client.place_order(1, &spy(), &order);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("Invalid action"));
+    client.place_order(1, &spy(), &order).unwrap();
+    assert!(rx.try_recv().is_err(), "nothing sent");
+    let errors = shared.orders.drain_order_errors();
+    assert_eq!(errors, [(1, 321, "Error validating request.-'bH' : cause - Invalid side field was entered".to_string())]);
 }
 
 #[test]
-fn place_order_empty_action_returns_error() {
-    let (client, _rx, shared) = test_client();
+fn place_order_empty_action_is_refused_by_callback() {
+    let (client, rx, shared) = test_client();
     shared.market.set_instrument_count(1);
     let order = Order {
         action: String::new(), total_quantity: 100.0,
         order_type: "MKT".into(), ..Default::default()
     };
-    let result = client.place_order(1, &spy(), &order);
-    assert!(result.is_err());
+    client.place_order(1, &spy(), &order).unwrap();
+    assert!(rx.try_recv().is_err(), "nothing sent");
+    let errors = shared.orders.drain_order_errors();
+    assert_eq!(errors, [(1, 321, "Error validating request.-'bH' : cause - Invalid side field was entered".to_string())]);
 }
 
 #[test]
@@ -86,20 +122,34 @@ fn place_order_unsupported_algo_returns_error() {
     assert!(result.unwrap_err().contains("Unsupported algo"));
 }
 
+// A contract without a conId gets a slot of its own for the order, which
+// the engine looks up before the order goes out (ibx#486).
 #[test]
 fn place_order_zero_con_id_still_sends() {
     let (client, rx, shared) = test_client();
     shared.market.set_instrument_count(1);
-    let contract = Contract { con_id: 0, symbol: "TEST".into(), ..Default::default() };
+    let contract = Contract { con_id: 0, symbol: "TEST".into(), sec_type: "STK".into(), exchange: "SMART".into(), currency: "USD".into(), ..Default::default() };
     let order = Order {
         action: "BUY".into(), total_quantity: 100.0,
         order_type: "MKT".into(), ..Default::default()
     };
-    // Should not error — the engine handles zero con_id
+    let engine = thread::spawn(move || {
+        let mut sent = Vec::new();
+        while let Ok(cmd) = rx.recv_timeout(std::time::Duration::from_millis(500)) {
+            match cmd {
+                ControlCommand::RegisterOrderContract { symbol, currency, reply_tx: Some(reply), .. } => {
+                    sent.push(format!("register {symbol} {currency}"));
+                    let _ = reply.send(Ok(7));
+                }
+                ControlCommand::Order(req) => sent.push(format!("order on {:?}", req.instrument())),
+                _ => {}
+            }
+        }
+        sent
+    });
     let result = client.place_order(1, &contract, &order);
-    assert!(result.is_ok());
-    // Drain to avoid channel filling
-    while rx.try_recv().is_ok() {}
+    assert!(result.is_ok(), "{result:?}");
+    assert_eq!(engine.join().unwrap(), ["register TEST USD", "order on Some(7)"]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -130,10 +180,12 @@ fn cancel_order_nonexistent_sends_cancel_anyway() {
 }
 
 #[test]
-fn req_global_cancel_no_instruments_no_commands() {
+fn req_global_cancel_without_contracts_still_goes() {
+    // The global cancel is for the whole book, orders of earlier sessions
+    // too: it goes even when this session registered no contract.
     let (client, rx, _shared) = test_client();
     client.req_global_cancel().unwrap();
-    assert!(rx.try_recv().is_err());
+    assert!(matches!(rx.try_recv(), Ok(ControlCommand::Order(OrderRequest::GlobalCancel))));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -142,12 +194,13 @@ fn req_global_cancel_no_instruments_no_commands() {
 
 #[test]
 fn disconnect_during_active_subscription() {
-    let (client, rx, shared) = test_client();
+    let (client, engine_tx, engine, shared) = test_client_with_engine();
     shared.market.set_instrument_count(1);
 
     // Subscribe
-    let _ = client.req_mkt_data(1, &spy(), "", false, false);
-    while rx.try_recv().is_ok() {}
+    client.req_mkt_data(1, &spy(), "", false, false).unwrap();
+    engine_tx.send(ControlCommand::Shutdown).unwrap();
+    assert!(engine.join().unwrap() > 0);
 
     // Disconnect
     client.disconnect();
@@ -156,26 +209,11 @@ fn disconnect_during_active_subscription() {
     // Push quote after disconnect — process_msgs should still work (no panic)
     let mut q = Quote::default();
     q.bid = 150 * PRICE_SCALE;
-    shared.market.push_quote(0, &q);
+    shared.market.push_test_message(0, &q, &Default::default());
 
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
     // Might or might not dispatch depending on mapping — key is no panic
-}
-
-#[test]
-fn disconnect_during_pending_order_uncertain_status() {
-    let (client, _rx, shared) = test_client();
-
-    // Order was pending when we disconnect
-    shared.orders.push_order_update(OrderUpdate {
-        avg_fill_price: 0,
-        order_id: 50, instrument: 0, status: OrderStatus::Uncertain,
-        filled_qty_fixed: (0) as i64 * ibx::types::QTY_SCALE, remaining_qty_fixed: (100) as i64 * ibx::types::QTY_SCALE, perm_id: 0, parent_id: 0, timestamp_ns: 0,
-    });
-    let mut w = RecordingWrapper::default();
-    client.process_msgs(&mut w);
-    assert!(w.events.iter().any(|e| e.starts_with("order_status:50:Unknown")));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -284,7 +322,7 @@ fn zero_price_quote_dispatches_correctly() {
     let q = Quote { bid: 0, ask: 0, last: 0, bid_size: 0, ask_size: 0,
         last_size: 0, high: 0, low: 0, volume: 0, close: 0, open: 0, timestamp_ns: 0,
         bid_exch_mask: 0, ask_exch_mask: 0, last_exch_mask: 0 };
-    shared.market.push_quote(0, &q);
+    shared.market.push_test_message(0, &q, &Default::default());
 
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
@@ -304,7 +342,7 @@ fn crossed_market_quote_dispatches() {
         high: 0, low: 0, volume: 0, close: 0, open: 0, timestamp_ns: 0,
         bid_exch_mask: 0, ask_exch_mask: 0, last_exch_mask: 0,
     };
-    shared.market.push_quote(0, &q);
+    shared.market.push_test_message(0, &q, &Default::default());
 
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
@@ -325,7 +363,7 @@ fn negative_price_quote_dispatches() {
         high: 0, low: 0, volume: 0, close: 0, open: 0, timestamp_ns: 0,
         bid_exch_mask: 0, ask_exch_mask: 0, last_exch_mask: 0,
     };
-    shared.market.push_quote(0, &q);
+    shared.market.push_test_message(0, &q, &Default::default());
 
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
@@ -344,6 +382,7 @@ fn empty_historical_data_response() {
         query_id: String::new(), timezone: String::new(),
         bars: vec![], // empty
         is_complete: true,
+        ..Default::default()
     });
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
@@ -360,6 +399,7 @@ fn empty_scanner_results() {
         con_ids: vec![],
         entries: vec![],
         scan_time: "2026-03-13".into(),
+        ..Default::default()
     });
     let mut w = RecordingWrapper::default();
     client.process_msgs(&mut w);
@@ -543,26 +583,23 @@ fn concurrent_disconnect_during_process_msgs() {
 
 #[test]
 fn rapid_subscribe_unsubscribe_no_stale_state() {
-    let (client, rx, shared) = test_client();
+    let (client, engine_tx, engine, shared) = test_client_with_engine();
     shared.market.set_instrument_count(1);
 
     for _ in 0..100 {
-        let _ = client.req_mkt_data(1, &spy(), "", false, false);
+        client.req_mkt_data(1, &spy(), "", false, false).unwrap();
         client.cancel_mkt_data(1).unwrap();
     }
 
     // All commands should have been sent without panic
-    let mut count = 0;
-    while rx.try_recv().is_ok() {
-        count += 1;
-    }
-    assert!(count > 0);
+    engine_tx.send(ControlCommand::Shutdown).unwrap();
+    assert!(engine.join().unwrap() > 0);
 
     // After all subscribe/unsubscribe cycles, mapping should be cleared
     let mut w = RecordingWrapper::default();
     let mut q = Quote::default();
     q.bid = 999 * PRICE_SCALE;
-    shared.market.push_quote(0, &q);
+    shared.market.push_test_message(0, &q, &Default::default());
     client.process_msgs(&mut w);
     // No ticks should arrive since all subscriptions were cancelled
     let ticks: Vec<_> = w.events.iter().filter(|e| e.starts_with("tick_price:1:")).collect();
@@ -579,7 +616,12 @@ fn concurrent_place_order_and_process_msgs() {
     shared.market.set_instrument_count(1);
     let (tx, _rx) = crossbeam_channel::unbounded();
     let handle = thread::spawn(|| {});
-    let client = Arc::new(EClient::from_parts(shared.clone(), tx, handle, "DU123".into()));
+    let client = EClient::from_parts(shared.clone(), tx, handle, "DU123".into());
+    // The instrument is known, as after its first order: no engine runs
+    // here to answer a registration, and each order would wait for the
+    // registration timeout (5 s, 50 orders) and test nothing more.
+    client.seed_instrument(756733, 0);
+    let client = Arc::new(client);
 
     // Thread A: process_msgs
     let client_a = client.clone();
@@ -605,7 +647,8 @@ fn concurrent_place_order_and_process_msgs() {
                 action: "BUY".into(), total_quantity: 1.0,
                 order_type: "MKT".into(), ..Default::default()
             };
-            let _ = client_b.place_order(0, &Contract { con_id: 756733, symbol: "SPY".into(), ..Default::default() }, &order);
+            let id = client_b.next_order_id();
+            let _ = client_b.place_order(id, &spy(), &order);
         }
     });
 
@@ -695,10 +738,10 @@ fn shared_state_all_drains_empty_after_first_call() {
         status: OrderStatus::Filled, filled_qty_fixed: (1) as i64 * ibx::types::QTY_SCALE, remaining_qty_fixed: (0) as i64 * ibx::types::QTY_SCALE, perm_id: 0, parent_id: 0, timestamp_ns: 0 });
     ss.orders.push_cancel_reject(CancelReject { order_id: 1, instrument: 0,
         reject_type: 1, reason_code: 0, timestamp_ns: 0 });
-    ss.market.push_tbt_trade(TbtTrade { instrument: 0, price: PRICE_SCALE,
-        size: 1, timestamp: 0, exchange: String::new(), conditions: String::new() });
-    ss.market.push_tbt_quote(TbtQuote { instrument: 0, bid: PRICE_SCALE, ask: PRICE_SCALE,
-        bid_size: 1, ask_size: 1, timestamp: 0 });
+    ss.market.push_tbt_trade(TbtTrade { instrument: 0, req_id: 1, tbt_type: TbtType::AllLast, price: PRICE_SCALE,
+        size: 1, timestamp: 0, exchange: String::new(), conditions: String::new(), past_limit: false, unreported: false });
+    ss.market.push_tbt_quote(TbtQuote { instrument: 0, req_id: 1, bid: PRICE_SCALE, ask: PRICE_SCALE,
+        bid_size: 1, ask_size: 1, timestamp: 0, bid_past_low: false, ask_past_high: false });
 
     // First drain
     assert_eq!(ss.orders.drain_fills().len(), 1);

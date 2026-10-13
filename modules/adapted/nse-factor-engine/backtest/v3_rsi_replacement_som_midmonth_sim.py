@@ -98,13 +98,20 @@ print("Loading prices ...")
 prices = pd.read_parquet(PRICES_PATH)
 prices["date"] = pd.to_datetime(prices["date"])
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
-print(f"  {len(all_trading_days)} trading days  ({prices['date'].min().date()} -> {prices['date'].max().date()})")
+print(
+    f"  {len(all_trading_days)} trading days  "
+    f"({prices['date'].min().date()} -> {prices['date'].max().date()})"
+)
 
 print("Building prices_by_sym for RSI ...")
 prices_by_sym = {
-    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True) for sym, grp in prices.groupby("symbol")
+    sym: grp[["date", "close"]].sort_values("date").reset_index(drop=True)
+    for sym, grp in prices.groupby("symbol")
 }
 print(f"  {len(prices_by_sym)} symbols loaded")
 del prices
@@ -140,7 +147,9 @@ def compute_rsi(sym, up_to_date):
 # ── Scoring ───────────────────────────────────────────────────────────────────
 def compute_mr_scores(signals_df):
     df = signals_df[signals_df["in_universe"]].copy()
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
     if len(df) < 10:
         return pd.DataFrame()
@@ -149,7 +158,9 @@ def compute_mr_scores(signals_df):
     df["z_12"] = (df["mr_12"] - df["mr_12"].mean()) / df["mr_12"].std(ddof=1)
     df["z_6"] = (df["mr_6"] - df["mr_6"].mean()) / df["mr_6"].std(ddof=1)
     df["weighted_z"] = W_12M * df["z_12"] + W_6M * df["z_6"]
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
     return df.sort_values("mr_rank").reset_index(drop=True)
 
@@ -315,7 +326,9 @@ print("Building monthly pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 all_pairs = []
 for fname in fri_files:
@@ -328,7 +341,10 @@ for fname in fri_files:
         continue
 all_pairs.sort(key=lambda x: x[1])
 monthly_pairs = to_monthly_pairs(all_pairs)
-print(f"  {len(monthly_pairs)} monthly periods  ({monthly_pairs[0][1].date()} -> {monthly_pairs[-1][1].date()})")
+print(
+    f"  {len(monthly_pairs)} monthly periods  "
+    f"({monthly_pairs[0][1].date()} -> {monthly_pairs[-1][1].date()})"
+)
 
 # ── Run simulation ────────────────────────────────────────────────────────────
 print(f"\nRunning {VARIANT_LABEL} (RSI_EXIT={RSI_EXIT_THRESH}, RSI_ENTRY={RSI_ENTRY_THRESH}) ...")
@@ -524,23 +540,25 @@ print(f"  RSI_EXIT_THRESH  : {RSI_EXIT_THRESH}")
 print(f"  RSI_ENTRY_THRESH : {RSI_ENTRY_THRESH}")
 print(f"  COST (one-way)   : {COST}")
 print(f"  Periods          : {len(monthly_pairs)} months over {ny:.1f} years")
-print()
+print("")
 print("  ── SOM RSI Filter ──")
 print(f"  SOM swaps        : {total_som_swaps} ({total_som_swaps / len(monthly_pairs):.1f}/month)")
 print(f"  SOM → cash       : {total_som_cash} (no watchlist replacement found)")
-print()
+print("")
 print("  ── Mid-Month RSI Check ──")
 print(f"  MID exits        : {total_mid_exits} ({total_mid_exits / len(monthly_pairs):.1f}/month)")
-print(f"  MID replaced     : {total_mid_replaced} ({total_mid_replaced / max(1, total_mid_exits) * 100:.1f}% of exits)")
+print(
+    f"  MID replaced     : {total_mid_replaced} ({total_mid_replaced / max(1, total_mid_exits) * 100:.1f}% of exits)"
+)
 print(f"  MID → cash       : {total_mid_exits - total_mid_replaced}")
-print()
+print("")
 print(f"  Avg cost/period  : {avg_cost * 100:.4f}%")
-print()
+print("")
 print("  ── GROSS ──")
 print(f"  CAGR             : {cagr_gross * 100:.2f}%")
 print(f"  Sharpe           : {sharpe_gross:.3f}")
 print(f"  Max DD           : {max_dd_gross * 100:.2f}%")
-print()
+print("")
 print("  ── NET (after costs) ──")
 print(f"  CAGR             : {cagr_net * 100:.2f}%")
 print(f"  Sharpe           : {sharpe_net:.3f}")

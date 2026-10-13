@@ -1,0 +1,1956 @@
+/******************************************************************************
+   Author: Joaquín Béjar García
+   Email: jb@taunais.com
+   Date: 25/10/24
+******************************************************************************/
+use optionstratlib_core::model::Positive;
+use optionstratlib_core::model::decimal::{d_sqrt, p_sqrt};
+use std::ops::Mul;
+
+/// Calculates the optimal price range for an option based on its underlying price,
+/// strike price, implied volatility, and expiration date.
+///
+/// # Parameters
+/// - `underlying_price`: The price of the underlying asset, represented as a `Positive`.
+/// - `strike_price`: The strike price of the option, represented as a `Positive`.
+/// - `implied_volatility`: The market's implied volatility for the option, represented as a `Positive`.
+/// - `expiration_date`: The expiration date of the option, passed as an `ExpirationDate`.
+///
+/// # Returns
+/// A `Result` containing a tuple of two `Positive` values:
+/// - The `min_price` represents the lower bound of the price range.
+/// - The `max_price` represents the upper bound of the price range.
+///
+/// On success, the returned tuple includes both values rounded to a "nice" step value
+/// for better usability. On failure, an error boxed in `ChainError` is returned.
+///
+/// # Calculations
+/// 1. Determines the number of years to expiration by calculating days to expiry
+///    and converting it into a fractional year.
+/// 2. Determines the `volatility_factor` which adjusts for time-decay and a
+///    confidence interval (set to 4.0 in this implementation).
+/// 3. Calculates the lower and upper bounds of the price range based on the
+///    `underlying_price` and the `volatility_factor`.
+/// 4. Computes an adjusted range (`min_price` and `max_price`) by scaling
+///    the `strike_price` by 70% and 130%, ensuring bounds are within realistic margins.
+/// 5. Divides the adjusted range into increments (`step`) for easier rounding before
+///    smoothing both bounds to user-friendly values.
+///
+/// # Errors
+/// The function will return an error if:
+/// - The extraction of `days_to_expiry` from the `expiration_date` fails.
+/// - `years_to_expiry.sqrt()` returns a `None` (e.g. if `years_to_expiry` is negative, which it shouldn't be).
+///
+/// # Note
+/// The constants such as the confidence interval (`4.0`) and scaling factors
+/// for the `strike_price` (`0.7` and `1.3`) might be subject to change based
+/// on different financial models or strategies.
+pub fn calculate_optimal_price_range(
+    underlying_price: Positive,
+    strike_price: Positive,
+    implied_volatility: Positive,
+    expiration_date: ExpirationDate,
+) -> Result<(Positive, Positive), ChainError> {
+    let days_to_expiry = expiration_date.get_days()?;
+    let years_to_expiry = Decimal::from(days_to_expiry) / dec!(365.0);
+    let years_to_expiry_sqrt = d_sqrt(years_to_expiry, "chains::utils::years_to_expiry_sqrt")
+        .map_err(|_| {
+            ChainError::invalid_price_calculation(
+                "sqrt() failed to calculate for years_to_expiry value",
+            )
+        })?;
+
+    let confidence_interval = dec!(4.0);
+    let volatility_factor = implied_volatility * years_to_expiry_sqrt * confidence_interval;
+
+    let lower_bound = underlying_price * (dec!(1.0) - volatility_factor);
+    let upper_bound = underlying_price * (dec!(1.0) + volatility_factor);
+
+    let min_price = lower_bound.min(strike_price.mul(dec!(0.7)));
+    let max_price = upper_bound.max(strike_price.mul(dec!(1.3)));
+
+    let step = (max_price - min_price) / dec!(20.0);
+    let rounded_step = step.round_to_nice_number();
+
+    let min_price_rounded = (min_price / rounded_step).floor() * rounded_step;
+    let max_price_rounded = (max_price / rounded_step).ceiling() * rounded_step;
+
+    Ok((min_price_rounded, max_price_rounded))
+}
+
+/// Defines the strategy for finding optimal pricing sides.
+///
+/// Owned by the market layer: it is a strike filter over option-chain data
+/// (see [`crate::chains::OptionData::is_valid_optimal_side`]), consumed by
+/// strategy optimizers above it.
+///
+/// This enumeration specifies which side of a price curve to consider when
+/// finding optimal prices, or allows for searching across all prices or within
+/// a specific range. It's used to control price discovery algorithms and to refine
+/// the search space for optimal option pricing strategies.
+///
+/// # Variants
+///
+/// * `Upper` - Consider only the upper side of the price curve. This is useful when
+///   expecting the market to move upward or when optimizing for maximum upside potential.
+///
+/// * `Lower` - Consider only the lower side of the price curve. This is useful when
+///   expecting the market to move downward or when optimizing for downside protection.
+///
+/// * `All` - Consider the entire price curve, searching all possible price points
+///   without any directional bias.
+///
+/// * `Range` - Consider prices within a specific range defined by start and end prices.
+///   This allows for a more targeted search within a predetermined price band.
+///
+/// * `Deltable` - Select strikes in a strategy that ensure delta neutrality within
+///   the specified threshold. This is useful for creating market-neutral strategies.
+///
+/// * `Center` - Focus the search around a center point of the price curve, allowing for
+///   balanced optimization around a specific price level.
+///
+/// # Usage
+///
+/// This enum is typically used in option pricing and strategy optimization contexts
+/// to control how the algorithm searches for optimal pricing points.
+///
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FindOptimalSide {
+    /// Consider only the upper side of the price curve.
+    ///
+    /// Use this when you expect the market to trend upward or when you want to
+    /// optimize for maximum upside potential in your option strategy.
+    Upper,
+
+    /// Consider only the lower side of the price curve.
+    ///
+    /// Use this when you expect the market to trend downward or when you want to
+    /// optimize for downside protection in your option strategy.
+    Lower,
+
+    /// Consider the entire price curve.
+    ///
+    /// This performs a comprehensive search across all available price points
+    /// without any directional bias. It's useful when you want to find the globally
+    /// optimal solution regardless of market direction.
+    All,
+
+    /// Consider prices within a specific range defined by start and end prices.
+    ///
+    /// # Parameters
+    ///
+    /// * First `Positive` - The starting price of the range (inclusive).
+    /// * Second `Positive` - The ending price of the range (inclusive).
+    Range(Positive, Positive),
+
+    /// Select strikes in a strategy that ensure delta neutrality within the specified threshold.
+    ///
+    /// This option is particularly useful for creating market-neutral strategies where the
+    /// overall position delta remains close to zero.
+    ///
+    /// # Parameters
+    ///
+    /// * `Positive` - The maximum deviation from perfect delta neutrality that is allowed.
+    ///   For example, a value of 0.05 means the strategy's delta can range from -0.05 to 0.05.
+    Deltable(Positive),
+
+    /// Focus the search around a center point of the price curve.
+    ///
+    /// This variant is useful when you have a specific price target in mind and want to
+    /// optimize strategy parameters around that central point. It's commonly used for
+    /// constructing balanced spreads or when you have a precise market outlook.
+    Center,
+
+    /// Select strikes in a strategy that ensure delta is within a specified range.
+    DeltaRange(Decimal, Decimal),
+}
+
+impl Display for FindOptimalSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FindOptimalSide::Upper => write!(f, "Upper"),
+            FindOptimalSide::Lower => write!(f, "Lower"),
+            FindOptimalSide::All => write!(f, "All"),
+            FindOptimalSide::Range(start, end) => write!(f, "Range: {start} - {end}"),
+            FindOptimalSide::Deltable(threshold) => write!(f, "Deltable: {threshold}"),
+            FindOptimalSide::Center => write!(f, "Center"),
+            FindOptimalSide::DeltaRange(min, max) => write!(f, "DeltaRange: {min} - {max}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_find_optimal_side {
+    #[test]
+    fn test_calculate_optimal_price_range() {
+        let underlying_price = pos_or_panic!(100.0);
+        let strike_price = pos_or_panic!(90.0);
+        let implied_volatility = pos_or_panic!(0.20);
+        let expiration_date = ExpirationDate::Days(Positive::TWO);
+
+        let (min_price, max_price) = calculate_optimal_price_range(
+            underlying_price,
+            strike_price,
+            implied_volatility,
+            expiration_date,
+        )
+        .unwrap();
+
+        assert_eq!(min_price, pos_or_panic!(62.0));
+        assert_eq!(max_price, pos_or_panic!(118.0));
+    }
+
+    use super::*;
+
+    #[test]
+    fn test_find_optimal_side_variants() {
+        let upper = FindOptimalSide::Upper;
+        let lower = FindOptimalSide::Lower;
+        let all = FindOptimalSide::All;
+        let range = FindOptimalSide::Range(Positive::HUNDRED, pos_or_panic!(200.0));
+
+        assert!(matches!(upper, FindOptimalSide::Upper));
+        assert!(matches!(lower, FindOptimalSide::Lower));
+        assert!(matches!(all, FindOptimalSide::All));
+        assert!(matches!(range, FindOptimalSide::Range(_, _)));
+    }
+}
+
+#[cfg(test)]
+use optionstratlib_core::pos_or_panic;
+
+use crate::chains::OptionData;
+use crate::chains::chain::{SKEW_SLOPE, SKEW_SMILE_CURVE};
+use crate::error::chains::ChainError;
+use num_traits::ToPrimitive;
+use optionstratlib_core::model::ExpirationDate;
+use optionstratlib_core::model::decimal::f64_to_decimal;
+use optionstratlib_core::model::utils::ToRound;
+use rust_decimal::{Decimal, MathematicalOps};
+use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::Display;
+
+/// Enum representing a grouping of option data references for analysis or display purposes.
+///
+/// This enum provides different ways to group option data references, from individual options
+/// to collections of various sizes. It supports holding references to one, two, three, or four
+/// specific options, or an arbitrary number of options through the `Any` variant.
+///
+/// # Variants
+///
+/// * `One` - Contains a reference to a single option data record.
+///
+/// * `Two` - Contains references to exactly two option data records, typically used
+///   for comparison or spread analysis.
+///
+/// * `Three` - Contains references to exactly three option data records, useful for
+///   analyzing multi-leg option strategies like butterflies.
+///
+/// * `Four` - Contains references to exactly four option data records, useful for
+///   complex option strategies like condors or iron condors.
+///
+/// * `Any` - Contains a vector of option data references for more flexible grouping
+///   when the number of options is variable or exceeds four.
+///
+/// # Type Parameters
+///
+/// * `'a` - The lifetime parameter ensuring that all referenced `OptionData` instances
+///   live at least as long as this `OptionDataGroup`.
+///
+/// # Usage
+///
+/// This enum is typically used when analyzing multiple options together, displaying
+/// related options in a UI, or processing option groups in trading strategies.
+#[derive(Debug)]
+pub enum OptionDataGroup<'a> {
+    /// A single option data reference
+    One(&'a OptionData),
+
+    /// Two option data references, useful for spreads
+    Two(&'a OptionData, &'a OptionData),
+
+    /// Three option data references, useful for butterfly spreads
+    Three(&'a OptionData, &'a OptionData, &'a OptionData),
+
+    /// Four option data references, useful for condors and iron condors
+    Four(
+        &'a OptionData,
+        &'a OptionData,
+        &'a OptionData,
+        &'a OptionData,
+    ),
+
+    /// A variable number of option data references
+    Any(Vec<&'a OptionData>),
+}
+
+/// Parameters for building an option chain dataset.
+///
+/// This structure encapsulates all necessary configuration parameters to generate
+/// a synthetic option chain for financial modeling and analysis. It controls various
+/// aspects like size, pricing behavior, and volatility skew characteristics of the
+/// resulting option chain.
+///
+/// # Fields
+///
+/// * `symbol` - The ticker symbol for the option chain's underlying asset.
+///
+/// * `volume` - Optional trading volume to assign to the generated options. If None,
+///   default or random volumes may be used.
+///
+/// * `chain_size` - The number of strike prices to include above and below the at-the-money
+///   strike in the generated chain.
+///
+/// * `strike_interval` - The fixed price difference between adjacent strike prices in the chain.
+///
+/// * `smile_curve` - Controls the volatility skew pattern in the option chain. Positive values
+///   create a volatility smile, negative values create an inverted skew.
+///
+/// * `spread` - The bid-ask spread to apply to option prices in the chain.
+///
+/// * `decimal_places` - The number of decimal places to round prices to in the generated chain.
+///
+/// * `price_params` - Fundamental pricing parameters including underlying price, volatility,
+///   expiration, and other inputs required for option pricing models.
+///
+/// Serde predicate: skip a `bool` field when it holds the default `false`, so
+/// that opting in is additive on the wire and existing payloads stay
+/// byte-identical.
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// # Usage
+///
+/// This structure is typically used as input to option chain generation functions to create
+/// realistic synthetic option data for testing, simulation, or educational purposes.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub struct OptionChainBuildParams {
+    /// The ticker symbol of the underlying asset
+    pub(crate) symbol: String,
+
+    /// Optional trading volume for the generated options
+    pub(crate) volume: Option<Positive>,
+
+    /// Number of strike prices to include above and below the at-the-money strike
+    pub(crate) chain_size: usize,
+
+    /// Price difference between adjacent strike prices
+    pub(crate) strike_interval: Option<Positive>,
+
+    /// A field representing the volatility skew slope of a given parameter or function.
+    pub(crate) skew_slope: Decimal,
+
+    /// Factor controlling the volatility skew pattern (positive for smile, negative for skew)
+    pub(crate) smile_curve: Decimal,
+
+    /// Bid-ask spread to apply to option prices
+    pub(crate) spread: Positive,
+
+    /// Number of decimal places for price rounding
+    pub(crate) decimal_places: u32,
+
+    /// Core pricing parameters required for option valuation
+    pub(crate) price_params: OptionDataPriceParams,
+
+    pub(crate) implied_volatility: Positive,
+
+    /// Whether `OptionChain::build_chain` should compute the full twelve-greek
+    /// snapshot for each strike, in addition to the delta and gamma it always
+    /// computes.
+    ///
+    /// Off by default. The full set costs roughly seven times the whole chain
+    /// build, because each greek re-derives `d1` and `d2` from scratch, so it
+    /// is opt-in for consumers that actually read the snapshots. Enable it with
+    /// [`Self::with_greek_snapshots`].
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub(crate) greek_snapshots: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+impl OptionChainBuildParams {
+    /// Implementation of the constructor for `OptionChainBuildParams`.
+    ///
+    /// This implementation provides a constructor method `new()` to create instances of
+    /// `OptionChainBuildParams` for generating synthetic option chains with customizable
+    /// parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol` - The ticker symbol of the underlying asset for the option chain.
+    ///
+    /// * `volume` - Optional trading volume to assign to the generated options. When `None`,
+    ///   default or random volumes may be used depending on the chain generation logic.
+    ///
+    /// * `chain_size` - Number of strike prices to include above and below the at-the-money strike,
+    ///   determining the total size of the generated option chain.
+    ///
+    /// * `strike_interval` - The fixed price difference between adjacent strike prices in the chain,
+    ///   represented as a positive decimal value.
+    ///
+    /// * `smile_curve` - A factor controlling the volatility skew pattern in the option chain.
+    ///   Positive values create a volatility smile, negative values create an inverted skew.
+    ///
+    /// * `spread` - The bid-ask spread to apply to option prices in the chain, represented as a
+    ///   positive decimal value.
+    ///
+    /// * `decimal_places` - The number of decimal places to round prices to in the generated chain.
+    ///
+    /// * `price_params` - Core pricing parameters required for option valuation, including
+    ///   underlying price, expiration date, implied volatility, risk-free rate, and dividend yield.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `OptionChainBuildParams` with the specified configuration parameters.
+    ///
+    #[must_use]
+    pub fn new(
+        symbol: String,
+        volume: Option<Positive>,
+        chain_size: usize,
+        strike_interval: Option<Positive>,
+        skew_slope: Decimal,
+        smile_curve: Decimal,
+        spread: Positive,
+        decimal_places: u32,
+        price_params: OptionDataPriceParams,
+        implied_volatility: Positive,
+    ) -> Self {
+        Self {
+            symbol,
+            volume,
+            chain_size,
+            strike_interval,
+            skew_slope,
+            smile_curve,
+            spread,
+            decimal_places,
+            price_params,
+            implied_volatility,
+            greek_snapshots: false,
+        }
+    }
+
+    /// Enables or disables computation of the full twelve-greek snapshot per
+    /// strike during `OptionChain::build_chain`.
+    ///
+    /// Off by default; see [`Self::greek_snapshots`] for the cost.
+    #[must_use]
+    pub fn with_greek_snapshots(mut self, enabled: bool) -> Self {
+        self.greek_snapshots = enabled;
+        self
+    }
+
+    /// Returns whether the full greek snapshots will be computed at build time.
+    #[must_use]
+    pub fn greek_snapshots(&self) -> bool {
+        self.greek_snapshots
+    }
+
+    /// Sets the underlying asset price.
+    ///
+    /// This function updates the `underlying_price` field within the `price_params`
+    /// structure.  The underlying price represents the current market price of the asset
+    /// on which the option is based.  This value is crucial for option pricing calculations.
+    ///
+    /// # Arguments
+    ///
+    /// * `price` - A `Positive` value representing the new underlying asset price.  The
+    ///   `Positive` type ensures that the price is always a non-negative value.
+    ///
+    pub fn set_underlying_price(&mut self, price: Option<Box<Positive>>) {
+        self.price_params.underlying_price = price;
+    }
+
+    /// Sets the expiration of the chain to build, overriding the one in the
+    /// price parameters.
+    #[inline]
+    pub fn set_expiration_date(&mut self, expiration_date: ExpirationDate) {
+        self.price_params.expiration_date = Some(expiration_date);
+    }
+
+    /// Sets the implied volatility used to price every strike of the chain.
+    #[inline]
+    pub fn set_implied_volatility(&mut self, implied_vol: Positive) {
+        self.implied_volatility = implied_vol;
+    }
+
+    /// Returns the current implied volatility value.
+    ///
+    /// # Returns
+    /// * `Positive` - The current implied volatility as a positive decimal value.
+    #[must_use]
+    pub fn get_implied_volatility(&self) -> Positive {
+        self.implied_volatility
+    }
+}
+
+impl Display for OptionChainBuildParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match serde_json::to_string(self) {
+            Ok(pretty_json) => write!(f, "{pretty_json}"),
+            Err(e) => write!(f, "Error serializing to JSON: {e}"),
+        }
+    }
+}
+
+/// Parameters required for pricing an option contract.
+///
+/// This structure encapsulates all necessary inputs for option pricing models
+/// such as Black-Scholes or binomial tree models. It contains information about
+/// the underlying asset, market conditions, and contract specifications needed
+/// to calculate fair option values.
+///
+/// # Fields
+///
+/// * `underlying_price` - The current market price of the underlying asset.
+///
+/// * `expiration_date` - When the option contract expires, either as days to expiration
+///   or as a specific datetime.
+///
+/// * `implied_volatility` - The expected volatility of the underlying asset price over
+///   the life of the option. If None, it may be calculated from other parameters.
+///
+/// * `risk_free_rate` - The theoretical rate of return of an investment with zero risk,
+///   used in option pricing models.
+///
+/// * `dividend_yield` - The dividend yield of the underlying asset, expressed as a positive
+///   decimal value.
+///
+/// * `underlying_symbol` - Optional ticker or identifier for the underlying asset.
+///
+/// # Usage
+///
+/// This structure is typically used as input to option pricing functions to calculate
+/// theoretical values, Greeks (delta, gamma, etc.), and other option metrics.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+pub struct OptionDataPriceParams {
+    /// The current price of the underlying asset
+    pub(crate) underlying_price: Option<Box<Positive>>,
+
+    /// When the option expires, either as days to expiration or as a specific datetime
+    pub(crate) expiration_date: Option<ExpirationDate>,
+
+    /// The risk-free interest rate used in pricing calculations
+    pub(crate) risk_free_rate: Option<Decimal>,
+
+    /// The dividend yield of the underlying asset
+    pub(crate) dividend_yield: Option<Positive>,
+
+    /// Optional ticker symbol or identifier for the underlying asset
+    pub(crate) underlying_symbol: Option<String>,
+}
+
+impl OptionDataPriceParams {
+    /// Creates a new instance of `OptionDataPriceParams` with the provided parameters.
+    ///
+    /// This constructor initializes all the required fields for option pricing calculations,
+    /// including asset price, expiration, volatility, and market rates.
+    ///
+    /// # Parameters
+    ///
+    /// * `underlying_price` - The current market price of the underlying asset
+    /// * `expiration_date` - When the option contract expires (either as days to expiration or as a specific datetime)
+    /// * `implied_volatility` - The expected volatility of the underlying asset price (if known)
+    /// * `risk_free_rate` - The theoretical risk-free interest rate used in pricing calculations
+    /// * `dividend_yield` - The dividend yield of the underlying asset
+    /// * `underlying_symbol` - Optional ticker or identifier for the underlying asset
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `OptionDataPriceParams` containing the provided parameters
+    #[must_use]
+    pub fn new(
+        underlying_price: Option<Box<Positive>>,
+        expiration_date: Option<ExpirationDate>,
+        risk_free_rate: Option<Decimal>,
+        dividend_yield: Option<Positive>,
+        underlying_symbol: Option<String>,
+    ) -> Self {
+        Self {
+            underlying_price,
+            expiration_date,
+            risk_free_rate,
+            dividend_yield,
+            underlying_symbol,
+        }
+    }
+
+    /// Returns the current price of the underlying asset.
+    ///
+    /// # Returns
+    ///
+    /// A `Positive` value representing the underlying asset's current market price
+    #[must_use]
+    pub fn get_underlying_price(&self) -> Option<Box<Positive>> {
+        self.underlying_price.clone()
+    }
+
+    /// Returns the expiration date of the option contract.
+    ///
+    /// # Returns
+    ///
+    /// An `ExpirationDate` representing when the option expires, either as days to expiration or a specific datetime
+    #[must_use]
+    pub fn get_expiration_date(&self) -> Option<ExpirationDate> {
+        self.expiration_date
+    }
+
+    /// Returns the risk-free interest rate used in pricing calculations.
+    ///
+    /// # Returns
+    ///
+    /// A `Decimal` value representing the current risk-free rate
+    #[must_use]
+    pub fn get_risk_free_rate(&self) -> Option<Decimal> {
+        self.risk_free_rate
+    }
+
+    /// Returns the dividend yield of the underlying asset.
+    ///
+    /// # Returns
+    ///
+    /// A `Positive` value representing the dividend yield of the underlying asset
+    #[must_use]
+    pub fn get_dividend_yield(&self) -> Option<Positive> {
+        self.dividend_yield
+    }
+
+    /// Returns the symbol of the underlying asset.
+    ///
+    /// # Returns
+    /// * `Option<String>` - The underlying symbol if available, or `None` if not set.
+    #[must_use]
+    pub fn get_symbol(&self) -> Option<String> {
+        self.underlying_symbol.clone()
+    }
+}
+
+impl Display for OptionDataPriceParams {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Underlying Price: {:.3}, Expiration: {:.4} Years, Risk-Free Rate: {:.2}%, Dividend Yield: {:.2}%, Symbol: {}",
+            self.underlying_price
+                .as_ref()
+                .map_or_else(|| "None".to_string(), |p| p.value().to_string()),
+            self.expiration_date.map_or_else(
+                || "None".to_string(),
+                // SAFETY: Display impl cannot return ChainError; fall back to "n/a" if get_years fails.
+                |d| d
+                    .get_years()
+                    .map_or_else(|_| "n/a".to_string(), |y| y.to_string())
+            ),
+            self.risk_free_rate
+                .map_or_else(|| "None".to_string(), |r| (r * dec!(100.0)).to_string()),
+            self.dividend_yield.map_or_else(
+                || "None".to_string(),
+                |d| (d.value() * dec!(100.0)).to_string()
+            ),
+            self.underlying_symbol
+                .as_ref()
+                .map_or_else(|| "None".to_string(), |s| s.to_string()),
+        )
+    }
+}
+
+/// A trait for obtaining option pricing parameters based on a strike price.
+///
+/// This trait defines an interface for types that can provide the necessary parameters
+/// for pricing options at a specific strike price. Implementations of this trait
+/// handle the logic of determining appropriate pricing parameters such as underlying price,
+/// expiration date, implied volatility, risk-free rate, dividend yield, and other relevant
+/// values required for option pricing models.
+///
+/// # Type Parameters
+///
+/// The trait is generic over the implementing type, allowing various sources of option
+/// parameters to conform to a single interface.
+///
+/// # Methods
+///
+/// * `get_params` - Retrieves the option pricing parameters for a given strike price.
+///
+/// # Errors
+///
+/// Returns a `ChainError` if the parameters cannot be determined or are invalid for
+/// the specified strike price.
+///
+/// # Usage
+///
+/// This trait is typically implemented by types that represent sources of option chain data,
+/// such as market data providers, model-based generators, or historical data repositories.
+/// It provides a uniform way to access option pricing parameters regardless of their source.
+pub trait OptionChainParams {
+    /// Retrieves the option pricing parameters for a given strike price.
+    ///
+    /// This method calculates or retrieves all parameters necessary for pricing an option
+    /// at the specified strike price, including the underlying price, expiration date,
+    /// implied volatility (if available), risk-free rate, dividend yield, and underlying symbol.
+    ///
+    /// # Parameters
+    ///
+    /// * `strike_price` - A positive decimal value representing the strike price of the option
+    ///   for which parameters are being requested.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(OptionDataPriceParams)` - A structure containing all necessary parameters for
+    ///   option pricing calculations if the parameters could be successfully determined.
+    /// * `Err(ChainError)` - An error if the parameters cannot be determined or are invalid
+    ///   for the given strike price.
+    ///
+    /// # Errors
+    ///
+    /// This method may return various `ChainError` variants depending on the implementation,
+    /// such as:
+    /// - `ChainError::OptionDataError` for invalid option data
+    /// - `ChainError::ChainBuildError` for problems constructing chain parameters
+    /// - Other error types as appropriate for the specific implementation
+    fn get_params(&self, strike_price: Positive) -> Result<OptionDataPriceParams, ChainError>;
+}
+
+/// Parameters for generating random positions in an option chain
+#[derive(Clone, Debug)]
+pub struct RandomPositionsParams {
+    /// Number of long put positions to generate
+    pub qty_puts_long: Option<usize>,
+    /// Number of short put positions to generate
+    pub qty_puts_short: Option<usize>,
+    /// Number of long call positions to generate
+    pub qty_calls_long: Option<usize>,
+    /// Number of short call positions to generate
+    pub qty_calls_short: Option<usize>,
+    /// Expiration date for the options
+    pub expiration_date: ExpirationDate,
+    /// Quantity for each option position
+    pub option_qty: Positive,
+    /// Risk free interest rate
+    pub risk_free_rate: Decimal,
+    /// Dividend yield of the underlying
+    pub dividend_yield: Positive,
+    /// Fee for opening put positions
+    pub open_put_fee: Positive,
+    /// Fee for opening call positions
+    pub open_call_fee: Positive,
+    /// Fee for closing put positions
+    pub close_put_fee: Positive,
+    /// Fee for closing call positions
+    pub close_call_fee: Positive,
+    /// Identifier for the position in an external system or platform
+    pub epic: Option<String>,
+    /// Additional custom data fields for the position stored as JSON
+    pub extra_fields: Option<serde_json::Value>,
+}
+
+impl RandomPositionsParams {
+    /// Creates a new instance of `RandomPositionsParams` with the specified parameters.
+    ///
+    /// This constructor initializes a configuration object that defines parameters for
+    /// generating random option positions in an option chain. It allows specifying the
+    /// quantity of different option types (puts/calls, long/short), expiration settings,
+    /// and various fee structures.
+    ///
+    /// # Parameters
+    ///
+    /// * `qty_puts_long` - Optional number of long put positions to generate
+    /// * `qty_puts_short` - Optional number of short put positions to generate
+    /// * `qty_calls_long` - Optional number of long call positions to generate
+    /// * `qty_calls_short` - Optional number of short call positions to generate
+    /// * `expiration_date` - The expiration date for the options (can be specified as days from now or absolute date)
+    /// * `option_qty` - The quantity of contracts for each option position
+    /// * `risk_free_rate` - The risk-free interest rate used for option pricing calculations
+    /// * `dividend_yield` - The dividend yield of the underlying asset
+    /// * `open_put_fee` - The fee charged when opening put positions
+    /// * `open_call_fee` - The fee charged when opening call positions
+    /// * `close_put_fee` - The fee charged when closing put positions
+    /// * `close_call_fee` - The fee charged when closing call positions
+    ///
+    /// # Returns
+    ///
+    /// A new `RandomPositionsParams` instance with the specified configuration.
+    ///
+    /// # Note
+    ///
+    /// This function has many parameters, but this is justified by the complex nature
+    /// of option position generation which requires detailed configuration.
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    pub fn new(
+        qty_puts_long: Option<usize>,
+        qty_puts_short: Option<usize>,
+        qty_calls_long: Option<usize>,
+        qty_calls_short: Option<usize>,
+        expiration_date: ExpirationDate,
+        option_qty: Positive,
+        risk_free_rate: Decimal,
+        dividend_yield: Positive,
+        open_put_fee: Positive,
+        open_call_fee: Positive,
+        close_put_fee: Positive,
+        close_call_fee: Positive,
+        epic: Option<String>,
+        extra_fields: Option<serde_json::Value>,
+    ) -> Self {
+        Self {
+            qty_puts_long,
+            qty_puts_short,
+            qty_calls_long,
+            qty_calls_short,
+            expiration_date,
+            option_qty,
+            risk_free_rate,
+            dividend_yield,
+            open_put_fee,
+            open_call_fee,
+            close_put_fee,
+            close_call_fee,
+            epic,
+            extra_fields,
+        }
+    }
+    /// Returns the total number of positions to generate.
+    ///
+    /// This method calculates the sum of all option position types (puts long/short and calls long/short)
+    /// that need to be generated based on the current configuration. If any position type is not specified
+    /// (None), it is treated as zero.
+    ///
+    /// # Returns
+    ///
+    /// The total number of option positions to be generated.
+    ///
+    #[must_use]
+    pub fn total_positions(&self) -> usize {
+        self.qty_puts_long.unwrap_or(0)
+            + self.qty_puts_short.unwrap_or(0)
+            + self.qty_calls_long.unwrap_or(0)
+            + self.qty_calls_short.unwrap_or(0)
+    }
+}
+
+/// Adjust vol with skew/smile, using *relative* distance to ATM.
+#[must_use]
+pub fn adjust_volatility(
+    base_vol: &Option<Positive>,   // ATM vol (e.g. 0.17)
+    skew_slope: &Option<Decimal>,  // slope per 10 % moneyness, e.g. -0.2
+    smile_curve: &Option<Decimal>, // curvature, e.g. 0.4
+    strike: &Positive,
+    underlying_price: &Positive, // underlying_price
+) -> Option<Positive> {
+    let base_vol = (*base_vol)?;
+    if strike.is_zero() {
+        return None;
+    }
+    // SAFETY: SKEW_SLOPE and SKEW_SMILE_CURVE are tiny `Decimal` constants
+    // (dec!(-0.2) and dec!(0.1)); `Decimal::to_f64` may only return `None`
+    // for values outside the f64 range. Fall back to 0.0 with a warning so
+    // that an unexpected non-finite override degrades gracefully instead
+    // of panicking.
+    let skew_slope = skew_slope
+        .unwrap_or(SKEW_SLOPE)
+        .to_f64()
+        .unwrap_or_else(|| {
+            tracing::warn!("adjust_volatility: skew_slope to_f64 returned None; defaulting to 0.0");
+            0.0
+        });
+    let smile_curve = smile_curve
+        .unwrap_or(SKEW_SMILE_CURVE)
+        .to_f64()
+        .unwrap_or_else(|| {
+            tracing::warn!(
+                "adjust_volatility: smile_curve to_f64 returned None; defaulting to 0.0"
+            );
+            0.0
+        });
+    // `Positive / f64` panics when the quotient underflows the positivity
+    // invariant (a huge underlying against an ordinary strike), and `ln`
+    // panics on a ratio that rounded to zero. Both are reachable from a
+    // chain build, so the log-moneyness is computed on the checked path and
+    // degrades to a flat 0.0 — no skew — exactly like the branches above.
+    let m = strike
+        .to_dec()
+        .checked_div(underlying_price.to_dec())
+        .filter(|ratio| *ratio > Decimal::ZERO)
+        .and_then(|ratio| ratio.checked_ln())
+        .and_then(|log_moneyness| log_moneyness.to_f64())
+        .unwrap_or_else(|| {
+            tracing::warn!("adjust_volatility: moneyness is not representable; defaulting to 0.0");
+            0.0
+        });
+    let factor: f64 = 1.0 + skew_slope * m + smile_curve * m * m;
+    let clamped = factor.clamp(0.01, 3.0);
+
+    // Deep wings can legitimately exceed 100% IV (short-dated equities,
+    // crypto); cap at 200% instead of 100% so real smiles survive, and log
+    // when the cap actually engages.
+    let adjusted = match f64_to_decimal(clamped)
+        .ok()
+        .and_then(|factor| base_vol.to_dec().checked_mul(factor))
+        .and_then(|value| Positive::new_decimal(value).ok())
+    {
+        Some(value) => value,
+        // The product left the `Decimal` range, which puts it far above the
+        // 200% cap applied on the next line, so the cap is the answer.
+        None => Positive::TWO,
+    };
+    let capped = adjusted.clamp(Positive::ZERO, Positive::TWO);
+    if capped != adjusted {
+        tracing::debug!(
+            adjusted = %adjusted,
+            "adjust_volatility: adjusted IV capped at 200%"
+        );
+    }
+    Some(capped)
+}
+
+#[cfg(feature = "io")]
+pub(crate) fn parse<T: std::str::FromStr>(s: &str) -> Option<T> {
+    let trimmed = s.trim();
+    let input: Result<T, <T as std::str::FromStr>::Err> = match trimmed.parse::<T>() {
+        Ok(value) => Ok(value),
+        Err(_) => {
+            return None;
+        }
+    };
+
+    input.ok()
+}
+
+pub(crate) fn empty_string_round_to_2<T: ToString + ToRound>(input: Option<T>) -> String {
+    input.map_or_else(|| "".to_string(), |v| v.round_to(2).to_string())
+}
+
+pub(crate) fn empty_string_round_to_3<T: ToString + ToRound>(input: Option<T>) -> String {
+    input.map_or_else(|| "".to_string(), |v| v.round_to(3).to_string())
+}
+
+pub(crate) fn default_empty_string<T: ToString>(input: Option<T>) -> String {
+    input.map_or_else(|| "".to_string(), |v| v.to_string())
+}
+
+/// Rounds `reference_price` to the nearest multiple of `strike_interval`,
+/// half-up.
+///
+/// Every step runs on the checked path: `price % interval` and the round-up
+/// `base + interval` both leave the representable `Decimal` range for a
+/// reference price near `Positive::MAX`, and the raw operators abort there.
+/// A step that is not representable falls back to `reference_price`, which is
+/// the answer this function already gave for any rounded value that failed the
+/// `Positive` invariant.
+pub(crate) fn rounder(reference_price: Positive, strike_interval: Positive) -> Positive {
+    if strike_interval == Positive::ZERO {
+        return reference_price;
+    }
+    let price = reference_price.value();
+    let interval = strike_interval.value();
+
+    let Some(remainder) = price.checked_rem(interval) else {
+        return reference_price;
+    };
+    let Some(base) = price.checked_sub(remainder) else {
+        return reference_price;
+    };
+    let Some(half_interval) = interval.checked_div(Decimal::TWO) else {
+        return reference_price;
+    };
+
+    let rounded = if remainder >= half_interval {
+        // The next grid point above `base` may not be representable; there is
+        // no strike there, so the caller keeps the price it came in with.
+        match base.checked_add(interval) {
+            Some(value) => value,
+            None => return reference_price,
+        }
+    } else {
+        base
+    };
+
+    Positive::new_decimal(rounded).unwrap_or(reference_price)
+}
+
+/// Rounds an interval to clean market-friendly values like 0.25, 0.5, 1, 2.5, 5, 10, etc.
+#[allow(dead_code)]
+fn round_to_clean_interval(interval: Positive, price: Positive) -> Positive {
+    // Market-grid constants. `dec!(X.X)` is a compile-time positive literal
+    // so each checked constructor is total; the `unwrap_or(Positive::ZERO)`
+    // fallback is unreachable and exists only to keep the call site free of
+    // `.unwrap()`/`.expect()` per §Error Handling.
+    let p025 = Positive::new_decimal(dec!(0.25)).unwrap_or(Positive::ZERO);
+    let p05 = Positive::new_decimal(dec!(0.5)).unwrap_or(Positive::ZERO);
+    let p25 = Positive::new_decimal(dec!(2.5)).unwrap_or(Positive::ZERO);
+    let p5 = Positive::new_decimal(dec!(5.0)).unwrap_or(Positive::ZERO);
+    let p10 = Positive::new_decimal(dec!(10.0)).unwrap_or(Positive::ZERO);
+    let p15 = Positive::new_decimal(dec!(15.0)).unwrap_or(Positive::ZERO);
+    let p20 = Positive::new_decimal(dec!(20.0)).unwrap_or(Positive::ZERO);
+    let p25_int = Positive::new_decimal(dec!(25.0)).unwrap_or(Positive::ZERO);
+    let p50 = Positive::new_decimal(dec!(50.0)).unwrap_or(Positive::ZERO);
+
+    let v = interval.to_f64();
+
+    if price < p25_int {
+        if v <= 0.25 {
+            p025
+        } else if v <= 0.5 {
+            p05
+        } else if v <= 1.0 {
+            Positive::ONE
+        } else if v <= 2.5 {
+            p25
+        } else {
+            p5
+        }
+    } else if price < Positive::HUNDRED {
+        if v <= 1.0 {
+            Positive::ONE
+        } else if v <= 2.5 {
+            p25
+        } else if v <= 5.0 {
+            p5
+        } else {
+            p10
+        }
+    } else if v <= 5.0 {
+        Positive::ONE
+    } else if v <= 8.0 {
+        Positive::TWO
+    } else if v <= 12.5 {
+        p5
+    } else if v <= 15.0 {
+        p10
+    } else if v <= 20.0 {
+        p15
+    } else if v <= 25.0 {
+        p20
+    } else if v <= 35.0 {
+        p25_int
+    } else if v <= 50.0 {
+        p50
+    } else {
+        Positive::HUNDRED
+    }
+}
+
+/// Return the strike interval that gives ~`size` strikes around ATM.
+/// All units are in the same currency.
+///
+/// `size` is the desired TOTAL number of strikes covering the ±kσ range
+/// (not the per-side half-width used by `OptionChainBuildParams::chain_size`;
+/// callers holding a per-side count must pass `2 * chain_size + 1`).
+///
+/// # Errors
+///
+/// Returns [`ChainError::PositiveError`] when the ±kσ half-width leaves the
+/// representable `Positive` range — `underlying_price * implied_vol *
+/// sqrt(t)` or `2 * k * sigma` overflowing, or `sqrt(t)` overflowing for a
+/// `days_to_exp` at the top of the range.
+///
+/// There is deliberately no infallible fallback. The overflow direction is
+/// not determined by the operand that overflows: with `k = Positive::MAX` and
+/// `sigma = 0` the true step is zero (the smallest grid) and with `k = 4` and
+/// `sigma = Positive::MAX` it is enormous (the largest), so no grid value is
+/// the limit and any value returned here would be invented.
+pub fn strike_step(
+    underlying_price: Positive,
+    implied_vol: Positive, // e.g. 0.25 for 25 %
+    days_to_exp: Positive,
+    size: usize,         // desired TOTAL number of strikes across the range
+    k: Option<Positive>, // σ-multiplier you want to cover (2.0-3.0 typical)
+) -> Result<Positive, ChainError> {
+    // Helper for compile-time-safe literal positives. Each `dec!(X.X)` is a
+    // positive literal so the checked constructor is total; the
+    // `unwrap_or(Positive::ZERO)` branch is unreachable and only exists to
+    // keep this function free of `.unwrap()`/`.expect()`.
+    let lit = |d: Decimal| Positive::new_decimal(d).unwrap_or(Positive::ZERO);
+
+    let k = k.unwrap_or_else(|| lit(dec!(4.0)));
+    // INVARIANT: `size` is the caller-supplied count of strikes; with `size <= 1`
+    // the denominator `(size - 1)` would collapse to zero. Clamp to the minimum
+    // meaningful value and emit a warning so miscalibrated callers are visible
+    // in logs instead of producing Inf / NaN downstream.
+    let size = if size > 1 {
+        size
+    } else {
+        tracing::warn!(size, "strike_step: size must be > 1; clamping to 2");
+        2
+    };
+    // Both divisions are total: `365.0` and `size as f64 - 1.0` are constants
+    // greater than or equal to one, so neither can divide by zero nor grow the
+    // operand past the representable range. Every multiplication can, and
+    // `sqrt` overflows at the top of the range.
+    let t = days_to_exp / 365.0;
+    let sigma = underlying_price
+        .checked_mul(&implied_vol)?
+        .checked_mul(&p_sqrt(&t, "chains::utils::strike_step")?)?;
+    let raw_step = Positive::TWO.checked_mul(&k)?.checked_mul(&sigma)? / (size as f64 - 1.0);
+
+    // Standard “nice” grids used by most exchanges
+    let bins: &[Positive] = &[
+        lit(dec!(0.01)),
+        lit(dec!(0.05)),
+        lit(dec!(0.10)),
+        lit(dec!(0.25)),
+        lit(dec!(0.5)),
+        Positive::ONE,
+        lit(dec!(2.5)),
+        lit(dec!(5.0)),
+        lit(dec!(10.0)),
+        lit(dec!(25.0)),
+        lit(dec!(50.0)),
+        Positive::HUNDRED,
+        lit(dec!(150.0)),
+        lit(dec!(200.0)),
+        lit(dec!(250.0)),
+    ];
+
+    // Pick the closest one
+    Ok(bins
+        .iter()
+        .copied()
+        .min_by(|a, b| {
+            // SAFETY: total order on Decimal; partial_cmp only returns None
+            // for NaN, which Decimal cannot represent. Fall back to Equal.
+            ((a.to_dec() - raw_step.to_dec()).abs())
+                .partial_cmp(&(b.to_dec() - raw_step.to_dec()).abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or(raw_step))
+}
+
+#[cfg(test)]
+mod tests_strike_step {
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::OptionChain;
+
+    use optionstratlib_core::utils::Len;
+    #[test]
+    fn basic() {
+        let step = strike_step(
+            Positive::HUNDRED,
+            pos_or_panic!(0.2),
+            pos_or_panic!(30.0),
+            11,
+            None,
+        )
+        .unwrap();
+        assert_eq!(step, 5.0);
+    }
+
+    #[test]
+    fn long_days() {
+        let step = strike_step(
+            pos_or_panic!(150.0),
+            pos_or_panic!(0.5),
+            pos_or_panic!(120.0),
+            30,
+            spos!(3.0),
+        )
+        .unwrap();
+
+        assert_eq!(step, 10.0);
+    }
+
+    /// A half-width that leaves the representable range reports instead of
+    /// aborting. `2 * k * sigma` overflows for a `Positive::MAX` sigma
+    /// multiplier, and no grid value is its limit.
+    #[test]
+    fn overflowing_half_width_reports() {
+        let result = strike_step(
+            Positive::HUNDRED,
+            pos_or_panic!(0.2),
+            pos_or_panic!(30.0),
+            11,
+            Some(Positive::MAX),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn long_discrepancy() {
+        let symbol = "AAPL".to_string();
+        let risk_free_rate = dec!(0.02);
+        let dividend_yield = Positive::ZERO;
+        let volume = Some(Positive::ONE);
+        let spread = pos_or_panic!(0.01);
+        let decimal_places = 2;
+        let skew_slope = dec!(-0.2);
+        let smile_curve = dec!(0.1);
+
+        let underlying_price = Some(Box::new(pos_or_panic!(1547.0)));
+        let days = pos_or_panic!(45.0);
+        let implied_volatility = pos_or_panic!(0.17);
+        let chain_size = 28;
+
+        let strike_interval = strike_step(
+            *underlying_price.clone().unwrap(),
+            implied_volatility,
+            days,
+            chain_size,
+            spos!(3.0),
+        )
+        .unwrap();
+
+        assert_eq!(strike_interval, 25.0);
+
+        let price_params = OptionDataPriceParams::new(
+            underlying_price,
+            Some(ExpirationDate::Days(days)),
+            Some(risk_free_rate),
+            Some(dividend_yield),
+            Some(symbol.clone()),
+        );
+        let build_params = OptionChainBuildParams::new(
+            symbol,
+            volume,
+            chain_size,
+            Some(strike_interval),
+            skew_slope,
+            smile_curve,
+            spread,
+            decimal_places,
+            price_params,
+            implied_volatility,
+        );
+        let initial_chain = OptionChain::build_chain(&build_params).unwrap();
+        // `chain_size` is a per-side half-width, so a chain that keeps every
+        // strike holds the ATM plus `chain_size` on each side. It used to hold
+        // `chain_size + 1` because the cheap side was withdrawn by
+        // `apply_spread` and the builder stopped generating strikes there.
+        assert_eq!(initial_chain.len(), 2 * chain_size + 1);
+    }
+}
+
+#[cfg(test)]
+mod tests_rounder {
+    use super::*;
+
+    #[test]
+    fn test_rounder() {
+        assert_eq!(
+            rounder(pos_or_panic!(151.0), pos_or_panic!(5.0)),
+            pos_or_panic!(150.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(154.0), pos_or_panic!(5.0)),
+            pos_or_panic!(155.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(152.5), pos_or_panic!(5.0)),
+            pos_or_panic!(155.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(152.4), pos_or_panic!(5.0)),
+            pos_or_panic!(150.0)
+        );
+
+        assert_eq!(
+            rounder(pos_or_panic!(151.0), pos_or_panic!(10.0)),
+            pos_or_panic!(150.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(156.0), pos_or_panic!(10.0)),
+            pos_or_panic!(160.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(155.0), pos_or_panic!(10.0)),
+            pos_or_panic!(160.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(154.9), pos_or_panic!(10.0)),
+            pos_or_panic!(150.0)
+        );
+
+        assert_eq!(
+            rounder(pos_or_panic!(17.0), pos_or_panic!(15.0)),
+            pos_or_panic!(15.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(43.0), pos_or_panic!(15.0)),
+            pos_or_panic!(45.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(37.5), pos_or_panic!(15.0)),
+            pos_or_panic!(45.0)
+        );
+        assert_eq!(
+            rounder(pos_or_panic!(37.4), pos_or_panic!(15.0)),
+            pos_or_panic!(30.0)
+        );
+    }
+}
+
+#[cfg(all(test, feature = "io"))]
+mod tests_parse {
+    use super::*;
+
+    use optionstratlib_core::spos;
+    use std::f64::consts::PI;
+
+    #[test]
+    fn test_parse_valid_integer() {
+        let input = "42";
+        let result: Option<i32> = parse(input);
+        assert_eq!(result, Some(42));
+    }
+
+    #[test]
+    fn test_parse_invalid_integer() {
+        let input = "not_a_number";
+        let result: Option<i32> = parse(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_valid_float() {
+        let input = &*PI.to_string();
+        let result: Option<f64> = parse(input);
+        assert_eq!(result, Some(PI));
+    }
+
+    #[test]
+    fn test_positive_f64() {
+        let input = "42.01";
+        let result: Option<Positive> = parse(input);
+        assert_eq!(result, spos!(42.01));
+    }
+}
+
+#[cfg(all(test, feature = "io"))]
+mod tests_parse_bis {
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_parse_decimal() {
+        let input = "42.5";
+        let result: Option<Decimal> = parse(input);
+        assert_eq!(result, Some(dec!(42.5)));
+
+        let invalid = "not_a_decimal";
+        let result: Option<Decimal> = parse(invalid);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_empty_string() {
+        let input = "";
+        let result: Option<i32> = parse(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_whitespace() {
+        let input = "  ";
+        let result: Option<i32> = parse(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_bool() {
+        let input = "true";
+        let result: Option<bool> = parse(input);
+        assert_eq!(result, Some(true));
+
+        let input = "false";
+        let result: Option<bool> = parse(input);
+        assert_eq!(result, Some(false));
+
+        let input = "not_a_bool";
+        let result: Option<bool> = parse(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_positive() {
+        let input = "42.5";
+        let result: Option<Positive> = parse(input);
+        assert_eq!(result, spos!(42.5));
+
+        // Negative numbers should return None for Positive type
+        let input = "-42.5";
+        let result: Option<Positive> = parse(input);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_different_number_formats() {
+        // Integer
+        let result: Option<i32> = parse("123");
+        assert_eq!(result, Some(123));
+
+        // Float
+        let result: Option<f64> = parse("123.456");
+        assert_eq!(result, Some(123.456));
+
+        // Scientific notation
+        let result: Option<f64> = parse("1.23e2");
+        assert_eq!(result, Some(123.0));
+    }
+
+    #[test]
+    fn test_parse_with_leading_trailing_spaces() {
+        let input = "  42  ";
+        let result: Option<i32> = parse(input);
+        assert_eq!(result, Some(42));
+
+        let input = "  42.5  ";
+        let result: Option<f64> = parse(input);
+        assert_eq!(result, Some(42.5));
+    }
+
+    #[test]
+    fn test_parse_invalid_formats() {
+        // Partial number
+        let result: Option<i32> = parse("42abc");
+        assert_eq!(result, None);
+
+        // Multiple decimal points
+        let result: Option<f64> = parse("42.3.4");
+        assert_eq!(result, None);
+
+        // Invalid scientific notation
+        let result: Option<f64> = parse("1.23e");
+        assert_eq!(result, None);
+    }
+}
+
+#[cfg(test)]
+mod tests_default_empty_string {
+    use super::*;
+
+    #[test]
+    fn test_default_empty_string_with_some_value() {
+        let input = Some(42);
+        let result = default_empty_string(input);
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn test_default_empty_string_with_float() {
+        let input = Some(42.01223);
+        let result = default_empty_string(input);
+        assert_eq!(result, "42.01223");
+    }
+
+    #[test]
+    fn test_default_empty_string_with_none() {
+        let input: Option<i32> = None;
+        let result = default_empty_string(input);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_default_empty_string_with_string_value() {
+        let input = Some("Hello");
+        let result = default_empty_string(input);
+        assert_eq!(result, "Hello");
+    }
+}
+
+#[cfg(test)]
+mod tests_random_positions_params {
+    use super::*;
+
+    use num_traits::ToPrimitive;
+    use rust_decimal_macros::dec;
+
+    fn create_test_params() -> RandomPositionsParams {
+        RandomPositionsParams::new(
+            Some(1),
+            Some(1),
+            Some(1),
+            Some(1),
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        )
+    }
+
+    #[test]
+    fn test_new_params() {
+        let params = create_test_params();
+        assert_eq!(params.qty_puts_long, Some(1));
+        assert_eq!(params.qty_puts_short, Some(1));
+        assert_eq!(params.qty_calls_long, Some(1));
+        assert_eq!(params.qty_calls_short, Some(1));
+        assert_eq!(params.option_qty, 1.0);
+        assert_eq!(params.risk_free_rate.to_f64().unwrap(), 0.05);
+        assert_eq!(params.dividend_yield.to_f64(), 0.02);
+        assert_eq!(params.open_put_fee, 1.0);
+        assert_eq!(params.close_put_fee, 1.0);
+        assert_eq!(params.open_call_fee, 1.0);
+        assert_eq!(params.close_call_fee, 1.0);
+    }
+
+    #[test]
+    fn test_total_positions() {
+        let params = create_test_params();
+        assert_eq!(params.total_positions(), 4);
+
+        let params = RandomPositionsParams::new(
+            Some(2),
+            None,
+            Some(3),
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        );
+        assert_eq!(params.total_positions(), 5);
+
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        );
+        assert_eq!(params.total_positions(), 0);
+    }
+
+    #[test]
+    fn test_clone() {
+        let params = create_test_params();
+        let cloned = params.clone();
+        assert_eq!(params.total_positions(), cloned.total_positions());
+    }
+
+    #[test]
+    fn test_debug() {
+        let params = create_test_params();
+        let debug_output = format!("{params:?}");
+        assert!(debug_output.contains("RandomPositionsParams"));
+    }
+}
+
+#[cfg(test)]
+mod tests_adjust_volatility {
+    use super::*;
+
+    use approx::assert_relative_eq;
+    use rust_decimal_macros::dec;
+
+    /* 1 ─ base_vol = None → devuelve None */
+    #[test]
+    fn returns_none_when_base_is_none() {
+        let strike = Positive::HUNDRED;
+        let spot = Positive::HUNDRED;
+
+        let out = adjust_volatility(
+            &None, // base vol ausente
+            &None, &None, &strike, &spot,
+        );
+        assert!(out.is_none());
+    }
+
+    /* 2 ─ sin skew/smile (defaults) la ATM vol no cambia */
+    #[test]
+    fn atm_unchanged_with_defaults() {
+        let base = pos_or_panic!(0.17);
+        let strike = pos_or_panic!(1500.0);
+        let spot = pos_or_panic!(1500.0);
+
+        let out = adjust_volatility(
+            &Some(base),
+            &None,
+            &None, // ambos -> 0
+            &strike,
+            &spot,
+        )
+        .unwrap();
+
+        assert_eq!(out.to_dec(), base.to_dec());
+    }
+
+    /* 3 ─ factor > 1 se clampa al techo 1.0 */
+    #[test]
+    fn huge_positive_smile_clamps_upper() {
+        let base = pos_or_panic!(0.20);
+        let strike = pos_or_panic!(3000.0);
+        let spot = pos_or_panic!(1000.0);
+
+        let smile = dec!(5.0);
+        let out = adjust_volatility(&Some(base), &None, &Some(smile), &strike, &spot).unwrap();
+        assert_eq!(out, base + 0.4);
+    }
+
+    /* 4 ─ factor < 0.01 se clampa al suelo 0.01 */
+    /* factor < 0.01 se clampa al suelo 0.01 */
+    #[test]
+    fn extreme_moneyness_clamps_lower() {
+        let base = pos_or_panic!(0.30);
+        // strike muy ITM → moneyness negativa grande
+        let strike = pos_or_panic!(10.0);
+        let spot = pos_or_panic!(1000.0);
+
+        // pendiente positiva fuerte → 1 + (+)·(−) = 1 − algo grande < 0
+        let skew = dec!(10.0);
+
+        let out = adjust_volatility(
+            &Some(base),
+            &Some(skew),
+            &None, // sin curvatura
+            &strike,
+            &spot,
+        )
+        .unwrap();
+
+        let expected = base * pos_or_panic!(0.01); // piso 1 %
+        assert_relative_eq!(
+            out.to_dec().to_f64().unwrap(),
+            expected.to_dec().to_f64().unwrap(),
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    fn negative_skew_increases_vol_below_atm() {
+        let base = pos_or_panic!(0.20);
+        let strike = pos_or_panic!(1000.0);
+        let spot = pos_or_panic!(1500.0);
+
+        let skew = dec!(-1.0);
+        let out = adjust_volatility(&Some(base), &Some(skew), &None, &strike, &spot).unwrap();
+
+        assert!(out > base);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_data_price_params {
+    use super::*;
+
+    use num_traits::ToPrimitive;
+    use optionstratlib_core::spos;
+    use rust_decimal_macros::dec;
+
+    fn get_params() -> OptionDataPriceParams {
+        OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("AAPL".to_string()),
+        )
+    }
+
+    #[test]
+    fn test_new_price_params() {
+        let params = get_params();
+
+        assert_eq!(*params.underlying_price.unwrap(), Positive::HUNDRED);
+        assert_eq!(
+            params.expiration_date.unwrap().get_days().unwrap(),
+            pos_or_panic!(30.0)
+        );
+        assert_eq!(params.risk_free_rate.unwrap().to_f64().unwrap(), 0.05);
+        assert_eq!(params.dividend_yield.unwrap().to_f64(), 0.02);
+        assert_eq!(params.underlying_symbol.unwrap(), "AAPL");
+    }
+
+    #[test]
+    fn test_default_price_params() {
+        let params = OptionDataPriceParams::default();
+        assert_eq!(params.underlying_price, None);
+        assert_eq!(params.risk_free_rate, None);
+        assert_eq!(params.dividend_yield, None);
+        assert_eq!(params.underlying_symbol, None);
+    }
+
+    #[test]
+    fn test_display_price_params() {
+        let params = get_params();
+
+        let display_string = format!("{params}");
+        assert!(display_string.contains("Underlying Price: 100"));
+        assert!(display_string.contains("Risk-Free Rate: 5"));
+        assert!(display_string.contains("Dividend Yield: 2"));
+        assert!(display_string.contains("Symbol: AAPL"));
+        assert!(display_string.contains("Expiration: 0.08 Years"));
+    }
+
+    #[test]
+    fn test_option_data_price_params_getters() {
+        // Setup test parameters
+        let underlying_price = Some(Box::new(Positive::HUNDRED));
+        let expiration_date = Some(ExpirationDate::Days(pos_or_panic!(30.0)));
+        let risk_free_rate = Some(dec!(0.05));
+        let dividend_yield = spos!(0.02);
+        let underlying_symbol = Some("AAPL".to_string());
+
+        let params = OptionDataPriceParams {
+            underlying_price: underlying_price.clone(),
+            expiration_date,
+            risk_free_rate,
+            dividend_yield,
+            underlying_symbol: underlying_symbol.clone(),
+        };
+
+        // Test each getter
+        assert_eq!(params.get_underlying_price(), underlying_price);
+        assert_eq!(params.get_expiration_date(), expiration_date);
+        assert_eq!(params.get_risk_free_rate(), risk_free_rate);
+        assert_eq!(params.get_dividend_yield(), dividend_yield);
+    }
+
+    #[test]
+    fn test_option_data_price_params_getters_with_datetime_expiration() {
+        use chrono::{Duration, Utc};
+
+        let future_date = Utc::now() + Duration::days(30);
+        let expiration_date = Some(ExpirationDate::DateTime(future_date));
+
+        let mut params = get_params();
+        params.expiration_date = expiration_date;
+
+        assert_eq!(params.get_expiration_date(), expiration_date);
+    }
+
+    #[test]
+    fn test_option_data_price_params_getters_zero_values() {
+        let mut params = get_params();
+        params.underlying_price = Some(Box::new(Positive::ZERO));
+        params.expiration_date = Some(ExpirationDate::Days(Positive::ZERO));
+        params.risk_free_rate = Some(Decimal::ZERO);
+        params.dividend_yield = Some(Positive::ZERO);
+
+        assert_eq!(*params.get_underlying_price().unwrap(), Positive::ZERO);
+        assert_eq!(
+            params.get_expiration_date().unwrap(),
+            ExpirationDate::Days(Positive::ZERO)
+        );
+        assert_eq!(params.get_risk_free_rate().unwrap(), Decimal::ZERO);
+        assert_eq!(params.get_dividend_yield().unwrap(), Positive::ZERO);
+    }
+}
+
+#[cfg(test)]
+mod tests_option_chain_build_params {
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use rust_decimal_macros::dec;
+
+    fn get_params() -> OptionDataPriceParams {
+        OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("AAPL".to_string()),
+        )
+    }
+
+    #[test]
+    fn test_new_chain_build_params() {
+        let price_params = get_params();
+
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            spos!(1000.0),
+            10,
+            spos!(5.0),
+            dec!(-0.2),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            price_params,
+            pos_or_panic!(0.25),
+        );
+
+        assert_eq!(params.symbol, "TEST");
+        assert_eq!(params.volume, spos!(1000.0));
+        assert_eq!(params.chain_size, 10);
+        assert_eq!(params.strike_interval, spos!(5.0));
+        assert_eq!(params.smile_curve, dec!(0.1));
+        assert_eq!(params.spread, pos_or_panic!(0.02));
+        assert_eq!(params.decimal_places, 2);
+
+        let display = format!("{params}");
+        assert_eq!(
+            display,
+            r#"{"symbol":"TEST","volume":"1000","chain_size":10,"strike_interval":"5","skew_slope":"-0.2","smile_curve":"0.1","spread":"0.02","decimal_places":2,"price_params":{"underlying_price":"100","expiration_date":{"days":30.0},"risk_free_rate":"0.05","dividend_yield":"0.02","underlying_symbol":"AAPL"},"implied_volatility":"0.25"}"#
+        );
+    }
+
+    #[test]
+    fn test_chain_build_params_without_volume() {
+        let price_params = OptionDataPriceParams::default();
+
+        let params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            10,
+            spos!(5.0),
+            dec!(-0.2),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            price_params,
+            pos_or_panic!(0.25),
+        );
+
+        assert_eq!(params.volume, None);
+    }
+}
+
+#[cfg(test)]
+mod tests_random_positions_params_extended {
+    use super::*;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_partial_positions() {
+        let params = RandomPositionsParams::new(
+            Some(2),
+            None,
+            Some(1),
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        );
+
+        assert_eq!(params.qty_puts_long, Some(2));
+        assert_eq!(params.qty_puts_short, None);
+        assert_eq!(params.qty_calls_long, Some(1));
+        assert_eq!(params.qty_calls_short, None);
+        assert_eq!(params.total_positions(), 3);
+    }
+
+    #[test]
+    fn test_no_positions() {
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        );
+
+        assert_eq!(params.total_positions(), 0);
+    }
+
+    #[test]
+    fn test_expiration_date() {
+        let params = RandomPositionsParams::new(
+            None,
+            None,
+            None,
+            None,
+            ExpirationDate::Days(pos_or_panic!(30.0)),
+            Positive::ONE,
+            dec!(0.05),
+            pos_or_panic!(0.02),
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Positive::ONE,
+            Some("Epic".to_string()),
+            None,
+        );
+
+        match params.expiration_date {
+            ExpirationDate::Days(days) => assert_eq!(days, 30.0),
+            _ => panic!("Expected ExpirationDate::Days"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_sample {
+    use super::*;
+    use optionstratlib_core::spos;
+
+    use crate::chains::chain::OptionChain;
+
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_chain() {
+        let chain = OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("AAPL".to_string()),
+        );
+
+        let params = OptionChainBuildParams::new(
+            "AAPL".to_string(),
+            Some(Positive::ONE),
+            5,
+            Some(Positive::ONE),
+            dec!(-0.2),
+            dec!(0.0001),
+            Positive::new(0.02).unwrap(),
+            2,
+            chain,
+            pos_or_panic!(0.25),
+        );
+
+        let built_chain = OptionChain::build_chain(&params).unwrap();
+
+        assert_eq!(built_chain.symbol, "AAPL");
+        assert_eq!(built_chain.underlying_price, Positive::new(100.0).unwrap());
+    }
+
+    #[test]
+    fn test_empty_string_round_to_2() {
+        // Test with Some value
+        let value = spos!(123.456);
+        let result = empty_string_round_to_2(value);
+        assert_eq!(result, "123.46");
+
+        // Test with None
+        let value: Option<Positive> = None;
+        let result = empty_string_round_to_2(value);
+        assert_eq!(result, "");
+    }
+}

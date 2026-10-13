@@ -131,7 +131,9 @@ def build(run, calls):
         # claim a dependency the loop doesn't actually have.
         for source in previous:
             for node in column:
-                edges.append(_edge(source, node["id"], node["data"]["items"], node["data"]["status"]))
+                edges.append(
+                    _edge(source, node["id"], node["data"]["items"], node["data"]["status"])
+                )
         columns.append(column)
         previous = [n["id"] for n in column]
 

@@ -98,7 +98,7 @@ class NeuralNetworkPredictor:
             self.correct_predictions += 1
         target = float(actual_direction_bullish)
         epochs = 1 if is_correct else 12
-        for epoch in range(epochs):
+        for _epoch in range(epochs):
             self.predict(self.last_inputs)
             output_delta = (target - self.last_prediction) * self._sigmoid_derivative(
                 self.last_prediction,

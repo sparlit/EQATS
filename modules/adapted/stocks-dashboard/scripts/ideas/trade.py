@@ -66,7 +66,20 @@ BASE = "https://tradestat.commerce.gov.in/meidb/"
 FORM = {"export": "commoditywise_export", "import": "commoditywise_import"}
 MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 # units that behave like a commodity price (mass / volume / length); NOS-type units make unit "prices" lumpy
-COMMODITY_UNITS = {"KGS", "TON", "LTR", "GMS", "MTR", "SQM", "CUM", "CCM", "MTS", "KLR", "TNE", "CTM"}
+COMMODITY_UNITS = {
+    "KGS",
+    "TON",
+    "LTR",
+    "GMS",
+    "MTR",
+    "SQM",
+    "CUM",
+    "CCM",
+    "MTS",
+    "KLR",
+    "TNE",
+    "CTM",
+}
 CHAPTERS = {
     "01": "Live animals",
     "02": "Meat",
@@ -197,7 +210,7 @@ def fetch_month(kind, year, month, val):
     fn = os.path.join(CACHE, f"{kind}_{year}{month:02d}_{val}.json.gz")
     if os.path.exists(fn):
         return json.load(gzip.open(fn, "rt"))
-    tok, _latest, _ = form_state(kind)
+    tok, latest, _ = form_state(kind)
     pre = "im" if kind == "import" else ""  # the import form prefixes its select names with "im"
     data = {
         "_token": tok,
@@ -209,13 +222,13 @@ def fetch_month(kind, year, month, val):
         pre + "ddReportYear": "2",
     }
     h = get(BASE + FORM[kind], data, referer=BASE + FORM[kind])
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.DOTALL)
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.S)
     out = []
     hdr = None
     for r in rows:
         cells = [
             htmlmod.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", c))).strip()
-            for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.DOTALL)
+            for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", r, re.S)
         ]
         if not cells:
             continue
@@ -239,8 +252,9 @@ def fetch_month(kind, year, month, val):
             out.append((cells[1], cells[2], "", num(cells[3]), num(cells[4])))
     res = {"header": hdr, "rows": out}
     if len(out) < 5000:
-        msg = f"{kind} {year}-{month:02d} val={val}: only {len(out)} rows parsed (header {hdr})"
-        raise RuntimeError(msg)
+        raise RuntimeError(
+            f"{kind} {year}-{month:02d} val={val}: only {len(out)} rows parsed (header {hdr})"
+        )
     json.dump(res, gzip.open(fn, "wt"))
     time.sleep(1.5)
     return res
@@ -293,7 +307,9 @@ def load_panel():
             continue
         ms = obj["months"]
         for hs, r in obj["codes"].items():
-            rec = panel.setdefault(hs, {"d": r["d"], "u": r["u"], "e": {}, "q": {}, "i": {}, "p": {}})
+            rec = panel.setdefault(
+                hs, {"d": r["d"], "u": r["u"], "e": {}, "q": {}, "i": {}, "p": {}}
+            )
             for f in ("e", "q", "i", "p"):
                 for m, v in zip(ms, r.get(f) or [], strict=False):
                     if v is not None:
@@ -309,7 +325,9 @@ def load_panel():
                 key_prev = f"{y - 1}-{m:02d}"
                 tgt = {"export1": "e", "export2": "q", "import1": "i", "import2": "p"}[kind + val]
                 for hs, desc, unit, prev, cur in res["rows"]:
-                    rec = panel.setdefault(hs, {"d": desc, "u": "", "e": {}, "q": {}, "i": {}, "p": {}})
+                    rec = panel.setdefault(
+                        hs, {"d": desc, "u": "", "e": {}, "q": {}, "i": {}, "p": {}}
+                    )
                     if unit and not rec["u"]:
                         rec["u"] = unit
                     if desc and (not rec["d"] or len(desc) > len(rec["d"])):
@@ -335,8 +353,7 @@ def build():
     panel = load_panel()
     months = sorted({k for r in panel.values() for f in ("e", "q", "i", "p") for k in r[f]})
     if not months:
-        msg = "nothing cached: run with --months N first"
-        raise SystemExit(msg)
+        raise SystemExit("nothing cached: run with --months N first")
     latest = months[-1]
     mi = {m: i for i, m in enumerate(months)}
 
@@ -376,7 +393,11 @@ def build():
             prev3 = [back(i + 12) for i in range(3)]
             sy = pct(avg(last3), avg(prev3))
             qs = [q[k] for k in months[-13:-1] if q.get(k)]
-            thin = 1 if (q.get(latest) is not None and qs and q[latest] < 0.3 * statistics.median(qs)) else 0
+            thin = (
+                1
+                if (q.get(latest) is not None and qs and q[latest] < 0.3 * statistics.median(qs))
+                else 0
+            )
             rec += [
                 v.get(latest),
                 q.get(latest),
@@ -481,9 +502,16 @@ def build():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--months", type=int, default=0, help="ensure the last N published months are cached before building"
+        "--months",
+        type=int,
+        default=0,
+        help="ensure the last N published months are cached before building",
     )
-    ap.add_argument("--latest", action="store_true", help="fetch the newest published month if not cached, then build")
+    ap.add_argument(
+        "--latest",
+        action="store_true",
+        help="fetch the newest published month if not cached, then build",
+    )
     ap.add_argument("--build", action="store_true", help="build from cache only")
     a = ap.parse_args()
     if a.months or a.latest:
@@ -492,18 +520,19 @@ if __name__ == "__main__":
         except urllib.error.URLError as e:
             # A blocked or down MEIDB is a reported failure, not a stack trace: leave every
             # published file exactly as it is rather than rebuilding from a half-fetched cache.
-            msg = (
-                f"trade: MEIDB (tradestat.commerce.gov.in) unreachable ({e.reason}); docs/ideas/trade/** LEFT UNCHANGED"
+            raise SystemExit(
+                f"trade: MEIDB (tradestat.commerce.gov.in) unreachable ({e.reason}); "
+                "docs/ideas/trade/** LEFT UNCHANGED"
             )
-            raise SystemExit(msg)
         if not latest:
-            msg = 'could not read the "Data available" line from MEIDB'
-            raise SystemExit(msg)
+            raise SystemExit('could not read the "Data available" line from MEIDB')
         if a.latest and not a.months:
             meta_fn = os.path.join(OUT, "meta.json")
             have = json.load(open(meta_fn))["latest"] if os.path.exists(meta_fn) else ""
             if f"{latest[0]}-{latest[1]:02d}" <= have:
-                print(f"MEIDB latest {latest[0]}-{latest[1]:02d} already built ({have}); nothing to fetch")
+                print(
+                    f"MEIDB latest {latest[0]}-{latest[1]:02d} already built ({have}); nothing to fetch"
+                )
                 raise SystemExit(0)
         ensure(month_list(latest, a.months or 1))
     build()

@@ -1,0 +1,123 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+#!/usr/bin/python3
+"""
+    The MIT License (MIT)
+
+    Copyright (c) 2023 pkjmesra
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+"""
+import os
+import sys
+
+from PKDevTools.classes.ColorText import colorText
+from PKDevTools.classes.Environment import PKEnvironment
+from PKDevTools.classes.OutputControls import OutputControls
+from PKDevTools.classes.UserSubscriptions import PKSubscriptionModel, PKUserSusbscriptions
+from pkscreener.classes.MenuOptions import menu, menus
+from pkscreener.classes.PKDemoHandler import PKDemoHandler
+from pkscreener.classes.PKUserRegistration import PKUserRegistration, ValidationResult
+
+
+class PKPremiumHandler:
+    @classmethod
+    def hasPremium(self, mnu: menu):
+        consideredMenu = mnu
+        if consideredMenu is None:
+            return False
+        isPremium = consideredMenu.isPremium  # False
+        # while findingPremium:
+        #     findingPremium = not consideredMenu.isPremium
+        #     if findingPremium:
+        #         if consideredMenu.parent is not None:
+        #             consideredMenu = consideredMenu.parent
+        #         else:
+        #             findingPremium = False
+        #     else:
+        #         isPremium = True
+        return (
+            (PKPremiumHandler.showPremiumDemoOptions(mnu) == ValidationResult.Success)
+            or ("RUNNER" in os.environ)
+            if isPremium
+            else (not isPremium)
+        )
+
+    @classmethod
+    def showPremiumDemoOptions(self, mnu):
+        from pkscreener.classes import ConsoleUtility
+
+        result, reason = PKUserRegistration.validateToken()
+        ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)
+        if result and reason == ValidationResult.Success:
+            return reason
+        elif not result and reason == ValidationResult.BadOTP:
+            return PKUserRegistration.login(trialCount=1)
+        else:
+            is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+            if not is_subscription_enabled:
+                return PKUserRegistration.login()
+            OutputControls().printOutput(
+                f"[+] {colorText.GREEN}{mnu.menuText}{colorText.END}\n[+] {colorText.WARN}This is a premium/paid feature.{colorText.END}\n[+] {colorText.WARN}You do not seem to have a paid subscription to PKScreener or you are not logged-in. Please login!!{colorText.END}\n[+] {colorText.GREEN}If you would like to subscribe, please pay UPI: PKScreener@APL{colorText.END}\n[+] {colorText.GREEN}Or, Use GitHub sponsor link to sponsor: https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra{colorText.END}\n[+] {colorText.WARN}Or, Drop a message to {colorText.END}{colorText.GREEN}@ItsOnlyPK{colorText.END}{colorText.WARN} on telegram{colorText.END}\n[+] {colorText.WARN}Follow instructions in the response message to{colorText.END} {colorText.GREEN}/OTP on @nse_pkscreener_bot on telegram{colorText.END} {colorText.WARN}for subscription details!{colorText.END}"
+            )
+            m = menus()
+            m.renderUserDemoMenu()
+            userDemoOption = (
+                OutputControls().takeUserInput(colorText.FAIL + "  [+] Select option: ") or "1"
+            )
+            if str(userDemoOption).upper() in ["1"]:
+                PKDemoHandler.demoForMenu(mnu)
+                input("\n\nPress any key to exit ...")
+            elif str(userDemoOption).upper() in ["3"]:
+                return PKUserRegistration.login()
+            elif str(userDemoOption).upper() in ["2"]:
+                # Show instructions to subscribe
+                subscriptionModelNames = f"\n\n[+] {colorText.GREEN}Following basic and premium subscription models are available. {colorText.END}\n[+] {colorText.GREEN}Premium subscription allows for unlimited premium scans:{colorText.END}\n"
+                for name, value in PKUserSusbscriptions().subscriptionKeyValuePairs.items():
+                    if name == PKSubscriptionModel.No_Subscription.name:
+                        subscriptionModelNames = f"{subscriptionModelNames}\n[+]{colorText.WARN} {name} : ₹ {value} (Only Basic Scans are free){colorText.END}\n"
+                    else:
+                        subscriptionModelNames = f"{subscriptionModelNames}\n[+]{colorText.GREEN} {name.ljust(15)} : ₹ {value}{colorText.END}\n"
+                subscriptionModelNames = f"{subscriptionModelNames}\n[+] {colorText.WARN}Please pay to subscribe:{colorText.END}\n[+] {colorText.GREEN}1. Using UPI(India) to {colorText.END}{colorText.FAIL}PKScreener@APL{colorText.END} or\n[+] {colorText.GREEN}2. Proudly sponsor: https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra\n{colorText.END}[+] {colorText.WARN}Please drop a message to @ItsOnlyPK on Telegram after paying to enable subscription!{colorText.END}\n\n"
+                OutputControls().printOutput(subscriptionModelNames)
+                input("\n\nPress any key to exit and pay...")
+            sys.exit(0)
+        return False

@@ -59,10 +59,7 @@ import random
 import statistics
 import time
 from collections import Counter
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
-
-if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence
 
 # Trading days to evaluate at. T+5/T+10/T+20 covers short and medium swing
 # windows; widen cautiously — small-sample noise grows fast.
@@ -256,7 +253,9 @@ def build_performance_payload(
                     regime, confirmation, windows) — calibration raw material
       - meta:       config + trackable / untrackable / window_not_closed counts
     """
-    per_window_buckets: dict[int, dict[str, list[float]]] = {w: _empty_bucket_map() for w in WINDOWS}
+    per_window_buckets: dict[int, dict[str, list[float]]] = {
+        w: _empty_bucket_map() for w in WINDOWS
+    }
     per_window_untrackable: dict[int, int] = dict.fromkeys(WINDOWS, 0)
     per_window_trackable: dict[int, int] = dict.fromkeys(WINDOWS, 0)
     per_window_not_closed: dict[int, int] = dict.fromkeys(WINDOWS, 0)
@@ -267,7 +266,11 @@ def build_performance_payload(
     # Bucket x regime cross-tab (1.4.0 drawer table): per window,
     # per score bucket, per regime — {w: {bucket: {regime: [excess, ...]}}}
     by_regime_cross: dict[int, dict[str, dict[str, list[float]]]] = {
-        w: {b: {rg: [] for rg in ("risk_on", "neutral", "risk_off", "unknown")} for b in BUCKET_ORDER} for w in WINDOWS
+        w: {
+            b: {rg: [] for rg in ("risk_on", "neutral", "risk_off", "unknown")}
+            for b in BUCKET_ORDER
+        }
+        for w in WINDOWS
     }
     per_scan: list[dict] = []
     per_name: list[dict] = []
@@ -292,7 +295,9 @@ def build_performance_payload(
                 # 1.5.0 feedback loop: raw component scores + the weights
                 # regime that produced them, so evaluate_feedback.py can
                 # re-score history under candidate weight sets.
-                "sub_scores": s.get("sub_scores") if isinstance(s.get("sub_scores"), dict) else None,
+                "sub_scores": s.get("sub_scores")
+                if isinstance(s.get("sub_scores"), dict)
+                else None,
                 "score_version": s.get("score_version"),
                 "windows": {},
             }
@@ -356,7 +361,9 @@ def build_performance_payload(
             bucket_stats[b] = cohort_stats(vals)
         regime_bucket_stats = {}
         for b in BUCKET_ORDER:
-            regime_bucket_stats[b] = {rg: cohort_stats(vals) for rg, vals in by_regime_cross[w][b].items()}
+            regime_bucket_stats[b] = {
+                rg: cohort_stats(vals) for rg, vals in by_regime_cross[w][b].items()
+            }
         out_windows[_window_label(w)] = {
             "buckets": bucket_stats,
             # Bucket x regime cross-tab for the drawer evidence table.
@@ -386,7 +393,8 @@ def build_performance_payload(
         "meta": {
             "snapshots_used": len(snapshots),
             "total_passed": sum(
-                len([s for s in scan.get("stocks", []) if s.get("gate_pass")]) for _, scan in snapshots
+                len([s for s in scan.get("stocks", []) if s.get("gate_pass")])
+                for _, scan in snapshots
             ),
             "windows": WINDOWS,
             "regimes": ["risk_on", "neutral", "risk_off", "unknown"],
@@ -400,7 +408,9 @@ def build_performance_payload(
             "buckets": [b for b in BUCKET_ORDER if b != "unknown"],
             "trackable_count": {_window_label(w): per_window_trackable[w] for w in WINDOWS},
             "untrackable_count": {_window_label(w): per_window_untrackable[w] for w in WINDOWS},
-            "window_not_closed_count": {_window_label(w): per_window_not_closed[w] for w in WINDOWS},
+            "window_not_closed_count": {
+                _window_label(w): per_window_not_closed[w] for w in WINDOWS
+            },
         },
     }
 
@@ -473,14 +483,15 @@ def closes_dict_from_frame(df) -> dict[str, float]:
             if any(p == "Close" for p in parts):
                 close_col = c
                 break
-    elif "Close" in cols:
-        close_col = "Close"
     else:
-        # case-insensitive fallback
-        for c in cols:
-            if str(c).lower() == "close":
-                close_col = c
-                break
+        if "Close" in cols:
+            close_col = "Close"
+        else:
+            # case-insensitive fallback
+            for c in cols:
+                if str(c).lower() == "close":
+                    close_col = c
+                    break
     if close_col is None:
         return {}
 
@@ -738,7 +749,7 @@ def fetch_forward_returns(
             return None
         series = closes_by_ticker.get(tk) or {}
         # Exact session, then walk forward up to 3 sessions in calendar
-        for offset in range(4):
+        for offset in range(0, 4):
             d = session + datetime.timedelta(days=offset)
             v = series.get(d.isoformat())
             if v is not None:

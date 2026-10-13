@@ -56,8 +56,7 @@ def load_account_config(account_name):
         if client["name"] == account_name:
             return config, client
 
-    msg = f"Account '{account_name}' not found in clients_config.yaml"
-    raise ValueError(msg)
+    raise ValueError(f"Account '{account_name}' not found in clients_config.yaml")
 
 
 class ServerThread(threading.Thread):
@@ -142,9 +141,15 @@ def autologin(config, account):
             request_id = login_resp["data"]["request_id"]
             session.post(
                 "https://kite.zerodha.com/api/twofa",
-                data={"user_id": account["user_id"], "request_id": request_id, "twofa_value": twofa},
+                data={
+                    "user_id": account["user_id"],
+                    "request_id": request_id,
+                    "twofa_value": twofa,
+                },
             )
-            api_session = session.get(f"https://kite.trade/connect/login?api_key={account['api_key']}")
+            api_session = session.get(
+                f"https://kite.trade/connect/login?api_key={account['api_key']}"
+            )
             request_token = api_session.url.split("request_token=")[1].split("&")[0]
 
             kite = KiteConnect(api_key=account["api_key"])
@@ -162,14 +167,16 @@ def autologin(config, account):
             return request_token, access_token, kite
 
         except Exception as e:
-            logging.exception(f"Login error for {account['name']}: {e}")
+            logging.error(f"Login error for {account['name']}: {e}")
             notify(f"❌ {account['name']} login error: {e}")
             continue
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Kite single account login")
-    parser.add_argument("--account", required=True, help="Account name as defined in clients_config.yaml")
+    parser.add_argument(
+        "--account", required=True, help="Account name as defined in clients_config.yaml"
+    )
     args = parser.parse_args()
 
     config, account = load_account_config(args.account)
@@ -183,6 +190,6 @@ if __name__ == "__main__":
         print(f"Access token: {access_token}")
         print(f"Profile: {kite.profile()}")
     except Exception as e:
-        logging.exception(f"Error: {e}")
+        logging.error(f"Error: {e}")
     finally:
         server.shutdown()

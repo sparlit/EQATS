@@ -31,8 +31,7 @@ V2 tables or state files.
 """
 
 import json
-from dataclasses import asdict, dataclass
-from datetime import date
+from dataclasses import dataclass
 from math import floor
 from pathlib import Path
 from uuid import uuid4
@@ -85,18 +84,29 @@ def _adx(frame: pd.DataFrame, length: int = 14) -> pd.Series:
     plus_dm = up_move.where((up_move > down_move) & (up_move > 0), 0.0)
     minus_dm = down_move.where((down_move > up_move) & (down_move > 0), 0.0)
     atr14 = atr(frame, length).replace(0, np.nan)
-    plus_di = 100.0 * plus_dm.ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean() / atr14
-    minus_di = 100.0 * minus_dm.ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean() / atr14
+    plus_di = (
+        100.0 * plus_dm.ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean() / atr14
+    )
+    minus_di = (
+        100.0 * minus_dm.ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean() / atr14
+    )
     dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
     return dx.ewm(alpha=1.0 / length, adjust=False, min_periods=length).mean()
 
 
-def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[str, float | bool | str]:
+def pine_metrics(
+    frame: pd.DataFrame, *, atr_multiplier: float = 3.5
+) -> dict[str, float | bool | str]:
     """Return the EOD-safe, fixed-parameter Pine Hull metrics for one symbol."""
     data = frame.sort_values("trade_date").copy().reset_index(drop=True)
     needed = {"open", "high", "low", "close", "volume"}
     if data.empty or needed.difference(data.columns) or len(data) < 300:
-        return {"available": False, "state": "INSUFFICIENT_HISTORY", "timing_state": "WEAK", "htf_state": "NEUTRAL"}
+        return {
+            "available": False,
+            "state": "INSUFFICIENT_HISTORY",
+            "timing_state": "WEAK",
+            "htf_state": "NEUTRAL",
+        }
 
     close = pd.to_numeric(data["close"], errors="coerce")
     volume = pd.to_numeric(data["volume"], errors="coerce").fillna(0.0)
@@ -114,7 +124,12 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
     rsi14, adx14 = _rsi(close), _adx(data)
     vol_ma = volume.rolling(20, min_periods=20).mean()
 
-    weekly_close = data.set_index(pd.to_datetime(data["trade_date"]))["close"].resample("W-FRI").last().dropna()
+    weekly_close = (
+        data.set_index(pd.to_datetime(data["trade_date"]))["close"]
+        .resample("W-FRI")
+        .last()
+        .dropna()
+    )
     weekly21, weekly51 = hma(weekly_close, 21), hma(weekly_close, 51)
     values = [
         hybrid_hull.iloc[-1],
@@ -126,7 +141,12 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
         atr14.iloc[-1],
     ]
     if any(pd.isna(value) for value in values):
-        return {"available": False, "state": "INSUFFICIENT_HISTORY", "timing_state": "WEAK", "htf_state": "NEUTRAL"}
+        return {
+            "available": False,
+            "state": "INSUFFICIENT_HISTORY",
+            "timing_state": "WEAK",
+            "htf_state": "NEUTRAL",
+        }
 
     last_close, last_atr = float(close.iloc[-1]), float(atr14.iloc[-1])
     distance_atr = (last_close - float(hybrid_hull.iloc[-1])) / last_atr if last_atr > 0 else 0.0
@@ -135,12 +155,17 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
     price_band = (close.tail(20).max() - close.tail(20).min()) / max(last_close, 1.0)
     no_impulse = abs(float(hull_slope.iloc[-1])) < last_atr * 0.08
     band_compressed = price_band < 0.025
-    rotational = abs(distance_atr) < 0.4 and abs(float(hull_slope.iloc[-1])) < abs(float(hull_slope.iloc[-2])) * 1.1
+    rotational = (
+        abs(distance_atr) < 0.4
+        and abs(float(hull_slope.iloc[-1])) < abs(float(hull_slope.iloc[-2])) * 1.1
+    )
     chop = (int(no_impulse) + int(band_compressed)) >= 2
     daily_bullish = last_close > float(hybrid_hull.iloc[-1]) and float(hull_slope.iloc[-1]) > 0.0
     above_hull_5 = close.tail(5).reset_index(drop=True) > hybrid_hull.tail(5).reset_index(drop=True)
     hull_up_5 = hybrid_hull.diff().tail(5)
-    hull_slope_improving = bool((hull_up_5 >= 0).sum() >= 2 and hybrid_hull.iloc[-1] >= hybrid_hull.iloc[-3])
+    hull_slope_improving = bool(
+        (hull_up_5 >= 0).sum() >= 2 and hybrid_hull.iloc[-1] >= hybrid_hull.iloc[-3]
+    )
     daily_persistent = bool(above_hull_5.sum() >= 3 and hull_slope_improving)
     htf_state, htf_metrics = weekly_transition(weekly21, weekly51)
     weekly_bullish = htf_state == "BULLISH"
@@ -149,7 +174,9 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
     trend_commitment = abs(float(hull_slope.iloc[-1])) > abs(float(hull_slope.iloc[-2]))
     overextended = distance_atr > 1.25
     volume_ratio = (
-        float(volume.iloc[-1] / vol_ma.iloc[-1]) if pd.notna(vol_ma.iloc[-1]) and vol_ma.iloc[-1] > 0 else 0.0
+        float(volume.iloc[-1] / vol_ma.iloc[-1])
+        if pd.notna(vol_ma.iloc[-1]) and vol_ma.iloc[-1] > 0
+        else 0.0
     )
     adx_value = _number(adx14.iloc[-1])
     rsi_value = _number(rsi14.iloc[-1])
@@ -165,7 +192,11 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
     )
     score += 10 if 50 <= rsi_value <= 70 else 0
     score += 10 if volume_ratio > 1.5 else 0
-    score += 10 if abs(last_close - float(ema20.iloc[-1])) / max(float(ema20.iloc[-1]), 1.0) <= 0.02 else 0
+    score += (
+        10
+        if abs(last_close - float(ema20.iloc[-1])) / max(float(ema20.iloc[-1]), 1.0) <= 0.02
+        else 0
+    )
     score += 5 if volume_ratio <= 1.5 else 0
     score += 5 if not overextended else 0
     score += 5 if last_atr / max(last_close, 1.0) < 0.03 else 0
@@ -174,7 +205,8 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
     score += 5 if last_close > float(ema200.iloc[-1]) else 0
     score += 5 if daily_bullish else 0
     adx_confirmed = bool(
-        adx_value >= 22 or (len(adx14.dropna()) >= 2 and adx_value >= 18 and adx_value > _number(adx14.iloc[-2]))
+        adx_value >= 22
+        or (len(adx14.dropna()) >= 2 and adx_value >= 18 and adx_value > _number(adx14.iloc[-2]))
     )
     ready = bool(
         daily_persistent
@@ -200,7 +232,9 @@ def pine_metrics(frame: pd.DataFrame, *, atr_multiplier: float = 3.5) -> dict[st
         htf_state=htf_state,
         adx_confirmed=adx_confirmed,
     )
-    initial_stop = float(data["high"].rolling(22, min_periods=22).max().iloc[-1]) - last_atr * atr_multiplier
+    initial_stop = (
+        float(data["high"].rolling(22, min_periods=22).max().iloc[-1]) - last_atr * atr_multiplier
+    )
     t2_base = (
         3.0
         if last_atr > float(atr14.rolling(50).mean().iloc[-1]) * 1.15
@@ -261,8 +295,7 @@ def load_state(path: str | Path, config: PineConfig = PineConfig()) -> dict:
     try:
         state = json.loads(target.read_text(encoding="utf-8"))
         if state.get("version") != STATE_VERSION:
-            msg = "unsupported state version"
-            raise ValueError(msg)
+            raise ValueError("unsupported state version")
         state.setdefault("positions", [])
         state.setdefault("events", [])
         return state
@@ -282,11 +315,14 @@ def _allocation(entry: float, stop: float, positions: list[dict], config: PineCo
     active = [
         position
         for position in positions
-        if _active(position) or (config.cash_accounting and position.get("state") == "CORPORATE_ACTION_REVIEW")
+        if _active(position)
+        or (config.cash_accounting and position.get("state") == "CORPORATE_ACTION_REVIEW")
     ]
     if len(active) >= config.max_open_positions or entry <= stop:
         return 0
-    used = sum(_number(position.get("entry")) * int(position.get("quantity", 0)) for position in active)
+    used = sum(
+        _number(position.get("entry")) * int(position.get("quantity", 0)) for position in active
+    )
     realised = (
         sum(_number(p.get("realised_pnl")) - _number(p.get("fees")) for p in positions)
         if config.cash_accounting
@@ -315,7 +351,12 @@ def _position_event(state: dict, trade_date: str, position: dict, event: str) ->
 
 
 def _update_position(
-    position: dict, frame: pd.DataFrame, metrics: dict, trade_date: str, state: dict, config: PineConfig
+    position: dict,
+    frame: pd.DataFrame,
+    metrics: dict,
+    trade_date: str,
+    state: dict,
+    config: PineConfig,
 ) -> None:
     last = frame.sort_values("trade_date").iloc[-1]
     high, low, close = _number(last["high"]), _number(last["low"]), _number(last["close"])
@@ -328,9 +369,16 @@ def _update_position(
     stop = _number(position["stop"])
     if low <= stop:
         position.update(
-            {"state": "CLOSED", "exit_date": trade_date, "exit_price": round(stop, 2), "exit_reason": "TRAILING_STOP"}
+            {
+                "state": "CLOSED",
+                "exit_date": trade_date,
+                "exit_price": round(stop, 2),
+                "exit_reason": "TRAILING_STOP",
+            }
         )
-        position["realised_pnl"] = round((stop - _number(position["entry"])) * int(position["quantity"]), 2)
+        position["realised_pnl"] = round(
+            (stop - _number(position["entry"])) * int(position["quantity"]), 2
+        )
         _position_event(state, trade_date, position, "EXIT_STOP")
         return
     if close < _number(metrics["hma51"]) and _number(metrics["hma21"]) <= _number(
@@ -344,7 +392,9 @@ def _update_position(
                 "exit_reason": "HULL_STRUCTURE_EXIT",
             }
         )
-        position["realised_pnl"] = round((close - _number(position["entry"])) * int(position["quantity"]), 2)
+        position["realised_pnl"] = round(
+            (close - _number(position["entry"])) * int(position["quantity"]), 2
+        )
         _position_event(state, trade_date, position, "EXIT_HULL")
         return
     if high >= _number(position["target1"]):
@@ -358,7 +408,9 @@ def _update_position(
         trail = max(trail, _number(position["target1"]))
     position["stop"] = round(max(stop, trail), 2)
     position["prior_hma21"] = _number(metrics["hma21"])
-    position["state"] = "TRAILING" if position["stop"] > _number(position["initial_stop"]) else "OPEN"
+    position["state"] = (
+        "TRAILING" if position["stop"] > _number(position["initial_stop"]) else "OPEN"
+    )
 
 
 def run_daily(
@@ -371,20 +423,27 @@ def run_daily(
     database = V2Database(db_path)
     prices = database.load_prices(end_date=as_of, min_sessions=300)
     if prices.empty:
-        msg = "No Pine-compatible daily price history"
-        raise RuntimeError(msg)
+        raise RuntimeError("No Pine-compatible daily price history")
     trade_date = pd.Timestamp(prices["trade_date"].max()).date().isoformat()
     state = load_state(state_path, config)
     already_processed = config.cash_accounting and state.get("last_run") == trade_date
     if config.cash_accounting and state.get("last_run") and state["last_run"] > trade_date:
-        msg = "Hull accounting cannot advance an older date; use a dated state copy"
-        raise ValueError(msg)
+        raise ValueError("Hull accounting cannot advance an older date; use a dated state copy")
     master = database.load_symbol_master(trade_date)
-    metadata = {str(row["symbol"]): row.to_dict() for _, row in master.iterrows()} if not master.empty else {}
+    metadata = (
+        {str(row["symbol"]): row.to_dict() for _, row in master.iterrows()}
+        if not master.empty
+        else {}
+    )
     restricted = database.load_restricted_symbols(trade_date)
     lifecycle_registry = database.load_lifecycle_registry()
-    session_calendar = tuple(sorted(pd.to_datetime(prices["trade_date"]).dt.date.astype(str).unique()))
-    all_frames = {str(symbol): frame.sort_values("trade_date").copy() for symbol, frame in prices.groupby("symbol")}
+    session_calendar = tuple(
+        sorted(pd.to_datetime(prices["trade_date"]).dt.date.astype(str).unique())
+    )
+    all_frames = {
+        str(symbol): frame.sort_values("trade_date").copy()
+        for symbol, frame in prices.groupby("symbol")
+    }
     gateway = {
         symbol: evaluate_tradeability(
             symbol,
@@ -405,16 +464,29 @@ def run_daily(
     }
     for position in state["positions"]:
         gate = gateway.get(str(position.get("symbol")))
-        if not already_processed and _active(position) and gate and (not gate.eligible or gate.entry_blocked):
+        if (
+            not already_processed
+            and _active(position)
+            and gate
+            and (not gate.eligible or gate.entry_blocked)
+        ):
             position["state"] = "CORPORATE_ACTION_REVIEW"
             position["review_reason"] = gate.reason_code
             position["successor_symbol"] = gate.successor_symbol
             _position_event(state, trade_date, position, "CORPORATE_ACTION_REVIEW")
-    metrics = {symbol: pine_metrics(frame, atr_multiplier=config.atr_multiplier) for symbol, frame in frames.items()}
+    metrics = {
+        symbol: pine_metrics(frame, atr_multiplier=config.atr_multiplier)
+        for symbol, frame in frames.items()
+    }
     for position in state["positions"]:
         if not already_processed and _active(position) and position["symbol"] in frames:
             _update_position(
-                position, frames[position["symbol"]], metrics[position["symbol"]], trade_date, state, config
+                position,
+                frames[position["symbol"]],
+                metrics[position["symbol"]],
+                trade_date,
+                state,
+                config,
             )
 
     active_symbols = {position["symbol"] for position in state["positions"] if _active(position)}
@@ -430,7 +502,9 @@ def run_daily(
     candidates.sort(key=lambda item: (-_number(item[1].get("score")), item[0]))
     created: list[dict] = []
     for symbol, row in candidates[: config.max_new_positions]:
-        quantity = _allocation(_number(row["close"]), _number(row["initial_stop"]), state["positions"], config)
+        quantity = _allocation(
+            _number(row["close"]), _number(row["initial_stop"]), state["positions"], config
+        )
         if quantity <= 0:
             continue
         position = {
@@ -464,10 +538,13 @@ def run_daily(
     if not already_processed:
         save_state(state, state_path)
     open_positions = [position for position in state["positions"] if _active(position)]
-    closed_positions = [position for position in state["positions"] if position.get("state") == "CLOSED"]
+    closed_positions = [
+        position for position in state["positions"] if position.get("state") == "CLOSED"
+    ]
     realised = sum(_number(position.get("realised_pnl")) for position in closed_positions)
     unrealised = sum(
-        (_number(position.get("last_price")) - _number(position.get("entry"))) * int(position.get("quantity", 0))
+        (_number(position.get("last_price")) - _number(position.get("entry")))
+        * int(position.get("quantity", 0))
         for position in open_positions
     )
     watch = sorted(
@@ -490,7 +567,9 @@ def run_daily(
         "evaluated": len(metrics),
         "state_path": str(state_path),
         "tradeability": summarize_tradeability(gateway),
-        "corporate_action_reviews": [p for p in state["positions"] if p.get("state") == "CORPORATE_ACTION_REVIEW"],
+        "corporate_action_reviews": [
+            p for p in state["positions"] if p.get("state") == "CORPORATE_ACTION_REVIEW"
+        ],
     }
 
 
@@ -565,14 +644,16 @@ def render_portfolio_message(result: dict) -> str:
         "",
     ]
     if not result["open_positions"]:
-        return "\n".join([*lines, "No simulated Pine Hull positions are open."])
+        return "\n".join(lines + ["No simulated Pine Hull positions are open."])
     for position in result["open_positions"]:
         return_pct = (
             ((_number(position["last_price"]) / _number(position["entry"])) - 1.0) * 100
             if _number(position["entry"])
             else 0.0
         )
-        htf = position.get("htf_state") or ("BULLISH" if position.get("htf_weekly_bullish") else "NEUTRAL")
+        htf = position.get("htf_state") or (
+            "BULLISH" if position.get("htf_weekly_bullish") else "NEUTRAL"
+        )
         timing = position.get("timing_state", "HOLD_TREND")
         lines.extend(
             [
@@ -593,7 +674,11 @@ def render_period_message(state_path: str | Path, *, period: str) -> str:
     closed = [position for position in positions if position.get("state") == "CLOSED"]
     active = [position for position in positions if _active(position)]
     realised = sum(_number(position.get("realised_pnl")) for position in closed)
-    title = "📅 HULL SCANNER — WEEKLY REVIEW" if period == "weekly" else "📆 HULL SCANNER — MONTHLY REVIEW"
+    title = (
+        "📅 HULL SCANNER — WEEKLY REVIEW"
+        if period == "weekly"
+        else "📆 HULL SCANNER — MONTHLY REVIEW"
+    )
     lines = [
         title,
         "SIMULATED PORTFOLIO REVIEW • NO LIVE ORDERS",
@@ -609,7 +694,9 @@ def render_period_message(state_path: str | Path, *, period: str) -> str:
             current = _number(position.get("last_price"), entry)
             move = ((current / entry) - 1.0) * 100 if entry else 0.0
             symbol = position["symbol"]
-            link = f'<a href="https://www.tradingview.com/chart/?symbol=NSE%3A{symbol}">{symbol}</a>'
+            link = (
+                f'<a href="https://www.tradingview.com/chart/?symbol=NSE%3A{symbol}">{symbol}</a>'
+            )
             lines.extend(
                 [
                     "━━━━━━━━━━━━━━",
@@ -622,7 +709,10 @@ def render_period_message(state_path: str | Path, *, period: str) -> str:
             )
     else:
         lines.extend(
-            ["No simulated positions are open.", "Next: Keep watching until a new entry trigger is confirmed."]
+            [
+                "No simulated positions are open.",
+                "Next: Keep watching until a new entry trigger is confirmed.",
+            ]
         )
     lines.extend(["", "This is a simulated research portfolio, not investment advice."])
     return "\n".join(lines)

@@ -71,22 +71,31 @@ def main():
         paths = [argv[argv.index("--bin") + 1]]
     elif "--parts-dir" in argv:
         d = argv[argv.index("--parts-dir") + 1]
-        paths = sorted(glob.glob(os.path.join(d, "sf_recent_*.bin")) + glob.glob(os.path.join(d, "sf_deep_*.bin")))
+        paths = sorted(
+            glob.glob(os.path.join(d, "sf_recent_*.bin"))
+            + glob.glob(os.path.join(d, "sf_deep_*.bin"))
+        )
 
     if "--calendar" in argv and not paths:
         cal = json.load(open(CAL))
         tdays, me_days = cal["tdays"], set(cal["me_days"])
     else:
         if not paths:
-            sys.exit("need --bin/--parts-dir (or --calendar to use the committed gate_calendar.json)")
+            sys.exit(
+                "need --bin/--parts-dir (or --calendar to use the committed gate_calendar.json)"
+            )
         tdays = sorted(bar_dates(paths))
         me = {}
         for d in tdays:
             me[d // 100] = d  # ascending -> last one per month wins
         me_days = set(me.values())
-        json.dump({"tdays": tdays, "me_days": sorted(me_days)}, open(CAL, "w"), separators=(",", ":"))
+        json.dump(
+            {"tdays": tdays, "me_days": sorted(me_days)}, open(CAL, "w"), separators=(",", ":")
+        )
         if "--calendar-only" in argv:
-            print(f"gate_calendar.json: {len(tdays)} trading days ({tdays[0]}..{tdays[-1]}), {len(me_days)} month-ends")
+            print(
+                f"gate_calendar.json: {len(tdays)} trading days ({tdays[0]}..{tdays[-1]}), {len(me_days)} month-ends"
+            )
             return
 
     fund = json.load(open(os.path.join(DOCS, "sf_fundamentals.json")))
@@ -136,9 +145,15 @@ def main():
                         dates.add(r[idx])
 
     json.dump(tdays, open(os.path.join(HERE, "_trading_days.json"), "w"), separators=(",", ":"))
-    json.dump(sorted(me_days), open(os.path.join(HERE, "_me_days.json"), "w"), separators=(",", ":"))
-    json.dump(sorted(events), open(os.path.join(HERE, "_gate_events.json"), "w"), separators=(",", ":"))
-    json.dump(sorted(dates), open(os.path.join(HERE, "_gate_dates.json"), "w"), separators=(",", ":"))
+    json.dump(
+        sorted(me_days), open(os.path.join(HERE, "_me_days.json"), "w"), separators=(",", ":")
+    )
+    json.dump(
+        sorted(events), open(os.path.join(HERE, "_gate_events.json"), "w"), separators=(",", ":")
+    )
+    json.dump(
+        sorted(dates), open(os.path.join(HERE, "_gate_dates.json"), "w"), separators=(",", ":")
+    )
     print(
         f"trading days {len(tdays)} ({tdays[0]}..{tdays[-1]}), month-ends {len(me_days)}, "
         f"gate events {len(events)} across {len(dates)} distinct dates"

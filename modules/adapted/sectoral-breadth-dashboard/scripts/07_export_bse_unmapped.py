@@ -27,7 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Exports all incomplete/retryable classifications for BSE fallback processing.
 
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -65,15 +65,13 @@ def clean_series(series: pd.Series) -> pd.Series:
 
 def main() -> None:
     if not INPUT_FILE.exists():
-        msg = f"Missing classified master file: {INPUT_FILE}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing classified master file: {INPUT_FILE}")
 
     master = pd.read_parquet(INPUT_FILE).copy()
     required = ["symbol", "isin", "classification_status", "sector", "industry", "basic_industry"]
     missing = [column for column in required if column not in master.columns]
     if missing:
-        msg = f"Master file missing required columns: {missing}"
-        raise ValueError(msg)
+        raise ValueError(f"Master file missing required columns: {missing}")
 
     for column in [
         "symbol",
@@ -96,20 +94,24 @@ def main() -> None:
             master[column] = ""
         master[column] = clean_series(master[column])
 
-    hierarchy_complete = master["sector"].ne("") & master["industry"].ne("") & master["basic_industry"].ne("")
+    hierarchy_complete = (
+        master["sector"].ne("") & master["industry"].ne("") & master["basic_industry"].ne("")
+    )
     retryable = master["classification_status"].isin(RETRYABLE_STATUSES)
     unmapped = master[~hierarchy_complete & retryable].copy()
 
     # Avoid blank identity records: they cannot safely be resolved by BSE/Yahoo.
     unmapped = unmapped[(unmapped["symbol"] != "") & (unmapped["isin"] != "")].copy()
-    unmapped["report_generated_at_utc"] = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    unmapped["report_generated_at_utc"] = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
 
     columns = [column for column in REPORT_COLUMNS if column in unmapped.columns]
     columns.append("report_generated_at_utc")
     unmapped = unmapped[columns].drop_duplicates(subset=["isin"], keep="last")
-    unmapped = unmapped.sort_values(["classification_status", "bse_attempt_count", "symbol", "isin"]).reset_index(
-        drop=True
-    )
+    unmapped = unmapped.sort_values(
+        ["classification_status", "bse_attempt_count", "symbol", "isin"]
+    ).reset_index(drop=True)
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     unmapped.to_csv(OUTPUT_FILE, index=False)

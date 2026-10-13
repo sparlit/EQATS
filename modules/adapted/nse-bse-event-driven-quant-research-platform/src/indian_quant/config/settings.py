@@ -64,7 +64,9 @@ class UpstoxConfig(BaseModel):
     api_key_env: str = "UPSTOX_API_KEY"
     access_token_env: str = "UPSTOX_ACCESS_TOKEN"
     ws_url: str = "wss://api.upstox.com/v3/feed/market-data-feed"
-    instrument_master_url: str = "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"
+    instrument_master_url: str = (
+        "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"
+    )
 
     def _env_file_token(self) -> str | None:
         """Read UPSTOX_ACCESS_TOKEN from .env files near the project root."""
@@ -178,8 +180,7 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
 
     path = Path(config_path)
     if not path.exists():
-        msg = f"config not found: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"config not found: {path}")
     payload: dict[str, Any] = yaml.safe_load(path.read_text()) or {}
 
     chain: list[dict[str, Any]] = []

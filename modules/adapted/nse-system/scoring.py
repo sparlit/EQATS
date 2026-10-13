@@ -52,10 +52,51 @@ def band_low(value, stops):
     return 5
 
 
-ROCE_STOPS = [(30, 98), (25, 92), (22, 85), (19, 78), (16, 70), (13, 60), (10, 50), (7, 40), (4, 25), (0, 10)]
-PROFIT_STOPS = [(30, 98), (22, 90), (17, 80), (12, 70), (8, 60), (4, 50), (0, 40), (-5, 30), (-15, 15)]
-SALES_STOPS = [(25, 98), (18, 90), (13, 80), (9, 70), (5, 60), (2, 50), (0, 40), (-5, 25), (-10, 10)]
-PE_RATIO_STOPS = [(0.7, 98), (0.85, 90), (1.0, 80), (1.15, 70), (1.3, 60), (1.5, 50), (1.8, 40), (2.2, 30), (3.0, 15)]
+ROCE_STOPS = [
+    (30, 98),
+    (25, 92),
+    (22, 85),
+    (19, 78),
+    (16, 70),
+    (13, 60),
+    (10, 50),
+    (7, 40),
+    (4, 25),
+    (0, 10),
+]
+PROFIT_STOPS = [
+    (30, 98),
+    (22, 90),
+    (17, 80),
+    (12, 70),
+    (8, 60),
+    (4, 50),
+    (0, 40),
+    (-5, 30),
+    (-15, 15),
+]
+SALES_STOPS = [
+    (25, 98),
+    (18, 90),
+    (13, 80),
+    (9, 70),
+    (5, 60),
+    (2, 50),
+    (0, 40),
+    (-5, 25),
+    (-10, 10),
+]
+PE_RATIO_STOPS = [
+    (0.7, 98),
+    (0.85, 90),
+    (1.0, 80),
+    (1.15, 70),
+    (1.3, 60),
+    (1.5, 50),
+    (1.8, 40),
+    (2.2, 30),
+    (3.0, 15),
+]
 PEG_STOPS = [(0.7, 98), (1.0, 90), (1.3, 80), (1.7, 70), (2.2, 60), (3.0, 50), (5.0, 30)]
 
 
@@ -78,7 +119,10 @@ def sector_pe_medians(conn):
 
 def price_stats(conn, symbol):
     q1 = "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 1"
-    q2 = "SELECT AVG(close) FROM (SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 200)"
+    q2 = (
+        "SELECT AVG(close) FROM (SELECT close FROM prices_daily "
+        "WHERE symbol=? ORDER BY date DESC LIMIT 200)"
+    )
     q3 = (
         "SELECT AVG(close*volume) FROM (SELECT close,volume "
         "FROM prices_daily "
@@ -104,7 +148,15 @@ def score_stock(conn, symbol, medians):
 
     de = m.get("debt_to_equity")
     if is_financial(sector):
-        gates.append(("G1 Debt/Equity", True, de, "skipped (financial)", "Pass: bank/NBFC, debt rule skipped"))
+        gates.append(
+            (
+                "G1 Debt/Equity",
+                True,
+                de,
+                "skipped (financial)",
+                "Pass: bank/NBFC, debt rule skipped",
+            )
+        )
     elif de is None:
         gates.append(("G1 Debt/Equity", False, None, "<=1.5", "FAIL: debt data missing"))
     else:
@@ -122,7 +174,15 @@ def score_stock(conn, symbol, medians):
 
     cfo = m.get("cfo_positive")
     if is_financial(sector):
-        gates.append(("G3 CFO positive", True, cfo, "skipped (financial)", "Pass: bank/NBFC, CFO rule skipped"))
+        gates.append(
+            (
+                "G3 CFO positive",
+                True,
+                cfo,
+                "skipped (financial)",
+                "Pass: bank/NBFC, CFO rule skipped",
+            )
+        )
     elif cfo is None:
         gates.append(("G3 CFO positive", False, None, "=1", "FAIL: cash flow data missing"))
     else:

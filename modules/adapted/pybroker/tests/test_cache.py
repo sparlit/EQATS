@@ -50,7 +50,7 @@ from pybroker.cache import (
 from .fixtures import *
 
 
-@pytest.fixture
+@pytest.fixture()
 def setup_teardown(scope, tmp_path):
     with mock.patch.object(os, "getcwd", return_value=tmp_path):
         yield
@@ -67,14 +67,14 @@ def cache_dir(request, tmp_path):
     return tmp_path / request.param if request.param is not None else None
 
 
-@pytest.fixture
+@pytest.fixture()
 def cache_path(tmp_path, cache_dir):
     return tmp_path / ".pybrokercache" if cache_dir is None else cache_dir
 
 
 @pytest.mark.usefixtures("setup_teardown")
 @pytest.mark.parametrize(
-    ("enable_fn", "disable_fn", "cache_attr"),
+    "enable_fn, disable_fn, cache_attr",
     [
         (
             enable_data_source_cache,
@@ -99,7 +99,7 @@ def test_enable_and_disable_cache(scope, enable_fn, disable_fn, cache_attr, cach
 
 @pytest.mark.usefixtures("setup_teardown")
 @pytest.mark.parametrize(
-    ("enable_fn", "clear_fn", "cache_attr"),
+    "enable_fn, clear_fn, cache_attr",
     [
         (
             enable_data_source_cache,
@@ -119,7 +119,7 @@ def test_clear_cache_when_enabled_then_success(scope, enable_fn, clear_fn, cache
 
 @pytest.mark.usefixtures("setup_teardown")
 @pytest.mark.parametrize(
-    ("clear_fn", "expected_msg"),
+    "clear_fn, expected_msg",
     [
         (
             clear_data_source_cache,

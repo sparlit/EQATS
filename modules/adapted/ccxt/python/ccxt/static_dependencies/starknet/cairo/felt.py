@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import List
-
 from ..constants import FIELD_PRIME
 
 CairoData = list[int]
@@ -34,8 +32,7 @@ MIN_UINT256 = 0
 
 def uint256_range_check(value: int):
     if not MIN_UINT256 <= value <= MAX_UINT256:
-        msg = f"Uint256 is expected to be in range [0;2**256), got: {value}."
-        raise ValueError(msg)
+        raise ValueError(f"Uint256 is expected to be in range [0;2**256), got: {value}.")
 
 
 MIN_FELT = -FIELD_PRIME // 2
@@ -48,8 +45,7 @@ def is_in_felt_range(value: int) -> bool:
 
 def cairo_vm_range_check(value: int):
     if not is_in_felt_range(value):
-        msg = f"Felt is expected to be in range [0; {FIELD_PRIME}), got: {value}."
-        raise ValueError(msg)
+        raise ValueError(f"Felt is expected to be in range [0; {FIELD_PRIME}), got: {value}.")
 
 
 def encode_shortstring(text: str) -> int:
@@ -60,14 +56,12 @@ def encode_shortstring(text: str) -> int:
     :return: Short string value encoded into felt
     """
     if len(text) > 31:
-        msg = f"Shortstring cannot be longer than 31 characters, got: {len(text)}."
-        raise ValueError(msg)
+        raise ValueError(f"Shortstring cannot be longer than 31 characters, got: {len(text)}.")
 
     try:
         text_bytes = text.encode("ascii")
     except UnicodeEncodeError as u_err:
-        msg = f"Expected an ascii string. Found: {text!r}."
-        raise ValueError(msg) from u_err
+        raise ValueError(f"Expected an ascii string. Found: {repr(text)}.") from u_err
     value = int.from_bytes(text_bytes, "big")
 
     cairo_vm_range_check(value)

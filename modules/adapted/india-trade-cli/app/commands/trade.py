@@ -97,7 +97,9 @@ def run(symbol: str | None = None, view: str | None = None) -> None:
         try:
             spot = get_ltp(f"NSE:{symbol} 50")  # index format
         except Exception:
-            spot = float(Prompt.ask(f"[yellow]Could not fetch LTP for {symbol}. Enter manually[/yellow]"))
+            spot = float(
+                Prompt.ask(f"[yellow]Could not fetch LTP for {symbol}. Enter manually[/yellow]")
+            )
 
     capital = float(os.environ.get("TOTAL_CAPITAL", 200_000))
     risk_pct = float(os.environ.get("DEFAULT_RISK_PCT", 2))
@@ -113,7 +115,9 @@ def run(symbol: str | None = None, view: str | None = None) -> None:
     report = recommend(symbol=symbol, view=view, spot=spot, capital=capital, risk_pct=risk_pct)
 
     if not report.strategies:
-        console.print("[red]No strategies available for this view. Try a different symbol or view.[/red]")
+        console.print(
+            "[red]No strategies available for this view. Try a different symbol or view.[/red]"
+        )
         return
 
     _show_strategies(report.strategies[:3])
@@ -122,7 +126,7 @@ def run(symbol: str | None = None, view: str | None = None) -> None:
     choices = [str(i + 1) for i in range(min(3, len(report.strategies)))]
     choice = Prompt.ask(
         "\n[bold]Select strategy[/bold]",
-        choices=[*choices, "0"],
+        choices=choices + ["0"],
         default="1",
     )
     if choice == "0":
@@ -153,7 +157,9 @@ def run(symbol: str | None = None, view: str | None = None) -> None:
     console.print(f"  Stop-loss set at ₹{sl_price:,.2f}  ({sl_pct:.1f}% from spot)")
 
     if sl_pct > 10:
-        console.print("[yellow]  ⚠  Stop-loss is >10% away — very wide. Consider tighter risk management.[/yellow]")
+        console.print(
+            "[yellow]  ⚠  Stop-loss is >10% away — very wide. Consider tighter risk management.[/yellow]"
+        )
 
     # ── Step 7: Final confirmation ─────────────────────────────
     mode = os.environ.get("TRADING_MODE", "PAPER")
@@ -161,7 +167,10 @@ def run(symbol: str | None = None, view: str | None = None) -> None:
 
     console.print(f"\n  Mode: {mode_badge}")
     console.print(f"  Strategy: [bold]{selected.name}[/bold]")
-    console.print(f"  Max loss: [red]₹{abs(selected.max_loss):,.0f}[/red]  ({risk_pct_actual:.1f}% of capital)")
+    console.print(
+        f"  Max loss: [red]₹{abs(selected.max_loss):,.0f}[/red]  "
+        f"({risk_pct_actual:.1f}% of capital)"
+    )
     console.print(f"  Stop-loss: ₹{sl_price:,.2f}")
 
     if not Confirm.ask("\n  [bold]Confirm and place order?[/bold]", default=False):
@@ -271,4 +280,6 @@ def _place_strategy_legs(broker, strategy: StrategyResult, symbol: str, mode: st
         except Exception as e:
             console.print(f"  [red]✗  Failed to place {action} {trade_symbol}: {e}[/red]")
 
-    console.print("\n  [bold green]Order(s) placed.[/bold green] Use [bold]positions[/bold] to monitor.\n")
+    console.print(
+        "\n  [bold green]Order(s) placed.[/bold green] Use [bold]positions[/bold] to monitor.\n"
+    )

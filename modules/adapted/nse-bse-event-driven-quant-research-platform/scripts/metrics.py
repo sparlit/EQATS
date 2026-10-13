@@ -58,7 +58,9 @@ def collect_metrics(settings) -> dict[str, float | int]:
         jobs_total = con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
         jobs_failed = con.execute("SELECT COUNT(*) FROM jobs WHERE status='FAILED'").fetchone()[0]
         runs_total = con.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
-        qr_total, qr_err = con.execute("SELECT COUNT(*), COALESCE(SUM(n_errors),0) FROM quality_reports").fetchone()
+        qr_total, qr_err = con.execute(
+            "SELECT COUNT(*), COALESCE(SUM(n_errors),0) FROM quality_reports"
+        ).fetchone()
         last_job = con.execute("SELECT MAX(finished_at) FROM jobs").fetchone()[0]
         out.update(
             {
@@ -73,7 +75,9 @@ def collect_metrics(settings) -> dict[str, float | int]:
         if last_job:
             try:
                 last_dt = datetime.fromisoformat(last_job)
-                out["seconds_since_last_finished_job"] = max(0, int((datetime.now(UTC) - last_dt).total_seconds()))
+                out["seconds_since_last_finished_job"] = max(
+                    0, int((datetime.now(UTC) - last_dt).total_seconds())
+                )
             except ValueError:
                 pass
     finally:
@@ -91,7 +95,7 @@ def render(metrics: dict[str, float | int]) -> str:
 class MetricsHandler(BaseHTTPRequestHandler):
     payload = ""
 
-    def do_GET(self):
+    def do_GET(self):  # noqa: N802
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.end_headers()

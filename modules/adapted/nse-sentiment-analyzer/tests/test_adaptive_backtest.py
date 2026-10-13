@@ -131,7 +131,9 @@ class TestSyntheticDataGeneration:
     def test_daily_series_basic_properties(self):
         series = SyntheticMarketData.generate_price_series(days=100)
         assert len(series) == 100
-        assert all(k in series[0] for k in ["date", "time", "open", "high", "low", "close", "volume"])
+        assert all(
+            k in series[0] for k in ["date", "time", "open", "high", "low", "close", "volume"]
+        )
         assert all(s["high"] >= s["low"] for s in series)
         assert all(s["high"] >= max(s["open"], s["close"]) for s in series)
         assert all(s["low"] <= min(s["open"], s["close"]) for s in series)
@@ -188,7 +190,18 @@ class MockNewsGenerator:
         ],
     }
 
-    TICKERS = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "LT", "AXISBANK"]
+    TICKERS = [
+        "RELIANCE",
+        "TCS",
+        "INFY",
+        "HDFCBANK",
+        "ICICIBANK",
+        "SBIN",
+        "BHARTIARTL",
+        "ITC",
+        "LT",
+        "AXISBANK",
+    ]
 
     @classmethod
     def generate_articles(
@@ -210,7 +223,9 @@ class MockNewsGenerator:
             body = f"{title}. Market reacted to the news with volume spikes."
 
             # Determine source
-            source = np.random.choice(["Economic Times", "Moneycontrol", "LiveMint", "Business Standard", "ET Now"])
+            source = np.random.choice(
+                ["Economic Times", "Moneycontrol", "LiveMint", "Business Standard", "ET Now"]
+            )
 
             # Assign expected sentiment based on category
             if category in ["earnings_beat", "crude_oil", "gold", "banking", "it_sector"]:
@@ -228,7 +243,9 @@ class MockNewsGenerator:
                     "ticker": ticker,
                     "category": category,
                     "expected_sentiment": expected_sentiment,
-                    "date": (datetime.now() - timedelta(days=np.random.randint(0, 30))).strftime("%Y-%m-%d"),
+                    "date": (datetime.now() - timedelta(days=np.random.randint(0, 30))).strftime(
+                        "%Y-%m-%d"
+                    ),
                     "url": f"https://example.com/news/{i}",
                 }
             )
@@ -246,7 +263,10 @@ class TestMockNewsGenerator:
     def test_has_required_fields(self):
         articles = MockNewsGenerator.generate_articles(count=10, seed=42)
         for a in articles:
-            assert all(k in a for k in ["title", "body", "source", "ticker", "category", "expected_sentiment"])
+            assert all(
+                k in a
+                for k in ["title", "body", "source", "ticker", "category", "expected_sentiment"]
+            )
 
     def test_categories_match_templates(self):
         articles = MockNewsGenerator.generate_articles(count=100, seed=42)
@@ -281,10 +301,16 @@ class BacktestResult:
         self.total_predictions += 1
         error = abs(actual - predicted)
         self.mae = (self.mae * (self.total_predictions - 1) + error) / self.total_predictions
-        self.rmse = np.sqrt((self.rmse**2 * (self.total_predictions - 1) + error**2) / self.total_predictions)
+        self.rmse = np.sqrt(
+            (self.rmse**2 * (self.total_predictions - 1) + error**2) / self.total_predictions
+        )
 
         # Direction accuracy
-        if (actual > 0 and predicted > 0) or (actual < 0 and predicted < 0) or (actual == 0 and predicted == 0):
+        if (
+            (actual > 0 and predicted > 0)
+            or (actual < 0 and predicted < 0)
+            or (actual == 0 and predicted == 0)
+        ):
             self.correct_direction += 1
         self.direction_accuracy = self.correct_direction / self.total_predictions
 
@@ -293,7 +319,11 @@ class BacktestResult:
             self.by_category[category] = {"correct": 0, "total": 0, "mae": 0.0}
         cat = self.by_category[category]
         cat["total"] += 1
-        if (actual > 0 and predicted > 0) or (actual < 0 and predicted < 0) or (actual == 0 and predicted == 0):
+        if (
+            (actual > 0 and predicted > 0)
+            or (actual < 0 and predicted < 0)
+            or (actual == 0 and predicted == 0)
+        ):
             cat["correct"] += 1
         cat["mae"] = (cat["mae"] * (cat["total"] - 1) + abs(actual - predicted)) / cat["total"]
 
@@ -302,7 +332,11 @@ class BacktestResult:
             self.by_ticker[ticker] = {"correct": 0, "total": 0, "mae": 0.0}
         tik = self.by_ticker[ticker]
         tik["total"] += 1
-        if (actual > 0 and predicted > 0) or (actual < 0 and predicted < 0) or (actual == 0 and predicted == 0):
+        if (
+            (actual > 0 and predicted > 0)
+            or (actual < 0 and predicted < 0)
+            or (actual == 0 and predicted == 0)
+        ):
             tik["correct"] += 1
         tik["mae"] = (tik["mae"] * (tik["total"] - 1) + abs(actual - predicted)) / tik["total"]
 
@@ -312,8 +346,12 @@ class BacktestResult:
             "direction_accuracy": round(self.direction_accuracy, 4),
             "mae": round(self.mae, 4),
             "rmse": round(self.rmse, 4),
-            "by_category": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in self.by_category.items()},
-            "by_ticker": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in self.by_ticker.items()},
+            "by_category": {
+                k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in self.by_category.items()
+            },
+            "by_ticker": {
+                k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in self.by_ticker.items()
+            },
         }
 
 
@@ -444,8 +482,12 @@ class TestBacktestHarness:
         self.price_series = {}
         for ticker in MockNewsGenerator.TICKERS:
             self.price_series[ticker] = {
-                "1h": SyntheticMarketData.generate_intraday_series(hours=200, seed=hash(ticker) % 1000),
-                "4h": SyntheticMarketData.generate_intraday_series(hours=200, seed=hash(ticker) % 1000 + 100),
+                "1h": SyntheticMarketData.generate_intraday_series(
+                    hours=200, seed=hash(ticker) % 1000
+                ),
+                "4h": SyntheticMarketData.generate_intraday_series(
+                    hours=200, seed=hash(ticker) % 1000 + 100
+                ),
             }
 
     def test_backtest_runs_without_errors(self):
@@ -474,7 +516,7 @@ class TestBacktestHarness:
         """Results should be broken down by category."""
         result = run_adaptive_backtest(self.articles, self.price_series)
         assert len(result.by_category) > 0
-        for metrics in result.by_category.values():
+        for _cat, metrics in result.by_category.items():
             assert "correct" in metrics
             assert "total" in metrics
             assert "mae" in metrics
@@ -529,17 +571,23 @@ class TestExtractPriceMoves:
         self.headline_time = datetime.fromtimestamp(self.hist_1h[50]["time"] / 1000)
 
     def test_extract_returns_tuple(self):
-        move_1h, move_4h = extract_price_moves_for_learning("TEST", self.headline_time, self.hist_1h, self.hist_4h)
+        move_1h, move_4h = extract_price_moves_for_learning(
+            "TEST", self.headline_time, self.hist_1h, self.hist_4h
+        )
         assert isinstance(move_1h, float)
         assert isinstance(move_4h, float)
 
     def test_empty_history_returns_zero(self):
-        move_1h, move_4h = extract_price_moves_for_learning("TEST", datetime.now().isoformat(), [], [])
+        move_1h, move_4h = extract_price_moves_for_learning(
+            "TEST", datetime.now().isoformat(), [], []
+        )
         assert move_1h == 0.0
         assert move_4h == 0.0
 
     def test_moves_reasonable_magnitude(self):
-        move_1h, move_4h = extract_price_moves_for_learning("TEST", self.headline_time, self.hist_1h, self.hist_4h)
+        move_1h, move_4h = extract_price_moves_for_learning(
+            "TEST", self.headline_time, self.hist_1h, self.hist_4h
+        )
         # 1h moves should typically be <5%, 4h <10%
         assert abs(move_1h) < 10
         assert abs(move_4h) < 15
@@ -615,9 +663,24 @@ class TestDisseminationClustererIntegration:
         from adaptive_sentiment import get_dissemination_clusterer
 
         articles = [
-            {"title": "Crude oil surges", "body": "Brent crude rises on supply cuts", "source": "ET", "ticker": "ONGC"},
-            {"title": "Brent crude rises", "body": "Oil prices jump on OPEC", "source": "MC", "ticker": "OIL"},
-            {"title": "Gold prices steady", "body": "Gold holds near 1900", "source": "ET", "ticker": "GOLDBEES"},
+            {
+                "title": "Crude oil surges",
+                "body": "Brent crude rises on supply cuts",
+                "source": "ET",
+                "ticker": "ONGC",
+            },
+            {
+                "title": "Brent crude rises",
+                "body": "Oil prices jump on OPEC",
+                "source": "MC",
+                "ticker": "OIL",
+            },
+            {
+                "title": "Gold prices steady",
+                "body": "Gold holds near 1900",
+                "source": "ET",
+                "ticker": "GOLDBEES",
+            },
         ]
 
         clusterer = get_dissemination_clusterer()
@@ -625,7 +688,9 @@ class TestDisseminationClustererIntegration:
 
         # Crude oil articles should cluster together
         assert len(clusters) >= 1
-        crude_cluster = next((c for c in clusters if any("commodity:crude" in e for e in c["entities"])), None)
+        crude_cluster = next(
+            (c for c in clusters if any("commodity:crude" in e for e in c["entities"])), None
+        )
         assert crude_cluster is not None
         assert crude_cluster["size"] >= 2
 

@@ -23,7 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Tests for the source_status envelope."""
 import pytest
-from source_status import SOURCE_STATUSES, make_status, worst_status
+from source_status import make_status, worst_status
 
 
 def test_make_status_basic():

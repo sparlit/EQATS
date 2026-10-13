@@ -72,11 +72,8 @@ import os
 import re
 import sys
 import time
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import itertools
-
 import build_fundamentals as B
 import fitz
 import gemini_vision as GV
@@ -111,14 +108,22 @@ INSURERS = {
 }
 
 MON = {
-    m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1
+    )
 }
 
 
 # ---------- quarter arithmetic ----------
 def prevq(qe):
     y, md = qe // 10000, qe % 10000
-    return {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
+    return {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
 
 
 def yago(qe):
@@ -154,7 +159,9 @@ def nse_get_json(url, jar, ref):
 def integrated_rows(sym, jar):
     u = f"https://www.nseindia.com/api/integrated-filing-results?index=equities&period=Quarterly&symbol={sym}"
     try:
-        jb = nse_get_json(u, jar, "https://www.nseindia.com/companies-listing/corporate-filings-financial-results")
+        jb = nse_get_json(
+            u, jar, "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"
+        )
         return jb.get("data", jb if isinstance(jb, list) else [])
     except Exception as e:
         print(f"  {sym}: integrated list err: {str(e)[:80]}")
@@ -174,11 +181,11 @@ def qe_from_ann(a):
     return 0
 
 
-_ANN_GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.IGNORECASE)
+_ANN_GOOD = re.compile(r"financial result|integrated filing|outcome of board", re.I)
 _ANN_BAD = re.compile(
     r"newspaper|analyst|investor (presentation|meet)|press release|transcript"
     r"|schedule|earnings call|record date|dividend only",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -197,7 +204,9 @@ def announcement_pdfs(sym, qe, jar):
             f"&from_date={_ddmmyyyy(qe, 5)}&to_date={_ddmmyyyy(qe, 170)}"
         )
         try:
-            rows = nse_get_json(u, jar, "https://www.nseindia.com/companies-listing/corporate-filings-announcements")
+            rows = nse_get_json(
+                u, jar, "https://www.nseindia.com/companies-listing/corporate-filings-announcements"
+            )
             if isinstance(rows, dict):
                 rows = rows.get("data", []) or []
         except Exception:
@@ -213,7 +222,9 @@ def announcement_pdfs(sym, qe, jar):
             a = B.iso(str(rec.get("an_dt", "")) or str(rec.get("sort_date", "")))
             if a and qe_from_ann(int(a)) != qe:
                 continue
-            m = re.match(r"([\d.]+)\s*(KB|MB|GB)", str(rec.get("fileSize") or rec.get("attFileSize") or ""))
+            m = re.match(
+                r"([\d.]+)\s*(KB|MB|GB)", str(rec.get("fileSize") or rec.get("attFileSize") or "")
+            )
             sz = float(m.group(1)) * {"KB": 0.001, "MB": 1, "GB": 1000}[m.group(2)] if m else 0
             cands.append((sz, f))
         if cands:
@@ -230,7 +241,10 @@ def announcement_pdfs(sym, qe, jar):
 def fetch_pdf(url):
     try:
         raw = B._get(
-            url, headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"}, timeout=180, binary=True
+            url,
+            headers={"User-Agent": B.UA, "Referer": "https://www.nseindia.com/"},
+            timeout=180,
+            binary=True,
         )
         return raw if raw[:4] == b"%PDF" else None
     except Exception:
@@ -238,16 +252,18 @@ def fetch_pdf(url):
 
 
 # ---------- text-layer parsing ----------
-_NUMTOK = re.compile(r"^\(?-?[\d,]+\.\d{1,2}\)?$|^\(?-?[\d,]{4,}\)?$")  # decimals, or >=4-digit ints
-_PAT_ROW = re.compile(r"profit.{0,28}after tax|profit.{0,25}for the (period|quarter|year)", re.IGNORECASE)
-_OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.IGNORECASE)
+_NUMTOK = re.compile(
+    r"^\(?-?[\d,]+\.\d{1,2}\)?$|^\(?-?[\d,]{4,}\)?$"
+)  # decimals, or >=4-digit ints
+_PAT_ROW = re.compile(r"profit.{0,28}after tax|profit.{0,25}for the (period|quarter|year)", re.I)
+_OWN = re.compile(r"(owners|equity ?holders|equityholders|attributab)", re.I)
 _BAD_ROW = re.compile(
     r"before tax|comprehensive|segment|exceptional|carried to|balance sheet|margin"
     r"|per share|earnings per|eps\b|ratio|paid.?up|dividend|non-controlling"
     r"|minority|reserve|tax expense|deferred",
-    re.IGNORECASE,
+    re.I,
 )
-_REV_ROW = re.compile(r"^[ivx0-9 .()|]{0,8}(revenue|income) from operations", re.IGNORECASE)
+_REV_ROW = re.compile(r"^[ivx0-9 .()|]{0,8}(revenue|income) from operations", re.I)
 
 _DATE_PATS = [
     re.compile(r"^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$"),  # 31/03/2026, 31.03.2026
@@ -294,13 +310,30 @@ def _tv(w):
     t = _numtok(w)
     if t is None:
         return None
-    neg = t.startswith(("(", "-"))
-    t = t.replace(",", "").replace("(", "").replace(")", "").lstrip("-")
+    neg = t.startswith("(") or t.startswith("-")
+    t = t.replace("(", "").replace(")", "").lstrip("-")
+    # §220c: a text layer that prints the decimal POINT as a comma ("173,49") — no Western or Indian digit grouping
+    # ends in a 2-digit group, so a final ",dd" with no "." is a decimal comma (PRITIKA's Mar-2025 column read 17,349).
+    if "." not in t and re.search(r",\d{2}$", t):
+        t = t[:-3].replace(",", "") + "." + t[-2:]
+    else:
+        t = t.replace(",", "")
     try:
         v = float(t)
         return -v if neg else v
     except Exception:
         return None
+
+
+_DECTOK = re.compile(r"[.,]\d{1,2}\)?$")
+
+
+def _keep_decimals(ws):
+    """§220c: in a row printed to 2 decimals, a whole-number cell is a figure whose decimal point the text layer LOST
+    (VMSTMT's Mar-2025 PAT "361.71" read as 36171, a 100x error that passed the anchor). Drop such cells rather than
+    guess where the point was; a row printed as whole numbers throughout keeps every cell."""
+    dec = [bool(_DECTOK.search(_numtok(w[4]) or "")) for w in ws]
+    return [w for w, d in zip(ws, dec, strict=False) if d] if sum(dec) >= 2 else ws
 
 
 def _lines(words):
@@ -358,13 +391,18 @@ def _metric_rows(lines, all_words):
             kind = "pat"
         if not kind:
             continue
-        cells = [((w[0] + w[2]) / 2, _tv(w[4])) for w in ln if _numtok(w[4])]
+        cells = [
+            ((w[0] + w[2]) / 2, _tv(w[4])) for w in _keep_decimals([w for w in ln if _numtok(w[4])])
+        ]
         cells = [(x, v) for x, v in cells if v is not None]
         if len(cells) < 2:  # figures on a nearby baseline — band-merge
             ly = sum(w[1] for w in ln) / len(ln)
             lx = max((w[2] for w in ln if not _numtok(w[4])), default=ln[0][0])
             band = [w for w in numw if abs((w[1] + w[3]) / 2 - ly) <= 8 and w[0] > lx - 2]
-            cells = [((w[0] + w[2]) / 2, _tv(w[4])) for w in sorted(band, key=lambda w: w[0])]
+            cells = [
+                ((w[0] + w[2]) / 2, _tv(w[4]))
+                for w in _keep_decimals(sorted(band, key=lambda w: w[0]))
+            ]
             cells = [(x, v) for x, v in cells if v is not None]
         if len(cells) >= 2:
             out.append((kind, bool(_OWN.search(label)), cells))
@@ -378,7 +416,7 @@ def _map_columns(dates, cells):
     if not dates or not cells:
         return None
     xs = [x for x, _ in dates]
-    gaps = [b - a for a, b in itertools.pairwise(xs)] or [120.0]
+    gaps = [b - a for a, b in zip(xs, xs[1:], strict=False)] or [120.0]
     tol = max(28.0, min(gaps) * 0.6)
     col_zone = min(xs) - tol  # figures start at the first header column
     used = {}
@@ -422,7 +460,12 @@ def parse_pdf_text(pdf, ident_tokens):
         if not rows:
             continue
         first_row_y = min(
-            (min(w[1] for w in ln) for ln in lines if _PAT_ROW.search(" ".join(x[4] for x in ln).lower())), default=None
+            (
+                min(w[1] for w in ln)
+                for ln in lines
+                if _PAT_ROW.search(" ".join(x[4] for x in ln).lower())
+            ),
+            default=None,
         )
         dates = _page_dates(lines, below_y=first_row_y)
         pages.append(
@@ -438,7 +481,14 @@ def parse_pdf_text(pdf, ident_tokens):
 
 
 def _close(a, b, tol_pct=0.03, tol_abs=2.0):
-    return a is not None and b is not None and abs(a - b) <= max(abs(b) * tol_pct, tol_abs)
+    # §220c: the absolute allowance is capped at a quarter of the stored value (floor Rs 0.01 cr, the rounding of a
+    # 2-decimal crore figure). Uncapped, Rs 2 cr let a small filer's LAKH figure pass as crore (CURAA -1.38 "cr" vs the
+    # stored -0.01) and a quarter column anchor on a stored half-year (PRITIKA 1.36 vs 3.03).
+    return (
+        a is not None
+        and b is not None
+        and abs(a - b) <= max(abs(b) * tol_pct, min(tol_abs, abs(b) * 0.25), 0.01)
+    )
 
 
 def columns_for(page, qe):
@@ -487,6 +537,7 @@ def extract_anchored(pages, qe, want_con, cur_pat, prec_pat, cur_rev):
             if not m or cols["cur"] not in m:
                 continue
             raw_cur = m[cols["cur"]]
+            fits = []  # §220c: every scale that anchors, best fit first
             for div in DIVS:
                 if not _close(raw_cur / div, cur_pat):
                     continue
@@ -497,6 +548,8 @@ def extract_anchored(pages, qe, want_con, cur_pat, prec_pat, cur_rev):
                     and not _close(m[cols["prec"]] / div, prec_pat)
                 ):
                     continue
+                fits.append((abs(raw_cur / div - cur_pat), div))
+            for _err, div in sorted(fits)[:1]:
                 out = {"pat": {}, "rev": {}, "div": div}
                 for k in ("prec", "yago"):
                     ci = cols[k]
@@ -510,7 +563,9 @@ def extract_anchored(pages, qe, want_con, cur_pat, prec_pat, cur_rev):
                         continue
                     for k in ("prec", "yago"):
                         ci = cols[k]
-                        out["rev"][k] = round(rm[ci] / div, 2) if ci is not None and ci in rm else None
+                        out["rev"][k] = (
+                            round(rm[ci] / div, 2) if ci is not None and ci in rm else None
+                        )
                     break
                 return out
     return None
@@ -520,7 +575,7 @@ def extract_anchored(pages, qe, want_con, cur_pat, prec_pat, cur_rev):
 _PL_HINT = re.compile(
     r"profit.{0,28}after tax|statement of (un)?audited|financial results"
     r"|revenue from operations|profit before tax",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -534,7 +589,11 @@ def render_pngs(pdf, ident_tokens):
     full = " ".join(texts)
     if ident_tokens and full.strip() and not any(t.upper() in full.upper() for t in ident_tokens):
         return None
-    pages = [p for p in range(N) if _PL_HINT.search(texts[p]) or (not texts[p].strip() and doc[p].get_images())]
+    pages = [
+        p
+        for p in range(N)
+        if _PL_HINT.search(texts[p]) or (not texts[p].strip() and doc[p].get_images())
+    ]
     if not pages:
         return None
     if len(pages) > 6:
@@ -557,7 +616,9 @@ def vision_extract(pdf, company, sym, qe, fund, ident_tokens):
     pngs = render_pngs(pdf, ident_tokens)
     if not pngs:
         return None
-    r = GV.read_corp_results(company or sym, qe_label(qe), qe_label(prevq(qe)), qe_label(yago(qe)), pngs)
+    r = GV.read_corp_results(
+        company or sym, qe_label(qe), qe_label(prevq(qe)), qe_label(yago(qe)), pngs
+    )
     if not r or not r.get("ok") or not r.get("company_matches"):
         return None
     cs, cc = pat_stored(fund, sym, qe)
@@ -636,7 +697,12 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--only", default="")
     ap.add_argument("--days", type=int, default=RECENT_DAYS)
-    ap.add_argument("--limit", type=int, default=0, help="max symbols to WORK (fetch PDFs for) this run; 0 = no cap")
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="max symbols to WORK (fetch PDFs for) this run; 0 = no cap",
+    )
     ap.add_argument(
         "--max-minutes",
         type=float,
@@ -649,9 +715,13 @@ def main():
         default=60,
         help="max Gemini calls this run (protects the shared free-tier daily quota)",
     )
-    ap.add_argument("--reapply", action="store_true", help="re-assert the fill ledger (after a full rebuild)")
     ap.add_argument(
-        "--audit", action="store_true", help="re-extract every text-sourced ledger cell and fix/revert mismatches"
+        "--reapply", action="store_true", help="re-assert the fill ledger (after a full rebuild)"
+    )
+    ap.add_argument(
+        "--audit",
+        action="store_true",
+        help="re-extract every text-sourced ledger cell and fix/revert mismatches",
     )
     args = ap.parse_args()
 
@@ -674,7 +744,12 @@ def main():
                     if c.get("pat" + basis.capitalize()) is not None:
                         n += fill_pat(funds, sym, qe, basis, c["pat" + basis.capitalize()])
                     fill_rev(
-                        revops, sym, qe, basis, c.get("rev" + basis.capitalize()), c.get("pat" + basis.capitalize())
+                        revops,
+                        sym,
+                        qe,
+                        basis,
+                        c.get("rev" + basis.capitalize()),
+                        c.get("pat" + basis.capitalize()),
                     )
         print("reapplied ledger: %d PAT cells re-asserted" % n)
         if not args.dry_run and n:
@@ -695,7 +770,12 @@ def main():
                 continue
             irows = integrated_rows(sym, jar)
             company = next(
-                (r.get("cmName") or r.get("smName") for r in irows if r.get("cmName") or r.get("smName")), sym
+                (
+                    r.get("cmName") or r.get("smName")
+                    for r in irows
+                    if r.get("cmName") or r.get("smName")
+                ),
+                sym,
             )
             ident = [w for w in re.split(r"[^A-Za-z]+", company or "") if len(w) > 3][:2] or [sym]
             for srcqe, tgts in sorted(by_src.items()):
@@ -709,7 +789,11 @@ def main():
                 rs, rc = rev_stored(revop_docs, sym, srcqe)
                 res = {}
                 for basis, cur, prec, crev in (("std", cs, ps, rs), ("con", cc, pc, rc)):
-                    res[basis] = extract_anchored(pages, srcqe, basis == "con", cur, prec, crev) if pages else None
+                    res[basis] = (
+                        extract_anchored(pages, srcqe, basis == "con", cur, prec, crev)
+                        if pages
+                        else None
+                    )
                 for t, c in tgts:
                     key = "prec" if t == prevq(srcqe) else "yago"
                     for basis in ("std", "con"):
@@ -723,13 +807,19 @@ def main():
                             if new is not None and abs(new - c[bk]) <= 0.011:
                                 ok += 1
                             elif new is not None:
-                                print("  AUDIT FIX %s %d %s pat: %s -> %s" % (sym, t, basis, c[bk], new))
+                                print(
+                                    "  AUDIT FIX %s %d %s pat: %s -> %s"
+                                    % (sym, t, basis, c[bk], new)
+                                )
                                 set_pat(funds, sym, t, basis, new)
                                 set_rev(revops, sym, t, basis, "keep", new)
                                 c[bk] = new
                                 fixed += 1
                             else:
-                                print("  AUDIT REVERT %s %d %s pat: %s -> blank (re-queued)" % (sym, t, basis, c[bk]))
+                                print(
+                                    "  AUDIT REVERT %s %d %s pat: %s -> blank (re-queued)"
+                                    % (sym, t, basis, c[bk])
+                                )
                                 set_pat(funds, sym, t, basis, None)
                                 set_rev(revops, sym, t, basis, "keep", None)
                                 c.pop(bk)
@@ -739,16 +829,24 @@ def main():
                             if rnew is not None and abs(rnew - c[rk]) <= 0.011:
                                 ok += 1
                             elif rnew is not None:
-                                print("  AUDIT FIX %s %d %s rev: %s -> %s" % (sym, t, basis, c[rk], rnew))
+                                print(
+                                    "  AUDIT FIX %s %d %s rev: %s -> %s"
+                                    % (sym, t, basis, c[rk], rnew)
+                                )
                                 set_rev(revops, sym, t, basis, rnew, "keep")
                                 c[rk] = rnew
                                 fixed += 1
                             else:
-                                print("  AUDIT REVERT %s %d %s rev: %s -> blank" % (sym, t, basis, c[rk]))
+                                print(
+                                    "  AUDIT REVERT %s %d %s rev: %s -> blank"
+                                    % (sym, t, basis, c[rk])
+                                )
                                 set_rev(revops, sym, t, basis, None, "keep")
                                 c.pop(rk)
                                 reverted += 1
-            for qs in [q for q, c in cells.items() if not any(k.startswith(("pat", "rev")) for k in c)]:
+            for qs in [
+                q for q, c in cells.items() if not any(k.startswith(("pat", "rev")) for k in c)
+            ]:
                 cells.pop(qs)
         print("AUDIT DONE. ok=%d fixed=%d reverted=%d" % (ok, fixed, reverted))
         if not args.dry_run and (fixed or reverted):
@@ -817,11 +915,20 @@ def main():
             print("(--limit %d reached — remaining symbols next run)" % args.limit)
             break
         if args.max_minutes and (time.time() - t0) > args.max_minutes * 60:
-            print(f"(--max-minutes {args.max_minutes:.0f} reached — stopping cleanly, remaining symbols next run)")
+            print(
+                f"(--max-minutes {args.max_minutes:.0f} reached — stopping cleanly, remaining symbols next run)"
+            )
             break
         worked += 1
         irows = integrated_rows(sym, jar)
-        company = next((r.get("cmName") or r.get("smName") for r in irows if r.get("cmName") or r.get("smName")), sym)
+        company = next(
+            (
+                r.get("cmName") or r.get("smName")
+                for r in irows
+                if r.get("cmName") or r.get("smName")
+            ),
+            sym,
+        )
         ident = [w for w in re.split(r"[^A-Za-z]+", company or "") if len(w) > 3][:2] or [sym]
         print(
             "%s (%s): %d source filings for %d missing base cells"
@@ -845,12 +952,20 @@ def main():
                     continue
                 pa = r.get("pdf_attach") or ""
                 m = re.match(r"([\d.]+)\s*(Bytes|KB|MB)", str(r.get("attFileSize") or ""))
-                sz = float(m.group(1)) * {"Bytes": 1e-6, "KB": 0.001, "MB": 1}[m.group(2)] if m else 0
+                sz = (
+                    float(m.group(1)) * {"Bytes": 1e-6, "KB": 0.001, "MB": 1}[m.group(2)]
+                    if m
+                    else 0
+                )
                 if pa.startswith("http") and not pa.endswith("/null") and sz > 0.01:
                     urls.append((pa, sz))
             urls += announcement_pdfs(sym, qe, jar)
             if not urls:
-                skips[skey_base] = {"n": sk.get("n", 0) + 1, "why": "no result PDF found", "last": today}
+                skips[skey_base] = {
+                    "n": sk.get("n", 0) + 1,
+                    "why": "no result PDF found",
+                    "last": today,
+                }
                 skipped += 1
                 print("  %d: SKIP — no result PDF found" % qe)
                 continue
@@ -863,7 +978,11 @@ def main():
             rs, rc = rev_stored(revop_docs, sym, qe)
             for url, sz in urls:
                 if sz > MAX_PDF_MB:
-                    skips[skey_base] = {"n": sk.get("n", 0) + 1, "why": f"pdf too big ({sz:.0f} MB)", "last": today}
+                    skips[skey_base] = {
+                        "n": sk.get("n", 0) + 1,
+                        "why": f"pdf too big ({sz:.0f} MB)",
+                        "last": today,
+                    }
                     continue
                 pdf = fetch_pdf(url)
                 if not pdf:
@@ -929,7 +1048,7 @@ def main():
                     filled += 1
                     print(
                         "  FILLED %s %d from the %d filing (%s): %s"
-                        % (sym, t, qe, via, {k: v for k, v in cell.items() if k != "src"})
+                        % (sym, t, qe, via, {k: v for k, v in cell.items() if k not in ("src",)})
                     )
             skips.pop(skey_base, None)
         flush()
@@ -937,7 +1056,10 @@ def main():
     if not args.dry_run:
         flush()
         json.dump(skips, open(SKIPS, "w"), indent=1)
-    print("DONE. filled %d base cells, %d skips.%s" % (filled, skipped, " (dry-run)" if args.dry_run else ""))
+    print(
+        "DONE. filled %d base cells, %d skips.%s"
+        % (filled, skipped, " (dry-run)" if args.dry_run else "")
+    )
 
 
 def _write_all(funds, revops):

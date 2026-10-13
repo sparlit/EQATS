@@ -30,7 +30,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -100,30 +100,34 @@ def clean_group(series: pd.Series) -> pd.Series:
 
 def build_history_table(input_file: Path, output_file: Path, group_column: str) -> dict:
     if not input_file.exists():
-        msg = f"Missing feature file: {input_file}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing feature file: {input_file}")
 
     source = pd.read_parquet(input_file)
     required = ["date", group_column, "leadership_score"]
     missing = [column for column in required if column not in source.columns]
     if missing:
-        msg = f"{input_file.name} missing required columns: {missing}"
-        raise ValueError(msg)
+        raise ValueError(f"{input_file.name} missing required columns: {missing}")
 
     selected_columns = list(
-        dict.fromkeys([group_column] + [column for column in DISPLAY_COLUMNS if column in source.columns])
+        dict.fromkeys(
+            [group_column] + [column for column in DISPLAY_COLUMNS if column in source.columns]
+        )
     )
     history = source[selected_columns].copy()
     history["date"] = pd.to_datetime(history["date"], errors="coerce").dt.normalize()
     history[group_column] = clean_group(history[group_column])
-    history = history.dropna(subset=["date", group_column]).drop_duplicates(["date", group_column], keep="last")
+    history = history.dropna(subset=["date", group_column]).drop_duplicates(
+        ["date", group_column], keep="last"
+    )
     history = history.sort_values([group_column, "date"]).reset_index(drop=True)
 
     # Safety fallback: 01_build_group_features.py normally creates these.
     # This preserves the exact 5-available-trading-session meaning if an older
     # feature file is used to rebuild history.
     if "leadership_change_5d" not in history.columns:
-        history["leadership_change_5d"] = history.groupby(group_column)["leadership_score"].diff(5).fillna(0.0).round(1)
+        history["leadership_change_5d"] = (
+            history.groupby(group_column)["leadership_score"].diff(5).fillna(0.0).round(1)
+        )
     else:
         history["leadership_change_5d"] = (
             pd.to_numeric(history["leadership_change_5d"], errors="coerce").fillna(0.0).round(1)
@@ -135,13 +139,15 @@ def build_history_table(input_file: Path, output_file: Path, group_column: str) 
             + 0.35 * history["leadership_change_5d"].clip(lower=0)
         ).round(1)
     else:
-        history["improver_priority"] = pd.to_numeric(history["improver_priority"], errors="coerce").fillna(0.0).round(1)
+        history["improver_priority"] = (
+            pd.to_numeric(history["improver_priority"], errors="coerce").fillna(0.0).round(1)
+        )
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     history.to_parquet(output_file, index=False)
 
     return {
-        "rows": len(history),
+        "rows": int(len(history)),
         "groups": int(history[group_column].nunique()),
         "start_date": str(history["date"].min().date()),
         "latest_date": str(history["date"].max().date()),
@@ -161,7 +167,9 @@ def main() -> None:
             f"{name}: {result['rows']:,} rows, {result['groups']:,} groups, {result['start_date']} to {result['latest_date']}"
         )
 
-    metadata["generated_at_utc"] = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    metadata["generated_at_utc"] = (
+        datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
     metadata_file = PROCESSED / "dashboard_metadata.json"
     metadata_file.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 

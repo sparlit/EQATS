@@ -41,7 +41,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from datetime import date, timedelta
 
-from upstox_data import fetch_upstox, save_access_token, symbol_to_key
+from upstox_data import fetch_upstox, save_access_token
 
 
 def main():
@@ -68,7 +68,9 @@ def main():
             print("WARNING: No data returned — market may have been closed or token issue.")
         else:
             print(f"OK — fetched {len(df)} bars for HDFCBANK ({from_date} → {to_date})")
-            print(f"  Latest bar: {df.index[-1].strftime('%Y-%m-%d %H:%M IST')}  close={df['close'].iloc[-1]:.2f}")
+            print(
+                f"  Latest bar: {df.index[-1].strftime('%Y-%m-%d %H:%M IST')}  close={df['close'].iloc[-1]:.2f}"
+            )
             print("\nUpstox is ready to use!")
     except Exception as e:
         print(f"ERROR: {e}")

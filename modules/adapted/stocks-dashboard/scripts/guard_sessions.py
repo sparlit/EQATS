@@ -67,15 +67,29 @@ MEDIAN_WINDOW = 20
 DAY = 86400
 
 
+# Checked for the whole payload AND per exchange: a collapse of one exchange hides inside the combined count.
+# Measured 2026-09-29 over 30 builds: 10e95b3fb / 80902fb02 / dd1856cfb shipped 2026-09-22 with NSE at 42% of its
+# trailing median while the combined count passed; outside real collapses the per-exchange ratios never fell below
+# 96.7% (check A) / 98.9% (check B), so the same floors apply per group (runbook §1b-iv).
+GROUPS = (("all", None), ("NSE", ".NS"), ("BSE", ".BO"))
+MIN_GROUP_BARS = 100  # a group-session smaller than this is too thin to judge
+
+
 def sessions(blob):
-    """gzip dash_slim payload -> {iso date: bars}."""
+    """gzip dash_slim payload -> {group: {iso date: bars}}."""
     d = json.loads(gzip.decompress(blob))
     start_ts = d["startTs"]
-    cnt = Counter()
-    for cs in d["series"].values():
-        for o in cs["d"]:
-            cnt[o] += 1
-    return {dt.datetime.fromtimestamp(start_ts + o * DAY, dt.UTC).date().isoformat(): n for o, n in cnt.items()}
+    cnt = {g: Counter() for g, _ in GROUPS}
+    for tkr, cs in d["series"].items():
+        for g, suf in GROUPS:
+            if suf is None or tkr.endswith(suf):
+                for o in cs["d"]:
+                    cnt[g][o] += 1
+
+    def iso(o):
+        return dt.datetime.fromtimestamp(start_ts + o * DAY, dt.UTC).date().isoformat()
+
+    return {g: {iso(o): n for o, n in c.items()} for g, c in cnt.items()}
 
 
 def committed(path):
@@ -88,52 +102,29 @@ def committed(path):
 def main():
     new_path = sys.argv[1] if len(sys.argv) > 1 else NEW
     with open(new_path, "rb") as fh:
-        new = sessions(fh.read())
+        new_all = sessions(fh.read())
     if len(sys.argv) > 2:
         with open(sys.argv[2], "rb") as fh:
             old_blob = fh.read()
     else:
         old_blob = committed(new_path)
-    old = sessions(old_blob) if old_blob else None
+    old_all = sessions(old_blob) if old_blob else None
 
-    rows = sorted(new.items())
-    newest = rows[-1][0] if rows else None
     problems, warnings = [], []
-
-    # ---- check A: no published session may collapse --------------------------------------
-    if old is None:
+    newest = max(new_all["all"]) if new_all["all"] else None
+    if old_all is None:
         print("guard_sessions: no committed copy to compare against — CHECK A skipped")
-    else:
-        old_newest = max(old)
-        for date, n in sorted(old.items()):
-            if date == old_newest:
-                continue  # was still filling when it was committed
-            now = new.get(date)
-            if now is None:
-                continue  # rolled out of the 250-day window
-            if now < REGRESSION_FLOOR * n:
-                problems.append(
-                    f"{date}: {n} -> {now} bars ({now / n:.0%} of the committed copy, "
-                    f"floor {REGRESSION_FLOOR:.0%}) — a published session collapsed"
-                )
-
-    # ---- check B: no session may sit far below its neighbours -----------------------------
-    for i, (date, n) in enumerate(rows):
-        if date == newest or i < 5:
-            continue
-        med = statistics.median(v for _, v in rows[max(0, i - MEDIAN_WINDOW) : i])
-        if not med or n >= MEDIAN_FLOOR * med:
-            continue
-        msg = (
-            f"{date}: {n} bars vs trailing-{MEDIAN_WINDOW} median {int(med)} ({n / med:.0%}, floor {MEDIAN_FLOOR:.0%})"
+    for g, _ in GROUPS:
+        p, w = check(
+            new_all[g], old_all[g] if old_all else None, newest, "" if g == "all" else f"[{g}] "
         )
-        was = old.get(date) if old else None
-        if was is not None and was < MEDIAN_FLOOR * med:
-            warnings.append(f"{msg} — pre-existing (committed copy has {was}), not new damage")
-        else:
-            problems.append(f"{msg} — half-loaded session")
+        problems += p
+        warnings += w
 
-    print(f"guard_sessions: {len(rows)} sessions checked, newest={newest} (exempt, still filling)")
+    print(
+        f"guard_sessions: {len(new_all['all'])} sessions checked (all / NSE / BSE), newest={newest} "
+        f"(exempt from check B, still filling)"
+    )
     for w in warnings:
         print(f"  WARN  {w}")
     if problems:
@@ -144,6 +135,45 @@ def main():
         return 1
     print("  session bar counts sane")
     return 0
+
+
+def check(new, old, newest, tag):
+    rows = sorted(new.items())
+    problems, warnings = [], []
+
+    # ---- check A: no published session may collapse --------------------------------------
+    if old is not None:
+        # The committed copy's newest session is checked too (it used to be exempt as "still filling"). A
+        # filling session only GROWS between builds — measured over 30 consecutive builds 2026-09-23..29: the
+        # committed newest never dropped (min 100.0%) until 2026-09-29 00:10 IST, when 09-28 fell 5,032 -> 1,490
+        # and sailed through the exemption (runbook §1b-iv).
+        for date, n in sorted(old.items()):
+            now = new.get(date)
+            if now is None or n < MIN_GROUP_BARS:
+                continue  # rolled out of the 250-day window / too thin to judge
+            if now < REGRESSION_FLOOR * n:
+                problems.append(
+                    f"{tag}{date}: {n} -> {now} bars ({now / n:.0%} of the committed copy, "
+                    f"floor {REGRESSION_FLOOR:.0%}) — a published session collapsed"
+                )
+
+    # ---- check B: no session may sit far below its neighbours -----------------------------
+    for i, (date, n) in enumerate(rows):
+        if date == newest or i < 5:
+            continue
+        med = statistics.median(v for _, v in rows[max(0, i - MEDIAN_WINDOW) : i])
+        if not med or med < MIN_GROUP_BARS or n >= MEDIAN_FLOOR * med:
+            continue
+        msg = (
+            f"{tag}{date}: {n} bars vs trailing-{MEDIAN_WINDOW} median {int(med)} "
+            f"({n / med:.0%}, floor {MEDIAN_FLOOR:.0%})"
+        )
+        was = old.get(date) if old else None
+        if was is not None and was < MEDIAN_FLOOR * med:
+            warnings.append(f"{msg} — pre-existing (committed copy has {was}), not new damage")
+        else:
+            problems.append(f"{msg} — half-loaded session")
+    return problems, warnings
 
 
 if __name__ == "__main__":

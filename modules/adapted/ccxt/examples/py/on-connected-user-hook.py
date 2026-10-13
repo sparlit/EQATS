@@ -53,9 +53,10 @@ async def create_order(exchange):
     price = 54.321  # change for your values
     params = {}
     try:
-        await exchange.create_order(symbol, type, side, amount, price, params)
+        order = await exchange.create_order(symbol, type, side, amount, price, params)
         print("--------------------------------------------------------------")
         print("create_order():")
+        pprint(order)
     except Exception as e:
         print(type(e).__name__, str(e))
 
@@ -63,9 +64,10 @@ async def create_order(exchange):
 async def watch_orders(exchange):
     while True:
         try:
-            await exchange.watch_orders()
+            orders = await exchange.watch_orders()
             print("--------------------------------------------------------------")
             print("watch_orders():")
+            pprint(orders)
         except Exception as e:
             print(type(e).__name__, str(e))
             break

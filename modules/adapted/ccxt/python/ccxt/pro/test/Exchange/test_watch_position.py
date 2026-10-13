@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_position,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_position  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_position(exchange, skipped_properties, symbol):
@@ -52,13 +52,19 @@ async def test_watch_position(exchange, skipped_properties, symbol):
             response = await exchange.watch_position(symbol)
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             now = exchange.milliseconds()
             # continue;
             success = False
         if (success) and (response is not None):
             assert exchange.is_dictionary(response), (
-                exchange.id + " " + method + " " + symbol + " must return a dictionary. " + exchange.json(response)
+                exchange.id
+                + " "
+                + method
+                + " "
+                + symbol
+                + " must return a dictionary. "
+                + exchange.json(response)
             )
             now = exchange.milliseconds()
             test_position(exchange, skipped_properties, method, response, symbol, now)

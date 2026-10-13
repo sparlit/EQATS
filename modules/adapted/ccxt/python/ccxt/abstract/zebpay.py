@@ -36,6 +36,9 @@ class ImplicitAPI:
     public_spot_get_v2_market_orderbook = publicSpotGetV2MarketOrderbook = Entry[_Dict](
         "v2/market/orderbook", ["public", "spot"], "GET", {"cost": 10}
     )
+    public_spot_get_v2_market_orderbook_ticker = publicSpotGetV2MarketOrderbookTicker = Entry[
+        _Dict
+    ]("v2/market/orderbook/ticker", ["public", "spot"], "GET", {"cost": 10})
     public_spot_get_v2_market_trades = publicSpotGetV2MarketTrades = Entry[_Dict](
         "v2/market/trades", ["public", "spot"], "GET", {"cost": 10}
     )
@@ -69,6 +72,12 @@ class ImplicitAPI:
     public_swap_get_v1_exchange_tradefees = publicSwapGetV1ExchangeTradefees = Entry[_Dict](
         "v1/exchange/tradefees", ["public", "swap"], "GET", {"cost": 10}
     )
+    public_swap_get_v1_exchange_exchangeinfo = publicSwapGetV1ExchangeExchangeInfo = Entry[_Dict](
+        "v1/exchange/exchangeInfo", ["public", "swap"], "GET", {"cost": 10}
+    )
+    public_swap_get_v1_exchange_pairs = publicSwapGetV1ExchangePairs = Entry[_Dict](
+        "v1/exchange/pairs", ["public", "swap"], "GET", {"cost": 10}
+    )
     public_swap_get_v1_market_orderbook = publicSwapGetV1MarketOrderBook = Entry[_Dict](
         "v1/market/orderBook", ["public", "swap"], "GET", {"cost": 10}
     )
@@ -77,6 +86,9 @@ class ImplicitAPI:
     )
     public_swap_get_v1_market_markets = publicSwapGetV1MarketMarkets = Entry[_Dict](
         "v1/market/markets", ["public", "swap"], "GET", {"cost": 10}
+    )
+    public_swap_get_v1_market_marketinfo = publicSwapGetV1MarketMarketInfo = Entry[_Dict](
+        "v1/market/marketInfo", ["public", "swap"], "GET", {"cost": 10}
     )
     public_swap_get_v1_market_aggtrade = publicSwapGetV1MarketAggTrade = Entry[_Dict](
         "v1/market/aggTrade", ["public", "swap"], "GET", {"cost": 10}
@@ -96,6 +108,9 @@ class ImplicitAPI:
     private_spot_get_v2_ex_tradefee = privateSpotGetV2ExTradefee = Entry[_Dict](
         "v2/ex/tradefee", ["private", "spot"], "GET", {"cost": 10}
     )
+    private_spot_get_v2_ex_myfee_symbol = privateSpotGetV2ExMyfeeSymbol = Entry[_Dict](
+        "v2/ex/myfee/{symbol}", ["private", "spot"], "GET", {"cost": 10}
+    )
     private_spot_get_v2_ex_order = privateSpotGetV2ExOrder = Entry[_Dict](
         "v2/ex/order", ["private", "spot"], "GET", {"cost": 10}
     )
@@ -108,17 +123,20 @@ class ImplicitAPI:
     private_spot_delete_v2_ex_orders = privateSpotDeleteV2ExOrders = Entry[_Dict](
         "v2/ex/orders", ["private", "spot"], "DELETE", {"cost": 10}
     )
-    private_spot_delete_v2_ex_orders_cancelall = privateSpotDeleteV2ExOrdersCancelAll = Entry[_Dict](
-        "v2/ex/orders/cancelAll", ["private", "spot"], "DELETE", {"cost": 10}
-    )
+    private_spot_delete_v2_ex_orders_cancelall = privateSpotDeleteV2ExOrdersCancelAll = Entry[
+        _Dict
+    ]("v2/ex/orders/cancelAll", ["private", "spot"], "DELETE", {"cost": 10})
     private_swap_get_v1_wallet_balance = privateSwapGetV1WalletBalance = Entry[_Dict](
         "v1/wallet/balance", ["private", "swap"], "GET", {"cost": 10}
     )
     private_swap_get_v1_trade_order = privateSwapGetV1TradeOrder = Entry[_Dict](
         "v1/trade/order", ["private", "swap"], "GET", {"cost": 10}
     )
-    private_swap_get_v1_trade_order_open_orders = privateSwapGetV1TradeOrderOpenOrders = Entry[_Dict](
-        "v1/trade/order/open-orders", ["private", "swap"], "GET", {"cost": 10}
+    private_swap_get_v1_trade_order_open_orders = privateSwapGetV1TradeOrderOpenOrders = Entry[
+        _Dict
+    ]("v1/trade/order/open-orders", ["private", "swap"], "GET", {"cost": 10})
+    private_swap_get_v1_trade_order_history = privateSwapGetV1TradeOrderHistory = Entry[_Dict](
+        "v1/trade/order/history", ["private", "swap"], "GET", {"cost": 10}
     )
     private_swap_get_v1_trade_userleverages = privateSwapGetV1TradeUserLeverages = Entry[_Dict](
         "v1/trade/userLeverages", ["private", "swap"], "GET", {"cost": 10}
@@ -132,6 +150,9 @@ class ImplicitAPI:
     private_swap_get_v1_trade_history = privateSwapGetV1TradeHistory = Entry[_Dict](
         "v1/trade/history", ["private", "swap"], "GET", {"cost": 10}
     )
+    private_swap_get_v1_trade_transaction_history = privateSwapGetV1TradeTransactionHistory = Entry[
+        _Dict
+    ]("v1/trade/transaction/history", ["private", "swap"], "GET", {"cost": 10})
     private_swap_post_v1_trade_order = privateSwapPostV1TradeOrder = Entry[_Dict](
         "v1/trade/order", ["private", "swap"], "POST", {"cost": 10}
     )
@@ -147,9 +168,15 @@ class ImplicitAPI:
     private_swap_post_v1_trade_position_close = privateSwapPostV1TradePositionClose = Entry[_Dict](
         "v1/trade/position/close", ["private", "swap"], "POST", {"cost": 10}
     )
-    private_swap_post_v1_trade_update_userleverage = privateSwapPostV1TradeUpdateUserLeverage = Entry[_Dict](
-        "v1/trade/update/userLeverage", ["private", "swap"], "POST", {"cost": 10}
+    private_swap_post_v1_trade_update_userleverage = privateSwapPostV1TradeUpdateUserLeverage = (
+        Entry[_Dict]("v1/trade/update/userLeverage", ["private", "swap"], "POST", {"cost": 10})
     )
     private_swap_delete_v1_trade_order = privateSwapDeleteV1TradeOrder = Entry[_Dict](
         "v1/trade/order", ["private", "swap"], "DELETE", {"cost": 10}
+    )
+    private_swap_delete_v1_trade_order_all = privateSwapDeleteV1TradeOrderAll = Entry[_Dict](
+        "v1/trade/order/all", ["private", "swap"], "DELETE", {"cost": 10}
+    )
+    private_swap_patch_v1_trade_order = privateSwapPatchV1TradeOrder = Entry[_Dict](
+        "v1/trade/order", ["private", "swap"], "PATCH", {"cost": 10}
     )

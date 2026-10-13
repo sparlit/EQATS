@@ -144,9 +144,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-qe", default=FIRST_QE)
     ap.add_argument("--limit", type=int, default=0, help="stop after N candidates, newest first")
-    ap.add_argument("--sample", type=int, default=0, help="N candidates spread over every era/route (smoke test)")
+    ap.add_argument(
+        "--sample",
+        type=int,
+        default=0,
+        help="N candidates spread over every era/route (smoke test)",
+    )
     ap.add_argument("--threads", type=int, default=THREADS)
-    ap.add_argument("--bse-only", action="store_true", help="skip the NSE route (transport debugging)")
+    ap.add_argument(
+        "--bse-only", action="store_true", help="skip the NSE route (transport debugging)"
+    )
     a = ap.parse_args()
 
     hist = FS.load_hist()
@@ -175,7 +182,13 @@ def main():
     print(
         "candidates: %d cells over %d quarters (%s ..), %d skipped as dii=0 (provably correct), "
         "%d already in the ledger"
-        % (len(todo), len({t[1] for t in todo}), min([t[1] for t in todo], default="-"), skip_dii0, len(done))
+        % (
+            len(todo),
+            len({t[1] for t in todo}),
+            min([t[1] for t in todo], default="-"),
+            skip_dii0,
+            len(done),
+        )
     )
     if a.sample:
         random.Random(20260807).shuffle(todo)
@@ -241,10 +254,18 @@ def main():
                     sym,
                     qe,
                     cell,
-                    ("REJECT", f"cell mismatch {k} stored {cell[i] or 0.0:.2f} vs {res[k]:.2f} ({src})"),
+                    (
+                        "REJECT",
+                        f"cell mismatch {k} stored {cell[i] or 0.0:.2f} vs {res[k]:.2f} ({src})",
+                    ),
                 )
         if res["mf"] > (cell[2] or 0.0) + 0.05:
-            return sym, qe, cell, ("REJECT", "mf {:.2f} > dii {:.2f} ({})".format(res["mf"], cell[2], src))
+            return (
+                sym,
+                qe,
+                cell,
+                ("REJECT", "mf {:.2f} > dii {:.2f} ({})".format(res["mf"], cell[2], src)),
+            )
         return sym, qe, cell, (res["mf"], src)
 
     t0 = time.time()
@@ -259,7 +280,14 @@ def main():
                     if cnt[out[0]] <= 12:
                         print(f"  {out[0]} {sym} {qe}: {out[1]}")
                 elif out[0] > 0:
-                    heals.setdefault(sym, {})[qe] = [out[0], cell[0], cell[1], cell[2], out[1], str(cell[5])]
+                    heals.setdefault(sym, {})[qe] = [
+                        out[0],
+                        cell[0],
+                        cell[1],
+                        cell[2],
+                        out[1],
+                        str(cell[5]),
+                    ]
                     cnt["heal"] += 1
                 else:
                     zeros.setdefault(sym, []).append(qe)
@@ -283,7 +311,9 @@ def main():
         % (os.path.basename(LEDGER), sum(len(v) for v in heals.values()), len(heals))
     )
     if cnt["heal"]:
-        big = sorted(((v[0], s, q) for s, qs in heals.items() for q, v in qs.items()), reverse=True)[:8]
+        big = sorted(
+            ((v[0], s, q) for s, qs in heals.items() for q, v in qs.items()), reverse=True
+        )[:8]
         print("largest heals: " + ", ".join(f"{s} {q} {m:.2f}%" for m, s, q in big))
 
 

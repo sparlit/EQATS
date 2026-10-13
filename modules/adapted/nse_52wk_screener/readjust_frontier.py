@@ -76,7 +76,12 @@ def main():
         chunk = tickers[i : i + BATCH]
         try:
             data = yf.download(
-                chunk, period="max", auto_adjust=False, group_by="ticker", threads=THREADS, progress=False
+                chunk,
+                period="max",
+                auto_adjust=False,
+                group_by="ticker",
+                threads=THREADS,
+                progress=False,
             )
         except Exception as e:
             print(f"  batch {i} error: {e}", flush=True)
@@ -122,7 +127,16 @@ def main():
         print(f"  {done}/{total}  (re-adjusted {fixed})", flush=True)
 
     price = pd.DataFrame(list(by_sym.values()))[
-        ["Symbol", "Company", "LastClose", "AvgVol20d", "LastDate", "HighATH", "HighATHDate", "Frontier"]
+        [
+            "Symbol",
+            "Company",
+            "LastClose",
+            "AvgVol20d",
+            "LastDate",
+            "HighATH",
+            "HighATHDate",
+            "Frontier",
+        ]
     ]
     out = s.merge_reference(price)
     out.to_csv(s.SNAPSHOT_PATH, index=False)

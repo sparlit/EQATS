@@ -140,13 +140,16 @@ def build_portfolio_health(
         "reviewed_count": summary["reviewed"],
         "pending_count": summary["pending"],
         "action_counts": {
-            action: sum(row["suggested_action"] == action for row in rows) for action in _ACTION_PRIORITY
+            action: sum(row["suggested_action"] == action for row in rows)
+            for action in _ACTION_PRIORITY
         },
         "positions": rows,
     }
 
 
-def save_portfolio_health(payload: dict[str, Any], output_path: str | Path = "data/portfolio_health.json") -> Path:
+def save_portfolio_health(
+    payload: dict[str, Any], output_path: str | Path = "data/portfolio_health.json"
+) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

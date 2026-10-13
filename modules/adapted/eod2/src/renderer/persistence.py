@@ -23,14 +23,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
+from .dtypes import Timeframe
 from .util import load_json, write_json
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from .dtypes import Timeframe
 
 
 class SessionStore:

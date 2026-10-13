@@ -228,13 +228,14 @@ def download(url: str, save_path: str, retries: int = 2) -> bool:
                 print(f"   OK  {fname}  ({size_kb:.1f} KB)")
                 log(f"Downloaded: {fname} ({size_kb:.1f} KB)")
                 return True
-            if r.status_code == 404:
+            elif r.status_code == 404:
                 fname = os.path.basename(save_path)
                 print(f"   404 {fname}  (not on server)")
                 return False
-            print(f"   ERR HTTP {r.status_code}: {os.path.basename(save_path)}")
-            if attempt < retries:
-                time.sleep(3)
+            else:
+                print(f"   ERR HTTP {r.status_code}: {os.path.basename(save_path)}")
+                if attempt < retries:
+                    time.sleep(3)
         except Exception as e:
             print(f"   ERR {e}")
             if attempt < retries:
@@ -280,7 +281,7 @@ def download_direct(d: date) -> int:
     folder = day_folder(d)
     success = 0
 
-    for url_template in DIRECT_URLS.values():
+    for _name, url_template in DIRECT_URLS.items():
         url = apply_fmt(url_template, fmt)
         # Build filename from URL
         fname = url.split("/")[-1]
@@ -313,7 +314,9 @@ def has_valid_bhavdata(d: date) -> bool:
                 # NSE CSV headers currently include leading spaces after commas
                 # (for example, " SERIES").  Normalize each row before looking
                 # up the fields so a valid historical file is not rejected.
-                normalized_row = {str(key).strip().upper(): value for key, value in row.items() if key is not None}
+                normalized_row = {
+                    str(key).strip().upper(): value for key, value in row.items() if key is not None
+                }
                 if (
                     str(normalized_row.get("SERIES", "")).strip().upper() == "EQ"
                     and str(normalized_row.get("SYMBOL", "")).strip()
@@ -351,11 +354,9 @@ def bootstrap_history(target_days: int, max_candidates: int = BOOTSTRAP_MAX_CAND
     counted as trading sessions.
     """
     if target_days <= 0:
-        msg = "Bootstrap target must be positive"
-        raise ValueError(msg)
+        raise ValueError("Bootstrap target must be positive")
     if max_candidates < target_days:
-        msg = "max_candidates must be at least the requested target"
-        raise ValueError(msg)
+        raise ValueError("max_candidates must be at least the requested target")
 
     latest_completed = date.today() - timedelta(days=1)
     cursor = latest_completed
@@ -406,7 +407,10 @@ def bootstrap_history(target_days: int, max_candidates: int = BOOTSTRAP_MAX_CAND
     print(f"  Skipped dates    : {len(skipped_dates)}")
     print(f"  Manifest         : {manifest_path}")
     if len(valid_dates) < target_days:
-        print(f"  ERROR: Only {len(valid_dates)} valid days found within {max_candidates} weekday candidates")
+        print(
+            f"  ERROR: Only {len(valid_dates)} valid days found within "
+            f"{max_candidates} weekday candidates"
+        )
         return False
     print("  Bootstrap complete: required price history is available")
     return True
@@ -564,7 +568,7 @@ def run_for_date(d: date, include_monthly: bool = False):
             "NSE_CM_security": f"https://archives.nseindia.com/products/content/NSE_CM_security_{fmt['DDMMYYYY']}.csv.gz",
             "C_CATG": f"https://archives.nseindia.com/content/cm/C_CATG_{fmt['MMMYYYY']}.T01",
         }
-        for url in monthly_urls.values():
+        for _name, url in monthly_urls.items():
             fname = url.split("/")[-1]
             ok = download(url, os.path.join(m_folder, fname))
             if ok and fname.endswith(".gz"):
@@ -664,7 +668,9 @@ Examples:
         metavar="VALID_DAYS",
         help="Download until this many valid Bhavdata price sessions exist",
     )
-    grp.add_argument("--process-bundles", action="store_true", help="Process all ZIPs in drop_zone/ folder")
+    grp.add_argument(
+        "--process-bundles", action="store_true", help="Process all ZIPs in drop_zone/ folder"
+    )
 
     parser.add_argument("--to", type=str, dest="date_to", metavar="DD-MM-YYYY")
     parser.add_argument(

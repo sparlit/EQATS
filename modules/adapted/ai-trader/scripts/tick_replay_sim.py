@@ -42,10 +42,9 @@ Run: python scripts/tick_replay_sim.py
 import os
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -55,17 +54,16 @@ load_dotenv()
 
 import numpy as np
 import pandas as pd
-from features.indicators import compute_all_macro_indicators
-from models.predict import Predictor
-from strategy.signal_generator import generate_signals
-from utils.logger import get_logger
-
 from config.settings import (
     WEIGHT_ML_PROBABILITY,
     WEIGHT_OPTIONS_FLOW,
     WEIGHT_TECHNICAL_STRENGTH,
 )
 from database.db import read_sql
+from features.indicators import compute_all_macro_indicators
+from models.predict import Predictor
+from strategy.signal_generator import generate_signals
+from utils.logger import get_logger
 
 logger = get_logger("tick_replay")
 
@@ -121,7 +119,9 @@ def main():
         ORDER BY timestamp
     """)
     tick_df["timestamp"] = pd.to_datetime(tick_df["timestamp"])
-    logger.info(f"Loaded {len(tick_df):,} ticks: {tick_df['timestamp'].min()} → {tick_df['timestamp'].max()}")
+    logger.info(
+        f"Loaded {len(tick_df):,} ticks: {tick_df['timestamp'].min()} → {tick_df['timestamp'].max()}"
+    )
 
     # ── Load historical candles for feature warmup ────────────────────────
     # We need ~250 candles of history before the tick period starts for indicators
@@ -223,7 +223,9 @@ def main():
                         idx_move = current_trade.exit_price - current_trade.entry_price
                     else:
                         idx_move = current_trade.entry_price - current_trade.exit_price
-                    current_trade.pnl = round(idx_move * ATM_DELTA * current_trade.quantity - COMMISSION_ROUND_TRIP, 2)
+                    current_trade.pnl = round(
+                        idx_move * ATM_DELTA * current_trade.quantity - COMMISSION_ROUND_TRIP, 2
+                    )
                     trades.append(current_trade)
                     logger.info(
                         f"  EXIT: {current_trade.result} | "
@@ -335,7 +337,9 @@ def main():
             idx_move = current_trade.exit_price - current_trade.entry_price
         else:
             idx_move = current_trade.entry_price - current_trade.exit_price
-        current_trade.pnl = round(idx_move * ATM_DELTA * current_trade.quantity - COMMISSION_ROUND_TRIP, 2)
+        current_trade.pnl = round(
+            idx_move * ATM_DELTA * current_trade.quantity - COMMISSION_ROUND_TRIP, 2
+        )
         trades.append(current_trade)
 
     elapsed = time.time() - t0
@@ -372,7 +376,9 @@ def main():
             strat_trades = [t for t in trades if t.strategy == strat]
             strat_wins = sum(1 for t in strat_trades if t.pnl > 0)
             strat_pnl = sum(t.pnl for t in strat_trades)
-            print(f"    {strat}: {len(strat_trades)} trades, {strat_wins} wins, PnL=₹{strat_pnl:,.0f}")
+            print(
+                f"    {strat}: {len(strat_trades)} trades, {strat_wins} wins, PnL=₹{strat_pnl:,.0f}"
+            )
 
         # Export trades
         out_dir = Path("backtest_results")

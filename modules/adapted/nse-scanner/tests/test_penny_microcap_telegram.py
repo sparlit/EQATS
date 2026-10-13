@@ -46,7 +46,10 @@ def test_dedicated_penny_route(monkeypatch):
 def test_missing_penny_secrets_fail_closed(monkeypatch):
     for name in ("PENNY_TELEGRAM_BOT_TOKEN", "PENNY_TELEGRAM_CHAT_ID", "PENNY_TOPIC_CIRCUIT_RISK"):
         monkeypatch.delenv(name, raising=False)
-    assert send_messages(["hello"], "circuit_risk", enabled=True).reason == "credentials_not_configured"
+    assert (
+        send_messages(["hello"], "circuit_risk", enabled=True).reason
+        == "credentials_not_configured"
+    )
 
 
 def test_missing_topic_is_reported_by_name(monkeypatch):
@@ -69,7 +72,7 @@ def test_all_six_topics_use_their_own_thread(monkeypatch):
         "portfolio": ("PENNY_TOPIC_PORTFOLIO", 605),
         "system": ("PENNY_TOPIC_SYSTEM", 606),
     }
-    for variable, thread_id in routes.values():
+    for _, (variable, thread_id) in routes.items():
         monkeypatch.setenv(variable, str(thread_id))
     with patch("penny_microcap.telegram.requests.post", return_value=Response()) as post:
         for route, (_, thread_id) in routes.items():
@@ -101,19 +104,11 @@ def test_each_candidate_state_renders_only_in_its_topic():
     early = "\n".join(render_topic_messages(report, "early_radar"))
     confirming = "\n".join(render_topic_messages(report, "confirming"))
     ready = "\n".join(render_topic_messages(report, "ready"))
-    assert "EARLY" in early
-    assert "CONFIRM" not in early
-    assert "READYONE" not in early
-    assert "CONFIRM" in confirming
-    assert "EARLY" not in confirming
-    assert "READYONE" not in confirming
-    assert "READYONE" in ready
-    assert "EARLY" not in ready
-    assert "CONFIRM" not in ready
-    assert "Open READYONE chart</a>" in ready
-    assert "symbol=NSE%3AREADYONE" in ready
-    assert "Open Penny dashboard</a>" in ready
-    assert "startapp=penny" in ready
+    assert "EARLY" in early and "CONFIRM" not in early and "READYONE" not in early
+    assert "CONFIRM" in confirming and "EARLY" not in confirming and "READYONE" not in confirming
+    assert "READYONE" in ready and "EARLY" not in ready and "CONFIRM" not in ready
+    assert "Open READYONE chart</a>" in ready and "symbol=NSE%3AREADYONE" in ready
+    assert "Open Penny dashboard</a>" in ready and "startapp=penny" in ready
 
 
 def test_portfolio_and_system_have_dedicated_summaries():

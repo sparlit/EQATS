@@ -51,9 +51,10 @@ class TestRawStore:
         store = RawStore(tmp_path)
         p1, h1 = store.save(source="NSE", tool="t", payload=b"hello", request_meta={"a": 1})
         p2, h2 = store.save(source="NSE", tool="t", payload=b"hello")
-        assert p1 == p2
-        assert h1 == h2
-        payloads = [p for p in (tmp_path / "nse" / "t").rglob("*.json") if not p.name.endswith(".meta.json")]
+        assert p1 == p2 and h1 == h2
+        payloads = [
+            p for p in (tmp_path / "nse" / "t").rglob("*.json") if not p.name.endswith(".meta.json")
+        ]
         assert len(payloads) == 1
 
     def test_meta_written(self, tmp_path):
@@ -62,8 +63,7 @@ class TestRawStore:
         store = RawStore(tmp_path)
         path, _ = store.save(source="NSE", tool="t", payload=b"x")
         meta = json.loads(path.with_suffix(".meta.json").read_text())
-        assert meta["sha256"]
-        assert meta["source"] == "NSE"
+        assert meta["sha256"] and meta["source"] == "NSE"
 
 
 class TestParquetStore:

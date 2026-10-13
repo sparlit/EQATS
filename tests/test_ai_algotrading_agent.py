@@ -3,7 +3,8 @@ Unit & Integration Tests for AI AlgoTrading Agent (algotrading-lab/ai-algotradin
 """
 
 from datetime import datetime
-from institutional_integrations.ai_algotrading_agent import AIAlgoTradingAgent, MAGIC_NUMBER
+
+from institutional_integrations.ai_algotrading_agent import MAGIC_NUMBER, AIAlgoTradingAgent
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

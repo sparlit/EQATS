@@ -41,8 +41,9 @@ def retry_fetch_ohlcv(exchange, max_retries, symbol, timeframe, since, limit):
     num_retries = 0
     try:
         num_retries += 1
-        return exchange.fetch_ohlcv(symbol, timeframe, since, limit)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since, limit)
         # print('Fetched', len(ohlcv), symbol, 'candles from', exchange.iso8601 (ohlcv[0][0]), 'to', exchange.iso8601 (ohlcv[-1][0]))
+        return ohlcv
     except Exception:
         if num_retries > max_retries:
             raise  # Exception('Failed to fetch', timeframe, symbol, 'OHLCV in', max_retries, 'attempts')
@@ -74,7 +75,9 @@ def scrape_ohlcv(exchange, max_retries, symbol, timeframe, since, limit):
 
 def write_to_csv(filename, data):
     with open(filename, mode="w") as output_file:
-        csv_writer = csv.writer(output_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        csv_writer = csv.writer(
+            output_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
         csv_writer.writerows(data)
 
 

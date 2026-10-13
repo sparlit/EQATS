@@ -144,7 +144,15 @@ def main():
         for r in rows:
             for fld, idx in (("annStd", 2), ("annCon", 4)):
                 if len(r) > idx and isinstance(r[idx], int) and (sym, r[idx]) in restore:
-                    log.append({"sym": sym, "qe": r[0], "field": fld, "old": r[idx], "new": restore[(sym, r[idx])]})
+                    log.append(
+                        {
+                            "sym": sym,
+                            "qe": r[0],
+                            "field": fld,
+                            "old": r[idx],
+                            "new": restore[(sym, r[idx])],
+                        }
+                    )
     json.dump(log, open(os.path.join(HERE, "_ungate_restores.json"), "w"), separators=(",", ":"))
     print(f"\nrow-cells to restore: {len(log)} (written to scripts/_ungate_restores.json)")
     bad = [b for b in log if b["new"] >= b["old"]]

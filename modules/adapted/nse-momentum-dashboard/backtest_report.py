@@ -40,9 +40,9 @@ with no embedded font.
 
 import io
 
-import matplotlib as mpl
+import matplotlib
 
-mpl.use("Agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from reportlab.lib import colors
@@ -75,7 +75,14 @@ def _chart_png(fig) -> io.BytesIO:
 def _equity_chart(eq: pd.Series, nifty: pd.Series) -> io.BytesIO:
     fig, ax = plt.subplots(figsize=(9.5, 3.0))
     ax.plot(eq.index, eq / eq.iloc[0] * 100, color=_GREEN, linewidth=1.6, label="Strategy")
-    ax.plot(nifty.index, nifty / nifty.iloc[0] * 100, color=_GREY, linewidth=1.2, linestyle="--", label="NIFTY 50")
+    ax.plot(
+        nifty.index,
+        nifty / nifty.iloc[0] * 100,
+        color=_GREY,
+        linewidth=1.2,
+        linestyle="--",
+        label="NIFTY 50",
+    )
     ax.set_title("Equity curve — growth of 100", loc="left", fontsize=11)
     ax.legend(loc="upper left", frameon=False, fontsize=8)
     ax.grid(alpha=0.25)
@@ -101,7 +108,9 @@ def _yearly_bar_chart(yp: pd.DataFrame) -> io.BytesIO:
     x = range(len(yp))
     width = 0.38
     strat_colors = [_GREEN if v >= 0 else _RED for v in yp["Strategy %"]]
-    ax.bar([i - width / 2 for i in x], yp["Strategy %"], width, color=strat_colors, label="Strategy %")
+    ax.bar(
+        [i - width / 2 for i in x], yp["Strategy %"], width, color=strat_colors, label="Strategy %"
+    )
     ax.bar([i + width / 2 for i in x], yp["NIFTY %"], width, color=_GREY, label="NIFTY %")
     ax.axhline(0, color="#333333", linewidth=0.8)
     ax.set_xticks(list(x))
@@ -127,7 +136,11 @@ def _styles():
             textColor=colors.HexColor("#1f2937"),
         )
     )
-    ss.add(ParagraphStyle("Meta", parent=ss["Normal"], fontSize=9, textColor=colors.HexColor("#6b7280")))
+    ss.add(
+        ParagraphStyle(
+            "Meta", parent=ss["Normal"], fontSize=9, textColor=colors.HexColor("#6b7280")
+        )
+    )
     return ss
 
 
@@ -164,7 +177,7 @@ def _kv_table(rows: list[tuple[str, str]]) -> Table:
 
 def _data_table(df: pd.DataFrame, pnl_cols: set[str] = frozenset()) -> Table:
     header = list(df.columns)
-    data = [header, *df.astype(str).values.tolist()]
+    data = [header] + df.astype(str).values.tolist()
     t = Table(data, repeatRows=1)
     style = [
         ("FONTSIZE", (0, 0), (-1, -1), 7.5),
@@ -186,7 +199,9 @@ def _data_table(df: pd.DataFrame, pnl_cols: set[str] = frozenset()) -> Table:
                 is_neg = float(val) < 0
             except (TypeError, ValueError):
                 continue
-            style.append(("TEXTCOLOR", (ci, ri), (ci, ri), colors.HexColor(_RED if is_neg else _GREEN)))
+            style.append(
+                ("TEXTCOLOR", (ci, ri), (ci, ri), colors.HexColor(_RED if is_neg else _GREEN))
+            )
     t.setStyle(TableStyle(style))
     return t
 
@@ -240,11 +255,9 @@ def build_pdf(res: dict, bench: pd.DataFrame, cfg: dict, run_meta: dict, run_tim
                 ("Trailing stop", f"{trail} ({cfg.get('trailing_atr_multiple')}x)"),
                 (
                     "MAD trail stop",
-                    (
-                        f"{mad_on} (med={cfg.get('mad_stop_med_len')}, "
-                        f"mad={cfg.get('mad_stop_mad_len')}, dev={cfg.get('mad_stop_dev_factor')}, "
-                        f"floor x={cfg.get('mad_stop_atr_floor_mult')})"
-                    ),
+                    f"{mad_on} (med={cfg.get('mad_stop_med_len')}, "
+                    f"mad={cfg.get('mad_stop_mad_len')}, dev={cfg.get('mad_stop_dev_factor')}, "
+                    f"floor x={cfg.get('mad_stop_atr_floor_mult')})",
                 ),
                 ("Risk per trade (%)", str(cfg.get("risk_per_trade_pct"))),
                 ("History fetched (days)", str(cfg.get("history_days"))),
@@ -261,7 +274,10 @@ def build_pdf(res: dict, bench: pd.DataFrame, cfg: dict, run_meta: dict, run_tim
             [
                 ("RSI range", f"{cfg.get('rsi_min')}-{cfg.get('rsi_max')}"),
                 ("EMA fast/slow", f"{cfg.get('ema_fast')}/{cfg.get('ema_slow')}"),
-                ("Momentum lookback", f"{cfg.get('mom_lookback_days_short')}/{cfg.get('mom_lookback_days_long')}d"),
+                (
+                    "Momentum lookback",
+                    f"{cfg.get('mom_lookback_days_short')}/{cfg.get('mom_lookback_days_long')}d",
+                ),
                 ("Skip most recent (days)", str(cfg.get("skip_recent_days"))),
                 ("Exit RSI ceiling", f"{rsi_exit} ({cfg.get('rsi_exit_max')})"),
                 ("Weekly/monthly EMA trend gate", f"{wm_rsi} (price>200EMA on both)"),
@@ -286,15 +302,14 @@ def build_pdf(res: dict, bench: pd.DataFrame, cfg: dict, run_meta: dict, run_tim
                 ("Sector bonus weight", str(cfg.get("sector_bonus_weight"))),
                 (
                     "Sector diversification",
-                    (f"{sd} (top {cfg.get('top_n_sectors')}, max {cfg.get('max_positions_per_sector')}/sector, {sc})"),
+                    f"{sd} (top {cfg.get('top_n_sectors')}, "
+                    f"max {cfg.get('max_positions_per_sector')}/sector, {sc})",
                 ),
                 ("Resistance zone weight", str(cfg.get("resistance_zone_weight", 0.0))),
                 (
                     "Market regime filter",
-                    (
-                        f"{rg} (x{cfg.get('regime_position_multiplier', 0.5)} positions "
-                        f"when NIFTY < {cfg.get('regime_ema_period', 200)}EMA)"
-                    ),
+                    f"{rg} (x{cfg.get('regime_position_multiplier', 0.5)} positions "
+                    f"when NIFTY < {cfg.get('regime_ema_period', 200)}EMA)",
                 ),
             ]
         )

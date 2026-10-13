@@ -32,8 +32,6 @@ Locks in 2026-05-20 hardening:
 """
 
 import json
-import os
-import time
 from unittest import mock
 
 import pytest
@@ -47,6 +45,7 @@ def _reset_state():
         sp._SCREENER_CACHE.clear()
     with sp._TA_FAILURE_LOCK:
         sp._LAST_TA_FAILURE_TS = 0.0
+    yield
 
 
 @pytest.fixture
@@ -71,8 +70,6 @@ def test_is_transient_screener_error_catches_empty_body():
 def test_is_transient_screener_error_catches_socket_timeouts():
     """Socket timeouts MUST be classified transient so retry layer fires
     (was causing 8-minute hangs before 2026-05-20 hardening)."""
-    import socket as _socket
-
     assert sp._is_transient_screener_error(TimeoutError()) is True
     assert sp._is_transient_screener_error(TimeoutError("call timed out")) is True
     assert sp._is_transient_screener_error(RuntimeError("Read timed out")) is True
@@ -147,8 +144,7 @@ def test_non_transient_error_propagates_immediately(fast_retry):
 
     class FakeQuery:
         def get_scanner_data(self, cookies=None):
-            msg = "schema mismatch"
-            raise ValueError(msg)
+            raise ValueError("schema mismatch")
 
     with pytest.raises(ValueError):
         sp._scan_with_retry(FakeQuery())
@@ -198,7 +194,9 @@ def test_resilient_ta_passes_timeout_explicitly(fast_retry, monkeypatch):
     sp.resilient_get_multiple_analysis("egypt", "1D", ["EGX:ASCM"])
 
     assert captured["timeout"] is not None, "timeout must be passed explicitly"
-    assert 1.0 <= captured["timeout"] <= 60.0, f"timeout should be a sane value, got {captured['timeout']}"
+    assert 1.0 <= captured["timeout"] <= 60.0, (
+        f"timeout should be a sane value, got {captured['timeout']}"
+    )
 
 
 def test_resilient_ta_returns_stale_on_persistent_failure(fast_retry, monkeypatch):

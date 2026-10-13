@@ -37,17 +37,14 @@ def import_metadata(db_path: str, csv_path: str) -> int:
     frame = pd.read_csv(csv_path)
     missing = REQUIRED.difference(frame.columns)
     if missing:
-        msg = f"metadata CSV missing columns: {sorted(missing)}"
-        raise ValueError(msg)
+        raise ValueError(f"metadata CSV missing columns: {sorted(missing)}")
     frame["symbol"] = frame["symbol"].astype(str).str.strip().str.upper()
     frame["series"] = frame["series"].astype(str).str.strip().str.upper()
     frame["market_cap_cr"] = pd.to_numeric(frame["market_cap_cr"], errors="raise")
     if (frame["market_cap_cr"] <= 0).any():
-        msg = "market_cap_cr must be positive"
-        raise ValueError(msg)
+        raise ValueError("market_cap_cr must be positive")
     if frame["symbol"].duplicated().any():
-        msg = "metadata CSV contains duplicate symbols"
-        raise ValueError(msg)
+        raise ValueError("metadata CSV contains duplicate symbols")
     rows = [
         (row.symbol, row.series, float(row.market_cap_cr), str(row.as_of_date), 1)
         for row in frame.itertuples(index=False)

@@ -180,9 +180,15 @@ for sym in sorted(gap_qes):
         continue
 
     # P6 — the non-circular gate: what do the company's OWN filings declare?
-    ev = xbrl_nature.get(sym) or xbrl_nature.get(fk) or xbrl_nature.get(resolve(sym, xbrl_nature) or "")
+    ev = (
+        xbrl_nature.get(sym)
+        or xbrl_nature.get(fk)
+        or xbrl_nature.get(resolve(sym, xbrl_nature) or "")
+    )
     if not ev or ev["filings"] < MIN_XBRL:
-        results["rejected"]["no_xbrl_evidence"].append(f"{sym}({ev['filings'] if ev else 0} filings)")
+        results["rejected"]["no_xbrl_evidence"].append(
+            f"{sym}({ev['filings'] if ev else 0} filings)"
+        )
         continue
     if "Consolidated" in ev["nat"]:
         results["rejected"]["files_consolidated"].append(sym)
@@ -217,17 +223,25 @@ for _, _, _, _, name, _ in fills:
     by_field[name] += 1
 
 print("=" * 78)
-print(f"{'APPLY' if APPLY else 'DRY RUN'} — no-sub consolidated derivation, window {WINDOW_START}..20260630")
+print(
+    f"{'APPLY' if APPLY else 'DRY RUN'} — no-sub consolidated derivation, window {WINDOW_START}..20260630"
+)
 print("=" * 78)
 print(f"companies with a con-rev gap in window : {len(gap_qes)}")
 print(f"PROVEN no-sub (identity holds)         : {len(results['proven'])}")
-print(f"rejected                               : {sum(len(v) for v in results['rejected'].values())}")
+print(
+    f"rejected                               : {sum(len(v) for v in results['rejected'].values())}"
+)
 for reason, syms in sorted(results["rejected"].items()):
     print(f"    {reason:22s} {len(syms):4d}  e.g. {', '.join(syms[:4])}")
-print(f"\ncells to fill: {len(fills)}   " + "  ".join(f"{k}={v}" for k, v in sorted(by_field.items())))
+print(
+    f"\ncells to fill: {len(fills)}   " + "  ".join(f"{k}={v}" for k, v in sorted(by_field.items()))
+)
 
 top = sorted(results["proven"].items(), key=lambda kv: -len(kv[1]["gap_quarters"]))[:12]
-print("\nsample proven companies (gap qtrs | PAT pairs proving identity | rev pairs cross-checked):")
+print(
+    "\nsample proven companies (gap qtrs | PAT pairs proving identity | rev pairs cross-checked):"
+)
 for sym, info in top:
     print(
         f"    {sym:14s} {len(info['gap_quarters']):3d} qtrs | {info['pat_pairs']:3d} PAT pairs all equal"
@@ -282,5 +296,7 @@ prov = {
 with open("scripts/nosub_rev_fills.json", "w", encoding="utf-8") as f:
     json.dump(prov, f, indent=1)
 
-print(f"\nAPPLIED {applied} cells across {len(journal)} companies (skipped {skipped} already-filled).")
+print(
+    f"\nAPPLIED {applied} cells across {len(journal)} companies (skipped {skipped} already-filled)."
+)
 print("wrote docs/sf_revop.json, scripts/revop_fundamentals.json, scripts/nosub_rev_fills.json")

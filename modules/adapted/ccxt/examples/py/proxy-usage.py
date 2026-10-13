@@ -69,9 +69,7 @@ async def example_socks_proxy():
 async def example_web_sockets():
     my_ex = ccxt.kucoin()
     my_ex.http_proxy = "http://188.245.226.105:8911"  # even though you are using WebSockets, you might also need to set up proxy for the exchange's REST requests
-    my_ex.ws_proxy = (
-        "http://188.245.226.105:8911"  # "wsProxy" or "wssProxy" or "wsSocksProxy" (depending on your proxy protocol)
-    )
+    my_ex.ws_proxy = "http://188.245.226.105:8911"  # "wsProxy" or "wssProxy" or "wsSocksProxy" (depending on your proxy protocol)
     await my_ex.load_markets()
     #
     # To ensure your WS proxy works, uncomment below code and watch the log

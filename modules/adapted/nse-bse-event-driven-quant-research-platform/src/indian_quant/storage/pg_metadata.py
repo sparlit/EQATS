@@ -32,7 +32,6 @@ All other metadata (instruments, jobs, runs) stays in SQLite.
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
 
 import sqlalchemy as sa
 
@@ -62,7 +61,11 @@ class PgMetadataStore:
 
     def open_papers(self) -> list[dict]:
         with self._engine.connect() as conn:
-            rows = conn.execute(sa.text("SELECT * FROM paper_signals WHERE status = 'OPEN'")).mappings().fetchall()
+            rows = (
+                conn.execute(sa.text("SELECT * FROM paper_signals WHERE status = 'OPEN'"))
+                .mappings()
+                .fetchall()
+            )
             return [_clean_row(dict(r)) for r in rows]
 
     def record_paper_signal(
@@ -220,7 +223,9 @@ class PgMetadataStore:
             )
             return _clean_row(dict(r)) if r else {}
 
-    def trade_log(self, *, horizon: str | None = None, status: str | None = None, limit: int = 50) -> list[dict]:
+    def trade_log(
+        self, *, horizon: str | None = None, status: str | None = None, limit: int = 50
+    ) -> list[dict]:
         conditions = []
         params = {}
         if horizon:
@@ -236,7 +241,10 @@ class PgMetadataStore:
         with self._engine.connect() as conn:
             rows = (
                 conn.execute(
-                    sa.text(f"SELECT * FROM paper_signals {where} ORDER BY created_at DESC LIMIT :limit"), params
+                    sa.text(
+                        f"SELECT * FROM paper_signals {where} ORDER BY created_at DESC LIMIT :limit"
+                    ),
+                    params,
                 )
                 .mappings()
                 .fetchall()
@@ -249,7 +257,10 @@ class PgMetadataStore:
         with self._engine.connect() as conn:
             rows = (
                 conn.execute(
-                    sa.text("SELECT * FROM daily_suggestions WHERE suggestion_date = :d ORDER BY symbol"), {"d": date}
+                    sa.text(
+                        "SELECT * FROM daily_suggestions WHERE suggestion_date = :d ORDER BY symbol"
+                    ),
+                    {"d": date},
                 )
                 .mappings()
                 .fetchall()
@@ -318,7 +329,9 @@ class PgMetadataStore:
         with self._engine.connect() as conn:
             rows = (
                 conn.execute(
-                    sa.text("SELECT * FROM daily_suggestions WHERE status = 'PENDING' ORDER BY suggestion_date, symbol")
+                    sa.text(
+                        "SELECT * FROM daily_suggestions WHERE status = 'PENDING' ORDER BY suggestion_date, symbol"
+                    )
                 )
                 .mappings()
                 .fetchall()
@@ -528,7 +541,8 @@ class PgMetadataStore:
 
         with self._engine.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT stop_history FROM trade_journal WHERE paper_trade_id = :pid"), {"pid": paper_trade_id}
+                sa.text("SELECT stop_history FROM trade_journal WHERE paper_trade_id = :pid"),
+                {"pid": paper_trade_id},
             ).fetchone()
             if not row:
                 return False
@@ -549,14 +563,17 @@ class PgMetadataStore:
         with self._engine.connect() as conn:
             r = (
                 conn.execute(
-                    sa.text("SELECT * FROM trade_journal WHERE paper_trade_id = :pid"), {"pid": paper_trade_id}
+                    sa.text("SELECT * FROM trade_journal WHERE paper_trade_id = :pid"),
+                    {"pid": paper_trade_id},
                 )
                 .mappings()
                 .fetchone()
             )
             return _clean_row(dict(r)) if r else None
 
-    def journal_list(self, *, setup_type: str = "", reviewed: bool | None = None, limit: int = 50) -> list[dict]:
+    def journal_list(
+        self, *, setup_type: str = "", reviewed: bool | None = None, limit: int = 50
+    ) -> list[dict]:
         """List journal entries with optional filters."""
         conditions = []
         params = {}
@@ -573,7 +590,10 @@ class PgMetadataStore:
         with self._engine.connect() as conn:
             rows = (
                 conn.execute(
-                    sa.text(f"SELECT * FROM trade_journal {where} ORDER BY entry_date DESC LIMIT :limit"), params
+                    sa.text(
+                        f"SELECT * FROM trade_journal {where} ORDER BY entry_date DESC LIMIT :limit"
+                    ),
+                    params,
                 )
                 .mappings()
                 .fetchall()

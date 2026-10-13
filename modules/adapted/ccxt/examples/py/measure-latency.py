@@ -69,7 +69,7 @@ def main():
             if symbol in markets:
                 print("Testing", symbol)
                 results = []
-                for _i in range(num_orders):
+                for _i in range(0, num_orders):
                     timestamp = exchange.milliseconds()
                     order = exchange.create_order(symbol, "limit", side, amount, price)
                     elapsed = exchange.milliseconds() - timestamp

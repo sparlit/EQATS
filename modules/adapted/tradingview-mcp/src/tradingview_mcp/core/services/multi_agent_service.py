@@ -35,7 +35,7 @@ from tradingview_mcp.core.utils.validators import EXCHANGE_SCREENER
 
 try:
     # Patched: route through resilience layer (retry + 60s TTL cache).
-    import tradingview_ta
+    import tradingview_ta  # noqa: F401  presence check
     from tradingview_mcp.core.services.screener_provider import (
         resilient_get_multiple_analysis as get_multiple_analysis,
     )
@@ -139,7 +139,7 @@ def calculate_risk_score(indicators: dict, bbw: float) -> dict:
 
     return {
         "score": score,
-        "warnings": warnings or ["Normal risk parameters"],
+        "warnings": warnings if warnings else ["Normal risk parameters"],
         "level": "High" if score < -1 else "Medium" if score == -1 else "Low",
     }
 

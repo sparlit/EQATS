@@ -38,7 +38,6 @@ Version: 1.2.1
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -130,7 +129,9 @@ def compute_group_returns(
     returns_df = pd.DataFrame(returns_dict)
 
     # Equal-weighted average (ignoring NaN)
-    return returns_df.mean(axis=1)
+    group_returns = returns_df.mean(axis=1)
+
+    return group_returns
 
 
 def compute_excess_returns(
@@ -157,7 +158,9 @@ def compute_excess_returns(
     if len(common_dates) == 0:
         return pd.Series(dtype=float)
 
-    return group_returns.loc[common_dates] - benchmark_returns.loc[common_dates]
+    excess = group_returns.loc[common_dates] - benchmark_returns.loc[common_dates]
+
+    return excess
 
 
 # ============================================================================
@@ -289,12 +292,13 @@ def rank_groups_by_strength(
 
     # Sort by metric (descending)
     if ranking_metric == "information_ratio":
-        sorted_groups = sorted(valid_groups.items(), key=lambda x: x[1].information_ratio, reverse=True)
+        sorted_groups = sorted(
+            valid_groups.items(), key=lambda x: x[1].information_ratio, reverse=True
+        )
     elif ranking_metric == "excess_return":
         sorted_groups = sorted(valid_groups.items(), key=lambda x: x[1].excess_return, reverse=True)
     else:
-        msg = f"Invalid ranking_metric: {ranking_metric}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid ranking_metric: {ranking_metric}")
 
     # Extract names
     ranked_names = [name for name, _ in sorted_groups]
@@ -440,14 +444,20 @@ if __name__ == "__main__":
 
     # Strong tech stocks
     for sym in ["AAPL", "MSFT", "NVDA"]:
-        prices[sym] = pd.Series(100 + np.arange(len(dates)) * 2 + np.random.randn(len(dates)) * 5, index=dates)
+        prices[sym] = pd.Series(
+            100 + np.arange(len(dates)) * 2 + np.random.randn(len(dates)) * 5, index=dates
+        )
 
     # Weak commodities
     for sym in ["GLD", "SLV"]:
-        prices[sym] = pd.Series(100 + np.arange(len(dates)) * 0.5 + np.random.randn(len(dates)) * 5, index=dates)
+        prices[sym] = pd.Series(
+            100 + np.arange(len(dates)) * 0.5 + np.random.randn(len(dates)) * 5, index=dates
+        )
 
     # Benchmark
-    prices["QQQ"] = pd.Series(100 + np.arange(len(dates)) * 1.5 + np.random.randn(len(dates)) * 5, index=dates)
+    prices["QQQ"] = pd.Series(
+        100 + np.arange(len(dates)) * 1.5 + np.random.randn(len(dates)) * 5, index=dates
+    )
 
     # Load config
     from config_loader import load_config

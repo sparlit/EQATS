@@ -43,16 +43,13 @@ class TestCompareSeries:
     def test_identical_series_passes(self):
         a, b = series([100.0, 101.0]), series([100.0, 101.0])
         report = compare_series(a, b, pair="t", symbol="X", warn_pct=0.1, error_pct=0.5)
-        assert report.passed
-        assert report.n_compared == 2
-        assert report.max_drift_pct == 0
+        assert report.passed and report.n_compared == 2 and report.max_drift_pct == 0
 
     def test_small_drift_warns(self):
         a = series([100.0])
         b = series([100.2])
         report = compare_series(a, b, pair="t", symbol="X", warn_pct=0.1, error_pct=0.5)
-        assert report.n_warning == 1
-        assert report.passed
+        assert report.n_warning == 1 and report.passed
 
     def test_large_drift_errors(self):
         a = series([100.0])
@@ -70,7 +67,9 @@ class TestCompareSeries:
         assert report.n_compared == 2
 
     def test_report_dict_shape(self):
-        report = compare_series(series([100.0]), series([100.0]), pair="p", symbol="S", warn_pct=0.1, error_pct=0.5)
+        report = compare_series(
+            series([100.0]), series([100.0]), pair="p", symbol="S", warn_pct=0.1, error_pct=0.5
+        )
         payload = report.to_dict()
         assert {"pair", "symbol", "n_compared", "passed"} <= set(payload)
 

@@ -34,7 +34,7 @@ import ccxt  # noqa: E402
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -53,7 +53,14 @@ def main():
             ohlcvs = exchange.fetch_ohlcv(symbol, timeframe, since)
             all_ohlcvs += ohlcvs
             if len(ohlcvs):
-                print("Fetched", len(ohlcvs), symbol, timeframe, "candles from", exchange.iso8601(ohlcvs[0][0]))
+                print(
+                    "Fetched",
+                    len(ohlcvs),
+                    symbol,
+                    timeframe,
+                    "candles from",
+                    exchange.iso8601(ohlcvs[0][0]),
+                )
                 since = ohlcvs[-1][0] + 1
             else:
                 break
@@ -61,7 +68,7 @@ def main():
             print(type(e).__name__, str(e))
     print("Fetched", len(all_ohlcvs), symbol, timeframe, "candles in total")
     if len(all_ohlcvs):
-        print(table([[exchange.iso8601(o[0]), *o[1:]] for o in all_ohlcvs]))
+        print(table([[exchange.iso8601(o[0])] + o[1:] for o in all_ohlcvs]))
 
 
 main()

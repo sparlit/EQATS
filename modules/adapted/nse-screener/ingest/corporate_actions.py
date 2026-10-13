@@ -40,7 +40,10 @@ from ingest import nse
 
 import config
 
-CA_URL = "https://www.nseindia.com/api/corporates-corporateActions?index={segment}&from_date={frm}&to_date={to}"
+CA_URL = (
+    "https://www.nseindia.com/api/corporates-corporateActions"
+    "?index={segment}&from_date={frm}&to_date={to}"
+)
 # ETF corporate actions (e.g. the NIFTYBEES 10:1 split, Dec 2019) live in
 # the 'mf' segment, NOT 'equities' — miss them and the benchmark "crashes".
 SEGMENTS = ("equities", "mf")
@@ -48,10 +51,10 @@ OUT = config.DATA_DIR / "corporate_actions.parquet"
 
 # "Face Value Split (Sub-Division) - From Rs 10/- Per Share To Re 1/- ..."
 # Older records abbreviate: "Fv Splt Frm Rs 10 To Re 1"
-SPLIT_RE = re.compile(r"fr?o?m\s+r[se]\.?\s*([\d.]+).*?to\s+r[se]\.?\s*([\d.]+)", re.IGNORECASE)
-SPLIT_KEY = re.compile(r"spli?t", re.IGNORECASE)  # Split / Splt
+SPLIT_RE = re.compile(r"fr?o?m\s+r[se]\.?\s*([\d.]+).*?to\s+r[se]\.?\s*([\d.]+)", re.I)
+SPLIT_KEY = re.compile(r"spli?t", re.I)  # Split / Splt
 # "Bonus 1:2" = 1 new share per 2 held
-BONUS_RE = re.compile(r"bonus\s+(\d+)\s*:\s*(\d+)", re.IGNORECASE)
+BONUS_RE = re.compile(r"bonus\s+(\d+)\s*:\s*(\d+)", re.I)
 
 
 def fetch(start: date, end: date) -> pd.DataFrame:
@@ -59,7 +62,9 @@ def fetch(start: date, end: date) -> pd.DataFrame:
     while d <= end:  # quarterly chunks; NSE dislikes big ranges
         q_end = min(d + timedelta(days=90), end)
         for seg in SEGMENTS:
-            url = CA_URL.format(segment=seg, frm=d.strftime("%d-%m-%Y"), to=q_end.strftime("%d-%m-%Y"))
+            url = CA_URL.format(
+                segment=seg, frm=d.strftime("%d-%m-%Y"), to=q_end.strftime("%d-%m-%Y")
+            )
             r = nse.get(url, timeout=config.TIMEOUT)
             r.raise_for_status()
             rows = r.json()
@@ -74,7 +79,9 @@ def fetch(start: date, end: date) -> pd.DataFrame:
 def store(start: date, end: date) -> pd.DataFrame:
     df = fetch(start, end)
     if OUT.exists():  # merge with what we already have
-        df = pd.concat([pd.read_parquet(OUT), df]).drop_duplicates(subset=["symbol", "subject", "exDate"])
+        df = pd.concat([pd.read_parquet(OUT), df]).drop_duplicates(
+            subset=["symbol", "subject", "exDate"]
+        )
     df.to_parquet(OUT, index=False)
     return df
 
@@ -124,15 +131,16 @@ def implied_splits(df: pd.DataFrame, known: pd.DataFrame) -> pd.DataFrame:
             vol_pre = g["volume"].iloc[max(0, i - 20) : i].median()
             vol_post = g["volume"].iloc[i : i + 10].median()
             if vol_pre > 0 and vol_post / vol_pre >= 1.5:
-                events.append({"symbol": sym, "exDate": d, "factor": 1 / clean, "source": "implied"})
+                events.append(
+                    {"symbol": sym, "exDate": d, "factor": 1 / clean, "source": "implied"}
+                )
     return pd.DataFrame(events)
 
 
 def adjust(df: pd.DataFrame) -> pd.DataFrame:
     """Back-adjust a long bhavcopy frame (symbol/date/OHLC/volume) in place."""
     if not OUT.exists():
-        msg = "No corporate_actions.parquet — run the CA backfill."
-        raise SystemExit(msg)
+        raise SystemExit("No corporate_actions.parquet — run the CA backfill.")
     ca = pd.read_parquet(OUT)
     from ingest import renames
 

@@ -57,7 +57,9 @@ def _validate(condition, price, price2):
         if price <= 0:
             raise HTTPException(status_code=422, detail="a move has to be bigger than nothing")
         if condition.endswith("_pct") and price >= 100:
-            raise HTTPException(status_code=422, detail="a move of 100% or more is not a useful alert")
+            raise HTTPException(
+                status_code=422, detail="a move of 100% or more is not a useful alert"
+            )
     elif price <= 0:
         raise HTTPException(status_code=422, detail="alert price must be above 0")
 
@@ -122,7 +124,12 @@ def create_alert(req: AlertRequest):
         "current_price": price,
         "already_true": price is not None
         and alerts.condition_holds(
-            {"condition": condition, "price": req.price, "price2": req.price2, "reference_price": price},
+            {
+                "condition": condition,
+                "price": req.price,
+                "price2": req.price2,
+                "reference_price": price,
+            },
             price,
         ),
     }

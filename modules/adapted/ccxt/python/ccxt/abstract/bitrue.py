@@ -31,9 +31,9 @@ class ImplicitAPI:
     spot_kline_public_get_public_json = spotKlinePublicGetPublicJson = Entry[_Dict](
         "public.json", ["spot", "kline", "public"], "GET", {"cost": 0.24}
     )
-    spot_kline_public_get_public_currency_json = spotKlinePublicGetPublicCurrencyJson = Entry[_Dict](
-        "public{currency}.json", ["spot", "kline", "public"], "GET", {"cost": 0.24}
-    )
+    spot_kline_public_get_public_currency_json = spotKlinePublicGetPublicCurrencyJson = Entry[
+        _Dict
+    ]("public{currency}.json", ["spot", "kline", "public"], "GET", {"cost": 0.24})
     spot_v1_public_get_ping = spotV1PublicGetPing = Entry[_Dict](
         "ping", ["spot", "v1", "public"], "GET", {"cost": 0.24}
     )
@@ -44,7 +44,10 @@ class ImplicitAPI:
         "exchangeInfo", ["spot", "v1", "public"], "GET", {"cost": 0.24}
     )
     spot_v1_public_get_depth = spotV1PublicGetDepth = Entry[_Dict](
-        "depth", ["spot", "v1", "public"], "GET", {"cost": 1, "byLimit": [[100, 0.24], [500, 1.2], [1000, 2.4]]}
+        "depth",
+        ["spot", "v1", "public"],
+        "GET",
+        {"cost": 1, "byLimit": [[100, 0.24], [500, 1.2], [1000, 2.4]]},
     )
     spot_v1_public_get_trades = spotV1PublicGetTrades = Entry[_List](
         "trades", ["spot", "v1", "public"], "GET", {"cost": 0.24}
@@ -139,9 +142,9 @@ class ImplicitAPI:
     fapi_v2_private_get_commissionrate = fapiV2PrivateGetCommissionRate = Entry[_Dict](
         "commissionRate", ["fapi", "v2", "private"], "GET", {"cost": 5}
     )
-    fapi_v2_private_get_futures_transfer_history = fapiV2PrivateGetFuturesTransferHistory = Entry[_Dict](
-        "futures_transfer_history", ["fapi", "v2", "private"], "GET", {"cost": 5}
-    )
+    fapi_v2_private_get_futures_transfer_history = fapiV2PrivateGetFuturesTransferHistory = Entry[
+        _Dict
+    ]("futures_transfer_history", ["fapi", "v2", "private"], "GET", {"cost": 5})
     fapi_v2_private_get_forceordershistory = fapiV2PrivateGetForceOrdersHistory = Entry[_Dict](
         "forceOrdersHistory", ["fapi", "v2", "private"], "GET", {"cost": 5}
     )
@@ -199,9 +202,9 @@ class ImplicitAPI:
     dapi_v2_private_get_commissionrate = dapiV2PrivateGetCommissionRate = Entry[_Dict](
         "commissionRate", ["dapi", "v2", "private"], "GET", {"cost": 5}
     )
-    dapi_v2_private_get_futures_transfer_history = dapiV2PrivateGetFuturesTransferHistory = Entry[_Dict](
-        "futures_transfer_history", ["dapi", "v2", "private"], "GET", {"cost": 5}
-    )
+    dapi_v2_private_get_futures_transfer_history = dapiV2PrivateGetFuturesTransferHistory = Entry[
+        _Dict
+    ]("futures_transfer_history", ["dapi", "v2", "private"], "GET", {"cost": 5})
     dapi_v2_private_get_forceordershistory = dapiV2PrivateGetForceOrdersHistory = Entry[_Dict](
         "forceOrdersHistory", ["dapi", "v2", "private"], "GET", {"cost": 5}
     )
@@ -223,12 +226,16 @@ class ImplicitAPI:
     dapi_v2_private_post_futures_transfer = dapiV2PrivatePostFuturesTransfer = Entry[_Dict](
         "futures_transfer", ["dapi", "v2", "private"], "POST", {"cost": 5}
     )
-    open_v1_private_post_poseidon_api_v1_listenkey = openV1PrivatePostPoseidonApiV1ListenKey = Entry[_Dict](
-        "poseidon/api/v1/listenKey", ["open", "v1", "private"], "POST", {"cost": 1}
+    open_v1_private_post_poseidon_api_v1_listenkey = openV1PrivatePostPoseidonApiV1ListenKey = (
+        Entry[_Dict]("poseidon/api/v1/listenKey", ["open", "v1", "private"], "POST", {"cost": 1})
     )
-    open_v1_private_put_poseidon_api_v1_listenkey_listenkey = openV1PrivatePutPoseidonApiV1ListenKeyListenKey = Entry[
-        _Dict
-    ]("poseidon/api/v1/listenKey/{listenKey}", ["open", "v1", "private"], "PUT", {"cost": 1})
-    open_v1_private_delete_poseidon_api_v1_listenkey_listenkey = openV1PrivateDeletePoseidonApiV1ListenKeyListenKey = (
-        Entry[_Dict]("poseidon/api/v1/listenKey/{listenKey}", ["open", "v1", "private"], "DELETE", {"cost": 1})
+    open_v1_private_put_poseidon_api_v1_listenkey_listenkey = (
+        openV1PrivatePutPoseidonApiV1ListenKeyListenKey
+    ) = Entry[_Dict](
+        "poseidon/api/v1/listenKey/{listenKey}", ["open", "v1", "private"], "PUT", {"cost": 1}
+    )
+    open_v1_private_delete_poseidon_api_v1_listenkey_listenkey = (
+        openV1PrivateDeletePoseidonApiV1ListenKeyListenKey
+    ) = Entry[_Dict](
+        "poseidon/api/v1/listenKey/{listenKey}", ["open", "v1", "private"], "DELETE", {"cost": 1}
     )

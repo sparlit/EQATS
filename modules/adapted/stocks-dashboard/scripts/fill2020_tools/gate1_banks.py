@@ -30,7 +30,6 @@ per-quarter reading, same shape as con_floor_v2.jsonl from the earlier campaign.
 No repo writes; this is evidence only.
 """
 import json
-import re
 import sys
 import time
 

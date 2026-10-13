@@ -23,8 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import csv
 
-import pandas as pd
-
 # def money_to_float(money_str):
 #     return 12
 #

@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_eth_methods():
@@ -48,5 +48,8 @@ def test_eth_methods():
     public_key = "0x3096cD9827766E03f8b6DF58996399406DC270Af"
     generated_address = exchange.eth_get_address_from_private_key(private_key)
     assert generated_address.lower() == public_key.lower(), (
-        "ethGetAddressFromPrivateKey did not generate the expected address: " + generated_address + " != " + public_key
+        "ethGetAddressFromPrivateKey did not generate the expected address: "
+        + generated_address
+        + " != "
+        + public_key
     )

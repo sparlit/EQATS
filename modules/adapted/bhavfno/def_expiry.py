@@ -34,7 +34,9 @@ def expiry(year, root="path"):
     "Last Thu of the Month is a holiday. The list is manually created. Checked till 2015, if you want to add the support beyond 2015 then add the dates in 'holiday_list', also if possible share "
     holiday_list = df_holidays["date"].tolist()
 
-    expiry_list = ["Empty"]  # since list starts from 0 this is a hacky way to align expiry_list[1] = first month
+    expiry_list = [
+        "Empty"
+    ]  # since list starts from 0 this is a hacky way to align expiry_list[1] = first month
     for n in range(1, 13):
         month = n
         last_day = calendar.monthrange(year, month)[1]

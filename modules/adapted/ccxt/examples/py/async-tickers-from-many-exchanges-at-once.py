@@ -41,7 +41,8 @@ sys.path.append(root + "/python")
 
 def sync_client(exchange):
     client = getattr(ccxt, exchange)()
-    return client.fetch_tickers()
+    tickers = client.fetch_tickers()
+    return tickers
 
 
 async def async_client(exchange):
@@ -53,7 +54,8 @@ async def async_client(exchange):
 
 async def multi_tickers(exchanges):
     input_coroutines = [async_client(exchange) for exchange in exchanges]
-    return await asyncio.gather(*input_coroutines, return_exceptions=True)
+    tickers = await asyncio.gather(*input_coroutines, return_exceptions=True)
+    return tickers
 
 
 if __name__ == "__main__":

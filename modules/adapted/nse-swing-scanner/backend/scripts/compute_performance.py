@@ -44,7 +44,6 @@ import argparse
 import json
 import os
 import sys
-from typing import List, Tuple
 
 # Script dir is on sys.path when run as `python scripts/compute_performance.py`;
 # backend/ (parent) is not — add it so `import performance` resolves.
@@ -87,13 +86,19 @@ def load_snapshots(snapshots_dir: str) -> list[tuple[str, dict]]:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description="Compute forward-return attribution from snapshot history.")
+    p = argparse.ArgumentParser(
+        description="Compute forward-return attribution from snapshot history."
+    )
     p.add_argument("--snapshots", required=True, help="Directory of dated snapshot files")
     p.add_argument("--output", required=True, help="Path to write performance.json")
     p.add_argument(
-        "--cache-dir", default=None, help="Cache directory for fetched prices (default: alongside snapshots)"
+        "--cache-dir",
+        default=None,
+        help="Cache directory for fetched prices (default: alongside snapshots)",
     )
-    p.add_argument("--no-cache", action="store_true", help="Bypass the prices cache (force re-fetch)")
+    p.add_argument(
+        "--no-cache", action="store_true", help="Bypass the prices cache (force re-fetch)"
+    )
     p.add_argument(
         "--allow-empty-trackable",
         action="store_true",

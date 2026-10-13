@@ -75,8 +75,12 @@ def assess_freshness(
         reasons.append(f"index_history_{index_age}_days_old")
     return FreshnessStatus(
         as_of=day.isoformat(),
-        price_date=pd.Timestamp(price_value).date().isoformat() if price_value is not None else None,
-        index_date=pd.Timestamp(index_value).date().isoformat() if index_value is not None else None,
+        price_date=pd.Timestamp(price_value).date().isoformat()
+        if price_value is not None
+        else None,
+        index_date=pd.Timestamp(index_value).date().isoformat()
+        if index_value is not None
+        else None,
         price_age_days=price_age,
         index_age_days=index_age,
         prices_stale=prices_stale,

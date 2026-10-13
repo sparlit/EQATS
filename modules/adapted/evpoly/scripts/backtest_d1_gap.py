@@ -44,7 +44,6 @@ Modeling choices (defaults):
 import argparse
 import datetime as dt
 import glob
-import itertools
 import json
 import math
 import statistics
@@ -53,13 +52,10 @@ import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
 
 UTC = dt.UTC
 ET = ZoneInfo("America/New_York")
@@ -286,8 +282,7 @@ class PlanDailyTablesPy:
             out.checkpoints_by_symbol[sym] = unique
 
         if not out.cells:
-            msg = f"no plandaily cells parsed from {path}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"no plandaily cells parsed from {path}")
         return out
 
     def checkpoints_for_symbol(self, symbol: str) -> list[int]:
@@ -327,9 +322,9 @@ class PlanDailyTablesPy:
             p_a = low.flips / low.n
             p_b = high.flips / high.n
             p = p_a + (p_b - p_a) * w_high
-            n_interp = round(low.n + (high.n - low.n) * w_high)
+            n_interp = int(round(low.n + (high.n - low.n) * w_high))
             n = max(1, n_interp)
-            flips = round(p * n)
+            flips = int(round(p * n))
             p_flip = min(1.0, max(0.0, p))
             return LookupResult(
                 flips=flips,
@@ -364,7 +359,7 @@ def interpolation_bounds(checkpoints: Sequence[int], tau_sec: int) -> tuple[int,
         return sorted_cp[0], sorted_cp[0], 0.0
     if tau >= sorted_cp[-1]:
         return sorted_cp[-1], sorted_cp[-1], 0.0
-    for low, high in itertools.pairwise(sorted_cp):
+    for low, high in zip(sorted_cp, sorted_cp[1:], strict=False):
         if low <= tau <= high:
             if high == low:
                 return low, high, 0.0
@@ -416,8 +411,9 @@ def fetch_klines_1h(symbol: str, start_ms: int, end_ms: int) -> list[list]:
         except Exception as exc:
             retries += 1
             if retries > 6:
-                msg = f"failed to fetch {symbol} klines at cursor={cursor}: {exc}"
-                raise RuntimeError(msg) from exc
+                raise RuntimeError(
+                    f"failed to fetch {symbol} klines at cursor={cursor}: {exc}"
+                ) from exc
             sleep_s = min(8.0, 0.5 * (2 ** (retries - 1)))
             time.sleep(sleep_s)
             continue
@@ -448,8 +444,7 @@ def load_symbol_prices(
         int(fetch_end_utc.timestamp() * 1000),
     )
     if not rows:
-        msg = f"no klines returned for {symbol}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"no klines returned for {symbol}")
     open_price: dict[int, float] = {}
     close_price: dict[int, float] = {}
     for row in rows:
@@ -485,8 +480,7 @@ class DeltaCalibrator:
     def from_event_logs(glob_expr: str) -> DeltaCalibrator:
         files = sorted(glob.glob(glob_expr))
         if not files:
-            msg = f"no event files found for glob: {glob_expr}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"no event files found for glob: {glob_expr}")
 
         levels: list[defaultdict] = [defaultdict(list) for _ in range(6)]
         global_deltas: list[float] = []
@@ -542,8 +536,7 @@ class DeltaCalibrator:
                     global_deltas.append(delta)
 
         if not global_deltas:
-            msg = "no usable evcurve 1d calibration rows found in events logs"
-            raise RuntimeError(msg)
+            raise RuntimeError("no usable evcurve 1d calibration rows found in events logs")
 
         model = DeltaCalibrator()
         model.global_delta = statistics.median(global_deltas)
@@ -590,7 +583,10 @@ def evaluate_threshold(
     selected = [
         o
         for o in opportunities
-        if o.symbol == symbol and o.n >= min_cell_n and o.gap_abs >= gap_threshold and o.ask <= o.max_buy
+        if o.symbol == symbol
+        and o.n >= min_cell_n
+        and o.gap_abs >= gap_threshold
+        and o.ask <= o.max_buy
     ]
     selected = sorted(selected, key=lambda x: x.ts_ms)
 
@@ -624,7 +620,9 @@ def evaluate_threshold(
     avg_ask = (sum(o.ask for o in selected) / trades) if trades else 0.0
     avg_gap = (sum(o.gap_abs for o in selected) / trades) if trades else 0.0
     avg_n = (sum(o.n for o in selected) / trades) if trades else 0.0
-    profit_factor = (gross_win / gross_loss) if gross_loss > 0 else (float("inf") if gross_win > 0 else 0.0)
+    profit_factor = (
+        (gross_win / gross_loss) if gross_loss > 0 else (float("inf") if gross_win > 0 else 0.0)
+    )
     expectancy = (pnl_usd / trades) if trades > 0 else 0.0
     return ThresholdMetrics(
         symbol=symbol,
@@ -643,7 +641,9 @@ def evaluate_threshold(
     )
 
 
-def choose_best_gap(metrics: Sequence[ThresholdMetrics], min_trades: int) -> ThresholdMetrics | None:
+def choose_best_gap(
+    metrics: Sequence[ThresholdMetrics], min_trades: int
+) -> ThresholdMetrics | None:
     eligible = [m for m in metrics if m.trades >= min_trades]
     if not eligible:
         eligible = [m for m in metrics if m.trades > 0]
@@ -666,8 +666,7 @@ def parse_threshold_grid(spec: str) -> list[float]:
     if ":" in spec:
         parts = spec.split(":")
         if len(parts) != 3:
-            msg = "threshold grid format must be start:stop:step"
-            raise ValueError(msg)
+            raise ValueError("threshold grid format must be start:stop:step")
         start, stop, step = map(float, parts)
         out: list[float] = []
         cur = start
@@ -677,8 +676,7 @@ def parse_threshold_grid(spec: str) -> list[float]:
         return out
     out = [float(x.strip()) for x in spec.split(",") if x.strip()]
     if not out:
-        msg = "empty threshold grid"
-        raise ValueError(msg)
+        raise ValueError("empty threshold grid")
     return out
 
 
@@ -870,7 +868,9 @@ def write_report(
         if o.n >= args.min_cell_n:
             by_symbol_pass_n[o.symbol] += 1
     for sym in SYMBOLS:
-        lines.append(f"- {sym}: total_opportunities={by_symbol[sym]} with_n>={args.min_cell_n}={by_symbol_pass_n[sym]}")
+        lines.append(
+            f"- {sym}: total_opportunities={by_symbol[sym]} with_n>={args.min_cell_n}={by_symbol_pass_n[sym]}"
+        )
     lines.append("")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -903,17 +903,17 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     args.start_close_day = parse_date(args.start_close_day)
-    args.end_close_day = parse_date(args.end_close_day) if args.end_close_day else default_end_close_day()
+    args.end_close_day = (
+        parse_date(args.end_close_day) if args.end_close_day else default_end_close_day()
+    )
     args.split_close_day = parse_date(args.split_close_day)
     thresholds = parse_threshold_grid(args.thresholds)
     if args.end_close_day < args.start_close_day:
-        msg = "end-close-day must be >= start-close-day"
-        raise RuntimeError(msg)
+        raise RuntimeError("end-close-day must be >= start-close-day")
 
     plandaily_path = Path(args.plandaily)
     if not plandaily_path.exists():
-        msg = f"plandaily file not found: {plandaily_path}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"plandaily file not found: {plandaily_path}")
     tables = PlanDailyTablesPy.load(plandaily_path)
 
     calibrator = DeltaCalibrator.from_event_logs(args.calibration_glob)
@@ -926,8 +926,7 @@ def main() -> int:
         impact_buffer=args.impact_buffer,
     )
     if not opportunities:
-        msg = "no opportunities generated"
-        raise RuntimeError(msg)
+        raise RuntimeError("no opportunities generated")
 
     by_symbol = defaultdict(list)
     by_symbol_train = defaultdict(list)
@@ -946,12 +945,16 @@ def main() -> int:
     per_symbol_test_eval_on_train_gap: dict[str, ThresholdMetrics | None] = {}
 
     for sym in SYMBOLS:
-        metrics_full = [evaluate_threshold(sym, by_symbol[sym], g, args.min_cell_n, args.stake_usd) for g in thresholds]
+        metrics_full = [
+            evaluate_threshold(sym, by_symbol[sym], g, args.min_cell_n, args.stake_usd)
+            for g in thresholds
+        ]
         per_symbol_all_metrics[sym] = metrics_full
         per_symbol_best_full[sym] = choose_best_gap(metrics_full, args.min_trades)
 
         metrics_train = [
-            evaluate_threshold(sym, by_symbol_train[sym], g, args.min_cell_n, args.stake_usd) for g in thresholds
+            evaluate_threshold(sym, by_symbol_train[sym], g, args.min_cell_n, args.stake_usd)
+            for g in thresholds
         ]
         best_train = choose_best_gap(metrics_train, args.min_trades)
         per_symbol_best_train[sym] = best_train
@@ -977,7 +980,8 @@ def main() -> int:
     out_path = (
         Path(args.report_out)
         if args.report_out
-        else Path("reports") / f"d1_gap_optimization_{dt.datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%SZ')}.md"
+        else Path("reports")
+        / f"d1_gap_optimization_{dt.datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%SZ')}.md"
     )
     write_report(
         out_path=out_path,

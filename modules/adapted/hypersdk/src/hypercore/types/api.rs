@@ -139,6 +139,9 @@ pub enum Action {
         /// TWAP ID to cancel.
         t: u64,
     },
+    /// Place a native trailing stop.
+    #[from(skip)]
+    TrailingStop(TrailingStop),
     /// Withdraw to Arbitrum L1.
     #[from(skip)]
     Withdraw3(Withdraw3Action),
@@ -168,7 +171,10 @@ pub enum Action {
         /// Number of requests to reserve (0.0005 USDC per request).
         weight: u32,
         /// Account the reserved capacity is credited to. `None` credits the signer.
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            serialize_with = "crate::hypercore::utils::serialize_option_address_as_hex"
+        )]
         destination: Option<Address>,
     },
     /// HIP-3 backstop liquidator deposit/withdraw.
@@ -200,9 +206,9 @@ pub enum Action {
     /// HIP-3 perp DEX deployment and operation.
     #[from(skip)]
     PerpDeploy(deploy::PerpDeployAction),
-    /// HIP-4 outcome market deployment and settlement.
+    /// HIP-4 outcome market deployment and settlement, for one venue.
     #[from(skip)]
-    OutcomeDeploy(deploy::OutcomeDeployAction),
+    OutcomeDeploy(deploy::OutcomeDeploy),
     /// HIP-4 outcome deployer activation.
     #[from(skip)]
     ActivateOutcomeDeployer(deploy::ActivateOutcomeDeployer),
@@ -338,6 +344,7 @@ impl Action {
             | Action::AgentSetAbstraction { .. }
             | Action::TwapOrder { .. }
             | Action::TwapCancel { .. }
+            | Action::TrailingStop(_)
             | Action::CDeposit { .. }
             | Action::CWithdraw { .. }
             | Action::ReserveRequestWeight { .. }
@@ -483,12 +490,50 @@ pub enum OkResponse {
     Cancel {
         statuses: Vec<OrderResponseStatus>,
     },
+    /// Reply to a TWAP order. A rejected TWAP is still a `status: ok` reply, with the
+    /// reason in [`TwapOrderStatus::Error`].
+    TwapOrder {
+        status: TwapOrderStatus,
+    },
+    /// Reply to a TWAP cancel. A failed cancel is still a `status: ok` reply, with the
+    /// reason in [`TwapCancelStatus::Error`].
+    TwapCancel {
+        status: TwapCancelStatus,
+    },
+    /// Reply to a trailing stop: the ID of the order it placed.
+    TrailingStop {
+        oid: u64,
+    },
     /// Address of the sub-account just created. `data` is the bare address.
     CreateSubAccount(Address),
     /// Address of the vault just created. `data` is the bare address.
     CreateVault(Address),
     // should be ok?
     Default,
+}
+
+/// Outcome of a TWAP order, from the `twapOrder` reply.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TwapOrderStatus {
+    /// The TWAP is running.
+    Running {
+        /// ID to cancel it with.
+        #[serde(rename = "twapId")]
+        twap_id: u64,
+    },
+    /// The exchange rejected the TWAP.
+    Error(String),
+}
+
+/// Outcome of a TWAP cancel, from the `twapCancel` reply.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TwapCancelStatus {
+    /// The TWAP was canceled.
+    Success,
+    /// The cancel failed, e.g. because the TWAP was already canceled or filled.
+    Error(String),
 }
 
 impl Response {
@@ -1293,6 +1338,70 @@ pub struct TwapOrderParams {
     pub t: bool,
 }
 
+/// A native trailing stop: a market order that triggers once the mark price retraces from
+/// its best level since activation by `retracement`. Perp markets only.
+///
+/// <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint#place-a-trailing-stop-order>
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TrailingStop {
+    /// Asset index.
+    pub asset: usize,
+    /// `true` for buy, `false` for sell.
+    pub is_buy: bool,
+    /// Size.
+    #[serde(with = "crate::hypercore::utils::decimal_normalized")]
+    pub sz: Decimal,
+    /// Reduce only.
+    pub reduce_only: bool,
+    /// How far the price retraces before the stop triggers.
+    pub retracement: TrailingStopRetracement,
+    /// Price at which the stop starts trailing. `None` starts it immediately.
+    ///
+    /// Sent as `null` when unset rather than omitted: the exchange hashes the field either
+    /// way, so leaving it out changes the signature.
+    #[serde(with = "crate::hypercore::utils::decimal_normalized_option")]
+    pub activation_px: Option<Decimal>,
+}
+
+/// How far the price retraces before a [`TrailingStop`] triggers.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TrailingStopRetracement {
+    /// A percentage, e.g. `dec!(1.5)` for 1.5%. Sent as `"1.5%"`.
+    Pct(#[serde(with = "percent")] Decimal),
+    /// A price distance.
+    Px(#[serde(with = "crate::hypercore::utils::decimal_normalized")] Decimal),
+}
+
+/// A percentage as the exchange writes it, e.g. `"1.5%"`.
+mod percent {
+    use std::str::FromStr;
+
+    use rust_decimal::Decimal;
+    use serde::{Deserialize, Deserializer, Serializer, de};
+
+    pub fn serialize<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}%", value.normalize()))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let digits = s
+            .strip_suffix('%')
+            .ok_or_else(|| de::Error::custom(format!("percentage without %: `{s}`")))?;
+        Decimal::from_str(digits)
+            .map(|d| d.normalize())
+            .map_err(de::Error::custom)
+    }
+}
+
 /// Withdraw to Arbitrum L1.
 ///
 /// Uses EIP-712 human-readable signing. $1 fee, ~5 minute finalization.
@@ -1503,6 +1612,10 @@ pub enum BorrowLendOperation {
 #[serde(rename_all = "camelCase")]
 pub struct SubAccountModify {
     /// The sub-account to rename.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub sub_account_user: Address,
     /// New display name, 1 to 16 characters.
     pub name: String,
@@ -1513,6 +1626,10 @@ pub struct SubAccountModify {
 #[serde(rename_all = "camelCase")]
 pub struct SubAccountTransfer {
     /// The sub-account on the other side of the transfer.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub sub_account_user: Address,
     /// `true` moves funds into the sub-account, `false` moves them back out.
     pub is_deposit: bool,
@@ -1525,6 +1642,10 @@ pub struct SubAccountTransfer {
 #[serde(rename_all = "camelCase")]
 pub struct SubAccountSpotTransfer {
     /// The sub-account on the other side of the transfer.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub sub_account_user: Address,
     /// `true` moves funds into the sub-account, `false` moves them back out.
     pub is_deposit: bool,
@@ -1554,6 +1675,10 @@ pub struct CreateVault {
 #[serde(rename_all = "camelCase")]
 pub struct VaultModify {
     /// The vault to change.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub vault_address: Address,
     /// Whether new deposits are accepted. `None` leaves it unchanged.
     pub allow_deposits: Option<bool>,
@@ -1567,6 +1692,10 @@ pub struct VaultModify {
 #[serde(rename_all = "camelCase")]
 pub struct VaultDistribute {
     /// The vault distributing.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub vault_address: Address,
     /// Amount in 1e-6 USDC units. `0` closes the vault.
     pub usd: u64,
@@ -1667,6 +1796,10 @@ pub struct ValidatorProfile {
     /// Commission rate in basis points.
     pub commission_bps: u64,
     /// Address authorized to sign consensus messages.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_address_as_hex",
+        deserialize_with = "crate::hypercore::utils::deserialize_address_from_hex"
+    )]
     pub signer: Address,
 }
 
@@ -1687,6 +1820,10 @@ pub struct ValidatorProfileChange {
     /// Commission rate in basis points.
     pub commission_bps: Option<u64>,
     /// Address authorized to sign consensus messages.
+    #[serde(
+        serialize_with = "crate::hypercore::utils::serialize_option_address_as_hex",
+        default
+    )]
     pub signer: Option<Address>,
 }
 
@@ -1908,11 +2045,190 @@ pub struct NegateOutcome {
     pub amount: Decimal,
 }
 
+/// The address the exchange recovered from a signed request, when it is not `signer`.
+///
+/// A request signed by an account that does not exist is answered with "User or API Wallet
+/// 0x… does not exist." or "Must deposit before performing actions. User: 0x…", naming the
+/// address recovered from the signature. Any address other than the signer's means the signed
+/// bytes differ from what the exchange hashes, even though the payload parsed.
+#[cfg(test)]
+pub(crate) fn recovered_other_signer(reply: &str, signer: Address) -> Option<String> {
+    let start = ["User or API Wallet ", "User: "]
+        .iter()
+        .find_map(|marker| Some(reply.find(&format!("{marker}0x"))? + marker.len()))?;
+    let recovered = reply.get(start..start + 42)?;
+    (!recovered.eq_ignore_ascii_case(&format!("{signer:#x}"))).then(|| recovered.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use alloy::primitives::address;
 
     use super::*;
+
+    /// TWAP replies carry their own `type`, which used to fail to deserialize, so a TWAP
+    /// that the exchange accepted was reported as an error. These are the documented replies.
+    #[test]
+    fn twap_replies_deserialize() {
+        let parse = |text: &str| serde_json::from_str::<Response>(text).unwrap();
+
+        assert!(matches!(
+            parse(
+                r#"{"status":"ok","response":{"type":"twapOrder","data":{"status":{"running":{"twapId":77738308}}}}}"#
+            ),
+            Response::Ok(OkResponse::TwapOrder {
+                status: TwapOrderStatus::Running { twap_id: 77738308 }
+            })
+        ));
+        assert!(matches!(
+            parse(
+                r#"{"status":"ok","response":{"type":"twapOrder","data":{"status":{"error":"Invalid TWAP duration: 1 min(s)"}}}}"#
+            ),
+            Response::Ok(OkResponse::TwapOrder {
+                status: TwapOrderStatus::Error(error)
+            }) if error == "Invalid TWAP duration: 1 min(s)"
+        ));
+        assert!(matches!(
+            parse(
+                r#"{"status":"ok","response":{"type":"twapCancel","data":{"status":"success"}}}"#
+            ),
+            Response::Ok(OkResponse::TwapCancel {
+                status: TwapCancelStatus::Success
+            })
+        ));
+        assert!(matches!(
+            parse(
+                r#"{"status":"ok","response":{"type":"twapCancel","data":{"status":{"error":"TWAP was never placed, already canceled, or filled."}}}}"#
+            ),
+            Response::Ok(OkResponse::TwapCancel {
+                status: TwapCancelStatus::Error(_)
+            })
+        ));
+    }
+
+    /// The documented shape, with the percentage suffixed and an unset `activationPx` sent
+    /// as `null`, which the exchange hashes.
+    #[test]
+    fn trailing_stop_serializes_as_documented() {
+        use rust_decimal::dec;
+
+        let pct = Action::TrailingStop(TrailingStop {
+            asset: 0,
+            is_buy: false,
+            sz: dec!(0.0010),
+            reduce_only: true,
+            retracement: TrailingStopRetracement::Pct(dec!(1.50)),
+            activation_px: None,
+        });
+        assert_eq!(
+            serde_json::to_value(&pct).unwrap(),
+            serde_json::json!({
+                "type": "trailingStop", "asset": 0, "isBuy": false, "sz": "0.001",
+                "reduceOnly": true, "retracement": {"pct": "1.5%"}, "activationPx": null
+            })
+        );
+
+        let px = Action::TrailingStop(TrailingStop {
+            asset: 3,
+            is_buy: true,
+            sz: dec!(2),
+            reduce_only: false,
+            retracement: TrailingStopRetracement::Px(dec!(500.0)),
+            activation_px: Some(dec!(120000.0)),
+        });
+        let json = serde_json::to_value(&px).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "type": "trailingStop", "asset": 3, "isBuy": true, "sz": "2",
+                "reduceOnly": false, "retracement": {"px": "500"}, "activationPx": "120000"
+            })
+        );
+
+        let Action::TrailingStop(back) = serde_json::from_value(json).unwrap() else {
+            panic!("expected a trailing stop");
+        };
+        assert_eq!(back.retracement, TrailingStopRetracement::Px(dec!(500)));
+        assert_eq!(back.activation_px, Some(dec!(120000)));
+
+        let back: TrailingStopRetracement =
+            serde_json::from_value(serde_json::json!({"pct": "1.234%"})).unwrap();
+        assert_eq!(back, TrailingStopRetracement::Pct(dec!(1.234)));
+        assert!(
+            serde_json::from_value::<TrailingStopRetracement>(serde_json::json!({"pct": "1.2"}))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn trailing_stop_reply_deserializes() {
+        let reply: Response = serde_json::from_str(
+            r#"{"status":"ok","response":{"type":"trailingStop","data":{"oid":77738308}}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            reply,
+            Response::Ok(OkResponse::TrailingStop { oid: 77738308 })
+        ));
+    }
+
+    /// The exchange hashes addresses as lowercase hex strings, but `alloy` encodes an `Address`
+    /// as 20 raw bytes in msgpack. Every address inside an L1 action must be serialized
+    /// explicitly, or the signature recovers to a different address.
+    #[test]
+    fn addresses_in_l1_actions_are_signed_as_hex_strings() {
+        use crate::hypercore::types::deploy::*;
+
+        let user = address!("0x5e89b26d8d66da9888c835c9bfcc2aa51813e152");
+        let hex = format!("{user:#x}");
+        let actions = [
+            Action::SubAccountTransfer(SubAccountTransfer {
+                sub_account_user: user,
+                is_deposit: true,
+                usd: 1,
+            }),
+            Action::VaultDistribute(VaultDistribute {
+                vault_address: user,
+                usd: 1,
+            }),
+            Action::ReserveRequestWeight {
+                weight: 1,
+                destination: Some(user),
+            },
+            Action::PerpDeploy(PerpDeployAction::SetFeeRecipient(SetFeeRecipient {
+                dex: "abc".into(),
+                fee_recipient: user,
+            })),
+            Action::PerpDeploy(PerpDeployAction::SetSubDeployers(SetSubDeployers {
+                dex: "abc".into(),
+                sub_deployers: vec![SubDeployerInput {
+                    variant: "setOracle".into(),
+                    user,
+                    allowed: true,
+                }],
+            })),
+            Action::SpotDeploy(SpotDeployAction::UserGenesis(UserGenesis {
+                token: 1,
+                user_and_wei: vec![(user, "1".into())],
+                existing_token_and_wei: vec![],
+                blacklist_users: None,
+            })),
+        ];
+
+        for action in actions {
+            let bytes = rmp_serde::to_vec_named(&action).unwrap();
+            assert!(
+                bytes
+                    .windows(hex.len())
+                    .any(|window| window == hex.as_bytes()),
+                "{action:?} does not carry the address as a hex string"
+            );
+            assert!(
+                !bytes.windows(20).any(|window| window == user.as_slice()),
+                "{action:?} carries the address as raw bytes"
+            );
+        }
+    }
 
     #[test]
     fn test_deser() {
@@ -2696,6 +3012,66 @@ mod tests {
                     nonce,
                 })
             }),
+            (
+                "reserveRequestWeight/destination",
+                Action::ReserveRequestWeight {
+                    weight: 1,
+                    destination: Some(other),
+                },
+            ),
+            (
+                "CValidatorAction/register",
+                Action::CValidatorAction(CValidatorAction::Register(ValidatorRegistration {
+                    profile: ValidatorProfile {
+                        node_ip: ValidatorNodeIp {
+                            ip: "1.2.3.4".into(),
+                        },
+                        name: "zz".into(),
+                        description: "zz".into(),
+                        delegations_disabled: false,
+                        commission_bps: 100,
+                        signer: other,
+                    },
+                    unjailed: false,
+                    initial_wei: 1,
+                })),
+            ),
+            (
+                "CValidatorAction/changeProfile",
+                Action::CValidatorAction(CValidatorAction::ChangeProfile(ValidatorProfileChange {
+                    node_ip: None,
+                    name: None,
+                    description: None,
+                    unjailed: false,
+                    disable_delegations: None,
+                    commission_bps: None,
+                    signer: Some(other),
+                })),
+            ),
+            // Documented, but the hash depends on `activationPx` being sent as `null` when
+            // unset, which only the exchange can confirm.
+            (
+                "trailingStop",
+                Action::TrailingStop(TrailingStop {
+                    asset: 0,
+                    is_buy: false,
+                    sz: dec!(0.001),
+                    reduce_only: true,
+                    retracement: TrailingStopRetracement::Pct(dec!(1.5)),
+                    activation_px: None,
+                }),
+            ),
+            (
+                "trailingStop with activationPx",
+                Action::TrailingStop(TrailingStop {
+                    asset: 0,
+                    is_buy: false,
+                    sz: dec!(0.001),
+                    reduce_only: true,
+                    retracement: TrailingStopRetracement::Px(dec!(500)),
+                    activation_px: Some(dec!(120000)),
+                }),
+            ),
         ];
 
         let mut failures = Vec::new();
@@ -2725,13 +3101,19 @@ mod tests {
             if out.contains("Failed to deserialize") {
                 failures.push(format!("{label}: {out}"));
             }
+            // Parsing is not enough: the signature covers the msgpack encoding, so a field
+            // encoded differently from how the exchange hashes it recovers another address.
+            if let Some(recovered) = super::recovered_other_signer(&out, signer.address()) {
+                failures.push(format!("{label}: signature recovered to {recovered}"));
+            }
 
             tokio::time::sleep(std::time::Duration::from_millis(120)).await;
         }
 
         assert!(
             failures.is_empty(),
-            "the exchange no longer parses these action shapes:\n{}",
+            "the exchange does not parse these action shapes, or hashes them differently \
+             from how they were signed:\n{}",
             failures.join("\n")
         );
     }

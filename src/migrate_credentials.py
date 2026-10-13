@@ -54,8 +54,10 @@ def check_cryptography() -> Any:
     try:
         from cryptography.fernet import Fernet
 
-        print("✓ cryptography library is available")
-        return True
+        if Fernet is not None:
+            print("✓ cryptography library is available")
+            return True
+        return False
     except ImportError:
         print("✗ cryptography library not found")
         print("  Install with: pip install cryptography")

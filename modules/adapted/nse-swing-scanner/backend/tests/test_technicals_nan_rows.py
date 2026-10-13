@@ -30,7 +30,6 @@ EMA-distance gates fail for nearly every stock.
 """
 import numpy as np
 import pandas as pd
-import pytest
 import technicals
 
 

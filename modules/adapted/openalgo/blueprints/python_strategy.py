@@ -1,0 +1,3965 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+"""
+Python Strategy Hosting System - Cross-Platform Process Isolation with IST Support
+Route: /python
+Features: Upload, Start, Stop, Schedule, Delete strategies
+Supports: Windows, Linux, macOS
+Note: Each strategy runs in a separate process for complete isolation
+"""
+
+import contextlib
+import functools
+import json
+import logging
+import os
+import platform
+import queue
+import signal
+import subprocess
+import sys
+import threading
+import uuid
+from datetime import datetime
+from pathlib import Path
+from time import monotonic, sleep
+
+import psutil
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from database.market_calendar_db import (
+    SUPPORTED_EXCHANGES,
+    get_all_market_timings,
+    get_effective_session_window,
+    get_special_session,
+    is_market_holiday,
+    is_market_open,
+)
+from flask import (
+    Blueprint,
+    Response,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from utils.constants import CRYPTO_EXCHANGES
+from utils.db_sessions import releases_scoped_sessions
+from utils.session import check_session_validity
+from utils.shutdown import register_shutdown_hook
+from werkzeug.utils import secure_filename
+
+from utils import runtime, stream_registry
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Create blueprint with /python route
+python_strategy_bp = Blueprint("python_strategy_bp", __name__, url_prefix="/python")
+
+# Timezone configuration - Indian Standard Time
+IST = pytz.timezone("Asia/Kolkata")
+
+# Global storage with thread locks for safety
+RUNNING_STRATEGIES = {}  # {strategy_id: {'process': subprocess.Popen, 'started_at': datetime}}
+STRATEGY_CONFIGS = {}  # {strategy_id: config_dict}
+# Strategies whose process is being terminated right now. stop_strategy_process
+# waits outside PROCESS_LOCK, so between claiming a strategy and writing its
+# bookkeeping back it is in neither RUNNING_STRATEGIES nor finished. Without a
+# marker for that window a start arriving mid-wait sees the id as absent and
+# launches a replacement, whose config the finishing stop then overwrites with
+# is_running=False, leaving a live trading process nothing will stop.
+STOPPING_STRATEGIES = set()
+# Strategies a delete is working on right now. The delete stops the process
+# outside PROCESS_LOCK and only then removes the config and the file, so without
+# a marker a scheduled start landing in between spawned a process whose config
+# the delete then removed: a strategy trading with no row and no way to stop it.
+# A start is refused while its id is here.
+DELETING_STRATEGIES = set()
+SCHEDULER = None
+PROCESS_LOCK = threading.RLock()  # Reentrant lock for nested process operations
+
+# Every lock and event below is the ordinary threading kind: green under
+# eventlet, where every caller of this module (request greenlets, APScheduler's
+# workers, the startup and login threads) is green too, and real under gthread
+# and on the development server.
+
+# Serialises writes of CONFIG_FILE. Taken after PROCESS_LOCK and never before it,
+# and nothing is acquired while it is held, so there is no order to invert.
+# Separate from PROCESS_LOCK so the disk write does not hold up every start,
+# stop and status read.
+_CONFIG_FILE_LOCK = threading.Lock()
+
+# Generation of STRATEGY_CONFIGS stamped by each save under PROCESS_LOCK. Two
+# savers can serialise as generation 1 and 2 and then reach the file lock as 2
+# and 1; the older one sees a newer generation already on disk and skips, so
+# persisted state never rolls backwards.
+_CONFIG_GENERATION = 0
+_PERSISTED_GENERATION = 0
+
+# Set once shutdown begins. Every start refuses after it, so a scheduled start
+# already in flight cannot launch a child behind the cleanup that is stopping
+# the others, which would then outlive this worker.
+_SHUTTING_DOWN = threading.Event()
+
+# Set by begin_shutdown (the gthread worker's early hook). From then on every
+# stop keeps the strategy's saved "running" record, including the atexit
+# cleanup that may still run after it, so the next server start restores what
+# was running. Never set under eventlet or on the development server.
+_SHUTDOWN_KEEPS_RECORDS = threading.Event()
+
+# Serialises the restore passes (startup, every login's master contract hook,
+# the check-contracts route). Two passes at once both saw a strategy as not
+# running; one restarted it and the other, refused with "already running",
+# marked the live and tracked strategy as stopped in error. Reentrant because
+# restore_strategies_after_login holds it across both of its steps.
+_RESTORE_LOCK = threading.RLock()
+
+# Single flight for initialize_with_app_context.
+_INIT_LOCK = threading.Lock()
+
+#: What a start is told once shutdown has begun.
+SHUTTING_DOWN_MESSAGE = "The server is shutting down, so the strategy was not started"
+
+#: What a start is told while the strategy is being deleted.
+DELETING_MESSAGE = "This strategy is being deleted, so it was not started"
+
+#: What an automatic start is told when the trader has stopped the strategy.
+MANUAL_STOP_REFUSAL = "Stopped by the trader, so it was not started automatically"
+
+# Marks a config key that was absent, as distinct from one holding None.
+_NOT_SET = object()
+
+# SSE (Server-Sent Events) for real-time status updates
+SSE_SUBSCRIBERS = []  # List of Queue objects for SSE clients
+SSE_LOCK = threading.Lock()
+
+#: The most live status streams open at once under the gthread worker. Each
+#: open /python tab holds one web server thread for as long as its stream lives,
+#: so an uncapped count is a way to run the pool dry. A refused tab still works;
+#: it simply refreshes when the trader acts instead of live. Not applied under
+#: eventlet or on the development server, where a stream costs a greenlet.
+PYTHON_STRATEGY_SSE_MAX = 8
+
+#: How often a stream wakes to check for shutdown, and how long it may be idle
+#: before a heartbeat is sent (the same 30 seconds as before).
+_SSE_POLL_SECONDS = 5
+_SSE_HEARTBEAT_SECONDS = 30
+
+#: Under gthread a stream ends after this long and asks the browser to
+#: reconnect, which frees a thread held by a connection that died silently.
+_SSE_LIFETIME_SECONDS = 600
+
+_SSE_KIND = "python_strategy_sse"
+
+
+def get_strategy_config(strategy_id: str) -> dict | None:
+    """The strategy's config, or None. Never raises KeyError.
+
+    Returns the live dict. Read from it freely; change it only under
+    PROCESS_LOCK, or through _update_config.
+    """
+    with PROCESS_LOCK:
+        return STRATEGY_CONFIGS.get(strategy_id)
+
+
+def snapshot_strategy_configs() -> list[tuple[str, dict]]:
+    """A point-in-time list of (id, config), safe to iterate slowly.
+
+    Loops here call psutil, the database and save_configs per entry. Iterating
+    the live dict while another thread created or deleted a strategy raised
+    "dictionary changed size during iteration".
+    """
+    with PROCESS_LOCK:
+        return list(STRATEGY_CONFIGS.items())
+
+
+def _copy_strategy_configs() -> list[tuple[str, dict]]:
+    """Like snapshot_strategy_configs, with each config copied under the lock."""
+    with PROCESS_LOCK:
+        return [(sid, dict(config)) for sid, config in STRATEGY_CONFIGS.items()]
+
+
+def snapshot_running_strategies() -> list[tuple[str, str]]:
+    """The running strategies as (id, name), taken in one hold of PROCESS_LOCK.
+
+    For callers outside this module that list what is running, so they never
+    iterate the registries themselves.
+    """
+    with PROCESS_LOCK:
+        return [
+            (sid, (STRATEGY_CONFIGS.get(sid) or {}).get("name") or sid)
+            for sid in RUNNING_STRATEGIES
+        ]
+
+
+def _update_config(
+    strategy_id: str, set_values: dict | None = None, pop: tuple = (), save: bool = True
+) -> bool:
+    """Change a strategy's config under PROCESS_LOCK, then save it.
+
+    Returns False, changing nothing, when the strategy no longer exists: a
+    delete that won the race must not be undone by a write that lost it.
+    """
+    with PROCESS_LOCK:
+        config = STRATEGY_CONFIGS.get(strategy_id)
+        if config is None:
+            return False
+        if set_values:
+            config.update(set_values)
+        for key in pop:
+            config.pop(key, None)
+    if save:
+        save_configs()
+    return True
+
+
+def broadcast_status_update(strategy_id: str, status: str, message: str = None):
+    """Broadcast strategy status update to all SSE subscribers"""
+    event_data = {
+        "strategy_id": strategy_id,
+        "status": status,
+        "message": message,
+        "timestamp": datetime.now(IST).isoformat(),
+    }
+    event = f"data: {json.dumps(event_data)}\n\n"
+
+    with SSE_LOCK:
+        # Remove dead subscribers and send to active ones
+        active_subscribers = []
+        for q in SSE_SUBSCRIBERS:
+            try:
+                q.put_nowait(event)
+                active_subscribers.append(q)
+            except Exception:
+                pass  # Queue full or dead, skip
+        SSE_SUBSCRIBERS.clear()
+        SSE_SUBSCRIBERS.extend(active_subscribers)
+
+
+# File paths - use Path for cross-platform compatibility
+STRATEGIES_DIR = Path("strategies") / "scripts"
+LOGS_DIR = Path("log") / "strategies"  # Using existing log folder
+CONFIG_FILE = Path("strategies") / "strategy_configs.json"
+
+# Detect operating system
+OS_TYPE = platform.system().lower()  # 'windows', 'linux', 'darwin'
+IS_WINDOWS = OS_TYPE == "windows"
+IS_MAC = OS_TYPE == "darwin"
+IS_LINUX = OS_TYPE == "linux"
+
+
+#: Job defaults for the strategy host's scheduler, which the OpenScript runner
+#: shares. APScheduler's own misfire grace is one second: a job that reaches an
+#: executor thread later than that is skipped with only a "was missed" warning.
+#: The pool has ten threads and a start holds PROCESS_LOCK across its database
+#: checks and spawn, so with more than ten jobs on one cron minute the rest were
+#: silently dropped, a stop job included, which left a strategy running past its
+#: stop time. A strategy due at 09:15 that reaches a thread at 09:15:02 must
+#: still start, and a late stop is far better than a skipped one. Five minutes
+#: bounds how late either may be, so a start and a stop cannot both fire late
+#: together unless they are scheduled within five minutes of each other.
+#:
+#: Applied under the gthread worker only. The eventlet worker and the
+#: development server keep APScheduler's defaults, as before: gthread is opt-in,
+#: and an install that has not chosen it must see no change in when a scheduled
+#: start, stop or square-off runs.
+SCHEDULER_JOB_DEFAULTS = {"coalesce": True, "max_instances": 1, "misfire_grace_time": 300}
+
+
+def scheduler_job_defaults() -> dict:
+    """The job defaults this runtime's scheduler is built with."""
+    return dict(SCHEDULER_JOB_DEFAULTS) if runtime.gthread_active() else {}
+
+
+# The callables the scheduler runs. Each releases the scoped sessions its job
+# bound, because a scheduler thread has no request teardown and APScheduler
+# reuses its threads, so a session left behind stays open on that thread (with
+# an identity map that can serve a stale row on a later run). The job bodies
+# stay undecorated, because the page calls some of them inside a request, where
+# releasing the request's own sessions midway would detach what it had loaded.
+
+
+@releases_scoped_sessions
+def _run_daily_trading_day_check():
+    daily_trading_day_check()
+
+
+@releases_scoped_sessions
+def _run_market_hours_enforcer():
+    market_hours_enforcer()
+
+
+@releases_scoped_sessions
+def _run_dead_process_reaper():
+    cleanup_dead_processes()
+
+
+@releases_scoped_sessions
+def _run_scheduled_start(strategy_id):
+    scheduled_start_strategy(strategy_id)
+
+
+@releases_scoped_sessions
+def _run_scheduled_stop(strategy_id):
+    scheduled_stop_strategy(strategy_id)
+
+
+def init_scheduler():
+    """Initialize the APScheduler with IST timezone"""
+    global SCHEDULER
+    if SCHEDULER is None:
+        SCHEDULER = BackgroundScheduler(
+            daemon=True, timezone=IST, job_defaults=scheduler_job_defaults()
+        )
+        SCHEDULER.start()
+        logger.debug(f"Scheduler initialized with IST timezone on {OS_TYPE}")
+
+        # Add daily trading day check job - runs at 00:01 IST every day
+        # This stops scheduled strategies on weekends/holidays
+        SCHEDULER.add_job(
+            func=_run_daily_trading_day_check,
+            trigger=CronTrigger(hour=0, minute=1, timezone=IST),
+            id="daily_trading_day_check",
+            replace_existing=True,
+        )
+        logger.debug("Daily trading day check scheduled at 00:01 IST")
+
+        # Add market hours enforcer - runs every minute during trading hours
+        # This stops scheduled strategies when market closes
+        SCHEDULER.add_job(
+            func=_run_market_hours_enforcer,
+            trigger="interval",
+            minutes=1,
+            id="market_hours_enforcer",
+            replace_existing=True,
+        )
+        logger.debug("Market hours enforcer scheduled (runs every minute)")
+
+        # Periodically reap crashed strategies so headless deployments don't
+        # accumulate stale entries in RUNNING_STRATEGIES. Without this, a
+        # strategy that exits unexpectedly stays tracked (and its parent-side
+        # resources pinned) until someone opens the /python UI.
+        SCHEDULER.add_job(
+            func=_run_dead_process_reaper,
+            trigger="interval",
+            seconds=60,
+            id="reap_dead_strategies",
+            replace_existing=True,
+        )
+        logger.debug("Dead-process reaper scheduled (runs every 60 seconds)")
+
+
+def load_configs():
+    """Load strategy configurations from file. Backfills `exchange` for
+    legacy configs (default NSE) so the exchange-aware scheduler always
+    has a value to dispatch on."""
+    global STRATEGY_CONFIGS
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, encoding="utf-8") as f:
+                loaded = json.load(f)
+            mutated = False
+            # Backfilled before it is published, then published with one
+            # rebind, so no reader ever sees a half backfilled map.
+            for cfg in loaded.values():
+                if "exchange" not in cfg or not cfg.get("exchange"):
+                    cfg["exchange"] = "NSE"
+                    mutated = True
+                else:
+                    upper = str(cfg["exchange"]).upper()
+                    if upper != cfg["exchange"]:
+                        cfg["exchange"] = upper
+                        mutated = True
+            with PROCESS_LOCK:
+                STRATEGY_CONFIGS = loaded
+            if mutated:
+                save_configs()
+            logger.debug(f"Loaded {len(STRATEGY_CONFIGS)} strategy configurations")
+        except Exception as e:
+            logger.exception(f"Failed to load configs: {e}")
+            STRATEGY_CONFIGS = {}
+
+
+def save_configs() -> bool:
+    """Save strategy configurations to file atomically. Returns True on success.
+
+    Writes to a temp file and then renames into place so a kill mid-write
+    cannot leave a half-written JSON blob behind.
+
+    **Safe from any number of threads at once.** Every caller used to write one
+    shared ``strategy_configs.json.tmp``: two writers truncated and wrote the
+    same file, one renamed it into place while the other was still writing, and
+    the published JSON could carry the tail of the other payload, which the next
+    start read as no strategies at all. And json.dump walked the live dict, so a
+    concurrent create or delete raised mid-dump and the change being saved (a
+    manual stop, say) never reached disk.
+
+    So the dict is serialised under PROCESS_LOCK, which every writer of it
+    holds, and stamped with a generation; the write happens under
+    _CONFIG_FILE_LOCK to a temporary name of its own, and a snapshot older than
+    the one already on disk is skipped rather than written over it. Lock order
+    is PROCESS_LOCK then _CONFIG_FILE_LOCK, and nothing is taken inside the
+    second, so a caller that already holds PROCESS_LOCK is safe.
+
+    A failure is logged and reported as False; callers that ignore the answer
+    behave as they always did.
+    """
+    global _CONFIG_GENERATION, _PERSISTED_GENERATION
+
+    try:
+        with PROCESS_LOCK:
+            _CONFIG_GENERATION += 1
+            generation = _CONFIG_GENERATION
+            payload = json.dumps(STRATEGY_CONFIGS, indent=2, default=str, ensure_ascii=False)
+    except Exception as e:
+        logger.exception(f"Failed to save configs: {e}")
+        return False
+
+    with _CONFIG_FILE_LOCK:
+        if generation <= _PERSISTED_GENERATION:
+            # A newer snapshot, which includes this caller's change, is
+            # already on disk. Writing this one would roll it back.
+            return True
+
+        tmp_path = None
+        try:
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = CONFIG_FILE.with_name(
+                f"{CONFIG_FILE.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+            )
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, CONFIG_FILE)
+            tmp_path = None
+            _PERSISTED_GENERATION = generation
+            logger.debug("Configurations saved")
+            return True
+        except Exception as e:
+            logger.exception(f"Failed to save configs: {e}")
+            return False
+        finally:
+            if tmp_path is not None:
+                with contextlib.suppress(OSError):
+                    tmp_path.unlink()
+
+
+def verify_strategy_ownership(strategy_id, user_id, return_config=False):
+    """
+    Verify that a user owns a strategy.
+
+    Args:
+        strategy_id: The strategy ID to verify
+        user_id: The user ID to check ownership against
+        return_config: If True, returns the config dict on success for atomic access
+
+    Returns:
+        If return_config=False: (success, error_response)
+        If return_config=True: (success, error_response_or_config)
+    """
+    # Basic validation - reject obviously malicious inputs (path traversal attempts)
+    if not strategy_id or ".." in strategy_id or "/" in strategy_id or "\\" in strategy_id:
+        return False, (jsonify({"status": "error", "message": "Invalid strategy ID"}), 400)
+
+    config = get_strategy_config(strategy_id)
+    if config is None:
+        return False, (jsonify({"status": "error", "message": "Strategy not found"}), 404)
+
+    # Check ownership - allow access if user_id matches or if strategy has no owner (legacy)
+    strategy_owner = config.get("user_id")
+    if strategy_owner and strategy_owner != user_id:
+        return False, (
+            jsonify({"status": "error", "message": "Unauthorized access to strategy"}),
+            403,
+        )
+
+    if return_config:
+        return True, config
+    return True, None
+
+
+def ensure_directories():
+    """Ensure all required directories exist"""
+    global STRATEGIES_DIR, LOGS_DIR
+    try:
+        STRATEGIES_DIR.mkdir(parents=True, exist_ok=True)
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Directories initialized on {OS_TYPE}")
+    except PermissionError as e:
+        # If we can't create directories, check if they exist
+        if STRATEGIES_DIR.exists() and LOGS_DIR.exists():
+            logger.warning(f"Directories exist but no write permission: {e}")
+        else:
+            # Try alternative paths in /tmp if main paths fail
+            import tempfile
+
+            temp_base = Path(tempfile.gettempdir()) / "openalgo"
+            STRATEGIES_DIR = temp_base / "strategies" / "scripts"
+            LOGS_DIR = temp_base / "log" / "strategies"
+            STRATEGIES_DIR.mkdir(parents=True, exist_ok=True)
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+            logger.warning(f"Using temporary directories due to permission issues: {temp_base}")
+    except Exception as e:
+        logger.exception(f"Failed to create directories: {e}")
+        # Continue anyway, individual operations will handle missing directories
+
+
+def get_active_broker():
+    """Get the active broker from database (last logged in user's broker)"""
+    try:
+        from database.auth_db import Auth
+        from sqlalchemy import desc
+
+        # Get the most recent auth entry (last logged in user)
+        auth_obj = Auth.query.filter_by(is_revoked=False).order_by(desc(Auth.id)).first()
+        if auth_obj:
+            return auth_obj.broker
+        return None
+    except Exception as e:
+        logger.exception(f"Error getting active broker: {e}")
+        return None
+
+
+def check_master_contract_ready(skip_on_startup=False):
+    """Check if master contracts are ready for the current broker"""
+    try:
+        # First try to get broker from session (if available)
+        broker = session.get("broker") if session else None
+
+        # If no session broker, try to get from database (for app restart scenarios)
+        if not broker:
+            broker = get_active_broker()
+
+        if not broker:
+            # During startup, we may not have a broker yet, so skip the check
+            if skip_on_startup:
+                logger.debug("No broker found during startup - skipping master contract check")
+                return True, "Skipping check during startup"
+            logger.debug("No broker found for master contract check")
+            return False, "No broker session found"
+
+        # Import here to avoid circular imports
+        from database.master_contract_status_db import check_if_ready
+
+        is_ready = check_if_ready(broker)
+        if is_ready:
+            return True, "Master contracts ready"
+        else:
+            return False, f"Master contracts not ready for broker: {broker}"
+
+    except Exception as e:
+        logger.exception(f"Error checking master contract readiness: {e}")
+        return False, f"Error checking master contract readiness: {str(e)}"
+
+
+def get_ist_time():
+    """Get current IST time"""
+    return datetime.now(IST)
+
+
+def format_ist_time(dt):
+    """Format datetime to IST string"""
+    if dt:
+        if isinstance(dt, str):
+            try:
+                dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+            except Exception:
+                return dt
+        dt = IST.localize(dt) if not dt.tzinfo else dt.astimezone(IST)
+        return dt.strftime("%Y-%m-%d %H:%M:%S IST")
+    return ""
+
+
+def get_python_executable():
+    """Get the correct Python executable for the current OS"""
+    # Use sys.executable which works across all platforms
+    return sys.executable
+
+
+def create_subprocess_args():
+    """Create platform-specific subprocess arguments"""
+    args = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "universal_newlines": False,  # Handle bytes for better compatibility
+        "bufsize": 1,  # Line buffered
+    }
+
+    if IS_WINDOWS:
+        # Windows-specific: CREATE_NEW_PROCESS_GROUP for better process isolation
+        args["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        # Prevent console window popup
+        args["startupinfo"] = subprocess.STARTUPINFO()
+        args["startupinfo"].dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    else:
+        # Unix-like systems (Linux, macOS)
+        # Try to create new session for better process control
+        try:
+            args["start_new_session"] = True  # Create new process group
+        except Exception as e:
+            logger.warning(f"Could not set start_new_session: {e}")
+
+        # Apply resource limits to prevent runaway strategies. Under the
+        # gthread worker they are applied inside the child after exec instead
+        # (see _RLIMIT_BOOTSTRAP), because preexec_fn runs Python between fork
+        # and exec, which is unsafe in a process with many threads.
+        if not _limits_applied_after_exec():
+            args["preexec_fn"] = set_resource_limits
+
+    return args
+
+
+def _limits_applied_after_exec() -> bool:
+    """Whether a strategy's resource limits are set by the child after exec.
+
+    Only under the gthread worker, on POSIX. preexec_fn runs Python code in the
+    child between fork and exec, and the Python documentation says plainly that
+    it is not safe in the presence of threads: a lock another thread held at the
+    moment of the fork stays held in the child forever. set_resource_limits logs
+    when a limit cannot be set, and logging takes locks, so a child forked while
+    one of gthread's many request threads was mid log line would hang before the
+    strategy started, with Popen, and PROCESS_LOCK with it, waiting on it.
+
+    Everywhere else the launch is exactly what it has always been.
+    """
+    return not IS_WINDOWS and runtime.gthread_active()
+
+
+# Resource limits for strategy processes (Unix only)
+# Prevents buggy strategies from crashing the system
+# Can be overridden via environment variable for low-memory containers
+# Recommended values:
+#   - 2GB container (5 strategies): STRATEGY_MEMORY_LIMIT_MB=256
+#   - 4GB container (3 strategies): STRATEGY_MEMORY_LIMIT_MB=512
+#   - 8GB+ container: STRATEGY_MEMORY_LIMIT_MB=1024 (default)
+STRATEGY_MEMORY_LIMIT_MB = int(os.environ.get("STRATEGY_MEMORY_LIMIT_MB", "1024"))
+STRATEGY_CPU_TIME_LIMIT_SEC = 3600  # Max CPU time (1 hour) - resets on each run
+# The file descriptor and process limits set_resource_limits applies.
+STRATEGY_NOFILE_LIMIT = 256
+STRATEGY_NPROC_LIMIT = 256
+
+
+def apply_strategy_limits_env(env: dict) -> dict:
+    """Put the resource limits into the environment the child will get.
+
+    Called on the final environment handed to Popen, so nothing assigned
+    after it can drop them. Read by _RLIMIT_BOOTSTRAP inside the child.
+    """
+    env["OPENALGO_STRATEGY_MEM_MB"] = str(STRATEGY_MEMORY_LIMIT_MB)
+    env["OPENALGO_STRATEGY_CPU_SEC"] = str(STRATEGY_CPU_TIME_LIMIT_SEC)
+    env["OPENALGO_STRATEGY_NOFILE"] = str(STRATEGY_NOFILE_LIMIT)
+    env["OPENALGO_STRATEGY_NPROC"] = str(STRATEGY_NPROC_LIMIT)
+    return env
+
+
+# Run as ``python -u -c <this> <strategy file>`` under the gthread worker. It
+# sets the same limits set_resource_limits sets, in the child after exec where
+# no lock can have been inherited from another thread, then runs the strategy
+# file as __main__, so ``if __name__ == "__main__":`` still fires. ``__file__``
+# and ``sys.argv`` are what a direct launch gives, and sys.path[0] is the
+# script's own folder rather than the working directory, so a strategy
+# importing a module beside it still finds it and nothing else is shadowed.
+# A limit the hard limit does not allow is lowered to it rather than skipped.
+_RLIMIT_BOOTSTRAP = (
+    "import os, sys, runpy\n"
+    "try:\n"
+    "    import resource\n"
+    "    def _limit(name, value):\n"
+    "        try:\n"
+    "            which = getattr(resource, name)\n"
+    "            _soft, hard = resource.getrlimit(which)\n"
+    "            if hard != resource.RLIM_INFINITY:\n"
+    "                value = min(value, hard)\n"
+    "            resource.setrlimit(which, (value, value))\n"
+    "        except Exception:\n"
+    "            pass\n"
+    "    _mb = int(os.environ.get('OPENALGO_STRATEGY_MEM_MB') or 0)\n"
+    "    if _mb:\n"
+    "        _limit('RLIMIT_AS', _mb * 1024 * 1024)\n"
+    "        _limit('RLIMIT_DATA', _mb * 1024 * 1024)\n"
+    "    _cpu = int(os.environ.get('OPENALGO_STRATEGY_CPU_SEC') or 0)\n"
+    "    if _cpu:\n"
+    "        _limit('RLIMIT_CPU', _cpu)\n"
+    "    _files = int(os.environ.get('OPENALGO_STRATEGY_NOFILE') or 0)\n"
+    "    if _files:\n"
+    "        _limit('RLIMIT_NOFILE', _files)\n"
+    "    _procs = int(os.environ.get('OPENALGO_STRATEGY_NPROC') or 0)\n"
+    "    if _procs:\n"
+    "        _limit('RLIMIT_NPROC', _procs)\n"
+    "except Exception:\n"
+    "    pass\n"
+    "_path = os.path.abspath(sys.argv[1])\n"
+    "sys.argv = [_path] + sys.argv[2:]\n"
+    # -c puts the working directory first on the path where a script launch
+    # puts the script's folder. With PYTHONSAFEPATH neither adds anything.
+    "if sys.path and sys.path[0] == '':\n"
+    "    sys.path[0] = os.path.dirname(_path)\n"
+    "runpy.run_path(_path, run_name='__main__')\n"
+)
+
+
+def set_resource_limits():
+    """
+    Set resource limits for strategy subprocess (Unix/Mac only).
+    Called via preexec_fn before the strategy process starts.
+    Prevents runaway strategies from exhausting system resources.
+    """
+    if IS_WINDOWS:
+        return  # resource module not available on Windows
+
+    try:
+        import resource
+
+        # Memory limit (virtual memory) - prevents memory bombs
+        memory_bytes = STRATEGY_MEMORY_LIMIT_MB * 1024 * 1024
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+            # Also limit data segment for additional protection
+            resource.setrlimit(resource.RLIMIT_DATA, (memory_bytes, memory_bytes))
+        except (OSError, ValueError) as e:
+            # Some systems may not support these limits
+            logger.debug(f"Could not set memory limit: {e}")
+
+        # CPU time limit - prevents infinite loops from hogging CPU forever
+        # Note: This is cumulative CPU time, not wall clock time
+        try:
+            resource.setrlimit(
+                resource.RLIMIT_CPU, (STRATEGY_CPU_TIME_LIMIT_SEC, STRATEGY_CPU_TIME_LIMIT_SEC)
+            )
+        except (OSError, ValueError) as e:
+            logger.debug(f"Could not set CPU limit: {e}")
+
+        # Limit number of open files - prevents file descriptor exhaustion
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
+        except (OSError, ValueError) as e:
+            logger.debug(f"Could not set file descriptor limit: {e}")
+
+        # Limit number of processes - prevents fork bombs
+        try:
+            resource.setrlimit(resource.RLIMIT_NPROC, (256, 256))
+        except (OSError, ValueError) as e:
+            logger.debug(f"Could not set process limit: {e}")
+
+    except ImportError:
+        # resource module not available (Windows)
+        pass
+    except Exception as e:
+        logger.warning(f"Could not set resource limits: {e}")
+
+
+def start_strategy_process(strategy_id):
+    """Start a strategy in a new process - cross-platform implementation"""
+    # Refused once shutdown has begun, checked before the lock and again under
+    # it: a scheduled start already running when cleanup takes its snapshot
+    # would otherwise launch a child that nothing stops and that outlives the
+    # worker.
+    if _SHUTTING_DOWN.is_set():
+        return False, SHUTTING_DOWN_MESSAGE
+
+    with PROCESS_LOCK:  # Thread-safe operation
+        if _SHUTTING_DOWN.is_set():
+            return False, SHUTTING_DOWN_MESSAGE
+
+        if strategy_id in RUNNING_STRATEGIES:
+            return False, "Strategy already running"
+
+        # A stop is mid-flight and its process may still be alive. Starting a
+        # replacement now would leave two processes for one strategy, and the
+        # finishing stop would then clear the new one's config.
+        if strategy_id in STOPPING_STRATEGIES:
+            return False, "Strategy is still stopping, try again in a moment"
+
+        # A delete is removing this strategy. A process started now would lose
+        # its config and its file underneath it and be left trading with
+        # nothing that can stop it.
+        if strategy_id in DELETING_STRATEGIES:
+            return False, DELETING_MESSAGE
+
+        config = STRATEGY_CONFIGS.get(strategy_id)
+        if not config:
+            return False, "Strategy configuration not found"
+
+        file_path = Path(config["file_path"])
+        if not file_path.exists():
+            return False, f"Strategy file not found: {file_path}"
+
+        # Check file permissions
+        if not IS_WINDOWS:
+            # Check if file is readable
+            if not os.access(file_path, os.R_OK):
+                logger.error(f"Strategy file {file_path} is not readable. Check file permissions.")
+                return False, f"Strategy file is not readable. Run: chmod +r {file_path}"
+
+            # Check if file is executable (optional but recommended for scripts)
+            if not os.access(file_path, os.X_OK):
+                logger.warning(
+                    f"Strategy file {file_path} is not executable. Setting execute permission."
+                )
+                try:
+                    os.chmod(file_path, 0o755)
+                except Exception as e:
+                    logger.warning(f"Could not set execute permission: {e}")
+                    # Continue anyway, Python can still run it
+
+        # Check if master contracts are ready before starting strategy
+        contracts_ready, contract_message = check_master_contract_ready()
+        if not contracts_ready:
+            logger.warning(f"Cannot start strategy {strategy_id}: {contract_message}")
+            return False, f"Master contract dependency not met: {contract_message}"
+
+        try:
+            # Create log file for this run with IST timestamp
+            ist_now = get_ist_time()
+            log_file = LOGS_DIR / f"{strategy_id}_{ist_now.strftime('%Y%m%d_%H%M%S')}_IST.log"
+
+            # Ensure log directory exists with proper permissions
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            if not IS_WINDOWS:
+                try:
+                    # Ensure log directory is writable
+                    os.chmod(log_file.parent, 0o755)
+                except Exception:
+                    pass
+
+            # Check if we can write to log directory
+            if not os.access(log_file.parent, os.W_OK):
+                logger.error(f"Cannot write to log directory {log_file.parent}")
+                return (
+                    False,
+                    f"Log directory is not writable. Check permissions for {log_file.parent}",
+                )
+
+            # Open log file for writing
+            try:
+                log_handle = open(log_file, "w", encoding="utf-8", buffering=1)
+            except PermissionError as e:
+                logger.error(f"Permission denied creating log file: {e}")
+                return False, "Permission denied creating log file. Check directory permissions."
+            except Exception as e:
+                logger.exception(f"Error creating log file: {e}")
+                return False, f"Error creating log file: {str(e)}"
+
+            # Write header with IST time
+            log_handle.write(
+                f"=== Strategy Started at {ist_now.strftime('%Y-%m-%d %H:%M:%S IST')} ===\n"
+            )
+            log_handle.write(f"=== Platform: {OS_TYPE} ===\n\n")
+            log_handle.flush()
+
+            # Get platform-specific subprocess arguments
+            subprocess_args = create_subprocess_args()
+            subprocess_args["stdout"] = log_handle
+            subprocess_args["stderr"] = subprocess.STDOUT
+            subprocess_args["cwd"] = str(Path.cwd())
+
+            # Inject documented strategy environment variables
+            # (per strategies/README.md: STRATEGY_ID, STRATEGY_NAME, OPENALGO_API_KEY, OPENALGO_HOST)
+            strategy_env = os.environ.copy()
+            strategy_env["STRATEGY_ID"] = strategy_id
+            strategy_env["STRATEGY_NAME"] = config.get("name", strategy_id)
+            strategy_env["OPENALGO_STRATEGY_EXCHANGE"] = normalize_exchange(config.get("exchange"))
+            strategy_env.setdefault("OPENALGO_HOST", "http://127.0.0.1:5000")
+            try:
+                from database.auth_db import get_api_key_for_tradingview
+
+                user_id = config.get("user_id")
+                if user_id:
+                    _api_key = get_api_key_for_tradingview(user_id)
+                    if _api_key:
+                        strategy_env["OPENALGO_API_KEY"] = _api_key
+            except Exception as e:
+                logger.warning(f"Could not inject API key for strategy {strategy_id}: {e}")
+            subprocess_args["env"] = strategy_env
+
+            # Start the process
+            # Use Python unbuffered mode for real-time output
+            if _limits_applied_after_exec() and "preexec_fn" not in subprocess_args:
+                # The limits travel in the final environment and are applied by
+                # the child itself, after exec. See _limits_applied_after_exec.
+                apply_strategy_limits_env(strategy_env)
+                cmd = [
+                    get_python_executable(),
+                    "-u",
+                    "-c",
+                    _RLIMIT_BOOTSTRAP,
+                    str(file_path.absolute()),
+                ]
+            else:
+                cmd = [get_python_executable(), "-u", str(file_path.absolute())]
+
+            # Log the command being executed for debugging
+            shown = [
+                "<resource limit bootstrap>" if part == _RLIMIT_BOOTSTRAP else part for part in cmd
+            ]
+            logger.info(f"Executing command: {' '.join(shown)}")
+            logger.debug(f"Working directory: {subprocess_args.get('cwd', 'current')}")
+
+            try:
+                process = subprocess.Popen(cmd, **subprocess_args)
+            except PermissionError as e:
+                log_handle.close()
+                logger.error(f"Permission denied executing strategy: {e}")
+                return (
+                    False,
+                    "Permission denied. Check file permissions and Python executable access.",
+                )
+            except OSError as e:
+                log_handle.close()
+                if "preexec_fn" in str(e):
+                    logger.error(f"Process isolation error: {e}")
+                    return (
+                        False,
+                        "Process isolation failed. This is a known issue that has been fixed. Please restart the application.",
+                    )
+                else:
+                    logger.error(f"OS error starting process: {e}")
+                    return False, f"OS error: {str(e)}"
+            except Exception as e:
+                log_handle.close()
+                logger.exception(f"Unexpected error starting process: {e}")
+                return False, f"Failed to start process: {str(e)}"
+
+            # The subprocess has inherited log_handle's fd, so the child can
+            # write to the log on its own. We close the parent-side handle
+            # now to avoid pinning an extra fd for the lifetime of the
+            # strategy (multiplied by every running strategy). If closing
+            # fails we swallow the error — the child's inherited fd is the
+            # authoritative one and stays open.
+            try:
+                log_handle.close()
+            except Exception as e:
+                logger.debug(f"Error closing parent-side log handle for {strategy_id}: {e}")
+
+            # Store process info
+            RUNNING_STRATEGIES[strategy_id] = {
+                "process": process,
+                "pid": process.pid,
+                "started_at": ist_now,
+                "log_file": str(log_file),
+            }
+
+            # Update config with IST time
+            STRATEGY_CONFIGS[strategy_id]["is_running"] = True
+            STRATEGY_CONFIGS[strategy_id]["last_started"] = ist_now.isoformat()
+            STRATEGY_CONFIGS[strategy_id]["pid"] = process.pid
+            # Clear any previous error state
+            STRATEGY_CONFIGS[strategy_id].pop("is_error", None)
+            STRATEGY_CONFIGS[strategy_id].pop("error_message", None)
+            STRATEGY_CONFIGS[strategy_id].pop("error_time", None)
+            save_configs()
+
+            # Broadcast status update via SSE
+            broadcast_status_update(
+                strategy_id, "running", f"Started at {ist_now.strftime('%H:%M:%S IST')}"
+            )
+
+            logger.info(
+                f"Started strategy {strategy_id} with PID {process.pid} at {ist_now.strftime('%H:%M:%S IST')} on {OS_TYPE}"
+            )
+            return (
+                True,
+                f"Strategy started with PID {process.pid} at {ist_now.strftime('%H:%M:%S IST')}",
+            )
+
+        except Exception as e:
+            logger.exception(f"Failed to start strategy {strategy_id}: {e}")
+            return False, f"Failed to start strategy: {str(e)}"
+
+
+def stop_strategy_process(strategy_id, keep_record=False):
+    """Stop a running strategy process - cross-platform implementation.
+
+    Waiting for the process to die happens **outside** PROCESS_LOCK. The lock
+    is held only long enough to claim the strategy and, afterwards, to write
+    the bookkeeping back. Terminating a strategy takes as long as the strategy
+    takes to notice its signal, seconds if it is mid-request; holding a
+    process-wide lock across that stalls every other caller of it, which is
+    every start, stop, restart and status read on the page.
+
+    Claiming removes the entry and records the id in STOPPING_STRATEGIES, which
+    is what makes the window safe. A second stop is told the strategy is already
+    stopping rather than sending another signal to the same PID, and a start is
+    refused rather than launching a replacement whose config this call would go
+    on to clear. If termination fails the entry goes back, because the process is
+    still alive and something has to still be tracking it.
+
+    Callers must not hold PROCESS_LOCK. It is reentrant, so doing so does not
+    deadlock, it silently reinstates the very stall this function exists to
+    avoid.
+
+    Args:
+        strategy_id: The strategy to stop.
+        keep_record: Stop the process but leave its saved config saying it
+            was running, so the next server start restores it. Only the
+            shutdown hook passes this: a server stopping is not the trader
+            stopping the strategy.
+    """
+    # --- Claim, under the lock -------------------------------------------------
+    with PROCESS_LOCK:
+        if strategy_id in STOPPING_STRATEGIES:
+            return False, "Strategy is already stopping"
+
+        strategy_info = RUNNING_STRATEGIES.pop(strategy_id, None)
+        orphan_pid = None
+
+        if strategy_info is None:
+            # Not tracked: it may still be alive from a previous app run.
+            config = STRATEGY_CONFIGS.get(strategy_id)
+            if config:
+                candidate = config.get("pid")
+                if candidate and check_process_status(candidate):
+                    orphan_pid = candidate
+            if orphan_pid is None:
+                return False, "Strategy not running"
+
+        STOPPING_STRATEGIES.add(strategy_id)
+
+    try:
+        # --- Terminate and wait, outside the lock -----------------------------
+        if orphan_pid is not None:
+            try:
+                terminate_process_cross_platform(orphan_pid)
+            except Exception as e:
+                logger.exception(f"Failed to stop orphaned strategy {strategy_id}: {e}")
+                return False, f"Failed to stop strategy: {str(e)}"
+
+            # terminate_process_cross_platform swallows its own errors, so a
+            # clean return is not evidence the process is gone. Clearing the
+            # config on a survivor would strand a live process with nothing
+            # tracking it.
+            if check_process_status(orphan_pid):
+                return False, f"Failed to stop strategy PID {orphan_pid}"
+
+            if not keep_record:
+                with PROCESS_LOCK:
+                    config = STRATEGY_CONFIGS.get(strategy_id)
+                    if config is not None:
+                        config["is_running"] = False
+                        config["pid"] = None
+                        config["last_stopped"] = get_ist_time().isoformat()
+                        save_configs()
+            return True, "Strategy stopped"
+
+        process = strategy_info.get("process")
+        pid = strategy_info.get("pid")
+
+        try:
+            if isinstance(process, subprocess.Popen):
+                stopped = terminate_popen_safely(process, pid, terminate_timeout=5, kill_timeout=2)
+            elif hasattr(process, "terminate"):
+                # Restored strategies are tracked as psutil.Process objects.
+                # Do not call psutil.Process.wait(timeout): under
+                # gunicorn-eventlet on Linux, psutil's pidfd wait path needs
+                # select.poll(), which eventlet removes from the patched
+                # select module.
+                stopped = terminate_psutil_process_safely(
+                    process, terminate_timeout=5, kill_timeout=2
+                )
+            else:
+                # Fallback: use PID directly
+                terminate_process_cross_platform(pid)
+                stopped = not (pid and check_process_status(pid))
+        except Exception as e:
+            logger.exception(f"Failed to stop strategy {strategy_id}: {e}")
+            stopped = False
+
+        if not stopped:
+            # The process outlived both signals, so it is still out there. Put
+            # the entry back rather than dropping the only record of it.
+            with PROCESS_LOCK:
+                RUNNING_STRATEGIES.setdefault(strategy_id, strategy_info)
+            return False, f"Failed to stop strategy PID {pid}"
+
+        # --- Bookkeeping, under the lock --------------------------------------
+        # The entry is claimed, so the log handle is ours alone to close.
+        close_log_handle_safely(strategy_info)
+
+        ist_now = get_ist_time()
+        status = status_message = None
+        with PROCESS_LOCK:
+            config = None if keep_record else STRATEGY_CONFIGS.get(strategy_id)
+            if config is not None:
+                config["is_running"] = False
+                config["last_stopped"] = ist_now.isoformat()
+                config["pid"] = None
+                save_configs()
+                status, status_message = get_schedule_status(config)
+
+        # Inside the claim, deliberately. Released first, a start could begin,
+        # broadcast "running", and then be overwritten by this call's "stopped",
+        # leaving every watching page showing the wrong state for a strategy
+        # that is actually running.
+        if status is not None:
+            broadcast_status_update(strategy_id, status, status_message)
+
+        logger.info(f"Stopped strategy {strategy_id} at {ist_now.strftime('%H:%M:%S IST')}")
+
+        # Cleanup old log files based on configured limits
+        try:
+            cleanup_strategy_logs(strategy_id)
+        except Exception as cleanup_err:
+            logger.warning(f"Log cleanup failed for {strategy_id}: {cleanup_err}")
+    finally:
+        # Released on every path, including the early returns above, or the
+        # strategy can never be started or stopped again for the life of the
+        # process.
+        with PROCESS_LOCK:
+            STOPPING_STRATEGIES.discard(strategy_id)
+
+    return True, f"Strategy stopped at {ist_now.strftime('%H:%M:%S IST')}"
+
+
+def psutil_process_has_exited(process):
+    """Return True when a psutil.Process is gone or zombie, without Process.wait()."""
+    pid = getattr(process, "pid", None)
+    if not pid:
+        return True
+
+    if not IS_WINDOWS:
+        try:
+            waited_pid, _ = os.waitpid(pid, os.WNOHANG)
+            if waited_pid == pid:
+                return True
+        except ChildProcessError:
+            # Restored strategies are usually not children of this process.
+            pass
+        except OSError:
+            pass
+
+    try:
+        if not psutil.pid_exists(pid):
+            return True
+        if not process.is_running():
+            return True
+        try:
+            dead_statuses = {psutil.STATUS_ZOMBIE}
+            status_dead = getattr(psutil, "STATUS_DEAD", None)
+            if status_dead:
+                dead_statuses.add(status_dead)
+            return process.status() in dead_statuses
+        except (psutil.NoSuchProcess, psutil.ZombieProcess):
+            return True
+        except psutil.AccessDenied:
+            return False
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return True
+    except psutil.AccessDenied:
+        return False
+
+
+def wait_for_psutil_process_exit(process, timeout):
+    """Poll for psutil.Process exit in a way that is safe under eventlet."""
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        if psutil_process_has_exited(process):
+            return True
+        sleep(0.1)
+    return psutil_process_has_exited(process)
+
+
+def terminate_psutil_process_safely(process, terminate_timeout=3, kill_timeout=2):
+    """Terminate a psutil.Process without using psutil's eventlet-unsafe wait path."""
+    pid = getattr(process, "pid", "unknown")
+
+    try:
+        process.terminate()
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return True
+    except psutil.AccessDenied:
+        logger.warning(f"Access denied while terminating process {pid}")
+        return psutil_process_has_exited(process)
+
+    if wait_for_psutil_process_exit(process, terminate_timeout):
+        return True
+
+    try:
+        process.kill()
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return True
+    except psutil.AccessDenied:
+        logger.warning(f"Access denied while killing process {pid}")
+        return psutil_process_has_exited(process)
+
+    return wait_for_psutil_process_exit(process, kill_timeout)
+
+
+def wait_for_popen_exit(process, timeout):
+    """Poll for a subprocess.Popen to exit, without blocking the eventlet hub.
+
+    ``Popen.wait(timeout=...)`` blocks inside C: ``waitpid`` on Linux,
+    ``WaitForSingleObject`` on Windows. Neither is a yield point, so under
+    gunicorn-eventlet, where one OS thread runs every greenlet, that call
+    stops the whole server for the length of the timeout rather than just the
+    caller. ``poll()`` is non-blocking and reaps the child once it has exited,
+    so polling it against a deadline yields to the hub between checks.
+
+    This mirrors :func:`wait_for_psutil_process_exit`, which already exists for
+    the psutil path. Returns True when the process has exited.
+    """
+    if process.poll() is not None:
+        return True
+
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        sleep(0.1)
+        if process.poll() is not None:
+            return True
+
+    return process.poll() is not None
+
+
+def terminate_popen_safely(process, pid, terminate_timeout=5, kill_timeout=2):
+    """Terminate a subprocess.Popen without an eventlet-unsafe blocking wait.
+
+    Escalates the same way the previous inline code did, graceful signal first
+    and a forced kill only if the process outlives ``terminate_timeout``. The
+    difference is that every wait goes through :func:`wait_for_popen_exit`.
+
+    Returns True when the process is gone.
+    """
+    try:
+        if IS_WINDOWS:
+            process.terminate()
+            if wait_for_popen_exit(process, terminate_timeout):
+                return True
+
+            # Still alive: taskkill takes the whole tree, which terminate() does
+            # not. Spawned rather than subprocess.run: run() waits synchronously
+            # for taskkill to finish, which is the same blocking-wait problem one
+            # level down. Poll it cooperatively instead and reap it either way.
+            killer = subprocess.Popen(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                wait_for_popen_exit(killer, kill_timeout)
+            finally:
+                if killer.poll() is None:
+                    killer.kill()
+                    killer.poll()
+            return wait_for_popen_exit(process, kill_timeout)
+
+        # Unix-like: signal the process group so the strategy's own children go too.
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except OSError:
+            # Not in a process group of its own; signal it directly.
+            process.terminate()
+
+        if wait_for_popen_exit(process, terminate_timeout):
+            return True
+
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except OSError:
+            process.kill()
+
+        return wait_for_popen_exit(process, kill_timeout)
+
+    except ProcessLookupError:
+        return True  # Already dead.
+    except Exception as e:
+        logger.exception(f"Error terminating strategy process {pid}: {e}")
+        return process.poll() is not None
+
+
+def _strategy_may_still_be_running(strategy_id) -> bool:
+    """Whether anything suggests this strategy still has a live process.
+
+    A failed stop is not by itself evidence of one. `is_running` in the config
+    goes stale whenever the app exits without running its cleanup, a crash or a
+    hard restart, and the process it names is long gone. Refusing to delete on
+    that would leave the strategy permanently undeletable, since every later
+    attempt takes the same path and fails the same way.
+
+    So the question is asked of the actual state rather than of the stop's
+    return value: is it still tracked, is a stop still in flight, or does the
+    recorded PID answer. Only then is there something to protect.
+    """
+    with PROCESS_LOCK:
+        if strategy_id in RUNNING_STRATEGIES or strategy_id in STOPPING_STRATEGIES:
+            return True
+        pid = (STRATEGY_CONFIGS.get(strategy_id) or {}).get("pid")
+
+    return bool(pid) and check_process_status(pid)
+
+
+def terminate_process_cross_platform(pid):
+    """Terminate a process in a cross-platform way"""
+    try:
+        process = psutil.Process(pid)
+
+        # Terminate child processes first
+        children = process.children(recursive=True)
+        for child in children:
+            with contextlib.suppress(psutil.NoSuchProcess):
+                child.terminate()
+
+        # Terminate main process
+        process.terminate()
+
+        # Wait up to 3s for graceful exit, then kill any survivors.
+        # Manual polling — psutil.wait_procs calls select.poll(), which
+        # eventlet's monkey-patched select does not expose on Linux
+        # (gunicorn-eventlet production deployment). Plain time.sleep is
+        # cooperatively patched under eventlet and is a no-op cost on
+        # Windows/Mac dev servers using standard threading.
+        all_procs = [process] + children
+        deadline = monotonic() + 3
+        alive = list(all_procs)
+        while alive and monotonic() < deadline:
+            sleep(0.1)
+            alive = []
+            for p in all_procs:
+                if not psutil_process_has_exited(p):
+                    alive.append(p)
+
+        for p in alive:
+            with contextlib.suppress(psutil.NoSuchProcess):
+                p.kill()
+
+        if alive:
+            kill_deadline = monotonic() + 2
+            while monotonic() < kill_deadline and any(
+                not psutil_process_has_exited(p) for p in alive
+            ):
+                sleep(0.1)
+
+    except psutil.NoSuchProcess:
+        pass  # Process already dead
+    except Exception as e:
+        logger.exception(f"Error terminating process {pid}: {e}")
+
+
+def check_process_status(pid):
+    """Check if a process is still running - cross-platform"""
+    try:
+        if psutil.pid_exists(pid):
+            process = psutil.Process(pid)
+            return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+    return False
+
+
+def close_log_handle_safely(strategy_info):
+    """Safely close a log file handle, handling all edge cases.
+
+    As of the FD-hygiene fix, parent-side log handles are closed immediately
+    after Popen inherits them, so ``strategy_info`` normally has no
+    ``log_handle`` key. This helper is retained for defensive compatibility
+    with older records (e.g. adopted processes, future code paths).
+    """
+    if not strategy_info:
+        return
+    log_handle = strategy_info.get("log_handle")
+    if log_handle:
+        try:
+            if not log_handle.closed:
+                log_handle.flush()
+                log_handle.close()
+        except Exception as e:
+            logger.debug(f"Error closing log handle: {e}")
+        finally:
+            strategy_info["log_handle"] = None
+
+
+def cleanup_dead_processes():
+    """Clean up strategies with dead processes"""
+    with PROCESS_LOCK:  # Thread-safe operation
+        dead_strategies = []
+
+        # Check RUNNING_STRATEGIES (in-memory)
+        for strategy_id, info in list(RUNNING_STRATEGIES.items()):
+            process = info["process"]
+            is_dead = False
+
+            # Check if process has terminated based on its type
+            if isinstance(process, subprocess.Popen):
+                # For subprocess.Popen objects
+                if process.poll() is not None:
+                    is_dead = True
+            elif hasattr(process, "is_running"):
+                # For psutil.Process objects
+                try:
+                    if psutil_process_has_exited(process):
+                        is_dead = True
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    is_dead = True
+            else:
+                # Fallback: try to check if process exists by PID
+                try:
+                    pid = info.get("pid")
+                    if pid and not psutil.pid_exists(pid):
+                        is_dead = True
+                except Exception:
+                    is_dead = True
+
+            if is_dead:
+                dead_strategies.append(strategy_id)
+                # Close log file handle safely
+                close_log_handle_safely(info)
+
+        for strategy_id in dead_strategies:
+            del RUNNING_STRATEGIES[strategy_id]
+            if strategy_id in STRATEGY_CONFIGS:
+                STRATEGY_CONFIGS[strategy_id]["is_running"] = False
+                STRATEGY_CONFIGS[strategy_id]["pid"] = None
+
+        # Also check STRATEGY_CONFIGS for stale is_running flags
+        # (e.g., after app restart, RUNNING_STRATEGIES is empty but config has is_running=True)
+        configs_to_fix = []
+        for strategy_id, config in STRATEGY_CONFIGS.items():
+            if config.get("is_running") and strategy_id not in RUNNING_STRATEGIES:
+                # Config says running but not in memory - check if PID is alive
+                pid = config.get("pid")
+                if pid:
+                    if not psutil.pid_exists(pid):
+                        configs_to_fix.append(strategy_id)
+                        logger.info(
+                            f"Cleaning up stale is_running flag for {strategy_id} (PID {pid} not found)"
+                        )
+                else:
+                    # No PID stored, definitely not running
+                    configs_to_fix.append(strategy_id)
+                    logger.info(f"Cleaning up stale is_running flag for {strategy_id} (no PID)")
+
+        for strategy_id in configs_to_fix:
+            STRATEGY_CONFIGS[strategy_id]["is_running"] = False
+            STRATEGY_CONFIGS[strategy_id]["pid"] = None
+
+        if configs_to_fix:
+            save_configs()
+
+        if dead_strategies:
+            save_configs()
+            logger.info(f"Cleaned up {len(dead_strategies)} dead processes")
+
+
+DEFAULT_STRATEGY_EXCHANGE = "NSE"
+
+
+def normalize_exchange(exchange: str | None) -> str:
+    """Normalize an exchange code; fall back to DEFAULT_STRATEGY_EXCHANGE."""
+    if not exchange:
+        return DEFAULT_STRATEGY_EXCHANGE
+    exch = str(exchange).strip().upper()
+    if exch in SUPPORTED_EXCHANGES:
+        return exch
+    return DEFAULT_STRATEGY_EXCHANGE
+
+
+def is_trading_day(exchange: str = DEFAULT_STRATEGY_EXCHANGE) -> bool:
+    """
+    Check if today is a valid trading day for the given exchange.
+
+    - CRYPTO short-circuits to True (24/7).
+    - DISABLE_SESSION_EXPIRY=true (crypto broker instance) short-circuits to True.
+    - SPECIAL_SESSION rows on weekends count as trading days for the exchange.
+    - Otherwise falls back to the per-exchange holiday/weekend check.
+    """
+    try:
+        exch = normalize_exchange(exchange)
+
+        if exch in CRYPTO_EXCHANGES:
+            return True
+        if os.getenv("DISABLE_SESSION_EXPIRY", "false").lower() == "true":
+            return True
+
+        today = datetime.now(IST).date()
+
+        # Special session on weekend / holiday wins.
+        if get_special_session(today, exch):
+            return True
+
+        return not is_market_holiday(today, exchange=exch)
+    except Exception as e:
+        logger.exception(f"Error checking trading day status for {exchange}: {e}")
+        # On error, default to NOT running to be safe
+        return False
+
+
+def is_within_market_hours() -> bool:
+    """
+    Check if current time is within market trading hours.
+    Uses the market calendar database for accurate exchange-specific timings.
+
+    Returns:
+        True if within market hours, False otherwise
+    """
+    try:
+        # Use the market calendar function which checks all exchanges
+        return is_market_open()
+    except Exception as e:
+        logger.exception(f"Error checking market hours: {e}")
+        return False
+
+
+def get_market_status(exchange: str = DEFAULT_STRATEGY_EXCHANGE) -> dict:
+    """
+    Get detailed market status for the given exchange.
+
+    Returns:
+        dict with:
+        - is_open:    bool — currently within the effective trading window
+        - is_trading: bool — exchange has any session today (regular or special)
+        - reason:     str  — None when open; else 'weekend' | 'holiday' |
+                       'before_market' | 'after_market'
+        - message:    str  — human-readable
+        - is_special: bool — today's window comes from a SPECIAL_SESSION /
+                       partial-holiday row (e.g., MCX evening, Sunday Muhurat)
+        - session_start_ms / session_end_ms: epoch-ms of today's window (if any)
+    """
+    try:
+        exch = normalize_exchange(exchange)
+
+        if exch in CRYPTO_EXCHANGES:
+            return {
+                "is_open": True,
+                "is_trading": True,
+                "reason": None,
+                "message": f"{exch} is 24/7",
+                "is_special": False,
+                "exchange": exch,
+            }
+
+        if os.getenv("DISABLE_SESSION_EXPIRY", "false").lower() == "true":
+            return {
+                "is_open": True,
+                "is_trading": True,
+                "reason": None,
+                "message": "Market is open (24/7 crypto instance)",
+                "is_special": False,
+                "exchange": exch,
+            }
+
+        now = datetime.now(IST)
+        today = now.date()
+        now_ms = int(now.timestamp() * 1000)
+
+        window = get_effective_session_window(today, exch)
+
+        if not window:
+            # Closed for this exchange today
+            if today.weekday() >= 5:
+                day_name = "Saturday" if today.weekday() == 5 else "Sunday"
+                return {
+                    "is_open": False,
+                    "is_trading": False,
+                    "reason": "weekend",
+                    "message": f"{exch} closed - {day_name}",
+                    "is_special": False,
+                    "exchange": exch,
+                }
+            return {
+                "is_open": False,
+                "is_trading": False,
+                "reason": "holiday",
+                "message": f"{exch} closed - Holiday",
+                "is_special": False,
+                "exchange": exch,
+            }
+
+        is_open = window["start_ms"] <= now_ms <= window["end_ms"]
+        if is_open:
+            return {
+                "is_open": True,
+                "is_trading": True,
+                "reason": None,
+                "message": (
+                    f"{exch} special session in progress"
+                    if window.get("is_special")
+                    else f"{exch} is open"
+                ),
+                "is_special": bool(window.get("is_special")),
+                "session_start_ms": window["start_ms"],
+                "session_end_ms": window["end_ms"],
+                "exchange": exch,
+            }
+
+        # Has a session today, but not right now
+        reason = "before_market" if now_ms < window["start_ms"] else "after_market"
+        return {
+            "is_open": False,
+            "is_trading": True,
+            "reason": reason,
+            "message": (
+                f"{exch} closed - {'before' if reason == 'before_market' else 'after'} session"
+            ),
+            "is_special": bool(window.get("is_special")),
+            "session_start_ms": window["start_ms"],
+            "session_end_ms": window["end_ms"],
+            "exchange": exch,
+        }
+
+    except Exception as e:
+        logger.exception(f"Error getting market status for {exchange}: {e}")
+        return {
+            "is_open": False,
+            "is_trading": False,
+            "reason": "error",
+            "message": f"Error checking market status: {str(e)}",
+            "is_special": False,
+            "exchange": normalize_exchange(exchange),
+        }
+
+
+def scheduled_start_strategy(strategy_id: str):
+    """
+    Exchange-aware wrapper invoked when the cron fires for this strategy.
+
+    Decision flow:
+      1. Skip if manually stopped (user must explicitly resume).
+      2. Skip if today is not in the user's schedule_days (defensive — cron
+         shouldn't have fired on this day).
+      3. Skip if the strategy's exchange is closed today (weekend without
+         special session, or full holiday). CRYPTO bypasses this.
+      4. Otherwise start the strategy (the time-window intersection is
+         enforced on each tick by `is_within_schedule_time`).
+    """
+    config = get_strategy_config(strategy_id) or {}
+    if not config:
+        return
+
+    now = datetime.now(IST)
+    day_names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    today_day = day_names[now.weekday()]
+
+    if config.get("manually_stopped"):
+        logger.info(f"Strategy {strategy_id} manually stopped - skipping scheduled auto-start")
+        return
+
+    schedule_days = [d.lower() for d in config.get("schedule_days", [])]
+    if schedule_days and today_day not in schedule_days:
+        logger.warning(
+            f"Strategy {strategy_id} scheduled start fired but {today_day.capitalize()} "
+            f"not in schedule_days {schedule_days}"
+        )
+        return
+
+    exch = normalize_exchange(config.get("exchange"))
+
+    if is_trading_day_enforcement_enabled():
+        status = get_market_status(exch)
+        if not status.get("is_trading"):
+            reason = status.get("reason") or "holiday"
+            message = status.get("message", f"{exch} closed today")
+            logger.warning(f"Strategy {strategy_id} ({exch}) scheduled start BLOCKED - {message}")
+            _update_config(strategy_id, {"paused_reason": reason, "paused_message": message})
+            return
+
+    # Clear any previous paused reason
+    _update_config(strategy_id, pop=("paused_reason", "paused_message"), save=False)
+
+    logger.info(f"Strategy {strategy_id} ({exch}) - all checks passed, starting")
+    _start_unless_stopped_by_trader(strategy_id)
+
+
+def _start_unless_stopped_by_trader(strategy_id: str):
+    """Start a strategy on the platform's own initiative, unless the trader stopped it.
+
+    The schedule, the market hours enforcer and the restore pass all read
+    ``manually_stopped`` long before they start anything, with calendar and
+    database work in between. A trader pressing Stop in that gap was told the
+    scheduled start was cancelled, and the strategy started anyway.
+
+    So the flag is read again here, under PROCESS_LOCK, which is the lock the
+    stop route sets it under and the lock start_strategy_process holds for its
+    whole spawn. Either the stop takes the lock first and this sees the flag, or
+    this start finishes first and the stop finds a running strategy and stops it.
+    """
+    with PROCESS_LOCK:
+        config = STRATEGY_CONFIGS.get(strategy_id)
+        if config is not None and config.get("manually_stopped"):
+            logger.info(f"Strategy {strategy_id} was stopped by the trader - not starting it")
+            return False, MANUAL_STOP_REFUSAL
+        return start_strategy_process(strategy_id)
+
+
+def scheduled_stop_strategy(strategy_id: str):
+    """
+    Wrapper function for scheduled strategy stop.
+    Always stops the strategy regardless of market status (for safety).
+    """
+    # Always stop - this is a safety measure to prevent strategies from running after hours
+    logger.info(f"Scheduled stop triggered for strategy {strategy_id}")
+    stop_strategy_process(strategy_id)
+
+
+def is_trading_day_enforcement_enabled() -> bool:
+    """
+    Trading day enforcement is always enabled.
+    We only block on weekends/holidays, not specific market hours.
+    The scheduler handles start/stop times for each strategy.
+    """
+    return True
+
+
+def _is_strategy_running(strategy_id: str, config: dict) -> bool:
+    """True if the strategy's process is alive (in-memory or by stored PID)."""
+    if strategy_id in RUNNING_STRATEGIES:
+        return True
+    pid = config.get("pid")
+    return bool(pid and check_process_status(pid))
+
+
+def daily_trading_day_check():
+    """
+    00:01 IST daily check. Stops each scheduled strategy whose exchange has
+    no session today. Exchange-aware: an MCX strategy keeps running on an
+    NSE holiday; an NSE strategy stops; a CRYPTO strategy never stops.
+    """
+    try:
+        if not is_trading_day_enforcement_enabled():
+            logger.debug("Market hours enforcement disabled - skipping daily check")
+            return
+
+        stopped_count = 0
+        for strategy_id, config in snapshot_strategy_configs():
+            if not config.get("is_scheduled"):
+                continue
+
+            exch = normalize_exchange(config.get("exchange"))
+            status = get_market_status(exch)
+
+            # Exchange has a session today (regular or special) -> leave running
+            if status.get("is_trading"):
+                continue
+
+            if not _is_strategy_running(strategy_id, config):
+                continue
+
+            reason = status.get("reason") or "holiday"
+            message = status.get("message", f"{exch} closed today")
+            logger.info(f"Daily check: stopping {strategy_id} ({exch}) - {message}")
+            stop_strategy_process(strategy_id)
+            _update_config(
+                strategy_id, {"paused_reason": reason, "paused_message": message}, save=False
+            )
+            stopped_count += 1
+
+        if stopped_count > 0:
+            save_configs()
+            logger.info(f"Daily cleanup: stopped {stopped_count} strategies")
+        else:
+            logger.debug("Daily cleanup: no strategies needed stopping")
+
+    except Exception as e:
+        logger.exception(f"Error in daily trading day check: {e}")
+
+
+def is_within_schedule_time(strategy_id: str) -> bool:
+    """
+    Check if current time is within the strategy's effective trading window.
+
+    The effective window is the intersection of:
+      - the user's schedule_start..schedule_stop, and
+      - the exchange's session today (handles MCX evening on holidays,
+        Sat/Sun Muhurat / DR-drill special sessions, etc.).
+
+    For CRYPTO the exchange session is 24/7, so only the user's window
+    constrains. If the user leaves schedule_start blank for CRYPTO, the
+    window is treated as 24/7.
+    """
+    try:
+        config = get_strategy_config(strategy_id) or {}
+        exch = normalize_exchange(config.get("exchange"))
+        schedule_start = config.get("schedule_start")
+        schedule_stop = config.get("schedule_stop")
+
+        now = datetime.now(IST)
+        now_ms = int(now.timestamp() * 1000)
+
+        # Resolve the user's window for today (epoch-ms)
+        midnight_ist = IST.localize(datetime.combine(now.date(), datetime.min.time()))
+        midnight_ms = int(midnight_ist.timestamp() * 1000)
+
+        if schedule_start:
+            try:
+                sh, sm = map(int, schedule_start.split(":"))
+                user_start_ms = midnight_ms + (sh * 3600 + sm * 60) * 1000
+            except (ValueError, AttributeError):
+                logger.warning(f"Bad schedule_start for {strategy_id}: {schedule_start}")
+                return False
+        else:
+            # No user start: only valid for CRYPTO (treat as 00:00)
+            if exch not in CRYPTO_EXCHANGES:
+                return False
+            user_start_ms = midnight_ms
+
+        if schedule_stop:
+            try:
+                eh, em = map(int, schedule_stop.split(":"))
+                user_end_ms = midnight_ms + (eh * 3600 + em * 60) * 1000
+            except (ValueError, AttributeError):
+                user_end_ms = midnight_ms + 86_399_000
+        else:
+            user_end_ms = midnight_ms + 86_399_000
+
+        # Exchange-aware: intersect with today's effective session window
+        if exch in CRYPTO_EXCHANGES:
+            effective_start, effective_end = user_start_ms, user_end_ms
+        else:
+            window = get_effective_session_window(now.date(), exch)
+            if not window:
+                return False  # exchange closed today
+            effective_start = max(user_start_ms, window["start_ms"])
+            effective_end = min(user_end_ms, window["end_ms"])
+            if effective_start > effective_end:
+                # User's window doesn't overlap today's session
+                return False
+
+        return effective_start <= now_ms <= effective_end
+
+    except Exception as e:
+        logger.exception(f"Error checking schedule time for {strategy_id}: {e}")
+        return False
+
+
+def market_hours_enforcer():
+    """
+    Per-minute exchange-aware enforcer. For each scheduled strategy:
+
+    - If the strategy's exchange has no session today (closed weekend / full
+      holiday) -> stop running, mark paused.
+    - If the strategy's exchange has a session today and the strategy was
+      previously paused, try to resume (only if today is in schedule_days
+      and current time falls inside the effective schedule window).
+    - We do NOT stop on time-of-day boundaries — that is the scheduled stop
+      cron's job and the user's schedule_stop. This avoids fighting users
+      who deliberately leave a strategy running across the bell.
+    """
+    try:
+        if not is_trading_day_enforcement_enabled():
+            return
+
+        now = datetime.now(IST)
+        day_names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+        today_day = day_names[now.weekday()]
+
+        stopped_count = 0
+        started_count = 0
+        cleared_any = False
+
+        for strategy_id, config in snapshot_strategy_configs():
+            if not config.get("is_scheduled"):
+                continue
+
+            exch = normalize_exchange(config.get("exchange"))
+            status = get_market_status(exch)
+            schedule_days = [d.lower() for d in config.get("schedule_days", [])]
+
+            if status.get("is_trading"):
+                # Exchange tradeable today — clear any stale pause reason
+                if config.get("paused_reason") in (
+                    "weekend",
+                    "holiday",
+                    "before_market",
+                    "after_market",
+                ):
+                    paused_reason = config.get("paused_reason")
+                    is_running = _is_strategy_running(strategy_id, config)
+                    if (
+                        not is_running
+                        and not config.get("manually_stopped")
+                        and (not schedule_days or today_day in schedule_days)
+                        and is_within_schedule_time(strategy_id)
+                    ):
+                        logger.info(
+                            f"Enforcer: resuming paused strategy {strategy_id} ({exch}) "
+                            f"(was: {paused_reason})"
+                        )
+                        success, msg = _start_unless_stopped_by_trader(strategy_id)
+                        if success:
+                            started_count += 1
+                        else:
+                            logger.warning(f"Failed to resume {strategy_id}: {msg}")
+
+                with PROCESS_LOCK:
+                    if "paused_reason" in config:
+                        del config["paused_reason"]
+                        cleared_any = True
+                    if "paused_message" in config:
+                        del config["paused_message"]
+                        cleared_any = True
+                continue
+
+            # Exchange closed today — stop the strategy if it's running
+            if not _is_strategy_running(strategy_id, config):
+                continue
+
+            reason = status.get("reason") or "holiday"
+            message = status.get("message", f"{exch} closed today")
+            logger.info(f"Enforcer: stopping {strategy_id} ({exch}) - {message}")
+            stop_strategy_process(strategy_id)
+            _update_config(
+                strategy_id, {"paused_reason": reason, "paused_message": message}, save=False
+            )
+            stopped_count += 1
+
+        if stopped_count or started_count or cleared_any:
+            save_configs()
+            if stopped_count:
+                logger.info(f"Enforcer: stopped {stopped_count} strategies (exchange closed)")
+            if started_count:
+                logger.info(f"Enforcer: resumed {started_count} strategies (exchange reopened)")
+
+    except Exception as e:
+        logger.exception(f"Error in trading day enforcer: {e}")
+
+
+def cleanup_strategy_logs(strategy_id: str):
+    """
+    Cleanup log files for a strategy based on configured limits.
+    Enforces: max files, max total size, and retention days.
+    Only cleans up logs for stopped strategies.
+    """
+    # Don't cleanup logs for running strategies
+    if strategy_id in RUNNING_STRATEGIES:
+        return
+
+    try:
+        # Get limits from environment
+        max_files = int(os.getenv("STRATEGY_LOG_MAX_FILES", "10"))
+        max_size_mb = float(os.getenv("STRATEGY_LOG_MAX_SIZE_MB", "50"))
+        retention_days = int(os.getenv("STRATEGY_LOG_RETENTION_DAYS", "7"))
+
+        # Find all log files for this strategy, sorted by modification time (oldest first)
+        log_files = sorted(LOGS_DIR.glob(f"{strategy_id}_*.log"), key=lambda f: f.stat().st_mtime)
+
+        if not log_files:
+            return
+
+        now = datetime.now(IST)
+        deleted_count = 0
+
+        # 1. Delete logs older than retention days
+        for log_file in log_files[:]:  # Copy list to allow modification
+            try:
+                file_age_days = (
+                    now - datetime.fromtimestamp(log_file.stat().st_mtime, tz=IST)
+                ).days
+                if file_age_days > retention_days:
+                    log_file.unlink()
+                    log_files.remove(log_file)
+                    deleted_count += 1
+                    logger.debug(f"Deleted old log file {log_file.name} ({file_age_days} days old)")
+            except Exception as e:
+                logger.exception(f"Error deleting old log {log_file.name}: {e}")
+
+        # 2. Delete oldest files if exceeding max file count
+        while len(log_files) > max_files:
+            try:
+                oldest = log_files.pop(0)
+                oldest.unlink()
+                deleted_count += 1
+                logger.debug(f"Deleted log file {oldest.name} (exceeds max files: {max_files})")
+            except Exception as e:
+                logger.exception(f"Error deleting log {oldest.name}: {e}")
+                break
+
+        # 3. Delete oldest files if exceeding max total size
+        total_size_mb = sum(f.stat().st_size for f in log_files) / (1024 * 1024)
+        while total_size_mb > max_size_mb and log_files:
+            try:
+                oldest = log_files.pop(0)
+                file_size_mb = oldest.stat().st_size / (1024 * 1024)
+                oldest.unlink()
+                total_size_mb -= file_size_mb
+                deleted_count += 1
+                logger.debug(f"Deleted log file {oldest.name} (exceeds max size: {max_size_mb}MB)")
+            except Exception as e:
+                logger.exception(f"Error deleting log {oldest.name}: {e}")
+                break
+
+        if deleted_count > 0:
+            logger.info(f"Cleaned up {deleted_count} log files for strategy {strategy_id}")
+
+    except Exception as e:
+        logger.exception(f"Error cleaning up logs for strategy {strategy_id}: {e}")
+
+
+def schedule_strategy(strategy_id, start_time, stop_time=None, days=None):
+    """
+    Schedule a strategy to run at specific times (IST).
+    Allows any day of the week to support special exchange sessions (e.g., Muhurat trading).
+    """
+    if not days:
+        days = ["mon", "tue", "wed", "thu", "fri"]  # Default to weekdays
+
+    # Validate days are valid day names
+    valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+    days_lower = [d.lower() for d in days]
+    invalid_days = set(days_lower) - valid_days
+    if invalid_days:
+        raise ValueError(
+            f"Invalid schedule days: {invalid_days}. Valid days: mon, tue, wed, thu, fri, sat, sun"
+        )
+
+    # Normalize days to lowercase
+    days = days_lower
+
+    # Create job ID
+    start_job_id = f"start_{strategy_id}"
+    stop_job_id = f"stop_{strategy_id}"
+
+    # Remove existing jobs if any
+    if SCHEDULER.get_job(start_job_id):
+        SCHEDULER.remove_job(start_job_id)
+    if SCHEDULER.get_job(stop_job_id):
+        SCHEDULER.remove_job(stop_job_id)
+
+    # Schedule start with holiday check wrapper (time is already in IST from frontend)
+    hour, minute = map(int, start_time.split(":"))
+    SCHEDULER.add_job(
+        func=functools.partial(_run_scheduled_start, strategy_id),
+        trigger=CronTrigger(hour=hour, minute=minute, day_of_week=",".join(days), timezone=IST),
+        id=start_job_id,
+        replace_existing=True,
+    )
+
+    # Schedule stop if provided (always runs for safety)
+    if stop_time:
+        hour, minute = map(int, stop_time.split(":"))
+        SCHEDULER.add_job(
+            func=functools.partial(_run_scheduled_stop, strategy_id),
+            trigger=CronTrigger(hour=hour, minute=minute, day_of_week=",".join(days), timezone=IST),
+            id=stop_job_id,
+            replace_existing=True,
+        )
+
+    # Update config
+    updated = _update_config(
+        strategy_id,
+        {
+            "is_scheduled": True,
+            "schedule_start": start_time,
+            "schedule_stop": stop_time,
+            "schedule_days": days,
+        },
+    )
+    if not updated:
+        # Deleted while this ran; the same KeyError the direct write raised.
+        raise KeyError(strategy_id)
+
+    logger.debug(
+        f"Scheduled strategy {strategy_id}: {start_time} - {stop_time} IST on {days} (holiday check enforced)"
+    )
+
+
+def unschedule_strategy(strategy_id):
+    """Remove scheduling for a strategy"""
+    start_job_id = f"start_{strategy_id}"
+    stop_job_id = f"stop_{strategy_id}"
+
+    if SCHEDULER.get_job(start_job_id):
+        SCHEDULER.remove_job(start_job_id)
+    if SCHEDULER.get_job(stop_job_id):
+        SCHEDULER.remove_job(stop_job_id)
+
+    _update_config(strategy_id, {"is_scheduled": False})
+
+    logger.info(f"Unscheduled strategy {strategy_id}")
+
+
+@python_strategy_bp.route("/")
+@check_session_validity
+def index():
+    """Main dashboard"""
+    # Ensure initialization is done when first accessed
+    initialize_with_app_context()
+    cleanup_dead_processes()
+
+    strategies = []
+    for sid, config in snapshot_strategy_configs():
+        # Check if process is actually running
+        pid = config.get("pid")
+        if pid:
+            alive = check_process_status(pid)
+            changed = False
+            with PROCESS_LOCK:
+                # Only if nothing started or stopped it while psutil was asked.
+                if config.get("pid") == pid:
+                    config["is_running"] = alive
+                    if not alive:
+                        config["pid"] = None
+                        changed = True
+            if changed:
+                save_configs()
+
+        strategy_info = {
+            "id": sid,
+            "name": config.get("name", "Unnamed"),
+            "file": Path(config.get("file_path", "")).name,
+            "is_running": config.get("is_running", False),
+            "is_scheduled": config.get("is_scheduled", False),
+            "is_error": config.get("is_error", False),
+            "error_message": config.get("error_message", ""),
+            "error_time": format_ist_time(config.get("error_time", "")),
+            "schedule_start": config.get("schedule_start", ""),
+            "schedule_stop": config.get("schedule_stop", ""),
+            "schedule_days": config.get("schedule_days", []),
+            "created_at": config.get("created_at", ""),
+            "last_started": format_ist_time(config.get("last_started", "")),
+            "last_stopped": format_ist_time(config.get("last_stopped", "")),
+            "pid": config.get("pid"),
+            "params": {},  # No params needed in simplified version
+        }
+
+        # Add runtime info if running
+        info = RUNNING_STRATEGIES.get(sid)
+        if info is not None:
+            strategy_info["started_at"] = info["started_at"]
+            strategy_info["log_file"] = info["log_file"]
+
+        strategies.append(strategy_info)
+
+    # Get current IST time for the page
+    current_ist = get_ist_time().strftime("%Y-%m-%d %H:%M:%S IST")
+
+    return render_template(
+        "python_strategy/index.html",
+        strategies=strategies,
+        current_ist_time=current_ist,
+        platform=OS_TYPE.capitalize(),
+    )
+
+
+@python_strategy_bp.route("/new", methods=["GET", "POST"])
+@check_session_validity
+def new_strategy():
+    """Upload a new strategy"""
+    user_id = session.get("user")
+    is_ajax = request.headers.get(
+        "X-Requested-With"
+    ) == "XMLHttpRequest" or request.content_type.startswith("multipart/form-data")
+
+    if not user_id:
+        if is_ajax:
+            return jsonify({"status": "error", "message": "Session expired"}), 401
+        flash("Session expired", "error")
+        return redirect(url_for("auth.login"))
+
+    if request.method == "POST":
+        if "strategy_file" not in request.files:
+            if is_ajax:
+                return jsonify({"status": "error", "message": "No file selected"}), 400
+            flash("No file selected", "error")
+            return redirect(request.url)
+
+        file = request.files["strategy_file"]
+        if file.filename == "":
+            if is_ajax:
+                return jsonify({"status": "error", "message": "No file selected"}), 400
+            flash("No file selected", "error")
+            return redirect(request.url)
+
+        if file and file.filename.endswith(".py"):
+            # Sanitize filename first to prevent path traversal and injection
+            safe_filename = secure_filename(file.filename)
+            if not safe_filename or not safe_filename.endswith(".py"):
+                if is_ajax:
+                    return jsonify({"status": "error", "message": "Invalid filename"}), 400
+                flash("Invalid filename", "error")
+                return redirect(request.url)
+
+            # Generate unique ID with IST timestamp from sanitized filename
+            ist_now = get_ist_time()
+            safe_stem = Path(safe_filename).stem
+            # Further sanitize: only allow alphanumeric, underscore, and hyphen
+            safe_stem = "".join(c for c in safe_stem if c.isalnum() or c in "_-")
+            if not safe_stem:
+                safe_stem = "strategy"
+            strategy_id = f"{safe_stem}_{ist_now.strftime('%Y%m%d%H%M%S')}"
+
+            # Save file with sanitized path
+            file_path = STRATEGIES_DIR / f"{strategy_id}.py"
+
+            # Verify the resolved path is within STRATEGIES_DIR (defense in depth)
+            try:
+                resolved_path = file_path.resolve()
+                strategies_dir_resolved = STRATEGIES_DIR.resolve()
+                if not str(resolved_path).startswith(str(strategies_dir_resolved)):
+                    logger.warning(f"Path traversal attempt in file upload: {file.filename}")
+                    if is_ajax:
+                        return jsonify({"status": "error", "message": "Invalid file path"}), 400
+                    flash("Invalid file path", "error")
+                    return redirect(request.url)
+            except Exception as e:
+                logger.exception(f"Error validating file path: {e}")
+                if is_ajax:
+                    return jsonify({"status": "error", "message": "Invalid file path"}), 400
+                flash("Invalid file path", "error")
+                return redirect(request.url)
+
+            STRATEGIES_DIR.mkdir(parents=True, exist_ok=True)
+            file.save(str(file_path))
+
+            # Make file executable on Unix-like systems
+            if not IS_WINDOWS:
+                with contextlib.suppress(Exception):
+                    os.chmod(file_path, 0o755)
+
+            # Get form data - sanitize strategy name
+            raw_strategy_name = request.form.get("strategy_name", safe_stem)
+            # Allow more characters in display name but strip dangerous ones
+            strategy_name = raw_strategy_name.strip()[:100]  # Limit length
+
+            # Exchange (drives holiday/session awareness)
+            exchange = normalize_exchange(request.form.get("exchange"))
+            is_crypto = exchange in CRYPTO_EXCHANGES
+
+            # Get mandatory schedule fields with exchange-aware defaults
+            default_start = "00:00" if is_crypto else "09:00"
+            default_stop = "23:59" if is_crypto else "16:00"
+            default_days = (
+                ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+                if is_crypto
+                else ["mon", "tue", "wed", "thu", "fri"]
+            )
+
+            schedule_start = request.form.get("schedule_start") or default_start
+            schedule_stop = request.form.get("schedule_stop") or default_stop
+            schedule_days_json = request.form.get("schedule_days", json.dumps(default_days))
+
+            # Parse schedule days from JSON
+            try:
+                schedule_days = json.loads(schedule_days_json)
+                if not isinstance(schedule_days, list) or not schedule_days:
+                    schedule_days = default_days
+            except (json.JSONDecodeError, TypeError):
+                schedule_days = default_days
+
+            # Save configuration with schedule (schedule is mandatory and always enabled)
+            with PROCESS_LOCK:
+                STRATEGY_CONFIGS[strategy_id] = {
+                    "name": strategy_name,
+                    "file_path": str(file_path),
+                    "file_name": f"{strategy_id}.py",
+                    "exchange": exchange,
+                    "is_running": False,
+                    "is_scheduled": True,  # Always enabled by default
+                    "created_at": ist_now.isoformat(),
+                    "user_id": user_id,
+                    "schedule_start": schedule_start,
+                    "schedule_stop": schedule_stop,
+                    "schedule_days": schedule_days,
+                }
+            save_configs()
+
+            # Setup scheduler jobs for the new strategy
+            schedule_strategy(
+                strategy_id, start_time=schedule_start, stop_time=schedule_stop, days=schedule_days
+            )
+
+            if is_ajax:
+                return jsonify(
+                    {
+                        "status": "success",
+                        "message": f'Strategy "{strategy_name}" uploaded successfully',
+                        "data": {"strategy_id": strategy_id},
+                    }
+                )
+
+            flash(f'Strategy "{strategy_name}" uploaded successfully', "success")
+            return redirect(url_for("python_strategy_bp.index"))
+        else:
+            if is_ajax:
+                return jsonify(
+                    {"status": "error", "message": "Please upload a Python (.py) file"}
+                ), 400
+            flash("Please upload a Python (.py) file", "error")
+
+    return render_template("python_strategy/new.html")
+
+
+@python_strategy_bp.route("/start/<strategy_id>", methods=["POST"])
+@check_session_validity
+def start_strategy(strategy_id):
+    """Start a strategy - requires scheduler to be enabled to prevent API abuse"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership
+    is_owner, error_response = verify_strategy_ownership(strategy_id, user_id)
+    if not is_owner:
+        return error_response
+
+    # Check if scheduler is enabled - auto-enable with defaults for old strategies
+    config = get_strategy_config(strategy_id) or {}
+    if not config.get("is_scheduled"):
+        # Auto-enable scheduler with defaults for old strategies (Mon-Fri, 09:00-16:00 IST)
+        logger.info(
+            f"Auto-enabling scheduler for legacy strategy {strategy_id} with default schedule"
+        )
+        defaults = {
+            "is_scheduled": True,
+            "schedule_start": config.get("schedule_start", "09:00"),
+            "schedule_stop": config.get("schedule_stop", "16:00"),
+            "schedule_days": config.get("schedule_days", ["mon", "tue", "wed", "thu", "fri"]),
+        }
+        if not _update_config(strategy_id, defaults):
+            return jsonify({"status": "error", "message": "Strategy not found"}), 404
+        # Setup scheduler jobs for this strategy
+        schedule_strategy(
+            strategy_id,
+            start_time=config.get("schedule_start"),
+            stop_time=config.get("schedule_stop"),
+            days=config.get("schedule_days"),
+        )
+
+    # Clear manual stop flag since user is explicitly starting
+    # This resumes scheduled auto-start. Under PROCESS_LOCK, the lock the stop
+    # route sets it under.
+    with PROCESS_LOCK:
+        current = STRATEGY_CONFIGS.get(strategy_id)
+        cleared = bool(current and current.get("manually_stopped"))
+        if cleared:
+            current.pop("manually_stopped", None)
+    if cleared:
+        save_configs()
+        logger.info(
+            f"Cleared manual stop flag for strategy {strategy_id} - scheduled auto-start resumed"
+        )
+
+    # Check schedule constraints
+    schedule_days = config.get("schedule_days", [])
+    now = datetime.now(IST)
+    day_names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    today_day = day_names[now.weekday()]
+
+    schedule_start = config.get("schedule_start")
+    schedule_stop = config.get("schedule_stop")
+
+    # Determine if we're within schedule
+    is_scheduled_day = today_day in [d.lower() for d in schedule_days] if schedule_days else True
+    is_within_hours = True
+
+    if schedule_start and schedule_stop:
+        try:
+            start_hour, start_min = map(int, schedule_start.split(":"))
+            stop_hour, stop_min = map(int, schedule_stop.split(":"))
+            start_time = now.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+            stop_time = now.replace(hour=stop_hour, minute=stop_min, second=0, microsecond=0)
+            is_within_hours = start_time <= now <= stop_time
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Could not parse schedule times for {strategy_id}: {e}")
+
+    # Exchange-aware holiday check: an MCX strategy isn't blocked by NSE
+    # being closed; an NSE strategy isn't blocked from a Muhurat Sunday.
+    exch = normalize_exchange(config.get("exchange"))
+    is_holiday = not is_trading_day(exchange=exch)
+
+    # If outside schedule (wrong day, wrong time, or holiday), just arm it for scheduled start
+    if not is_scheduled_day or not is_within_hours or is_holiday:
+        # Determine the reason and next start time
+        if is_holiday:
+            reason = "Market holiday"
+            next_start = f"next trading day at {schedule_start} IST"
+        elif not is_scheduled_day:
+            reason = f"Today ({today_day.capitalize()}) is not in schedule"
+            # Find next scheduled day
+            next_days = list(schedule_days)
+            next_start = f"next scheduled day ({', '.join(next_days)}) at {schedule_start} IST"
+        else:
+            reason = f"Outside schedule hours ({schedule_start} - {schedule_stop} IST)"
+            if now < start_time:
+                next_start = f"today at {schedule_start} IST"
+            else:
+                next_start = f"next scheduled day at {schedule_start} IST"
+
+        logger.info(
+            f"Strategy {strategy_id} armed for scheduled start. Reason: {reason}. Next start: {next_start}"
+        )
+
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Strategy scheduled to start. {reason}. Will start {next_start}.",
+                "data": {"armed": True, "reason": reason, "next_start": next_start},
+            }
+        )
+
+    # Within schedule - start immediately
+    initialize_with_app_context()
+    success, message = start_strategy_process(strategy_id)
+    return jsonify({"status": "success" if success else "error", "message": message})
+
+
+@python_strategy_bp.route("/stop/<strategy_id>", methods=["POST"])
+@check_session_validity
+def stop_strategy(strategy_id):
+    """Stop a strategy manually or cancel a scheduled auto-start"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership
+    is_owner, error_response = verify_strategy_ownership(strategy_id, user_id)
+    if not is_owner:
+        return error_response
+
+    # The manual stop is recorded first, and the decision whether anything is
+    # running is taken in the same hold of PROCESS_LOCK. An automatic start
+    # (schedule, enforcer, restore) re-reads the flag under this lock before it
+    # spawns, so it either sees the flag and does not start, or it finished
+    # first and the strategy is tracked here and gets stopped below. Deciding on
+    # the config flag alone, outside the lock, told a trader "Scheduled
+    # auto-start cancelled" while a start that had already passed its check went
+    # on to launch the strategy.
+    with PROCESS_LOCK:
+        config = STRATEGY_CONFIGS.get(strategy_id)
+        if config is None:
+            return jsonify({"status": "error", "message": "Strategy not found"}), 404
+        previous_flag = config.get("manually_stopped", _NOT_SET)
+        config["manually_stopped"] = True
+        is_running = (
+            strategy_id in RUNNING_STRATEGIES
+            or strategy_id in STOPPING_STRATEGIES
+            or config.get("is_running", False)
+        )
+
+    if is_running:
+        # Strategy is actually running - stop the process
+        success, message = stop_strategy_process(strategy_id)
+        if success:
+            save_configs()
+            logger.info(
+                f"Strategy {strategy_id} manually stopped - will not auto-start until manually started"
+            )
+        else:
+            # Nothing was stopped, so the manual stop is taken back, as it was
+            # never recorded before.
+            with PROCESS_LOCK:
+                current = STRATEGY_CONFIGS.get(strategy_id)
+                if current is not None:
+                    if previous_flag is _NOT_SET:
+                        current.pop("manually_stopped", None)
+                    else:
+                        current["manually_stopped"] = previous_flag
+            save_configs()
+        return jsonify({"status": "success" if success else "error", "message": message})
+    else:
+        # Strategy is not running - just cancel the scheduled auto-start
+        save_configs()
+        logger.info(
+            f"Strategy {strategy_id} schedule cancelled - will not auto-start until manually started"
+        )
+        return jsonify({"status": "success", "message": "Scheduled auto-start cancelled"})
+
+
+@python_strategy_bp.route("/schedule/<strategy_id>", methods=["POST"])
+@check_session_validity
+def schedule_strategy_route(strategy_id):
+    """Schedule a strategy"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership and get config atomically
+    is_owner, result = verify_strategy_ownership(strategy_id, user_id, return_config=True)
+    if not is_owner:
+        return result
+
+    config = result
+    if config.get("is_running", False):
+        return jsonify(
+            {
+                "status": "error",
+                "message": "Cannot modify schedule while strategy is running. Please stop the strategy first.",
+                "error_code": "STRATEGY_RUNNING",
+            }
+        ), 400
+
+    data = request.json
+    start_time = data.get("start_time")
+    stop_time = data.get("stop_time")
+    days = data.get("days", ["mon", "tue", "wed", "thu", "fri"])
+    exchange_in = data.get("exchange")
+
+    if not start_time:
+        return jsonify({"status": "error", "message": "Start time is required"}), 400
+
+    try:
+        # Update exchange first if provided so smart-default behavior applies
+        if exchange_in is not None and not _update_config(
+            strategy_id, {"exchange": normalize_exchange(exchange_in)}, save=False
+        ):
+            raise KeyError(strategy_id)
+        schedule_strategy(strategy_id, start_time, stop_time, days)
+        save_configs()
+        exch = (get_strategy_config(strategy_id) or {}).get("exchange", DEFAULT_STRATEGY_EXCHANGE)
+        schedule_info = f"[{exch}] Scheduled at {start_time} IST"
+        if stop_time:
+            schedule_info += f" - {stop_time} IST"
+        return jsonify({"status": "success", "message": schedule_info})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@python_strategy_bp.route("/unschedule/<strategy_id>", methods=["POST"])
+@check_session_validity
+def unschedule_strategy_route(strategy_id):
+    """Remove scheduling for a strategy - DISABLED: scheduler is mandatory"""
+    # Scheduler is mandatory and cannot be disabled
+    return jsonify(
+        {
+            "status": "error",
+            "message": "Scheduler is mandatory and cannot be disabled. You can only modify the schedule times and days.",
+        }
+    ), 400
+
+
+@python_strategy_bp.route("/delete/<strategy_id>", methods=["POST"])
+@check_session_validity
+def delete_strategy(strategy_id):
+    """Delete a strategy"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership
+    is_owner, error_response = verify_strategy_ownership(strategy_id, user_id)
+    if not is_owner:
+        return error_response
+
+    # Claimed before anything else, in the hold that checks. A start is refused
+    # while the claim stands, so nothing can be launched in the gap between the
+    # stop below and the removal after it. Released on every path.
+    with PROCESS_LOCK:
+        if strategy_id in DELETING_STRATEGIES:
+            return jsonify(
+                {"status": "error", "message": "This strategy is already being deleted."}
+            ), 409
+        DELETING_STRATEGIES.add(strategy_id)
+        needs_stop = strategy_id in RUNNING_STRATEGIES or (
+            strategy_id in STRATEGY_CONFIGS and STRATEGY_CONFIGS[strategy_id].get("is_running")
+        )
+
+    try:
+        # Stop first, and outside PROCESS_LOCK. stop_strategy_process waits for
+        # the process to die and takes the lock itself; calling it from inside a
+        # held lock is reentrant, so it would not deadlock, it would just hold
+        # the lock across the wait and stall every other caller, which is what
+        # that function exists to avoid.
+        if needs_stop:
+            stopped, stop_message = stop_strategy_process(strategy_id)
+            if not stopped and _strategy_may_still_be_running(strategy_id):
+                # Deleting now would take the config and the file with it while
+                # the process is still running, leaving a live strategy with
+                # nothing tracking it and no route to stop it. Two ways to get
+                # here: the process outlived both signals, or another stop is
+                # already in flight and owns the claim.
+                logger.warning(f"Refusing to delete strategy {strategy_id}: {stop_message}")
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Could not stop the strategy, so it was not deleted. {stop_message}",
+                    }
+                ), 409
+
+        with PROCESS_LOCK:  # Thread-safe operation
+            # A start that got in before the claim may have finished since the
+            # check above. Removing its config now would strand a live process.
+            if strategy_id in RUNNING_STRATEGIES or strategy_id in STOPPING_STRATEGIES:
+                logger.warning(f"Refusing to delete strategy {strategy_id}: it is running again")
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": (
+                            "The strategy started again while it was being deleted, so it was "
+                            "not deleted. Stop it and try again."
+                        ),
+                    }
+                ), 409
+
+            # Unschedule if scheduled
+            if STRATEGY_CONFIGS.get(strategy_id, {}).get("is_scheduled"):
+                unschedule_strategy(strategy_id)
+
+            # Delete file
+            if strategy_id in STRATEGY_CONFIGS:
+                file_path = Path(STRATEGY_CONFIGS[strategy_id].get("file_path", ""))
+                if file_path.exists():
+                    try:
+                        file_path.unlink()
+                    except Exception as e:
+                        logger.exception(f"Failed to delete file {file_path}: {e}")
+
+                # Remove from configs
+                del STRATEGY_CONFIGS[strategy_id]
+                save_configs()
+
+                return jsonify({"status": "success", "message": "Strategy deleted successfully"})
+
+            return jsonify({"status": "error", "message": "Strategy not found"})
+    finally:
+        with PROCESS_LOCK:
+            DELETING_STRATEGIES.discard(strategy_id)
+
+
+@python_strategy_bp.route("/logs/<strategy_id>")
+@check_session_validity
+def view_logs(strategy_id):
+    """View strategy logs"""
+    user_id = session.get("user")
+    if not user_id:
+        flash("Session expired", "error")
+        return redirect(url_for("auth.login"))
+
+    # Verify ownership
+    is_owner, error_response = verify_strategy_ownership(strategy_id, user_id)
+    if not is_owner:
+        flash("Unauthorized access to strategy", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    log_files = []
+
+    # Get all log files for this strategy
+    try:
+        for log_file in LOGS_DIR.glob(f"{strategy_id}_*.log"):
+            log_files.append(
+                {
+                    "name": log_file.name,
+                    "size": log_file.stat().st_size,
+                    "modified": datetime.fromtimestamp(log_file.stat().st_mtime, tz=IST),
+                }
+            )
+    except Exception as e:
+        logger.exception(f"Error reading log files: {e}")
+
+    # Sort by modified time (newest first)
+    log_files.sort(key=lambda x: x["modified"], reverse=True)
+
+    # Get latest log content if requested
+    log_content = None
+    if log_files and request.args.get("latest"):
+        latest_log = LOGS_DIR / log_files[0]["name"]
+        try:
+            with open(latest_log, encoding="utf-8", errors="ignore") as f:
+                log_content = f.read()
+        except Exception as e:
+            log_content = f"Error reading log file: {e}"
+
+    return render_template(
+        "python_strategy/logs.html",
+        strategy_id=strategy_id,
+        log_files=log_files,
+        log_content=log_content,
+    )
+
+
+@python_strategy_bp.route("/logs/<strategy_id>/clear", methods=["POST"])
+@check_session_validity
+def clear_logs(strategy_id):
+    """Clear all log files for a strategy"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership
+    is_owner, error_response = verify_strategy_ownership(strategy_id, user_id)
+    if not is_owner:
+        return error_response
+
+    try:
+        # Refuse to clear logs for running strategies to prevent file corruption
+        # Truncating a log file while a process has it open causes null bytes
+        if strategy_id in RUNNING_STRATEGIES:
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Cannot clear logs while strategy is running. Please stop the strategy first.",
+                }
+            ), 400
+
+        cleared_count = 0
+        total_size = 0
+
+        # Find all log files for this strategy
+        log_files = list(LOGS_DIR.glob(f"{strategy_id}_*.log"))
+
+        if not log_files:
+            return jsonify({"status": "error", "message": "No log files found to clear"}), 404
+
+        # Calculate total size before clearing
+        for log_file in log_files:
+            with contextlib.suppress(Exception):
+                total_size += log_file.stat().st_size
+
+        # Strategy not running, safe to delete all log files
+        for log_file in log_files:
+            try:
+                log_file.unlink()
+                logger.info(f"Deleted log file: {log_file.name}")
+
+                cleared_count += 1
+
+            except Exception as e:
+                logger.exception(f"Error clearing log file {log_file.name}: {e}")
+
+        if cleared_count > 0:
+            size_mb = total_size / (1024 * 1024)
+            logger.info(
+                f"Cleared {cleared_count} log files for strategy {strategy_id} ({size_mb:.2f} MB)"
+            )
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": f"Cleared {cleared_count} log files ({size_mb:.2f} MB)",
+                    "cleared_count": cleared_count,
+                    "total_size_mb": round(size_mb, 2),
+                }
+            )
+        else:
+            return jsonify({"status": "error", "message": "No log files were cleared"}), 500
+
+    except Exception as e:
+        logger.exception(f"Error clearing logs for strategy {strategy_id}: {e}")
+        return jsonify({"status": "error", "message": f"Error clearing logs: {str(e)}"}), 500
+
+
+@python_strategy_bp.route("/clear-error/<strategy_id>", methods=["POST"])
+@check_session_validity
+def clear_error_state(strategy_id):
+    """Clear error state for a strategy"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership and get config atomically
+    is_owner, result = verify_strategy_ownership(strategy_id, user_id, return_config=True)
+    if not is_owner:
+        return result
+
+    config = result
+
+    if config.get("is_running"):
+        return jsonify(
+            {"status": "error", "message": "Cannot clear error state while strategy is running"}
+        ), 400
+
+    if not config.get("is_error"):
+        return jsonify({"status": "error", "message": "Strategy is not in error state"}), 400
+
+    try:
+        # Clear error state
+        with PROCESS_LOCK:
+            config.pop("is_error", None)
+            config.pop("error_message", None)
+            config.pop("error_time", None)
+        save_configs()
+
+        logger.info(f"Cleared error state for strategy {strategy_id}")
+        return jsonify({"status": "success", "message": "Error state cleared successfully"})
+
+    except Exception as e:
+        logger.exception(f"Failed to clear error state for {strategy_id}: {e}")
+        return jsonify(
+            {"status": "error", "message": f"Failed to clear error state: {str(e)}"}
+        ), 500
+
+
+@python_strategy_bp.route("/status")
+@check_session_validity
+def status():
+    """Get system status"""
+    cleanup_dead_processes()
+
+    # Check master contract status
+    contracts_ready, contract_message = check_master_contract_ready()
+
+    configs = snapshot_strategy_configs()
+    return jsonify(
+        {
+            "running": len(RUNNING_STRATEGIES),
+            "total": len(configs),
+            "scheduler_running": SCHEDULER is not None and SCHEDULER.running,
+            "current_ist_time": get_ist_time().strftime("%H:%M:%S IST"),
+            "platform": OS_TYPE,
+            # Legacy field names (for backward compatibility)
+            "master_contracts_ready": contracts_ready,
+            "master_contracts_message": contract_message,
+            # Fields expected by React frontend
+            "ready": contracts_ready,
+            "message": contract_message,
+            "strategies": [
+                {
+                    "id": sid,
+                    "name": config.get("name"),
+                    "is_running": config.get("is_running", False),
+                    "is_scheduled": config.get("is_scheduled", False),
+                }
+                for sid, config in configs
+            ],
+        }
+    )
+
+
+@python_strategy_bp.route("/check-contracts", methods=["POST"])
+@check_session_validity
+def check_contracts():
+    """Check master contracts and start pending strategies"""
+    try:
+        success, started_count, message = check_and_start_pending_strategies()
+        return jsonify(
+            {
+                "status": "success" if success else "error",
+                "message": message,
+                "data": {"started": started_count},
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error checking contracts: {e}")
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"Error checking contracts: {str(e)}",
+                "data": {"started": 0},
+            }
+        ), 500
+
+
+# =============================================================================
+# JSON API Endpoints for React Frontend
+# =============================================================================
+
+
+def get_schedule_status(config):
+    """
+    Determine detailed schedule status for a strategy.
+    Returns: (status, status_message)
+
+    Status meanings:
+    - manually_stopped: User clicked stop, won't auto-start until manual start
+    - scheduled: Strategy is armed and will auto-start at scheduled time
+    - paused: Market holiday, strategy won't run today
+    """
+    now = datetime.now(IST)
+    day_names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    today_day = day_names[now.weekday()]
+    current_time = now.strftime("%H:%M")
+
+    schedule_days = config.get("schedule_days", [])
+    schedule_start = config.get("schedule_start", "09:00")
+    schedule_stop = config.get("schedule_stop", "16:00")
+    schedule_days_lower = [d.lower() for d in schedule_days]
+
+    # Check if manually stopped - this is the only state that prevents auto-start
+    if config.get("manually_stopped"):
+        return "manually_stopped", "Manually stopped - click Start to resume"
+
+    # Exchange-aware pause: any non-trading day for the strategy's exchange
+    paused_reason = config.get("paused_reason")
+    if paused_reason in ("holiday", "weekend"):
+        return "paused", config.get("paused_message", "Exchange closed today")
+
+    # Strategy is armed (not manually stopped) - show "Scheduled" with context
+    # Check if today is in schedule days
+    if schedule_days and today_day not in schedule_days_lower:
+        # Find next scheduled day
+        next_days = ", ".join([d.capitalize() for d in schedule_days[:3]])
+        if len(schedule_days) > 3:
+            next_days += "..."
+        return "scheduled", f"Next: {next_days} at {schedule_start} IST"
+
+    # Today is a scheduled day - check time
+    if schedule_start and schedule_stop:
+        if current_time < schedule_start:
+            return "scheduled", f"Starts today at {schedule_start} IST"
+        elif current_time > schedule_stop:
+            # After today's window, will start next scheduled day
+            return "scheduled", f"Next scheduled day at {schedule_start} IST"
+
+    # Within schedule window
+    return "scheduled", f"Active window: {schedule_start} - {schedule_stop} IST"
+
+
+#: Display order and descriptive names for the /python exchange selector. Only
+#: the *name* lives here. The session window shown beside it is read from the
+#: market calendar DB, so a timing change (SEBI's F&O close moving to 15:40, an
+#: admin edit under /admin/timings) reaches this dropdown without a code change.
+STRATEGY_EXCHANGE_NAMES = [
+    ("NSE", "Equity"),
+    ("BSE", "Equity"),
+    ("NFO", "NSE F&O"),
+    ("BFO", "BSE F&O"),
+    ("CDS", "NSE Currency"),
+    ("BCD", "BSE Currency"),
+    ("MCX", "Commodity"),
+    ("NCO", "NSE Commodity"),
+    ("CRYPTO", None),
+]
+
+
+@python_strategy_bp.route("/api/exchanges")
+@check_session_validity
+def api_get_exchanges():
+    """API: Exchange options for the strategy selector, with live session windows.
+
+    The window is whatever the market calendar DB currently holds for that
+    exchange, not a hardcoded string. CRYPTO is reported as 24/7 because the
+    scheduler short-circuits it rather than consulting a window.
+    """
+    try:
+        timings = {t["exchange"]: t for t in get_all_market_timings()}
+    except Exception as e:
+        logger.exception(f"Error loading market timings for exchange list: {e}")
+        timings = {}
+
+    exchanges = []
+    for code, description in STRATEGY_EXCHANGE_NAMES:
+        if code not in SUPPORTED_EXCHANGES:
+            continue
+
+        is_crypto = code in CRYPTO_EXCHANGES
+        timing = timings.get(code)
+        start_time = None if is_crypto else (timing or {}).get("start_time")
+        end_time = None if is_crypto else (timing or {}).get("end_time")
+
+        if is_crypto:
+            window = "24/7"
+        elif start_time and end_time:
+            window = f"{start_time}-{end_time}"
+        else:
+            window = None
+
+        parts = [p for p in (description, f"({window})" if window and description else window) if p]
+        label = f"{code} — {' '.join(parts)}" if parts else code
+
+        exchanges.append(
+            {
+                "value": code,
+                "label": label,
+                "description": description,
+                "start_time": start_time,
+                "end_time": end_time,
+                "window": window,
+                "is_24x7": is_crypto,
+            }
+        )
+
+    return jsonify({"exchanges": exchanges, "default": DEFAULT_STRATEGY_EXCHANGE})
+
+
+@python_strategy_bp.route("/api/strategies")
+@check_session_validity
+def api_get_strategies():
+    """API: Get all strategies as JSON"""
+    cleanup_dead_processes()
+    strategies = []
+
+    # Copies taken in one hold, so the answer is one moment and a strategy
+    # created or deleted while it is built cannot break the loop.
+    for strategy_id, config in _copy_strategy_configs():
+        # Determine status with detailed schedule info
+        if config.get("is_running"):
+            status = "running"
+            status_message = "Running"
+        elif config.get("error_message"):
+            status = "error"
+            status_message = config.get("error_message")
+        else:
+            status, status_message = get_schedule_status(config)
+
+        strategies.append(
+            {
+                "id": strategy_id,
+                "name": config.get("name", ""),
+                "file_name": config.get("file_name", ""),
+                "exchange": normalize_exchange(config.get("exchange")),
+                "status": status,
+                "status_message": status_message,
+                "is_running": config.get("is_running", False),
+                "is_scheduled": config.get("is_scheduled", False),
+                "manually_stopped": config.get("manually_stopped", False),
+                "schedule_start_time": config.get("schedule_start"),
+                "schedule_stop_time": config.get("schedule_stop"),
+                "schedule_days": config.get("schedule_days", []),
+                "last_started": config.get("last_started"),
+                "last_stopped": config.get("last_stopped"),
+                "error_message": config.get("error_message"),
+                "paused_reason": config.get("paused_reason"),
+                "paused_message": config.get("paused_message"),
+                "process_id": config.get("process_id"),
+                "created_at": config.get("created_at"),
+            }
+        )
+
+    return jsonify({"strategies": strategies})
+
+
+@python_strategy_bp.route("/api/events")
+@check_session_validity
+def api_strategy_events():
+    """SSE endpoint for real-time strategy status updates.
+
+    Authenticated-only — broadcasts strategy start/stop/error events and
+    would otherwise let any network client enumerate the user's running
+    strategies and their lifecycle timestamps.
+
+    Under the gthread worker every open stream holds one web server thread for
+    as long as it lives, so three limits apply there and only there: at most
+    PYTHON_STRATEGY_SSE_MAX streams at once (the next is refused and the page
+    keeps working without live updates), a stream ends after
+    _SSE_LIFETIME_SECONDS and tells the browser to reconnect, which frees a
+    thread held by a connection that died silently. In every runtime a stream
+    ends when shutdown begins, so it cannot hold the worker past its stop window.
+
+    The slot is released twice on purpose: when the response is closed, and in
+    the generator's own cleanup. A client that leaves before the first byte
+    never starts the generator, so its cleanup never runs.
+    """
+    ticket = stream_registry.admit(
+        _SSE_KIND, stream_registry.enforced_limit(PYTHON_STRATEGY_SSE_MAX)
+    )
+    if ticket is None:
+        logger.warning("Refused a live strategy status stream: too many are open")
+        return jsonify(
+            {
+                "status": "error",
+                "message": (
+                    "Too many windows are showing live strategy status. Close one and "
+                    "reload this page."
+                ),
+            }
+        ), 503
+
+    lifetime = _SSE_LIFETIME_SECONDS if runtime.gthread_active() else None
+
+    def event_stream():
+        # Create a queue for this subscriber
+        q = queue.Queue(maxsize=100)
+
+        with SSE_LOCK:
+            SSE_SUBSCRIBERS.append(q)
+
+        try:
+            # Send initial connection message
+            yield 'data: {"type": "connected"}\n\n'
+
+            opened = last_sent = monotonic()
+            while not _streams_should_stop():
+                if lifetime is not None and monotonic() - opened >= lifetime:
+                    # Tell the browser to come back in three seconds, then end.
+                    yield "retry: 3000\n\n"
+                    return
+                try:
+                    # Wake every few seconds to notice shutdown; the heartbeat
+                    # still goes out after 30 idle seconds, as before.
+                    event = q.get(timeout=_SSE_POLL_SECONDS)
+                except queue.Empty:
+                    if monotonic() - last_sent >= _SSE_HEARTBEAT_SECONDS:
+                        last_sent = monotonic()
+                        # Send heartbeat to keep connection alive
+                        yield ": heartbeat\n\n"
+                    continue
+                last_sent = monotonic()
+                yield event
+        except GeneratorExit:
+            pass
+        finally:
+            # Remove subscriber on disconnect
+            with SSE_LOCK:
+                if q in SSE_SUBSCRIBERS:
+                    SSE_SUBSCRIBERS.remove(q)
+            ticket.release()
+
+    response = Response(
+        event_stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+    response.call_on_close(ticket.release)
+    return response
+
+
+def _streams_should_stop() -> bool:
+    """Whether live status streams should end: shutdown has begun."""
+    return _SHUTTING_DOWN.is_set() or stream_registry.should_stop()
+
+
+@python_strategy_bp.route("/api/strategy/<strategy_id>")
+@check_session_validity
+def api_get_strategy(strategy_id):
+    """API: Get single strategy as JSON"""
+    with PROCESS_LOCK:
+        live = STRATEGY_CONFIGS.get(strategy_id)
+        config = dict(live) if live is not None else None
+    if config is None:
+        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+
+    # Determine status with detailed schedule info
+    if config.get("is_running"):
+        status = "running"
+        status_message = "Running"
+    elif config.get("error_message"):
+        status = "error"
+        status_message = config.get("error_message")
+    else:
+        status, status_message = get_schedule_status(config)
+
+    return jsonify(
+        {
+            "strategy": {
+                "id": strategy_id,
+                "status_message": status_message,
+                "manually_stopped": config.get("manually_stopped", False),
+                "name": config.get("name", ""),
+                "file_name": config.get("file_name", ""),
+                "exchange": normalize_exchange(config.get("exchange")),
+                "status": status,
+                "is_running": config.get("is_running", False),
+                "is_scheduled": config.get("is_scheduled", False),
+                "schedule_start_time": config.get("schedule_start"),
+                "schedule_stop_time": config.get("schedule_stop"),
+                "schedule_days": config.get("schedule_days", []),
+                "last_started": config.get("last_started"),
+                "last_stopped": config.get("last_stopped"),
+                "error_message": config.get("error_message"),
+                "paused_reason": config.get("paused_reason"),
+                "paused_message": config.get("paused_message"),
+                "process_id": config.get("process_id"),
+                "created_at": config.get("created_at"),
+            }
+        }
+    )
+
+
+@python_strategy_bp.route("/api/strategy/<strategy_id>/content")
+@check_session_validity
+def api_get_strategy_content(strategy_id):
+    """API: Get strategy file content"""
+    config = get_strategy_config(strategy_id)
+    if config is None:
+        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+
+    file_name = config.get("file_name")
+    file_path = config.get("file_path")
+
+    # Try file_name first, fall back to file_path
+    if file_name:
+        strategy_path = STRATEGIES_DIR / file_name
+    elif file_path:
+        strategy_path = Path(file_path)
+        file_name = strategy_path.name
+    else:
+        return jsonify({"status": "error", "message": "Strategy file not found"}), 404
+
+    if not strategy_path.exists():
+        return jsonify({"status": "error", "message": "Strategy file not found on disk"}), 404
+
+    try:
+        content = strategy_path.read_text(encoding="utf-8")
+        file_stats = strategy_path.stat()
+        return jsonify(
+            {
+                "name": config.get("name", ""),
+                "file_name": file_name,
+                "content": content,
+                "is_running": config.get("is_running", False),
+                "line_count": content.count("\n") + 1,
+                "size_kb": file_stats.st_size / 1024,
+                "last_modified": datetime.fromtimestamp(file_stats.st_mtime, tz=IST).isoformat(),
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error reading strategy file: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@python_strategy_bp.route("/api/logs/<strategy_id>")
+@check_session_validity
+def api_get_log_files(strategy_id):
+    """API: Get list of log files for a strategy"""
+    # Basic validation - reject path traversal attempts
+    if not strategy_id or ".." in strategy_id or "/" in strategy_id or "\\" in strategy_id:
+        return jsonify({"status": "error", "message": "Invalid strategy ID"}), 400
+
+    if strategy_id not in STRATEGY_CONFIGS:
+        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+
+    # Logs are stored flat in LOGS_DIR with pattern: {strategy_id}_*.log
+    logs = []
+    try:
+        for log_file in sorted(
+            LOGS_DIR.glob(f"{strategy_id}_*.log"), key=lambda x: x.stat().st_mtime, reverse=True
+        ):
+            stats = log_file.stat()
+            logs.append(
+                {
+                    "name": log_file.name,
+                    "size_kb": stats.st_size / 1024,
+                    "last_modified": datetime.fromtimestamp(stats.st_mtime, tz=IST).isoformat(),
+                }
+            )
+    except Exception as e:
+        logger.exception(f"Error listing log files for {strategy_id}: {e}")
+
+    return jsonify({"logs": logs})
+
+
+@python_strategy_bp.route("/api/logs/<strategy_id>/<log_name>")
+@check_session_validity
+def api_get_log_content(strategy_id, log_name):
+    """API: Get log file content"""
+    # Basic validation - reject path traversal attempts
+    if not strategy_id or ".." in strategy_id or "/" in strategy_id or "\\" in strategy_id:
+        return jsonify({"status": "error", "message": "Invalid strategy ID"}), 400
+
+    if strategy_id not in STRATEGY_CONFIGS:
+        return jsonify({"status": "error", "message": "Strategy not found"}), 404
+
+    # Validate log_name - reject path traversal attempts
+    if not log_name or ".." in log_name or "/" in log_name or "\\" in log_name:
+        return jsonify({"status": "error", "message": "Invalid log file name"}), 400
+
+    # Verify the log file belongs to this strategy (must start with strategy_id)
+    if not log_name.startswith(f"{strategy_id}_"):
+        return jsonify(
+            {"status": "error", "message": "Log file does not belong to this strategy"}
+        ), 403
+
+    # Logs are stored flat in LOGS_DIR (not in subdirectories)
+    log_path = LOGS_DIR / log_name
+
+    # Ensure the resolved path is still within LOGS_DIR (defense in depth)
+    try:
+        resolved_path = log_path.resolve()
+        logs_dir_resolved = LOGS_DIR.resolve()
+        if not str(resolved_path).startswith(str(logs_dir_resolved)):
+            logger.warning(f"Path traversal attempt detected: {log_name}")
+            return jsonify({"status": "error", "message": "Invalid log file path"}), 403
+    except Exception as e:
+        logger.exception(f"Error resolving log path: {e}")
+        return jsonify({"status": "error", "message": "Invalid log file path"}), 400
+
+    if not log_path.exists():
+        return jsonify({"status": "error", "message": "Log file not found"}), 404
+
+    try:
+        content = log_path.read_text(encoding="utf-8", errors="replace")
+        stats = log_path.stat()
+        line_count = content.count("\n") + 1 if content else 0
+        return jsonify(
+            {
+                "name": log_name,
+                "content": content,
+                "lines": line_count,
+                "size_kb": stats.st_size / 1024,
+                "last_updated": datetime.fromtimestamp(stats.st_mtime, tz=IST).isoformat(),
+            }
+        )
+    except Exception as e:
+        logger.exception(f"Error reading log file: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@python_strategy_bp.route("/edit/<strategy_id>")
+@check_session_validity
+def edit_strategy(strategy_id):
+    """Edit or view a strategy file"""
+    user_id = session.get("user")
+    if not user_id:
+        flash("Session expired", "error")
+        return redirect(url_for("auth.login"))
+
+    # Verify ownership
+    is_owner, result = verify_strategy_ownership(strategy_id, user_id, return_config=True)
+    if not is_owner:
+        flash("Unauthorized access to strategy", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    config = result
+    file_path = Path(config["file_path"])
+
+    if not file_path.exists():
+        flash("Strategy file not found", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    # Check if strategy is running
+    is_running = config.get("is_running", False)
+
+    # Read file content
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        flash(f"Error reading file: {e}", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    # Get file info
+    file_stats = file_path.stat()
+    file_info = {
+        "name": file_path.name,
+        "size": file_stats.st_size,
+        "modified": datetime.fromtimestamp(file_stats.st_mtime, tz=IST),
+        "lines": content.count("\n") + 1,
+    }
+
+    return render_template(
+        "python_strategy/edit.html",
+        strategy_id=strategy_id,
+        strategy_name=config.get("name", "Unnamed Strategy"),
+        content=content,
+        is_running=is_running,
+        file_info=file_info,
+        can_edit=not is_running,
+    )
+
+
+@python_strategy_bp.route("/export/<strategy_id>")
+@check_session_validity
+def export_strategy(strategy_id):
+    """Export/download a strategy file"""
+    user_id = session.get("user")
+    if not user_id:
+        flash("Session expired", "error")
+        return redirect(url_for("auth.login"))
+
+    # Verify ownership
+    is_owner, result = verify_strategy_ownership(strategy_id, user_id, return_config=True)
+    if not is_owner:
+        flash("Unauthorized access to strategy", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    config = result
+    file_path = Path(config["file_path"])
+
+    if not file_path.exists():
+        flash("Strategy file not found", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+    try:
+        # Read the file content
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
+
+        # Create response with file download
+        from flask import Response
+
+        response = Response(
+            content,
+            mimetype="text/x-python",
+            headers={
+                "Content-Disposition": f"attachment; filename={file_path.name}",
+                "Content-Type": "text/x-python; charset=utf-8",
+            },
+        )
+
+        logger.info(f"Strategy {strategy_id} exported successfully")
+        return response
+
+    except Exception as e:
+        logger.exception(f"Failed to export strategy {strategy_id}: {e}")
+        flash(f"Failed to export strategy: {str(e)}", "error")
+        return redirect(url_for("python_strategy_bp.index"))
+
+
+@python_strategy_bp.route("/save/<strategy_id>", methods=["POST"])
+@check_session_validity
+def save_strategy(strategy_id):
+    """Save edited strategy file"""
+    user_id = session.get("user")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Session expired"}), 401
+
+    # Verify ownership and get config atomically
+    is_owner, result = verify_strategy_ownership(strategy_id, user_id, return_config=True)
+    if not is_owner:
+        return result
+
+    config = result
+
+    # Check if strategy is running
+    if config.get("is_running", False):
+        return jsonify(
+            {"status": "error", "message": "Cannot edit running strategy. Please stop it first."}
+        ), 400
+
+    file_path = Path(config["file_path"])
+
+    # Get new content
+    data = request.get_json()
+    if not data or "content" not in data:
+        return jsonify({"status": "error", "message": "No content provided"}), 400
+
+    new_content = data["content"]
+
+    try:
+        # Create backup
+        backup_path = file_path.with_suffix(".bak")
+        if file_path.exists():
+            with open(file_path, encoding="utf-8") as f:
+                backup_content = f.read()
+            with open(backup_path, "w", encoding="utf-8") as f:
+                f.write(backup_content)
+
+        # Save new content
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+        # Update config
+        last_modified = get_ist_time().isoformat()
+        with PROCESS_LOCK:
+            config["last_modified"] = last_modified
+        save_configs()
+
+        logger.info(f"Strategy {strategy_id} saved successfully")
+        return jsonify(
+            {
+                "status": "success",
+                "message": "Strategy saved successfully",
+                "timestamp": format_ist_time(last_modified),
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to save strategy {strategy_id}: {e}")
+        return jsonify({"status": "error", "message": f"Failed to save: {str(e)}"}), 500
+
+
+# Cleanup on shutdown
+def cleanup_on_exit():
+    """Clean up all running processes on application exit"""
+    logger.info("Cleaning up running strategies...")
+    # Snapshot under the lock, stop outside it: stop_strategy_process takes the
+    # lock itself and waits for each process, so holding it across the loop
+    # would serialise shutdown behind every termination in turn. Starts are
+    # refused from the same hold, so none can land behind the snapshot.
+    with PROCESS_LOCK:
+        _SHUTTING_DOWN.set()
+        strategy_ids = list(RUNNING_STRATEGIES.keys())
+    keep_record = _SHUTDOWN_KEEPS_RECORDS.is_set()
+    for strategy_id in strategy_ids:
+        try:
+            if keep_record:
+                stop_strategy_process(strategy_id, keep_record=True)
+            else:
+                stop_strategy_process(strategy_id)
+        except Exception:
+            pass
+    logger.info("Cleanup complete")
+
+
+#: How long begin_shutdown gives the running strategies to stop, together,
+#: before it kills what is left. A stop is a terminate, five seconds of grace
+#: and a kill, so this covers one full stop with room to spare, and it leaves
+#: the OpenScript runs their share of the shutdown budget in utils.shutdown.
+_SHUTDOWN_STOP_BUDGET_SECONDS = 9.0
+
+
+def begin_shutdown(budget_s: float = _SHUTDOWN_STOP_BUDGET_SECONDS) -> list[str]:
+    """Stop every strategy now, within a budget, and refuse any new start.
+
+    The gthread worker runs this from utils.shutdown's early hook, because it
+    never reaches atexit while a request thread is still streaming: the worker
+    is killed at the end of its graceful window first, cleanup_on_exit never
+    runs, and the strategies go on trading with nothing supervising them.
+
+    Starts are refused first, under the lock, then the scheduler is stopped so
+    no job can start one behind this, and the live status streams are told to
+    end. The strategies are then stopped side by side rather than one after the
+    other, each by the ordinary stop, and whatever is still alive when the
+    budget runs out is killed with its whole process tree. Each keeps its saved
+    "running" record, so the server that starts next restores it, as it does
+    after an eventlet restart. Safe to call more than once; the atexit cleanup
+    stays registered as the backstop.
+
+    Returns:
+        The ids of the strategies that had to be killed.
+    """
+    with PROCESS_LOCK:
+        _SHUTTING_DOWN.set()
+        _SHUTDOWN_KEEPS_RECORDS.set()
+        running = {sid: dict(info) for sid, info in RUNNING_STRATEGIES.items()}
+
+    try:
+        if SCHEDULER is not None and SCHEDULER.running:
+            SCHEDULER.shutdown(wait=False)
+    except Exception:
+        logger.exception("Could not stop the strategy scheduler during shutdown")
+
+    if not running:
+        return []
+
+    logger.info(f"Stopping {len(running)} running strategies before the server exits")
+    deadline = monotonic() + max(0.0, budget_s)
+    workers = []
+    for strategy_id in running:
+        worker = threading.Thread(
+            target=_stop_for_shutdown,
+            args=(strategy_id,),
+            name=f"strategy-stop-{strategy_id}",
+            daemon=True,
+        )
+        worker.start()
+        workers.append(worker)
+    for worker in workers:
+        worker.join(max(0.0, deadline - monotonic()))
+
+    killed = []
+    for strategy_id, info in running.items():
+        if not _record_is_alive(info):
+            continue
+        pid = info.get("pid")
+        if pid and _kill_process_tree(pid):
+            killed.append(strategy_id)
+            logger.warning(
+                f"Strategy {strategy_id} (PID {pid}) did not stop within the shutdown "
+                "budget and was killed"
+            )
+    return killed
+
+
+def _stop_for_shutdown(strategy_id: str) -> None:
+    """One strategy's stop during shutdown. Never raises.
+
+    The saved config keeps saying the strategy is running, so the server that
+    starts next restores it, exactly as it does after an eventlet restart
+    (whose signal handler exits before any cleanup writes the config).
+    Recording it as stopped left it off after every restart, with its
+    positions unmanaged, until its next scheduled start or a manual Start.
+    """
+    try:
+        stop_strategy_process(strategy_id, keep_record=True)
+    except Exception:
+        logger.exception(f"Could not stop strategy {strategy_id} during shutdown")
+
+
+def _record_is_alive(info: dict) -> bool:
+    """Whether the process a RUNNING_STRATEGIES record names is still alive.
+
+    Asked of the process object rather than the PID where there is one: a
+    Popen child cannot have its PID reused until it is reaped, so this never
+    mistakes some later process for the strategy.
+    """
+    process = info.get("process")
+    try:
+        if isinstance(process, subprocess.Popen):
+            return process.poll() is None
+        if hasattr(process, "is_running"):
+            return not psutil_process_has_exited(process)
+        if hasattr(process, "poll"):
+            return process.poll() is None
+        pid = info.get("pid")
+        return bool(pid) and check_process_status(pid)
+    except Exception:
+        logger.exception("Could not tell whether a strategy process is still alive")
+        return False
+
+
+def _kill_process_tree(pid: int) -> bool:
+    """Kill a strategy and everything it started. True if a kill was sent."""
+    try:
+        if IS_WINDOWS:
+            killer = subprocess.Popen(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                wait_for_popen_exit(killer, 5)
+            finally:
+                if killer.poll() is None:
+                    killer.kill()
+                    killer.poll()
+            return True
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except OSError:
+            os.kill(pid, signal.SIGKILL)
+        return True
+    except (ProcessLookupError, PermissionError, OSError):
+        return False
+
+
+def _shutdown_hook() -> None:
+    """The early shutdown hook: under gthread, stop the strategies now.
+
+    Under eventlet and on the development server the interpreter reaches
+    atexit, so cleanup_on_exit stops them there exactly as it always has, and
+    this does nothing.
+    """
+    if runtime.gthread_active():
+        begin_shutdown()
+
+
+# Register cleanup handler
+import atexit
+
+atexit.register(cleanup_on_exit)
+register_shutdown_hook(
+    _shutdown_hook,
+    name="python_strategy",
+    budget_s=_SHUTDOWN_STOP_BUDGET_SECONDS + 3,
+    early=True,
+)
+
+
+def restore_running_strategy_process(strategy_id, config):
+    """Adopt a still-live strategy process from persisted config."""
+    pid = config.get("pid")
+    if not pid:
+        return False
+
+    try:
+        if not psutil.pid_exists(pid):
+            return False
+
+        process = psutil.Process(pid)
+        if psutil_process_has_exited(process):
+            return False
+
+        strategy_file = config.get("file_path", "")
+        cmdline = " ".join(process.cmdline())
+
+        if not strategy_file or strategy_file not in cmdline:
+            logger.debug(f"PID {pid} exists but not our strategy process")
+            return False
+
+        ist_now = get_ist_time()
+
+        # Find the current log file
+        log_pattern = f"{strategy_id}_*_IST.log"
+        log_files = list(LOGS_DIR.glob(log_pattern))
+        current_log = max(log_files, key=lambda f: f.stat().st_mtime) if log_files else None
+
+        with PROCESS_LOCK:
+            if strategy_id in RUNNING_STRATEGIES:
+                # Already tracked by this worker (started here, or adopted by an
+                # earlier pass). Keep the record it has: replacing a Popen with
+                # an adopted handle would lose the child this worker must reap.
+                return True
+            RUNNING_STRATEGIES[strategy_id] = {
+                "process": process,
+                "pid": pid,
+                "started_at": datetime.fromisoformat(
+                    config.get("last_started", ist_now.isoformat())
+                ),
+                "log_file": str(current_log) if current_log else None,
+                "log_handle": None,  # We can't restore the file handle
+            }
+
+        logger.info(f"Restored running strategy {strategy_id} (PID: {pid})")
+        return True
+
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        logger.debug(f"Process {pid} for strategy {strategy_id} no longer exists")
+    except psutil.AccessDenied:
+        logger.warning(
+            f"Cannot inspect process {pid} for strategy {strategy_id}; preserving existing state"
+        )
+    except Exception as e:
+        logger.exception(f"Error checking process {pid} for strategy {strategy_id}: {e}")
+
+    return False
+
+
+def _mark_restart_failed(strategy_id: str, config: dict, error_message: str) -> bool:
+    """Record that a strategy could not be restarted, unless it is running after all.
+
+    Checked under PROCESS_LOCK: a strategy another path has started and is now
+    tracking is left exactly as it is. Writing is_running=False over a live,
+    tracked strategy made the page show an error while it traded, and made its
+    Stop button only record a manual stop instead of stopping it.
+
+    Returns:
+        True if the failure was recorded, False if the strategy is running.
+    """
+    with PROCESS_LOCK:
+        if strategy_id in RUNNING_STRATEGIES:
+            return False
+        config["is_running"] = False
+        config["is_error"] = True
+        config["error_message"] = error_message
+        config["error_time"] = get_ist_time().isoformat()
+        config["pid"] = None
+    return True
+
+
+def restore_strategy_states():
+    """Restore strategy states on startup - restart running strategies or mark as error
+
+    One pass at a time. It runs from the startup thread, from every login's
+    master contract hook and from requests; two at once both saw a strategy as
+    down, one restarted it, and the other then recorded it as failed.
+    """
+    with _RESTORE_LOCK:
+        _restore_strategy_states_locked()
+
+
+def _restore_strategy_states_locked():
+    """The body of restore_strategy_states. The caller holds _RESTORE_LOCK."""
+    logger.debug("Restoring strategy states from previous session...")
+
+    # During startup, we need to be more lenient with master contract checks
+    # since the session might not be fully initialized yet
+    contracts_ready, contract_message = check_master_contract_ready(skip_on_startup=False)
+
+    restored_count = 0
+    error_count = 0
+    stopped_by_trader = 0
+
+    for strategy_id, config in snapshot_strategy_configs():
+        if (
+            config.get("is_running")
+            and config.get("pid")
+            and restore_running_strategy_process(strategy_id, config)
+        ):
+            restored_count += 1
+
+    # If we can't determine the broker (no active auth), delay strategy restoration
+    if "No broker" in contract_message:
+        logger.debug("No active broker found during startup - delaying strategy restoration")
+        if restored_count:
+            logger.info(f"Restored {restored_count} live strategies while broker is unavailable")
+        return
+
+    if not contracts_ready:
+        logger.warning(
+            f"Master contracts not ready - strategies will remain in error state until contracts are downloaded: {contract_message}"
+        )
+        # Mark all running strategies as error state due to master contract dependency
+        for _strategy_id, config in snapshot_strategy_configs():
+            if config.get("is_running"):
+                pid = config.get("pid")
+                if pid and check_process_status(pid):
+                    # A live strategy is already running. Keep its state intact
+                    # so a later master-contract refresh cannot start a duplicate.
+                    continue
+                with PROCESS_LOCK:
+                    # Only if nothing started it while its PID was checked.
+                    if config.get("pid") != pid:
+                        continue
+                    config["is_running"] = False
+                    config["is_error"] = True
+                    config["error_message"] = "Waiting for master contracts to be downloaded"
+                    config["error_time"] = get_ist_time().isoformat()
+                    config["pid"] = None
+        save_configs()
+        return
+
+    for strategy_id, config in snapshot_strategy_configs():
+        if config.get("is_running") and config.get("pid"):
+            strategy_restored = strategy_id in RUNNING_STRATEGIES
+
+            # If strategy wasn't restored, try to restart it automatically
+            if not strategy_restored:
+                logger.info(f"Attempting to restart strategy {strategy_id}...")
+                try:
+                    success, message = _start_unless_stopped_by_trader(strategy_id)
+                    if success:
+                        logger.info(f"Successfully restarted strategy {strategy_id}")
+                        restored_count += 1
+                    elif message == MANUAL_STOP_REFUSAL:
+                        # The trader pressed Stop while this pass ran: not an
+                        # error, just no longer running.
+                        with PROCESS_LOCK:
+                            if strategy_id not in RUNNING_STRATEGIES:
+                                config["is_running"] = False
+                                config["pid"] = None
+                        stopped_by_trader += 1
+                    elif _mark_restart_failed(strategy_id, config, f"Failed to restart: {message}"):
+                        # Mark as error state
+                        logger.error(f"Failed to restart strategy {strategy_id}: {message}")
+                        error_count += 1
+                    else:
+                        # Refused because something else started it first.
+                        restored_count += 1
+                except Exception as e:
+                    # Mark as error state
+                    if _mark_restart_failed(strategy_id, config, f"Restart exception: {str(e)}"):
+                        logger.exception(f"Exception restarting strategy {strategy_id}: {e}")
+                        error_count += 1
+                    else:
+                        restored_count += 1
+
+        # Clear error state for strategies that are not marked as running
+        elif config.get("is_error") and not config.get("is_running"):
+            # Keep error state until user manually clears it
+            pass
+
+    if restored_count > 0 or error_count > 0 or stopped_by_trader > 0:
+        save_configs()
+        logger.info(
+            f"State restoration complete: {restored_count} restored, {error_count} in error state"
+        )
+    else:
+        logger.debug("No strategies needed state restoration")
+
+
+def check_and_start_pending_strategies():
+    """Check if master contracts are ready and start strategies that were waiting
+
+    Serialised with the restore pass, so two callers (two logins, or a login
+    and the check-contracts route) cannot both pick up the same strategy.
+
+    Returns:
+        tuple: (success: bool, started_count: int, message: str)
+    """
+    contracts_ready, contract_message = check_master_contract_ready()
+    if not contracts_ready:
+        return False, 0, contract_message
+
+    started_count = 0
+    failed_count = 0
+
+    with _RESTORE_LOCK:
+        # Look for strategies that are in error state due to master contract dependency
+        for strategy_id, config in snapshot_strategy_configs():
+            with PROCESS_LOCK:
+                pending = config.get("is_error") and (
+                    "Waiting for master contracts" in config.get("error_message", "")
+                    or "Master contract dependency not met" in config.get("error_message", "")
+                )
+                if pending:
+                    # Clear error state and try to start
+                    config.pop("is_error", None)
+                    config.pop("error_message", None)
+                    config.pop("error_time", None)
+            if not pending:
+                continue
+
+            logger.info(
+                f"Attempting to start strategy {strategy_id} after master contract became ready"
+            )
+
+            success, message = start_strategy_process(strategy_id)
+            if success:
+                started_count += 1
+                logger.info(
+                    f"Successfully started strategy {strategy_id} after master contract ready"
+                )
+            else:
+                failed_count += 1
+                logger.error(
+                    f"Failed to start strategy {strategy_id} even after master contract ready: {message}"
+                )
+
+    if started_count > 0 or failed_count > 0:
+        save_configs()
+        return True, started_count, f"Started {started_count} strategies, {failed_count} failed"
+
+    return True, 0, "No pending strategies to start"
+
+
+def restore_strategies_after_login():
+    """Called after successful login to restore strategies that were waiting"""
+    logger.info("Checking for strategies to restore after login...")
+
+    with _RESTORE_LOCK:
+        # Re-run restore_strategy_states now that we have a proper session
+        restore_strategy_states()
+
+        # Then check and start any pending strategies
+        success, started_count, message = check_and_start_pending_strategies()
+    logger.info(f"Post-login strategy restoration: {message} (started: {started_count})")
+    return success, message
+
+
+# Initialize basic components on import (no database access)
+ensure_directories()
+load_configs()
+init_scheduler()
+
+# Flag to track if full initialization has been done
+_initialized = False
+
+
+def initialize_with_app_context():
+    """Initialize components that require app context/database access.
+
+    Single flight: the first caller does the work while any other waits for it,
+    and the flag is set only once it has succeeded. It used to be set first,
+    without a lock, so a second caller returned at once and served requests
+    against strategy state that was still being restored, and a failed attempt
+    was never retried by the callers that had already given up on it.
+    """
+    global _initialized
+    if _initialized:
+        return
+    with _INIT_LOCK:
+        if _initialized:
+            return
+        _initialize_locked()
+
+
+def _initialize_locked():
+    """The one-time work. The caller holds _INIT_LOCK."""
+    global _initialized
+
+    try:
+        # Now safe to restore strategy states (requires database)
+        restore_strategy_states()
+
+        # Restore scheduled strategies
+        restored_schedules = 0
+        for strategy_id, config in snapshot_strategy_configs():
+            if config.get("is_scheduled"):
+                start_time = config.get("schedule_start")
+                stop_time = config.get("schedule_stop")
+                days = config.get("schedule_days", ["mon", "tue", "wed", "thu", "fri"])
+                if start_time:
+                    try:
+                        schedule_strategy(strategy_id, start_time, stop_time, days)
+                        logger.debug(
+                            f"Restored schedule for strategy {strategy_id} at {start_time} IST"
+                        )
+                        restored_schedules += 1
+                    except Exception as e:
+                        logger.exception(f"Failed to restore schedule for {strategy_id}: {e}")
+
+        if restored_schedules > 0:
+            logger.debug(f"Restored {restored_schedules} scheduled strategies")
+
+        # Run immediate trading day check on startup
+        # This stops any scheduled strategies if app starts on a weekend/holiday
+        daily_trading_day_check()
+
+        # Set last, and only on success.
+        _initialized = True
+        logger.debug(f"Python Strategy System fully initialized on {OS_TYPE}")
+    except Exception as e:
+        logger.warning(f"Deferred initialization skipped (likely no app context yet): {e}")
+        _initialized = False  # Reset flag to retry later
+
+
+# Note: Flask removed before_app_first_request in newer versions
+# The initialization is now handled in the index route and other entry points
+
+logger.debug(f"Python Strategy System initialized (basic) on {OS_TYPE}")

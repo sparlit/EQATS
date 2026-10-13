@@ -31,7 +31,9 @@ from v2.candidate_diagnostics import (
 from v2.candidates import Candidate
 
 
-def _candidate(symbol: str, classification: str, score: float, *, trigger: str = "NO_TRIGGER") -> Candidate:
+def _candidate(
+    symbol: str, classification: str, score: float, *, trigger: str = "NO_TRIGGER"
+) -> Candidate:
     qualified = classification in {"ACTION", "WATCH"}
     return Candidate(
         symbol=symbol,

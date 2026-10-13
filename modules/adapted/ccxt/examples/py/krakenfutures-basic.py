@@ -39,8 +39,10 @@ exchange = ccxt.krakenfutures()
 markets = exchange.load_markets()
 # exchange.verbose = True  # uncomment for debugging purposes if necessary
 print(exchange.name, "supports the following methods:")
+pprint(exchange.has)
 print(exchange.name, "supports the following trading symbols:")
 for symbol in exchange.symbols:
     print(symbol)
 symbol = "BTC/USD:USD"
 orderbook = exchange.fetch_order_book(symbol)
+pprint(orderbook)

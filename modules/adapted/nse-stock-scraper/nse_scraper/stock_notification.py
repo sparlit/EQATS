@@ -50,7 +50,7 @@ def stock_notification(message: str, number: str):
         logger.info(f"SMS sent successfully: {response}")
         print(account.fetch_application_data())
     except Exception as e:
-        logger.exception(f"Failed to send SMS: {e}")
+        logger.error(f"Failed to send SMS: {e}")
 
 
 def stock_query():
@@ -84,8 +84,9 @@ def stock_query():
             logger.info(f"Price threshold met ({stock_price} >= 38), sending notification")
             stock_notification(message, mobile_number)
             return sms_data
-        logger.info(f"Price below threshold ({stock_price} < 38), no notification sent")
-        return sms_data
+        else:
+            logger.info(f"Price below threshold ({stock_price} < 38), no notification sent")
+            return sms_data
 
     except Exception as e:
         logger.error(f"Error in stock_query: {e}", exc_info=True)

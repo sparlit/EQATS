@@ -96,7 +96,9 @@ def get_candidates(session):
 
 def fetch_individual(ticker: str, start: str, end: str) -> pd.DataFrame:
     try:
-        df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False, threads=False)
+        df = yf.download(
+            ticker, start=start, end=end, auto_adjust=True, progress=False, threads=False
+        )
     except Exception:
         return pd.DataFrame()
     if df.empty:
@@ -170,7 +172,9 @@ def main():
 
         for i, (sid, ticker, first_date) in enumerate(candidates, start=1):
             end_date = (first_date - timedelta(days=1)) if first_date else datetime.now().date()
-            end_str = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")  # yfinance end is exclusive
+            end_str = (end_date + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )  # yfinance end is exclusive
 
             if end_date < datetime.strptime(BACKFILL_START, "%Y-%m-%d").date():
                 continue  # nothing earlier to fetch

@@ -1,10 +1,10 @@
 """
 Unit and Integration Tests for RCNewsFeeder Engine.
 """
-from typing import Any
 from datetime import datetime
-import pytest
-from institutional_integrations.rc_news_feeder import RCNewsFeederEngine, NewsImpact
+
+from institutional_integrations.rc_news_feeder import RCNewsFeederEngine
+
 
 def test_rc_news_feeder_json_parsing_and_blackout() -> None:
     engine = RCNewsFeederEngine(high_impact_blackout_minutes_before=15.0, high_impact_blackout_minutes_after=15.0)

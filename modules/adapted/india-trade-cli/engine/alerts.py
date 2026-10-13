@@ -46,7 +46,6 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -314,7 +313,9 @@ class AlertManager:
             if ws_manager.connected:
                 ws_manager.on_tick(self._on_tick)
                 # Subscribe to all alerted symbols
-                symbols = list({f"{a.exchange}:{a.symbol}" for a in self._alerts if not a.triggered})
+                symbols = list(
+                    {f"{a.exchange}:{a.symbol}" for a in self._alerts if not a.triggered}
+                )
                 if symbols:
                     ws_manager.subscribe(symbols)
                 console.print("[dim]  Alerts: real-time via WebSocket[/dim]")
@@ -361,9 +362,12 @@ class AlertManager:
 
                 condition_met = False
                 if (
-                    (alert.condition == "ABOVE" and ltp >= alert.threshold)
-                    or (alert.condition == "BELOW" and ltp <= alert.threshold)
-                    or (alert.condition == "CROSSES" and ltp >= alert.threshold)
+                    alert.condition == "ABOVE"
+                    and ltp >= alert.threshold
+                    or alert.condition == "BELOW"
+                    and ltp <= alert.threshold
+                    or alert.condition == "CROSSES"
+                    and ltp >= alert.threshold
                 ):
                     condition_met = True
 
@@ -444,7 +448,8 @@ class AlertManager:
         console.print()
         console.print(
             Panel(
-                f"[bold white]{desc}[/bold white]{ltp_str}\n[dim]Triggered at {alert.triggered_at}[/dim]",
+                f"[bold white]{desc}[/bold white]{ltp_str}\n"
+                f"[dim]Triggered at {alert.triggered_at}[/dim]",
                 title="[bold yellow]🔔 ALERT TRIGGERED[/bold yellow]",
                 border_style="yellow",
             )
@@ -468,9 +473,9 @@ class AlertManager:
         """Check if an alert's condition is met right now."""
         if alert.alert_type == "PRICE":
             return self._check_price(alert)
-        if alert.alert_type == "TECHNICAL":
+        elif alert.alert_type == "TECHNICAL":
             return self._check_technical(alert)
-        if alert.alert_type == "CONDITIONAL":
+        elif alert.alert_type == "CONDITIONAL":
             return self._check_conditional(alert)
         return False
 
@@ -485,8 +490,7 @@ class AlertManager:
             if ws_ltp and ws_ltp > 0:
                 ltp = ws_ltp
             else:
-                msg = "no ws tick"
-                raise ValueError(msg)
+                raise ValueError("no ws tick")
         except Exception:
             # Fall back to REST
             try:
@@ -498,9 +502,9 @@ class AlertManager:
 
         if alert.condition == "ABOVE":
             return ltp >= alert.threshold
-        if alert.condition == "BELOW":
+        elif alert.condition == "BELOW":
             return ltp <= alert.threshold
-        if alert.condition == "CROSSES":
+        elif alert.condition == "CROSSES":
             return ltp >= alert.threshold  # simplified: treated as ABOVE
         return False
 
@@ -525,7 +529,7 @@ class AlertManager:
 
         if alert.condition == "ABOVE":
             return float(value) >= alert.threshold
-        if alert.condition == "BELOW":
+        elif alert.condition == "BELOW":
             return float(value) <= alert.threshold
         return False
 
@@ -555,8 +559,11 @@ class AlertManager:
                     except Exception:
                         return False
 
-                if (cond.condition == "ABOVE" and ltp < cond.threshold) or (
-                    cond.condition == "BELOW" and ltp > cond.threshold
+                if (
+                    cond.condition == "ABOVE"
+                    and ltp < cond.threshold
+                    or cond.condition == "BELOW"
+                    and ltp > cond.threshold
                 ):
                     return False
 
@@ -577,8 +584,11 @@ class AlertManager:
                     if value is None:
                         return False
 
-                    if (cond.condition == "ABOVE" and float(value) < cond.threshold) or (
-                        cond.condition == "BELOW" and float(value) > cond.threshold
+                    if (
+                        cond.condition == "ABOVE"
+                        and float(value) < cond.threshold
+                        or cond.condition == "BELOW"
+                        and float(value) > cond.threshold
                     ):
                         return False
                 except Exception:

@@ -52,11 +52,19 @@ ROOT = os.path.dirname(HERE)
 OUT = os.path.join(ROOT, "docs", "fii_dii.json")  # cash segment (recent + grows)
 OUT_MON = os.path.join(ROOT, "docs", "fii_dii_monthly.json")  # monthly aggregates 2014-07 -> today
 OUT_FO = os.path.join(ROOT, "docs", "fii_fo.json")  # derivatives net positions (2012 -> today)
-OUT_LOTS = os.path.join(ROOT, "docs", "fii_fo_lots.json")  # per-day index-futures OI by index + lot (feeds fii_fo "lf")
-STK_DIR = os.path.join(HERE, "_fo_stk_lots")  # per-day stock-futures OI by stock + lot, monthly .json.gz (feeds "lfs")
+OUT_LOTS = os.path.join(
+    ROOT, "docs", "fii_fo_lots.json"
+)  # per-day index-futures OI by index + lot (feeds fii_fo "lf")
+STK_DIR = os.path.join(
+    HERE, "_fo_stk_lots"
+)  # per-day stock-futures OI by stock + lot, monthly .json.gz (feeds "lfs")
 OUT_NIFTY = os.path.join(ROOT, "docs", "nifty.json")  # Nifty 50 close history (for chart overlays)
-OUT_NIFTY500 = os.path.join(ROOT, "docs", "nifty500.json")  # Nifty 500 close history (backtest calendar-year benchmark)
-OUT_BANK = os.path.join(ROOT, "docs", "nifty_bank.json")  # Nifty Bank close history (home-page ticker)
+OUT_NIFTY500 = os.path.join(
+    ROOT, "docs", "nifty500.json"
+)  # Nifty 500 close history (backtest calendar-year benchmark)
+OUT_BANK = os.path.join(
+    ROOT, "docs", "nifty_bank.json"
+)  # Nifty Bank close history (home-page ticker)
 OUT_VIX = os.path.join(ROOT, "docs", "india_vix.json")  # India VIX close history (home-page ticker)
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
 
@@ -77,7 +85,12 @@ def _nse_jar():
 
     jar = http.cookiejar.CookieJar()
     with contextlib.suppress(Exception):
-        _get("https://www.nseindia.com/", headers={"User-Agent": UA, "Accept": "text/html"}, jar=jar, timeout=20)
+        _get(
+            "https://www.nseindia.com/",
+            headers={"User-Agent": UA, "Accept": "text/html"},
+            jar=jar,
+            timeout=20,
+        )
     return jar
 
 
@@ -90,7 +103,6 @@ def fetch_fo_for_date(dt, jar, include_bs=True):
     The buy/sell .xls only exists for recent dates, so bulk backfill passes include_bs=False.
     """
     import csv
-    import io
 
     ddmmyyyy = dt.strftime("%d%m%Y")
     ddmonyyyy = dt.strftime("%d-%b-%Y")
@@ -115,7 +127,12 @@ def fetch_fo_for_date(dt, jar, include_bs=True):
                 # cols: 0 FutIdxL 1 FutIdxS 2 FutStkL 3 FutStkS 4 OptIdxCallL 5 OptIdxPutL
                 #       6 OptIdxCallS 7 OptIdxPutS 8 OptStkCallL 9 OptStkPutL 10 OptStkCallS
                 #       11 OptStkPutS 12 TotLong 13 TotShort
-                oi[row[0].strip()] = {"futIdx": [v[0], v[1]], "futStk": [v[2], v[3]], "totL": v[12], "totS": v[13]}
+                oi[row[0].strip()] = {
+                    "futIdx": [v[0], v[1]],
+                    "futStk": [v[2], v[3]],
+                    "totL": v[12],
+                    "totS": v[13],
+                }
             if oi:
                 fo["oi"] = oi
     except Exception:
@@ -214,7 +231,9 @@ def fo_futures_contracts(dt, jar=None, blob=None):
                 continue
             qty, lot = int(float(r["OpnIntrst"] or 0)), int(float(r["NewBrdLotQty"] or 0))
             if qty > 0 and lot > 0:
-                out[k].append((r["TckrSymb"].strip(), r["XpryDt"], qty, lot, float(r["SttlmPric"] or 0)))
+                out[k].append(
+                    (r["TckrSymb"].strip(), r["XpryDt"], qty, lot, float(r["SttlmPric"] or 0))
+                )
     else:
 
         def pdate(x):  # "31-May-2012" / "31-MAY-2012" / "31-May-12" all occur
@@ -224,14 +243,14 @@ def fo_futures_contracts(dt, jar=None, blob=None):
                     return datetime.datetime.strptime(x, f).strftime("%Y-%m-%d")
                 except ValueError:
                     pass
-            msg = f"bhavcopy date {x!r}"
-            raise ValueError(msg)
+            raise ValueError(f"bhavcopy date {x!r}")
 
         kinds = {"FUTIDX": "idx", "FUTSTK": "stk"}
         R = [
             r
             for r in rows
-            if kinds.get((r.get("INSTRUMENT") or "").strip()) and pdate(r["EXPIRY_DT"]) != pdate(r["TIMESTAMP"])
+            if kinds.get((r.get("INSTRUMENT") or "").strip())
+            and pdate(r["EXPIRY_DT"]) != pdate(r["TIMESTAMP"])
         ]
 
         def est(r):
@@ -242,7 +261,9 @@ def fo_futures_contracts(dt, jar=None, blob=None):
         for r in R:
             e = est(r)
             if e:
-                by_sym.setdefault((r["INSTRUMENT"].strip(), r["SYMBOL"].strip()), []).append((float(r["CONTRACTS"]), e))
+                by_sym.setdefault((r["INSTRUMENT"].strip(), r["SYMBOL"].strip()), []).append(
+                    (float(r["CONTRACTS"]), e)
+                )
         for r in R:
             qty = int(float(r["OPEN_INT"] or 0))
             if qty <= 0:
@@ -262,7 +283,9 @@ def fo_futures_contracts(dt, jar=None, blob=None):
                 # 1-3 (BHARTIARTL 2021-09-27 read as 2.6 crore contracts). The traded-value lot
                 # is within ~2%.  (Stocks only: index lots validated before this guard, §162.)
                 lot = max(1, round(e))
-            out[kinds[key[0]]].append((key[1], pdate(r["EXPIRY_DT"]), qty, lot, float(r["SETTLE_PR"] or 0)))
+            out[kinds[key[0]]].append(
+                (key[1], pdate(r["EXPIRY_DT"]), qty, lot, float(r["SETTLE_PR"] or 0))
+            )
     return out if (out["idx"] or out["stk"]) else None
 
 
@@ -277,7 +300,10 @@ def fo_lots_summary(contracts):
             newest[sym] = (exp, lot)
     if not q:
         return None
-    return {"q": {k: [v[0], round(v[1], 3)] for k, v in q.items()}, "ref": {k: v[1] for k, v in newest.items()}}
+    return {
+        "q": {k: [v[0], round(v[1], 3)] for k, v in q.items()},
+        "ref": {k: v[1] for k, v in newest.items()},
+    }
 
 
 def fo_index_lots(dt, jar=None, blob=None):
@@ -431,7 +457,8 @@ def add_stk_day(stk, d, contracts, summary):
         for s, r in found:
             stk["ca"].setdefault(canon(s), []).append([d, r])
             print(
-                f"  CORPORATE ACTION {s} on {d}: lot x{r:g} on open contracts (price confirms) — older days re-scaled"
+                f"  CORPORATE ACTION {s} on {d}: lot x{r:g} on open contracts (price confirms) — "
+                "older days re-scaled"
             )
         for s, why in rej:
             stk["rejected"].append([d, s, why])
@@ -450,7 +477,12 @@ def save_stk_store(stk):
         with gzip.GzipFile(os.path.join(STK_DIR, m + ".json.gz"), "wb", mtime=0) as fh:
             fh.write(json.dumps(dd, separators=(",", ":"), sort_keys=True).encode())
     json.dump(
-        {"ca": stk["ca"], "rejected": stk["rejected"][-200:], "tail_date": stk["tail_date"], "tail": stk["tail"]},
+        {
+            "ca": stk["ca"],
+            "rejected": stk["rejected"][-200:],
+            "tail_date": stk["tail_date"],
+            "tail": stk["tail"],
+        },
         open(os.path.join(HERE, "_fo_stk_state.json"), "w", encoding="utf-8"),
         separators=(",", ":"),
         sort_keys=True,
@@ -523,8 +555,13 @@ def fetch_monthly_year(year):
     """
     try:
         raw = _get(
-            "https://webapi.niftytrader.in/webapi/Resource/fii-dii-monthly-aggregate?year=%d" % year,
-            headers={"User-Agent": UA, "Referer": "https://www.niftytrader.in/", "Accept": "application/json"},
+            "https://webapi.niftytrader.in/webapi/Resource/fii-dii-monthly-aggregate?year=%d"
+            % year,
+            headers={
+                "User-Agent": UA,
+                "Referer": "https://www.niftytrader.in/",
+                "Accept": "application/json",
+            },
         )
         ma = (json.loads(raw).get("resultData") or {}).get("monthly_aggregates") or []
         out = {}
@@ -611,7 +648,8 @@ def update_cash():
         separators=(",", ":"),
     )
     print(
-        "  fii_dii.json (cash): %d rows (was %d), latest %s" % (len(rows), n_before, rows[-1]["date"] if rows else "-")
+        "  fii_dii.json (cash): %d rows (was %d), latest %s"
+        % (len(rows), n_before, rows[-1]["date"] if rows else "-")
     )
     return sorted(hist)
 
@@ -661,7 +699,7 @@ def update_fo(cash_dates, max_new=40):
                 print(f"  lots {d}: bhavcopy not available yet — retried next run")
                 continue
             for kind, seg in (("idx", "futIdx"), ("stk", "futStk")):
-                if (kind == "idx" and not need_idx) or (kind == "stk" and not need_stk):
+                if kind == "idx" and not need_idx or kind == "stk" and not need_stk:
                     continue
                 L = fo_lots_summary(C[kind])
                 if not L:
@@ -674,8 +712,13 @@ def update_fo(cash_dates, max_new=40):
                 # (exact on every UDiFF day measured 2026-09-25)
                 tot = sum(fo[d]["oi"][p][seg][0] for p in fo[d].get("oi", {}))
                 n = sum(v[1] for v in L["q"].values())
-                flag = "OK" if tot and abs(n - tot) <= 0.5 else "MISMATCH — check fo_futures_contracts"
-                print("  %s lots %s: %.0f contracts vs participant total %d  %s" % (kind, d, n, tot, flag))
+                flag = (
+                    "OK" if tot and abs(n - tot) <= 0.5 else "MISMATCH — check fo_futures_contracts"
+                )
+                print(
+                    "  %s lots %s: %.0f contracts vs participant total %d  %s"
+                    % (kind, d, n, tot, flag)
+                )
         new_ref = lots[max(lots)]["ref"] if lots else {}
         for sym in sorted(set(old_ref) | set(new_ref)):
             if old_ref.get(sym) != new_ref.get(sym):
@@ -683,9 +726,15 @@ def update_fo(cash_dates, max_new=40):
                     f"  LOT SIZE CHANGE {sym}: {old_ref.get(sym)} -> {new_ref.get(sym)} — whole history re-based to the new lot"
                 )
         missing = [d for d in sorted(fo) if d not in lots]
-        print("  fii_fo_lots.json: %d days, %d without a bhavcopy %s" % (len(lots), len(missing), missing[-5:]))
+        print(
+            "  fii_fo_lots.json: %d days, %d without a bhavcopy %s"
+            % (len(lots), len(missing), missing[-5:])
+        )
         json.dump(
-            {"updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "days": {d: lots[d] for d in sorted(lots)}},
+            {
+                "updated": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "days": {d: lots[d] for d in sorted(lots)},
+            },
             open(OUT_LOTS, "w", encoding="utf-8"),
             separators=(",", ":"),
         )
@@ -709,6 +758,40 @@ def update_fo(cash_dates, max_new=40):
     print("  fii_fo.json (derivatives): %d rows (was %d)" % (len(rows), n_before))
 
 
+INDEX_FIX = os.path.join(HERE, "index_close_fix.json")
+
+
+def apply_index_fix(out_path, px):
+    """Official NSE closes for sessions the feeds lack or carry wrong (scripts/index_close_fix.json, runbook §214a F6),
+    applied AFTER each merge (nifty500/nifty_bank are re-read whole from Yahoo every run, which would overwrite a
+    corrected date). An entry lands when the date is absent or holds `was`; anything else is left alone and reported.
+    Returns (px sorted by date, number of dates changed)."""
+    try:
+        fixes = json.load(open(INDEX_FIX, encoding="utf-8")).get("fixes") or []
+    except FileNotFoundError:
+        fixes = []
+    except Exception as e:  # a broken ledger must never stop the feed update
+        print(f"::warning::index_close_fix.json unreadable ({e}) — not applied")
+        fixes = []
+    name, n = os.path.basename(out_path), 0
+    for f in fixes:
+        if f.get("file") != name:
+            continue
+        cur = px.get(f["date"])
+        if cur == f["close"]:
+            continue
+        if cur is None or cur == f.get("was"):
+            px[f["date"]] = f["close"]
+            n += 1
+        else:
+            print(
+                "::warning::index_close_fix {} {}: feed now holds {} (fix {}, expected {}) — left alone".format(
+                    name, f["date"], cur, f["close"], f.get("was")
+                )
+            )
+    return dict(sorted(px.items())), n
+
+
 def update_nifty():
     """Keep docs/nifty.json current by merging the latest Nifty closes from the cash feed
     (historical 2012+ seed is committed once; daily runs just append new days)."""
@@ -717,9 +800,34 @@ def update_nifty():
     except Exception:
         px = {}
     n0 = len(px)
-    for r in _load_rows(OUT).values():
+    rows = _load_rows(OUT)
+    for r in rows.values():
         if r.get("nifty") is not None and r["date"] not in px:
             px[r["date"]] = round(r["nifty"], 2)
+    # NiftyTrader (the cash feed's only Nifty close) answered "Unauthorized" from 2026-09-28, so a
+    # day NSE's FII/DII feed has but with no close stayed missing here. Fill such days from Yahoo
+    # ^NSEI daily bars — only days the cash feed proves were sessions (Yahoo pads holidays).
+    gaps = {d for d, r in rows.items() if r.get("nifty") is None and d not in px}
+    if gaps:
+        try:
+            url = (
+                "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?period1="
+                + str(int(time.time()) - 60 * 86400)
+                + "&period2="
+                + str(int(time.time()))
+                + "&interval=1d"
+            )
+            res = json.loads(_get(url, headers={"User-Agent": UA}))["chart"]["result"][0]
+            for t, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"], strict=False):
+                d = time.strftime("%Y-%m-%d", time.gmtime(t))
+                if c is not None and d in gaps:
+                    px[d] = round(c, 2)
+                    print(f"  nifty.json: {d} filled from Yahoo ^NSEI ({c:.2f})")
+        except Exception as e:
+            print(f"  nifty.json: Yahoo ^NSEI gap-fill failed ({e})")
+    px, nf = apply_index_fix(OUT_NIFTY, px)
+    if nf:
+        print("  nifty.json: index_close_fix applied %d" % nf)
     json.dump(
         {"updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "px": px},
         open(OUT_NIFTY, "w", encoding="utf-8"),
@@ -753,6 +861,9 @@ def update_yahoo_index(out_path, yahoo_symbol, label):
             px[time.strftime("%Y-%m-%d", time.gmtime(t))] = round(c, 2)
     except Exception as e:
         print(f"  {label}: fetch failed ({e}) — keeping existing")
+    px, nf = apply_index_fix(out_path, px)
+    if nf:
+        print("  %s: index_close_fix applied %d" % (label, nf))
     json.dump(
         {"updated": time.strftime("%Y-%m-%dT%H:%M:%S"), "px": px},
         open(out_path, "w", encoding="utf-8"),

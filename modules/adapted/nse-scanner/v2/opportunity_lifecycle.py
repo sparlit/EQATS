@@ -29,15 +29,11 @@ This layer enriches ACTION/WATCH/REJECT with where an opportunity sits in its
 move. It intentionally does not add new hard selection gates.
 """
 
-
-from typing import TYPE_CHECKING
+from collections.abc import Mapping
 
 import pandas as pd
 
 from .indicators import hma
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 _HORIZON_ORDER = {"1M": 1, "3M": 2, "6M": 3, "12M": 4}
 _PULLBACK_STATES = {"DEEP_PULLBACK", "CONFIRMED_PULLBACK_ENTRY", "PULLBACK", "REENTRY_READY"}
@@ -45,7 +41,12 @@ _PULLBACK_STATES = {"DEEP_PULLBACK", "CONFIRMED_PULLBACK_ENTRY", "PULLBACK", "RE
 
 def compute_htf_transition(frame: pd.DataFrame) -> tuple[str, dict[str, float | bool]]:
     data = frame.sort_values("trade_date").copy()
-    weekly = data.set_index(pd.to_datetime(data["trade_date"]))["close"].resample("W-FRI").last().dropna()
+    weekly = (
+        data.set_index(pd.to_datetime(data["trade_date"]))["close"]
+        .resample("W-FRI")
+        .last()
+        .dropna()
+    )
     if len(weekly) < 52:
         return "NEUTRAL", {"weekly_count": float(len(weekly))}
     fast, slow = hma(weekly, 21), hma(weekly, 51)
@@ -59,7 +60,7 @@ def compute_htf_transition(frame: pd.DataFrame) -> tuple[str, dict[str, float | 
     bullish = gap > 0 and fast_slope >= 0
     if bullish:
         state = "BULLISH"
-    elif (gap < 0 and gap > prior_gap and fast_slope > 0) or (gap >= 0 and fast_slope > 0):
+    elif gap < 0 and gap > prior_gap and fast_slope > 0 or gap >= 0 and fast_slope > 0:
         state = "IMPROVING"
     elif fast_slope < 0 and slow_slope < 0 and gap <= prior_gap:
         state = "BEARISH"
@@ -108,13 +109,21 @@ def entry_horizon(primary_horizon: str, trigger_name: str) -> str:
         preferred = "3M"
     else:
         preferred = primary_horizon
-    return preferred if _HORIZON_ORDER.get(primary_horizon, 1) >= _HORIZON_ORDER.get(preferred, 1) else primary_horizon
+    return (
+        preferred
+        if _HORIZON_ORDER.get(primary_horizon, 1) >= _HORIZON_ORDER.get(preferred, 1)
+        else primary_horizon
+    )
 
 
 def entry_route(trigger_name: str, pullback_state: str, classification: str) -> str:
     if trigger_name == "QUALIFIED_PULLBACK" or (pullback_state or "") in _PULLBACK_STATES:
         return "PULLBACK / RE-ENTRY"
-    if classification == "ACTION" and trigger_name in {"TREND_CONTINUATION", "REACCUMULATION", "BREAKOUT"}:
+    if classification == "ACTION" and trigger_name in {
+        "TREND_CONTINUATION",
+        "REACCUMULATION",
+        "BREAKOUT",
+    }:
         return "DIRECT ENTRY"
     if classification == "ACTION":
         return "FRESH ENTRY"
@@ -139,7 +148,11 @@ def timing_state(
         return "PULLBACK_REENTRY" if classification == "WATCH" else "READY"
     if classification == "ACTION" and trade_plan_state == "READY":
         return "READY"
-    if classification == "WATCH" and structure_holding and htf_state in {"BULLISH", "IMPROVING", "NEUTRAL"}:
+    if (
+        classification == "WATCH"
+        and structure_holding
+        and htf_state in {"BULLISH", "IMPROVING", "NEUTRAL"}
+    ):
         return "EARLY"
     if classification == "WATCH" and htf_state == "BULLISH":
         return "EARLY"

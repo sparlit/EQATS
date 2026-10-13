@@ -53,7 +53,6 @@ Output: ranked list of StrategyResult dataclasses.
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 from analysis.options import PayoffLeg, StrategyPayoff
 from analysis.options import payoff as calc_payoff
@@ -221,7 +220,8 @@ def recommend(
             StrategyResult(
                 name="Bull Call Spread",
                 description=(
-                    f"Buy {atm_strike:.0f}CE @ ₹{atm_ce_premium:.0f} + Sell {otm_strike:.0f}CE @ ₹{otm_premium:.0f}"
+                    f"Buy {atm_strike:.0f}CE @ ₹{atm_ce_premium:.0f} + "
+                    f"Sell {otm_strike:.0f}CE @ ₹{otm_premium:.0f}"
                 ),
                 legs=[
                     {
@@ -317,7 +317,9 @@ def recommend(
         results.append(
             StrategyResult(
                 name="Iron Condor",
-                description=(f"Sell {sp:.0f}P/{sc:.0f}C, Buy {lp:.0f}P/{lc:.0f}C | Credit ₹{net_credit:.0f}"),
+                description=(
+                    f"Sell {sp:.0f}P/{sc:.0f}C, Buy {lp:.0f}P/{lc:.0f}C | Credit ₹{net_credit:.0f}"
+                ),
                 legs=[
                     {"action": "SELL", "type": "CE", "strike": sc, "premium": sc_p},
                     {"action": "BUY", "type": "CE", "strike": lc, "premium": lc_p},

@@ -54,12 +54,10 @@ print("JOHN'S BACKTEST V2")
 print("=" * 60)
 
 if not DATA_FILE.exists():
-    msg = f"Missing OHLCV file: {DATA_FILE}"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError(f"Missing OHLCV file: {DATA_FILE}")
 
 if not SIGNALS_FILE.exists():
-    msg = f"Missing scanner results: {SIGNALS_FILE}"
-    raise FileNotFoundError(msg)
+    raise FileNotFoundError(f"Missing scanner results: {SIGNALS_FILE}")
 
 ohlcv = pd.read_csv(DATA_FILE)
 signals = pd.read_csv(SIGNALS_FILE)
@@ -79,8 +77,7 @@ required = ["symbol", "date", "open", "high", "low", "close"]
 missing = [c for c in required if c not in ohlcv.columns]
 
 if missing:
-    msg = f"OHLCV missing columns: {missing}"
-    raise ValueError(msg)
+    raise ValueError(f"OHLCV missing columns: {missing}")
 
 ohlcv["symbol"] = ohlcv["symbol"].astype(str).str.strip().str.upper()
 
@@ -134,8 +131,7 @@ required_signal_columns = {
 
 for name, col in required_signal_columns.items():
     if col is None:
-        msg = f"Could not find signal column: {name}"
-        raise ValueError(msg)
+        raise ValueError(f"Could not find signal column: {name}")
 
 
 # ============================================================
@@ -154,7 +150,9 @@ signals["tp2_price"] = pd.to_numeric(signals[tp2_col], errors="coerce")
 
 signals["signal_date"] = pd.to_datetime(signals[confirmation_col], errors="coerce")
 
-signals = signals.dropna(subset=["symbol", "entry_price", "sl_price", "tp1_price", "tp2_price", "signal_date"])
+signals = signals.dropna(
+    subset=["symbol", "entry_price", "sl_price", "tp1_price", "tp2_price", "signal_date"]
+)
 
 
 # ============================================================

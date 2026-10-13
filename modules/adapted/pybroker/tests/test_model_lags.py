@@ -46,7 +46,7 @@ from pybroker.scope import (
     StaticScope,
 )
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -68,7 +68,7 @@ class TestLagHelpers:
 
 
 class TestLagData:
-    @pytest.fixture
+    @pytest.fixture()
     def sample_df(self):
         return pd.DataFrame(
             {
@@ -100,7 +100,9 @@ class TestLagData:
 
     def test_apply_lags_no_column_expansion(self, sample_df):
         cache = compute_lag_series_cache(sample_df, ("SPY",), ("close",), 2)
-        sym_df = sample_df[sample_df[DataCol.SYMBOL.value] == "SPY"].drop(columns=DataCol.SYMBOL.value)
+        sym_df = sample_df[sample_df[DataCol.SYMBOL.value] == "SPY"].drop(
+            columns=DataCol.SYMBOL.value
+        )
         history_dates_arr, _ = symbol_history_arrays(sample_df, "SPY", ("close",))
         model_input = model_input_from_frame(sym_df)
         apply_lags_to_model_input(
@@ -124,7 +126,9 @@ class TestLagData:
 
     def test_drop_lag_warmup(self, sample_df):
         cache = compute_lag_series_cache(sample_df, ("SPY",), ("close",), 2)
-        sym_df = sample_df[sample_df[DataCol.SYMBOL.value] == "SPY"].drop(columns=DataCol.SYMBOL.value)
+        sym_df = sample_df[sample_df[DataCol.SYMBOL.value] == "SPY"].drop(
+            columns=DataCol.SYMBOL.value
+        )
         history_dates_arr, _ = symbol_history_arrays(sample_df, "SPY", ("close",))
         model_input = model_input_from_frame(sym_df)
         apply_lags_to_model_input(
@@ -144,7 +148,7 @@ class TestLagData:
 
 
 class TestModelInputScopeLags:
-    @pytest.fixture
+    @pytest.fixture()
     def lag_setup(self, data_source_df, symbols):
         scope = StaticScope.instance()
         scope._model_sources.clear()
@@ -246,11 +250,9 @@ def _build_lag_feature_matrix_reference(
     offset = int(np.searchsorted(history_dates, row_dates[0]))
     end = offset + n_rows
     if end > len(history_dates):
-        msg = "Row dates exceed available history."
-        raise ValueError(msg)
+        raise ValueError("Row dates exceed available history.")
     if not np.array_equal(history_dates[offset:end], row_dates):
-        msg = "Row dates are not contiguous in history."
-        raise ValueError(msg)
+        raise ValueError("Row dates are not contiguous in history.")
     matrix = np.empty((n_rows, n_features), dtype=np.float64)
     col_idx = 0
     for col in columns:
@@ -264,7 +266,7 @@ def _build_lag_feature_matrix_reference(
 
 class TestLagNumbaKernels:
     @pytest.mark.parametrize(
-        ("values", "lags"),
+        "values, lags",
         [
             (np.array([], dtype=np.float64), 1),
             (np.array([1.0], dtype=np.float64), 1),
@@ -278,7 +280,7 @@ class TestLagNumbaKernels:
         actual = _build_stacked_lags(values, lags)
         np.testing.assert_allclose(actual, expected, rtol=0, atol=0, equal_nan=True)
 
-    @pytest.fixture
+    @pytest.fixture()
     def multi_col_df(self):
         return pd.DataFrame(
             {
@@ -319,7 +321,9 @@ class TestLagNumbaKernels:
         lags = 2
         columns = ("close", "open")
         cache = compute_lag_series_cache(multi_col_df, ("SPY",), columns, lags)
-        sym_df = multi_col_df[multi_col_df[DataCol.SYMBOL.value] == "SPY"].drop(columns=DataCol.SYMBOL.value)
+        sym_df = multi_col_df[multi_col_df[DataCol.SYMBOL.value] == "SPY"].drop(
+            columns=DataCol.SYMBOL.value
+        )
         history_dates, _ = symbol_history_arrays(multi_col_df, "SPY", columns)
         row_dates = sym_df[DataCol.DATE.value].to_numpy()
         expected = _build_lag_feature_matrix_reference(
@@ -385,7 +389,7 @@ class TestLagNumbaKernels:
 class TestLagCacheDepth:
     """Regression tests for lag caches shared across models on one symbol."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def scope_setup(self, data_source_df, symbols):
         def build(specs):
             scope = StaticScope.instance()
@@ -450,7 +454,9 @@ class TestLagCacheDepth:
         )
 
     def test_deep_model_first_then_shallow(self, scope_setup):
-        input_scope, sym, sym_df = scope_setup([("deep", ("close",), 6), ("shallow", ("close",), 2)])
+        input_scope, sym, sym_df = scope_setup(
+            [("deep", ("close",), 6), ("shallow", ("close",), 2)]
+        )
         deep_matrix = input_scope.fetch_model_input(sym, "deep").lag_features
         shallow_matrix = input_scope.fetch_model_input(sym, "shallow").lag_features
         np.testing.assert_array_equal(
@@ -463,7 +469,9 @@ class TestLagCacheDepth:
         )
 
     def test_two_models_different_lag_columns_same_symbol(self, scope_setup):
-        input_scope, sym, sym_df = scope_setup([("on_close", ("close",), 2), ("on_volume", ("volume",), 2)])
+        input_scope, sym, sym_df = scope_setup(
+            [("on_close", ("close",), 2), ("on_volume", ("volume",), 2)]
+        )
         close_matrix = input_scope.fetch_model_input(sym, "on_close").lag_features
         volume_matrix = input_scope.fetch_model_input(sym, "on_volume").lag_features
         np.testing.assert_array_equal(
@@ -570,7 +578,9 @@ class TestColumnOrderDeterminism:
 def test_drop_lag_warmup_keeps_mid_series_nan_rows():
     """A sparse lag column must not thin the middle of the training set."""
     n = 12
-    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype("datetime64[ns]")
+    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype(
+        "datetime64[ns]"
+    )
     # Leading warmup NaN, then a NaN in the middle of the series.
     lag_features = np.arange(n, dtype=float).reshape(n, 1)
     lag_features[0] = np.nan
@@ -592,7 +602,9 @@ def test_drop_lag_warmup_keeps_mid_series_nan_rows():
 def test_drop_lag_warmup_raises_when_every_row_is_nan():
     """An all-NaN lag column must name itself rather than empty the frame."""
     n = 6
-    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype("datetime64[ns]")
+    dates = (np.arange(n).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype(
+        "datetime64[ns]"
+    )
     model_input = ModelInput(
         ("date", "volume"),
         {"date": dates, "volume": np.full(n, np.nan)},
@@ -615,7 +627,9 @@ def test_drop_lag_warmup_is_pooled_aware():
     n_per, lags = 6, 2
     rows = 2 * n_per
     dates = np.tile(
-        (np.arange(n_per).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype("datetime64[ns]"),
+        (np.arange(n_per).astype("timedelta64[D]") + np.datetime64("2021-01-04")).astype(
+            "datetime64[ns]"
+        ),
         2,
     )
     symbols = np.array(["AAA"] * n_per + ["BBB"] * n_per)

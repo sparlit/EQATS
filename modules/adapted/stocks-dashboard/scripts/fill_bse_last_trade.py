@@ -43,7 +43,6 @@ import sys as _s
 _s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
 import bse_headers as BH  # §181 BSE headers
 import os
-import sys
 import json
 import time
 import datetime
@@ -101,7 +100,10 @@ def main():
                     sid2code.setdefault(str(r[1]).upper(), str(r[0]))
             else:
                 for b in j:
-                    sid, code = (b.get("scrip_id") or "").strip().upper(), (b.get("SCRIP_CD") or "").strip()
+                    sid, code = (
+                        (b.get("scrip_id") or "").strip().upper(),
+                        (b.get("SCRIP_CD") or "").strip(),
+                    )
                     if sid and code:
                         sid2code.setdefault(sid, code)
         except Exception:
@@ -110,7 +112,11 @@ def main():
         arch = json.load(open(ARCHIVE, encoding="utf-8"))
     except Exception:
         arch = {}
-    arows, anone, aspan = arch.get("rows") or {}, set(arch.get("none") or ()), arch.get("scanned") or [None, None]
+    arows, anone, aspan = (
+        arch.get("rows") or {},
+        set(arch.get("none") or ()),
+        arch.get("scanned") or [None, None],
+    )
     today = datetime.date.today()
     todo = [t for t in meta if t.endswith(".BO") and not series.get(t)]
     fetched = cached = nocode = 0
@@ -157,7 +163,11 @@ def main():
         if not lt["p"]:
             a = arows.get(cur.get("code") or "")
             if a and a.get("p"):
-                lt = {"d": a["d"], "p": a["p"], "src": "bse-archive"}  # last trade from BSE's daily archive
+                lt = {
+                    "d": a["d"],
+                    "p": a["p"],
+                    "src": "bse-archive",
+                }  # last trade from BSE's daily archive
             elif (cur.get("code") or "") in anone and aspan[0]:
                 lt["since"] = aspan[0]  # measured: no BSE trade since then
         meta[t]["lastTrade"] = lt

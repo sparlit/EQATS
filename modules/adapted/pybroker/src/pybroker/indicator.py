@@ -35,8 +35,6 @@ from collections.abc import Callable, Collection, Iterable, Mapping
 from typing import (
     Any,
     NamedTuple,
-    Optional,
-    Union,
 )
 
 import numpy as np
@@ -44,7 +42,7 @@ import pandas as pd
 from joblib import delayed
 from numpy.typing import NDArray
 
-from pybroker import vect
+import pybroker.vect as vect
 from pybroker.cache import CacheDateFields, IndicatorCacheKey
 from pybroker.common import BarData, DataCol, IndicatorSymbol
 from pybroker.eval import iqr, relative_entropy
@@ -86,8 +84,7 @@ def _to_bar_data(df: pd.DataFrame) -> BarData:
         df = df.reset_index()
     for col in required_cols:
         if col.value not in df.columns:
-            msg = f"DataFrame is missing required column: {col.value}"
-            raise ValueError(msg)
+            raise ValueError(f"DataFrame is missing required column: {col.value}")
     return BarData(
         **{col.value: df[col.value].to_numpy(copy=False) for col in required_cols},
         **{
@@ -172,8 +169,7 @@ class Indicator:
             ``intervals``.
         """
         if not intervals:
-            msg = "Indicator.intervals() requires at least one interval."
-            raise ValueError(msg)
+            raise ValueError("Indicator.intervals() requires at least one interval.")
         return IntervalBoundIndicator(
             indicator=self,
             intervals=normalize_intervals(intervals, "intervals", allow_base=True),
@@ -202,8 +198,7 @@ class Indicator:
         if isinstance(values, pd.Series):
             values = values.to_numpy()
         if len(values.shape) != 1:
-            msg = f"Indicator {self.name} must return a one-dimensional array."
-            raise ValueError(msg)
+            raise ValueError(f"Indicator {self.name} must return a one-dimensional array.")
         return pd.Series(values, index=data.date)
 
     def __repr__(self):
@@ -231,8 +226,7 @@ class IntervalBoundIndicator(NamedTuple):
 
 def _compressed_to_bar_data(bars):
     if not isinstance(bars, CompressedBars):
-        msg = f"Expected CompressedBars, received {type(bars)!r}."
-        raise TypeError(msg)
+        raise TypeError(f"Expected CompressedBars, received {type(bars)!r}.")
     return compressed_bars_to_bar_data(bars)
 
 
@@ -247,14 +241,13 @@ def _indicator_args(
     _, token = parse_indicator_interval_name(ind_name)
     if token is not None:
         if sym_interval_data is None or (sym, token) not in (sym_interval_data.compressed):
-            msg = (
+            raise ValueError(
                 f"Timeframe indicator {ind_name!r} requires compressed data "
                 f"for {sym!r} on interval {token!r}. Bind the indicator with "
                 "Indicator.intervals() (or its model with "
                 "ModelSource.intervals()) on the execution that owns "
                 f"{sym!r}."
             )
-            raise ValueError(msg)
         key = (sym, token)
         bars = sym_interval_data.compressed[key].bars
         return {
@@ -469,7 +462,9 @@ class IndicatorsMixin:
         if not indicator_syms or df.empty:
             return {}
         scope = StaticScope.instance()
-        indicator_data, uncached_ind_syms = self._get_cached_indicators(indicator_syms, cache_date_fields, hyperparams)
+        indicator_data, uncached_ind_syms = self._get_cached_indicators(
+            indicator_syms, cache_date_fields, hyperparams
+        )
         memo_hits: list[IndicatorSymbol] = []
         still_uncached: list[IndicatorSymbol] = []
         for ind_sym in uncached_ind_syms:
@@ -598,7 +593,11 @@ class IndicatorsMixin:
 
         if not parallel_indicators or len(symbols_with_work) == 1:
             scope.logger.debug_compute_indicators(is_parallel=False)
-            return tuple(result for sym in symbols_with_work for result in _run_indicators_for_symbol(*args_for(sym)))
+            return tuple(
+                result
+                for sym in symbols_with_work
+                for result in _run_indicators_for_symbol(*args_for(sym))
+            )
         scope.logger.debug_compute_indicators(is_parallel=True)
         with parallel() as pool:
             # Ship the caller's StaticScope, as the model trainers do. A
@@ -606,7 +605,8 @@ class IndicatorsMixin:
             # pybroker.param() would read None there and silently compute
             # different values than the same run does sequentially.
             batches = pool(
-                delayed(run_with_scope)(scope, _run_indicators_for_symbol, *args_for(sym)) for sym in symbols_with_work
+                delayed(run_with_scope)(scope, _run_indicators_for_symbol, *args_for(sym))
+                for sym in symbols_with_work
             )
         return tuple(result for batch in batches for result in batch)
 
@@ -633,12 +633,11 @@ class IndicatorSet(IndicatorsMixin):
         names: list[str] = []
         for ind in entries:
             if not isinstance(ind, Indicator):
-                msg = (
+                raise ValueError(
                     "IndicatorSet requires Indicators, got "
                     f"{type(ind).__name__}. Interval bindings are only "
                     "valid in add_execution()."
                 )
-                raise ValueError(msg)
             names.append(ind.name)
         return tuple(names)
 
@@ -667,15 +666,18 @@ class IndicatorSet(IndicatorsMixin):
             :class:`pandas.DataFrame` containing the computed indicator data.
         """
         if not self._ind_names:
-            msg = "No indicators were added."
-            raise ValueError(msg)
+            raise ValueError("No indicators were added.")
         if df.empty:
-            return pd.DataFrame(columns=[DataCol.DATE.value, DataCol.SYMBOL.value, *list(self._ind_names)])
+            return pd.DataFrame(
+                columns=[DataCol.DATE.value, DataCol.SYMBOL.value] + list(self._ind_names)
+            )
         # The store normalizes its keys with astype(str), so read the symbols
         # the same way: a categorical or numeric symbol column would otherwise
         # produce keys that do not exist in the store.
         syms = df[DataCol.SYMBOL.value].astype(str).unique()
-        ind_syms = tuple(itertools.starmap(IndicatorSymbol, itertools.product(self._ind_names, syms)))
+        ind_syms = tuple(
+            itertools.starmap(IndicatorSymbol, itertools.product(self._ind_names, syms))
+        )
         symbol_store = symbol_array_store_from_frame(df)
         ind_dict = self.compute_indicators(
             df=df,
@@ -692,7 +694,9 @@ class IndicatorSet(IndicatorsMixin):
         n_rows = len(df)
         sym_out = np.empty(n_rows, dtype=object)
         date_out = np.empty(n_rows, dtype="datetime64[ns]")
-        ind_out = {ind_name: np.full(n_rows, np.nan, dtype=np.float64) for ind_name in self._ind_names}
+        ind_out = {
+            ind_name: np.full(n_rows, np.nan, dtype=np.float64) for ind_name in self._ind_names
+        }
         offset = 0
         for sym in sorted(sym_dict.keys()):
             sym_arrays = symbol_store.sym_arrays[sym]
@@ -774,7 +778,9 @@ def returns(name: str, field: str, period: int = 1, use_log: bool = False) -> In
     return indicator(name, _returns)
 
 
-def detrended_rsi(name: str, field: str, short_length: int, long_length: int, reg_length: int) -> Indicator:
+def detrended_rsi(
+    name: str, field: str, short_length: int, long_length: int, reg_length: int
+) -> Indicator:
     """Detrended Relative Strength Index (RSI).
 
     Args:
@@ -893,7 +899,9 @@ def stochastic_rsi(
     return indicator(name, _stochastic_rsi)
 
 
-def linear_trend(name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0) -> Indicator:
+def linear_trend(
+    name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0
+) -> Indicator:
     """Linear Trend Strength.
 
     Args:
@@ -924,7 +932,9 @@ def linear_trend(name: str, field: str, lookback: int, atr_length: int, scale: f
     return indicator(name, _linear_trend)
 
 
-def quadratic_trend(name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0) -> Indicator:
+def quadratic_trend(
+    name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0
+) -> Indicator:
     """Quadratic Trend Strength.
 
     Args:
@@ -955,7 +965,9 @@ def quadratic_trend(name: str, field: str, lookback: int, atr_length: int, scale
     return indicator(name, _quadratic_trend)
 
 
-def cubic_trend(name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0) -> Indicator:
+def cubic_trend(
+    name: str, field: str, lookback: int, atr_length: int, scale: float = 1.0
+) -> Indicator:
     """Cubic Trend Strength.
 
     Args:
@@ -1188,7 +1200,9 @@ def price_intensity(name: str, smoothing: float = 0.0, scale: float = 0.8) -> In
     return indicator(name, _price_intensity)
 
 
-def price_change_oscillator(name: str, short_length: int, multiplier: int, scale: float = 4.0) -> Indicator:
+def price_change_oscillator(
+    name: str, short_length: int, multiplier: int, scale: float = 4.0
+) -> Indicator:
     """Price Change Oscillator.
 
     Args:
@@ -1372,7 +1386,9 @@ def normalized_on_balance_volume(name: str, lookback: int, scale: float = 0.6) -
     return indicator(name, _normalized_on_balance_volume)
 
 
-def delta_on_balance_volume(name: str, lookback: int, delta_length: int = 0, scale: float = 0.6) -> Indicator:
+def delta_on_balance_volume(
+    name: str, lookback: int, delta_length: int = 0, scale: float = 0.6
+) -> Indicator:
     """Delta On-Balance Volume.
 
     Args:
@@ -1449,7 +1465,9 @@ def normalized_negative_volume_index(name: str, lookback: int, scale: float = 0.
     return indicator(name, _normalized_negative_volume_index)
 
 
-def volume_momentum(name: str, short_length: int, multiplier: int = 2, scale: float = 3.0) -> Indicator:
+def volume_momentum(
+    name: str, short_length: int, multiplier: int = 2, scale: float = 3.0
+) -> Indicator:
     """Volume Momentum.
 
     Args:

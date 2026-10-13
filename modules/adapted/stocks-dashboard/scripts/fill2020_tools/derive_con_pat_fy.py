@@ -67,7 +67,9 @@ SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 sys.path.insert(0, SCRIPTS)
 
-_spec = importlib.util.spec_from_file_location("nar", os.path.join(SCRIPTS, "_nse_archive_revop.py"))
+_spec = importlib.util.spec_from_file_location(
+    "nar", os.path.join(SCRIPTS, "_nse_archive_revop.py")
+)
 NAR = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(NAR)
 NAR.JAR = NAR.BF.nse_jar()
@@ -81,13 +83,18 @@ CACHE = os.path.join(SCRIPTS, "_nsearch_cache")
 
 CAL_ABS, CAL_REL = 3.0, 0.03
 
-R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.IGNORECASE)
-R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.IGNORECASE)
-R_MINORITY = re.compile(r"^minority interest", re.IGNORECASE)
+R_OWN = re.compile(r"net profit.*after\s+taxe?s?.*minority\s+interest", re.I)
+R_PERIOD = re.compile(r"net profit\s*/?\s*\(?\s*loss\s*\)?\s*for the period", re.I)
+R_MINORITY = re.compile(r"^minority interest", re.I)
 
 
 def fy_quarters(fyend):
-    return [(fyend - 1) * 10000 + 630, (fyend - 1) * 10000 + 930, (fyend - 1) * 10000 + 1231, fyend * 10000 + 331]
+    return [
+        (fyend - 1) * 10000 + 630,
+        (fyend - 1) * 10000 + 930,
+        (fyend - 1) * 10000 + 1231,
+        fyend * 10000 + 331,
+    ]
 
 
 MONN = {
@@ -107,7 +114,7 @@ MONN = {
 R_FYSPAN = re.compile(
     r"Financial\s*Year\s*\|?\s*(\d{2})-([A-Za-z]{3})-(\d{4})\s*\|?\s*To\s*\|?\s*"
     r"(\d{2})-([A-Za-z]{3})-(\d{4})",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -145,7 +152,7 @@ def annual_pat(sym, fyend, link):
         return None, "not-consolidated"
     if NAR.iso_qe(meta.get("Period Ended", "")) != fyend * 10000 + 331:
         return None, "period={}".format(meta.get("Period Ended"))
-    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym, *NAR.aliases(sym)])}:
+    if (meta.get("Symbol") or "").upper() not in {a.upper() for a in ([sym] + NAR.aliases(sym))}:
         return None, "symbol={}".format(meta.get("Symbol"))
     own, per, mi = NAR.pick(rows, R_OWN), NAR.pick(rows, R_PERIOD), NAR.pick(rows, R_MINORITY)
     pat = own
@@ -217,7 +224,8 @@ def main():
                         mem,
                         fyend,
                         miss[0],
-                        "calibration FY%d FAILED (annual %.2f vs sum %.2f, d=%.2f)" % (cfy, a, sum(cvals), d),
+                        "calibration FY%d FAILED (annual %.2f vs sum %.2f, d=%.2f)"
+                        % (cfy, a, sum(cvals), d),
                     )
                 )
                 break
@@ -240,7 +248,12 @@ def main():
             med = sorted(abs(v) for v in kvals)[len(kvals) // 2]
             if med > 0 and not (0.15 * med <= abs(derived) <= 6.0 * med):
                 refused.append(
-                    (mem, fyend, miss[0], f"implausible vs siblings (derived {derived:.2f}, sibling median {med:.2f})")
+                    (
+                        mem,
+                        fyend,
+                        miss[0],
+                        f"implausible vs siblings (derived {derived:.2f}, sibling median {med:.2f})",
+                    )
                 )
                 continue
             landed["%s|%d" % (mem, miss[0])] = {

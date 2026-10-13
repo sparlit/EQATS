@@ -47,7 +47,9 @@ import util
 # Ensure values are greater than epsilon to avoid numerical instability.
 _EPSILON = 1e-6
 
-TemporalLinkageState = collections.namedtuple("TemporalLinkageState", ("link", "precedence_weights"))
+TemporalLinkageState = collections.namedtuple(
+    "TemporalLinkageState", ("link", "precedence_weights")
+)
 
 
 def _vector_norms(m):
@@ -309,7 +311,8 @@ class Freeness(snt.RNNCore):
         # Calculation of usage is not differentiable with respect to write weights.
         write_weights = tf.stop_gradient(write_weights)
         usage = self._usage_after_write(prev_usage, write_weights)
-        return self._usage_after_read(usage, free_gate, read_weights)
+        usage = self._usage_after_read(usage, free_gate, read_weights)
+        return usage
 
     def write_allocation_weights(self, usage, write_gates, num_writes):
         """Calculates freeness-based locations for writing to.

@@ -1,3 +1,4 @@
+# codespell:ignore MIS,IST
 import math
 
 from .indian_instrument_scheduler import global_indian_scheduler
@@ -350,12 +351,12 @@ class KiteConnectAdapter(SEBIBrokerAdapter):
             "ticket": ticket,
             "symbol": req.symbol,
             "order_type": req.order_type,
-            "quantity": req.quantity,
+            "quantity": quantity,
             "price": price,
             "product": product,
             "exchange": exchange,
-            "sl": req.sl,
-            "tp": req.tp,
+            "sl": sl,
+            "tp": tp,
             "status": "OPEN",
             "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
@@ -604,12 +605,12 @@ class DhanHQAdapter(SEBIBrokerAdapter):
             "ticket": ticket,
             "symbol": req.symbol,
             "order_type": req.order_type,
-            "quantity": req.quantity,
+            "quantity": quantity,
             "price": price,
             "product": product,
             "exchange": exchange,
-            "sl": req.sl,
-            "tp": req.tp,
+            "sl": sl,
+            "tp": tp,
             "status": "OPEN",
             "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
@@ -816,10 +817,12 @@ class AngelOneAdapter(SEBIBrokerAdapter):
         order_record = {
             "ticket": ticket,
             "symbol": req.symbol,
-            "quantity": req.quantity,
+            "quantity": quantity,
             "price": price,
             "product": product,
             "exchange": exchange,
+            "sl": sl,
+            "tp": tp,
             "status": "OPEN",
         }
         self.simulated_orders[ticket] = order_record

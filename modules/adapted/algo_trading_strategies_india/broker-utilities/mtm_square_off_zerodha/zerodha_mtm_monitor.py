@@ -43,9 +43,8 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Lock
-from typing import Dict, List, Optional, Tuple
 
 import yaml
 from kiteconnect import KiteConnect
@@ -105,7 +104,9 @@ class EnhancedMTMMonitor:
     def setup_logging(self):
         """Setup enhanced logging configuration"""
         # Create formatters for different log levels
-        detailed_formatter = logging.Formatter("%(asctime)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s")
+        detailed_formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
+        )
         simple_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
         # Setup file handler with detailed logging
@@ -137,9 +138,13 @@ class EnhancedMTMMonitor:
             self.api_key = self.config["zerodha"]["api_key"]
             self.api_secret = self.config["zerodha"]["api_secret"]
             self.mtm_threshold = self.config["trading"]["mtm_loss_threshold"]
-            self.daily_max_profit_target = self.config["trading"].get("daily_max_profit_target", 100)
+            self.daily_max_profit_target = self.config["trading"].get(
+                "daily_max_profit_target", 100
+            )
             self.monitor_interval = 3  # Fixed to 3 seconds
-            self.auto_square_off = self.config["risk_management"].get("auto_square_off_enabled", True)
+            self.auto_square_off = self.config["risk_management"].get(
+                "auto_square_off_enabled", True
+            )
 
             # Enhanced order settings (update from config if available)
             risk_mgmt = self.config.get("risk_management", {})
@@ -159,7 +164,9 @@ class EnhancedMTMMonitor:
             self.freeze_quantities = self.config.get("instruments", {})
 
             # LTP freshness threshold
-            self.ltp_freshness_threshold = self.config.get("ltp_management", {}).get("freshness_threshold_seconds", 10)
+            self.ltp_freshness_threshold = self.config.get("ltp_management", {}).get(
+                "freshness_threshold_seconds", 10
+            )
 
             self.logger.info(f"Enhanced configuration loaded. MTM threshold: {self.mtm_threshold}")
             self.logger.info(
@@ -170,7 +177,7 @@ class EnhancedMTMMonitor:
             )
 
         except Exception as e:
-            self.logger.exception(f"Error loading config: {e}")
+            self.logger.error(f"Error loading config: {e}")
             raise
 
     def check_daily_reset(self):
@@ -201,7 +208,9 @@ class EnhancedMTMMonitor:
             self.logger.critical("🎯 DAILY MAX PROFIT TARGET REACHED!")
             self.logger.critical(f"   Max MTM achieved: ₹{self.daily_max_mtm:.2f}")
             self.logger.critical(f"   Target was: ₹{self.daily_max_profit_target}")
-            self.logger.critical("🚫 TRADING DISCIPLINE MODE ACTIVATED - ANY NEW POSITIONS WILL BE SQUARED OFF!")
+            self.logger.critical(
+                "🚫 TRADING DISCIPLINE MODE ACTIVATED - ANY NEW POSITIONS WILL BE SQUARED OFF!"
+            )
             return True
 
         return False
@@ -212,7 +221,9 @@ class EnhancedMTMMonitor:
             self.kite = KiteConnect(api_key=self.api_key, timeout=self.api_timeout)
 
             # Load access token
-            access_token_path = "/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt"
+            access_token_path = (
+                "/home/ubuntu/utilities/kite_connect_data/tickjournal/key_files/access_token.txt"
+            )
             with open(access_token_path) as f:
                 access_token = f.read().strip()
 
@@ -223,7 +234,7 @@ class EnhancedMTMMonitor:
             self.logger.info(f"Connected to Kite API. User: {profile['user_name']}")
 
         except Exception as e:
-            self.logger.exception(f"Error setting up Kite client: {e}")
+            self.logger.error(f"Error setting up Kite client: {e}")
             raise
 
     def setup_databases(self):
@@ -234,7 +245,9 @@ class EnhancedMTMMonitor:
             self.mtm_cursor = self.mtm_conn.cursor()
 
             # LTP data database (read-only access)
-            self.ltp_conn = sqlite3.connect("zerodha_trading.db", check_same_thread=False, timeout=30)
+            self.ltp_conn = sqlite3.connect(
+                "zerodha_trading.db", check_same_thread=False, timeout=30
+            )
             self.ltp_cursor = self.ltp_conn.cursor()
 
             # Enable WAL mode for better concurrent access
@@ -247,7 +260,7 @@ class EnhancedMTMMonitor:
             self.logger.info("Enhanced database setup completed with separate databases")
 
         except Exception as e:
-            self.logger.exception(f"Error setting up databases: {e}")
+            self.logger.error(f"Error setting up databases: {e}")
             raise
 
     def create_mtm_tables(self):
@@ -324,7 +337,7 @@ class EnhancedMTMMonitor:
             self.mtm_conn.commit()
 
         except Exception as e:
-            self.logger.exception(f"Error creating MTM tables: {e}")
+            self.logger.error(f"Error creating MTM tables: {e}")
             raise
 
     def safe_api_call(self, func, *args, **kwargs):
@@ -343,10 +356,10 @@ class EnhancedMTMMonitor:
             return result, None
 
         except FuturesTimeoutError:
-            self.logger.exception(f"API call {func.__name__} timed out after {self.api_timeout}s")
+            self.logger.error(f"API call {func.__name__} timed out after {self.api_timeout}s")
             return None, f"Timeout after {self.api_timeout}s"
         except Exception as e:
-            self.logger.exception(f"API call {func.__name__} failed: {e}")
+            self.logger.error(f"API call {func.__name__} failed: {e}")
             return None, str(e)
 
     def fetch_current_positions(self) -> list[dict]:
@@ -381,10 +394,12 @@ class EnhancedMTMMonitor:
             return open_positions
 
         except Exception as e:
-            self.logger.exception(f"Error fetching positions: {e}")
+            self.logger.error(f"Error fetching positions: {e}")
             return []
 
-    def categorize_positions_for_square_off(self, positions: list[dict]) -> tuple[list[dict], list[dict]]:
+    def categorize_positions_for_square_off(
+        self, positions: list[dict]
+    ) -> tuple[list[dict], list[dict]]:
         """Categorize positions into SELL and BUY for prioritized square-off"""
         sell_positions = []  # Short positions (quantity < 0)
         buy_positions = []  # Long positions (quantity > 0)
@@ -403,8 +418,12 @@ class EnhancedMTMMonitor:
                 self.logger.debug(f"BUY position: {symbol} | Qty: {qty}")
 
         # Sort by risk - higher risk first
-        sell_positions.sort(key=lambda x: abs(x["quantity"] * x.get("average_price", 0)), reverse=True)
-        buy_positions.sort(key=lambda x: abs(x["quantity"] * x.get("average_price", 0)), reverse=True)
+        sell_positions.sort(
+            key=lambda x: abs(x["quantity"] * x.get("average_price", 0)), reverse=True
+        )
+        buy_positions.sort(
+            key=lambda x: abs(x["quantity"] * x.get("average_price", 0)), reverse=True
+        )
 
         self.logger.info(
             f"Position categorization: {len(sell_positions)} SELL positions, {len(buy_positions)} BUY positions"
@@ -415,13 +434,17 @@ class EnhancedMTMMonitor:
             self.logger.info("SELL positions (shorts to cover):")
             for i, pos in enumerate(sell_positions, 1):
                 value = abs(pos["quantity"] * pos.get("average_price", 0))
-                self.logger.info(f"  {i}. {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}")
+                self.logger.info(
+                    f"  {i}. {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}"
+                )
 
         if buy_positions:
             self.logger.info("BUY positions (longs to sell):")
             for i, pos in enumerate(buy_positions, 1):
                 value = abs(pos["quantity"] * pos.get("average_price", 0))
-                self.logger.info(f"  {i}. {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}")
+                self.logger.info(
+                    f"  {i}. {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}"
+                )
 
         return sell_positions, buy_positions
 
@@ -489,12 +512,14 @@ class EnhancedMTMMonitor:
             return order_id, None
 
         except Exception as e:
-            error_msg = f"Exception in order placement: {e!s}"
-            self.logger.exception(f"❌ {error_msg}")
-            self.logger.exception(f"❌ Stack trace: {traceback.format_exc()}")
+            error_msg = f"Exception in order placement: {str(e)}"
+            self.logger.error(f"❌ {error_msg}")
+            self.logger.error(f"❌ Stack trace: {traceback.format_exc()}")
             return None, error_msg
 
-    def verify_order_execution_enhanced(self, order_id: str, expected_qty: int, symbol: str) -> dict:
+    def verify_order_execution_enhanced(
+        self, order_id: str, expected_qty: int, symbol: str
+    ) -> dict:
         """Enhanced order execution verification with detailed logging"""
         try:
             self.logger.info(f"🔍 Verifying order execution: {order_id} for {symbol}")
@@ -520,22 +545,34 @@ class EnhancedMTMMonitor:
             last_status = None
             status_changes = []
 
-            while time.time() - start_time < self.order_verification_timeout and check_count < max_checks:
+            while (
+                time.time() - start_time < self.order_verification_timeout
+                and check_count < max_checks
+            ):
                 check_count += 1
 
                 try:
                     elapsed = time.time() - start_time
-                    self.logger.debug(f"Order status check #{check_count} for {order_id} (elapsed: {elapsed:.1f}s)")
+                    self.logger.debug(
+                        f"Order status check #{check_count} for {order_id} (elapsed: {elapsed:.1f}s)"
+                    )
 
                     # Get order status with timeout
                     order_history, error = self.safe_api_call(self.kite.order_history, order_id)
 
                     if error:
-                        self.logger.warning(f"⚠️ Failed to get order status (attempt {check_count}): {error}")
+                        self.logger.warning(
+                            f"⚠️ Failed to get order status (attempt {check_count}): {error}"
+                        )
                         if check_count < max_checks:
                             time.sleep(self.order_status_check_interval)
                             continue
-                        return {"success": False, "executed_quantity": 0, "reason": f"Status check failed: {error}"}
+                        else:
+                            return {
+                                "success": False,
+                                "executed_quantity": 0,
+                                "reason": f"Status check failed: {error}",
+                            }
 
                     if not order_history or len(order_history) == 0:
                         self.logger.warning(f"⚠️ Empty order history for {order_id}")
@@ -584,7 +621,7 @@ class EnhancedMTMMonitor:
                                 "status_changes": status_changes,
                             }
 
-                        if status in ["REJECTED", "CANCELLED"]:
+                        elif status in ["REJECTED", "CANCELLED"]:
                             self.logger.error(
                                 f"❌ Order {order_id} {status} in {elapsed:.2f}s - Reason: {status_message}"
                             )
@@ -604,7 +641,9 @@ class EnhancedMTMMonitor:
                         if filled_quantity > 0:
                             fill_rate = (filled_quantity / expected_qty) * 100
 
-                            if fill_rate >= 80 and elapsed > (self.order_verification_timeout * 0.8):
+                            if fill_rate >= 80 and elapsed > (
+                                self.order_verification_timeout * 0.8
+                            ):
                                 self.logger.info(
                                     f"✅ Accepting partial fill for {order_id}: {fill_rate:.1f}% after {elapsed:.2f}s"
                                 )
@@ -622,16 +661,21 @@ class EnhancedMTMMonitor:
                         continue
 
                     else:
-                        self.logger.warning(f"⚠️ Unknown order status: {status} for order {order_id}")
+                        self.logger.warning(
+                            f"⚠️ Unknown order status: {status} for order {order_id}"
+                        )
                         time.sleep(self.order_status_check_interval)
                         continue
 
                 except Exception as status_error:
-                    self.logger.warning(f"⚠️ Error checking order status (attempt {check_count}): {status_error}")
+                    self.logger.warning(
+                        f"⚠️ Error checking order status (attempt {check_count}): {status_error}"
+                    )
                     if check_count < max_checks:
                         time.sleep(self.order_status_check_interval)
                         continue
-                    break
+                    else:
+                        break
 
             # Timeout reached
             elapsed = time.time() - start_time
@@ -673,12 +717,12 @@ class EnhancedMTMMonitor:
 
         except Exception as e:
             elapsed = time.time() - start_time if "start_time" in locals() else 0
-            self.logger.exception(f"💥 Order verification error: {e}")
+            self.logger.error(f"💥 Order verification error: {e}")
 
             return {
                 "success": False,
                 "executed_quantity": 0,
-                "reason": f"Verification error: {e!s}",
+                "reason": f"Verification error: {str(e)}",
                 "verification_time": elapsed,
             }
 
@@ -699,7 +743,9 @@ class EnhancedMTMMonitor:
                 transaction_type = self.kite.TRANSACTION_TYPE_BUY
                 action = "BUY"
 
-            self.logger.info(f"🔄 Starting square-off for {tradingsymbol}: {action} {quantity} | Product: {product}")
+            self.logger.info(
+                f"🔄 Starting square-off for {tradingsymbol}: {action} {quantity} | Product: {product}"
+            )
 
             # Get freeze quantity
             freeze_qty = self.get_freeze_quantity(tradingsymbol)
@@ -717,7 +763,10 @@ class EnhancedMTMMonitor:
 
             # Split orders if needed due to volume freeze
             order_sequence = 0
-            while remaining_quantity > 0 and (time.time() - square_off_start_time) < max_square_off_time:
+            while (
+                remaining_quantity > 0
+                and (time.time() - square_off_start_time) < max_square_off_time
+            ):
                 order_sequence += 1
                 order_qty = min(freeze_qty, remaining_quantity)
 
@@ -743,7 +792,9 @@ class EnhancedMTMMonitor:
                 order_placement_time = time.time() - order_placement_start
 
                 if placement_error:
-                    self.logger.error(f"❌ Order {order_sequence} placement failed: {placement_error}")
+                    self.logger.error(
+                        f"❌ Order {order_sequence} placement failed: {placement_error}"
+                    )
 
                     failed_orders.append(
                         {
@@ -766,9 +817,12 @@ class EnhancedMTMMonitor:
                         )
                         time.sleep(self.order_retry_delay)
                         continue
-                    self.logger.error(f"🚫 Max retries exceeded for {tradingsymbol} order {order_sequence}")
-                    remaining_quantity -= order_qty  # Skip this quantity
-                    continue
+                    else:
+                        self.logger.error(
+                            f"🚫 Max retries exceeded for {tradingsymbol} order {order_sequence}"
+                        )
+                        remaining_quantity -= order_qty  # Skip this quantity
+                        continue
 
                 # Order placed successfully, now verify execution
                 order_info = {
@@ -784,10 +838,14 @@ class EnhancedMTMMonitor:
                 # Verify order execution
                 self.logger.info(f"🔍 Verifying execution for order {order_sequence}: {order_id}")
                 verification_start = time.time()
-                execution_result = self.verify_order_execution_enhanced(order_id, order_qty, tradingsymbol)
+                execution_result = self.verify_order_execution_enhanced(
+                    order_id, order_qty, tradingsymbol
+                )
                 verification_time = time.time() - verification_start
 
-                self.logger.info(f"📊 Order {order_sequence} verification completed in {verification_time:.2f}s")
+                self.logger.info(
+                    f"📊 Order {order_sequence} verification completed in {verification_time:.2f}s"
+                )
 
                 if execution_result["success"]:
                     executed_qty = execution_result["executed_quantity"]
@@ -798,7 +856,9 @@ class EnhancedMTMMonitor:
                     order_info["verification_time"] = verification_time
 
                     status_emoji = "✅" if executed_qty == order_qty else "🟡"
-                    self.logger.info(f"{status_emoji} Order {order_sequence} executed: {executed_qty}/{order_qty} qty")
+                    self.logger.info(
+                        f"{status_emoji} Order {order_sequence} executed: {executed_qty}/{order_qty} qty"
+                    )
 
                     # Update order tracking
                     self.update_order_tracking(order_id, "EXECUTED", execution_result)
@@ -832,10 +892,14 @@ class EnhancedMTMMonitor:
             # Check for overall timeout
             total_time = time.time() - square_off_start_time
             if total_time >= max_square_off_time:
-                self.logger.warning(f"⏰ Square-off timeout after {total_time:.2f}s for {tradingsymbol}")
+                self.logger.warning(
+                    f"⏰ Square-off timeout after {total_time:.2f}s for {tradingsymbol}"
+                )
 
             # Calculate success rate
-            success_rate = (successful_executions / total_quantity) * 100 if total_quantity > 0 else 0
+            success_rate = (
+                (successful_executions / total_quantity) * 100 if total_quantity > 0 else 0
+            )
 
             result = {
                 "symbol": tradingsymbol,
@@ -851,7 +915,9 @@ class EnhancedMTMMonitor:
                 "orders_attempted": order_sequence,
             }
 
-            status_emoji = "✅" if result["fully_executed"] else "🟡" if successful_executions > 0 else "❌"
+            status_emoji = (
+                "✅" if result["fully_executed"] else "🟡" if successful_executions > 0 else "❌"
+            )
             self.logger.info(
                 f"{status_emoji} Square-off result for {tradingsymbol}: {successful_executions}/{total_quantity} executed ({success_rate:.1f}%) in {total_time:.2f}s"
             )
@@ -859,10 +925,10 @@ class EnhancedMTMMonitor:
             return result
 
         except Exception as e:
-            self.logger.exception(
+            self.logger.error(
                 f"💥 Critical error in square-off for {position.get('tradingsymbol', 'Unknown')}: {e}"
             )
-            self.logger.exception(f"💥 Stack trace: {traceback.format_exc()}")
+            self.logger.error(f"💥 Stack trace: {traceback.format_exc()}")
 
             return {
                 "symbol": position.get("tradingsymbol", "Unknown"),
@@ -884,8 +950,8 @@ class EnhancedMTMMonitor:
         product: str,
         status: str,
         placement_time: float = 0,
-        api_response: str | None = None,
-        error_message: str | None = None,
+        api_response: str = None,
+        error_message: str = None,
     ):
         """Store comprehensive order tracking information"""
         try:
@@ -984,7 +1050,9 @@ class EnhancedMTMMonitor:
             positions = None
 
             for attempt in range(max_position_fetch_attempts):
-                self.logger.info(f"Fetching positions (attempt {attempt + 1}/{max_position_fetch_attempts})")
+                self.logger.info(
+                    f"Fetching positions (attempt {attempt + 1}/{max_position_fetch_attempts})"
+                )
                 positions = self.fetch_current_positions()
 
                 if positions is not None:
@@ -1018,14 +1086,18 @@ class EnhancedMTMMonitor:
             sell_positions, buy_positions = self.categorize_positions_for_square_off(positions)
 
             # Initialize tracking
-            square_off_id = self.store_square_off_initiation(len(positions), len(sell_positions), len(buy_positions))
+            square_off_id = self.store_square_off_initiation(
+                len(positions), len(sell_positions), len(buy_positions)
+            )
 
             all_results = []
             phase_results = {}
 
             # PHASE 1: Square off SELL positions first (short positions)
             if sell_positions:
-                self.logger.warning(f"🔴 PHASE 1: Squaring off {len(sell_positions)} SELL positions (SHORT positions)")
+                self.logger.warning(
+                    f"🔴 PHASE 1: Squaring off {len(sell_positions)} SELL positions (SHORT positions)"
+                )
 
                 sell_results = []
                 for i, position in enumerate(sell_positions, 1):
@@ -1044,10 +1116,12 @@ class EnhancedMTMMonitor:
                         else:
                             executed = result.get("executed_quantity", 0)
                             total = result.get("total_quantity", 0)
-                            self.logger.warning(f"🟡 SELL position {i} partially completed: {executed}/{total}")
+                            self.logger.warning(
+                                f"🟡 SELL position {i} partially completed: {executed}/{total}"
+                            )
 
                     except Exception as pos_error:
-                        self.logger.exception(f"💥 Error processing SELL position {i}: {pos_error}")
+                        self.logger.error(f"💥 Error processing SELL position {i}: {pos_error}")
                         failed_result = {
                             "symbol": position["tradingsymbol"],
                             "total_quantity": abs(position["quantity"]),
@@ -1069,7 +1143,9 @@ class EnhancedMTMMonitor:
                     "failed": len(sell_positions) - sell_success_count,
                 }
 
-                self.logger.warning(f"🔴 SELL phase completed: {sell_success_count}/{len(sell_positions)} successful")
+                self.logger.warning(
+                    f"🔴 SELL phase completed: {sell_success_count}/{len(sell_positions)} successful"
+                )
                 self.update_square_off_status(square_off_id, "SELL_FIRST", "COMPLETED")
 
                 # Wait between phases
@@ -1081,7 +1157,9 @@ class EnhancedMTMMonitor:
 
             # PHASE 2: Square off BUY positions (long positions)
             if buy_positions:
-                self.logger.warning(f"🟢 PHASE 2: Squaring off {len(buy_positions)} BUY positions (LONG positions)")
+                self.logger.warning(
+                    f"🟢 PHASE 2: Squaring off {len(buy_positions)} BUY positions (LONG positions)"
+                )
 
                 buy_results = []
                 for i, position in enumerate(buy_positions, 1):
@@ -1100,10 +1178,12 @@ class EnhancedMTMMonitor:
                         else:
                             executed = result.get("executed_quantity", 0)
                             total = result.get("total_quantity", 0)
-                            self.logger.warning(f"🟡 BUY position {i} partially completed: {executed}/{total}")
+                            self.logger.warning(
+                                f"🟡 BUY position {i} partially completed: {executed}/{total}"
+                            )
 
                     except Exception as pos_error:
-                        self.logger.exception(f"💥 Error processing BUY position {i}: {pos_error}")
+                        self.logger.error(f"💥 Error processing BUY position {i}: {pos_error}")
                         failed_result = {
                             "symbol": position["tradingsymbol"],
                             "total_quantity": abs(position["quantity"]),
@@ -1125,7 +1205,9 @@ class EnhancedMTMMonitor:
                     "failed": len(buy_positions) - buy_success_count,
                 }
 
-                self.logger.warning(f"🟢 BUY phase completed: {buy_success_count}/{len(buy_positions)} successful")
+                self.logger.warning(
+                    f"🟢 BUY phase completed: {buy_success_count}/{len(buy_positions)} successful"
+                )
                 self.update_square_off_status(square_off_id, "BUY_SECOND", "COMPLETED")
             else:
                 self.logger.info("🟢 PHASE 2: No BUY positions to square off")
@@ -1142,7 +1224,9 @@ class EnhancedMTMMonitor:
                 "total_positions": total_positions,
                 "total_success": total_success,
                 "total_failed": total_failed,
-                "success_rate": (total_success / total_positions) * 100 if total_positions > 0 else 0,
+                "success_rate": (total_success / total_positions) * 100
+                if total_positions > 0
+                else 0,
                 "total_execution_time": total_square_off_time,
                 "phase_results": phase_results,
                 "detailed_results": all_results,
@@ -1166,11 +1250,15 @@ class EnhancedMTMMonitor:
 
             if phase_results.get("sell_phase"):
                 sell_phase = phase_results["sell_phase"]
-                self.logger.critical(f"   SELL Phase: {sell_phase['success']}/{sell_phase['total']} successful")
+                self.logger.critical(
+                    f"   SELL Phase: {sell_phase['success']}/{sell_phase['total']} successful"
+                )
 
             if phase_results.get("buy_phase"):
                 buy_phase = phase_results["buy_phase"]
-                self.logger.critical(f"   BUY Phase: {buy_phase['success']}/{buy_phase['total']} successful")
+                self.logger.critical(
+                    f"   BUY Phase: {buy_phase['success']}/{buy_phase['total']} successful"
+                )
 
             self.logger.critical("=" * 80)
 
@@ -1178,8 +1266,8 @@ class EnhancedMTMMonitor:
 
         except Exception as e:
             total_time = time.time() - square_off_start_time
-            self.logger.exception(f"💥 CRITICAL ERROR in enhanced square-off: {e}")
-            self.logger.exception(f"💥 Stack trace: {traceback.format_exc()}")
+            self.logger.error(f"💥 CRITICAL ERROR in enhanced square-off: {e}")
+            self.logger.error(f"💥 Stack trace: {traceback.format_exc()}")
 
             return {
                 "error": str(e),
@@ -1192,7 +1280,9 @@ class EnhancedMTMMonitor:
             self.square_off_in_progress = False
             self.logger.info("🔄 Square-off process flag cleared")
 
-    def store_square_off_initiation(self, total_positions: int, sell_positions: int, buy_positions: int) -> int:
+    def store_square_off_initiation(
+        self, total_positions: int, sell_positions: int, buy_positions: int
+    ) -> int:
         """Store square-off initiation details"""
         try:
             with self.db_lock:
@@ -1229,10 +1319,12 @@ class EnhancedMTMMonitor:
                 return square_off_id
 
         except Exception as e:
-            self.logger.exception(f"Error storing square-off initiation: {e}")
+            self.logger.error(f"Error storing square-off initiation: {e}")
             return 0
 
-    def update_square_off_status(self, square_off_id: int, phase: str, status: str, details: dict | None = None):
+    def update_square_off_status(
+        self, square_off_id: int, phase: str, status: str, details: dict = None
+    ):
         """Update square-off status"""
         try:
             with self.db_lock:
@@ -1250,7 +1342,7 @@ class EnhancedMTMMonitor:
                 self.mtm_conn.commit()
 
         except Exception as e:
-            self.logger.exception(f"Error updating square-off status: {e}")
+            self.logger.error(f"Error updating square-off status: {e}")
 
     def verify_no_positions_remaining(self) -> dict:
         """Verify that no positions remain after square-off"""
@@ -1269,7 +1361,10 @@ class EnhancedMTMMonitor:
                 time.sleep(2)
 
             if remaining_positions is None:
-                return {"verification_passed": False, "error": "Failed to fetch positions for verification"}
+                return {
+                    "verification_passed": False,
+                    "error": "Failed to fetch positions for verification",
+                }
 
             if not remaining_positions:
                 self.logger.info("✅ Verification successful: No positions remaining")
@@ -1278,32 +1373,39 @@ class EnhancedMTMMonitor:
                     "remaining_positions": 0,
                     "message": "All positions successfully squared off",
                 }
-            self.logger.warning(f"⚠️ Verification failed: {len(remaining_positions)} positions still open")
+            else:
+                self.logger.warning(
+                    f"⚠️ Verification failed: {len(remaining_positions)} positions still open"
+                )
 
-            # Log remaining positions
-            for pos in remaining_positions:
-                value = abs(pos["quantity"] * pos.get("average_price", 0))
-                self.logger.warning(f"Remaining: {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}")
+                # Log remaining positions
+                for pos in remaining_positions:
+                    value = abs(pos["quantity"] * pos.get("average_price", 0))
+                    self.logger.warning(
+                        f"Remaining: {pos['tradingsymbol']} | Qty: {pos['quantity']} | Value: ₹{value:.2f}"
+                    )
 
-            return {
-                "verification_passed": False,
-                "remaining_positions": len(remaining_positions),
-                "positions": [
-                    {
-                        "symbol": pos["tradingsymbol"],
-                        "quantity": pos["quantity"],
-                        "value": abs(pos["quantity"] * pos.get("average_price", 0)),
-                    }
-                    for pos in remaining_positions
-                ],
-                "message": f"{len(remaining_positions)} positions still open after square-off",
-            }
+                return {
+                    "verification_passed": False,
+                    "remaining_positions": len(remaining_positions),
+                    "positions": [
+                        {
+                            "symbol": pos["tradingsymbol"],
+                            "quantity": pos["quantity"],
+                            "value": abs(pos["quantity"] * pos.get("average_price", 0)),
+                        }
+                        for pos in remaining_positions
+                    ],
+                    "message": f"{len(remaining_positions)} positions still open after square-off",
+                }
 
         except Exception as e:
-            self.logger.exception(f"Error in post-square-off verification: {e}")
+            self.logger.error(f"Error in post-square-off verification: {e}")
             return {"verification_passed": False, "error": str(e)}
 
-    def get_ltp_with_refresh(self, instrument_token: int, force_refresh: bool = False) -> float | None:
+    def get_ltp_with_refresh(
+        self, instrument_token: int, force_refresh: bool = False
+    ) -> float | None:
         """Get LTP with automatic refresh for stale data"""
         try:
             with self.ltp_db_lock:
@@ -1326,14 +1428,15 @@ class EnhancedMTMMonitor:
 
                     if data_age <= self.ltp_freshness_threshold and not force_refresh:
                         return price
-                    self.logger.debug(f"Stale LTP data for {symbol}: {data_age:.1f}s old")
-                    # Return stale data as fallback for MTM calculation
-                    return price
+                    else:
+                        self.logger.debug(f"Stale LTP data for {symbol}: {data_age:.1f}s old")
+                        # Return stale data as fallback for MTM calculation
+                        return price
 
                 return None
 
         except Exception as e:
-            self.logger.exception(f"Error getting LTP for token {instrument_token}: {e}")
+            self.logger.error(f"Error getting LTP for token {instrument_token}: {e}")
             return None
 
     def calculate_total_mtm(self, include_realized: bool = True) -> tuple[float, list[dict]]:
@@ -1407,7 +1510,9 @@ class EnhancedMTMMonitor:
             total_mtm = unrealized_mtm + realized_pnl
 
             if stale_ltp_count > 0:
-                self.logger.warning(f"MTM calculated with {stale_ltp_count} positions missing LTP data")
+                self.logger.warning(
+                    f"MTM calculated with {stale_ltp_count} positions missing LTP data"
+                )
 
             self.logger.info(
                 f"MTM Breakdown - Open Positions: ₹{unrealized_mtm:.2f} ({len(position_details)} positions), "
@@ -1417,7 +1522,7 @@ class EnhancedMTMMonitor:
             return total_mtm, position_details
 
         except Exception as e:
-            self.logger.exception(f"Error calculating total MTM: {e}")
+            self.logger.error(f"Error calculating total MTM: {e}")
             return 0.0, []
 
     def get_todays_realized_pnl_from_orders(self) -> tuple[float, list[dict]]:
@@ -1497,22 +1602,28 @@ class EnhancedMTMMonitor:
                     continue  # Skip open positions
 
                 # Calculate P&L for closed position
-                total_buy_value = sum(o["value"] for o in trades["orders"] if o["transaction_type"] == "BUY")
-                total_sell_value = sum(o["value"] for o in trades["orders"] if o["transaction_type"] == "SELL")
-
-                net_quantity = sum(o["quantity"] for o in trades["orders"] if o["transaction_type"] == "BUY") - sum(
-                    o["quantity"] for o in trades["orders"] if o["transaction_type"] == "SELL"
+                total_buy_value = sum(
+                    o["value"] for o in trades["orders"] if o["transaction_type"] == "BUY"
                 )
+                total_sell_value = sum(
+                    o["value"] for o in trades["orders"] if o["transaction_type"] == "SELL"
+                )
+
+                net_quantity = sum(
+                    o["quantity"] for o in trades["orders"] if o["transaction_type"] == "BUY"
+                ) - sum(o["quantity"] for o in trades["orders"] if o["transaction_type"] == "SELL")
 
                 if net_quantity == 0:  # Fully closed position
                     realized_pnl = total_sell_value - total_buy_value
                     total_realized_pnl += realized_pnl
-                    closed_trades.append({"tradingsymbol": trades["tradingsymbol"], "total_pnl": realized_pnl})
+                    closed_trades.append(
+                        {"tradingsymbol": trades["tradingsymbol"], "total_pnl": realized_pnl}
+                    )
 
             return total_realized_pnl, closed_trades
 
         except Exception as e:
-            self.logger.exception(f"Error calculating realized P&L: {e}")
+            self.logger.error(f"Error calculating realized P&L: {e}")
             return 0.0, []
 
     def log_mtm_status(self, total_mtm: float, position_details: list[dict]):
@@ -1543,7 +1654,13 @@ class EnhancedMTMMonitor:
                     (total_mtm, position_count, threshold_status, auto_square_off_enabled, details)
                     VALUES (?, ?, ?, ?, ?)
                 """,
-                    (total_mtm, position_count, threshold_status, int(self.auto_square_off), details_json),
+                    (
+                        total_mtm,
+                        position_count,
+                        threshold_status,
+                        int(self.auto_square_off),
+                        details_json,
+                    ),
                 )
 
                 self.mtm_conn.commit()
@@ -1552,12 +1669,16 @@ class EnhancedMTMMonitor:
             self.logger.warning(f"Error storing MTM history (non-critical): {e}")
 
         # Log current status
-        self.logger.info(f"MTM: ₹{total_mtm:.2f} | Positions: {position_count} | Threshold: ₹{self.mtm_threshold}")
+        self.logger.info(
+            f"MTM: ₹{total_mtm:.2f} | Positions: {position_count} | Threshold: ₹{self.mtm_threshold}"
+        )
 
     def check_mtm_threshold(self, total_mtm: float) -> bool:
         """Check if MTM threshold is breached"""
         if total_mtm <= self.mtm_threshold:
-            self.logger.critical(f"MTM THRESHOLD BREACHED! Current: ₹{total_mtm:.2f}, Threshold: ₹{self.mtm_threshold}")
+            self.logger.critical(
+                f"MTM THRESHOLD BREACHED! Current: ₹{total_mtm:.2f}, Threshold: ₹{self.mtm_threshold}"
+            )
             return True
         return False
 
@@ -1609,7 +1730,9 @@ class EnhancedMTMMonitor:
                 elif self.daily_max_profit_reached and position_details:
                     should_square_off = True
                     square_off_reason = "DISCIPLINE_MODE_ACTIVE"
-                    self.logger.critical("🚫 DISCIPLINE MODE: Squaring off positions (daily target already reached)")
+                    self.logger.critical(
+                        "🚫 DISCIPLINE MODE: Squaring off positions (daily target already reached)"
+                    )
 
                 # Execute square-off if needed
                 if should_square_off and self.auto_square_off and position_details:
@@ -1630,7 +1753,7 @@ class EnhancedMTMMonitor:
                     # Wait and verify
                     time.sleep(10)
                     self.verify_no_positions_remaining()
-                    final_mtm, _final_positions = self.calculate_total_mtm(include_realized=True)
+                    final_mtm, final_positions = self.calculate_total_mtm(include_realized=True)
 
                     # Log results
                     self.logger.critical("=" * 80)
@@ -1661,7 +1784,7 @@ class EnhancedMTMMonitor:
                 break
             except Exception as e:
                 consecutive_errors += 1
-                self.logger.exception(f"💥 Error in enhanced MTM monitoring: {e}")
+                self.logger.error(f"💥 Error in enhanced MTM monitoring: {e}")
 
                 if consecutive_errors >= max_consecutive_errors:
                     self.logger.critical("🚨 Too many consecutive errors. Stopping monitor.")
@@ -1713,7 +1836,13 @@ class EnhancedMTMMonitor:
                                             (total_mtm, position_count, threshold_status, auto_square_off_enabled, details)
                                         VALUES (?, ?, ?, ?, ?)
                                         """,
-                    (total_mtm, position_count, threshold_status, int(self.auto_square_off), details_json),
+                    (
+                        total_mtm,
+                        position_count,
+                        threshold_status,
+                        int(self.auto_square_off),
+                        details_json,
+                    ),
                 )
 
                 self.mtm_conn.commit()
@@ -1751,7 +1880,7 @@ class EnhancedMTMMonitor:
             self.logger.info("Enhanced MTM monitor cleanup completed successfully")
 
         except Exception as e:
-            self.logger.exception(f"Error during cleanup: {e}")
+            self.logger.error(f"Error during cleanup: {e}")
 
     def get_system_status(self) -> dict:
         """Get comprehensive system status for monitoring"""
@@ -1808,7 +1937,7 @@ class EnhancedMTMMonitor:
             except Exception:
                 pass
 
-            return {
+            status = {
                 "timestamp": datetime.now().isoformat(),
                 "system_health": {
                     "mtm_monitor_running": True,
@@ -1839,6 +1968,8 @@ class EnhancedMTMMonitor:
                 },
                 "recent_activity": {"square_offs": recent_square_offs, "orders": recent_orders},
             }
+
+            return status
 
         except Exception as e:
             return {
@@ -1889,7 +2020,8 @@ def main():
             if error:
                 print(f"❌ API connectivity test failed: {error}")
                 return
-            print(f"✅ API connectivity test passed: {profile['user_name']}")
+            else:
+                print(f"✅ API connectivity test passed: {profile['user_name']}")
         except Exception as e:
             print(f"❌ API connectivity test error: {e}")
             return

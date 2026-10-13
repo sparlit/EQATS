@@ -37,7 +37,7 @@ import json
 import shutil
 import string
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 
 def _env_value(env_path: Path, key: str) -> str:
@@ -100,7 +100,8 @@ def _parse_env_bool(raw: str, default: bool) -> bool:
 
 def _private_key_looks_valid(raw: str) -> bool:
     value = raw.strip()
-    value = value.removeprefix("0x")
+    if value.startswith("0x"):
+        value = value[2:]
     return len(value) == 64 and all(ch in string.hexdigits for ch in value)
 
 
@@ -127,17 +128,18 @@ def _collect_audit(env_path: Path) -> dict[str, Any]:
         )
         blocking_missing_labels.append("Private Key")
         manual_missing_labels.append("Private Key")
-    elif not _private_key_looks_valid(private_key):
-        items.append(
-            _status_item(
-                "POLY_PRIVATE_KEY",
-                "Private Key",
-                "missing_user",
-                "POLY_PRIVATE_KEY is invalid. Replace it before running Setup Doctor again.",
+    else:
+        if not _private_key_looks_valid(private_key):
+            items.append(
+                _status_item(
+                    "POLY_PRIVATE_KEY",
+                    "Private Key",
+                    "missing_user",
+                    "POLY_PRIVATE_KEY is invalid. Replace it before running Setup Doctor again.",
+                )
             )
-        )
-        blocking_missing_labels.append("Private Key")
-        manual_missing_labels.append("Private Key")
+            blocking_missing_labels.append("Private Key")
+            manual_missing_labels.append("Private Key")
 
     if signature_type in (1, 2) and not proxy_wallet:
         items.append(

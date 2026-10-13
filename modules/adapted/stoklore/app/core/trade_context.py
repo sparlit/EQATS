@@ -92,7 +92,9 @@ def _atr(highs, lows, closes, period=ATR_PERIOD):
     prev_close = pd.Series(closes).shift(1)
     # True range: the widest of today's range, today's high vs yesterday's close, and today's low
     # vs yesterday's close - the last two are what capture overnight gaps.
-    true_range = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    true_range = pd.concat(
+        [high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1
+    ).max(axis=1)
     return true_range.ewm(alpha=1 / period, adjust=False).mean()
 
 
@@ -166,7 +168,9 @@ def volume_spike(bars, multiple=SPIKE_MULTIPLE, lookback=SPIKE_LOOKBACK):
     }
 
 
-def entry_context(bars, direction, entry_price, spike_multiple=SPIKE_MULTIPLE, spike_lookback=SPIKE_LOOKBACK):
+def entry_context(
+    bars, direction, entry_price, spike_multiple=SPIKE_MULTIPLE, spike_lookback=SPIKE_LOOKBACK
+):
     """Market state at entry, from the bars strictly BEFORE it. `bars` is oldest-first
     [{date, open, high, low, close, volume}]. Returns None when there's nothing usable.
 

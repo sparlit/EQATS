@@ -59,7 +59,7 @@ class TestSmartScore:
     """SmartScore computation from headline scores."""
 
     def test_empty_headlines_neutral(self):
-        result, _history = compute_smartscore([], [], None)
+        result, history = compute_smartscore([], [], None)
         assert result["smartscore"] == 50.0
         assert result["signal"] == "NEUTRAL"
 
@@ -71,7 +71,7 @@ class TestSmartScore:
             {"compound": 0.5, "source": "MC"},
         ]
         adjusted = [0.82, 0.72, 0.62, 0.52]
-        result, _history = compute_smartscore(scores, adjusted)
+        result, history = compute_smartscore(scores, adjusted)
         assert result["smartscore"] >= 65
         assert result["signal"] == "BULLISH"
         assert result["pos_count"] >= 3
@@ -85,7 +85,7 @@ class TestSmartScore:
             {"compound": -0.9, "source": "LM"},
         ]
         adjusted = [-0.75, -0.65, -0.85]
-        result, _history = compute_smartscore(scores, adjusted)
+        result, history = compute_smartscore(scores, adjusted)
         assert result["smartscore"] < 40
         assert result["signal"] == "BEARISH"
         assert result["neg_count"] == 3
@@ -98,7 +98,7 @@ class TestSmartScore:
             {"compound": -0.2, "source": "DDG"},
         ]
         adjusted = [0.5, -0.4, 0.1, -0.2]
-        result, _history = compute_smartscore(scores, adjusted)
+        result, history = compute_smartscore(scores, adjusted)
         # Neutral to mildly positive — all headlines are 0.1/mixed
         assert 35 <= result["smartscore"] <= 65
         assert result["signal"] == "NEUTRAL"
@@ -114,7 +114,7 @@ class TestSmartScore:
     def test_single_headline(self):
         scores = [{"compound": 0.4}]
         adjusted = [0.45]
-        result, _history = compute_smartscore(scores, adjusted)
+        result, history = compute_smartscore(scores, adjusted)
         assert result["headline_count"] == 1
         assert 0 < result["smartscore"] < 100
         assert result["s_volume"] < 1.0  # Log-scaled, 1 headline is low volume
@@ -138,7 +138,10 @@ class TestSmartScore:
 
         today = datetime.now()
         history = [
-            {"date": (today - timedelta(days=i)).strftime("%Y-%m-%d"), "avg_compound": str(-0.8 + 0.1 * (7 - i))}
+            {
+                "date": (today - timedelta(days=i)).strftime("%Y-%m-%d"),
+                "avg_compound": str(-0.8 + 0.1 * (7 - i)),
+            }
             for i in range(7, 0, -1)
         ]
         result_with_hist, _ = compute_smartscore(scores, adjusted, history)

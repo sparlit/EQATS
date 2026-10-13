@@ -2,18 +2,16 @@
 Tests for TradingView MCP Engine Integration Module
 """
 
-import pytest
 from unittest.mock import patch
 
-from institutional_integrations.tradingview_mcp_engine import (
-    TradingViewMCPEngine,
-    TradingViewMCPBrokerAdapter,
-    round_tick_005,
-    MAGIC_NUMBER_TRADINGVIEW_MCP,
-)
 from institutional_integrations.sebi_broker_adapter import (
-    SEBIOrderRequest,
     IndianBrokerPluginRegistry,
+    SEBIOrderRequest,
+)
+from institutional_integrations.tradingview_mcp_engine import (
+    MAGIC_NUMBER_TRADINGVIEW_MCP,
+    TradingViewMCPBrokerAdapter,
+    TradingViewMCPEngine,
 )
 
 

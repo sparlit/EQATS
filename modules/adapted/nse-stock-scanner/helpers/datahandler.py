@@ -27,10 +27,9 @@ import warnings
 from datetime import date, datetime, timedelta
 from multiprocessing import Pool
 from os import cpu_count, listdir, mkdir
-from os.path import expanduser, join
+from os.path import join
 from shutil import rmtree
 
-import numpy as np
 import pandas as pd
 from jugaad_data.nse import stock_df
 
@@ -87,10 +86,11 @@ class DataHandler:
                 self.open_live_stock_data(df.loc[index, "SYMBOL"])
                 self.data["registered_stocks"].append(df.loc[index, "SYMBOL"])
                 self.data["all_stocks"][df.loc[index, "SYMBOL"]] = (
-                    f"{df.loc[index, 'SYMBOL']}_{df.loc[index, 'NAME OF COMPANY']}_{self.present!s}.csv"
+                    f"{df.loc[index, 'SYMBOL']}_{df.loc[index, 'NAME OF COMPANY']}_{str(self.present)}.csv"
                 )
             except Exception:
                 print("Error: ", df.loc[index, "SYMBOL"])
+                pass
 
         self.update_data(self.data)
 
@@ -108,11 +108,17 @@ class DataHandler:
         success = True
         try:
             for index_name in ["Sectoral Indices", "Thematic Indices"]:  # Update Sectoral first
-                index_key = index_name.replace(" ", "_").lower()  # setoral_indices, thematic_indices
+                index_key = index_name.replace(
+                    " ", "_"
+                ).lower()  # setoral_indices, thematic_indices
                 self.data[index_key] = {}  # Will contain names of individual sectors
 
-                branches = self.data["all_indices_names"][index_name]  # Get all the available sectors and themes
-                for branch_name in branches:  # get individial names: Such as Nifty IT, Nifty Auto etc
+                branches = self.data["all_indices_names"][
+                    index_name
+                ]  # Get all the available sectors and themes
+                for (
+                    branch_name
+                ) in branches:  # get individial names: Such as Nifty IT, Nifty Auto etc
                     names = NSE.open_nse_index(branch_name, show_n=9999)["symbol"].tolist()
                     self.data[index_key][branch_name] = names
 
@@ -139,11 +145,14 @@ class DataHandler:
             print("Successful!")
             self.update_data(self.data)
 
-    def __fresh(self):
+    def __fresh(
+        self,
+    ):
         files = listdir(self.data_path)
         if not len(files):
             warnings.warn(
-                f"No CSV data files present at {self.data_path} Downloading new data for analysis", stacklevel=2
+                f"No CSV data files present at {self.data_path} Downloading new data for analysis",
+                stacklevel=2,
             )
             self.multiprocess_download_stocks()
 
@@ -171,17 +180,23 @@ class DataHandler:
         with open(join(path, file), "w") as f:
             json.dump(updated_data, f)
 
-    def open_live_stock_data(self, name: str):
+    def open_live_stock_data(
+        self,
+        name: str,
+    ):
         """
         Open the fresh stock from the market
         args:
             name: ID of the stock given
         """
         return stock_df(
-            symbol=name, from_date=self.present - timedelta(days=750), to_date=self.present, series="EQ"
+            symbol=name,
+            from_date=self.present - timedelta(days=750),
+            to_date=self.present,
+            series="EQ",
         ).drop(drop, axis=1)  # almost 2 years
 
-    def open_downloaded_stock(self, name: str, resample: str | None = None, kind="daily"):
+    def open_downloaded_stock(self, name: str, resample: str = None, kind="daily"):
         """
         Open the Individual stock based on it's Official Term
         args:
@@ -198,15 +213,20 @@ class DataHandler:
                 df = self.resample_data(df, resample)
             return df
 
-        file = f"./intraday_data/{kind}/{self.all_stocks[name]}"
-        try:
-            df = pd.read_csv(file)
-            df["DATE"] = pd.to_datetime(df["DATE"])
-            return df
-        except:
-            print(f"Unable to Open {file}. Check if there's a file in the corresponding directory")
+        else:
+            file = f"./intraday_data/{kind}/{self.all_stocks[name]}"
+            try:
+                df = pd.read_csv(file)
+                df["DATE"] = pd.to_datetime(df["DATE"])
+                return df
+            except:
+                print(
+                    f"Unable to Open {file}. Check if there's a file in the corresponding directory"
+                )
 
-    def resample_data(self, data, to: str = "W", names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH", "DATE")):
+    def resample_data(
+        self, data, to: str = "W", names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH", "DATE")
+    ):
         """
         Resample the data from Daily to Weekly, Monthly or Yearly
         args:
@@ -214,7 +234,9 @@ class DataHandler:
             to: One of  ['W','M','Y']
         """
         Open, Close, Low, High, Date = names
-        data = data.resample(to, on=Date).agg({Open: "first", High: "max", Low: "min", Close: "last"})
+        data = data.resample(to, on=Date).agg(
+            {Open: "first", High: "max", Low: "min", Close: "last"}
+        )
         return data.sort_index(ascending=False).reset_index()
 
     def download_new(self, name: str, path: str = "./data"):
@@ -228,7 +250,7 @@ class DataHandler:
             df = self.open_live_stock_data(name)
             df["DATE"] = pd.to_datetime(df["DATE"])
             ID, NAME, _ = self.all_stocks[name].split("_")
-            save = f"{path}/{ID}_{NAME}_{self.present!s}.csv"
+            save = f"{path}/{ID}_{NAME}_{str(self.present)}.csv"
             df.to_csv(save, index=None)
         except Exception as e:
             print(name, "----", e)
@@ -277,7 +299,7 @@ class DataHandler:
         self.data = self.read_data()
 
         for file in files:
-            key, _name, _ = file.split("_")
+            key, name, _ = file.split("_")
             self.data["all_stocks"][key] = file
 
         self.update_data(self.data)

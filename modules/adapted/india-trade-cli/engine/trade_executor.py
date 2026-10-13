@@ -89,8 +89,7 @@ def parse_qty_or_pct(arg: str) -> tuple[float, bool]:
     if arg.endswith("%"):
         raw = float(arg[:-1])
         if raw <= 0:
-            msg = f"Percentage must be > 0, got '{arg}'"
-            raise ValueError(msg)
+            raise ValueError(f"Percentage must be > 0, got '{arg}'")
         return raw, True
     return float(arg), False
 
@@ -118,11 +117,10 @@ def size_by_pct(
     """
     max_pct = float(os.environ.get("MAX_POSITION_PCT", "100"))
     if pct > max_pct:
-        msg = (
+        raise ValueError(
             f"Position size {pct:.1f}% exceeds MAX_POSITION_PCT={max_pct:.0f}%. "
             f"Set MAX_POSITION_PCT env var to allow larger positions."
         )
-        raise ValueError(msg)
 
     if limit_price is None or limit_price <= 0:
         try:
@@ -133,19 +131,17 @@ def size_by_pct(
             limit_price = None
 
     if not limit_price or limit_price <= 0:
-        msg = f"Cannot compute quantity — no price available for {symbol}"
-        raise ValueError(msg)
+        raise ValueError(f"Cannot compute quantity — no price available for {symbol}")
 
     allocation = capital * pct / 100.0
     qty = int(allocation / limit_price)
 
     if qty <= 0:
-        msg = (
+        raise ValueError(
             f"Position size too small: {pct:.1f}% of ₹{capital:,.0f} = ₹{allocation:,.0f} "
             f"is not enough to buy 1 share of {symbol} at ₹{limit_price:,.2f}. "
             f"Increase capital or reduce percentage."
         )
-        raise ValueError(msg)
 
     return qty
 
@@ -177,8 +173,7 @@ def resolve_position_size(size_spec: str, capital: float, price: float) -> int:
         ValueError:  For invalid input, zero result, or >100% allocation.
     """
     if price <= 0:
-        msg = f"price must be > 0 for position sizing, got {price}"
-        raise ValueError(msg)
+        raise ValueError(f"price must be > 0 for position sizing, got {price}")
 
     spec = str(size_spec).strip()
 
@@ -186,38 +181,35 @@ def resolve_position_size(size_spec: str, capital: float, price: float) -> int:
     if spec.endswith("%"):
         pct_val = float(spec[:-1])
         if pct_val <= 0:
-            msg = f"Percentage must be > 0, got '{spec}'"
-            raise ValueError(msg)
+            raise ValueError(f"Percentage must be > 0, got '{spec}'")
         if pct_val > 100:
-            msg = f"Percentage cannot exceed 100%, got '{spec}'"
-            raise ValueError(msg)
+            raise ValueError(f"Percentage cannot exceed 100%, got '{spec}'")
         allocation = capital * pct_val / 100.0
         qty = int(allocation / price)
         if qty <= 0:
-            msg = (
-                f"{pct_val:.1f}% of ₹{capital:,.0f} = ₹{allocation:,.0f} is not enough to buy 1 share at ₹{price:,.2f}"
+            raise ValueError(
+                f"{pct_val:.1f}% of ₹{capital:,.0f} = ₹{allocation:,.0f} "
+                f"is not enough to buy 1 share at ₹{price:,.2f}"
             )
-            raise ValueError(msg)
         return qty
 
     # ── Numeric spec ──────────────────────────────────────────
     try:
         value = float(spec)
     except ValueError:
-        msg = f"Invalid position size: '{spec}'"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid position size: '{spec}'")
 
     if value <= 0:
-        msg = f"Position size must be > 0, got '{spec}'"
-        raise ValueError(msg)
+        raise ValueError(f"Position size must be > 0, got '{spec}'")
 
     # Heuristic: if value divided by price gives ≥ 2, treat as INR amount
     if value / price >= 2.0:
         # INR amount → shares
         qty = int(value / price)
         if qty <= 0:
-            msg = f"INR amount ₹{value:,.0f} is not enough to buy 1 share at ₹{price:,.2f}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"INR amount ₹{value:,.0f} is not enough to buy 1 share at ₹{price:,.2f}"
+            )
         return qty
 
     # Direct share count
@@ -249,9 +241,7 @@ def is_live_execution_allowed(broker: BrokerAPI) -> bool:
     """
     if _is_paper(broker):
         return False
-    if _trading_mode_override() == "PAPER":
-        return False
-    return True
+    return _trading_mode_override() != "PAPER"
 
 
 # ── Confirmation prompt ────────────────────────────────────────
@@ -443,7 +433,9 @@ def execute_trade_plan(
             )
 
         except Exception as e:
-            console.print(f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} → [red]FAILED: {e}[/red]")
+            console.print(
+                f"  [{i}] {leg.action} {leg.quantity} {leg.instrument} → [red]FAILED: {e}[/red]"
+            )
             results.append(
                 {
                     "symbol": leg.instrument,
@@ -464,7 +456,9 @@ def execute_trade_plan(
             f"  Target 1  : ₹{ep.target_1:,.2f} ({ep.target_1_pct:+.1f}%) → {ep.target_1_action}",
         ]
         if ep.target_2:
-            lines.append(f"  Target 2  : ₹{ep.target_2:,.2f} ({ep.target_2_pct:+.1f}%) → {ep.target_2_action}")
+            lines.append(
+                f"  Target 2  : ₹{ep.target_2:,.2f} ({ep.target_2_pct:+.1f}%) → {ep.target_2_action}"
+            )
         console.print("\n".join(lines))
 
         try:

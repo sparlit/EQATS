@@ -41,7 +41,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -53,13 +53,17 @@ import numpy as np
 import pandas as pd
 from backtest.option_resolver import (
     clear_cache,
-    get_days_to_expiry,
-    get_nearest_expiry,
-    load_option_premiums_for_day,
     resolve_option_at_entry,
     resolve_option_with_vol_surface,
 )
+from config.risk_profiles import RiskLevel, RiskProfile, get_risk_profile
+from config.settings import (
+    WEIGHT_ML_PROBABILITY,
+    WEIGHT_OPTIONS_FLOW,
+    WEIGHT_TECHNICAL_STRENGTH,
+)
 from data.news_sentiment import NewsSentimentEngine
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from features.micro_features import compute_micro_features
 from features.option_chain_features import OptionChainFeatureEngine
@@ -71,15 +75,6 @@ from strategy.regime_detector import MarketRegime, RegimeDetector, get_strategie
 from strategy.signal_generator import generate_signals
 from strategy.vol_surface import VolSurfaceModel
 from utils.logger import get_logger
-
-from config.risk_profiles import RiskLevel, RiskProfile, get_risk_profile
-from config.settings import (
-    SCORE_THRESHOLD,
-    WEIGHT_ML_PROBABILITY,
-    WEIGHT_OPTIONS_FLOW,
-    WEIGHT_TECHNICAL_STRENGTH,
-)
-from database.db import read_sql
 
 logger = get_logger("tick_replay")
 
@@ -232,7 +227,7 @@ def score_lot_multiplier(final_score: float) -> int:
     """Dynamic lot multiplier based on signal strength (aligned with live system)."""
     if final_score >= 0.80:
         return 3
-    if final_score >= 0.70:
+    elif final_score >= 0.70:
         return 2
     return 1
 
@@ -337,8 +332,8 @@ def check_micro_confirmation(minute_ticks: pd.DataFrame, direction: str) -> bool
 
         if direction == "CALL":
             return momentum > -MICRO_MOMENTUM_THRESHOLD  # not strongly selling
-        # PUT
-        return momentum < MICRO_MOMENTUM_THRESHOLD  # not strongly buying
+        else:  # PUT
+            return momentum < MICRO_MOMENTUM_THRESHOLD  # not strongly buying
     except Exception:
         return True  # fail-open
 
@@ -408,7 +403,9 @@ class OpenTrade:
             }
         ]
 
-    def _ratchet_trailing(self, new_peak_candidate: float, bars_held: int, current_bar_idx: int | None = None) -> None:
+    def _ratchet_trailing(
+        self, new_peak_candidate: float, bars_held: int, current_bar_idx: int = None
+    ) -> None:
         """Update peak_premium and ratchet trailing SL upward. Pure side-effect.
 
         Called once per tick (tick mode) or once per bar (candle mode).
@@ -476,7 +473,8 @@ class OpenTrade:
             tighten_progress = (hold_pct - 0.70) / 0.30
             be_price = self.entry_premium + (COMMISSION / self.lot_size)
             time_sl = self.sl + tighten_progress * (be_price - self.sl)
-            self.sl = max(self.sl, time_sl)
+            if time_sl > self.sl:
+                self.sl = time_sl
 
     def check_exit(self, current_minute, bar_idx, nifty_close: float = 0.0) -> bool:
         """Check SL/target/timeout against option premium at current_minute.
@@ -507,7 +505,9 @@ class OpenTrade:
         # Window: [ts, ts + 1 minute). Use a half-open interval so each tick
         # belongs to exactly one minute boundary.
         window_end = ts + pd.Timedelta(minutes=1)
-        window = self.premium_df[(self.premium_df["timestamp"] >= ts) & (self.premium_df["timestamp"] < window_end)]
+        window = self.premium_df[
+            (self.premium_df["timestamp"] >= ts) & (self.premium_df["timestamp"] < window_end)
+        ]
         if window.empty:
             # No ticks for this minute — check timeout against bars_held only,
             # otherwise just hold (we'll re-check next minute)
@@ -538,7 +538,9 @@ class OpenTrade:
             tick_price = float(tick["premium"])
             # Bid-side slippage on exits
             tick_bid = (
-                float(tick["bid"]) * (1 - HALF_SPREAD_PCT) if tick["bid"] > 0 else tick_price * (1 - HALF_SPREAD_PCT)
+                float(tick["bid"]) * (1 - HALF_SPREAD_PCT)
+                if tick["bid"] > 0
+                else tick_price * (1 - HALF_SPREAD_PCT)
             )
             float(tick["ask"]) if tick["ask"] > 0 else tick_price
             last_close = tick_price
@@ -580,7 +582,12 @@ class OpenTrade:
             result = "TIMEOUT"
 
         # 5. RL agent override (only if no hard exit, end-of-minute decision)
-        if exit_prem is None and self.rl_agent is not None and self.rl_agent.is_loaded and last_close is not None:
+        if (
+            exit_prem is None
+            and self.rl_agent is not None
+            and self.rl_agent.is_loaded
+            and last_close is not None
+        ):
             try:
                 state = rl_compute_state(
                     entry_premium=self.entry_premium,
@@ -741,7 +748,7 @@ def replay_day(
     vol_model: VolSurfaceModel = None,
     rl_agent: RLExitAgent = None,
     equity: float = 50000.0,
-    rolling_wins: list | None = None,
+    rolling_wins: list = None,
     verbose: bool = True,
 ) -> list:
     """
@@ -834,7 +841,9 @@ def replay_day(
             "vwap": 0,
             "oi": int(minute_ticks["oi"].iloc[-1]) if "oi" in minute_ticks.columns else 0,
         }
-        candle_buffer = pd.concat([candle_buffer, pd.DataFrame([candle])], ignore_index=True).tail(500)
+        candle_buffer = pd.concat([candle_buffer, pd.DataFrame([candle])], ignore_index=True).tail(
+            500
+        )
 
         # ── 3. Skip if in trade, max trades, circuit breaker, or not enough warmup
         if open_trade is not None:
@@ -984,7 +993,9 @@ def replay_day(
             # backtest from ₹30,612 → ₹35,925 even with fewer trades.
             min_score = max(
                 0.75,
-                _PROFILE.put_score_threshold if sig.direction == "PUT" else _PROFILE.score_threshold,
+                _PROFILE.put_score_threshold
+                if sig.direction == "PUT"
+                else _PROFILE.score_threshold,
             )
 
             # Strategy-specific overrides (evidence-based from backtest with real slippage)
@@ -997,7 +1008,9 @@ def replay_day(
                 close_px = float(latest.get("close", 0) or 0)
                 ema20_v = float(latest.get("ema20", 0) or 0)
                 ema50_v = float(latest.get("ema50", 0) or 0)
-                in_uptrend = close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                in_uptrend = (
+                    close_px > 0 and ema50_v > 0 and close_px > ema50_v and ema20_v > ema50_v
+                )
                 if in_uptrend and directional_prob < 0.85:
                     if verbose:
                         print(
@@ -1038,7 +1051,12 @@ def replay_day(
                     ema20_mr = float(latest.get("ema20", 0) or 0)
                     ema50_mr = float(latest.get("ema50", 0) or 0)
                     rsi_15m_mr = float(latest.get("rsi_15m") or 50.0)
-                    in_uptrend_mr = close_px_mr > 0 and ema50_mr > 0 and close_px_mr > ema50_mr and ema20_mr > ema50_mr
+                    in_uptrend_mr = (
+                        close_px_mr > 0
+                        and ema50_mr > 0
+                        and close_px_mr > ema50_mr
+                        and ema20_mr > ema50_mr
+                    )
                     if in_uptrend_mr and rsi_15m_mr > 70.0:
                         if verbose:
                             print(
@@ -1060,7 +1078,8 @@ def replay_day(
                 if len(featured) >= 4:
                     last3 = featured.iloc[-4:-1]  # 3 bars before current
                     sustained_up = bool(
-                        (last3["close"] > last3["open"]).sum() >= 2 and last3["close"].iloc[-1] > last3["close"].iloc[0]
+                        (last3["close"] > last3["open"]).sum() >= 2
+                        and last3["close"].iloc[-1] > last3["close"].iloc[0]
                     )
                     if not sustained_up:
                         continue
@@ -1095,7 +1114,9 @@ def replay_day(
             CONTINUATION_STRATEGIES = {"vwap_momentum_breakout"}
             if sig.strategy in CONTINUATION_STRATEGIES and len(featured) >= 2:
                 prev_bar = featured.iloc[-2]
-                prev_move_pct = (float(prev_bar["close"]) - float(prev_bar["open"])) / max(float(prev_bar["open"]), 1)
+                prev_move_pct = (float(prev_bar["close"]) - float(prev_bar["open"])) / max(
+                    float(prev_bar["open"]), 1
+                )
                 if sig.direction == "PUT" and prev_move_pct > 0.0010:
                     continue  # previous bar bullish → skip continuation PUT
                 if sig.direction == "CALL" and prev_move_pct < -0.0010:
@@ -1150,7 +1171,10 @@ def replay_day(
                 # days (pre-Mar-25), skip the gate.
                 if _prem_df is not None and not _prem_df.empty and mode == "tick":
                     window_start = minute_ts - pd.Timedelta(seconds=30)
-                    prior = _prem_df[(_prem_df["timestamp"] >= window_start) & (_prem_df["timestamp"] < minute_ts)]
+                    prior = _prem_df[
+                        (_prem_df["timestamp"] >= window_start)
+                        & (_prem_df["timestamp"] < minute_ts)
+                    ]
                     if len(prior) >= 8:  # need at least 8 ticks in 30s
                         first_p = float(prior.iloc[0]["premium"])
                         last_p = float(prior.iloc[-1]["premium"])
@@ -1243,7 +1267,9 @@ def replay_day(
         open_trade.exit_time = minutes[-1]
         open_trade.exit_premium = round(exit_prem, 2)
         open_trade.result = "EOD_CLOSE"
-        open_trade.pnl = round((exit_prem - open_trade.entry_premium) * open_trade.lot_size - COMMISSION, 2)
+        open_trade.pnl = round(
+            (exit_prem - open_trade.entry_premium) * open_trade.lot_size - COMMISSION, 2
+        )
         completed_trades.append(open_trade.to_dict())
         if verbose:
             pnl_str = f"₹{open_trade.pnl:+,.0f}"
@@ -1265,7 +1291,9 @@ def replay_day(
 
 def main():
     parser = argparse.ArgumentParser(description="Tick-level replay backtest")
-    parser.add_argument("dates", nargs="*", help="Dates to replay (YYYY-MM-DD). Default: all available.")
+    parser.add_argument(
+        "dates", nargs="*", help="Dates to replay (YYYY-MM-DD). Default: all available."
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress per-trade output")
     parser.add_argument(
         "--risk",
@@ -1286,7 +1314,10 @@ def main():
         f"  Risk:  {_PROFILE.level.value}  |  Lots: {_PROFILE.lot_multiplier:.2f}x  |  "
         f"SL: {SL_MIN_PCT:.0%}-{SL_MAX_PCT:.0%}  |  TGT: {TGT_MIN_PCT:.0%}-{TGT_MAX_PCT:.0%}"
     )
-    print(f"  Score: >={_PROFILE.score_threshold}  |  Max trades/day: {MAX_TRADES_DAY}  |  Max premium: ₹{MAX_PREMIUM}")
+    print(
+        f"  Score: >={_PROFILE.score_threshold}  |  Max trades/day: {MAX_TRADES_DAY}  |  "
+        f"Max premium: ₹{MAX_PREMIUM}"
+    )
     print("=" * 60)
 
     # ── Load models once ─────────────────────────────────────────────────
@@ -1324,7 +1355,9 @@ def main():
     rl_agent = RLExitAgent()
     if rl_agent.load():
         summary = rl_agent.policy_summary()
-        print(f"  RL exit agent:   enabled ({summary['states']} states, {summary['episodes']} episodes)")
+        print(
+            f"  RL exit agent:   enabled ({summary['states']} states, {summary['episodes']} episodes)"
+        )
     else:
         rl_agent = None
         print("  RL exit agent:   disabled (no trained model)")
@@ -1333,7 +1366,10 @@ def main():
     print(f"  Strategy models: {strategy_predictor.available_strategies}")
 
     # ── Determine which days to replay ───────────────────────────────────
-    replay_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates] if args.dates else get_available_days()
+    if args.dates:
+        replay_dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in args.dates]
+    else:
+        replay_dates = get_available_days()
 
     print(f"  Days to replay:  {len(replay_dates)}")
     for d in replay_dates:
@@ -1451,7 +1487,9 @@ def main():
     if len(profitable) > 0 and len(unprofitable) > 0:
         print(f"  Avg winner:        ₹{profitable['pnl'].mean():+,.0f}")
         print(f"  Avg loser:         ₹{unprofitable['pnl'].mean():+,.0f}")
-        print(f"  Risk-Reward:       {abs(profitable['pnl'].mean() / unprofitable['pnl'].mean()):.2f}")
+        print(
+            f"  Risk-Reward:       {abs(profitable['pnl'].mean() / unprofitable['pnl'].mean()):.2f}"
+        )
     print(f"  Max win:           ₹{df['pnl'].max():+,.0f}")
     print(f"  Max loss:          ₹{df['pnl'].min():+,.0f}")
 
@@ -1466,7 +1504,9 @@ def main():
     print(f"  {'─' * 30} {'─' * 6} {'─' * 5} {'─' * 10} {'─' * 8}")
     for strat, g in df.groupby("strategy"):
         wr = (g["pnl"] > 0).mean() * 100
-        print(f"  {strat:<30s} {len(g):>6d} {wr:>4.0f}% {g['pnl'].sum():>+10,.0f} {g['pnl'].mean():>+8,.0f}")
+        print(
+            f"  {strat:<30s} {len(g):>6d} {wr:>4.0f}% {g['pnl'].sum():>+10,.0f} {g['pnl'].mean():>+8,.0f}"
+        )
 
     # By direction
     print(f"\n  {'Direction':<10s} {'Trades':>6s} {'WR':>5s} {'Total P&L':>10s}")
@@ -1489,7 +1529,7 @@ def main():
     for day, g in df.groupby("day"):
         w = (g["pnl"] > 0).sum()
         l = len(g) - w
-        print(f"  {day!s:<12s} {len(g):>6d} {w:>3d} {l:>3d} {g['pnl'].sum():>+10,.0f}")
+        print(f"  {str(day):<12s} {len(g):>6d} {w:>3d} {l:>3d} {g['pnl'].sum():>+10,.0f}")
 
     # Export — write both a generic file and the per-risk file the dashboard API reads
     out_dir = Path("backtest_results")

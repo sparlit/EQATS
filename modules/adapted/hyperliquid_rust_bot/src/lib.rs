@@ -8,6 +8,8 @@ mod helper;
 mod market;
 mod metrics;
 mod strategy;
+#[cfg(test)]
+mod test_support;
 mod trade_setup;
 mod wallet;
 

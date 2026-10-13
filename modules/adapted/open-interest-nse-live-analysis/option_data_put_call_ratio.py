@@ -22,11 +22,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import argparse
-import sys
 
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import animation, style
 from playsound import playsound
 from utilities import *
 
@@ -40,7 +39,12 @@ parser.add_argument(
     help="Link of the required Derivative",
 )
 parser.add_argument(
-    "-p", "--pointsnum", type=int, default=6, metavar="", help="Number of points required on either side"
+    "-p",
+    "--pointsnum",
+    type=int,
+    default=6,
+    metavar="",
+    help="Number of points required on either side",
 )
 ##parser.add_argument('-q','--quantity',type=str,default='OI', metavar='',help='What you want to plot')
 args = parser.parse_args()

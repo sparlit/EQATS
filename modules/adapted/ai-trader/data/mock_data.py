@@ -39,13 +39,11 @@ All prices are realistic for NSE NIFTY (~22000-23000) and BANKNIFTY (~47000-4900
 import random
 from datetime import datetime, timedelta
 from datetime import time as dt_time
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from utils.logger import get_logger
-
 from config.settings import SYMBOLS
+from utils.logger import get_logger
 
 logger = get_logger("mock_data")
 
@@ -106,7 +104,9 @@ def generate_mock_minute_bars(
 
             # Volatility varies through the day (higher at open/close)
             hour_frac = minute / _TRADING_MINUTES
-            volatility = 0.001 * (1.5 if hour_frac < 0.1 or hour_frac > 0.9 else 0.6 if 0.3 < hour_frac < 0.6 else 1.0)
+            volatility = 0.001 * (
+                1.5 if hour_frac < 0.1 or hour_frac > 0.9 else 0.6 if 0.3 < hour_frac < 0.6 else 1.0
+            )
 
             # Price walk with trend
             change = np.random.normal(daily_trend / _TRADING_MINUTES, volatility)
@@ -141,7 +141,9 @@ def generate_mock_minute_bars(
         current_date += timedelta(days=1)
 
     df = pd.DataFrame(records)
-    logger.info(f"Generated {len(df)} mock minute bars for {symbol} ({days_generated} trading days).")
+    logger.info(
+        f"Generated {len(df)} mock minute bars for {symbol} ({days_generated} trading days)."
+    )
     return df
 
 

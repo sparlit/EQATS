@@ -208,7 +208,7 @@ def _band_num(v) -> int | None:
     try:
         if v is None or v != v:  # None or NaN
             return None
-        n = round(float(v))
+        n = int(round(float(v)))
         return n if n > 0 else None
     except (TypeError, ValueError):
         return None
@@ -222,8 +222,7 @@ def _chunks(seq: list, n: int):
 def _download_batch(tickers: list[str], start, retries: int = 2) -> pd.DataFrame | None:
     """Download one batch; retry a couple of times on transient failures/empties."""
     if yf is None:
-        msg = "yfinance is not installed"
-        raise RuntimeError(msg)
+        raise RuntimeError("yfinance is not installed")
     last_err = None
     for attempt in range(retries + 1):
         try:
@@ -338,7 +337,9 @@ def compute_snapshot(universe: pd.DataFrame, progress_cb=None):
     name_by_ticker = dict(zip(universe["Ticker"], universe["Company"], strict=False))
     fno_by_sym = dict(zip(universe["Symbol"], universe.get("is_fno", False), strict=False))
     band_by_sym = dict(zip(universe["Symbol"], universe.get("Band", float("nan")), strict=False))
-    listing_by_sym = dict(zip(universe["Symbol"], universe.get("ListingDate", pd.NaT), strict=False))
+    listing_by_sym = dict(
+        zip(universe["Symbol"], universe.get("ListingDate", pd.NaT), strict=False)
+    )
     tickers = list(universe["Ticker"])
 
     rows: list[dict] = []
@@ -384,7 +385,9 @@ def compute_snapshot(universe: pd.DataFrame, progress_cb=None):
                         "is_fno": bool(fno_by_sym.get(sym, False)),
                         "Band": band_by_sym.get(sym),
                         "ListingDate": (
-                            listing.date().isoformat() if listing is not None and not pd.isna(listing) else ""
+                            listing.date().isoformat()
+                            if listing is not None and not pd.isna(listing)
+                            else ""
                         ),
                         "LastDate": ld.date().isoformat(),
                     }
@@ -482,7 +485,9 @@ def _window_high(df: pd.DataFrame, window, as_of) -> tuple[pd.Series, pd.Series]
     """
     years = _window_years(window)
     if years is None and "HighATH" in df.columns:
-        return pd.to_numeric(df["HighATH"], errors="coerce"), pd.to_datetime(df["HighATHDate"], errors="coerce")
+        return pd.to_numeric(df["HighATH"], errors="coerce"), pd.to_datetime(
+            df["HighATHDate"], errors="coerce"
+        )
     if years is not None and "Frontier" in df.columns:
         cutoff = frontier.years_cutoff(years, as_of.date() if pd.notna(as_of) else None)
         highs, dates = [], []
@@ -494,7 +499,9 @@ def _window_high(df: pd.DataFrame, window, as_of) -> tuple[pd.Series, pd.Series]
             pd.Series(dates, index=df.index), errors="coerce"
         )
     # legacy fallback (old snapshot format)
-    return pd.to_numeric(df.get("HighH"), errors="coerce"), pd.to_datetime(df.get("HighHDate"), errors="coerce")
+    return pd.to_numeric(df.get("HighH"), errors="coerce"), pd.to_datetime(
+        df.get("HighHDate"), errors="coerce"
+    )
 
 
 def screen_snapshot(
@@ -531,7 +538,9 @@ def screen_snapshot(
 
     df["_high"], df["_hdate"] = _window_high(df, window, as_of)
     df["_close"] = pd.to_numeric(df["LastClose"], errors="coerce")
-    df = df[df["_high"].notna() & (df["_high"] > 0) & df["_hdate"].notna() & df["_close"].notna()].copy()
+    df = df[
+        df["_high"].notna() & (df["_high"] > 0) & df["_hdate"].notna() & df["_close"].notna()
+    ].copy()
     if df.empty:
         return pd.DataFrame(columns=RESULT_COLUMNS)
 
@@ -548,7 +557,9 @@ def screen_snapshot(
     if fno_only:
         df = df[df["is_fno"]]
     if qty_circuit_only:
-        qmask = (df["_vol"] <= qty_threshold) if qty_keep == "below" else (df["_vol"] >= qty_threshold)
+        qmask = (
+            (df["_vol"] <= qty_threshold) if qty_keep == "below" else (df["_vol"] >= qty_threshold)
+        )
         df = df[qmask & (df["_band"] == CIRCUIT_BAND_PCT)]
     if listing_only:
         _today = pd.Timestamp.now().normalize()

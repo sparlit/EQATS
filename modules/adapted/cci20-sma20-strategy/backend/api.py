@@ -38,15 +38,14 @@ import json
 import logging
 import os
 import sys
-import uuid
-from typing import TYPE_CHECKING, List, Optional
 
 import boto3
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 _backend_dir = os.path.dirname(__file__)
 if _backend_dir not in sys.path:
@@ -54,10 +53,14 @@ if _backend_dir not in sys.path:
 
 from auth import ADMIN_COGNITO_SUB, get_admin_user, get_current_user
 from db.connection import get_db
-from db.models import DailyStockMetric, User, UserSubscription, Watchlist, WatchlistItem, generate_share_id
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+from db.models import (
+    DailyStockMetric,
+    User,
+    UserSubscription,
+    Watchlist,
+    WatchlistItem,
+    generate_share_id,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -154,7 +157,9 @@ async def get_all_users(admin: User = Depends(get_admin_user), db: AsyncSession 
 
 
 @app.delete("/admin/users/{user_id}")
-async def delete_user(user_id: str, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)):
+async def delete_user(
+    user_id: str, admin: User = Depends(get_admin_user), db: AsyncSession = Depends(get_db)
+):
     """Admin only: Delete a user and cascade delete their data."""
     if user_id == str(admin.id):
         raise HTTPException(400, "Cannot delete yourself")
@@ -183,7 +188,9 @@ async def get_watchlists(
 ):
     """Return all watchlists owned by or subscribed to by the user."""
     # Owned lists
-    owned_res = await db.execute(select(Watchlist).where(Watchlist.user_id == current_user.id).order_by(Watchlist.name))
+    owned_res = await db.execute(
+        select(Watchlist).where(Watchlist.user_id == current_user.id).order_by(Watchlist.name)
+    )
     owned = owned_res.scalars().all()
 
     # Subscribed lists
@@ -340,7 +347,9 @@ async def get_watchlist_by_share_id(
     if not wl:
         raise HTTPException(404, "Invalid share_id or watchlist not found")
 
-    items_res = await db.execute(select(WatchlistItem.ticker).where(WatchlistItem.watchlist_id == wl.id))
+    items_res = await db.execute(
+        select(WatchlistItem.ticker).where(WatchlistItem.watchlist_id == wl.id)
+    )
     tickers = items_res.scalars().all()
 
     return {
@@ -428,7 +437,9 @@ async def get_results(
                 "cci_20": float(r.cci_20) if r.cci_20 is not None else None,
                 "sma_20": float(r.sma_20) if r.sma_20 is not None else None,
                 "yearly_low_pct": float(r.pct_from_y_low) if r.pct_from_y_low is not None else None,
-                "monthly_low_pct": float(r.pct_from_m_low) if r.pct_from_m_low is not None else None,
+                "monthly_low_pct": float(r.pct_from_m_low)
+                if r.pct_from_m_low is not None
+                else None,
                 "weekly_low_pct": float(r.pct_from_w_low) if r.pct_from_w_low is not None else None,
                 "yearly_low": float(r.yearly_low) if r.yearly_low is not None else None,
                 "monthly_low": float(r.monthly_low) if r.monthly_low is not None else None,
@@ -469,7 +480,9 @@ async def trigger_scan(current_user: User = Depends(get_current_user)):
 
 async def _get_owned_watchlist(watchlist_id: str, user: User, db: AsyncSession) -> Watchlist:
     if watchlist_id.isdigit():
-        stmt = select(Watchlist).where(Watchlist.id == int(watchlist_id), Watchlist.user_id == user.id)
+        stmt = select(Watchlist).where(
+            Watchlist.id == int(watchlist_id), Watchlist.user_id == user.id
+        )
     else:
         stmt = select(Watchlist).where(Watchlist.name == watchlist_id, Watchlist.user_id == user.id)
 
@@ -498,7 +511,9 @@ async def _resolve_watchlist(identifier: str, user: User, db: AsyncSession) -> W
 
     # 3. By Name (owned or public)
     res = await db.execute(
-        select(Watchlist).where(Watchlist.name == identifier, or_(Watchlist.user_id == user.id, Watchlist.is_public))
+        select(Watchlist).where(
+            Watchlist.name == identifier, or_(Watchlist.user_id == user.id, Watchlist.is_public)
+        )
     )
     wl = res.scalar_one_or_none()
     if wl:

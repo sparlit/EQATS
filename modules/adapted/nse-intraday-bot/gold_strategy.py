@@ -59,7 +59,6 @@ TRADE MANAGEMENT:
 
 from datetime import UTC, datetime, timedelta, timezone
 
-import numpy as np
 import pandas as pd
 
 # ══════════════════════════════════════════════════════════════════
@@ -204,7 +203,14 @@ def detect_h4_ob(df_4h: pd.DataFrame, direction: str, lookback: int = 25) -> dic
                  (strong impulse up) AND the OB body has NOT been mitigated.
     Bearish OB = last bullish candle before a strong bearish impulse.
     """
-    empty = {"valid": False, "high": None, "low": None, "body_top": None, "body_bot": None, "strength": None}
+    empty = {
+        "valid": False,
+        "high": None,
+        "low": None,
+        "body_top": None,
+        "body_bot": None,
+        "strength": None,
+    }
     n = len(df_4h)
     if n < 4:
         return empty
@@ -291,19 +297,18 @@ def detect_h4_fvg(df_4h: pd.DataFrame, direction: str, lookback: int = 15) -> di
                         "filled": False,
                     }
 
-        elif direction == "SHORT":
-            if c1l > c3h:
-                top, bot = c1l, c3h
-                eq = round((top + bot) / 2, 2)
-                filled = float(df_4h["high"].iloc[i + 2 :].max()) >= top if i + 2 < n else False
-                if not filled:
-                    return {
-                        "valid": True,
-                        "top": round(top, 2),
-                        "bot": round(bot, 2),
-                        "equilibrium": eq,
-                        "filled": False,
-                    }
+        elif direction == "SHORT" and c1l > c3h:
+            top, bot = c1l, c3h
+            eq = round((top + bot) / 2, 2)
+            filled = float(df_4h["high"].iloc[i + 2 :].max()) >= top if i + 2 < n else False
+            if not filled:
+                return {
+                    "valid": True,
+                    "top": round(top, 2),
+                    "bot": round(bot, 2),
+                    "equilibrium": eq,
+                    "filled": False,
+                }
 
     return empty
 
@@ -430,7 +435,12 @@ def detect_judas_swing(df_15m: pd.DataFrame, direction: str, asian_range: dict) 
 
     Look at the most recent 8 M15 bars (= 2 hours) inside the kill zone.
     """
-    empty = {"confirmed": False, "sweep_level": None, "sweep_type": None, "reason": "No Judas swing detected"}
+    empty = {
+        "confirmed": False,
+        "sweep_level": None,
+        "sweep_type": None,
+        "reason": "No Judas swing detected",
+    }
 
     if not asian_range.get("valid"):
         return {**empty, "reason": "Asian range not available"}
@@ -450,23 +460,32 @@ def detect_judas_swing(df_15m: pd.DataFrame, direction: str, asian_range: dict) 
                     "confirmed": True,
                     "sweep_level": asian_low,
                     "sweep_type": "Asian Low Swept",
-                    "reason": (f"Judas Swing LONG: swept Asian low ${asian_low:.2f} → recovered to ${cur_close:.2f}"),
+                    "reason": (
+                        f"Judas Swing LONG: swept Asian low "
+                        f"${asian_low:.2f} → recovered to ${cur_close:.2f}"
+                    ),
                 }
             return {**empty, "reason": f"Asian low ${asian_low:.2f} swept — awaiting recovery"}
         return {**empty, "reason": f"Asian low ${asian_low:.2f} NOT swept (min=${swept_low:.2f})"}
 
-    # SHORT
-    swept_high = float(recent["high"].max())
-    if swept_high > asian_high:
-        if cur_close < asian_high:
-            return {
-                "confirmed": True,
-                "sweep_level": asian_high,
-                "sweep_type": "Asian High Swept",
-                "reason": (f"Judas Swing SHORT: swept Asian high ${asian_high:.2f} → rejected to ${cur_close:.2f}"),
-            }
-        return {**empty, "reason": f"Asian high ${asian_high:.2f} swept — awaiting rejection"}
-    return {**empty, "reason": f"Asian high ${asian_high:.2f} NOT swept (max=${swept_high:.2f})"}
+    else:  # SHORT
+        swept_high = float(recent["high"].max())
+        if swept_high > asian_high:
+            if cur_close < asian_high:
+                return {
+                    "confirmed": True,
+                    "sweep_level": asian_high,
+                    "sweep_type": "Asian High Swept",
+                    "reason": (
+                        f"Judas Swing SHORT: swept Asian high "
+                        f"${asian_high:.2f} → rejected to ${cur_close:.2f}"
+                    ),
+                }
+            return {**empty, "reason": f"Asian high ${asian_high:.2f} swept — awaiting rejection"}
+        return {
+            **empty,
+            "reason": f"Asian high ${asian_high:.2f} NOT swept (max=${swept_high:.2f})",
+        }
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -503,7 +522,11 @@ def detect_choch_m15(df_15m: pd.DataFrame, direction: str, lookback: int = 20) -
         if swing_highs:
             lh = swing_highs[0]  # most recent swing high
             if close > lh:
-                return {"confirmed": True, "level": round(lh, 2), "reason": f"Bullish CHOCH: closed above LH ${lh:.2f}"}
+                return {
+                    "confirmed": True,
+                    "level": round(lh, 2),
+                    "reason": f"Bullish CHOCH: closed above LH ${lh:.2f}",
+                }
 
     else:  # SHORT
         swing_lows = []
@@ -518,7 +541,11 @@ def detect_choch_m15(df_15m: pd.DataFrame, direction: str, lookback: int = 20) -
         if swing_lows:
             hl = swing_lows[0]
             if close < hl:
-                return {"confirmed": True, "level": round(hl, 2), "reason": f"Bearish CHOCH: closed below HL ${hl:.2f}"}
+                return {
+                    "confirmed": True,
+                    "level": round(hl, 2),
+                    "reason": f"Bearish CHOCH: closed below HL ${hl:.2f}",
+                }
 
     return empty
 
@@ -535,7 +562,14 @@ def detect_ote(df_15m: pd.DataFrame, direction: str) -> dict:
     Bullish OTE : swing low → swing high, then price retraces 62–79% down
     Bearish OTE : swing high → swing low, then price bounces 62–79% up
     """
-    empty = {"in_zone": False, "fib_62": None, "fib_79": None, "swing_high": None, "swing_low": None, "pct": None}
+    empty = {
+        "in_zone": False,
+        "fib_62": None,
+        "fib_79": None,
+        "swing_high": None,
+        "swing_low": None,
+        "pct": None,
+    }
     if df_15m is None or len(df_15m) < 15:
         return empty
 
@@ -581,7 +615,12 @@ def detect_m5_confirmation(df_5m: pd.DataFrame, direction: str, ob: dict, fvg: d
     Final entry trigger: M5 candle closes bullish (LONG) or bearish (SHORT)
     while price is inside the H4 Order Block or FVG zone.
     """
-    empty = {"confirmed": False, "candle_type": None, "zone_type": None, "reason": "No M5 confirmation"}
+    empty = {
+        "confirmed": False,
+        "candle_type": None,
+        "zone_type": None,
+        "reason": "No M5 confirmation",
+    }
     if df_5m is None or len(df_5m) < 2:
         return {**empty, "reason": "M5 data not available"}
 
@@ -645,7 +684,9 @@ def detect_m5_confirmation(df_5m: pd.DataFrame, direction: str, ob: dict, fvg: d
 # ══════════════════════════════════════════════════════════════════
 
 
-def _calc_trade_params(entry: float, ob: dict, fvg: dict, direction: str, asian_range: dict | None = None) -> dict:
+def _calc_trade_params(
+    entry: float, ob: dict, fvg: dict, direction: str, asian_range: dict = None
+) -> dict:
     """
     SL  = $0.50 below OB low (LONG) / above OB high (SHORT).
     Falls back to FVG geometry, then Asian session range extremes.
@@ -717,8 +758,8 @@ def score_gold(
     df_5m: pd.DataFrame = None,
     pdh=None,
     pdl=None,
-    dxy_data: dict | None = None,
-    ist_time: datetime | None = None,
+    dxy_data: dict = None,
+    ist_time: datetime = None,
     risk_pct: float = RISK_PCT_DEFAULT,
 ) -> dict:
     """
@@ -766,7 +807,9 @@ def score_gold(
         return {}  # Outside kill zone — no trade
 
     pts_kz = PTS_KZ
-    reasons.append(f"[3] Kill Zone: {kz_name} active ({ist_time.strftime('%H:%M')} IST) +{pts_kz}pts")
+    reasons.append(
+        f"[3] Kill Zone: {kz_name} active ({ist_time.strftime('%H:%M')} IST) +{pts_kz}pts"
+    )
 
     # ═══════════════════════════════════════════════
     # CONFLUENCE [1]: DAILY BIAS
@@ -783,7 +826,9 @@ def score_gold(
             direction = struct["direction"]
             daily["direction"] = direction
             daily["bias"] = "BULLISH" if direction == "LONG" else "BEARISH"
-            daily["reason"] = f"H4 {'BOS' if struct['bos'] else 'CHOCH'} fallback ({direction}) — no daily data"
+            daily["reason"] = (
+                f"H4 {'BOS' if struct['bos'] else 'CHOCH'} fallback ({direction}) — no daily data"
+            )
         if not direction:
             return {}  # No structure at all → skip
 
@@ -800,7 +845,9 @@ def score_gold(
     zone_lbl = pd_zone.get("zone", "Unknown")
     zone_pct = pd_zone.get("pct", "?")
     if in_zone:
-        reasons.append(f"[2] {zone_lbl} zone ({zone_pct}% of range) — ideal for {direction} +{pts_zone}pts")
+        reasons.append(
+            f"[2] {zone_lbl} zone ({zone_pct}% of range) — ideal for {direction} +{pts_zone}pts"
+        )
     else:
         reasons.append(f"[2] {zone_lbl} zone ({zone_pct}%) — not optimal for {direction} (0pts)")
 
@@ -827,10 +874,14 @@ def score_gold(
 
     if ob.get("valid"):
         reasons.append(
-            f"[5] H4 OB {ob['body_bot']:.2f}–{ob['body_top']:.2f} (strength {ob.get('strength', '?')}x) +{pts_obfvg}pts"
+            f"[5] H4 OB {ob['body_bot']:.2f}–{ob['body_top']:.2f} "
+            f"(strength {ob.get('strength', '?')}x) +{pts_obfvg}pts"
         )
     if fvg.get("valid"):
-        reasons.append(f"[5] H4 FVG {fvg['bot']:.2f}–{fvg['top']:.2f} EQ ${fvg['equilibrium']:.2f} +{pts_obfvg}pts")
+        reasons.append(
+            f"[5] H4 FVG {fvg['bot']:.2f}–{fvg['top']:.2f} "
+            f"EQ ${fvg['equilibrium']:.2f} +{pts_obfvg}pts"
+        )
     if not has_ob_fvg:
         reasons.append("[5] No H4 OB or FVG found (0pts)")
 
@@ -876,7 +927,9 @@ def score_gold(
     if asian_range.get("valid"):
         reasons.append(f"Asian range: ${asian_range['low']:.2f}–${asian_range['high']:.2f}")
 
-    reasons.append(f"Day: {day_name} ({'Best day' if best_day else 'Non-ideal — prefer Tue/Wed/Thu'})")
+    reasons.append(
+        f"Day: {day_name} ({'Best day' if best_day else 'Non-ideal — prefer Tue/Wed/Thu'})"
+    )
 
     # ═══════════════════════════════════════════════
     # BUILD SIGNAL DICT
@@ -932,7 +985,9 @@ def score_gold(
         "fvg": fvg,
         "ote": ote,
         "m5_confirmation": m5_confirm,
-        "dxy_confirmation": bool(dxy_data and dxy_data.get("bearish" if direction == "LONG" else "bullish", False)),
+        "dxy_confirmation": bool(
+            dxy_data and dxy_data.get("bearish" if direction == "LONG" else "bullish", False)
+        ),
         # Backward-compatible keys (notifier / logger)
         "entry": tp["entry"],
         "target": tp["t2"],

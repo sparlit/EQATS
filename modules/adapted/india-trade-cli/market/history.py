@@ -36,7 +36,6 @@ Intervals supported (Zerodha notation):
 
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 import pandas as pd
 
@@ -119,11 +118,12 @@ def get_ohlcv(
         return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
 
     df = pd.DataFrame(raw)
-    df = df.rename(columns={"date": "date"})
+    df.rename(columns={"date": "date"}, inplace=True)
     df["date"] = pd.to_datetime(df["date"])
-    df = df.set_index("date")
+    df.set_index("date", inplace=True)
     df = df[["open", "high", "low", "close", "volume"]].astype(float)
-    return df.sort_index()
+    df.sort_index(inplace=True)
+    return df
 
 
 def save_ohlcv_cache(key: str, data: list) -> None:
@@ -175,8 +175,7 @@ def _get_instrument_token(symbol: str, exchange: str) -> int:
     for inst in instruments:
         if inst["tradingsymbol"] == symbol:
             return inst["instrument_token"]
-    msg = f"Instrument not found: {exchange}:{symbol}"
-    raise ValueError(msg)
+    raise ValueError(f"Instrument not found: {exchange}:{symbol}")
 
 
 # NOTE: _mock_ohlcv and get_ohlcv_mock were removed.

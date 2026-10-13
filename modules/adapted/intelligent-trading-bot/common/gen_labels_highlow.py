@@ -21,13 +21,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import json
-import os
-from datetime import datetime, timedelta, timezone
-from typing import Union
+from datetime import datetime
 
 import numpy as np
-import pandas as pd
 from common.gen_features import *
 from common.gen_features_rolling_agg import *
 from common.utils import *
@@ -65,7 +61,13 @@ def generate_labels_highlow(df, horizon):
 
     # Max high for horizon relative to close (normally positive but can be negative)
     labels += add_future_aggregations(
-        df, "high", np.max, windows=windows, suffix="_max", rel_column_name="close", rel_factor=100.0
+        df,
+        "high",
+        np.max,
+        windows=windows,
+        suffix="_max",
+        rel_column_name="close",
+        rel_factor=100.0,
     )
     high_column_name = "high_max_" + str(horizon)  # Example: high_max_180
 
@@ -137,11 +139,9 @@ def generate_labels_highlow2(df, config: dict):
 
     function = config.get("function")
     if not isinstance(function, str):
-        msg = f"Wrong type of the 'function' parameter: {type(function)}"
-        raise ValueError(msg)
+        raise ValueError(f"Wrong type of the 'function' parameter: {type(function)}")
     if function not in ["high", "low"]:
-        msg = f"Unknown function name {function}. Only 'high' or 'low' are possible"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown function name {function}. Only 'high' or 'low' are possible")
 
     tolerance = config.get("tolerance")  # Fraction of the level/threshold
 
@@ -160,14 +160,19 @@ def generate_labels_highlow2(df, config: dict):
 
     horizon = config.get("horizon")  # Length of history to be analyzed
 
-    names = config.get("names")  # For example, ['first_high_10', 'first_high_15'] for two tolerances
+    names = config.get(
+        "names"
+    )  # For example, ['first_high_10', 'first_high_15'] for two tolerances
     if len(names) != len(thresholds):
-        msg = "'highlow2' Label generator: for each threshold value one name has to be provided."
-        raise ValueError(msg)
+        raise ValueError(
+            "'highlow2' Label generator: for each threshold value one name has to be provided."
+        )
 
     labels = []
     for i, threshold in enumerate(thresholds):
-        first_cross_labels(df, horizon, [threshold, tolerances[i]], close_column, price_columns, names[i])
+        first_cross_labels(
+            df, horizon, [threshold, tolerances[i]], close_column, price_columns, names[i]
+        )
         labels.append(names[i])
 
     print(f"Highlow2 labels computed: {labels}")
@@ -201,14 +206,19 @@ def first_cross_labels(df, horizon, thresholds, close_column, price_columns, out
     def is_high_true(x):
         if np.isnan(x[0]):
             return False
-        if np.isnan(x[1]):
+        elif np.isnan(x[1]):
             return True
-        return x[0] <= x[1]  # If the first cross point is closer to this point than the second one
+        else:
+            return (
+                x[0] <= x[1]
+            )  # If the first cross point is closer to this point than the second one
 
-    df[out_column] = df[["first_idx_column", "second_idx_column"]].apply(is_high_true, raw=True, axis=1)
+    df[out_column] = df[["first_idx_column", "second_idx_column"]].apply(
+        is_high_true, raw=True, axis=1
+    )
 
     # Indexes are not needed anymore
-    df = df.drop(columns=["first_idx_column", "second_idx_column"])
+    df.drop(columns=["first_idx_column", "second_idx_column"], inplace=True)
 
     return out_column
 

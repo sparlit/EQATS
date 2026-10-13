@@ -21,11 +21,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime, time, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import click
-import numpy as np
 import pandas as pd
 from common.utils import merge_data_sources
 from service.App import *
@@ -124,7 +123,9 @@ def main(config_file):
 
     range_start = df_out.index[0]
     range_end = df_out.index[-1]
-    print(f"Stored output file {out_path} with {len(df_out)} records. Range: ({range_start}, {range_end})")
+    print(
+        f"Stored output file {out_path} with {len(df_out)} records. Range: ({range_start}, {range_end})"
+    )
 
     elapsed = datetime.now() - now
     print(f"Finished merging data in {str(elapsed).split('.')[0]}")

@@ -38,8 +38,7 @@ def _parse_date(date_str: str) -> datetime:
             return datetime.strptime(date_str, fmt)
         except ValueError:
             continue
-    msg = f"Invalid date format: '{date_str}'. Use DD-MM-YYYY (e.g. 15-01-2023)."
-    raise ValueError(msg)
+    raise ValueError(f"Invalid date format: '{date_str}'. Use DD-MM-YYYY (e.g. 15-01-2023).")
 
 
 def _holding_period_days(buy_date: datetime, sell_date: datetime) -> int:
@@ -50,10 +49,11 @@ def _classify_gain(days: int, asset_type: str) -> str:
     """Return LTCG or STCG based on holding period and asset type."""
     if asset_type in ("equity", "mutual_fund_equity"):
         return "LTCG" if days > 365 else "STCG"
-    if asset_type in ("debt_fund", "mutual_fund_debt"):
+    elif asset_type in ("debt_fund", "mutual_fund_debt"):
         # Post April 1 2023 — debt funds taxed at slab rate regardless
         return "DEBT_SLAB"
-    return "LTCG" if days > 365 else "STCG"
+    else:
+        return "LTCG" if days > 365 else "STCG"
 
 
 def _tax_amount(gain_type: str, profit: float, asset_type: str) -> tuple[float | None, str]:
@@ -68,10 +68,17 @@ def _tax_amount(gain_type: str, profit: float, asset_type: str) -> tuple[float |
         # Section 111A: 20% flat for listed equity/equity MF (post July 2024 budget)
         if asset_type in ("equity", "mutual_fund_equity"):
             tax = profit * 0.20
-            return tax, "Section 111A — 20% flat rate on STCG for listed equity (post July 2024 Budget)"
-        return None, "STCG on debt funds is taxed at your income slab rate. Consult a CA for exact liability."
+            return (
+                tax,
+                "Section 111A — 20% flat rate on STCG for listed equity (post July 2024 Budget)",
+            )
+        else:
+            return (
+                None,
+                "STCG on debt funds is taxed at your income slab rate. Consult a CA for exact liability.",
+            )
 
-    if gain_type == "LTCG":
+    elif gain_type == "LTCG":
         if asset_type in ("equity", "mutual_fund_equity"):
             # Section 112A: 12.5% above ₹1.25L exemption (post July 2024 budget)
             exemption = 125000.0
@@ -82,9 +89,10 @@ def _tax_amount(gain_type: str, profit: float, asset_type: str) -> tuple[float |
                 "Note: ₹1.25L exemption is cumulative across ALL equity LTCG in the financial year."
             )
             return tax, note
-        return None, "LTCG on this asset type is taxed at slab rate. Consult a CA."
+        else:
+            return None, "LTCG on this asset type is taxed at slab rate. Consult a CA."
 
-    if gain_type == "DEBT_SLAB":
+    elif gain_type == "DEBT_SLAB":
         return None, (
             "Debt mutual funds purchased after April 1, 2023 are taxed at your income slab rate "
             "regardless of holding period. No LTCG benefit or indexation available."
@@ -107,8 +115,7 @@ def compute_tax_liability(
     sell_date = _parse_date(sell_date_str)
 
     if sell_date <= buy_date:
-        msg = "Sell date must be after buy date."
-        raise ValueError(msg)
+        raise ValueError("Sell date must be after buy date.")
 
     days = _holding_period_days(buy_date, sell_date)
     gain_type = _classify_gain(days, asset_type)
@@ -123,7 +130,9 @@ def compute_tax_liability(
     years = days // 365
     months = (days % 365) // 30
     remaining_days = days % 30
-    holding_str = f"{years}y {months}m {remaining_days}d" if years else f"{months}m {remaining_days}d"
+    holding_str = (
+        f"{years}y {months}m {remaining_days}d" if years else f"{months}m {remaining_days}d"
+    )
 
     return {
         "symbol": symbol.upper() if symbol else "—",
@@ -164,7 +173,9 @@ def _format_tax_output(result: dict) -> str:
     lines.append(f"  Buy Price     : ₹{result['buy_price']:,.2f}  ({result['buy_date']})")
     lines.append(f"  Sell Price    : ₹{result['sell_price']:,.2f}  ({result['sell_date']})")
     lines.append("")
-    lines.append(f"  Holding Period: {result['holding_period']} ({result['holding_period_days']} days)")
+    lines.append(
+        f"  Holding Period: {result['holding_period']} ({result['holding_period_days']} days)"
+    )
     lines.append(f"  Gain Type     : {result['gain_type']}")
     lines.append("")
     lines.append(f"  Total Invested: ₹{result['total_investment']:,.2f}")

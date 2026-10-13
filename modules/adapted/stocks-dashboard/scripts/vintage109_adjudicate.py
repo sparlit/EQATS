@@ -93,7 +93,11 @@ def adjudicate(r):
 
     # --- vetoes, cheapest first -------------------------------------------------
     if det is not None and near(det, st):
-        return "STORE-BACKED", ["DETRES"], "BSE detres (as-filed by construction, §42) reads the stored value"
+        return (
+            "STORE-BACKED",
+            ["DETRES"],
+            "BSE detres (as-filed by construction, §42) reads the stored value",
+        )
     if gap is None or gap > TIMELY_DAYS:
         if mc is not None and near(mc, st):
             return (
@@ -130,8 +134,16 @@ def adjudicate(r):
         ev.append("MC")
     if not ev:
         if det is None and mc is None:
-            return "NO-SECOND-READER", [], "NSE alone; neither detres nor MC has a reading for this cell"
-        return "READERS-DISAGREE", [], (f"no reader reproduces either the store or NSE (detres={det}, mc={mc})")
+            return (
+                "NO-SECOND-READER",
+                [],
+                "NSE alone; neither detres nor MC has a reading for this cell",
+            )
+        return (
+            "READERS-DISAGREE",
+            [],
+            (f"no reader reproduces either the store or NSE (detres={det}, mc={mc})"),
+        )
     # ★ A READER ON A THIRD VALUE CONTRADICTS TOO. "No reader may contradict" was first read as
     # "no reader sits on the store", which lets a cell be healed towards a target an independent
     # reader rejects outright — ASSAMCO Mar-2017: NSE and MC both -45.63, detres -49.81, store
@@ -204,8 +216,9 @@ def main():
             pt = adjudicate_pair(r)
             if pt is not None and v != "MC-BACKS-STORE":
                 r["pair_target"], v, ev = pt, "HEAL-PAIR", ["DETRES", "MC"]
-                note = "NSE's row could not arbitrate ({}); BSE detres and MC agree on {} against the stored {}".format(
-                    note or v, pt, r["stored"]
+                note = (
+                    "NSE's row could not arbitrate ({}); BSE detres and MC agree on {} "
+                    "against the stored {}".format(note or v, pt, r["stored"])
                 )
         r["verdict"], r["evidence"], r["note"] = v, ev, note
         out[k] = r

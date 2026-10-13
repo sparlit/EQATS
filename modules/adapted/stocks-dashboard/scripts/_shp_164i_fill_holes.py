@@ -86,7 +86,9 @@ def fetch(work, holes, alt=False):
             for a in range(3):
                 try:
                     r = urllib.request.urlopen(
-                        urllib.request.Request(u, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"}),
+                        urllib.request.Request(
+                            u, headers={"User-Agent": UA, "Referer": "https://www.bseindia.com/"}
+                        ),
                         timeout=60,
                     )
                     body = r.read()
@@ -107,7 +109,11 @@ def fetch(work, holes, alt=False):
                 bad += 1
             time.sleep(1.0)
         if i % 100 == 0:
-            print("  %d/%d ok=%d bad=%d skip=%d %.0fs" % (i, len(holes), ok, bad, skip, time.time() - t0), flush=True)
+            print(
+                "  %d/%d ok=%d bad=%d skip=%d %.0fs"
+                % (i, len(holes), ok, bad, skip, time.time() - t0),
+                flush=True,
+            )
     print("FETCH DONE ok=%d bad=%d skip=%d" % (ok, bad, skip), flush=True)
 
 
@@ -120,7 +126,9 @@ def parse(work, holes):
     stub.complete = lambda r: r
     sys.modules["bse_headers"] = stub
     cc = types.ModuleType("curl_cffi")
-    cc.requests = types.SimpleNamespace(get=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network in parse")))
+    cc.requests = types.SimpleNamespace(
+        get=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no network in parse"))
+    )
     sys.modules["curl_cffi"] = cc
     sys.modules["curl_cffi.requests"] = cc.requests
     sys.path.insert(0, HERE)

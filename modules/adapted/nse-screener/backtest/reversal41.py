@@ -102,7 +102,9 @@ def main():
             if not picks:
                 print(f"  {name}: no formations with 20+ names")
                 continue
-            res = monthly.simulate(p, ctx, regime_filter=False, select_fn=sel_fn(picks), rebalance_every=REBAL)
+            res = monthly.simulate(
+                p, ctx, regime_filter=False, select_fn=sel_fn(picks), rebalance_every=REBAL
+            )
             tag = "PRIMARY" if name == "36m" else "C2"
             monthly.report(f"{tag} reversal_{name}", res)
             print(
@@ -117,11 +119,15 @@ def main():
         if picks:
             monthly.report(
                 "C3 reversal_36m+breaker",
-                monthly.simulate(p, ctx, regime_filter=True, select_fn=sel_fn(picks), rebalance_every=REBAL),
+                monthly.simulate(
+                    p, ctx, regime_filter=True, select_fn=sel_fn(picks), rebalance_every=REBAL
+                ),
             )
         # correlation to v4
         r4 = monthly.simulate(p, ctx, regime_filter=True)
-        rr = monthly.simulate(p, ctx, regime_filter=False, select_fn=sel_fn(picks), rebalance_every=REBAL)
+        rr = monthly.simulate(
+            p, ctx, regime_filter=False, select_fn=sel_fn(picks), rebalance_every=REBAL
+        )
         j = pd.concat([r4["eq"]["ret"], rr["eq"]["ret"]], axis=1, join="inner")
         print(f"      corr(v4, reversal): {j.corr().iloc[0, 1]:.2f}")
 

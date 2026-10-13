@@ -2,17 +2,16 @@
 Unit tests for Hyper Grid Trading Engine (Repo 099 Adaptation)
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from unittest.mock import patch
-import pytest
 
 from src.institutional_integrations.hyper_grid_engine import (
-    HyperGridEngine,
-    HyperGridConfig,
-    HyperGridBrokerAdapter,
-    round_tick_005,
-    is_ist_market_open,
     MAGIC_NUMBER,
+    HyperGridBrokerAdapter,
+    HyperGridConfig,
+    HyperGridEngine,
+    is_ist_market_open,
+    round_tick_005,
 )
 from src.institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
@@ -29,11 +28,11 @@ def test_round_tick_005():
 
 def test_is_ist_market_open():
     # Wednesday 10:30 AM IST -> 05:00 UTC
-    wed_market = datetime(2025, 3, 5, 5, 0, tzinfo=timezone.utc)
+    wed_market = datetime(2025, 3, 5, 5, 0, tzinfo=UTC)
     assert is_ist_market_open(wed_market) is True
 
     # Sunday 10:30 AM IST -> 05:00 UTC
-    sun = datetime(2025, 3, 2, 5, 0, tzinfo=timezone.utc)
+    sun = datetime(2025, 3, 2, 5, 0, tzinfo=UTC)
     assert is_ist_market_open(sun) is False
 
 

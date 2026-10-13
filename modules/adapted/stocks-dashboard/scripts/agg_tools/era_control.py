@@ -99,10 +99,21 @@ def main():
     print("TOTAL  %7d  %8d  %5.1f%%" % (tot, bad, 100.0 * bad / max(1, tot)))
 
     # a 10x / 0.1x ratio is the scale-step class and indicts OUR cell, not the route
-    tens = [r for r in rows if r["ratio"] and (abs(r["ratio"] - 10) < 0.6 or abs(r["ratio"] - 0.1) < 0.006)]
-    print("\nof the %d disagreements, %d are exactly ~10x or ~0.1x (the scale-step class)" % (len(rows), len(tens)))
+    tens = [
+        r
+        for r in rows
+        if r["ratio"] and (abs(r["ratio"] - 10) < 0.6 or abs(r["ratio"] - 0.1) < 0.006)
+    ]
+    print(
+        "\nof the %d disagreements, %d are exactly ~10x or ~0.1x (the scale-step class)"
+        % (len(rows), len(tens))
+    )
     json.dump(
-        {"by_year": {str(k): v for k, v in by_year.items()}, "disagreements": rows, "scale_step_like": len(tens)},
+        {
+            "by_year": {str(k): v for k, v in by_year.items()},
+            "disagreements": rows,
+            "scale_step_like": len(tens),
+        },
         open(a.out, "w"),
         indent=1,
         sort_keys=True,

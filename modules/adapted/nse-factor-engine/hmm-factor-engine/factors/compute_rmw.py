@@ -55,7 +55,8 @@ FUND_FILE = DATA_DIR / "fundamentals_annual.parquet"
 SECTOR_FILE = DATA_DIR / "ticker_to_sector.csv"
 SYMBOL_MAP_FILE = DATA_DIR / "symbol_map.csv"
 CONSTITUENT_CSV = Path(
-    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/nifty500_2005-01-01_to_2026-06-30.csv"
+    "/home/ec2-user/nse-factor-engine/nifty_constituent_history/"
+    "nifty500_2005-01-01_to_2026-06-30.csv"
 )
 OUTPUT_FILE = FACTORS_DIR / "factor_rmw.parquet"
 OUTPUT_ROE_RET = FACTORS_DIR / "rmw_roe_returns.parquet"
@@ -123,7 +124,8 @@ def load_fundamentals() -> pd.DataFrame:
     df["fy_end"] = df["fiscal_year"].apply(parse_fiscal_year_end)
     df = df[df["fy_end"].notna()].copy()
     df["available_from"] = df["fy_end"] + pd.Timedelta(days=90)
-    return df.sort_values(["nse_ticker", "fy_end"]).reset_index(drop=True)
+    df = df.sort_values(["nse_ticker", "fy_end"]).reset_index(drop=True)
+    return df
 
 
 def load_sector_map() -> pd.DataFrame:
@@ -162,7 +164,9 @@ def build_adtv_matrix(prices_long: pd.DataFrame, monthly_index: pd.DatetimeIndex
     prices_long = prices_long.copy()
     prices_long["dtv"] = prices_long["close"] * prices_long["volume"] / CRORE
 
-    dtv_wide = prices_long.pivot_table(index="date", columns="symbol", values="dtv", aggfunc="first")
+    dtv_wide = prices_long.pivot_table(
+        index="date", columns="symbol", values="dtv", aggfunc="first"
+    )
     dtv_wide.index = pd.to_datetime(dtv_wide.index)
     dtv_wide = dtv_wide.sort_index()
     all_dates = dtv_wide.index.values
@@ -192,7 +196,10 @@ def get_signals_at_date(
 ) -> pd.DataFrame:
     avail = fund_df[fund_df["available_from"] <= date]
     latest = (
-        avail[avail["nse_ticker"].isin(universe)].sort_values("fy_end").groupby("nse_ticker", as_index=False).nth(-1)
+        avail[avail["nse_ticker"].isin(universe)]
+        .sort_values("fy_end")
+        .groupby("nse_ticker", as_index=False)
+        .nth(-1)
     )
 
     if latest.empty:
@@ -271,8 +278,13 @@ def compute_scores(signals: pd.DataFrame) -> pd.DataFrame:
 
     result = signals.copy().reset_index(drop=True)
     result = compute_scores_for_signal(result, "raw_roe", "score_within_roe", "score_combined_roe")
-    result = compute_scores_for_signal(result, "raw_op_roe", "score_within_op_roe", "score_combined_op_roe")
-    return compute_scores_for_signal(result, "raw_roce", "score_within_roce", "score_combined_roce")
+    result = compute_scores_for_signal(
+        result, "raw_op_roe", "score_within_op_roe", "score_combined_op_roe"
+    )
+    result = compute_scores_for_signal(
+        result, "raw_roce", "score_within_roce", "score_combined_roce"
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -363,7 +375,9 @@ def compute_long_short_returns(
     idx = monthly_px.index
 
     for date in sorted(scores_df["date"].unique()):
-        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(subset=[score_col])
+        month_df = scores_df[scores_df["date"] == date][["nse_ticker", score_col]].dropna(
+            subset=[score_col]
+        )
 
         if len(month_df) < MIN_STOCKS:
             continue
@@ -421,7 +435,9 @@ def print_return_stats(df: pd.DataFrame, name: str):
     if df.empty:
         print(f"  {name}: NO RESULTS")
         return
-    ret_col = next(c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c)
+    ret_col = [
+        c for c in df.columns if c.endswith("_return") and "long" not in c and "short" not in c
+    ][0]
     r = df[ret_col]
     ann_ret = r.mean() * 12
     ann_vol = r.std() * np.sqrt(12)
@@ -472,7 +488,14 @@ def main():
 
     print(f"\nRunning backtest: {BACKTEST_START} to {BACKTEST_END} ...")
     results = run_backtest(
-        prices_long, monthly_px, return_matrix, adtv_matrix, universe_df, fund_df, sector_map, sym_map
+        prices_long,
+        monthly_px,
+        return_matrix,
+        adtv_matrix,
+        universe_df,
+        fund_df,
+        sector_map,
+        sym_map,
     )
 
     if results.empty:
@@ -486,21 +509,36 @@ def main():
 
     print("  ROE signal ...")
     roe_returns = compute_long_short_returns(
-        results, "score_combined_roe", monthly_px, return_matrix, sym_map, return_col="rmw_roe_return"
+        results,
+        "score_combined_roe",
+        monthly_px,
+        return_matrix,
+        sym_map,
+        return_col="rmw_roe_return",
     )
     print_return_stats(roe_returns, "RMW_ROE")
     roe_returns.to_parquet(OUTPUT_ROE_RET)
 
     print("  op_ROE signal ...")
     op_roe_returns = compute_long_short_returns(
-        results, "score_combined_op_roe", monthly_px, return_matrix, sym_map, return_col="rmw_op_roe_return"
+        results,
+        "score_combined_op_roe",
+        monthly_px,
+        return_matrix,
+        sym_map,
+        return_col="rmw_op_roe_return",
     )
     print_return_stats(op_roe_returns, "RMW_OP_ROE")
     op_roe_returns.to_parquet(OUTPUT_OP_ROE_RET)
 
     print("  ROCE signal ...")
     roce_returns = compute_long_short_returns(
-        results, "score_combined_roce", monthly_px, return_matrix, sym_map, return_col="rmw_roce_return"
+        results,
+        "score_combined_roce",
+        monthly_px,
+        return_matrix,
+        sym_map,
+        return_col="rmw_roce_return",
     )
     print_return_stats(roce_returns, "RMW_ROCE")
     roce_returns.to_parquet(OUTPUT_ROCE_RET)

@@ -69,7 +69,9 @@ MIRROR = os.path.join(ROOT, "scripts", "fundamentals.json")
 SCRIPS = os.path.join(ROOT, "scripts", "bse_scrips.json")
 LEDGER = os.path.join(ROOT, "scripts", "std_pat_detres_fills.json")
 
-API = "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+API = (
+    "https://api.bseindia.com/BseIndiaAPI/api/Corp_detailedResult_Transpose_ng/w?scrip_cd=%s&qtr=%s"
+)
 EPS_TOL = 0.06  # runbook §42: EPS-recon gate is +/-6%
 FY_ABS, FY_REL = 3.0, 0.03  # runbook §42 FY-consistency gate: max(3cr, 3%)
 MONTHS = {
@@ -183,10 +185,21 @@ def fy_gate(scrip, qe, np_mn, stored, cache):
         (
             "Apr-Mar",
             fy * 10000 + 331,
-            [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331],
+            [
+                (fy - 1) * 10000 + 630,
+                (fy - 1) * 10000 + 930,
+                (fy - 1) * 10000 + 1231,
+                fy * 10000 + 331,
+            ],
         )
     )
-    cands.append(("Jan-Dec", y * 10000 + 1231, [y * 10000 + 331, y * 10000 + 630, y * 10000 + 930, y * 10000 + 1231]))
+    cands.append(
+        (
+            "Jan-Dec",
+            y * 10000 + 1231,
+            [y * 10000 + 331, y * 10000 + 630, y * 10000 + 930, y * 10000 + 1231],
+        )
+    )
     reasons = []
     for label, end_qe, qs in cands:
         ey, em = end_qe // 10000, (end_qe // 100) % 100
@@ -200,7 +213,9 @@ def fy_gate(scrip, qe, np_mn, stored, cache):
             reasons.append(f"{label}:fetch-{type(ex).__name__}")
             continue
         time.sleep(0.4)
-        a_np = fnum(ann, "Net Profit", "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax")
+        a_np = fnum(
+            ann, "Net Profit", "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax"
+        )
         b, e = parse_dt(ann.get("Date Begin", "")), parse_dt(ann.get("Date End", ""))
         if a_np is None or not b or not e:
             reasons.append(f"{label}:no-annual-row")
@@ -229,7 +244,9 @@ def fy_gate(scrip, qe, np_mn, stored, cache):
                         cache[(scrip, sq)] = {}
                     time.sleep(0.4)
                 g = cache[(scrip, sq)]
-                gnp = fnum(g, "Net Profit", "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax")
+                gnp = fnum(
+                    g, "Net Profit", "Net Profit (+)/ Loss (-) from Ordinary Activities after Tax"
+                )
                 ge = parse_dt(g.get("Date End", ""))
                 if gnp is None or ge != q:
                     bad = q
@@ -312,7 +329,9 @@ def main():
     only = set(args[args.index("--only") + 1].split(",")) if "--only" in args else None
     fund = json.load(open(DOCS))
     by_id = json.load(open(SCRIPS, encoding="utf-8"))["by_id"]
-    targets = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_std_targets.json")))
+    targets = json.load(
+        open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_std_targets.json"))
+    )
     ok, bad, journal, cache = [], [], {}, {}
     for sym, qes in sorted(targets.items()):
         if only and sym not in only:

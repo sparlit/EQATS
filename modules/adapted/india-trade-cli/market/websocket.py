@@ -61,11 +61,8 @@ import json
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +238,7 @@ class WebSocketManager:
             self._subscribed.update(new_symbols)
             logger.info(f"Subscribed to {len(new_symbols)} symbols")
         except Exception as e:
-            logger.exception(f"Subscribe failed: {e}")
+            logger.error(f"Subscribe failed: {e}")
 
     def unsubscribe(self, symbols: list[str]) -> None:
         """Unsubscribe from symbols."""
@@ -297,9 +294,9 @@ class WebSocketManager:
             )
             self._ws.connect()
         except ImportError:
-            logger.exception("fyers-apiv3 not installed — WebSocket unavailable")
+            logger.error("fyers-apiv3 not installed — WebSocket unavailable")
         except Exception as e:
-            logger.exception(f"WebSocket connection failed: {e}")
+            logger.error(f"WebSocket connection failed: {e}")
 
     def _on_connect(self) -> None:
         self._connected = True

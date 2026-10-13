@@ -120,7 +120,9 @@ def _create_web_service(email: str, password: str, service_name: str) -> str:
                 sb.click('text="kondaiahpola1-wq"')
                 sb.sleep(1)
             else:
-                sb.click('button:contains("Connect a repository"), a:contains("Connect")', timeout=5)
+                sb.click(
+                    'button:contains("Connect a repository"), a:contains("Connect")', timeout=5
+                )
                 sb.sleep(3)
                 sb.click('text*="NSE-BSE-Event-Driven"', timeout=5)
                 sb.sleep(1)
@@ -131,7 +133,9 @@ def _create_web_service(email: str, password: str, service_name: str) -> str:
 
         # Set service name
         with suppress(Exception):
-            name_input = sb.find_element('input[name="name"], input[placeholder*="name"]', timeout=5)
+            name_input = sb.find_element(
+                'input[name="name"], input[placeholder*="name"]', timeout=5
+            )
             name_input.clear()
             sb.type('input[name="name"], input[placeholder*="name"]', service_name)
         sb.sleep(0.5)
@@ -160,7 +164,9 @@ def _create_web_service(email: str, password: str, service_name: str) -> str:
         return f"https://{service_name}.onrender.com"
 
 
-def _set_env_vars(email: str, password: str, pg_dsn: str, redis_url: str, service_name: str) -> None:
+def _set_env_vars(
+    email: str, password: str, pg_dsn: str, redis_url: str, service_name: str
+) -> None:
     """Set environment variables on the Render service."""
     env_vars = {
         "NSE_QUANT_PG_DSN": pg_dsn,
@@ -177,7 +183,9 @@ def _set_env_vars(email: str, password: str, pg_dsn: str, redis_url: str, servic
 
         for key, value in env_vars.items():
             with suppress(Exception):
-                sb.click('button:contains("Add Environment Variable"), button:contains("Add")', timeout=5)
+                sb.click(
+                    'button:contains("Add Environment Variable"), button:contains("Add")', timeout=5
+                )
                 sb.sleep(1)
 
                 inputs = sb.find_elements('input[placeholder*="Key"], input[name*="key"]')

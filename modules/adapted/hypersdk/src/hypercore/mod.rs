@@ -2181,6 +2181,69 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_http_perp_dex_details() {
+        for client in [hypercore::mainnet(), hypercore::testnet()] {
+            let details = client.perp_dex_details().await.unwrap();
+            let dexes = client.perp_dexes().await.unwrap();
+            assert!(!details.is_empty());
+
+            // HIP-3 asset IDs are derived from the index, so both methods must agree on it.
+            assert_eq!(details.len(), dexes.len());
+            for (detail, dex) in details.iter().zip(&dexes) {
+                assert_eq!(
+                    (detail.name.as_str(), detail.index),
+                    (dex.name(), dex.index())
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_http_user_star_state() {
+        let client = hypercore::testnet();
+
+        // A user no venue has approved gets an empty list.
+        let none = client.user_star_state(Address::ZERO).await.unwrap();
+        assert!(none.dex_to_state.is_empty());
+
+        // Traders on HIP-3* venues have non-empty states, which exercises the flags shape.
+        let star_dexes = client
+            .perp_dex_details()
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|dex| {
+                dex.sub_deployers.iter().any(|grant| {
+                    matches!(
+                        grant.permission,
+                        hypercore::SubDeployerPermission::Hip3Star { .. }
+                    )
+                })
+            });
+        for dex in star_dexes {
+            for market in client
+                .perps_from(dex.dex())
+                .await
+                .unwrap()
+                .into_iter()
+                .take(2)
+            {
+                for trade in client
+                    .recent_trades(market.name)
+                    .await
+                    .unwrap()
+                    .iter()
+                    .take(3)
+                {
+                    for user in trade.users {
+                        client.user_star_state(user).await.unwrap();
+                    }
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_http_spot() {
         let client = hypercore::mainnet();
         let spots = client.spot().await.unwrap();

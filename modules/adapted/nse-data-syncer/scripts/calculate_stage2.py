@@ -25,7 +25,6 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -98,7 +97,9 @@ def calculate_stage2_candidates():
         print("Calculating Relative Strength ranks...")
         rs_ranks = {}
 
-        latest_prices = master_df.sort_values("date").groupby("stock_id").tail(1).set_index("stock_id")["close"]
+        latest_prices = (
+            master_df.sort_values("date").groupby("stock_id").tail(1).set_index("stock_id")["close"]
+        )
 
         # Price ~63 trading days ago
         prices_63d_ago = (
@@ -129,7 +130,9 @@ def calculate_stage2_candidates():
             WHERE sp.is_stage2 = true
         """)
         ).fetchall()
-        prev_stage2 = {row.stock_id: {"nse_symbol": row.nse_symbol, "name": row.name} for row in prev_rows}
+        prev_stage2 = {
+            row.stock_id: {"nse_symbol": row.nse_symbol, "name": row.name} for row in prev_rows
+        }
         print(f"Previous Stage 2 count: {len(prev_stage2)}")
 
         # --- Save RS rank for ALL eligible stocks (>= 63 days of data) ---
@@ -171,7 +174,7 @@ def calculate_stage2_candidates():
             except KeyError:
                 continue
 
-            df = df.set_index("date")
+            df.set_index("date", inplace=True)
             df = df.sort_index()
 
             # --- Moving Averages (NaN if insufficient history for the window) ---
@@ -203,15 +206,19 @@ def calculate_stage2_candidates():
             )
 
             # --- Criterion 2: 150 DMA > 200 DMA ---
-            cond2 = (pd.isna(current_sma_150) or pd.isna(current_sma_200)) or (current_sma_150 > current_sma_200)
+            cond2 = (pd.isna(current_sma_150) or pd.isna(current_sma_200)) or (
+                current_sma_150 > current_sma_200
+            )
 
             # --- Criterion 3: 200 DMA trending up for at least 1 month ---
-            cond3 = (pd.isna(current_sma_200) or pd.isna(sma_200_1m_ago)) or (current_sma_200 > sma_200_1m_ago)
+            cond3 = (pd.isna(current_sma_200) or pd.isna(sma_200_1m_ago)) or (
+                current_sma_200 > sma_200_1m_ago
+            )
 
             # --- Criterion 4: 50 DMA > 150 DMA and > 200 DMA ---
-            cond4 = (pd.isna(current_sma_50) or pd.isna(current_sma_150) or pd.isna(current_sma_200)) or (
-                current_sma_50 > current_sma_150 and current_sma_50 > current_sma_200
-            )
+            cond4 = (
+                pd.isna(current_sma_50) or pd.isna(current_sma_150) or pd.isna(current_sma_200)
+            ) or (current_sma_50 > current_sma_150 and current_sma_50 > current_sma_200)
 
             # --- Criterion 5: Price > 50 DMA ---
             cond5 = pd.isna(current_sma_50) or (current_close > current_sma_50)
@@ -229,7 +236,9 @@ def calculate_stage2_candidates():
                 continue
 
             # Compute % from 52W high (for display in UI)
-            pct_from_52w_high = ((current_close - high_52w) / high_52w) * 100  # negative = below high
+            pct_from_52w_high = (
+                (current_close - high_52w) / high_52w
+            ) * 100  # negative = below high
             pct_above_52w_low = ((current_close - low_52w) / low_52w) * 100
 
             stage2_candidates.append(
@@ -272,7 +281,8 @@ def calculate_stage2_candidates():
             missing_ids = added_ids - set(prev_stage2.keys())
             if missing_ids:
                 info_rows = session.execute(
-                    text("SELECT id, nse_symbol, name FROM stocks WHERE id = ANY(:ids)"), {"ids": list(missing_ids)}
+                    text("SELECT id, nse_symbol, name FROM stocks WHERE id = ANY(:ids)"),
+                    {"ids": list(missing_ids)},
                 ).fetchall()
                 for row in info_rows:
                     prev_stage2[row.id] = {"nse_symbol": row.nse_symbol, "name": row.name}
@@ -288,7 +298,9 @@ def calculate_stage2_candidates():
 
             today = datetime.now().date()
             # Remove any existing records for today (handles re-runs)
-            session.execute(text("DELETE FROM stage2_changes WHERE run_date = :today"), {"today": today})
+            session.execute(
+                text("DELETE FROM stage2_changes WHERE run_date = :today"), {"today": today}
+            )
 
             for sid in added_ids:
                 sym, name = get_info(sid)

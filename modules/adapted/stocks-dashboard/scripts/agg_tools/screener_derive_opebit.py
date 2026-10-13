@@ -155,7 +155,10 @@ def main():
         annmap = {int(k.replace("-", "")): v for k, v in ann.items()}
         if not annmap:
             for qe, field, _ in items:
-                reports["%s|%d|%s" % (sym, qe, field)] = {"state": "NOT-FOUND", "why": "screener: no annual table"}
+                reports["%s|%d|%s" % (sym, qe, field)] = {
+                    "state": "NOT-FOUND",
+                    "why": "screener: no annual table",
+                }
             continue
         fem = fy_end_month(ann.keys())
         rows = REV.get(sym) or {}
@@ -192,7 +195,9 @@ def main():
                     continue
                 mine = round(sum(vals), 2)
                 err = abs(mine - theirs)
-                (ok_fys if err <= annual_tol(mine) else bad_fys).append((f, mine, theirs, round(err, 2)))
+                (ok_fys if err <= annual_tol(mine) else bad_fys).append(
+                    (f, mine, theirs, round(err, 2))
+                )
             adjacent = any(abs(f - fy) // 10000 <= 1 for f, _, _, _ in ok_fys)
             tgt_row = annmap.get(fy)
             sibs = [cell(q, slot) for q in qs if q != qe]
@@ -211,10 +216,14 @@ def main():
             elif not adjacent:
                 reports[key] = {
                     "state": "REJECT-NO-ADJACENT-FY",
-                    "why": "no anchored FY within one year of %d -- a restatement here would be invisible" % fy,
+                    "why": "no anchored FY within one year of %d -- a restatement here "
+                    "would be invisible" % fy,
                 }
             elif tgt_row is None or value_of(tgt_row, field) is None:
-                reports[key] = {"state": "NOT-FOUND", "why": "screener has no annual row for FY %d" % fy}
+                reports[key] = {
+                    "state": "NOT-FOUND",
+                    "why": "screener has no annual row for FY %d" % fy,
+                }
             elif any(v is None for v in sibs):
                 reports[key] = {"state": "NOT-FOUND", "why": "we no longer hold all three siblings"}
             else:
@@ -259,12 +268,25 @@ def main():
                             % (len(annmap), len(ok_fys), fem)
                         },
                     }
-                    reports[key] = {"state": "FILLED-ROUNDED", "fy": fy, "anchors": len(ok_fys), "worst": worst}
-            print("[%3d/%3d] %-12s %-8d %-6s %s" % (i + 1, len(elig), sym, qe, field, reports[key]["state"]))
+                    reports[key] = {
+                        "state": "FILLED-ROUNDED",
+                        "fy": fy,
+                        "anchors": len(ok_fys),
+                        "worst": worst,
+                    }
+            print(
+                "[%3d/%3d] %-12s %-8d %-6s %s"
+                % (i + 1, len(elig), sym, qe, field, reports[key]["state"])
+            )
             sys.stdout.flush()
 
     json.dump(
-        {"generated": time.strftime("%Y-%m-%d %H:%M IST"), "sites": ["sc"], "proposals": props, "reports": reports},
+        {
+            "generated": time.strftime("%Y-%m-%d %H:%M IST"),
+            "sites": ["sc"],
+            "proposals": props,
+            "reports": reports,
+        },
         open(a.out, "w"),
         indent=1,
         sort_keys=True,

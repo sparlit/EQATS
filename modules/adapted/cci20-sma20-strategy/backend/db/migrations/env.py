@@ -64,7 +64,7 @@ def _get_url() -> str:
                         if line.startswith("DATABASE_URL_SYNC="):
                             raw = line.split("=", 1)[1].strip('"').strip("'")
                             break
-                        if line.startswith("DATABASE_URL=") and not raw:
+                        elif line.startswith("DATABASE_URL=") and not raw:
                             raw = line.split("=", 1)[1].strip('"').strip("'")
 
     # Hardcoded safety fallback if env loading was empty

@@ -76,7 +76,10 @@ def main():
         L = json.load(open(p, encoding="utf-8"))
         fy_end = "%02d" % int(L.get("fy_end_month") or 3)
         mets = L.get("metrics") or []
-        print("== %s (%d ledger metrics, %d holdout metrics)" % (sym, len(mets), len(hold.get(sym, {}))))
+        print(
+            "== %s (%d ledger metrics, %d holdout metrics)"
+            % (sym, len(mets), len(hold.get(sym, {})))
+        )
         for key, years in hold.get(sym, {}).items():
             hname = key.split("|")[0]
             ht = toks(hname)
@@ -111,9 +114,17 @@ def main():
                     tot["MISMATCH"] += 1
             print(
                 "   %-46s -> %-38s %s"
-                % (hname[:46], (best["name"][:36] + " [{}]".format(best["unit"][:8])), " ".join(cells))
+                % (
+                    hname[:46],
+                    (best["name"][:36] + " [{}]".format(best["unit"][:8])),
+                    " ".join(cells),
+                )
             )
-    print("TOTAL", tot, "agreement on overlapping cells: %d/%d" % (tot["match"], tot["match"] + tot["MISMATCH"]))
+    print(
+        "TOTAL",
+        tot,
+        "agreement on overlapping cells: %d/%d" % (tot["match"], tot["match"] + tot["MISMATCH"]),
+    )
 
 
 if __name__ == "__main__":

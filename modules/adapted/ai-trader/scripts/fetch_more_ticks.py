@@ -35,16 +35,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 from data.symbol_manager import SymbolManager
 from data.truedata_adapter import TrueDataAdapter
+from database.db import execute_sql, get_engine
 from sqlalchemy import text
 from utils.logger import get_logger
-
-from config.settings import STRIKE_GAP
-from database.db import execute_sql, get_engine
 
 logger = get_logger("fetch_ticks")
 
@@ -71,7 +69,9 @@ def main():
     idx_ticks = td.fetch_historical_ticks("NIFTY-I", start=start, end=end, days=10)
     if not idx_ticks.empty:
         idx_ticks["timestamp"] = pd.to_datetime(idx_ticks["timestamp"], utc=True)
-        idx_ticks.to_sql("tick_data", engine, if_exists="append", index=False, method="multi", chunksize=5000)
+        idx_ticks.to_sql(
+            "tick_data", engine, if_exists="append", index=False, method="multi", chunksize=5000
+        )
         days = idx_ticks["timestamp"].dt.date.nunique()
         print(f"  NIFTY-I: {len(idx_ticks):,} ticks across {days} trading days")
         print(f"  Range: {idx_ticks['timestamp'].min()} → {idx_ticks['timestamp'].max()}")
@@ -84,8 +84,6 @@ def main():
     expiries = sym_mgr.fetch_expiry_list("NIFTY")
 
     # Find nearest expiry to our end date
-    from datetime import date
-
     ref = end.date()
     nearest_exp = None
     for e in expiries:
@@ -112,7 +110,12 @@ def main():
                     if not opt_df.empty:
                         opt_df["timestamp"] = pd.to_datetime(opt_df["timestamp"], utc=True)
                         opt_df.to_sql(
-                            "tick_data", engine, if_exists="append", index=False, method="multi", chunksize=5000
+                            "tick_data",
+                            engine,
+                            if_exists="append",
+                            index=False,
+                            method="multi",
+                            chunksize=5000,
                         )
                         total_opt_ticks += len(opt_df)
                         print(f"    {sym}: {len(opt_df):,} ticks")
@@ -126,7 +129,9 @@ def main():
         total = conn.execute(text("SELECT COUNT(*) FROM tick_data")).scalar()
         symbols = conn.execute(text("SELECT COUNT(DISTINCT symbol) FROM tick_data")).scalar()
         days = conn.execute(text("SELECT COUNT(DISTINCT timestamp::date) FROM tick_data")).scalar()
-        date_range = conn.execute(text("SELECT MIN(timestamp)::date, MAX(timestamp)::date FROM tick_data")).fetchone()
+        date_range = conn.execute(
+            text("SELECT MIN(timestamp)::date, MAX(timestamp)::date FROM tick_data")
+        ).fetchone()
 
     print(f"\n{'=' * 60}")
     print("  TICK DATA LOADED")

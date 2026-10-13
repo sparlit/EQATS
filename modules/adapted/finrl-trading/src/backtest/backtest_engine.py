@@ -35,15 +35,14 @@ Implements portfolio backtesting functionality using bt library:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import bt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 logger = logging.getLogger(__name__)
 
@@ -231,8 +230,12 @@ class BacktestEngine:
             # Get benchmark returns and annualized
             # benchmark_returns = self._get_benchmark_returns(price_data_clean)
             benchmark_metrics = self._get_benchmark_metrics(price_data_clean)
-            benchmark_returns = {bm: metrics.get("total_return", 0.0) for bm, metrics in benchmark_metrics.items()}
-            benchmark_annualized = {bm: metrics.get("annual_return", 0.0) for bm, metrics in benchmark_metrics.items()}
+            benchmark_returns = {
+                bm: metrics.get("total_return", 0.0) for bm, metrics in benchmark_metrics.items()
+            }
+            benchmark_annualized = {
+                bm: metrics.get("annual_return", 0.0) for bm, metrics in benchmark_metrics.items()
+            }
 
             # Create result object
             result_obj = BacktestResult(
@@ -255,7 +258,7 @@ class BacktestEngine:
             return result_obj
 
         except Exception as e:
-            self.logger.exception(f"Error in bt backtest: {e}")
+            self.logger.error(f"Error in bt backtest: {e}")
             raise
 
     def _prepare_price_data_for_bt(self, price_data: pd.DataFrame) -> pd.DataFrame:
@@ -264,7 +267,8 @@ class BacktestEngine:
         if "tic" in price_data.columns and "adj_close" in price_data.columns:
             price_data = price_data.pivot(index="datadate", columns="tic", values="adj_close")
         price_data.index = pd.to_datetime(price_data.index)
-        return price_data.ffill().dropna(how="all")
+        price_data = price_data.ffill().dropna(how="all")
+        return price_data
 
     def _build_volume_volatility(
         self, price_data_long: pd.DataFrame, price_data_wide: pd.DataFrame
@@ -284,12 +288,11 @@ class BacktestEngine:
         # ---- volume ----
         missing = [c for c in ("cshtrd", "tic", "datadate") if c not in price_data_long.columns]
         if missing:
-            msg = (
+            raise ValueError(
                 f"cost_model is configured but price_data is missing required "
                 f"column(s) {missing}; nonlinear cost models need per-ticker "
                 f"daily volume (cshtrd) to compute participation rate."
             )
-            raise ValueError(msg)
         vol_long = price_data_long[["datadate", "tic", "cshtrd"]].copy()
         vol_long["datadate"] = pd.to_datetime(vol_long["datadate"])
         volume_df = (
@@ -317,7 +320,9 @@ class BacktestEngine:
         cost_model = getattr(self.config, "cost_model", None)
         integer_positions = getattr(self.config, "integer_positions", True)
         if cost_model is not None and isinstance(cost_model, bt.core.CostModel):
-            volume_df, volatility_df = self._build_volume_volatility(price_data_long, price_data_wide)
+            volume_df, volatility_df = self._build_volume_volatility(
+                price_data_long, price_data_wide
+            )
             self.logger.info(
                 f"Using bt CostModel: {type(cost_model).__name__} "
                 f"(volume {volume_df.shape}, volatility {volatility_df.shape})"
@@ -350,7 +355,7 @@ class BacktestEngine:
         weight_signals = weight_signals.div(weight_signals.sum(axis=1), axis=0).fillna(0)
         tw = weight_signals.sort_index()
 
-        return bt.Strategy(
+        strategy = bt.Strategy(
             strategy_name,
             [
                 bt.algos.RunAfterDate(tw.index.min()),
@@ -360,8 +365,11 @@ class BacktestEngine:
                 bt.algos.Rebalance(),
             ],
         )
+        return strategy
 
-    def _calculate_comprehensive_metrics(self, bt_result, portfolio_returns: pd.Series) -> dict[str, float]:
+    def _calculate_comprehensive_metrics(
+        self, bt_result, portfolio_returns: pd.Series
+    ) -> dict[str, float]:
         """Calculate comprehensive metrics from bt result."""
         metrics = {}
 
@@ -377,7 +385,7 @@ class BacktestEngine:
             metrics["kurtosis"] = bt_result.yearly_kurt
 
         except Exception as e:
-            self.logger.exception(f"Error calculating comprehensive metrics: {e}")
+            self.logger.error(f"Error calculating comprehensive metrics: {e}")
             # Fallback to basic metrics
             metrics = self._calculate_basic_metrics(portfolio_returns, bt_result.prices)
 
@@ -452,12 +460,22 @@ class BacktestEngine:
     def _calculate_monthly_metrics(self, returns: pd.Series) -> dict[str, float]:
         """Compute monthly-level metrics as complementary stats for short samples."""
         if returns is None or len(returns) == 0:
-            return {"monthly_return": 0.0, "monthly_volatility": 0.0, "monthly_sharpe": 0.0, "monthly_sortino": 0.0}
+            return {
+                "monthly_return": 0.0,
+                "monthly_volatility": 0.0,
+                "monthly_sharpe": 0.0,
+                "monthly_sortino": 0.0,
+            }
 
         # 将日收益聚合为月收益
         monthly_returns = returns.resample("M").apply(lambda x: (1 + x).prod() - 1)
         if monthly_returns.empty:
-            return {"monthly_return": 0.0, "monthly_volatility": 0.0, "monthly_sharpe": 0.0, "monthly_sortino": 0.0}
+            return {
+                "monthly_return": 0.0,
+                "monthly_volatility": 0.0,
+                "monthly_sharpe": 0.0,
+                "monthly_sortino": 0.0,
+            }
 
         monthly_vol = float(monthly_returns.std()) if len(monthly_returns) > 1 else 0.0
         # 月度“Sharpe/Sortino”供参考（简单均值/波动）
@@ -474,7 +492,9 @@ class BacktestEngine:
             "monthly_sortino": monthly_sortino,
         }
 
-    def _calculate_basic_metrics(self, returns: pd.Series, portfolio_values: pd.Series) -> dict[str, float]:
+    def _calculate_basic_metrics(
+        self, returns: pd.Series, portfolio_values: pd.Series
+    ) -> dict[str, float]:
         """Calculate basic metrics as fallback."""
         if len(returns) == 0:
             return {}
@@ -534,7 +554,12 @@ class BacktestEngine:
                 # Create buy-and-hold strategy
                 bh_strategy = bt.Strategy(
                     f"{ticker}_BuyHold",
-                    [bt.algos.RunOnce(), bt.algos.SelectAll(), bt.algos.WeighEqually(), bt.algos.Rebalance()],
+                    [
+                        bt.algos.RunOnce(),
+                        bt.algos.SelectAll(),
+                        bt.algos.WeighEqually(),
+                        bt.algos.Rebalance(),
+                    ],
                 )
 
                 # Create and run backtest (use the same cost-model path the
@@ -562,14 +587,14 @@ class BacktestEngine:
                 self.logger.info(f"Computed bt metrics for benchmark {ticker}")
 
             except Exception as e:
-                self.logger.exception(f"Error computing bt metrics for {ticker}: {e}")
+                self.logger.error(f"Error computing bt metrics for {ticker}: {e}")
                 benchmark_metrics[ticker] = {}
 
         return benchmark_metrics
 
     def plot_results(self, result: BacktestResult, save_path: str | None = None):
         """Plot backtest results."""
-        _fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+        fig, axes = plt.subplots(2, 2, figsize=(15, 10))
 
         # Portfolio value
         result.portfolio_values.plot(ax=axes[0, 0], title="Portfolio Value")
@@ -602,7 +627,10 @@ class BacktestEngine:
 
 
 def run_multiple_backtests(
-    strategies: list, price_data: pd.DataFrame, weight_signals: list[pd.DataFrame], config: BacktestConfig
+    strategies: list,
+    price_data: pd.DataFrame,
+    weight_signals: list[pd.DataFrame],
+    config: BacktestConfig,
 ) -> dict[str, BacktestResult]:
     """
     Run backtests for multiple strategies.
@@ -625,7 +653,7 @@ def run_multiple_backtests(
             results[strategy.config.name] = result
             logger.info(f"Completed backtest for {strategy.config.name}")
         except Exception as e:
-            logger.exception(f"Backtest failed for {strategy.config.name}: {e}")
+            logger.error(f"Backtest failed for {strategy.config.name}: {e}")
             continue
 
     return results
@@ -638,9 +666,12 @@ if __name__ == "__main__":
     # 1) 读取权重 csv（示例路径：data/ml_weights_single.csv）
     weights_csv_path = Path(project_root) / "data" / "ml_weights.csv"
     weights_raw = pd.read_csv(weights_csv_path)
-    if "date" not in weights_raw.columns or "gvkey" not in weights_raw.columns or "weight" not in weights_raw.columns:
-        msg = "权重文件缺少必要列：date / gvkey / weight"
-        raise ValueError(msg)
+    if (
+        "date" not in weights_raw.columns
+        or "gvkey" not in weights_raw.columns
+        or "weight" not in weights_raw.columns
+    ):
+        raise ValueError("权重文件缺少必要列：date / gvkey / weight")
 
     # 统一类型与排序
     weights_raw["date"] = pd.to_datetime(weights_raw["date"])
@@ -649,7 +680,9 @@ if __name__ == "__main__":
 
     # 2) 生成调仓信号矩阵（行：调仓日，列：ticker，值：权重）
     weight_signals = (
-        weights_raw.pivot_table(index="date", columns="gvkey", values="weight", aggfunc="sum").fillna(0.0).sort_index()
+        weights_raw.pivot_table(index="date", columns="gvkey", values="weight", aggfunc="sum")
+        .fillna(0.0)
+        .sort_index()
     )
 
     # 过滤掉全 0 的调仓日（无持仓）
@@ -657,8 +690,7 @@ if __name__ == "__main__":
         weight_signals = weight_signals.loc[(weight_signals.sum(axis=1) > 0.0)]
 
     if weight_signals.empty:
-        msg = "权重矩阵为空，请检查权重文件是否包含有效数据。"
-        raise ValueError(msg)
+        raise ValueError("权重矩阵为空，请检查权重文件是否包含有效数据。")
 
     # 3) 配置回测区间（自动覆盖为权重日期的最小/最大范围）
     # 回测日期重新配置，向前或向后延申一个季度
@@ -667,7 +699,9 @@ if __name__ == "__main__":
     start_date = weight_signals.index.min().strftime("%Y-%m-%d")
     end_date = weight_signals.index.max().strftime("%Y-%m-%d")
 
-    config = BacktestConfig(start_date=start_date, end_date=end_date, rebalance_freq="Q", initial_capital=1000000.0)
+    config = BacktestConfig(
+        start_date=start_date, end_date=end_date, rebalance_freq="Q", initial_capital=1000000.0
+    )
 
     # 4) 拉取价格数据（使用权重里的所有 ticker）
     # data_manager = get_data_manager()
@@ -681,8 +715,7 @@ if __name__ == "__main__":
     # 仅保留价格可用的列
     common_cols = [c for c in weight_signals.columns if c in price_data_bt.columns]
     if not common_cols:
-        msg = "价格数据与权重中的股票列没有交集，请检查 ticker 是否匹配数据源。"
-        raise ValueError(msg)
+        raise ValueError("价格数据与权重中的股票列没有交集，请检查 ticker 是否匹配数据源。")
     weight_signals = weight_signals[common_cols]
 
     # 将目标调仓日对齐到下一个可交易日（bfill）
@@ -721,8 +754,7 @@ if __name__ == "__main__":
         weight_signals = weight_signals.div(weight_signals.sum(axis=1), axis=0).fillna(0)
 
     if weight_signals.empty:
-        msg = "对齐交易日后权重矩阵为空，可能所有调仓日都非交易日或票无价格数据。"
-        raise ValueError(msg)
+        raise ValueError("对齐交易日后权重矩阵为空，可能所有调仓日都非交易日或票无价格数据。")
 
     print(f"有效调仓日数量: {len(weight_signals)}，有效股票数: {len(weight_signals.columns)}")
 

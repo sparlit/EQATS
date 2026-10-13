@@ -1,0 +1,107 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+
+import httpx
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def get_margin_data(auth_token):
+    """Fetch margin (fund) data from MStock API using Type B authentication."""
+    # Use BROKER_API_SECRET which contains the mStock API key
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    if not api_key:
+        logger.error("Missing environment variable: BROKER_API_SECRET")
+        return {}
+
+    logger.info(
+        f"Fetching margin data with auth_token length: {len(auth_token) if auth_token else 0}"
+    )
+    logger.debug("Auth token present" if auth_token else "Auth token missing")
+    logger.debug(f"API key length: {len(api_key) if api_key else 0}")
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+    }
+
+    try:
+        client = get_httpx_client()
+        response = client.get(
+            "https://api.mstock.trade/openapi/typeb/user/fundsummary", headers=headers, timeout=10.0
+        )
+        logger.info(f"Fund summary API response status: {response.status_code}")
+
+        response.raise_for_status()
+        margin_data = response.json()
+
+        logger.debug(
+            f"Fund summary response: status={margin_data.get('status')}, has_data={bool(margin_data.get('data'))}"
+        )
+        if margin_data.get("status") == True and margin_data.get("data"):  # noqa: E712
+            data = margin_data["data"][0]
+            key_mapping = {
+                "AVAILABLE_BALANCE": "availablecash",
+                "COLLATERALS": "collateral",
+                "REALISED_PROFITS": "m2mrealized",
+                "MTM_COMBINED": "m2munrealized",
+                "AMOUNT_UTILIZED": "utiliseddebits",
+            }
+
+            filtered_data = {}
+            for mstock_key, openalgo_key in key_mapping.items():
+                value = data.get(mstock_key)
+                if value in (None, "None", ""):
+                    value = 0
+                try:
+                    formatted_value = f"{float(value):.2f}"
+                except (ValueError, TypeError):
+                    formatted_value = "0.00"
+                filtered_data[openalgo_key] = formatted_value
+
+            logger.debug("Margin data processed; fields=%s", list(filtered_data.keys()))
+            return filtered_data
+
+        logger.error(f"Margin API failed: {margin_data.get('message', 'No data')}")
+        return {}
+
+    except httpx.HTTPStatusError as e:
+        logger.error("HTTP error while fetching margin data; status=%s", e.response.status_code)
+        try:
+            error_detail = e.response.json()
+            logger.error("Margin API error fields: %s", list(error_detail.keys()))
+        except Exception:
+            pass
+        return {}
+    except httpx.RequestError as e:
+        logger.error(f"Network Error while fetching margin data: {e}")
+        return {}
+    except Exception:
+        logger.exception("Unexpected error while fetching margin data.")
+        return {}

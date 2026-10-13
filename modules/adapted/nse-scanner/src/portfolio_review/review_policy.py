@@ -28,12 +28,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
 from .review_repository import load_latest_review
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -48,8 +46,11 @@ class ReviewPolicy:
         return cls(
             max_age_days=max(1, int(os.getenv("PORTFOLIO_REVIEW_MAX_AGE_DAYS", "45"))),
             max_symbols_per_run=max(0, int(os.getenv("PORTFOLIO_REVIEW_MAX_SYMBOLS", "30"))),
-            max_provider_calls_per_run=max(0, int(os.getenv("PORTFOLIO_REVIEW_MAX_PROVIDER_CALLS", "60"))),
-            force_refresh=os.getenv("PORTFOLIO_REVIEW_FORCE_REFRESH", "false").lower() in {"1", "true", "yes"},
+            max_provider_calls_per_run=max(
+                0, int(os.getenv("PORTFOLIO_REVIEW_MAX_PROVIDER_CALLS", "60"))
+            ),
+            force_refresh=os.getenv("PORTFOLIO_REVIEW_FORCE_REFRESH", "false").lower()
+            in {"1", "true", "yes"},
         )
 
 

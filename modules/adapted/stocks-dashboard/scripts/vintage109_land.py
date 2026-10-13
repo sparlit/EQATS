@@ -56,7 +56,12 @@ def why_fund(r, tgt):
             "originally filed; it reads {}. BSE's detailed-results JSON (as-filed by construction, "
             "§42) reads {} and Moneycontrol's deep quarterly feed reads {} — two independent "
             "readers agreeing against the stored {}.".format(
-                r["gap_qe_to_nsefiled"], r["nse_filed"], round(r["nse_pat"], 2), r["detres_pat"], _mc(r), r["stored"]
+                r["gap_qe_to_nsefiled"],
+                r["nse_filed"],
+                round(r["nse_pat"], 2),
+                r["detres_pat"],
+                _mc(r),
+                r["stored"],
             )
         )
     else:
@@ -73,7 +78,9 @@ def why_fund(r, tgt):
             )
         )
         if "DETRES" in ev:
-            w += " BSE detres (as-filed by construction, §42) independently reads {}.".format(r["detres_pat"])
+            w += " BSE detres (as-filed by construction, §42) independently reads {}.".format(
+                r["detres_pat"]
+            )
         if "MC" in ev:
             w += (
                 f" Moneycontrol's deep quarterly feed reads {_mc(r)}; MC serves the restated vintage "
@@ -93,7 +100,11 @@ def why_fund(r, tgt):
 
 def _mc(r):
     m = r.get("mc") or {}
-    return m.get("pat_own") if (r["basis"] == "con" and m.get("pat_own") is not None) else m.get("pat_total")
+    return (
+        m.get("pat_own")
+        if (r["basis"] == "con" and m.get("pat_own") is not None)
+        else m.get("pat_total")
+    )
 
 
 def merge(path, new, label, apply):
@@ -136,9 +147,16 @@ def main():
     # reported and skipped rather than forced. memory: feedback-minified-json-never-merge
     if "--from" in sys.argv:
         src = json.load(open(sys.argv[sys.argv.index("--from") + 1], encoding="utf-8"))
-        print("landing a pre-built set: %d fund cells, %d revop slots" % (len(src["proposals"]), len(src["revop"])))
-        a1, c1 = merge(os.path.join(HERE, "fund_cell_fix.json"), src["proposals"], "fund_cell_fix", apply)
-        a2, c2 = merge(os.path.join(HERE, "revop_cell_fix.json"), src["revop"], "revop_cell_fix", apply)
+        print(
+            "landing a pre-built set: %d fund cells, %d revop slots"
+            % (len(src["proposals"]), len(src["revop"]))
+        )
+        a1, c1 = merge(
+            os.path.join(HERE, "fund_cell_fix.json"), src["proposals"], "fund_cell_fix", apply
+        )
+        a2, c2 = merge(
+            os.path.join(HERE, "revop_cell_fix.json"), src["revop"], "revop_cell_fix", apply
+        )
         if not apply:
             print("\n(dry run — pass --apply to write the ledgers)")
         return
@@ -232,8 +250,8 @@ def main():
         open(os.path.join(HERE, "_vintage109_heals.json"), "w"),
         indent=1,
     )
-    _a1, _c1 = merge(os.path.join(HERE, "fund_cell_fix.json"), fund_props, "fund_cell_fix", apply)
-    _a2, _c2 = merge(os.path.join(HERE, "revop_cell_fix.json"), revop_props, "revop_cell_fix", apply)
+    a1, c1 = merge(os.path.join(HERE, "fund_cell_fix.json"), fund_props, "fund_cell_fix", apply)
+    a2, c2 = merge(os.path.join(HERE, "revop_cell_fix.json"), revop_props, "revop_cell_fix", apply)
     if not apply:
         print("\n(dry run — pass --apply to write the ledgers)")
 

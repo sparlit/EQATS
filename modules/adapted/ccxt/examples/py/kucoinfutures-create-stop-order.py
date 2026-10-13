@@ -66,9 +66,12 @@ stop_trigger_params = {
 # }
 
 try:
-    stop_trigger_order = exchange.create_order(symbol, order_type, side, amount, order_price, stop_trigger_params)
+    stop_trigger_order = exchange.create_order(
+        symbol, order_type, side, amount, order_price, stop_trigger_params
+    )
     # stop_loss_order = exchange.create_order(symbol, order_type, side, amount, order_price, stop_loss_params)
     # take_profit_order = exchange.create_order(symbol, order_type, side, amount, order_price, take_profit_params)
+    pprint(stop_trigger_order)
     # pprint(stop_loss_order)
     # pprint(take_profit_order)
 except Exception as err:

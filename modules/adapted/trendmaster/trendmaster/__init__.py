@@ -36,13 +36,13 @@ from .trendmaster import (
 
 __all__ = [
     "DataLoader",
-    "Inferencer",
     "PositionalEncoding",
-    "Trainer",
     "TransAm",
-    "plot_predictions",
-    "plot_results",
+    "Trainer",
+    "Inferencer",
     "set_seed",
+    "plot_results",
+    "plot_predictions",
 ]
 
 

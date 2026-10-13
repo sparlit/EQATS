@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import sys
 from pathlib import Path
 from shutil import copyfileobj
 from urllib.request import urlopen
@@ -61,7 +60,7 @@ with urlopen(url, timeout=30) as response, ZIP_FILE.open("wb") as f:
         f.write(chunk)
 
 if not ZIP_FILE.is_file():
-    sys.exit("download failed")
+    exit("download failed")
 
 print("Download success.")
 # create the eod2_data and daily folder if not exists

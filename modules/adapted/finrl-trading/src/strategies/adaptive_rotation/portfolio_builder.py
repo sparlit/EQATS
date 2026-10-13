@@ -39,7 +39,6 @@ Version: 1.2.1
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -151,12 +150,12 @@ def calculate_risk_budget(
 
     if slow_state.value == "risk_off":
         return risk_off_budget, "risk_off"
-    if slow_state.value == "neutral":
+    elif slow_state.value == "neutral":
         # Interpolate between risk_on and risk_off
         neutral_budget = (risk_on_budget + risk_off_budget) / 2
         return neutral_budget, "neutral"
-    # risk_on
-    return risk_on_budget, "risk_on"
+    else:  # risk_on
+        return risk_on_budget, "risk_on"
 
 
 # ============================================================================
@@ -191,8 +190,8 @@ def allocate_group_budgets(
         # Equal allocation
         budget_per_group = risk_budget / len(active_groups)
         return dict.fromkeys(active_groups, budget_per_group)
-    msg = "Only equal_weight is currently supported"
-    raise NotImplementedError(msg)
+    else:
+        raise NotImplementedError("Only equal_weight is currently supported")
 
 
 # ============================================================================
@@ -224,8 +223,8 @@ def calculate_asset_weights_in_group(
     if equal_weight:
         weight_per_asset = group_budget / len(top_assets)
         return dict.fromkeys(top_assets, weight_per_asset)
-    msg = "Only equal_weight is currently supported"
-    raise NotImplementedError(msg)
+    else:
+        raise NotImplementedError("Only equal_weight is currently supported")
 
 
 def apply_exception_multiplier(
@@ -412,7 +411,9 @@ def build_portfolio_weights(
 
     # Step 3: Apply exception multiplier
     if exception_symbols:
-        all_weights = apply_exception_multiplier(all_weights, exception_symbols, exception_weight_multiplier)
+        all_weights = apply_exception_multiplier(
+            all_weights, exception_symbols, exception_weight_multiplier
+        )
 
     # Step 4: Normalize to ensure sum <= 1.0
     all_weights = normalize_weights(all_weights, max_total=1.0)
@@ -503,7 +504,9 @@ class PortfolioBuilder:
         constraints = {}
 
         # Step 1: Calculate risk budget from regime
-        risk_budget, regime_state = calculate_risk_budget(regime_result, self.risk_on_budget, self.risk_off_budget)
+        risk_budget, regime_state = calculate_risk_budget(
+            regime_result, self.risk_on_budget, self.risk_off_budget
+        )
         constraints["risk_budget"] = risk_budget
         constraints["regime_state"] = regime_state
 
@@ -520,7 +523,9 @@ class PortfolioBuilder:
             if fallback_config is not None and fallback_config.enabled:
                 use_fallback = True
                 fallback_symbols = fallback_config.symbols
-                warnings.append(f"No active groups selected - using fallback: {', '.join(fallback_symbols)}")
+                warnings.append(
+                    f"No active groups selected - using fallback: {', '.join(fallback_symbols)}"
+                )
             else:
                 warnings.append("No active groups selected")
 

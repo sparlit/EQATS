@@ -103,7 +103,8 @@ def write_sector_info(session, stock_id, sector_info):
             "subsector1": sector_info["subsector1"] or None,
             "subsector2": sector_info["subsector2"] or None,
             "subsector3": sector_info["subsector3"] or None,
-            "industry": sector_info["subsector3"] or None,  # finest level = BSE's "Industry" column equivalent
+            "industry": sector_info["subsector3"]
+            or None,  # finest level = BSE's "Industry" column equivalent
             "stock_id": stock_id,
         },
     )

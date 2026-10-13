@@ -115,7 +115,8 @@ def anchored_walk_forward(
         test_trades = [
             trade
             for trade in trades
-            if trade.signal_date >= test_start.date().isoformat() and trade.signal_date <= test_end.date().isoformat()
+            if trade.signal_date >= test_start.date().isoformat()
+            and trade.signal_date <= test_end.date().isoformat()
         ]
         test_report = summarize_performance(test_trades)
         rows.append(

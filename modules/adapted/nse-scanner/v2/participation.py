@@ -49,7 +49,9 @@ def evaluate_participation(
     required = {"volume", "delivery_pct"}
     missing = required.difference(data.columns)
     if missing:
-        return ParticipationResult(False, 0.0, (f"missing_columns:{','.join(sorted(missing))}",), {})
+        return ParticipationResult(
+            False, 0.0, (f"missing_columns:{','.join(sorted(missing))}",), {}
+        )
     if len(data) < max(volume_window, delivery_window) + 1:
         return ParticipationResult(False, 0.0, ("insufficient_history",), {})
 
@@ -57,7 +59,9 @@ def evaluate_participation(
     avg_volume = data["volume"].shift(1).rolling(volume_window).mean().iloc[-1]
     avg_delivery = data["delivery_pct"].shift(1).rolling(delivery_window).mean().iloc[-1]
 
-    volume_multiple = float(last["volume"] / avg_volume) if pd.notna(avg_volume) and avg_volume > 0 else 0.0
+    volume_multiple = (
+        float(last["volume"] / avg_volume) if pd.notna(avg_volume) and avg_volume > 0 else 0.0
+    )
     delivery_multiple = (
         float(last["delivery_pct"] / avg_delivery)
         if pd.notna(avg_delivery) and avg_delivery > 0 and pd.notna(last["delivery_pct"])

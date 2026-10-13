@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
@@ -31,7 +30,9 @@ from sklearn.pipeline import Pipeline
 
 
 def readcsv():
-    df = pd.read_csv("../../data/dataset/csv/dataset_sentiment.csv")  # read labelled tweets
+    df = pd.read_csv(
+        "../../data/dataset/csv/dataset_sentiment.csv",
+    )  # read labelled tweets
     X = df.text
     y = df.label
     return X, y
@@ -40,7 +41,11 @@ def readcsv():
 def random_forest_accuracy(X, y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
     random_forest = Pipeline(
-        [("vect", CountVectorizer()), ("tfidf", TfidfTransformer()), ("Random", RandomForestClassifier(random_state=1))]
+        [
+            ("vect", CountVectorizer()),
+            ("tfidf", TfidfTransformer()),
+            ("Random", RandomForestClassifier(random_state=1)),
+        ]
     )
     random_forest = random_forest.fit(X_train, y_train)
     ypred = random_forest.predict(X_test)

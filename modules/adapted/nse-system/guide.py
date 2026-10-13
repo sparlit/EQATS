@@ -86,30 +86,84 @@ def fund_rows(m, sector, sector_median_pe):
 
     roe = f2(m.get("roe"))
     roe_ideal = {"financial": 12, "capital": 12, "quality": 18, "default": 15}[fam]
-    rows.append(("ROE — " + MEANING["roe"], roe, f"≥ {roe_ideal}%", None if roe is None else roe >= roe_ideal))
+    rows.append(
+        (
+            "ROE — " + MEANING["roe"],
+            roe,
+            f"≥ {roe_ideal}%",
+            None if roe is None else roe >= roe_ideal,
+        )
+    )
 
     roce = f2(m.get("roce"))
     roce_ideal = {"financial": 10, "capital": 12, "quality": 25, "default": 15}[fam]
-    rows.append(("ROCE — " + MEANING["roce"], roce, f"≥ {roce_ideal}%", None if roce is None else roce >= roce_ideal))
+    rows.append(
+        (
+            "ROCE — " + MEANING["roce"],
+            roce,
+            f"≥ {roce_ideal}%",
+            None if roce is None else roce >= roce_ideal,
+        )
+    )
 
     de = f2(m.get("debt_to_equity"))
     de_ideal = {"financial": None, "capital": 2.0, "quality": 0.5, "default": 1.5}[fam]
     if de_ideal is None:
-        rows.append(("Debt/Equity — " + MEANING["debt_to_equity"], de, "not applicable for financials", None))
+        rows.append(
+            (
+                "Debt/Equity — " + MEANING["debt_to_equity"],
+                de,
+                "not applicable for financials",
+                None,
+            )
+        )
     else:
         rows.append(
-            ("Debt/Equity — " + MEANING["debt_to_equity"], de, f"≤ {de_ideal}", None if de is None else de <= de_ideal)
+            (
+                "Debt/Equity — " + MEANING["debt_to_equity"],
+                de,
+                f"≤ {de_ideal}",
+                None if de is None else de <= de_ideal,
+            )
         )
 
     pg = f2(m.get("profit_growth_3y"))
-    rows.append(("Profit growth 3Y — " + MEANING["profit_growth_3y"], pg, "≥ 15%", None if pg is None else pg >= 15))
+    rows.append(
+        (
+            "Profit growth 3Y — " + MEANING["profit_growth_3y"],
+            pg,
+            "≥ 15%",
+            None if pg is None else pg >= 15,
+        )
+    )
 
     sg = f2(m.get("sales_growth_3y"))
-    rows.append(("Sales growth 3Y — " + MEANING["sales_growth_3y"], sg, "≥ 10%", None if sg is None else sg >= 10))
+    rows.append(
+        (
+            "Sales growth 3Y — " + MEANING["sales_growth_3y"],
+            sg,
+            "≥ 10%",
+            None if sg is None else sg >= 10,
+        )
+    )
 
     pl = f2(m.get("pledge_pct"))
-    rows.append(("Pledge — " + MEANING["pledge_pct"], pl, "≤ 5 (best is 0)", None if pl is None else pl <= 5))
+    rows.append(
+        (
+            "Pledge — " + MEANING["pledge_pct"],
+            pl,
+            "≤ 5 (best is 0)",
+            None if pl is None else pl <= 5,
+        )
+    )
 
     ph = f2(m.get("promoter_holding"))
-    rows.append(("Promoter holding — " + MEANING["promoter_holding"], ph, "≥ 25%", None if ph is None else ph >= 25))
+    rows.append(
+        (
+            "Promoter holding — " + MEANING["promoter_holding"],
+            ph,
+            "≥ 25%",
+            None if ph is None else ph >= 25,
+        )
+    )
     return rows

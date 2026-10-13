@@ -157,7 +157,11 @@ def main():
     out_path = av[av.index("--emit") + 1]
     gate = av[av.index("--gate") + 1] if "--gate" in av else "window"
     win = int(av[av.index("--win") + 1]) if "--win" in av else 2
-    min_agree = int(av[av.index("--min-agree") + 1]) if "--min-agree" in av else (5 if gate == "window" else 3)
+    min_agree = (
+        int(av[av.index("--min-agree") + 1])
+        if "--min-agree" in av
+        else (5 if gate == "window" else 3)
+    )
     only = set(av[av.index("--only") + 1].split(",")) if "--only" in av else None
 
     gaps = json.load(open(gaps_path))
@@ -196,7 +200,10 @@ def main():
         for f in ("rev_ops", "rev_total"):
             for ok in vd_era[f].values():
                 (agree if ok else disagree)[f] += 1
-        era_conv = next((f for f in ("rev_ops", "rev_total") if agree[f] >= min_agree and disagree[f] == 0), None)
+        era_conv = next(
+            (f for f in ("rev_ops", "rev_total") if agree[f] >= min_agree and disagree[f] == 0),
+            None,
+        )
         staged = 0
         for qe in gaps[sym]:
             mc = q.get(qe)
@@ -240,7 +247,9 @@ def main():
                 "note": note,
             }
     json.dump(emit, open(out_path, "w"), indent=1, sort_keys=True)
-    json.dump(report, open(os.path.join(HERE, "_pre2009_mc_report.json"), "w"), indent=1, sort_keys=True)
+    json.dump(
+        report, open(os.path.join(HERE, "_pre2009_mc_report.json"), "w"), indent=1, sort_keys=True
+    )
     print("staged %d cells across %d symbols -> %s" % (tally["staged"], len(emit), out_path))
     print("gate=%s win=%d min_agree=%d" % (gate, win, min_agree))
     print(f"blocked: {dict(tally)}")

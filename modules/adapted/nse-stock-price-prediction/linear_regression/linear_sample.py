@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import datetime
 
 import numpy as np
-import pandas as pd
 import quandl
 from sklearn import cross_validation, preprocessing
 from sklearn.linear_model import LinearRegression
@@ -39,7 +38,9 @@ df = df[["Adj. Close"]]
 # exit()
 
 forecast_out = 30  # predicting 30 days into future
-df["Prediction"] = df[["Adj. Close"]].shift(-forecast_out)  #  label column with data shifted 30 units up
+df["Prediction"] = df[["Adj. Close"]].shift(
+    -forecast_out
+)  #  label column with data shifted 30 units up
 
 X = np.array(df.drop(["Prediction"], 1))
 X = preprocessing.scale(X)

@@ -62,10 +62,10 @@ async def fetch_price(exchange, symbol):
 async def compare_symbol(exchanges, symbol):
     coroutines = [fetch_price(exchange, symbol) for exchange in exchanges]
     results = await gather(*coroutines)
-    print()  # spacing line
+    print("")  # spacing line
     for result in results:
         print(*result)
-    print()  # spacing line
+    print("")  # spacing line
 
 
 async def main():

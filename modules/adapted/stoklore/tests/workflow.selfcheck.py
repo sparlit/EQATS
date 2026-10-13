@@ -55,7 +55,9 @@ RUN = {"prompt": "How is TCS doing?", "status": "done", "reply": "It is up 2%."}
 # --- a run that called nothing still draws ------------------------------------------------------
 graph = build(RUN, [])
 assert [n["id"] for n in graph["nodes"]] == ["trigger", "reply"]
-assert [e["id"] for e in graph["edges"]] == ["trigger->reply"], "an answer with no tools is a real run"
+assert [e["id"] for e in graph["edges"]] == ["trigger->reply"], (
+    "an answer with no tools is a real run"
+)
 
 # --- a straight chain ---------------------------------------------------------------------------
 graph = build(RUN, [call("a", "get_price", round_=0), call("b", "search_reports", round_=1)])
@@ -84,8 +86,12 @@ graph = build(
 price = next(n for n in graph["nodes"] if n["id"] == "call-price")
 news = next(n for n in graph["nodes"] if n["id"] == "call-news")
 assert price["position"]["x"] == news["position"]["x"], "siblings share a column"
-assert price["position"]["y"] != news["position"]["y"], "...and are stacked, not on top of each other"
-assert price["data"]["items"] == 3 and news["data"]["items"] == 2, "a list's length is the item count"
+assert price["position"]["y"] != news["position"]["y"], (
+    "...and are stacked, not on top of each other"
+)
+assert price["data"]["items"] == 3 and news["data"]["items"] == 2, (
+    "a list's length is the item count"
+)
 
 edges = {e["id"] for e in graph["edges"]}
 assert {"trigger->call-price", "trigger->call-news"} <= edges, "the fork"
@@ -105,11 +111,12 @@ assert next(n for n in graph["nodes"] if n["id"] == "reply")["data"]["label"] ==
 assert all(e["animated"] for e in graph["edges"]), "a live run's wires animate"
 
 # --- a failed tool doesn't stop the diagram ---------------------------------------------------------
-graph = build({**RUN, "status": "failed", "error": "boom"}, [call("a", "get_price", error="upstream 500")])
+graph = build(
+    {**RUN, "status": "failed", "error": "boom"}, [call("a", "get_price", error="upstream 500")]
+)
 assert next(n for n in graph["nodes"] if n["id"] == "call-a")["data"]["status"] == "error"
 reply = next(n for n in graph["nodes"] if n["id"] == "reply")
-assert reply["data"]["status"] == "error"
-assert reply["data"]["label"] == "Failed"
+assert reply["data"]["status"] == "error" and reply["data"]["label"] == "Failed"
 assert reply["data"]["detail"] == "boom", "the failure is what the last node should say"
 
 # Every edge must point at a node that exists - React Flow silently drops an edge that doesn't,

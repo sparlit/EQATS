@@ -112,8 +112,8 @@ def get_global_quote(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching global quote for {symbol}: {e}")
-        return {"error": True, "message": f"Failed to fetch '{symbol}': {e!s}"}
+        logger.error(f"Error fetching global quote for {symbol}: {e}")
+        return {"error": True, "message": f"Failed to fetch '{symbol}': {str(e)}"}
 
 
 @cached(historical_cache, ttl=86400)
@@ -169,7 +169,7 @@ def get_global_historical(symbol: str, period: str = "1mo", interval: str = "1d"
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching historical for {symbol}: {e}")
+        logger.error(f"Error fetching historical for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -184,7 +184,10 @@ def get_crypto_price(symbol: str) -> dict:
     """
     # Normalize crypto symbols
     symbol = symbol.strip().upper()
-    yf_symbol = f"{symbol}-USD" if not symbol.endswith("-USD") and not symbol.endswith("-INR") else symbol
+    if not symbol.endswith("-USD") and not symbol.endswith("-INR"):
+        yf_symbol = f"{symbol}-USD"
+    else:
+        yf_symbol = symbol
 
     try:
         ticker = yf.Ticker(yf_symbol)
@@ -215,7 +218,7 @@ def get_crypto_price(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching crypto {symbol}: {e}")
+        logger.error(f"Error fetching crypto {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -267,7 +270,7 @@ def get_forex_rate(from_currency: str, to_currency: str = "INR") -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching forex {from_currency}/{to_currency}: {e}")
+        logger.error(f"Error fetching forex {from_currency}/{to_currency}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -322,7 +325,7 @@ def get_market_news(symbol: str = "") -> dict:
         }
 
     except Exception as e:
-        logger.exception(f"Error fetching news for {symbol}: {e}")
+        logger.error(f"Error fetching news for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -357,7 +360,7 @@ def get_sec_filings(symbol: str, filing_type: str = "10-K", count: int = 5) -> d
             cik = None
             company_name = None
 
-            for entry in tickers_data.values():
+            for _, entry in tickers_data.items():
                 if entry.get("ticker", "").upper() == symbol.upper():
                     cik = str(entry["cik_str"]).zfill(10)
                     company_name = entry.get("title", symbol)
@@ -416,5 +419,5 @@ def get_sec_filings(symbol: str, filing_type: str = "10-K", count: int = 5) -> d
         }
 
     except Exception as e:
-        logger.exception(f"Error fetching SEC filings for {symbol}: {e}")
+        logger.error(f"Error fetching SEC filings for {symbol}: {e}")
         return {"error": True, "message": str(e)}

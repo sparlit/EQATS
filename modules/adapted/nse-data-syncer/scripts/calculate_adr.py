@@ -62,7 +62,9 @@ def calculate_adr():
 
         # Ensure StockPerformance records exist for all active stocks (same
         # pattern as app/momentum.py)
-        existing_perfs = session.execute(text("SELECT stock_id, id FROM stock_performance")).fetchall()
+        existing_perfs = session.execute(
+            text("SELECT stock_id, id FROM stock_performance")
+        ).fetchall()
         existing_map = {p[0]: p[1] for p in existing_perfs}
 
         missing_ids = [sid for sid in active_stock_ids if sid not in existing_map]
@@ -71,7 +73,9 @@ def calculate_adr():
             new_perfs = [{"stock_id": sid} for sid in missing_ids]
             session.bulk_insert_mappings(StockPerformance, new_perfs)
             session.commit()
-            existing_perfs = session.execute(text("SELECT stock_id, id FROM stock_performance")).fetchall()
+            existing_perfs = session.execute(
+                text("SELECT stock_id, id FROM stock_performance")
+            ).fetchall()
             existing_map = {p[0]: p[1] for p in existing_perfs}
 
         # 20-day window + buffer for holidays/weekends
@@ -95,7 +99,12 @@ def calculate_adr():
         df["daily_range_pct"] = (df["high"] / df["low"] - 1) * 100
 
         def latest_adr(g):
-            return g["daily_range_pct"].rolling(window=ADR_WINDOW_DAYS, min_periods=ADR_WINDOW_DAYS).mean().iloc[-1]
+            return (
+                g["daily_range_pct"]
+                .rolling(window=ADR_WINDOW_DAYS, min_periods=ADR_WINDOW_DAYS)
+                .mean()
+                .iloc[-1]
+            )
 
         adr_series = df.groupby("stock_id").apply(latest_adr, include_groups=False)
         adr_series = adr_series.dropna()

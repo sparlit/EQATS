@@ -65,14 +65,18 @@ def order(args: argparse.Namespace) -> None:
                 tag=f"announcement_alpha_{signal.symbol}",
             )
             orders_placed += 1
-            print(f"  ORDER: {signal.symbol} ({signal.exchange}) -> {order_resp.get('order_id', 'pending')}")
+            print(
+                f"  ORDER: {signal.symbol} ({signal.exchange}) -> {order_resp.get('order_id', 'pending')}"
+            )
         except Exception as e:
             print(f"  ERROR: {signal.symbol}: {e}")
     print(f"Paper orders placed: {orders_placed}")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Place paper orders on BSE announcement alpha signals from watchlist")
+    parser = argparse.ArgumentParser(
+        description="Place paper orders on BSE announcement alpha signals from watchlist"
+    )
     parser.add_argument("--date", default=None, help="Date to scan (YYYY-MM-DD)")
     parser.add_argument("--data-dir", default="./Bse_Nse_announcement_downloads")
     parser.add_argument("--instrument-master", default="data/upstox_master.csv.gz")

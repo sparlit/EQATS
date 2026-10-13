@@ -126,7 +126,9 @@ def _has_fo_contracts(instrument_key: str) -> bool:
     if not data:
         return False
     today = date.today()
-    return any(date.fromisoformat(c.get("expiry", "")[:10]) >= today for c in data if c.get("expiry", ""))
+    return any(
+        date.fromisoformat(c.get("expiry", "")[:10]) >= today for c in data if c.get("expiry", "")
+    )
 
 
 def _resolve_key(symbol: str, force_refresh: bool = False) -> str | None:
@@ -182,7 +184,7 @@ def _get_nearest_expiry(instrument_key: str) -> str | None:
                 expiries.add(exp_str[:10])
         except ValueError:
             continue
-    return min(expiries) if expiries else None
+    return sorted(expiries)[0] if expiries else None
 
 
 def _load_baseline() -> dict[str, dict]:
@@ -214,11 +216,11 @@ def _compute_oi_signal(premium_now: float, premium_open: float, oi_now: int, oi_
     oi_up = oi_now > oi_open
     if oi_up and price_up:
         return "LONG_BUILD"
-    if oi_up and not price_up:
+    elif oi_up and not price_up:
         return "SHORT_BUILD"
-    if not oi_up and price_up:
+    elif not oi_up and price_up:
         return "SHORT_COVER"
-    if not oi_up and not price_up:
+    elif not oi_up and not price_up:
         return "LONG_UNWIND"
     return "NEUTRAL"
 
@@ -305,7 +307,11 @@ def collect_snapshot() -> pd.DataFrame:
             )
             if chain_data:
                 chain_rows = chain_data if isinstance(chain_data, list) else []
-                closest = min(chain_rows, key=lambda r: abs(int(r.get("strike_price", 0)) - spot), default=None)
+                closest = min(
+                    chain_rows,
+                    key=lambda r: abs(int(r.get("strike_price", 0)) - spot),
+                    default=None,
+                )
                 if closest:
                     atm_strike = int(closest.get("strike_price", 0))
                     ce_md = closest.get("call_options", {}).get("market_data", {})
@@ -325,11 +331,17 @@ def collect_snapshot() -> pd.DataFrame:
 
         ce_oi_signal = _compute_oi_signal(atm_ce_ltp, base_ce_ltp, total_calls, base_ce_oi)
         pe_oi_signal = _compute_oi_signal(atm_pe_ltp, base_pe_ltp, total_puts, base_pe_oi)
-        ce_oi_change_pct = round((total_calls - base_ce_oi) / base_ce_oi * 100, 2) if base_ce_oi > 0 else 0.0
-        pe_oi_change_pct = round((total_puts - base_pe_oi) / base_pe_oi * 100, 2) if base_pe_oi > 0 else 0.0
+        ce_oi_change_pct = (
+            round((total_calls - base_ce_oi) / base_ce_oi * 100, 2) if base_ce_oi > 0 else 0.0
+        )
+        pe_oi_change_pct = (
+            round((total_puts - base_pe_oi) / base_pe_oi * 100, 2) if base_pe_oi > 0 else 0.0
+        )
         total_oi = total_calls + total_puts
         base_total_oi = base_ce_oi + base_pe_oi
-        oi_change_pct = round((total_oi - base_total_oi) / base_total_oi * 100, 2) if base_total_oi > 0 else 0.0
+        oi_change_pct = (
+            round((total_oi - base_total_oi) / base_total_oi * 100, 2) if base_total_oi > 0 else 0.0
+        )
         pcr_change = round(pcr - (base_pe_oi / base_ce_oi if base_ce_oi > 0 else 0), 4)
 
         rows.append(
@@ -429,11 +441,15 @@ def collect_cas_closing() -> pd.DataFrame:
             else:
                 continue
 
-        for _inst_key, q in quote_data.items() if isinstance(quote_data, dict) else [(sym, quote_data)]:
+        for _inst_key, q in (
+            quote_data.items() if isinstance(quote_data, dict) else [(sym, quote_data)]
+        ):
             if isinstance(q, dict):
                 cas_price = float(q.get("last_price", 0) or q.get("ltp", 0) or 0)
                 cont_price = continuous.get(sym, 0.0)
-                divergence = round((cas_price - cont_price) / cont_price * 100, 4) if cont_price > 0 else 0.0
+                divergence = (
+                    round((cas_price - cont_price) / cont_price * 100, 4) if cont_price > 0 else 0.0
+                )
                 rows.append(
                     {
                         "timestamp": timestamp,
@@ -642,7 +658,9 @@ def run_schedule():
 
 def show_info():
     if os.path.isdir(DATA_DIR):
-        files = sorted(f for f in os.listdir(DATA_DIR) if f.startswith("oi_") and f.endswith(".parquet"))
+        files = sorted(
+            f for f in os.listdir(DATA_DIR) if f.startswith("oi_") and f.endswith(".parquet")
+        )
         if files:
             print("=== OI Snapshots ===")
             total_rows = 0
@@ -656,7 +674,9 @@ def show_info():
             print(f"Total: {len(files)} days, {total_rows} rows\n")
 
     if os.path.isdir(CHAIN_DIR):
-        files = sorted(f for f in os.listdir(CHAIN_DIR) if f.startswith("chain_") and f.endswith(".parquet"))
+        files = sorted(
+            f for f in os.listdir(CHAIN_DIR) if f.startswith("chain_") and f.endswith(".parquet")
+        )
         if files:
             print("=== Option Chain ===")
             total_rows = 0
@@ -667,7 +687,9 @@ def show_info():
                 timestamps = df["timestamp"].nunique()
                 symbols = df["symbol"].nunique()
                 strikes = df["strike"].nunique()
-                print(f"  {f}: {len(df)} rows, {timestamps} snapshots, {symbols} symbols, {strikes} strikes")
+                print(
+                    f"  {f}: {len(df)} rows, {timestamps} snapshots, {symbols} symbols, {strikes} strikes"
+                )
             print(f"Total: {len(files)} days, {total_rows} rows\n")
 
     if not os.path.isdir(DATA_DIR) and not os.path.isdir(CHAIN_DIR):
@@ -678,9 +700,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Intraday OI + Option Chain Collector")
-    parser.add_argument("--schedule", action="store_true", help="Every 15 min 9:20-15:29 + CAS at 15:42")
+    parser.add_argument(
+        "--schedule", action="store_true", help="Every 15 min 9:20-15:29 + CAS at 15:42"
+    )
     parser.add_argument("--cas", action="store_true", help="Collect CAS closing prices now")
-    parser.add_argument("--chain", action="store_true", help="Collect full option chain snapshot now")
+    parser.add_argument(
+        "--chain", action="store_true", help="Collect full option chain snapshot now"
+    )
     parser.add_argument("--info", action="store_true", help="Show collected data summary")
     args = parser.parse_args()
 
@@ -712,6 +738,8 @@ if __name__ == "__main__":
         if not df.empty:
             save_snapshot(df)
             print(f"\nCollected {len(df)} symbols:")
-            print(df[["symbol", "spot", "total_ce_oi", "total_pe_oi", "pcr"]].to_string(index=False))
+            print(
+                df[["symbol", "spot", "total_ce_oi", "total_pe_oi", "pcr"]].to_string(index=False)
+            )
         else:
             print("No data collected")

@@ -87,13 +87,15 @@ def _make_backtest_result(trades: list[Trade]) -> BacktestResult:
 def _bull_price_series(n: int = 300) -> pd.Series:
     """Rising prices well above any 200-day SMA."""
     dates = pd.date_range("2020-01-01", periods=n, freq="B")
-    return pd.Series(np.linspace(200, 400, n), index=dates)
+    prices = pd.Series(np.linspace(200, 400, n), index=dates)
+    return prices
 
 
 def _bear_price_series(n: int = 300) -> pd.Series:
     """Falling prices well below any 200-day SMA."""
     dates = pd.date_range("2020-01-01", periods=n, freq="B")
-    return pd.Series(np.linspace(400, 100, n), index=dates)
+    prices = pd.Series(np.linspace(400, 100, n), index=dates)
+    return prices
 
 
 def _sideways_price_series(n: int = 300) -> pd.Series:
@@ -102,7 +104,8 @@ def _sideways_price_series(n: int = 300) -> pd.Series:
     base = 100.0
     # Tiny oscillation — stays within ±1% of start, never diverges 3%
     noise = np.sin(np.linspace(0, 6 * np.pi, n)) * 0.5
-    return pd.Series(base + noise, index=dates)
+    prices = pd.Series(base + noise, index=dates)
+    return prices
 
 
 # ── label_regimes() ───────────────────────────────────────────────────────────
@@ -309,7 +312,8 @@ def _build_prices_with_regimes() -> pd.Series:
     dates = pd.date_range("2021-01-01", periods=600, freq="B")
     bull_part = np.linspace(100, 300, 300)
     bear_part = np.linspace(300, 80, 300)
-    return pd.Series(np.concatenate([bull_part, bear_part]), index=dates)
+    prices = pd.Series(np.concatenate([bull_part, bear_part]), index=dates)
+    return prices
 
 
 class TestAnalyseByRegime:
@@ -363,7 +367,7 @@ class TestAnalyseByRegime:
         result = _make_backtest_result(trades)
         prices = _build_prices_with_regimes()
         regime_result = analyse_by_regime(result, prices=prices)
-        for stats in regime_result.regimes.values():
+        for _rtype, stats in regime_result.regimes.items():
             if stats.trade_count > 0:
                 # win_rate should be consistent with win_count / trade_count
                 expected_wr = round(stats.win_count / stats.trade_count * 100, 1)
@@ -375,7 +379,7 @@ class TestAnalyseByRegime:
         result = _make_backtest_result(trades)
         prices = _build_prices_with_regimes()
         regime_result = analyse_by_regime(result, prices=prices)
-        for stats in regime_result.regimes.values():
+        for _rtype, stats in regime_result.regimes.items():
             if stats.trade_count == 0:
                 assert stats.win_rate == 0.0
                 assert stats.avg_return == 0.0

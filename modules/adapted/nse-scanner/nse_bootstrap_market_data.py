@@ -48,13 +48,13 @@ REQUIRED_DAYS = 420
 
 def read_valid_dates() -> list[date]:
     if not MANIFEST_PATH.exists():
-        msg = f"Missing bootstrap manifest: {MANIFEST_PATH}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing bootstrap manifest: {MANIFEST_PATH}")
     payload = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     dates = [date.fromisoformat(value) for value in payload.get("valid_dates", [])]
     if len(dates) < REQUIRED_DAYS:
-        msg = f"Bootstrap has only {len(dates)} valid days; {REQUIRED_DAYS} are required."
-        raise ValueError(msg)
+        raise ValueError(
+            f"Bootstrap has only {len(dates)} valid days; {REQUIRED_DAYS} are required."
+        )
     return sorted(dates)[-REQUIRED_DAYS:]
 
 
@@ -77,7 +77,9 @@ def distinct_price_days() -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Convert validated NSE bootstrap files to market_data snapshots.")
+    parser = argparse.ArgumentParser(
+        description="Convert validated NSE bootstrap files to market_data snapshots."
+    )
     parser.add_argument(
         "--reset-db",
         action="store_true",
@@ -86,11 +88,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if DB_PATH.exists() and not args.reset_db:
-        msg = (
+        raise SystemExit(
             "A local nse_scanner.db already exists. Re-run with --reset-db to archive it "
             "and build an exact 420-day bootstrap."
         )
-        raise SystemExit(msg)
 
     dates = read_valid_dates()
     if args.reset_db:
@@ -110,14 +111,12 @@ def main() -> None:
 
     day_count = distinct_price_days()
     if failed or day_count != REQUIRED_DAYS:
-        msg = f"Bootstrap load incomplete: {day_count}/{REQUIRED_DAYS} price days."
-        raise SystemExit(msg)
+        raise SystemExit(f"Bootstrap load incomplete: {day_count}/{REQUIRED_DAYS} price days.")
 
     written = export_all_price_snapshots(DB_PATH, keep_days=REQUIRED_DAYS)
     snapshots = snapshot_dates()
     if len(snapshots) != REQUIRED_DAYS:
-        msg = f"Snapshot export incomplete: {len(snapshots)}/{REQUIRED_DAYS} files."
-        raise SystemExit(msg)
+        raise SystemExit(f"Snapshot export incomplete: {len(snapshots)}/{REQUIRED_DAYS} files.")
 
     print(f"Complete: {day_count} price days loaded; {written} snapshots written.")
     print(f"market_data range: {snapshots[0]} to {snapshots[-1]}")

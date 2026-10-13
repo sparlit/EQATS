@@ -46,7 +46,9 @@ class V2Database:
     def ensure_v3_schema(self) -> None:
         """Apply additive V3 fields/tables idempotently before a daily run."""
         with self.connect() as conn:
-            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "symbol_master_v2" not in names:
                 conn.execute("""CREATE TABLE symbol_master_v2 (
                     symbol TEXT PRIMARY KEY, isin TEXT, company_name TEXT, series TEXT,
@@ -139,7 +141,9 @@ class V2Database:
         from .fundamentals import FundamentalSnapshot, evaluate_fundamentals
 
         with self.connect() as conn:
-            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "fundamental_snapshots_v3" not in names:
                 return {}
             rows = conn.execute(
@@ -173,8 +177,7 @@ class V2Database:
             return "daily_prices_v2"
         if "daily_prices" in names:
             return "daily_prices"
-        msg = "No supported daily price table found"
-        raise RuntimeError(msg)
+        raise RuntimeError("No supported daily price table found")
 
     def load_prices(self, end_date: str | None = None, min_sessions: int = 0) -> pd.DataFrame:
         with self.connect() as conn:
@@ -186,7 +189,16 @@ class V2Database:
                 for column in ("turnover_lacs", "delivery_qty", "delivery_pct", "quality_status")
                 if column in available
             ]
-            selected = ["symbol", f"{date_col} AS trade_date", "open", "high", "low", "close", "volume", *optional]
+            selected = [
+                "symbol",
+                f"{date_col} AS trade_date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                *optional,
+            ]
             query = f"SELECT {', '.join(selected)} FROM {table}"
             params: list[object] = []
             if end_date:
@@ -202,10 +214,19 @@ class V2Database:
     def load_symbol_master(self, as_of_date: str | None = None) -> pd.DataFrame:
         """Return V2 metadata plus the latest point-in-time NSE ownership record."""
         with self.connect() as conn:
-            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "symbol_master_v2" not in names:
                 return pd.DataFrame(
-                    columns=["symbol", "series", "active", "market_cap_cr", "market_cap_as_of", "market_cap_source"]
+                    columns=[
+                        "symbol",
+                        "series",
+                        "active",
+                        "market_cap_cr",
+                        "market_cap_as_of",
+                        "market_cap_source",
+                    ]
                 )
             available = {row[1] for row in conn.execute("PRAGMA table_info(symbol_master_v2)")}
             columns = [
@@ -276,7 +297,9 @@ class V2Database:
     def load_restricted_symbols(self, trade_date: str) -> dict[str, str]:
         """Load dated regulatory exclusions when a compatible table is available."""
         with self.connect() as conn:
-            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "regulatory_restrictions_v2" in names:
                 rows = conn.execute(
                     """SELECT symbol, restriction_type, reason
@@ -286,13 +309,17 @@ class V2Database:
                 ).fetchall()
                 if rows:
                     return {
-                        str(row["symbol"]): f"{row['restriction_type']}: {row['reason'] or 'restricted'}"
+                        str(
+                            row["symbol"]
+                        ): f"{row['restriction_type']}: {row['reason'] or 'restricted'}"
                         for row in rows
                     }
             if "blacklist" not in names:
                 return {}
             columns = {row[1] for row in conn.execute("PRAGMA table_info(blacklist)")}
-            date_column = "trade_date" if "trade_date" in columns else "date" if "date" in columns else None
+            date_column = (
+                "trade_date" if "trade_date" in columns else "date" if "date" in columns else None
+            )
             reason_column = "reason" if "reason" in columns else None
             if not date_column:
                 return {}
@@ -301,11 +328,15 @@ class V2Database:
                 f"SELECT symbol, {reason_sql} AS reason FROM blacklist WHERE {date_column}=?",
                 (trade_date,),
             ).fetchall()
-            return {str(row["symbol"]): str(row["reason"] or "REGULATORY_RESTRICTION") for row in rows}
+            return {
+                str(row["symbol"]): str(row["reason"] or "REGULATORY_RESTRICTION") for row in rows
+            }
 
     def save_eligibility_audit(self, trade_date: str, results: dict[str, object]) -> None:
         with self.connect() as conn:
-            names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "v3_eligibility_audit" not in names:
                 conn.execute("""CREATE TABLE v3_eligibility_audit (
                     symbol TEXT NOT NULL, trade_date TEXT NOT NULL, eligible INTEGER NOT NULL,
@@ -324,7 +355,9 @@ class V2Database:
                         payload["stage"],
                         payload["reason_code"],
                         None if payload["actual_value"] is None else str(payload["actual_value"]),
-                        None if payload["required_value"] is None else str(payload["required_value"]),
+                        None
+                        if payload["required_value"] is None
+                        else str(payload["required_value"]),
                         json.dumps(payload.get("metrics") or {}, default=str),
                     )
                 )
@@ -340,9 +373,13 @@ class V2Database:
 
     def load_indices(self, end_date: str | None = None) -> pd.DataFrame:
         with self.connect() as conn:
-            names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            names = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "index_perf" not in names:
-                return pd.DataFrame(columns=["index_name", "trade_date", "open", "high", "low", "close"])
+                return pd.DataFrame(
+                    columns=["index_name", "trade_date", "open", "high", "low", "close"]
+                )
             query = "SELECT index_name, date AS trade_date, open, high, low, close FROM index_perf"
             params: list[object] = []
             if end_date:

@@ -52,7 +52,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.mcallen")
 
@@ -118,7 +117,8 @@ METHODS = [
     {
         "id": "mcallen_island_bottom_long",
         "name": "Island Bottom Long",
-        "description": "Gap-down followed by gap-up isolating price action at a low. Confirms major turn up.",
+        "description": "Gap-down followed by gap-up isolating price "
+        "action at a low. Confirms major turn up.",
         "direction": "long",
         "scan": True,
         "confidence": "MED",
@@ -136,7 +136,8 @@ METHODS = [
     {
         "id": "mcallen_bullish_harami_long",
         "name": "Bullish Harami Long",
-        "description": "Small bullish candle inside a prior large bearish candle after a decline. Reversal entry.",
+        "description": "Small bullish candle inside a prior large bearish "
+        "candle after a decline. Reversal entry.",
         "direction": "long",
         "scan": True,
         "confidence": "MED",
@@ -155,7 +156,8 @@ METHODS = [
     {
         "id": "mcallen_bearish_harami_warning",
         "name": "Bearish Harami Warning",
-        "description": "Small bearish candle inside a prior large bullish candle after an advance. Top warning.",
+        "description": "Small bearish candle inside a prior large bullish "
+        "candle after an advance. Top warning.",
         "direction": "long",
         "scan": True,
         "confidence": "MED",
@@ -254,7 +256,8 @@ def _try_emit(sigs, fn):
 # ----------------------------------------------------------------
 def _load_df(conn, sym, limit=500):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -299,7 +302,7 @@ def _pivots(values, k=3, lookback=100, kind="low"):
     out = []
     for i in range(start, n - k):
         win = values[i - k : i + k + 1]
-        if (kind == "low" and values[i] == win.min()) or (kind == "high" and values[i] == win.max()):
+        if kind == "low" and values[i] == win.min() or kind == "high" and values[i] == win.max():
             out.append((i, float(values[i])))
     return out
 
@@ -389,16 +392,24 @@ def _mk_exits(
             "condition": invalidation_condition,
         },
         "exhaustion": (
-            {"thesis": exhaustion_thesis, "rule": "volume climax or extended advance"} if exhaustion_thesis else None
+            {"thesis": exhaustion_thesis, "rule": "volume climax or extended advance"}
+            if exhaustion_thesis
+            else None
         ),
-        "time_exit": ({"thesis": time_exit_thesis, "sessions": time_exit_sessions} if time_exit_sessions else None),
+        "time_exit": (
+            {"thesis": time_exit_thesis, "sessions": time_exit_sessions}
+            if time_exit_sessions
+            else None
+        ),
     }
 
 
 # ----------------------------------------------------------------
 # Signal constructor
 # ----------------------------------------------------------------
-def _signal(sym, method_id, signal_type, entry, stop, target, confidence, notes, raw, overlaps_with=None):
+def _signal(
+    sym, method_id, signal_type, entry, stop, target, confidence, notes, raw, overlaps_with=None
+):
     sig = {
         "symbol": sym,
         "trader": SLUG,
@@ -554,9 +565,7 @@ def _is_three_white_soldiers(df, i):
         return False
     if not (shapes[0]["close"] < shapes[1]["close"] < shapes[2]["close"]):
         return False
-    if any(s["body"] < LONG_BODY_RATIO * s["rng"] for s in shapes):
-        return False
-    return True
+    return not any(s["body"] < LONG_BODY_RATIO * s["rng"] for s in shapes)
 
 
 def _is_three_black_crows(df, i):
@@ -569,9 +578,7 @@ def _is_three_black_crows(df, i):
         return False
     if not (shapes[0]["close"] > shapes[1]["close"] > shapes[2]["close"]):
         return False
-    if any(s["body"] < LONG_BODY_RATIO * s["rng"] for s in shapes):
-        return False
-    return True
+    return not any(s["body"] < LONG_BODY_RATIO * s["rng"] for s in shapes)
 
 
 def _is_bullish_harami(df, i):
@@ -615,7 +622,9 @@ def _is_hanging_man(s):
     if s is None:
         return False
     if s["body"] < 1e-6:
-        return s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.15 * s["rng"] and s["close_pos"] >= 0.6
+        return (
+            s["lower"] >= 0.6 * s["rng"] and s["upper"] <= 0.15 * s["rng"] and s["close_pos"] >= 0.6
+        )
     return (
         s["lower"] >= HAMMER_WICK_RATIO * s["body"]
         and s["body"] <= HAMMER_BODY_MAX * s["rng"]
@@ -629,7 +638,9 @@ def _is_shooting_star(s):
     if s is None:
         return False
     if s["body"] < 1e-6:
-        return s["upper"] >= 0.6 * s["rng"] and s["lower"] <= 0.15 * s["rng"] and s["close_pos"] <= 0.4
+        return (
+            s["upper"] >= 0.6 * s["rng"] and s["lower"] <= 0.15 * s["rng"] and s["close_pos"] <= 0.4
+        )
     return (
         s["upper"] >= HAMMER_WICK_RATIO * s["body"]
         and s["body"] <= HAMMER_BODY_MAX * s["rng"]
@@ -726,10 +737,14 @@ def _detect_saucer_signal(sym, df):
             ),
             stop_condition=f"close below ₹{_fmt_num(stop)} (saucer low)",
             target_hard=target,
-            target_thesis=("Book: measured move = saucer depth projected above the breakout level."),
+            target_thesis=(
+                "Book: measured move = saucer depth projected above the breakout level."
+            ),
             target_condition=f"close ≥ ₹{_fmt_num(target)}",
             offset_thesis=(
-                "Book: a close back below the breakout resistance re-enters the pattern — the breakout has failed."
+                "Book: a close back below the breakout "
+                "resistance re-enters the pattern — the "
+                "breakout has failed."
             ),
             offset_trigger="close back below breakout resistance",
             invalidation_thesis=("Book: pattern invalid if price makes a new saucer low."),
@@ -742,7 +757,9 @@ def _detect_saucer_signal(sym, df):
             ),
         ),
         "overlap_note": (
-            "Overlaps patterns.DOUBLE_BOTTOM — different shape (longer rounding vs. W). Marked, not pruned."
+            "Overlaps patterns.DOUBLE_BOTTOM — different "
+            "shape (longer rounding vs. W). Marked, "
+            "not pruned."
         ),
     }
     return [
@@ -784,12 +801,18 @@ def _detect_island_signal(sym, df):
         "vol_ratio": vr,
         "exits": _mk_exits(
             stop_hard=stop,
-            stop_thesis=("Book: the island's low is the structural floor. Break below it negates the island."),
+            stop_thesis=(
+                "Book: the island's low is the structural floor. Break below it negates the island."
+            ),
             stop_condition=f"close below ₹{_fmt_num(stop)}",
             target_hard=target,
-            target_thesis=("Book: measured move = island height projected above the island's high."),
+            target_thesis=(
+                "Book: measured move = island height projected above the island's high."
+            ),
             target_condition=f"close ≥ ₹{_fmt_num(target)}",
-            offset_thesis=("Book: a close back inside the island's range voids the reversal signal."),
+            offset_thesis=(
+                "Book: a close back inside the island's range voids the reversal signal."
+            ),
             offset_trigger="close inside island range",
             invalidation_thesis="Book: pattern invalid if island low breaks.",
             invalidation_condition="close < island low",
@@ -853,7 +876,9 @@ def _detect_three_white_soldiers_signal(sym, df):
             target_thesis=("Book: measured move = 2× risk from the pattern low."),
             target_condition=f"close ≥ ₹{_fmt_num(target)}",
             offset_thesis=(
-                "Book: a single bearish engulfing or three black crows after the pattern signals the move is over."
+                "Book: a single bearish engulfing or three "
+                "black crows after the pattern signals the "
+                "move is over."
             ),
             offset_trigger="bearish engulfing or three black crows",
             invalidation_thesis="Book: close below first soldier low.",
@@ -916,7 +941,9 @@ def _detect_bullish_harami_signal(sym, df):
             time_exit_thesis="Standard window for candle reversals.",
         ),
         "overlap_note": (
-            "Related to nison candlestick family — different shape (harami vs. engulfing). Marked, not pruned."
+            "Related to nison candlestick family — "
+            "different shape (harami vs. engulfing). "
+            "Marked, not pruned."
         ),
     }
     return [
@@ -947,7 +974,9 @@ def _detect_three_black_crows_signal(sym, df):
     entry = float(df["close"].iloc[-1])
     stop = float(df["high"].iloc[-3])
     target = entry - 1.0 * (stop - entry)  # informational
-    notes = "Three black crows — 3 long bear candles, top warning" + (f", vol {_fmt_num(vr, 2)}x" if vr else "")
+    notes = "Three black crows — 3 long bear candles, top warning" + (
+        f", vol {_fmt_num(vr, 2)}x" if vr else ""
+    )
     raw = {
         "vol_ratio": vr,
         "exits": _mk_exits(
@@ -955,16 +984,22 @@ def _detect_three_black_crows_signal(sym, df):
             stop_thesis=("Book: a close back above the first crow's high re-asserts bulls."),
             stop_condition=f"close above ₹{_fmt_num(stop)}",
             target_hard=target,
-            target_thesis=("Book: measured move down = 1× pattern range. Informational for owner review."),
+            target_thesis=(
+                "Book: measured move down = 1× pattern range. Informational for owner review."
+            ),
             target_condition=f"close ≤ ₹{_fmt_num(target)}",
-            offset_thesis=("Book: exit longs if a position is still open on the pattern's completion."),
+            offset_thesis=(
+                "Book: exit longs if a position is still open on the pattern's completion."
+            ),
             offset_trigger="close below third crow's low",
             invalidation_thesis="Book: close above first crow's high.",
             invalidation_condition="close > first crow high",
             time_exit_sessions=10,
             time_exit_thesis="Review window for the warning.",
         ),
-        "warning_note": ("TOP_WARNING, not a short entry. Owner reviews existing positions. See R43."),
+        "warning_note": (
+            "TOP_WARNING, not a short entry. Owner reviews existing positions. See R43."
+        ),
         "overlap_note": "Related to patterns.HEAD_SHOULDERS_TOP_WARNING.",
     }
     return [
@@ -1140,7 +1175,8 @@ def _detect_exhaustion_gap_signal(sym, df):
     stop = g["gap_high"]
     target = g["gap_low"]
     notes = (
-        f"Exhaustion gap up +{_fmt_num(g['gap_pct'] * 100, 1)}% after +{_fmt_num(g['prior_advance'] * 100, 0)}% advance"
+        f"Exhaustion gap up +{_fmt_num(g['gap_pct'] * 100, 1)}% "
+        f"after +{_fmt_num(g['prior_advance'] * 100, 0)}% advance"
     )
     raw = {
         "gap_pct": g["gap_pct"],
@@ -1152,13 +1188,17 @@ def _detect_exhaustion_gap_signal(sym, df):
             stop_thesis="Book: close above the gap high re-asserts bulls.",
             stop_condition=f"close above ₹{_fmt_num(stop)}",
             target_hard=target,
-            target_thesis=("Book: a close below the gap low confirms the exhaustion — a sign to exit longs."),
+            target_thesis=(
+                "Book: a close below the gap low confirms the exhaustion — a sign to exit longs."
+            ),
             target_condition=f"close ≤ ₹{_fmt_num(target)} (gap fill)",
             offset_thesis="Book: gap fill within 3 sessions confirms the exhaustion.",
             offset_trigger="close below gap low within 3 sessions",
             invalidation_thesis="Book: a new high above gap high voids it.",
             invalidation_condition="close > gap high",
-            exhaustion_thesis=("Book: the gap itself is the exhaustion signal. Owner reviews longs for trimming."),
+            exhaustion_thesis=(
+                "Book: the gap itself is the exhaustion signal. Owner reviews longs for trimming."
+            ),
             time_exit_sessions=3,
             time_exit_thesis="Confirming window.",
         ),
@@ -1200,7 +1240,10 @@ def _detect_spike_top_signal(sym, df):
             stop_thesis="Book: close above spike peak invalidates.",
             stop_condition=f"close above ₹{_fmt_num(stop)}",
             target_hard=target,
-            target_thesis=("Book: spike tops reverse sharply. Target is informational — owner decides trim level."),
+            target_thesis=(
+                "Book: spike tops reverse sharply. Target is "
+                "informational — owner decides trim level."
+            ),
             target_condition=f"close ≤ ₹{_fmt_num(target)}",
             offset_thesis="Book: exit longs on the first bearish candle.",
             offset_trigger="first bearish engulfing or shooting star",
@@ -1299,11 +1342,13 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=DEFAULT_LIMIT):
+def scan(conn=None, limit=DEFAULT_LIMIT, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"McAllen scan: {len(syms)} symbols in universe")
 
     signals = []

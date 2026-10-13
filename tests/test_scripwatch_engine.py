@@ -5,7 +5,6 @@ Verifies ScripWatchEngine 52-week proximity triggers, watchlist alert evaluation
 0.05 INR tick rounding, and microkernel plugin registry lookup.
 """
 
-from typing import Any
 
 from institutional_integrations.scripwatch_engine import (
     MAGIC_NUMBER_SCRIPWATCH,
@@ -14,7 +13,6 @@ from institutional_integrations.scripwatch_engine import (
 )
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    SEBIOrderRequest,
     UnifiedIndianBrokerClientAdapter,
 )
 

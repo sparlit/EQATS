@@ -73,6 +73,6 @@ while True:
         break
 
 print("Fetched", len(all_trades), "trades")
-for i in range(len(all_trades)):
+for i in range(0, len(all_trades)):
     trade = all_trades[i]
     print(i, trade["id"], trade["datetime"], trade["amount"])

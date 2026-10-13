@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_urlencode():
@@ -44,8 +44,8 @@ def test_urlencode():
             "id": "sampleexchange",
         }
     )
-    # TODO: add nulls
-    # TODO: add sort
+    # todo: add nulls
+    # todo: add sort
     dict1 = {
         "a": 1,
         "c": "+&",

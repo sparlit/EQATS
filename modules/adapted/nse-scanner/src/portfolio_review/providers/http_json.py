@@ -34,19 +34,19 @@ import requests
 from .base import ProviderError
 
 
-def post_json(url: str, *, headers: dict[str, str], body: dict[str, Any], timeout: int) -> dict[str, Any]:
+def post_json(
+    url: str, *, headers: dict[str, str], body: dict[str, Any], timeout: int
+) -> dict[str, Any]:
     try:
         response = requests.post(url, headers=headers, json=body, timeout=timeout)
         response.raise_for_status()
     except requests.RequestException as exc:
-        msg = f"LLM HTTP request failed: {exc}"
-        raise ProviderError(msg) from exc
+        raise ProviderError(f"LLM HTTP request failed: {exc}") from exc
 
     try:
         return response.json()
     except ValueError as exc:
-        msg = "LLM provider returned non-JSON HTTP content"
-        raise ProviderError(msg) from exc
+        raise ProviderError("LLM provider returned non-JSON HTTP content") from exc
 
 
 def decode_json_object(text: str) -> dict[str, Any]:
@@ -60,10 +60,8 @@ def decode_json_object(text: str) -> dict[str, Any]:
     try:
         payload = json.loads(cleaned)
     except json.JSONDecodeError as exc:
-        msg = f"LLM response is not valid JSON: {exc}"
-        raise ProviderError(msg) from exc
+        raise ProviderError(f"LLM response is not valid JSON: {exc}") from exc
 
     if not isinstance(payload, dict):
-        msg = "LLM response must be a JSON object"
-        raise ProviderError(msg)
+        raise ProviderError("LLM response must be a JSON object")
     return payload

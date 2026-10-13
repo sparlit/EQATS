@@ -27,7 +27,9 @@ import sys
 
 # ------------------------------------------------------------------------------
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 import logging
@@ -54,9 +56,11 @@ async def tcp_kill_after(seconds):
                 local_port = conn.laddr.port
                 sock.shutdown(socket.SHUT_RDWR)
                 sock.close()
-                logging.info(f"Connection closed: {local_address}:{local_port} -> {conn.raddr.ip}:{conn.raddr.port}")
+                logging.info(
+                    f"Connection closed: {local_address}:{local_port} -> {conn.raddr.ip}:{conn.raddr.port}"
+                )
             except Exception as e:
-                logging.exception(f"Error closing connection: {e}")
+                logging.error(f"Error closing connection: {e}")
 
 
 async def test_abnormal_close():

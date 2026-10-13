@@ -40,7 +40,9 @@ async def symbol_loop(exchange, method, symbol):
             now = exchange.milliseconds()
             iso8601 = exchange.iso8601(now)
             if method == "watchOrderBook":
-                print(iso8601, exchange.id, method, symbol, response["asks"][0], response["bids"][0])
+                print(
+                    iso8601, exchange.id, method, symbol, response["asks"][0], response["bids"][0]
+                )
             elif method == "watchTicker":
                 print(
                     iso8601,
@@ -88,7 +90,9 @@ async def exchange_loop(exchange_id, methods, config=None):
     for attr, value in config.items():
         setattr(exchange, attr, value)
     loops = [
-        symbols_method_loop(exchange, method, symbols) if len(symbols) else method_loop(exchange, method)
+        symbols_method_loop(exchange, method, symbols)
+        if len(symbols)
+        else method_loop(exchange, method)
         for method, symbols in methods.items()
     ]
     await gather(*loops)
@@ -119,7 +123,8 @@ async def main():
         },
     }
     loops = [
-        exchange_loop(exchange_id, methods, keys.get(exchange_id, {})) for exchange_id, methods in exchanges.items()
+        exchange_loop(exchange_id, methods, keys.get(exchange_id, {}))
+        for exchange_id, methods in exchanges.items()
     ]
     await gather(*loops)
 

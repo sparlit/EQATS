@@ -54,7 +54,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.way_of_the_turtle")
 
@@ -202,7 +201,8 @@ def _safe_f(v):
 
 def _load_df(conn, sym, limit=600):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -329,7 +329,8 @@ def _detect_turtle_sys1(sym, df):
                 "BULLISH",
                 prior_high_20 + TICK,
                 "HIGH",
-                f"20d breakout long (skip rule omitted, aggressive variant) @ ₹{prior_high_20 + TICK:.2f}",
+                f"20d breakout long (skip rule omitted, "
+                f"aggressive variant) @ ₹{prior_high_20 + TICK:.2f}",
                 {"breakout_level": prior_high_20, "skip_rule": "omitted"},
             )
         )
@@ -504,8 +505,13 @@ def _detect_donchian_trend(sym, df):
                 "BULLISH",
                 prior_high + TICK,
                 "HIGH",
-                f"Donchian long @ ₹{prior_high + TICK:.2f} (EMA25 {ema25[-1]:.2f} > EMA350 {ema350[-1]:.2f})",
-                {"breakout_level": prior_high, "ema25": float(ema25[-1]), "ema350": float(ema350[-1])},
+                f"Donchian long @ ₹{prior_high + TICK:.2f} "
+                f"(EMA25 {ema25[-1]:.2f} > EMA350 {ema350[-1]:.2f})",
+                {
+                    "breakout_level": prior_high,
+                    "ema25": float(ema25[-1]),
+                    "ema350": float(ema350[-1]),
+                },
             )
         )
     if trend_down and c[-1] < prior_low - TICK and c[-2] >= prior_low_yest - TICK:
@@ -518,7 +524,11 @@ def _detect_donchian_trend(sym, df):
                 "HIGH",
                 f"Donchian short (F&O only) @ ₹{prior_low - TICK:.2f} "
                 f"(EMA25 {ema25[-1]:.2f} < EMA350 {ema350[-1]:.2f})",
-                {"breakout_level": prior_low, "ema25": float(ema25[-1]), "ema350": float(ema350[-1])},
+                {
+                    "breakout_level": prior_low,
+                    "ema25": float(ema25[-1]),
+                    "ema350": float(ema350[-1]),
+                },
             )
         )
     return out
@@ -578,7 +588,7 @@ def _detect_triple_ma(sym, df):
     if None in (f_now, m_now, s_now, f_prev, m_prev):
         return []
     out = []
-    if f_prev <= m_prev and f_now > m_now > s_now:
+    if f_prev <= m_prev and f_now > m_now and m_now > s_now:
         out.append(
             _sig(
                 sym,
@@ -590,7 +600,7 @@ def _detect_triple_ma(sym, df):
                 {"ma150": f_now, "ma250": m_now, "ma350": s_now},
             )
         )
-    if f_prev >= m_prev and f_now < m_now < s_now:
+    if f_prev >= m_prev and f_now < m_now and m_now < s_now:
         out.append(
             _sig(
                 sym,
@@ -669,12 +679,14 @@ def _scan_symbol(sym, df):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
 
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Turtle scan: {len(syms)} symbols in universe")
 
     signals = []

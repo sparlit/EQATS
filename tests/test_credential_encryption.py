@@ -7,14 +7,17 @@ This script tests:
 3. Environment variable key derivation
 4. Salt file generation and persistence
 """
-from typing import Any
 import os
 import sys
 import tempfile
+from typing import Any
+
 import config
+
 test_db = tempfile.mktemp(suffix='.db')
 config.DB_PATH = test_db
 import database
+
 
 def test_fernet_encryption() -> None:
     """Test basic Fernet encryption and decryption."""

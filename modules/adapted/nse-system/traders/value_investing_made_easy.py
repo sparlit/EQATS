@@ -336,7 +336,9 @@ def _fundamentals_map(conn):
 
 
 def _last_close(conn, sym):
-    r = conn.execute("SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,)).fetchone()
+    r = conn.execute(
+        "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,)
+    ).fetchone()
     return _safe_num(r[0]) if r else None
 
 
@@ -395,7 +397,11 @@ def _build_features(conn, syms):
         }
         if i % 200 == 0:
             log.info(f"  features {i}/{len(syms)}")
-    log.info(f"features: kept={len(features)}, sector-excluded={excluded_sector}, no-fundamentals={missing_fund}")
+    log.info(
+        f"features: kept={len(features)}, "
+        f"sector-excluded={excluded_sector}, "
+        f"no-fundamentals={missing_fund}"
+    )
     return features
 
 
@@ -403,7 +409,9 @@ def _build_features(conn, syms):
 # Universe stats
 # ----------------------------------------------------------------
 def _universe_stats(features):
-    mcaps = sorted([f["market_cap_cr"] for f in features.values() if f.get("market_cap_cr") is not None])
+    mcaps = sorted(
+        [f["market_cap_cr"] for f in features.values() if f.get("market_cap_cr") is not None]
+    )
     mcap_40pct = None
     if mcaps:
         idx = max(0, int(len(mcaps) * UNIVERSE_MIN_PCT / 100.0) - 1)
@@ -460,7 +468,13 @@ def _compute_rankings(features, ustats):
         de = f.get("debt_to_equity")
         pb = f.get("pb")
         cfo = f.get("cfo_positive")
-        if de is not None and de <= GRAHAM_DE_MAX and pb is not None and 0 < pb <= 1.20 and cfo == 1:
+        if (
+            de is not None
+            and de <= GRAHAM_DE_MAX
+            and pb is not None
+            and 0 < pb <= 1.20
+            and cfo == 1
+        ):
             bss.add(s)
     out["balance_sheet_safety"] = bss
 
@@ -526,7 +540,8 @@ def _evaluate_symbol(sym, f, rankings):
                 sym,
                 "graham_deep_value_pb",
                 "HIGH",
-                f"P/B {f.get('pb'):.2f} <= {GRAHAM_PB_DEEP} (Graham crit 4: price <= 2/3 book value)",
+                f"P/B {f.get('pb'):.2f} <= {GRAHAM_PB_DEEP} "
+                f"(Graham crit 4: price <= 2/3 book value)",
                 {"pb": f.get("pb")},
             )
         )
@@ -537,7 +552,8 @@ def _evaluate_symbol(sym, f, rankings):
                 sym,
                 "graham_earnings_yield",
                 "HIGH",
-                f"Earnings yield {f.get('earnings_yield') * 100:.2f}% >= 2 x AAA ({AAA_BOND_YIELD_PCT}%)",
+                f"Earnings yield {f.get('earnings_yield') * 100:.2f}% "
+                f">= 2 x AAA ({AAA_BOND_YIELD_PCT}%)",
                 {"earnings_yield": f.get("earnings_yield"), "pe": f.get("pe")},
             )
         )
@@ -565,7 +581,12 @@ def _evaluate_symbol(sym, f, rankings):
                 "MED",
                 f"Graham IV ₹{iv:.2f}, close ₹{f.get('close'):.2f} "
                 f"<= 80% of IV (E=₹{eps:.2f}, r={r:.1f}%, Y={AAA_BOND_YIELD_PCT}%)",
-                {"eps_fy": eps, "growth_r": r, "intrinsic_value": round(iv, 2), "close": f.get("close")},
+                {
+                    "eps_fy": eps,
+                    "growth_r": r,
+                    "intrinsic_value": round(iv, 2),
+                    "close": f.get("close"),
+                },
             )
         )
 
@@ -597,8 +618,13 @@ def _evaluate_symbol(sym, f, rankings):
                 sym,
                 "management_quality_roic",
                 "HIGH",
-                f"ROCE {f.get('roce'):.1f}% ROE {f.get('roe'):.1f}% margin {f.get('operating_margin'):.1f}%",
-                {"roce": f.get("roce"), "roe": f.get("roe"), "operating_margin": f.get("operating_margin")},
+                f"ROCE {f.get('roce'):.1f}% ROE {f.get('roe'):.1f}% "
+                f"margin {f.get('operating_margin'):.1f}%",
+                {
+                    "roce": f.get("roce"),
+                    "roe": f.get("roe"),
+                    "operating_margin": f.get("operating_margin"),
+                },
             )
         )
 

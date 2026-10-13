@@ -40,7 +40,10 @@ from ingest import nse
 import config
 
 DIR = config.DATA_DIR / "ratings"
-API = "https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={frm}&to_date={to}"
+API = (
+    "https://www.nseindia.com/api/corporate-announcements"
+    "?index=equities&from_date={frm}&to_date={to}"
+)
 
 
 def phase_urls():
@@ -55,14 +58,19 @@ def phase_urls():
         if wk not in done_weeks:
             try:
                 r = nse.get(
-                    API.format(frm=d.strftime("%d-%m-%Y"), to=(d + timedelta(days=6)).strftime("%d-%m-%Y")), timeout=90
+                    API.format(
+                        frm=d.strftime("%d-%m-%Y"), to=(d + timedelta(days=6)).strftime("%d-%m-%Y")
+                    ),
+                    timeout=90,
                 )
                 rows = r.json()
                 rows = rows if isinstance(rows, list) else rows.get("data", [])
                 df = pd.DataFrame(rows)
                 if len(df):
                     sym = "symbol" if "symbol" in df.columns else "sm_symbol"
-                    cr = df[df["desc"].astype(str).str.lower().str.contains("credit rating", na=False)]
+                    cr = df[
+                        df["desc"].astype(str).str.lower().str.contains("credit rating", na=False)
+                    ]
                     if len(cr):
                         keep = pd.DataFrame(
                             {
@@ -82,9 +90,9 @@ def phase_urls():
     print(f"urls: {len(all_)} rating announcements")
 
 
-DOWN = re.compile(r"downgrad|revised.{0,30}from.{1,25}to|lowered", re.IGNORECASE)
-UP = re.compile(r"upgrad|raised", re.IGNORECASE)
-REAF = re.compile(r"reaffirm|reiterated|maintained", re.IGNORECASE)
+DOWN = re.compile(r"downgrad|revised.{0,30}from.{1,25}to|lowered", re.I)
+UP = re.compile(r"upgrad|raised", re.I)
+REAF = re.compile(r"reaffirm|reiterated|maintained", re.I)
 
 
 def phase_pdfs():
@@ -117,7 +125,9 @@ def phase_pdfs():
             )
         except Exception:
             direction = "fetch_fail"
-        rows.append({"symbol": r["symbol"], "an_dt": r["an_dt"], "pdf": r["pdf"], "direction": direction})
+        rows.append(
+            {"symbol": r["symbol"], "an_dt": r["an_dt"], "pdf": r["pdf"], "direction": direction}
+        )
         n += 1
         if n % 300 == 0:
             pd.DataFrame(rows).to_parquet(out, index=False)

@@ -53,20 +53,20 @@ class TestDeleteLastLineByDate(unittest.TestCase):
         self.tempfile.unlink()
 
     def test_date_found(self):
-        assert defs.deleteLastLineByDate(self.tempfile, "2024-05-03")
+        self.assertTrue(defs.deleteLastLineByDate(self.tempfile, "2024-05-03"))
 
         result = self.tempfile.read_text()
-        assert result.strip() == "2024-05-01,1\n2024-05-02,1"
+        self.assertEqual(result.strip(), "2024-05-01,1\n2024-05-02,1")
 
     def test_date_not_found(self):
-        assert not defs.deleteLastLineByDate(self.tempfile, "2024-05-04")
+        self.assertFalse(defs.deleteLastLineByDate(self.tempfile, "2024-05-04"))
 
     def test_empty_file(self):
-        assert not defs.deleteLastLineByDate(self.empty_file, "2024-05-04")
+        self.assertFalse(defs.deleteLastLineByDate(self.empty_file, "2024-05-04"))
 
     def test_file_string_no_date(self):
 
-        assert not defs.deleteLastLineByDate(self.str_only_file, "2024-05-04")
+        self.assertFalse(defs.deleteLastLineByDate(self.str_only_file, "2024-05-04"))
 
 
 if __name__ == "__main__":

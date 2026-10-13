@@ -37,7 +37,9 @@ import config
 IS_LO, IS_HI = "2023-01-01", "2027-01-01"
 
 
-def run2(ev, close, open_, bench_c, bench_o, liquid, entry_shift=0, entry_close=False, exit_shift=0):
+def run2(
+    ev, close, open_, bench_c, bench_o, liquid, entry_shift=0, entry_close=False, exit_shift=0
+):
     dates = close.index
     rows = []
     for _, e in ev.iterrows():
@@ -57,7 +59,14 @@ def run2(ev, close, open_, bench_c, bench_o, liquid, entry_shift=0, entry_close=
         r = px_out / px_in - 1
         b = bench_c.iloc[xpos] / (close if entry_close else open_)["NIFTYBEES"].iloc[pos] - 1
         r_at = r - 0.20 * max(r, 0.0)  # STCG transform (A3)
-        rows.append({"date": dates[pos], "symbol": sym, "excess": 100 * (r - b), "excess_at": 100 * (r_at - b)})
+        rows.append(
+            {
+                "date": dates[pos],
+                "symbol": sym,
+                "excess": 100 * (r - b),
+                "excess_at": 100 * (r_at - b),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -98,7 +107,11 @@ def main():
         a = cell(adds, **kw)
         n1 = cell(rnd, **kw)
         n2 = cell(mm, **kw)
-        ok = len(a) and a["excess"].mean() > n1["excess"].mean() and a["excess"].mean() > n2["excess"].mean()
+        ok = (
+            len(a)
+            and a["excess"].mean() > n1["excess"].mean()
+            and a["excess"].mean() > n2["excess"].mean()
+        )
         if name == "declared":
             declared = (a, n1, n2)
         else:
@@ -121,7 +134,10 @@ def main():
         f"{'PASS' if a2 else 'FAIL'}"
     )
 
-    a3 = a["excess_at"].mean() > n1["excess_at"].mean() and a["excess_at"].mean() > n2["excess_at"].mean()
+    a3 = (
+        a["excess_at"].mean() > n1["excess_at"].mean()
+        and a["excess_at"].mean() > n2["excess_at"].mean()
+    )
     print(
         f"\nStage A3 — after-tax: cell {a['excess_at'].mean():+.2f} vs "
         f"nulls {n1['excess_at'].mean():+.2f}/{n2['excess_at'].mean():+.2f}"

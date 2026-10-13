@@ -69,16 +69,15 @@ def test_consecutive_failure_abort_raises_partial_with_rows(monkeypatch):
         calls["n"] += 1
         if calls["n"] == 1:
             return _good_analysis(symbols)
-        msg = "Expecting value"
-        raise JSONDecodeError(msg, "", 0)
+        raise JSONDecodeError("Expecting value", "", 0)
 
     symbols = [f"SYM{i}" for i in range(1000)]  # 5 batches of 200
     with (
         patch.object(screener_service, "get_multiple_analysis", side_effect=flaky),
         patch.object(screener_service, "load_symbols", return_value=symbols),
-        pytest.raises(PartialDataError) as exc_info,
     ):
-        screener_service.fetch_trending_analysis("KUCOIN", timeframe="15m", limit=500)
+        with pytest.raises(PartialDataError) as exc_info:
+            screener_service.fetch_trending_analysis("KUCOIN", timeframe="15m", limit=500)
 
     err = exc_info.value
     assert len(err.rows) == 200  # batch 1's rows survive

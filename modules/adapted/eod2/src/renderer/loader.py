@@ -26,15 +26,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import logging
 from datetime import datetime
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
 from fast_csv_loader import csv_loader
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-    from .dtypes import Timeframe
+from .dtypes import Timeframe
 
 logger = logging.getLogger("MarketDataLoader")
 
@@ -188,7 +185,9 @@ class EODFileLoader:
         if self.tf == self.default_tf or df.empty:
             return df
 
-        return df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
+        df = df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
+
+        return df
 
     def _process_monthly(self, file: Path) -> pd.DataFrame:
         """Load and resample to monthly/quarterly."""
@@ -198,6 +197,11 @@ class EODFileLoader:
             parse_dates=[0],
             date_format=self.date_format,
         )
-        df = df.loc[: self.end_date].iloc[-self.period :] if self.end_date else df.iloc[-self.period :]
+        df = (
+            df.loc[: self.end_date].iloc[-self.period :]
+            if self.end_date
+            else df.iloc[-self.period :]
+        )
 
-        return df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
+        df = df.resample(self.offset_str).agg(self.ohlc_dict).dropna()
+        return df

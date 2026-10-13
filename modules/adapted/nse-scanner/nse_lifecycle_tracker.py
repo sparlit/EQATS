@@ -29,10 +29,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 STATE_FILE = Path("scan_lifecycle.json")
 
@@ -83,7 +81,9 @@ def apply_lifecycle(results_df: pd.DataFrame, scan_date) -> pd.DataFrame:
             stage = "EXIT_ALERT"
         elif record["origin"] == "LIFECYCLE":
             days = record["days_tracked"]
-            trend_6m = float(row.get("return_6m", 0)) > 0 and bool(row.get("ma50_above_ma200", False))
+            trend_6m = float(row.get("return_6m", 0)) > 0 and bool(
+                row.get("ma50_above_ma200", False)
+            )
             trend_12m = float(row.get("return_12m", 0)) > 0 and trend_6m
             if days >= 120 and trend_12m:
                 stage = "CORE_12M"
@@ -105,7 +105,9 @@ def apply_lifecycle(results_df: pd.DataFrame, scan_date) -> pd.DataFrame:
     today = datetime.strptime(scan_date, "%Y-%m-%d").date()
     for record in stocks.values():
         try:
-            last_seen = datetime.strptime(record.get("last_seen_date", scan_date), "%Y-%m-%d").date()
+            last_seen = datetime.strptime(
+                record.get("last_seen_date", scan_date), "%Y-%m-%d"
+            ).date()
             if (today - last_seen).days > 30 and record.get("stage") != "EXIT_ALERT":
                 record["stage"] = "INACTIVE"
         except ValueError:

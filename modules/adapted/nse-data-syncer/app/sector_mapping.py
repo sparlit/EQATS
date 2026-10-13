@@ -193,7 +193,9 @@ def load_sector_mapped_universe(session, min_market_cap_cr):
     for r in rows:
         sector_symbol = SECTOR_INDEX_MAP.get(r.industry)
         if sector_symbol:
-            universe.append({"stock_id": r.id, "nse_symbol": r.nse_symbol, "sector_symbol": sector_symbol})
+            universe.append(
+                {"stock_id": r.id, "nse_symbol": r.nse_symbol, "sector_symbol": sector_symbol}
+            )
     print(
         f"Universe: {len(rows)} stocks >= {min_market_cap_cr} Cr, {len(universe)} with a mapped sector "
         f"({len(rows) - len(universe)} excluded - no sector-index mapping)."

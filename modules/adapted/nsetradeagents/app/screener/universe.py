@@ -58,8 +58,7 @@ def fetch_universe() -> list[str]:
             logger.info("fetching_universe", source=name)
             resp = requests.get(url, headers=NSE_HEADERS, timeout=15)
             if resp.status_code != 200:
-                msg = f"HTTP {resp.status_code}"
-                raise Exception(msg)
+                raise Exception(f"HTTP {resp.status_code}")
 
             df = pd.read_csv(io.StringIO(resp.text))
             symbol_col = next((c for c in df.columns if "symbol" in c.lower()), None)
@@ -74,7 +73,7 @@ def fetch_universe() -> list[str]:
             logger.info("universe_fetched", source=name, count=len(valid))
 
         except Exception as e:
-            logger.exception("universe_fetch_failed", source=name, error=str(e))
+            logger.error("universe_fetch_failed", source=name, error=str(e))
 
     # Deduplicate
     seen = set()

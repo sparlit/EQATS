@@ -62,21 +62,7 @@ load_dotenv()
 
 import argparse
 import time
-from datetime import date, datetime, timedelta
-
-from data.truedata_adapter import TrueDataAdapter
-from scripts._market_data_lib import (
-    build_option_symbols,
-    fill_candle_day,
-    fill_tick_day,
-    get_atm_strike,
-    get_current_monthly_expiry,
-    get_futures_close_on,
-    is_trading_day,
-    seed_candles_for_symbol,
-    trading_days_back,
-)
-from utils.logger import get_logger
+from datetime import datetime
 
 from config.settings import (
     ATM_RANGE,
@@ -85,6 +71,18 @@ from config.settings import (
     TD_INDEX_FUTURES_SYMBOLS,
     TD_INDEX_SPOT_SYMBOLS,
 )
+from data.truedata_adapter import TrueDataAdapter
+from scripts._market_data_lib import (
+    build_option_symbols,
+    fill_candle_day,
+    fill_tick_day,
+    get_atm_strike,
+    get_current_monthly_expiry,
+    get_futures_close_on,
+    seed_candles_for_symbol,
+    trading_days_back,
+)
+from utils.logger import get_logger
 
 logger = get_logger("seed_other_symbols")
 
@@ -183,7 +181,10 @@ def seed_underlying(
 def main():
     parser = argparse.ArgumentParser(description="One-shot 6mo seed for BANKNIFTY/FINNIFTY")
     parser.add_argument(
-        "--candles-days", type=int, default=180, help="How many days of 1-min candles to fetch (default 180 = 6mo)"
+        "--candles-days",
+        type=int,
+        default=180,
+        help="How many days of 1-min candles to fetch (default 180 = 6mo)",
     )
     parser.add_argument(
         "--tick-days",
@@ -192,12 +193,20 @@ def main():
         help="How many trading days of tick data to fetch (default 5 = TrueData REST cap)",
     )
     parser.add_argument("--no-ticks", action="store_true", help="Skip tick fetches")
-    parser.add_argument("--no-options", action="store_true", help="Skip option fetches (futures+spot only)")
     parser.add_argument(
-        "--symbols", nargs="+", default=EOD_ONLY_SYMBOLS, help=f"Underlyings to seed (default: {EOD_ONLY_SYMBOLS})"
+        "--no-options", action="store_true", help="Skip option fetches (futures+spot only)"
     )
     parser.add_argument(
-        "--atm-range", type=int, default=ATM_RANGE, help=f"Strikes above/below ATM to fetch (default {ATM_RANGE})"
+        "--symbols",
+        nargs="+",
+        default=EOD_ONLY_SYMBOLS,
+        help=f"Underlyings to seed (default: {EOD_ONLY_SYMBOLS})",
+    )
+    parser.add_argument(
+        "--atm-range",
+        type=int,
+        default=ATM_RANGE,
+        help=f"Strikes above/below ATM to fetch (default {ATM_RANGE})",
     )
     args = parser.parse_args()
 

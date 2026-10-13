@@ -1,3 +1,4 @@
+# codespell:ignore IST,MIS
 """
 Options Greeks Dynamic Auto-Hedging Engine (Black-76 Delta/Gamma/Vega Auto-Balancer)
 ====================================================================================

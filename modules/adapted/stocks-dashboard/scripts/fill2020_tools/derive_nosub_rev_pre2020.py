@@ -154,7 +154,10 @@ def main():
         rv = [
             int(q)
             for q, r in revop.get(sym, {}).items()
-            if r and r[0] is not None and r[1] is not None and abs(r[1] - r[0]) > max(ABS_TOL, abs(r[0]) * REL_TOL)
+            if r
+            and r[0] is not None
+            and r[1] is not None
+            and abs(r[1] - r[0]) > max(ABS_TOL, abs(r[0]) * REL_TOL)
         ]
         pt = [
             r[0]
@@ -213,7 +216,10 @@ def main():
                 targets[rk].append((qe, row[0], mem))
 
     cells = sum(len(v) for v in targets.values())
-    print("ELIGIBLE: %d cells across %d companies  (%d cells are financials)" % (cells, len(targets), bankcells))
+    print(
+        "ELIGIBLE: %d cells across %d companies  (%d cells are financials)"
+        % (cells, len(targets), bankcells)
+    )
     print("gates: XBRL-declared first-consolidated-quarter must be absent or LATER than the gap\n")
     print("refused:")
     for r, n in reasons.most_common():
@@ -222,7 +228,10 @@ def main():
     print("\nlargest contributors:")
     for n, s in top:
         fcq = (first_con.get(s) or (None, 0))[0]
-        print("   %-13s %3d cells   first_consolidated=%s%s" % (s, n, fcq, "  [FIN]" if fin.get(s) else ""))
+        print(
+            "   %-13s %3d cells   first_consolidated=%s%s"
+            % (s, n, fcq, "  [FIN]" if fin.get(s) else "")
+        )
     if not apply_it:
         print("\nDRY RUN -- nothing written.")
         return

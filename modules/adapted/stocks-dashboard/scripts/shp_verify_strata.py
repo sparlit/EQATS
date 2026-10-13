@@ -48,7 +48,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
 # hand-picked members that exist to exercise a NAMED trap, not to be representative
-BLACKOUT = ["MCX", "ABBOTINDIA", "BAYERCROP", "NESTLEIND", "WESTLIFE", "ITC"]  # 2026-08-09 sweep heals
+BLACKOUT = [
+    "MCX",
+    "ABBOTINDIA",
+    "BAYERCROP",
+    "NESTLEIND",
+    "WESTLIFE",
+    "ITC",
+]  # 2026-08-09 sweep heals
 ADR_GDR = ["INFY", "WIPRO", "ICICIBANK", "HDFCBANK"]  # T1 look-through
 DEFN_HARD = ["SBIN", "KOTAKBANK", "AXISBANK", "LICI", "SBILIFE", "BAJFINANCE", "CHOLAFIN"]
 TRUST_PROM = ["M&M", "ETERNAL", "HEROMOTOCO"]  # T2 / no-promoter
@@ -90,7 +97,7 @@ def main():
     # dash_slim.meta is keyed "<SYM>.NS" -> {symbol, name, sector, industry, mcap, …}
     slim = json.loads(gzip.decompress(git_show("docs/dash_slim.bin", a.pin)))
     mcap, sector = {}, {}
-    for r in slim.get("meta", {}).values():
+    for _k, r in slim.get("meta", {}).items():
         sym, mc = r.get("symbol"), r.get("mcap")
         if sym and mc:
             mcap[sym] = float(mc)
@@ -110,7 +117,9 @@ def main():
     RMAP = json.loads(git_show("scripts/_rename_map.json", a.pin) or b"{}")
     renamed = [s for s in (RMAP.values() if isinstance(RMAP, dict) else []) if held.get(s, 0) >= 8]
     if not renamed:
-        renamed = [s for s in (RMAP.keys() if isinstance(RMAP, dict) else []) if held.get(s, 0) >= 8]
+        renamed = [
+            s for s in (RMAP.keys() if isinstance(RMAP, dict) else []) if held.get(s, 0) >= 8
+        ]
 
     def ledger_syms(path, min_cells):
         raw = git_show(path, a.pin)
@@ -160,10 +169,16 @@ def main():
     }
     json.dump(doc, open(a.out, "w", encoding="utf-8"), indent=1)
 
-    print("universe (current N500 with mcap and history): %d   snapshot %s" % (len(universe), latest_snap))
+    print(
+        "universe (current N500 with mcap and history): %d   snapshot %s"
+        % (len(universe), latest_snap)
+    )
     for k, v in strata.items():
         print("  %-16s %2d  %s" % (k, len(v), ",".join(v)))
-    print("TOTAL %d symbols, %d stock-quarters to diff" % (len(allsyms), sum(held[s] for s in allsyms)))
+    print(
+        "TOTAL %d symbols, %d stock-quarters to diff"
+        % (len(allsyms), sum(held[s] for s in allsyms))
+    )
     print(f"wrote {a.out}")
 
 

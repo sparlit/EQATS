@@ -28,7 +28,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import csv
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,7 +128,10 @@ def penny_items(data: dict) -> list[dict]:
         "CIRCUIT_LOCKED": "No entry—circuit risk",
         "EXTENDED": "Wait for pullback",
     }
-    return [item(row, "penny", labels.get(row.get("state"), "Watch")) for row in data.get("candidates", [])]
+    return [
+        item(row, "penny", labels.get(row.get("state"), "Watch"))
+        for row in data.get("candidates", [])
+    ]
 
 
 def hull_items(data: dict) -> list[dict]:
@@ -159,7 +162,8 @@ def v3_items(data: dict) -> list[dict]:
     rows = []
     for row in data.get("dashboard_candidates", []):
         stage = labels.get(
-            row.get("timing_state"), labels.get(row.get("classification"), "Watchlist—wait for confirmation")
+            row.get("timing_state"),
+            labels.get(row.get("classification"), "Watchlist—wait for confirmation"),
         )
         rows.append(item(row, "v3", stage))
     return rows
@@ -169,7 +173,11 @@ def ladder_items(data: dict) -> list[dict]:
     rows = []
     threshold = 65 if data.get("strategy_profile") == "LADDER_DAILY_20260922" else 75
     for row in data.get("shortlist", []):
-        stage = "Watch for entry" if row.get("hull_state") == "READY" else "Watchlist—wait for confirmation"
+        stage = (
+            "Watch for entry"
+            if row.get("hull_state") == "READY"
+            else "Watchlist—wait for confirmation"
+        )
         normalized = dict(row)
         normalized["score"] = row.get("discovery_score")
         if threshold == 65:
@@ -200,7 +208,13 @@ def _ranking_key(row: dict) -> tuple:
         "No action yet": 1,
         "No entry—circuit risk": 0,
     }.get(row.get("stage"), 0)
-    return (-stage_priority, -(row.get("score") or 0), -min(upside, 1.0), -min(reward_risk, 10.0), row["symbol"])
+    return (
+        -stage_priority,
+        -(row.get("score") or 0),
+        -min(upside, 1.0),
+        -min(reward_risk, 10.0),
+        row["symbol"],
+    )
 
 
 def limit_per_scanner(rows: list[dict], maximum: int = 25) -> list[dict]:
@@ -219,7 +233,11 @@ def main() -> int:
     v3 = read_json("output/v2_daily_run.json", {})
     ladder = read_json("output/old_nse_hull_daily.json", {})
     items = penny_items(penny) + hull_items(hull) + v3_items(v3) + ladder_items(ladder)
-    items = [row for row in items if row["symbol"] and row["symbol"] not in terminal and row["symbol"] not in etfs]
+    items = [
+        row
+        for row in items
+        if row["symbol"] and row["symbol"] not in terminal and row["symbol"] not in etfs
+    ]
     items = limit_per_scanner(items)
     feed = {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -230,7 +248,11 @@ def main() -> int:
             "hull": hull.get("trade_date"),
         },
         "scanners": [
-            {"id": "v3", "name": "NSE Scanner V3", "available": bool(v3.get("dashboard_candidates"))},
+            {
+                "id": "v3",
+                "name": "NSE Scanner V3",
+                "available": bool(v3.get("dashboard_candidates")),
+            },
             {"id": "ladder", "name": "Momentum Ladder", "available": bool(ladder.get("shortlist"))},
             {"id": "hull", "name": "Hull Scanner", "available": bool(hull)},
             {"id": "penny", "name": "Penny Scanner", "available": bool(penny)},
@@ -242,7 +264,9 @@ def main() -> int:
     target = ROOT / "docs/data/feed.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(feed, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Mini App feed: {len(items)} visible rows; {len(terminal)} terminal and {len(etfs)} ETF symbols excluded")
+    print(
+        f"Mini App feed: {len(items)} visible rows; {len(terminal)} terminal and {len(etfs)} ETF symbols excluded"
+    )
     return 0
 
 

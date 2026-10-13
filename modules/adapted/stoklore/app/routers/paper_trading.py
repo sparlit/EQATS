@@ -124,10 +124,15 @@ def create_paper_order(req: PaperOrderRequest):
     # whatever the user says happened), this is an order being placed now.
     for leg in req.stop_losses:
         if leg.price >= entry if req.direction == "long" else leg.price <= entry:
-            raise HTTPException(status_code=422, detail="stop-loss must be below entry for a long, above for a short")
+            raise HTTPException(
+                status_code=422,
+                detail="stop-loss must be below entry for a long, above for a short",
+            )
     for leg in req.targets:
         if leg.price <= entry if req.direction == "long" else leg.price >= entry:
-            raise HTTPException(status_code=422, detail="target must be above entry for a long, below for a short")
+            raise HTTPException(
+                status_code=422, detail="target must be above entry for a long, below for a short"
+            )
 
     position_id = db.create_paper_position(
         req.account_id,
@@ -177,7 +182,11 @@ def close_paper_position(position_id: int, req: PaperCloseRequest):
 def paper_status():
     """Engine heartbeat - drives the UI's live/stale pulse. `market_open` is what tells the user
     a stale timestamp is expected rather than a broken poller."""
-    return {**paper.state, "market_open": paper.market_is_open(), "poll_seconds": paper.POLL_SECONDS}
+    return {
+        **paper.state,
+        "market_open": paper.market_is_open(),
+        "poll_seconds": paper.POLL_SECONDS,
+    }
 
 
 @router.post("/api/paper/poll")

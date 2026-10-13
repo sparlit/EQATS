@@ -64,7 +64,8 @@ def main() -> int:
     output_path.write_text(json.dumps(queue, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(
-        f"Portfolio review queue created: {queue['count']} active symbols for {queue['review_period']} -> {output_path}"
+        f"Portfolio review queue created: {queue['count']} active symbols "
+        f"for {queue['review_period']} -> {output_path}"
     )
     return 0
 

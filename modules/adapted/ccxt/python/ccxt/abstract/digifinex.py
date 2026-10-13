@@ -30,27 +30,39 @@ class ImplicitAPI:
     public_spot_get_market_symbols = publicSpotGetMarketSymbols = Entry[_Dict](
         "{market}/symbols", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_kline = publicSpotGetKline = Entry[_Dict]("kline", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_kline = publicSpotGetKline = Entry[_Dict](
+        "kline", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_margin_currencies = publicSpotGetMarginCurrencies = Entry[_Dict](
         "margin/currencies", ["public", "spot"], "GET", {"cost": 1}
     )
     public_spot_get_margin_symbols = publicSpotGetMarginSymbols = Entry[_Dict](
         "margin/symbols", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_markets = publicSpotGetMarkets = Entry[_Dict]("markets", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_markets = publicSpotGetMarkets = Entry[_Dict](
+        "markets", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_order_book = publicSpotGetOrderBook = Entry[_Dict](
         "order_book", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_ping = publicSpotGetPing = Entry[_Dict]("ping", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_ping = publicSpotGetPing = Entry[_Dict](
+        "ping", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_spot_symbols = publicSpotGetSpotSymbols = Entry[_Dict](
         "spot/symbols", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_time = publicSpotGetTime = Entry[_Dict]("time", ["public", "spot"], "GET", {"cost": 1})
-    public_spot_get_trades = publicSpotGetTrades = Entry[_Dict]("trades", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_time = publicSpotGetTime = Entry[_Dict](
+        "time", ["public", "spot"], "GET", {"cost": 1}
+    )
+    public_spot_get_trades = publicSpotGetTrades = Entry[_Dict](
+        "trades", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_trades_symbols = publicSpotGetTradesSymbols = Entry[_Dict](
         "trades/symbols", ["public", "spot"], "GET", {"cost": 1}
     )
-    public_spot_get_ticker = publicSpotGetTicker = Entry[_Dict]("ticker", ["public", "spot"], "GET", {"cost": 1})
+    public_spot_get_ticker = publicSpotGetTicker = Entry[_Dict](
+        "ticker", ["public", "spot"], "GET", {"cost": 1}
+    )
     public_spot_get_currencies = publicSpotGetCurrencies = Entry[_Dict](
         "currencies", ["public", "spot"], "GET", {"cost": 1}
     )
@@ -69,9 +81,9 @@ class ImplicitAPI:
     public_swap_get_public_funding_rate = publicSwapGetPublicFundingRate = Entry[_Dict](
         "public/funding_rate", ["public", "swap"], "GET", {"cost": 1}
     )
-    public_swap_get_public_funding_rate_history = publicSwapGetPublicFundingRateHistory = Entry[_Dict](
-        "public/funding_rate_history", ["public", "swap"], "GET", {"cost": 1}
-    )
+    public_swap_get_public_funding_rate_history = publicSwapGetPublicFundingRateHistory = Entry[
+        _Dict
+    ]("public/funding_rate_history", ["public", "swap"], "GET", {"cost": 1})
     public_swap_get_public_instrument = publicSwapGetPublicInstrument = Entry[_Dict](
         "public/instrument", ["public", "swap"], "GET", {"cost": 1}
     )
@@ -234,9 +246,9 @@ class ImplicitAPI:
     private_swap_post_account_position_margin = privateSwapPostAccountPositionMargin = Entry[_Dict](
         "account/position_margin", ["private", "swap"], "POST", {"cost": 1}
     )
-    private_swap_post_trade_batch_cancel_order = privateSwapPostTradeBatchCancelOrder = Entry[_Dict](
-        "trade/batch_cancel_order", ["private", "swap"], "POST", {"cost": 1}
-    )
+    private_swap_post_trade_batch_cancel_order = privateSwapPostTradeBatchCancelOrder = Entry[
+        _Dict
+    ]("trade/batch_cancel_order", ["private", "swap"], "POST", {"cost": 1})
     private_swap_post_trade_batch_order = privateSwapPostTradeBatchOrder = Entry[_Dict](
         "trade/batch_order", ["private", "swap"], "POST", {"cost": 1}
     )
@@ -255,24 +267,24 @@ class ImplicitAPI:
     private_swap_post_follow_cancel_order = privateSwapPostFollowCancelOrder = Entry[_Dict](
         "follow/cancel_order", ["private", "swap"], "POST", {"cost": 1}
     )
-    private_swap_post_follow_user_center_current = privateSwapPostFollowUserCenterCurrent = Entry[_Dict](
-        "follow/user_center_current", ["private", "swap"], "POST", {"cost": 1}
-    )
-    private_swap_post_follow_user_center_history = privateSwapPostFollowUserCenterHistory = Entry[_Dict](
-        "follow/user_center_history", ["private", "swap"], "POST", {"cost": 1}
-    )
-    private_swap_post_follow_expert_current_open_order = privateSwapPostFollowExpertCurrentOpenOrder = Entry[_Dict](
-        "follow/expert_current_open_order", ["private", "swap"], "POST", {"cost": 1}
-    )
+    private_swap_post_follow_user_center_current = privateSwapPostFollowUserCenterCurrent = Entry[
+        _Dict
+    ]("follow/user_center_current", ["private", "swap"], "POST", {"cost": 1})
+    private_swap_post_follow_user_center_history = privateSwapPostFollowUserCenterHistory = Entry[
+        _Dict
+    ]("follow/user_center_history", ["private", "swap"], "POST", {"cost": 1})
+    private_swap_post_follow_expert_current_open_order = (
+        privateSwapPostFollowExpertCurrentOpenOrder
+    ) = Entry[_Dict]("follow/expert_current_open_order", ["private", "swap"], "POST", {"cost": 1})
     private_swap_post_follow_add_algo = privateSwapPostFollowAddAlgo = Entry[_Dict](
         "follow/add_algo", ["private", "swap"], "POST", {"cost": 1}
     )
     private_swap_post_follow_cancel_algo = privateSwapPostFollowCancelAlgo = Entry[_Dict](
         "follow/cancel_algo", ["private", "swap"], "POST", {"cost": 1}
     )
-    private_swap_post_follow_account_available = privateSwapPostFollowAccountAvailable = Entry[_Dict](
-        "follow/account_available", ["private", "swap"], "POST", {"cost": 1}
-    )
+    private_swap_post_follow_account_available = privateSwapPostFollowAccountAvailable = Entry[
+        _Dict
+    ]("follow/account_available", ["private", "swap"], "POST", {"cost": 1})
     private_swap_post_follow_plan_task = privateSwapPostFollowPlanTask = Entry[_Dict](
         "follow/plan_task", ["private", "swap"], "POST", {"cost": 1}
     )

@@ -2,9 +2,15 @@
 Unit Tests for K.I.T. Bot Engine.
 Verifies Pine Script v5 generation, social signal parsing, and autopilot mode threshold checks.
 """
-from typing import Any
 import unittest
-from institutional_integrations.kit_bot_engine import KitPineScriptGenerator, KitSocialSignalParser, KitAutopilotManager, KitAutopilotMode
+
+from institutional_integrations.kit_bot_engine import (
+    KitAutopilotManager,
+    KitAutopilotMode,
+    KitPineScriptGenerator,
+    KitSocialSignalParser,
+)
+
 
 class TestKitBotEngine(unittest.TestCase):
 

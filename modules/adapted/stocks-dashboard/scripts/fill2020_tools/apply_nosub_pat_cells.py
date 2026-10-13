@@ -78,25 +78,33 @@ LEDGER = os.path.join(ROOT, "scripts", "nosub_pat_fills.json")
 # (symbol, quarter_end, evidence) -- evidence is journalled per cell
 CELLS = [
     ("ICICIGI", 20191231, "no-sub-identity; con==std in all 26 stored qtrs, never diverges"),
-    ("SCHAEFFLER", 20191231, "no-sub-identity; con diverges only from 20230930 (KRSV subsidiary FY23+)"),
-    ("TCIEXP", 20191231, "no-sub-identity; con diverges only from 20240630; no subsidiary in Dec-2019 filing"),
-    ("BASF", 20200331, "no-sub-identity; con diverges only from 20200630; first subsidiary acquired 2020-08-18"),
+    (
+        "SCHAEFFLER",
+        20191231,
+        "no-sub-identity; con diverges only from 20230930 (KRSV subsidiary FY23+)",
+    ),
+    (
+        "TCIEXP",
+        20191231,
+        "no-sub-identity; con diverges only from 20240630; no subsidiary in Dec-2019 filing",
+    ),
+    (
+        "BASF",
+        20200331,
+        "no-sub-identity; con diverges only from 20200630; first subsidiary acquired 2020-08-18",
+    ),
     # banks — added 2026-08-06 on the user's "include banks everywhere" call; §54b E1-E5 verified
     (
         "KTKBANK",
         20191231,
-        (
-            "no-sub-identity; NSE index 95 filings: standalone listed for 20191231, no consolidated, "
-            "first consolidated ever 20200930; no contradiction at/before the gap (E1-E5)"
-        ),
+        "no-sub-identity; NSE index 95 filings: standalone listed for 20191231, no consolidated, "
+        "first consolidated ever 20200930; no contradiction at/before the gap (E1-E5)",
     ),
     (
         "SOUTHBANK",
         20191231,
-        (
-            "no-sub-identity; NSE index 89 filings: standalone listed for 20191231, no consolidated, "
-            "first consolidated ever 20210630; no contradiction at/before the gap (E1-E5)"
-        ),
+        "no-sub-identity; NSE index 89 filings: standalone listed for 20191231, no consolidated, "
+        "first consolidated ever 20210630; no contradiction at/before the gap (E1-E5)",
     ),
 ]
 

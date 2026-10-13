@@ -34,7 +34,6 @@ masters (Nifty's actual methodology).
     python -m ingest.constituents          # build + calibrate vs Wayback
 Writes data/constituents_synth.parquet (month-end, symbol, mcap ranks).
 """
-from pathlib import Path
 
 import pandas as pd
 from ingest import renames
@@ -78,15 +77,20 @@ def raw_close_panel() -> pd.DataFrame:
     px["symbol"] = renames.canonical(px["symbol"].astype(str))
     px["date"] = pd.to_datetime(px["date"])
     wide = px.pivot_table(index="date", columns="symbol", values="close")
-    return wide.groupby(wide.index.to_period("M")).tail(1)
+    month_ends = wide.groupby(wide.index.to_period("M")).tail(1)
+    return month_ends
 
 
 def build() -> pd.DataFrame:
     sh = implied_shares()
     prom = promoter_pct()
     closes = raw_close_panel()
-    sh_piv = sh.pivot_table(index="broadcast", columns="symbol", values="shares", aggfunc="last").sort_index()
-    prom_piv = prom.pivot_table(index="bcast", columns="symbol", values="prom", aggfunc="last").sort_index()
+    sh_piv = sh.pivot_table(
+        index="broadcast", columns="symbol", values="shares", aggfunc="last"
+    ).sort_index()
+    prom_piv = prom.pivot_table(
+        index="bcast", columns="symbol", values="prom", aggfunc="last"
+    ).sort_index()
     rows = []
     for t in closes.index:
         if t < pd.Timestamp("2018-01-01"):  # EPS coverage thin before
@@ -123,11 +127,14 @@ def calibrate(out: pd.DataFrame) -> None:
             print(f"  {idx} {asof}: predates synthetic panel — skipped")
             continue
         for kind in ("mcap", "ffmcap"):
-            syn = set(out[(out["date"] == near) & (out["kind"] == kind) & (out["rank"] <= n)]["symbol"])
+            syn = set(
+                out[(out["date"] == near) & (out["kind"] == kind) & (out["rank"] <= n)]["symbol"]
+            )
             jac = len(actual & syn) / len(actual | syn)
             rec = len(actual & syn) / len(actual)
             print(
-                f"  {idx} {asof} [{kind:>6}]: jaccard {jac:.2f}  recall {rec:.2f}  (synthetic month-end {near.date()})"
+                f"  {idx} {asof} [{kind:>6}]: jaccard {jac:.2f}  "
+                f"recall {rec:.2f}  (synthetic month-end {near.date()})"
             )
 
 

@@ -57,9 +57,9 @@ import _nse_archive_revop as NA  # noqa: E402
 
 PAGES = os.path.join(HERE, "_vintage108_nse_pages")
 OUT = os.path.join(HERE, "_vintage109_pat_rows.json")
-P_MINORITY = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.IGNORECASE)
-P_PERIOD = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.IGNORECASE)
-P_ORD = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.IGNORECASE)
+P_MINORITY = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+after taxes,? minority", re.I)
+P_PERIOD = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+for the period", re.I)
+P_ORD = re.compile(r"net profit\s*/?\s*\(?loss\)?\s+from ordinary activities after tax", re.I)
 OLD_ORDER = (P_MINORITY, P_PERIOD, P_ORD)
 
 
@@ -109,7 +109,7 @@ def main():
         except Exception:
             notes["parse-error"] += 1
             continue
-        po, _lo = pat_old(rows)
+        po, lo = pat_old(rows)
         pn, ln, note = pat_new(rows)
         notes[note] += 1
         rec = {
@@ -125,7 +125,9 @@ def main():
             "note": note,
         }
         out[seq] = rec
-        if (po is None) != (pn is None) or (po is not None and pn is not None and abs(po - pn) > 0.005):
+        if (po is None) != (pn is None) or (
+            po is not None and pn is not None and abs(po - pn) > 0.005
+        ):
             diff.append(rec)
     print(f"\nrow chosen: {dict(notes)}")
     print("pages where the corrected rule changes PAT: %d" % len(diff))
@@ -134,7 +136,11 @@ def main():
             "   %-14s seq %-9s %s  old=%-10s new=%-10s (%s)"
             % (r["sym"], r["seq"], r["period"], r["pat_old"], r["pat_new"], r["note"])
         )
-    json.dump({"_doc": "corrected PAT-row extraction of the cached NSE pages", "pages": out}, open(OUT, "w"), indent=1)
+    json.dump(
+        {"_doc": "corrected PAT-row extraction of the cached NSE pages", "pages": out},
+        open(OUT, "w"),
+        indent=1,
+    )
     print(f"\nwrote {os.path.basename(OUT)}")
 
 

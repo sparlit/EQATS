@@ -31,8 +31,6 @@ run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).r
 import os
 import sys
 import time
-from pprint import pprint
-from random import randint
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(root + "/python")
@@ -93,7 +91,8 @@ order_sizes = {
 
 async def get_last_prices():
     tasks = [exchange.fetch_tickers(symbols) for exchange in exchanges]
-    return await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks)
+    return results
 
 
 async def bot():
@@ -125,7 +124,18 @@ async def bot():
         profit = (price_profit * order_size) - (min_fee) - (max_fee)
 
         if profit > 0:  # not taking into account slippage or order book depth
-            print(ms, symbol, "profit:", profit, "Buy", min_exchange.id, min_price, "Sell", max_exchange.id, max_price)
+            print(
+                ms,
+                symbol,
+                "profit:",
+                profit,
+                "Buy",
+                min_exchange.id,
+                min_price,
+                "Sell",
+                max_exchange.id,
+                max_price,
+            )
 
             if not paper_trading:
                 buy_min = min_exchange.create_market_buy_order(symbol, order_size)

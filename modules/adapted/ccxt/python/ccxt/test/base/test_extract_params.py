@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_extract_params():
@@ -50,7 +50,9 @@ def test_extract_params():
     test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result1, ["id"])
     # Test 2: Multiple params
     result2 = exchange.extract_params("/users/{user_id}/orders/{order_id}")
-    test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result2, ["user_id", "order_id"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testExtractParams", result2, ["user_id", "order_id"]
+    )
     # Test 3: No params
     result3 = exchange.extract_params("/api/health")
     test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result3, [])
@@ -61,7 +63,9 @@ def test_extract_params():
     )
     # Test 5: Mixed path and params
     result5 = exchange.extract_params("/v1/{version}/users/{user_id}/profile")
-    test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result5, ["version", "user_id"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testExtractParams", result5, ["version", "user_id"]
+    )
     # Test 6: Empty string
     result6 = exchange.extract_params("")
     test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result6, [])
@@ -72,13 +76,19 @@ def test_extract_params():
     )
     # Test 8: Param at start and end
     result8 = exchange.extract_params("{start}/middle/{end}")
-    test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result8, ["start", "end"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testExtractParams", result8, ["start", "end"]
+    )
     # Test 9: Adjacent params
     result9 = exchange.extract_params("{a}{b}{c}")
-    test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result9, ["a", "b", "c"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testExtractParams", result9, ["a", "b", "c"]
+    )
     # Test 10: Param with underscores
     result10 = exchange.extract_params("/api/{my_param_name}")
-    test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result10, ["my_param_name"])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testExtractParams", result10, ["my_param_name"]
+    )
     # Test 11: Single character param
     result11 = exchange.extract_params("/api/{x}")
     test_shared_methods.assert_deep_equal(exchange, None, "testExtractParams", result11, ["x"])

@@ -42,7 +42,6 @@ Usage: abscf_ci_merge.py --ledger-mine A --ledger-base B --gate-mine C --gate-ba
 Writes the merged result into the --*-base paths. Missing MINE -> BASE kept as-is; missing BASE -> MINE.
 """
 import json
-import os
 import sys
 
 

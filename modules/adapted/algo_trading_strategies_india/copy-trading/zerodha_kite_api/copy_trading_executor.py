@@ -45,8 +45,12 @@ def setup_logging():
     log_file = os.path.join(logs_dir, "copy_trading.log")
     cleanup_old_logs(logs_dir, days=30)
 
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-    file_handler = TimedRotatingFileHandler(log_file, when="midnight", interval=1, backupCount=30, encoding="utf-8")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    file_handler = TimedRotatingFileHandler(
+        log_file, when="midnight", interval=1, backupCount=30, encoding="utf-8"
+    )
     file_handler.suffix = "%Y-%m-%d"
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.INFO)
@@ -133,7 +137,9 @@ class InstrumentsCache:
 
             conn = self.get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM instruments_master WHERE loaded_date = %s", (today,))
+            cursor.execute(
+                "SELECT COUNT(*) FROM instruments_master WHERE loaded_date = %s", (today,)
+            )
             count = cursor.fetchone()[0]
             cursor.close()
             conn.close()
@@ -150,7 +156,7 @@ class InstrumentsCache:
             return True
 
         except Exception as e:
-            self.logger.exception(f"Failed to load instruments: {e}")
+            self.logger.error(f"Failed to load instruments: {e}")
             return False
 
     def load_from_db(self, today):
@@ -270,7 +276,13 @@ class InstrumentsCache:
 
 class ClientTrader:
     def __init__(
-        self, client_config, db_params, master_account_name, master_capital, telegram_config, instruments_cache
+        self,
+        client_config,
+        db_params,
+        master_account_name,
+        master_capital,
+        telegram_config,
+        instruments_cache,
     ):
         self.config = client_config
         self.db_params = db_params
@@ -300,12 +312,11 @@ class ClientTrader:
             with open(self.access_token_file) as f:
                 self.access_token = f.read().strip()
             if not self.access_token:
-                msg = "Empty access token"
-                raise ValueError(msg)
+                raise ValueError("Empty access token")
             self.logger.info(f"Access token loaded from {self.access_token_file}")
             return True
         except Exception as e:
-            self.logger.exception(f"Failed to load access token: {e}")
+            self.logger.error(f"Failed to load access token: {e}")
             return False
 
     def initialize(self):
@@ -324,7 +335,7 @@ class ClientTrader:
             self.load_client_positions()
             return True
         except Exception as e:
-            self.logger.exception(f"Initialization failed: {e}")
+            self.logger.error(f"Initialization failed: {e}")
             return False
 
     def create_client_tables(self):
@@ -453,11 +464,13 @@ class ClientTrader:
                     }
 
             open_count = sum(1 for p in self.client_positions.values() if p["quantity"] != 0)
-            self.logger.info(f"Synced {len(net_positions)} positions from broker ({open_count} open)")
+            self.logger.info(
+                f"Synced {len(net_positions)} positions from broker ({open_count} open)"
+            )
             return True
 
         except Exception as e:
-            self.logger.exception(f"Failed to sync positions from broker: {e}")
+            self.logger.error(f"Failed to sync positions from broker: {e}")
             return False
 
     def get_client_position_from_db(self, exchange, tradingsymbol):
@@ -493,7 +506,7 @@ class ClientTrader:
                 }
             return None
         except Exception as e:
-            self.logger.exception(f"Failed to get position from DB: {e}")
+            self.logger.error(f"Failed to get position from DB: {e}")
             return None
 
     def update_position_tracking(
@@ -580,7 +593,7 @@ class ClientTrader:
             conn.close()
             return True
         except Exception as e:
-            self.logger.exception(f"Failed to update position tracking: {e}")
+            self.logger.error(f"Failed to update position tracking: {e}")
             return False
 
     def update_position_after_order(
@@ -600,7 +613,10 @@ class ClientTrader:
             result = cursor.fetchone()
             current_qty = int(result[0]) if result else 0
 
-            new_qty = current_qty + filled_quantity if transaction_type == "BUY" else current_qty - filled_quantity
+            if transaction_type == "BUY":
+                new_qty = current_qty + filled_quantity
+            else:
+                new_qty = current_qty - filled_quantity
 
             cursor.execute(
                 """
@@ -613,7 +629,16 @@ class ClientTrader:
                     updated_at        = NOW()
                 WHERE client_name = %s AND exchange = %s AND tradingsymbol = %s
             """,
-                (new_qty, new_qty, new_qty, order_id, order_status, self.name, exchange, tradingsymbol),
+                (
+                    new_qty,
+                    new_qty,
+                    new_qty,
+                    order_id,
+                    order_status,
+                    self.name,
+                    exchange,
+                    tradingsymbol,
+                ),
             )
 
             conn.commit()
@@ -637,7 +662,7 @@ class ClientTrader:
             return True
 
         except Exception as e:
-            self.logger.exception(f"Failed to update position after order: {e}")
+            self.logger.error(f"Failed to update position after order: {e}")
             return False
 
     def get_current_quantity(self, exchange, tradingsymbol):
@@ -678,7 +703,9 @@ class ClientTrader:
 
         target_lots = math.ceil(abs(scaled_quantity) / lot_size)
 
-        return target_lots * lot_size if master_qty > 0 else -(target_lots * lot_size)
+        target_quantity = target_lots * lot_size if master_qty > 0 else -(target_lots * lot_size)
+
+        return target_quantity
 
     def get_freeze_quantity(self, exchange, tradingsymbol):
         inst = self.instruments_cache.get_instrument(exchange, tradingsymbol)
@@ -738,7 +765,10 @@ class ClientTrader:
 
         buffer_percent = 0.5
 
-        price = ltp * (1 + buffer_percent / 100) if transaction_type == "BUY" else ltp * (1 - buffer_percent / 100)
+        if transaction_type == "BUY":
+            price = ltp * (1 + buffer_percent / 100)
+        else:
+            price = ltp * (1 - buffer_percent / 100)
 
         price = round(price / tick_size) * tick_size
         price = round(price, 2)
@@ -759,7 +789,7 @@ class ClientTrader:
                         "order_id": order_id,
                     }
         except Exception as e:
-            self.logger.exception(f"Failed to get order status: {e}")
+            self.logger.error(f"Failed to get order status: {e}")
         return None
 
     def wait_for_order_completion(self, order_id, max_wait=10, check_interval=0.5):
@@ -770,7 +800,7 @@ class ClientTrader:
             if status:
                 if status["status"] == "COMPLETE":
                     return {"success": True, "status": status}
-                if status["status"] in ["REJECTED", "CANCELLED"]:
+                elif status["status"] in ["REJECTED", "CANCELLED"]:
                     return {
                         "success": False,
                         "status": status,
@@ -788,18 +818,21 @@ class ClientTrader:
             self.logger.info(f"Order cancelled: {order_id}")
             return True
         except Exception as e:
-            self.logger.exception(f"Failed to cancel order {order_id}: {e}")
+            self.logger.error(f"Failed to cancel order {order_id}: {e}")
             return False
 
     def modify_order_price(self, order_id, new_price, quantity):
         try:
             self.kite.modify_order(
-                variety=self.kite.VARIETY_REGULAR, order_id=order_id, price=new_price, quantity=quantity
+                variety=self.kite.VARIETY_REGULAR,
+                order_id=order_id,
+                price=new_price,
+                quantity=quantity,
             )
             self.logger.info(f"Order modified: {order_id} | New price: {new_price}")
             return True
         except Exception as e:
-            self.logger.exception(f"Failed to modify order {order_id}: {e}")
+            self.logger.error(f"Failed to modify order {order_id}: {e}")
             return False
 
     def place_single_order(
@@ -927,7 +960,7 @@ class ClientTrader:
                     time.sleep(0.5)
                     continue
 
-                if order_status in ["REJECTED", "CANCELLED"]:
+                elif order_status in ["REJECTED", "CANCELLED"]:
                     error_msg = status.get("status_message", "Unknown error")
                     self.logger.error(f"Order {order_status}: {error_msg}")
                     self.log_trade(
@@ -955,7 +988,7 @@ class ClientTrader:
 
             except Exception as e:
                 error_msg = str(e)
-                self.logger.exception(f"Order attempt {attempt + 1} failed: {error_msg}")
+                self.logger.error(f"Order attempt {attempt + 1} failed: {error_msg}")
                 self.log_trade(
                     tradingsymbol,
                     exchange,
@@ -1047,7 +1080,9 @@ class ClientTrader:
             if order_qty == 0:
                 break
 
-            self.logger.info(f"SLICE {slice_number}/{total_slices} | {transaction_type} {order_qty} {tradingsymbol}")
+            self.logger.info(
+                f"SLICE {slice_number}/{total_slices} | {transaction_type} {order_qty} {tradingsymbol}"
+            )
 
             current_client_qty = self.get_current_quantity(exchange, tradingsymbol)
 
@@ -1073,7 +1108,12 @@ class ClientTrader:
                 total_quantity -= order_qty
 
                 self.update_position_after_order(
-                    exchange, tradingsymbol, transaction_type, filled, result.get("order_id"), "COMPLETE"
+                    exchange,
+                    tradingsymbol,
+                    transaction_type,
+                    filled,
+                    result.get("order_id"),
+                    "COMPLETE",
                 )
 
                 self.logger.info(
@@ -1090,7 +1130,9 @@ class ClientTrader:
                 failed_orders.append(result)
                 error_msg = result.get("error", "Unknown")
 
-                self.logger.warning(f"SLICE {slice_number}/{total_slices} FAILED | Error: {error_msg}")
+                self.logger.warning(
+                    f"SLICE {slice_number}/{total_slices} FAILED | Error: {error_msg}"
+                )
 
                 if not result.get("retry"):
                     self.logger.error(f"Non-retryable error, stopping all slices: {error_msg}")
@@ -1132,7 +1174,12 @@ class ClientTrader:
                     total_quantity -= order_qty
 
                     self.update_position_after_order(
-                        exchange, tradingsymbol, transaction_type, filled, result2.get("order_id"), "COMPLETE"
+                        exchange,
+                        tradingsymbol,
+                        transaction_type,
+                        filled,
+                        result2.get("order_id"),
+                        "COMPLETE",
                     )
 
                     self.logger.info(
@@ -1140,9 +1187,14 @@ class ClientTrader:
                         f"Total filled: {total_filled}/{abs(quantity)}"
                     )
                 else:
-                    self.logger.error(f"SLICE {slice_number}/{total_slices} RETRY FAILED | Stopping")
+                    self.logger.error(
+                        f"SLICE {slice_number}/{total_slices} RETRY FAILED | Stopping"
+                    )
                     self.update_position_sync_status(
-                        exchange, tradingsymbol, "PARTIAL", f"Failed at slice {slice_number}/{total_slices}"
+                        exchange,
+                        tradingsymbol,
+                        "PARTIAL",
+                        f"Failed at slice {slice_number}/{total_slices}",
                     )
                     break
 
@@ -1183,7 +1235,9 @@ class ClientTrader:
 
         return successful_orders
 
-    def update_position_sync_status(self, exchange, tradingsymbol, sync_status, status_message=None):
+    def update_position_sync_status(
+        self, exchange, tradingsymbol, sync_status, status_message=None
+    ):
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -1201,7 +1255,7 @@ class ClientTrader:
             cursor.close()
             conn.close()
         except Exception as e:
-            self.logger.exception(f"Failed to update sync status: {e}")
+            self.logger.error(f"Failed to update sync status: {e}")
 
     def update_entry_master_quantity(self, exchange, tradingsymbol, new_master_quantity):
         try:
@@ -1218,9 +1272,11 @@ class ClientTrader:
             conn.commit()
             cursor.close()
             conn.close()
-            self.logger.info(f"Updated entry_master_quantity for {tradingsymbol}: {new_master_quantity}")
+            self.logger.info(
+                f"Updated entry_master_quantity for {tradingsymbol}: {new_master_quantity}"
+            )
         except Exception as e:
-            self.logger.exception(f"Failed to update entry_master_quantity: {e}")
+            self.logger.error(f"Failed to update entry_master_quantity: {e}")
 
     def log_trade(
         self,
@@ -1272,7 +1328,7 @@ class ClientTrader:
             cursor.close()
             conn.close()
         except Exception as e:
-            self.logger.exception(f"Failed to log trade: {e}")
+            self.logger.error(f"Failed to log trade: {e}")
 
     def sync_position(self, master_pos, current_scaling_factor):
         exchange = master_pos["exchange"]
@@ -1289,7 +1345,9 @@ class ClientTrader:
         is_adding_to_position = False
         effective_scaling_factor = current_scaling_factor
 
-        correct_target = self.calculate_target_quantity(master_qty, exchange, tradingsymbol, current_scaling_factor)
+        correct_target = self.calculate_target_quantity(
+            master_qty, exchange, tradingsymbol, current_scaling_factor
+        )
 
         if existing_position and existing_position.get("initial_scaling_factor"):
             locked_scaling_factor = existing_position["initial_scaling_factor"]
@@ -1303,13 +1361,17 @@ class ClientTrader:
                 target_quantity = 0
                 effective_scaling_factor = locked_scaling_factor
                 if client_quantity != 0:
-                    self.logger.info(f"SYNC | {tradingsymbol} | Master closed | Client: {client_quantity} -> 0")
+                    self.logger.info(
+                        f"SYNC | {tradingsymbol} | Master closed | Client: {client_quantity} -> 0"
+                    )
 
             elif client_quantity == 0 and master_qty != 0:
                 is_new_position = True
                 target_quantity = correct_target
                 effective_scaling_factor = current_scaling_factor
-                self.reset_position_tracking(exchange, tradingsymbol, master_qty, current_scaling_factor)
+                self.reset_position_tracking(
+                    exchange, tradingsymbol, master_qty, current_scaling_factor
+                )
                 self.logger.info(
                     f"SYNC | {tradingsymbol} | NEW (client has 0) | Master: {master_qty} | "
                     f"Target: {target_quantity} | Scale: {current_scaling_factor:.4f}"
@@ -1339,7 +1401,9 @@ class ClientTrader:
             elif not is_same_day:
                 target_quantity = correct_target
                 effective_scaling_factor = current_scaling_factor
-                self.reset_position_tracking(exchange, tradingsymbol, master_qty, current_scaling_factor)
+                self.reset_position_tracking(
+                    exchange, tradingsymbol, master_qty, current_scaling_factor
+                )
                 self.logger.info(
                     f"SYNC | {tradingsymbol} | OVERNIGHT | Reset entry to {master_qty} | "
                     f"Target: {target_quantity} | Client: {client_quantity}"
@@ -1426,7 +1490,15 @@ class ClientTrader:
                   AND exchange = %s
                   AND tradingsymbol = %s
             """,
-                (master_qty, scaling_factor, scaling_factor, today, self.name, exchange, tradingsymbol),
+                (
+                    master_qty,
+                    scaling_factor,
+                    scaling_factor,
+                    today,
+                    self.name,
+                    exchange,
+                    tradingsymbol,
+                ),
             )
 
             conn.commit()
@@ -1434,7 +1506,7 @@ class ClientTrader:
             conn.close()
 
         except Exception as e:
-            self.logger.exception(f"Failed to reset position tracking: {e}")
+            self.logger.error(f"Failed to reset position tracking: {e}")
 
     def send_telegram_notification(self, message):
         if not self.config.get("notifications", {}).get("telegram_enabled", False):
@@ -1449,7 +1521,7 @@ class ClientTrader:
             }
             requests.post(url, json=payload, timeout=5)
         except Exception as e:
-            self.logger.exception(f"Telegram notification failed: {e}")
+            self.logger.error(f"Telegram notification failed: {e}")
 
 
 class CopyTradingExecutor:
@@ -1484,7 +1556,9 @@ class CopyTradingExecutor:
         log_level = self.config["global_settings"].get("log_level", "INFO")
         logging.getLogger().setLevel(getattr(logging, log_level))
 
-        self.logger.info(f"Configuration loaded | Master: {self.master_account_name} | Capital: {self.master_capital}")
+        self.logger.info(
+            f"Configuration loaded | Master: {self.master_account_name} | Capital: {self.master_capital}"
+        )
 
     def get_connection(self):
         return psycopg2.connect(**self.db_params)
@@ -1508,7 +1582,9 @@ class CopyTradingExecutor:
 
             if client.initialize():
                 self.clients.append(client)
-                self.logger.info(f"Client initialized: {client.display_name} | Capital: {client.capital}")
+                self.logger.info(
+                    f"Client initialized: {client.display_name} | Capital: {client.capital}"
+                )
             else:
                 self.logger.error(f"Failed to initialize client: {client_config['name']}")
 
@@ -1533,7 +1609,7 @@ class CopyTradingExecutor:
             conn.close()
             return [dict(p) for p in positions]
         except Exception as e:
-            self.logger.exception(f"Failed to fetch master positions: {e}")
+            self.logger.error(f"Failed to fetch master positions: {e}")
             return []
 
     def positions_changed(self, new_positions):
@@ -1559,7 +1635,7 @@ class CopyTradingExecutor:
                     client.sync_position(master_pos, scaling_factor)
 
             except Exception as e:
-                self.logger.exception(f"Error syncing client {client.name}: {e}")
+                self.logger.error(f"Error syncing client {client.name}: {e}")
 
     def is_market_hours(self):
         now = datetime.now(IST)
@@ -1602,7 +1678,9 @@ class CopyTradingExecutor:
 
                 if self.positions_changed(master_positions):
                     open_count = sum(1 for p in master_positions if p.get("quantity", 0) != 0)
-                    self.logger.info(f"Position change detected | Master: {len(master_positions)} ({open_count} open)")
+                    self.logger.info(
+                        f"Position change detected | Master: {len(master_positions)} ({open_count} open)"
+                    )
                     self.sync_all_clients(master_positions)
 
                 loop_count += 1
@@ -1611,7 +1689,9 @@ class CopyTradingExecutor:
                     open_positions = sum(1 for p in master_positions if p.get("quantity", 0) != 0)
                     client_summary = []
                     for client in self.clients:
-                        client_open = sum(1 for p in client.client_positions.values() if p.get("quantity", 0) != 0)
+                        client_open = sum(
+                            1 for p in client.client_positions.values() if p.get("quantity", 0) != 0
+                        )
                         client_summary.append(f"{client.name}:{client_open}")
 
                     self.logger.info(
@@ -1624,7 +1704,7 @@ class CopyTradingExecutor:
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                self.logger.exception(f"Error: {e}")
+                self.logger.error(f"Error: {e}")
                 time.sleep(5)
 
         self.logger.info("Copy trading stopped")

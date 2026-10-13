@@ -94,16 +94,30 @@ def fresh_asset():
             log(f"  release {rel_id} lists no uploaded {ASSET} right now")
             return None
         a = hit[0]
-        log(f"  release {rel_id} lists {ASSET}: asset id {a['id']}, {a['size']:,} bytes, updated {a['updated_at']}")
+        log(
+            f"  release {rel_id} lists {ASSET}: asset id {a['id']}, {a['size']:,} bytes, updated {a['updated_at']}"
+        )
         return a
-    except Exception as e:  # listing is a cross-check + second route; the public URL still works without it
+    except (
+        Exception
+    ) as e:  # listing is a cross-check + second route; the public URL still works without it
         log(f"  could not list assets by release id: {str(e)[:200]}")
         return None
 
 
 def download_public(url, dest):
     subprocess.run(
-        ["curl", "-fsSL", "--connect-timeout", "20", "--max-time", str(DL_TIMEOUT), "-o", dest, url],
+        [
+            "curl",
+            "-fsSL",
+            "--connect-timeout",
+            "20",
+            "--max-time",
+            str(DL_TIMEOUT),
+            "-o",
+            dest,
+            url,
+        ],
         check=True,
         timeout=DL_TIMEOUT + 60,
     )
@@ -114,7 +128,10 @@ def download_by_id(asset_id, dest):
     if shutil.which("gh"):  # gh follows the redirect to the storage host and drops its token there
         with open(dest, "wb") as fh:
             subprocess.run(
-                ["gh", "api", "-H", "Accept: application/octet-stream", path], stdout=fh, check=True, timeout=DL_TIMEOUT
+                ["gh", "api", "-H", "Accept: application/octet-stream", path],
+                stdout=fh,
+                check=True,
+                timeout=DL_TIMEOUT,
             )
     else:
         subprocess.run(
@@ -167,8 +184,15 @@ def validate(path, want_size):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("dest", help="where to write the validated bin")
-    ap.add_argument("--tries", type=int, default=4, help="attempt rounds (default 4; sleeps 15s, 30s, 45s between)")
-    ap.add_argument("--url", default=PUBLIC_URL, help="public download URL (override only to test the fallback)")
+    ap.add_argument(
+        "--tries",
+        type=int,
+        default=4,
+        help="attempt rounds (default 4; sleeps 15s, 30s, 45s between)",
+    )
+    ap.add_argument(
+        "--url", default=PUBLIC_URL, help="public download URL (override only to test the fallback)"
+    )
     args = ap.parse_args()
 
     dest = os.path.abspath(args.dest)
@@ -185,10 +209,15 @@ def main():
             try:
                 fetch()
                 complaint, end = validate(part, want)
-            except subprocess.CalledProcessError as e:  # curl/gh already printed the reason to stderr
+            except (
+                subprocess.CalledProcessError
+            ) as e:  # curl/gh already printed the reason to stderr
                 complaint, end = f"download failed: {e.cmd[0]} exited {e.returncode}", None
             except Exception as e:
-                complaint, end = f"download failed: {(str(e).splitlines() or [repr(e)])[0][:200]}", None
+                complaint, end = (
+                    f"download failed: {(str(e).splitlines() or [repr(e)])[0][:200]}",
+                    None,
+                )
             if complaint is None:
                 os.replace(part, dest)
                 log(f"  {name}: OK, {os.path.getsize(dest):,} bytes -> {dest}")

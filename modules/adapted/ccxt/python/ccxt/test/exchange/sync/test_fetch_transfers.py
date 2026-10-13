@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,17 +37,17 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_transfer,
-)
+from ccxt.test.exchange.base import test_transfer  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_fetch_transfers(exchange, skipped_properties, code):
     method = "fetchTransfers"
     transfers = exchange.fetch_transfers(code)
-    test_shared_methods.assert_non_emtpy_array(exchange, skipped_properties, method, transfers, code)
-    for i in range(len(transfers)):
+    test_shared_methods.assert_non_emtpy_array(
+        exchange, skipped_properties, method, transfers, code
+    )
+    for i in range(0, len(transfers)):
         test_transfer(exchange, skipped_properties, method, transfers[i], code)
     test_shared_methods.assert_timestamp_order(exchange, method, code, transfers)
     return True

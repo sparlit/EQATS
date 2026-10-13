@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,16 +37,14 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_currency,
-    test_shared_methods,
-)
+from ccxt.test.exchange.base import test_currency  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_fetch_currencies(exchange, skipped_properties):
     method = "fetchCurrencies"
     currencies = exchange.fetch_currencies()
-    # TODO: try to invent something to avoid undefined undefined, i.e. maybe move into private and force it to have a value
+    # todo: try to invent something to avoid undefined undefined, i.e. maybe move into private and force it to have a value
     num_inactive_currencies = 0
     max_inactive_currencies_percentage = exchange.safe_integer(
         skipped_properties, "maxInactiveCurrenciesPercentage", 50
@@ -71,7 +71,7 @@ def test_fetch_currencies(exchange, skipped_properties):
         skip_active = "activeCurrenciesQuota" in skipped_properties
         skip_major_currency_check = "activeMajorCurrencies" in skipped_properties
         # loop
-        for i in range(currencies_length):
+        for i in range(0, currencies_length):
             currency = values[i]
             test_currency(exchange, skipped_properties, method, currency)
             # detailed check for deposit/withdraw
@@ -97,7 +97,9 @@ def test_fetch_currencies(exchange, skipped_properties):
                 )
         # check at least X% of currencies are active
         inactive_currencies_percentage = (num_inactive_currencies / currencies_length) * 100
-        assert skip_active or (inactive_currencies_percentage < max_inactive_currencies_percentage), (
+        assert skip_active or (
+            inactive_currencies_percentage < max_inactive_currencies_percentage
+        ), (
             "Percentage of inactive currencies is too high at "
             + str(inactive_currencies_percentage)
             + "% that is more than the allowed maximum of "
@@ -112,7 +114,7 @@ def detect_currency_conflicts(exchange, currency_values):
     # detect if there are currencies with different ids for the same code
     ids = {}
     keys = list(currency_values.keys())
-    for i in range(len(keys)):
+    for i in range(0, len(keys)):
         key = keys[i]
         currency = currency_values[key]
         code = currency["code"]

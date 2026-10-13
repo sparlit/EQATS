@@ -41,8 +41,6 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from ccxt.protobuf.mexc import PublicIncreaseDepthsV3Api_pb2 as PublicIncreaseDepthsV3Api__pb2
-
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
     b'\n$PublicIncreaseDepthsBatchV3Api.proto\x1a\x1fPublicIncreaseDepthsV3Api.proto"^\n\x1ePublicIncreaseDepthsBatchV3Api\x12)\n\x05items\x18\x01 \x03(\x0b\x32\x1a.PublicIncreaseDepthsV3Api\x12\x11\n\teventType\x18\x02 \x01(\tBG\n\x1c\x63om.mxc.push.common.protobufB#PublicIncreaseDepthsBatchV3ApiProtoH\x01P\x01\x62\x06proto3'
 )
@@ -54,7 +52,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
     _globals[
         "DESCRIPTOR"
-    ]._serialized_options = b"\n\034com.mxc.push.common.protobufB#PublicIncreaseDepthsBatchV3ApiProtoH\001P\001"
+    ]._serialized_options = (
+        b"\n\034com.mxc.push.common.protobufB#PublicIncreaseDepthsBatchV3ApiProtoH\001P\001"
+    )
     _globals["_PUBLICINCREASEDEPTHSBATCHV3API"]._serialized_start = 73
     _globals["_PUBLICINCREASEDEPTHSBATCHV3API"]._serialized_end = 167
 # @@protoc_insertion_point(module_scope)

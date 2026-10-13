@@ -26,7 +26,7 @@ import contextlib
 from oasis.problems.NSfracStep import *
 
 with contextlib.suppress(BaseException):
-    from matplotlib import pyplot as plt
+    pass
 
 import _pickle as cPickle
 import bz2
@@ -210,7 +210,7 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
             displ = [sum(count[:p]) for p in range(MPI_SIZE)]
             displ = np.array(displ)
         else:
-            count = np.zeros(MPI_SIZE, dtype=int)
+            count = np.zeros(MPI_SIZE, dtype=np.int)
             all_dofs = None
             displ = None
 
@@ -254,14 +254,18 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
         for ui in q_:
             deltat = (dt / 2.0 if ui == "p" else 0.0) if "IPCS" in NS_parameters["solver"] else 0.0
             vv = interpolate(
-                Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu), VV[ui]
+                Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu),
+                VV[ui],
             )
             q_[ui].vector()[:] = vv.vector()[:]
             if ui != "p":
                 q_1[ui].vector()[:] = vv.vector()[:]
                 deltat = -dt
                 vv = interpolate(
-                    Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu), VV[ui]
+                    Expression(
+                        (initial_fields[ui]), element=VV[ui].ufl_element(), t=t + deltat, nu=nu
+                    ),
+                    VV[ui],
                 )
                 q_2[ui].vector()[:] = vv.vector()[:]
         q_1["p"].vector()[:] = q_["p"].vector()[:]
@@ -285,7 +289,18 @@ t = 0
 
 
 def temporal_hook(
-    q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_comp, compute_error, total_error, **NS_namespace
+    q_,
+    t,
+    nu,
+    VV,
+    dt,
+    plot_interval,
+    initial_fields,
+    tstep,
+    sys_comp,
+    compute_error,
+    total_error,
+    **NS_namespace,
 ):
     """Function called at end of timestep.
 
@@ -296,9 +311,8 @@ def temporal_hook(
     flow.append([q_["u0"].copy(deepcopy=True), q_["u1"].copy(deepcopy=True)])
     preassure.append(q_["p"].copy(deepcopy=True))
 
-    if tstep % compute_error == 0:
-        if MPI_RANK == 0:
-            print("at time = ", t)
+    if tstep % compute_error == 0 and MPI_RANK == 0:
+        print("at time = ", t)
 
 
 def vector_to_func(vec, V):
@@ -376,8 +390,12 @@ def theend_hook(mesh, q_, t, nu, VV, sys_comp, total_error, initial_fields, **NS
             (n_tsteps, n_node_x, n_node_y), order="F"
         )
         savemat(
-            NS_namespace["folder"] + "/flow_info.mat", {"n_node_x": n_node_x, "n_node_y": n_node_x, "type": "oasis"}
+            NS_namespace["folder"] + "/flow_info.mat",
+            {"n_node_x": n_node_x, "n_node_y": n_node_x, "type": "oasis"},
         )
 
-        save_hdf5(NS_namespace["folder"] + "/flow_reg", {"vel_x_reg": u_regular_final, "vel_y_reg": v_regular_final})
+        save_hdf5(
+            NS_namespace["folder"] + "/flow_reg",
+            {"vel_x_reg": u_regular_final, "vel_y_reg": v_regular_final},
+        )
         print("The end")

@@ -63,8 +63,8 @@ def main(start: date, end: date) -> None:
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--days", type=int, default=None)
-    p.add_argument("--start", type=date.fromisoformat)
-    p.add_argument("--end", type=date.fromisoformat, default=date.today())
+    p.add_argument("--start", type=lambda s: date.fromisoformat(s))
+    p.add_argument("--end", type=lambda s: date.fromisoformat(s), default=date.today())
     a = p.parse_args()
     if not a.days and not a.start:
         p.error("give --days or --start")

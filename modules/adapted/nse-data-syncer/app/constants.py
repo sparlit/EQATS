@@ -27,9 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 RATE_LIMIT_DELAY_SECONDS = 0.5
 
 # Data validation
-DATA_MISMATCH_THRESHOLD = (
-    0.10  # 10% difference triggers full resync (catches splits/bonuses, ignores dividend adjustments)
-)
+DATA_MISMATCH_THRESHOLD = 0.10  # 10% difference triggers full resync (catches splits/bonuses, ignores dividend adjustments)
 VALIDATION_RECORDS_COUNT = 60  # Number of records to check for validation
 
 # File paths

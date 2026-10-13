@@ -59,6 +59,27 @@ macro_rules! check_ne {
     };
 }
 
+/// Print a phase header and start counting the failures of that phase.
+macro_rules! phase {
+    ($($arg:tt)+) => {{
+        crate::common::begin_phase();
+        println!($($arg)+);
+    }};
+}
+
+/// Print the PASS line of a phase only when the phase recorded no failure.
+/// A failed check does not stop the phase, so the line after it is reached
+/// either way.
+macro_rules! pass {
+    ($($arg:tt)+) => {
+        if crate::common::phase_failures() == 0 {
+            println!($($arg)+);
+        } else {
+            println!("  FAILED: {} failure(s) in this phase\n", crate::common::phase_failures());
+        }
+    };
+}
+
 mod account;
 mod common;
 mod connection;
@@ -81,11 +102,12 @@ use ibx::protocol::fixcomp;
 use common::*;
 
 #[test]
+#[ignore = "live: logs in to the paper account (IB_USERNAME / IB_PASSWORD)"]
 fn compat_suite() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     let (session, et_min) = market_session();
@@ -111,7 +133,7 @@ fn compat_suite() {
     };
 
     if needs_ticks {
-        println!("--- RAW SUBSCRIBE TEST ---");
+        phase!("--- RAW SUBSCRIBE TEST ---");
         let conn = &mut conns.farm;
         let result = conn.send_fixcomp(&[
             (fix::TAG_MSG_TYPE, "V"),
@@ -200,7 +222,7 @@ fn compat_suite() {
         }
         println!();
     } else {
-        println!("--- RAW SUBSCRIBE TEST ---\n  SKIP: {:?} — no ticks expected\n", session);
+        phase!("--- RAW SUBSCRIBE TEST ---\n  SKIP: {:?} — no ticks expected\n", session);
     }
 
     conns = account::phase_account_pnl(conns);
@@ -213,7 +235,7 @@ fn compat_suite() {
     if needs_ticks {
         conns = account::phase_enriched_exec_details(conns);
     } else {
-        println!("--- Phase 133: Enriched exec_details ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 133: Enriched exec_details ---\n  SKIP: {:?} — needs fills\n", session);
     }
     conns = account::phase_pnl_subscription(conns);
     conns = account::phase_pnl_subscribe_command(conns);
@@ -238,9 +260,9 @@ fn compat_suite() {
         conns = market_data::phase_multi_instrument(conns);
         conns = account::phase_account_data(conns);
     } else {
-        println!("--- Phase 2: Market Data Ticks (AAPL) ---\n  SKIP: {:?} — no ticks expected\n", session);
-        println!("--- Phase 3: Multi-Instrument Subscription (AAPL+MSFT+SPY) ---\n  SKIP: {:?} — no ticks expected\n", session);
-        println!("--- Phase 4: Account Data Reception ---\n  SKIP: {:?} — needs ticks to trigger\n", session);
+        phase!("--- Phase 2: Market Data Ticks (AAPL) ---\n  SKIP: {:?} — no ticks expected\n", session);
+        phase!("--- Phase 3: Multi-Instrument Subscription (AAPL+MSFT+SPY) ---\n  SKIP: {:?} — no ticks expected\n", session);
+        phase!("--- Phase 4: Account Data Reception ---\n  SKIP: {:?} — needs ticks to trigger\n", session);
     }
 
     conns = orders::phase_outside_rth(conns);
@@ -302,19 +324,19 @@ fn compat_suite() {
     if needs_ticks && conns.hmds.is_some() {
         conns = market_data::phase_tbt_subscribe(conns);
     } else {
-        println!("--- Phase 61: Tick-by-Tick Data (SPY) ---\n  SKIP: needs ticks+HMDS\n");
+        phase!("--- Phase 61: Tick-by-Tick Data (SPY) ---\n  SKIP: needs ticks+HMDS\n");
     }
 
     if needs_moc {
         conns = orders::phase_moc_order(conns);
         conns = orders::phase_loc_order(conns);
     } else {
-        println!("--- Phase 27: MOC Order (SPY) ---\n  SKIP: {:?} et_min={} — only before 3:45 PM ET\n", session, et_min);
-        println!("--- Phase 28: LOC Order (SPY) ---\n  SKIP: {:?} et_min={} — only before 3:45 PM ET\n", session, et_min);
+        phase!("--- Phase 27: MOC Order (SPY) ---\n  SKIP: {:?} et_min={} — only before 3:45 PM ET\n", session, et_min);
+        phase!("--- Phase 28: LOC Order (SPY) ---\n  SKIP: {:?} et_min={} — only before 3:45 PM ET\n", session, et_min);
     }
 
     conns = market_data::phase_subscribe_unsubscribe(conns);
-    conns = market_data::phase_market_depth(conns);
+    conns = market_data::phase_market_depth(conns, &gw, &config);
     conns = market_data::phase_news_ticks(conns);
     conns = heartbeat::phase_heartbeat_keepalive(conns);
     conns = heartbeat::phase_farm_heartbeat_keepalive(conns);
@@ -325,10 +347,10 @@ fn compat_suite() {
         conns = orders::phase_bracket_fill_cascade(conns);
         conns = orders::phase_pnl_after_round_trip(conns);
     } else {
-        println!("--- Phase 6: Market Order Round-Trip (SPY) ---\n  SKIP: {:?} — needs ticks+fills\n", session);
-        println!("--- Phase 17: Commission Tracking (GTC+OutsideRTH fill) ---\n  SKIP: {:?} — needs fills\n", session);
-        println!("--- Phase 51: Bracket Fill Cascade (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
-        println!("--- Phase 52: PnL After Round Trip (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 6: Market Order Round-Trip (SPY) ---\n  SKIP: {:?} — needs ticks+fills\n", session);
+        phase!("--- Phase 17: Commission Tracking (GTC+OutsideRTH fill) ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 51: Bracket Fill Cascade (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 52: PnL After Round Trip (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
     }
 
     conns = heartbeat::phase_heartbeat_timeout_detection(conns);
@@ -350,7 +372,7 @@ fn compat_suite() {
     if needs_ticks {
         conns = account::phase_position_tracking(conns);
     } else {
-        println!("--- Phase 97: Position Tracking (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 97: Position Tracking (SPY) ---\n  SKIP: {:?} — needs fills\n", session);
     }
     conns = connection::phase_connection_recovery(conns, &gw, &config);
     conns = ensure_ccp_alive(conns, &mut gw, &config);
@@ -363,14 +385,14 @@ fn compat_suite() {
     if needs_ticks {
         conns = market_data::phase_streaming_validation(conns);
     } else {
-        println!("--- Phase 102: Streaming Data Validation (SPY) ---\n  SKIP: {:?} — needs ticks\n", session);
+        phase!("--- Phase 102: Streaming Data Validation (SPY) ---\n  SKIP: {:?} — needs ticks\n", session);
     }
     conns = historical::phase_historical_ohlc_validation(conns, &gw, &config);
     conns = error_handling::phase_ib_error_handling(conns);
     if needs_ticks {
         conns = connection::phase_reconnection_state_recovery(conns, &gw, &config);
     } else {
-        println!("--- Phase 105: Reconnection State Recovery ---\n  SKIP: {:?} — needs ticks\n", session);
+        phase!("--- Phase 105: Reconnection State Recovery ---\n  SKIP: {:?} — needs ticks\n", session);
     }
     conns = account::phase_account_summary(conns);
 
@@ -378,7 +400,7 @@ fn compat_suite() {
     if needs_ticks {
         conns = market_data::phase_tick_stress_test(conns);
     } else {
-        println!("--- Phase 110: Tick Stress Test (SPY+AAPL+MSFT) ---\n  SKIP: {:?} — needs ticks\n", session);
+        phase!("--- Phase 110: Tick Stress Test (SPY+AAPL+MSFT) ---\n  SKIP: {:?} — needs ticks\n", session);
     }
     conns = historical::phase_large_historical_dataset(conns, &gw, &config);
     conns = historical::phase_dst_boundary_historical(conns, &gw, &config);
@@ -400,7 +422,7 @@ fn compat_suite() {
     if needs_ticks {
         conns = orders::phase_cancel_filled_order(conns);
     } else {
-        println!("--- Phase 124: Cancel Filled Order ---\n  SKIP: {:?} — needs fills\n", session);
+        phase!("--- Phase 124: Cancel Filled Order ---\n  SKIP: {:?} — needs fills\n", session);
     }
 
     // ── P1: Matching symbols via ControlCommand channel ──
@@ -410,7 +432,7 @@ fn compat_suite() {
     if needs_ticks && conns.hmds.is_some() {
         conns = market_data::phase_tbt_unsubscribe(conns);
     } else {
-        println!("--- Phase 126: TBT Unsubscribe ---\n  SKIP: needs ticks+HMDS\n");
+        phase!("--- Phase 126: TBT Unsubscribe ---\n  SKIP: needs ticks+HMDS\n");
     }
 
     // ── P1: Cancel data requests (historical, fundamental, histogram, head timestamp) ──
@@ -420,14 +442,14 @@ fn compat_suite() {
     if needs_ticks && conns.hmds.is_some() {
         conns = market_data::phase_tbt_and_quotes_dual_stream(conns);
     } else {
-        println!("--- Phase 128: TBT + Regular Quotes Dual Stream ---\n  SKIP: needs ticks+HMDS\n");
+        phase!("--- Phase 128: TBT + Regular Quotes Dual Stream ---\n  SKIP: needs ticks+HMDS\n");
     }
 
     // ── P2: Concurrent subscribe stress (10 instruments) ──
     if needs_ticks {
         conns = market_data::phase_concurrent_subscribe_stress(conns);
     } else {
-        println!("--- Phase 129: Concurrent Subscribe Stress ---\n  SKIP: {:?} — needs ticks\n", session);
+        phase!("--- Phase 129: Concurrent Subscribe Stress ---\n  SKIP: {:?} — needs ticks\n", session);
     }
 
     // ── P2: Historical data + live orders coexistence ──
@@ -473,11 +495,12 @@ fn compat_suite() {
 /// ibx#186 focused live entry — runs only the QueryError phase so you don't
 /// pay the full ~128-phase suite cost just to validate this fix.
 #[test]
+#[ignore = "live: logs in to the paper account (IB_USERNAME / IB_PASSWORD)"]
 fn query_error_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#186 focused live test ===\n");
@@ -496,6 +519,310 @@ fn query_error_phase_live() {
     let _ = connection::phase_graceful_shutdown(conns);
 }
 
+/// Focused live entry for the order phases the server rejected in the run of
+/// 01/10/2026 (ibx#493): each rejection prints the server's reason. Run:
+///   cargo test --test ib_paper_compat server_reject_phases_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn server_reject_phases_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    println!("=== server reject phases (session={:?}) ===
+", market_session().0);
+    let (mut gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let mut conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let phases: [fn(Conns) -> Conns; 10] = [
+        orders::phase_limit_fok,
+        orders::phase_iceberg_order,
+        orders::phase_mkt_prt_order,
+        orders::phase_stp_prt_order,
+        orders::phase_discretionary_order,
+        orders::phase_time_condition_order,
+        orders::phase_limit_auc_order,
+        orders::phase_mtl_auc_order,
+        multi_asset::phase_forex_order,
+        multi_asset::phase_futures_order,
+    ];
+    for phase in phases {
+        conns = phase(conns);
+        conns = ensure_ccp_alive(conns, &mut gw, &config);
+    }
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the at-the-close phases (MOC, LOC; ibx#493): silent
+/// in regular hours, acknowledged before the open. Run:
+///   cargo test --test ib_paper_compat close_order_phases_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn close_order_phases_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    println!("=== close order phases (session={:?}) ===\n", market_session().0);
+    let (mut gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let mut conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let phases: [fn(Conns) -> Conns; 2] = [orders::phase_moc_order, orders::phase_loc_order];
+    for phase in phases {
+        conns = phase(conns);
+        conns = ensure_ccp_alive(conns, &mut gw, &config);
+    }
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the bracket key and the price management flag
+/// (ibx#248, ibx#492): a stock limit parent far from the market sent alone,
+/// a limit child and a stop child attached to it, a replace of the limit
+/// child and of the parent, and a limit order with the flag set off. The
+/// server must accept them all and echo the flag on the limit orders only;
+/// then everything is cancelled. Run with the wire trace:
+///   RUST_LOG=ibx=trace cargo test --test ib_paper_compat pd_orders_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn pd_orders_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    println!("=== bracket key and price management (session={:?}) ===\n", market_session().0);
+    let (gw, farm, ccp, hmds) = connect_paper(&config).expect("Gateway::connect() failed");
+    println!("  price management feature {} exclusions {:?}", gw.price_mgmt, gw.price_mgmt_exclusions);
+    check!(gw.price_mgmt, "the paper logon allows price management");
+    let shared = Arc::new(SharedState::new());
+    let (event_tx, event_rx) = crossbeam_channel::unbounded();
+    let (mut hot_loop, control_tx) = HotLoop::with_connections(
+        shared.clone(), Some(event_tx), gw.account_id.clone(), farm, ccp, hmds, None,
+    );
+    hot_loop.set_price_mgmt(gw.price_mgmt, gw.price_mgmt_exclusions.as_deref());
+    let inst = hot_loop.context_mut().register_instrument(265598);
+    hot_loop.context_mut().set_symbol(inst, "AAPL".to_string());
+    let join = run_hot_loop(hot_loop);
+
+    let px = |d: f64| (d * PRICE_SCALE as f64) as i64;
+    let (parent, child1, child2, off) = (next_order_id(), next_order_id(), next_order_id(), next_order_id());
+    let child = || OrderAttrs { parent_id: parent, ..OrderAttrs::default() };
+    let wait_working = |oid: OrderId| -> bool {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while Instant::now() < deadline {
+            if let Ok(Event::OrderUpdate(u)) = event_rx.recv_timeout(Duration::from_millis(100)) {
+                if u.order_id == oid {
+                    match u.status {
+                        OrderStatus::PreSubmitted | OrderStatus::Submitted => return true,
+                        OrderStatus::Rejected | OrderStatus::Cancelled => return false,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        false
+    };
+    let send = |req: OrderRequest| control_tx.send(ControlCommand::Order(req)).unwrap();
+
+    send(OrderRequest::SubmitLimitEx { order_id: parent, instrument: inst, side: Side::Buy, qty: 1, price: px(150.0), tif: b'0', attrs: OrderAttrs::default() });
+    check!(wait_working(parent), "parent working");
+    send(OrderRequest::SubmitLimitEx { order_id: child1, instrument: inst, side: Side::Sell, qty: 1, price: px(600.0), tif: b'0', attrs: child() });
+    check!(wait_working(child1), "limit child working");
+    send(OrderRequest::SubmitEx { order_id: child2, instrument: inst, side: Side::Sell, qty: 1, kind: OrderKind::Stop { stop_price: px(100.0) }, tif: b'0', attrs: child() });
+    check!(wait_working(child2), "stop child working");
+    send(OrderRequest::Modify { new_order_id: child1, order_id: child1, qty: 1, kind: OrderKind::Limit { price: px(601.0) }, tif: b'0', attrs: child() });
+    std::thread::sleep(Duration::from_secs(3));
+    send(OrderRequest::Modify { new_order_id: parent, order_id: parent, qty: 1, kind: OrderKind::Limit { price: px(151.0) }, tif: b'0', attrs: OrderAttrs::default() });
+    std::thread::sleep(Duration::from_secs(3));
+    send(OrderRequest::SubmitLimitEx { order_id: off, instrument: inst, side: Side::Buy, qty: 1, price: px(150.0), tif: b'0', attrs: OrderAttrs { use_price_mgmt_algo: Some(false), ..OrderAttrs::default() } });
+    check!(wait_working(off), "order with the flag off working");
+    std::thread::sleep(Duration::from_secs(2));
+
+    let flag = |oid: OrderId| shared.orders.get_order_info(oid).map(|i| i.order.use_price_mgmt_algo);
+    let price = |oid: OrderId| confirmed_price_qty(&shared, oid).map(|(p, _)| p);
+    println!("  reported flag: parent {:?} limit child {:?} stop child {:?} off {:?}", flag(parent), flag(child1), flag(child2), flag(off));
+    println!("  reported price: parent {:?} limit child {:?}", price(parent), price(child1));
+    check_eq!(flag(parent), Some(1), "parent echoes the flag");
+    check_eq!(flag(child1), Some(1), "limit child echoes the flag");
+    check_eq!(flag(child2), Some(0), "stop child has no flag");
+    check_eq!(flag(off), Some(0), "flag off is not sent");
+    check_eq!(price(child1), Some(601.0), "the child's replace landed");
+    check_eq!(price(parent), Some(151.0), "the parent's replace landed");
+    let errors = drain_order_messages(&shared);
+    println!("  errors: {:?}", errors);
+
+    send(OrderRequest::Cancel { order_id: parent });
+    send(OrderRequest::Cancel { order_id: off });
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let mut cancelled = std::collections::HashSet::new();
+    while Instant::now() < deadline && cancelled.len() < 4 {
+        if let Ok(Event::OrderUpdate(u)) = event_rx.recv_timeout(Duration::from_millis(100)) {
+            if matches!(u.status, OrderStatus::Cancelled) { cancelled.insert(u.order_id); }
+        }
+    }
+    println!("  cancelled: {:?}", cancelled);
+    check_eq!(cancelled.len(), 4, "all four orders cancelled");
+    let _ = shutdown_and_reclaim(&control_tx, join, gw.account_id.clone());
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the market-to-limit, box top and snap phases
+/// (ibx#418, ibx#493): in regular hours they can stay PreSubmitted after the
+/// cancel. Run:
+///   cargo test --test ib_paper_compat mtl_snap_phases_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn mtl_snap_phases_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    println!("=== market-to-limit and snap phases (session={:?}) ===
+", market_session().0);
+    let (mut gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let mut conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let phases: [fn(Conns) -> Conns; 5] = [
+        orders::phase_mtl_order,
+        orders::phase_box_top_order,
+        orders::phase_snap_mkt_order,
+        orders::phase_snap_mid_order,
+        orders::phase_snap_pri_order,
+    ];
+    for phase in phases {
+        conns = phase(conns);
+        conns = ensure_ccp_alive(conns, &mut gw, &config);
+    }
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the order phases with conditions (ibx#416,
+/// ibx#493). Run:
+///   cargo test --test ib_paper_compat condition_phases_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn condition_phases_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    println!("=== condition phases (session={:?}) ===
+", market_session().0);
+    let (mut gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let mut conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let phases: [fn(Conns) -> Conns; 4] = [
+        orders::phase_price_condition_order,
+        orders::phase_time_condition_order,
+        orders::phase_volume_condition_order,
+        orders::phase_multi_condition_order,
+    ];
+    for phase in phases {
+        conns = phase(conns);
+        conns = ensure_ccp_alive(conns, &mut gw, &config);
+    }
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the account PnL phase (ibx#493). Run:
+///   cargo test --test ib_paper_compat account_pnl_phase_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn account_pnl_phase_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    let (gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let mut conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    // As in the suite, where phases run before it: the login's answers left
+    // in the connection are dropped first, the late ones too.
+    let drain_until = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < drain_until {
+        ccp_keepalive(&mut conns.ccp);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    let conns = account::phase_account_pnl(conns);
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the rapid order submission phase (ibx#493). Run:
+///   cargo test --test ib_paper_compat rapid_order_dedup_phase_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn rapid_order_dedup_phase_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    let (gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let conns = orders::phase_rapid_order_dedup(conns);
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for the tick-by-tick unsubscribe phase (ibx#404). Needs a
+/// live market for ticks. Run:
+///   cargo test --test ib_paper_compat tbt_unsubscribe_phase_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn tbt_unsubscribe_phase_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    let (gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let conns = market_data::phase_tbt_unsubscribe(conns);
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
+/// Focused live entry for shared tick-by-tick streams, midpoints, past
+/// ticks and shared real-time bar routers (ibx#404, ibx#454, ibx#455).
+/// Needs regular trading hours. Run:
+///   cargo test --test ib_paper_compat tbt_shared_streams_phase_live -- --ignored --nocapture
+#[test]
+#[ignore]
+fn tbt_shared_streams_phase_live() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let config = match get_config() {
+        Some(c) => c,
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
+    };
+    let (gw, farm_conn, ccp_conn, hmds_conn) = connect_paper(&config)
+        .expect("Gateway::connect() failed");
+    let conns = Conns { farm: farm_conn, ccp: ccp_conn, hmds: hmds_conn, account_id: gw.account_id.clone() };
+    let conns = market_data::phase_tbt_shared_streams(conns);
+    let _ = connection::phase_graceful_shutdown(conns);
+    let rejected = take_rejections();
+    assert!(rejected.is_empty(), "{} failure(s): {:?}", rejected.len(), rejected);
+}
+
 /// ibx#191 PR A focused live entry — validates that after a full disconnect,
 /// a fresh `Gateway::connect` receives the CCP recovery push (35=8 with
 /// 150=0/39=0 per ib-agent#155) and that a subsequent
@@ -511,7 +838,7 @@ fn cross_session_recovery_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#191 PR A: cross-session recovery test ===\n");
@@ -640,7 +967,7 @@ fn cancel_by_perm_id_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#191 PR B: cancel_order_by_perm_id ===\n");
@@ -766,7 +1093,7 @@ fn submit_ex_bracket_child_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#224/ibx#215: SubmitEx bracket child ===\n");
@@ -804,7 +1131,7 @@ fn submit_ex_bracket_child_phase_live() {
         tif: b'1', // GTC
         attrs: ibx::types::OrderAttrs {
             parent_id,
-            oca_group: parent_id,
+            oca_group: u64::try_from(parent_id).unwrap(),
             outside_rth: true,
             ..ibx::types::OrderAttrs::default()
         },
@@ -815,7 +1142,7 @@ fn submit_ex_bracket_child_phase_live() {
     // Wait for both to ack.
     let deadline = Instant::now() + Duration::from_secs(30);
     let (mut parent_acked, mut child_acked) = (false, false);
-    let mut rejected: Option<u64> = None;
+    let mut rejected: Option<OrderId> = None;
     while Instant::now() < deadline && !(parent_acked && child_acked) && rejected.is_none() {
         if let Ok(Event::OrderUpdate(u)) = event_rx.recv_timeout(Duration::from_millis(100)) {
             println!("  [update] oid={} status={:?} parentId={}", u.order_id, u.status, u.parent_id);
@@ -886,7 +1213,7 @@ fn snap_to_tick_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#216: snap-to-tick ===\n");
@@ -912,7 +1239,7 @@ fn snap_to_tick_phase_live() {
     control_tx.send(ControlCommand::Subscribe {
         con_id: 756733, symbol: "SPY".into(), exchange: String::new(),
         sec_type: String::new(), last_trade_date: String::new(), strike: 0.0,
-        right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None,
+        right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None,
     }).expect("send subscribe failed");
 
     let join = run_hot_loop(hot_loop);
@@ -985,7 +1312,7 @@ fn timeout_sweeps_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#231/ibx#227: happy paths under the deadline sweeps ===\n");
@@ -1005,7 +1332,7 @@ fn timeout_sweeps_phase_live() {
     let join = run_hot_loop(hot_loop);
 
     // Helper: wait for rows + end on a req_id, in order.
-    let wait_details = |req_id: u32, label: &str| -> (usize, bool, bool) {
+    let wait_details = |req_id: ReqId, label: &str| -> (usize, bool, bool) {
         let deadline = Instant::now() + Duration::from_secs(30);
         let (mut rows, mut end, mut row_after_end) = (0usize, false, false);
         while Instant::now() < deadline && !end {
@@ -1041,9 +1368,10 @@ fn timeout_sweeps_phase_live() {
 
     // 3. Historical bars — must complete without tripping the idle sweep.
     control_tx.send(ControlCommand::FetchHistorical {
+        sec_type: "STK".into(), exchange: "SMART".into(),
         req_id: 6003, con_id: 756733, symbol: "SPY".into(),
         end_date_time: String::new(), duration: "5 D".into(), bar_size: "1 day".into(),
-        what_to_show: "TRADES".into(), use_rth: true, keep_up_to_date: false,
+        what_to_show: "TRADES".into(), use_rth: true, keep_up_to_date: false, include_expired: false, format_date: 1,
     }).expect("send historical failed");
     let deadline = Instant::now() + Duration::from_secs(45);
     let (mut bars, mut complete, mut hist_err) = (0usize, false, None::<String>);
@@ -1081,7 +1409,7 @@ fn reclaim_and_symbol_search_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#233/ibx#228: slot reclaim + symbol search ===\n");
@@ -1103,7 +1431,7 @@ fn reclaim_and_symbol_search_phase_live() {
         control_tx.send(ControlCommand::Subscribe {
             con_id: 756733, symbol: "SPY".into(), exchange: String::new(),
             sec_type: String::new(), last_trade_date: String::new(), strike: 0.0,
-            right: String::new(), multiplier: String::new(), mode_9887: 0,
+            right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false,
             reply_tx: Some(tx),
         }).expect("send subscribe failed");
         rx.recv_timeout(Duration::from_secs(10))
@@ -1169,7 +1497,7 @@ fn rtt_ping_phase_live() {
     let _ = tracing_subscriber::fmt::try_init();
     let config = match get_config() {
         Some(c) => c,
-        None => { println!("Skipping: IB credentials not set"); return; }
+        None => panic!("IB_USERNAME / IB_PASSWORD not set: a live test fails without credentials"),
     };
 
     println!("=== ibx#158: RTT ping ===

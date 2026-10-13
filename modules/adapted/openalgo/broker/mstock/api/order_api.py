@@ -1,0 +1,765 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import json
+import os
+
+from broker.mstock.mapping.transform_data import (
+    map_product_type,
+    reverse_map_product_type,
+    transform_data,
+    transform_modify_order_data,
+)
+from database.token_db import get_symbol, get_token
+from utils.httpx_client import get_httpx_client
+from utils.logging import get_logger
+from utils.position_read import read_position_book, refuse_smart_order_on_read_failure
+from utils.smart_order_guard import PositionBookCache, SymbolLocks
+
+logger = get_logger(__name__)
+
+# mStock reports the outcome in the payload's "status" field, which comes back
+# as a boolean or as a string, in either case.
+SUCCESS_VALUES = (True, "true", "True", "TRUE")
+
+
+def is_success_payload(response_data):
+    """
+    Check whether an mStock response payload reports success.
+
+    mStock returns HTTP 200 for business failures (RMS rejection, market
+    closed, insufficient funds), so the payload's "status" field - not the
+    HTTP status - is what says whether the call actually worked.
+
+    Args:
+        response_data: Parsed mStock JSON response
+
+    Returns:
+        bool: True when the payload reports success
+    """
+    if not isinstance(response_data, dict):
+        return False
+    return response_data.get("status") in SUCCESS_VALUES
+
+
+def extract_orderid(response_data):
+    """
+    Pull the order id out of an mStock order response.
+
+    The documented success shape is {"data": {"orderid": "..."}}. The
+    uniqueorderid fallback covers responses that carry only that field.
+
+    Args:
+        response_data: Parsed mStock JSON response
+
+    Returns:
+        str: The order id, or None when the payload carries none
+    """
+    if not is_success_payload(response_data):
+        return None
+
+    data = response_data.get("data")
+    if not isinstance(data, dict):
+        return None
+
+    orderid = data.get("orderid") or data.get("uniqueorderid")
+    return str(orderid) if orderid else None
+
+
+def get_api_response(endpoint, auth, method="GET", payload=""):
+    """
+    Generic API request handler for mStock Type B APIs.
+
+    Args:
+        endpoint: API endpoint path
+        auth: Authentication token
+        method: HTTP method (GET, POST, PUT, DELETE)
+        payload: Request payload
+
+    Returns:
+        dict: JSON response from API
+    """
+    auth_token = auth
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    client = get_httpx_client()
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+        "Content-Type": "application/json",
+    }
+
+    url = f"https://api.mstock.trade/openapi/typeb{endpoint}"
+
+    if method == "GET":
+        response = client.get(url, headers=headers)
+    elif method == "POST":
+        response = client.post(url, headers=headers, content=payload)
+    else:
+        response = client.request(method, url, headers=headers, content=payload)
+
+    # Add status attribute for compatibility with existing codebase
+    response.status = response.status_code
+
+    # Handle empty response
+    if not response.text:
+        return {}
+
+    try:
+        return json.loads(response.text)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse JSON response from {endpoint}: {response.text}")
+        return {}
+
+
+def get_order_book(auth):
+    """Fetch the order book from mStock Type B API."""
+    return get_api_response("/orders", auth)
+
+
+def get_trade_book(auth):
+    """Fetch the trade book from mStock Type B API."""
+    return get_api_response("/tradebook", auth)
+
+
+def get_positions(auth):
+    """Fetch positions from mStock Type B API."""
+    return get_api_response("/portfolio/positions", auth)
+
+
+def get_holdings(auth):
+    """Fetch holdings from mStock Type B API."""
+    return get_api_response("/portfolio/holdings", auth)
+
+
+# --- Per-Symbol Smart Order Lock ---
+# Ensures only one smart order per symbol executes at a time.
+# Others queue and execute sequentially, each getting a fresh position book.
+# The registry forgets a symbol once nobody holds or waits on it, and under the
+# gthread worker a wait is bounded (utils/smart_order_guard.py).
+_SMART_ORDER_LOCKS = SymbolLocks()
+
+# --- Position Book Cache ---
+# Caches get_positions() for 1 second. Invalidated after each smart order placement.
+# A fetch still in flight when an order invalidates the cache is returned to its
+# own caller but never cached, so the next order cannot read the book from
+# before the previous fill (utils/smart_order_guard.py).
+_POSITION_BOOK = PositionBookCache()
+
+
+def _get_symbol_lock(symbol, exchange, product):
+    """Hold the smart order lock for one symbol, as a context manager.
+
+    Yields True while holding it. Yields False when the wait ran out, which
+    happens only under the gthread worker; the caller must then return
+    ``SymbolLocks.busy(symbol)`` without placing an order.
+    """
+    return _SMART_ORDER_LOCKS.hold(symbol, exchange, product)
+
+
+def _position_book_ok(positions_data):
+    """mStock marks success with status true, as a bool or as the string "true".
+
+    get_api_response returns {} for an empty body or one it could not parse.
+    """
+    if not isinstance(positions_data, dict):
+        return False
+    return str(positions_data.get("status", "")).lower() in ("true", "success")
+
+
+def _get_cached_positions(auth):
+    """Get positions from cache if fresh, otherwise fetch from broker API."""
+    return _POSITION_BOOK.get(
+        auth,
+        lambda: read_position_book("mstock", lambda: get_positions(auth), _position_book_ok),
+    )
+
+
+def _invalidate_position_cache(auth):
+    """Invalidate the position cache so the next queued order fetches fresh data.
+
+    Also stops a fetch that started before this order from caching the book
+    it read.
+    """
+    _POSITION_BOOK.invalidate(auth)
+
+
+def get_open_position(tradingsymbol, exchange, producttype, auth):
+    """
+    Get open position for a specific symbol and product type.
+
+    Args:
+        tradingsymbol: OpenAlgo format symbol
+        exchange: Exchange name
+        producttype: Product type (mapped to broker format)
+        auth: Authentication token
+
+    Returns:
+        str: Net quantity as string
+    """
+    # Get symboltoken for the tradingsymbol
+    token = get_token(tradingsymbol, exchange)
+    if not token:
+        logger.warning(f"Token not found for {tradingsymbol} on {exchange}")
+        return "0"
+
+    positions_data = _get_cached_positions(auth)
+
+    logger.info(
+        f"Looking for position: symboltoken={token}, exchange={exchange}, producttype={producttype}"
+    )
+    # Summary at INFO, full payload at DEBUG: with the default LOG_LEVEL=INFO
+    # this runs on every smart order, and the raw response carries the whole
+    # portfolio - every holding's symbol and quantity - which does not belong
+    # in normal logs and grows with the account.
+    if isinstance(positions_data, dict):
+        logger.info(
+            "Positions response: status=%s count=%s",
+            positions_data.get("status"),
+            len(positions_data.get("data") or []),
+        )
+    logger.debug("Positions data: %s", positions_data)
+
+    net_qty = "0"
+
+    if positions_data and positions_data.get("status") and positions_data.get("data"):
+        for position in positions_data["data"]:
+            # Match using symboltoken instead of tradingsymbol (which is empty in mStock API)
+            if (
+                position.get("symboltoken") == token
+                and position.get("exchange") == exchange
+                and position.get("producttype") == producttype
+            ):
+                net_qty = position.get("netqty", "0")
+                logger.info(f"Found matching position: netqty={net_qty}")
+                break
+
+    return net_qty
+
+
+def place_order_api(data, auth):
+    """
+    Place a regular order on mStock Type B API.
+
+    Args:
+        data: OpenAlgo order data
+        auth: Authentication token
+
+    Returns:
+        tuple: (response, response_data, orderid)
+    """
+    auth_token = auth
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    # Get token and transform data
+    token = get_token(data["symbol"], data["exchange"])
+    transformed_data = transform_data(data, token)
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+        "Content-Type": "application/json",
+    }
+
+    payload = json.dumps(transformed_data)
+    logger.info(f"Place order payload: {payload}")
+
+    client = get_httpx_client()
+
+    response = client.post(
+        "https://api.mstock.trade/openapi/typeb/orders/regular", headers=headers, content=payload
+    )
+
+    # Add status attribute for compatibility
+    response.status = response.status_code
+
+    # Parse JSON response
+    response_data = response.json()
+
+    logger.info(f"Place order response status code: {response.status_code}")
+    logger.info(f"Place order response data: {response_data}")
+
+    # mStock Type B API sometimes wraps the payload in a single-element list
+    if isinstance(response_data, list) and len(response_data) > 0:
+        logger.info("API returned list, extracting first element")
+        response_data = response_data[0]
+
+    orderid = extract_orderid(response_data)
+
+    # mStock returns HTTP 200 for business failures too (RMS rejection, market
+    # closed, insufficient funds - all documented as "Failure (HTTP Status
+    # 200)"). Without this the caller, which keys off the HTTP status alone,
+    # would report a rejected order as a success with a null orderid.
+    if not is_success_payload(response_data) or not orderid:
+        message = (
+            response_data.get("message", "Order placement failed")
+            if isinstance(response_data, dict)
+            else "Order placement failed"
+        )
+        logger.error(f"Order placement failed: {message}")
+        if response.status == 200:
+            response.status = 400
+
+    return response, response_data, orderid
+
+
+@refuse_smart_order_on_read_failure
+def place_smartorder_api(data, auth):
+    """
+    Place a smart order that adjusts based on current position.
+
+    Args:
+        data: OpenAlgo order data with position_size
+        auth: Authentication token
+
+    Returns:
+        tuple: (response, response_data, orderid)
+    """
+    auth_token = auth
+    res = None
+
+    # Extract necessary info from data
+    symbol = data.get("symbol")
+    exchange = data.get("exchange")
+    product = data.get("product")
+    # Per-symbol lock: serialize smart orders per symbol
+    with _get_symbol_lock(symbol, exchange, product) as symbol_lock:
+        if not symbol_lock:
+            return SymbolLocks.busy(symbol)
+        position_size = int(data.get("position_size", "0"))
+
+        # Get current open position for the symbol
+        current_position = int(
+            get_open_position(symbol, exchange, map_product_type(product), auth_token)
+        )
+
+        logger.info(f"position_size: {position_size}")
+        logger.info(f"Open Position: {current_position}")
+
+        action = None
+        quantity = 0
+
+        # If both position_size and current_position are 0, do nothing
+        if position_size == 0 and current_position == 0 and int(data["quantity"]) != 0:
+            action = data["action"]
+            quantity = data["quantity"]
+            res, response, orderid = place_order_api(data, auth_token)
+            _invalidate_position_cache(auth_token)
+            return res, response, orderid
+
+        elif position_size == current_position:
+            if int(data["quantity"]) == 0:
+                response = {
+                    "status": "success",
+                    "message": "No OpenPosition Found. Not placing Exit order.",
+                }
+            else:
+                response = {
+                    "status": "success",
+                    "message": "No action needed. Position size matches current position",
+                }
+            orderid = None
+            return res, response, orderid
+
+        if position_size == 0 and current_position > 0:
+            action = "SELL"
+            quantity = abs(current_position)
+        elif position_size == 0 and current_position < 0:
+            action = "BUY"
+            quantity = abs(current_position)
+        elif current_position == 0:
+            action = "BUY" if position_size > 0 else "SELL"
+            quantity = abs(position_size)
+        else:
+            if position_size > current_position:
+                action = "BUY"
+                quantity = position_size - current_position
+            elif position_size < current_position:
+                action = "SELL"
+                quantity = current_position - position_size
+
+        if action:
+            # Prepare data for placing the order
+            order_data = data.copy()
+            order_data["action"] = action
+            order_data["quantity"] = str(quantity)
+
+            # Place the order
+            res, response, orderid = place_order_api(order_data, auth)
+            _invalidate_position_cache(auth_token)
+            logger.info(f"Smart order response: {response}")
+            logger.info(f"Smart order ID: {orderid}")
+
+            return res, response, orderid
+
+
+def close_all_positions(current_api_key, auth):
+    """
+    Close all open positions.
+
+    Args:
+        current_api_key: API key
+        auth: Authentication token
+
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    auth_token = auth
+
+    positions_response = get_positions(auth_token)
+
+    # Check if the positions data is null or empty
+    if positions_response.get("data") is None or not positions_response.get("data"):
+        logger.info("No open positions to close")
+        return {"message": "No Open Positions Found"}, 200
+
+    # Check status explicitly (mStock Type B returns "true" string or True boolean)
+    if is_success_payload(positions_response):
+        logger.info(f"Closing {len(positions_response['data'])} positions")
+
+        # Loop through each position to close
+        for position in positions_response["data"]:
+            # Convert netqty to int (API returns string like "-500")
+            try:
+                netqty = int(position.get("netqty", 0))
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid netqty for position: {position.get('symboltoken')}")
+                continue
+
+            # Skip if net quantity is zero
+            if netqty == 0:
+                continue
+
+            # Determine action based on net quantity
+            action = "SELL" if netqty > 0 else "BUY"
+            quantity = abs(netqty)
+
+            # Determine correct exchange for symbol lookup
+            exchange = position["exchange"]
+            instrumenttype = position.get("instrumenttype", "")
+            lookup_exchange = exchange
+
+            # For derivatives, use NFO/BFO instead of NSE/BSE for symbol lookup
+            if instrumenttype in ["OPTIDX", "OPTSTK", "FUTIDX", "FUTSTK"]:
+                if exchange == "NSE":
+                    lookup_exchange = "NFO"
+                elif exchange == "BSE":
+                    lookup_exchange = "BFO"
+
+            # Get OpenAlgo symbol to send to placeorder function
+            symbol = get_symbol(position["symboltoken"], lookup_exchange)
+
+            # Skip if symbol not found
+            if not symbol:
+                logger.warning(
+                    f"Symbol not found for token {position['symboltoken']}, exchange {lookup_exchange} (original: {exchange}). Skipping position."
+                )
+                continue
+
+            logger.info(
+                f"Closing position for symbol: {symbol}, quantity: {quantity}, action: {action}"
+            )
+
+            # Prepare the order payload
+            # Use lookup_exchange (NFO/BFO for derivatives) instead of position exchange (NSE/BSE)
+            place_order_payload = {
+                "apikey": current_api_key,
+                "strategy": "Squareoff",
+                "symbol": symbol,
+                "action": action,
+                "exchange": lookup_exchange,  # Use NFO/BFO for derivatives, not NSE/BSE
+                "pricetype": "MARKET",
+                "product": reverse_map_product_type(position["producttype"]),
+                "quantity": str(quantity),
+            }
+
+            logger.info(f"Square off payload: {place_order_payload}")
+
+            # Place the order to close the position
+            try:
+                res, response, orderid = place_order_api(place_order_payload, auth)
+                logger.info(f"Position closed - OrderID: {orderid}, Response: {response}")
+            except Exception as e:
+                logger.error(f"Error closing position for {symbol}: {e}")
+                continue
+
+    return {"status": "success", "message": "All Open Positions SquaredOff"}, 200
+
+
+def cancel_order(orderid, auth):
+    """
+    Cancel a pending order on mStock Type B API.
+
+    Args:
+        orderid: Order ID to cancel
+        auth: Authentication token
+
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    auth_token = auth
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    client = get_httpx_client()
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+        "Content-Type": "application/json",
+    }
+
+    # Prepare payload for Type B (variety and orderid in body)
+    payload_data = {"variety": "NORMAL", "orderid": orderid}
+
+    logger.info(f"Cancelling order {orderid}")
+    logger.info(f"Cancel order payload: {json.dumps(payload_data)}")
+
+    # DELETE request with orderid in both URL path and body
+    # Using json parameter instead of content/data for httpx compatibility
+    response = client.request(
+        method="DELETE",
+        url=f"https://api.mstock.trade/openapi/typeb/orders/regular/{orderid}",
+        headers=headers,
+        json=payload_data,
+    )
+
+    # Add status attribute for compatibility
+    response.status = response.status_code
+
+    logger.info(f"Cancel order response status code: {response.status_code}")
+    logger.info(f"Cancel order response: {response.text}")
+
+    try:
+        data = json.loads(response.text)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse cancel order response: {response.text}")
+        return {"status": "error", "message": "Invalid response from broker"}, 500
+
+    # Handle list response (like place order)
+    if isinstance(data, list) and len(data) > 0:
+        logger.info("API returned list, extracting first element")
+        data = data[0]
+
+    # Check if the request was successful
+    if is_success_payload(data) or data.get("message") == "SUCCESS":
+        logger.info(f"Order {orderid} cancelled successfully")
+        return {"status": "success", "orderid": orderid}, 200
+    else:
+        error_message = data.get("message", "Failed to cancel order")
+        logger.error(f"Failed to cancel order {orderid}: {error_message}")
+        # mStock returns HTTP 200 for business failures, and the caller treats
+        # a 200 as success, so a rejection must not be reported back as 200.
+        return {"status": "error", "message": error_message}, (
+            400 if response.status == 200 else response.status
+        )
+
+
+def modify_order(data, auth):
+    """
+    Modify an existing order on mStock Type B API.
+
+    Args:
+        data: OpenAlgo modify order data with fields:
+            - orderid: Order ID to modify
+            - symbol: OpenAlgo symbol
+            - exchange: Exchange code
+            - action: BUY/SELL
+            - quantity: Order quantity
+            - price: Order price
+            - trigger_price: Trigger price (for SL orders)
+            - pricetype: MARKET/LIMIT/SL/SL-M
+            - product: CNC/MIS/NRML
+        auth: Authentication token
+
+    Returns:
+        tuple: (response_dict, status_code)
+    """
+    auth_token = auth
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    client = get_httpx_client()
+
+    # Get token for the symbol
+    try:
+        token = get_token(data["symbol"], data["exchange"])
+        if not token:
+            logger.error(
+                f"Token not found for symbol {data['symbol']}, exchange {data['exchange']}"
+            )
+            return {"status": "error", "message": "Symbol token not found in database"}, 400
+    except Exception as e:
+        logger.error(f"Error getting token: {e}")
+        return {"status": "error", "message": f"Failed to get symbol token: {str(e)}"}, 400
+
+    # Transform data to mStock Type B format
+    transformed_data = transform_modify_order_data(data, token)
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+        "Content-Type": "application/json",
+    }
+
+    orderid = data["orderid"]
+
+    logger.info(f"Modifying order {orderid} for symbol {data['symbol']}")
+    logger.info(f"Modify order payload: {json.dumps(transformed_data)}")
+
+    # PUT request with orderid in URL path
+    # Using json parameter for httpx compatibility
+    response = client.request(
+        method="PUT",
+        url=f"https://api.mstock.trade/openapi/typeb/orders/regular/{orderid}",
+        headers=headers,
+        json=transformed_data,
+    )
+
+    # Add status attribute for compatibility
+    response.status = response.status_code
+
+    logger.info(f"Modify order response status code: {response.status_code}")
+    logger.info(f"Modify order response: {response.text}")
+
+    try:
+        response_data = json.loads(response.text)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse modify order response: {response.text}")
+        return {"status": "error", "message": "Invalid response from broker"}, 500
+
+    # Handle list response (like place order/cancel order)
+    if isinstance(response_data, list) and len(response_data) > 0:
+        logger.info("API returned list, extracting first element")
+        response_data = response_data[0]
+
+    # Check if the request was successful
+    # mStock Type B returns status as boolean True or string "true"
+    if is_success_payload(response_data) or response_data.get("message") == "SUCCESS":
+        # Extract orderid from response data
+        if response_data.get("data") and isinstance(response_data["data"], dict):
+            modified_orderid = str(response_data["data"].get("orderid") or orderid).strip()
+        else:
+            modified_orderid = orderid
+
+        logger.info(f"Order {orderid} modified successfully to {modified_orderid}")
+        return {"status": "success", "orderid": modified_orderid}, 200
+    else:
+        error_message = response_data.get("message", "Failed to modify order")
+        errorcode = response_data.get("errorcode", "")
+        logger.error(f"Failed to modify order {orderid}: {error_message} (errorcode: {errorcode})")
+        # mStock returns HTTP 200 for business failures, and the caller treats
+        # a 200 as success, so a rejection must not be reported back as 200.
+        return {"status": "error", "message": error_message}, (
+            400 if response.status == 200 else response.status
+        )
+
+
+def cancel_all_orders_api(data, auth):
+    """
+    Cancel all pending orders using mStock Type B cancelall endpoint.
+
+    Args:
+        data: Request data (not used for mStock Type B)
+        auth: Authentication token
+
+    Returns:
+        tuple: (canceled_orders_list, failed_cancellations_list)
+    """
+    auth_token = auth
+    api_key = os.getenv("BROKER_API_SECRET")
+
+    # First, get the list of pending orders to return their IDs
+    logger.info("Fetching order book to identify pending orders")
+    order_book_response = get_order_book(auth_token)
+
+    pending_order_ids = []
+    if is_success_payload(order_book_response) and order_book_response.get("data"):
+        # Filter orders that are in 'open', 'pending', 'o-pending' or 'trigger pending' state
+        pending_orders = [
+            order
+            for order in order_book_response.get("data", [])
+            if order.get("status", "").lower()
+            in ["open", "pending", "o-pending", "trigger pending"]
+        ]
+        pending_order_ids = [
+            order.get("orderid") for order in pending_orders if order.get("orderid")
+        ]
+        logger.info(f"Found {len(pending_order_ids)} pending orders to cancel: {pending_order_ids}")
+    else:
+        logger.warning("Failed to fetch order book or no data available")
+
+    # If no pending orders, return early
+    if not pending_order_ids:
+        logger.info("No pending orders to cancel")
+        return [], []
+
+    # Now call the cancelall endpoint
+    client = get_httpx_client()
+
+    headers = {
+        "X-Mirae-Version": "1",
+        "Authorization": f"Bearer {auth_token}",
+        "X-PrivateKey": api_key,
+        "Content-Type": "application/json",
+    }
+
+    logger.info("Calling mStock Type B cancelall endpoint")
+
+    # POST request to cancel all orders at once
+    response = client.post(
+        "https://api.mstock.trade/openapi/typeb/orders/cancelall", headers=headers
+    )
+
+    # Add status attribute for compatibility
+    response.status = response.status_code
+
+    logger.info(f"Cancel all response status code: {response.status_code}")
+    logger.info(f"Cancel all response: {response.text}")
+
+    try:
+        response_data = json.loads(response.text)
+    except json.JSONDecodeError:
+        logger.error(f"Failed to parse cancel all response: {response.text}")
+        return [], pending_order_ids  # Return as failed
+
+    # Handle list response (like place order)
+    if isinstance(response_data, list) and len(response_data) > 0:
+        logger.info("API returned list, extracting first element")
+        response_data = response_data[0]
+
+    # Check if the request was successful
+    if (
+        is_success_payload(response_data)
+        or response_data.get("status") == "success"
+        or response_data.get("message") == "SUCCESS"
+    ):
+        logger.info(f"Cancel all orders successful - cancelled {len(pending_order_ids)} orders")
+        return pending_order_ids, []
+    else:
+        error_message = response_data.get("message", "Failed to cancel all orders")
+        logger.error(f"Cancel all failed: {error_message}")
+        return [], pending_order_ids  # Return as failed

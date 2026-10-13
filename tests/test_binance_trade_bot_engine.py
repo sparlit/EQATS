@@ -1,9 +1,8 @@
 """
 Unit and Integration Tests for Binance Trade Bot Bridge Scouting Engine.
 """
-from typing import Any
-import pytest
 from institutional_integrations.binance_trade_bot_engine import BridgeCoinScoutEngine
+
 
 def test_binance_trade_bot_coin_jump_evaluation() -> None:
     engine = BridgeCoinScoutEngine(bridge_coin='USDT', min_jump_profit_pct=2.0)

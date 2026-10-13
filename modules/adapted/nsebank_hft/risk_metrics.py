@@ -50,7 +50,6 @@ Confidence bands       : 5/25/50/75/95th percentile price paths over time
 
 
 import logging
-from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -104,7 +103,9 @@ def compute_all_metrics(
     terminal_prices = paths[:, -1]  # shape (n_paths,)
     terminal_returns = terminal_prices / S0 - 1.0
 
-    logger.info("[%s] Computing risk metrics for %d paths × %d steps …", model_name, paths.shape[0], n_steps)
+    logger.info(
+        "[%s] Computing risk metrics for %d paths × %d steps …", model_name, paths.shape[0], n_steps
+    )
 
     metrics = {
         "model": model_name,
@@ -113,7 +114,9 @@ def compute_all_metrics(
         "n_steps": n_steps,
         "terminal": _terminal_stats(terminal_prices, terminal_returns),
         "forecast": _price_forecast(terminal_prices, S0),
-        "probabilities": _probability_metrics(terminal_prices, terminal_returns, S0, target_ret, breach_pcts),
+        "probabilities": _probability_metrics(
+            terminal_prices, terminal_returns, S0, target_ret, breach_pcts
+        ),
         "var_cvar": _var_cvar(terminal_returns, var_levels),
         "drawdown": _drawdown_metrics(paths, dd_thresholds),
         "volatility": _volatility_comparison(paths, processed_df, n_steps),

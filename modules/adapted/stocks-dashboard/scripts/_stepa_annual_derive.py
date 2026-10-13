@@ -144,7 +144,9 @@ def main():
             try:
                 raw = N.get(
                     "https://www.nseindia.com/api/corporates-financial-results"
-                    "?index=equities&symbol={}&period=Annual".format(urllib.parse.quote(sym, safe="")),
+                    "?index=equities&symbol={}&period=Annual".format(
+                        urllib.parse.quote(sym, safe="")
+                    ),
                     lp,
                 )
                 rows = json.loads(raw)
@@ -182,11 +184,19 @@ def main():
                 n_ref += 1
                 continue
             meta, prows = N.parse_detail(html)
-            if (meta.get("Symbol") or "").upper() not in ([sym.upper()] + [a.upper() for a in N.aliases(sym)]):
-                att["%s|%d" % (sym, tgt)] = {"reason": "annual-symbol-mismatch-{}".format(meta.get("Symbol"))}
+            if (meta.get("Symbol") or "").upper() not in (
+                [sym.upper()] + [a.upper() for a in N.aliases(sym)]
+            ):
+                att["%s|%d" % (sym, tgt)] = {
+                    "reason": "annual-symbol-mismatch-{}".format(meta.get("Symbol"))
+                }
                 n_ref += 1
                 continue
-            basis = "con" if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non") else "std"
+            basis = (
+                "con"
+                if "Non" not in (meta.get("Consolidated / Non-Consolidated") or "Non")
+                else "std"
+            )
             if basis != "std":
                 continue  # standalone is the campaign's scope
 
@@ -201,7 +211,9 @@ def main():
             )
             a_pat = _first(prows, N.R_PAT_OWN, N.R_PAT_ANY, N.R_PAT_SIGNED)
             if a_rev is None or a_pat is None:
-                att["%s|%d" % (sym, tgt)] = {"reason": f"annual-rows-unreadable (rev={a_rev} pat={a_pat})"}
+                att["%s|%d" % (sym, tgt)] = {
+                    "reason": f"annual-rows-unreadable (rev={a_rev} pat={a_pat})"
+                }
                 n_ref += 1
                 continue
 
@@ -254,7 +266,9 @@ def main():
                 n_ref += 1
                 continue
             if abs(d_pat) > 3 * pmax:
-                att["%s|%d" % (sym, tgt)] = {"reason": f"derived-PAT-{d_pat:.2f}-implausible-vs-sibling-max-{pmax:.2f}"}
+                att["%s|%d" % (sym, tgt)] = {
+                    "reason": f"derived-PAT-{d_pat:.2f}-implausible-vs-sibling-max-{pmax:.2f}"
+                }
                 n_ref += 1
                 continue
             if d_pat > d_rev:

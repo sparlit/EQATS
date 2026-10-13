@@ -49,7 +49,6 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -98,7 +97,8 @@ def load_daily_prices(session, stock_ids, start_date):
     df["date"] = pd.to_datetime(df["date"])
     # daily_prices has some duplicate (stock_id, date) rows from overlapping
     # syncs (pre-existing data issue, not caused by this script) - dedupe.
-    return df.drop_duplicates(subset=["stock_id", "date"], keep="last")
+    df = df.drop_duplicates(subset=["stock_id", "date"], keep="last")
+    return df
 
 
 def load_index_prices(session, symbols, start_date):
@@ -114,7 +114,8 @@ def load_index_prices(session, symbols, start_date):
     ).fetchall()
     df = pd.DataFrame(rows, columns=["symbol", "date", "close"])
     df["date"] = pd.to_datetime(df["date"])
-    return df.drop_duplicates(subset=["symbol", "date"], keep="last")
+    df = df.drop_duplicates(subset=["symbol", "date"], keep="last")
+    return df
 
 
 def compute_stock_features(df):
@@ -168,7 +169,8 @@ def compute_rs_rank(master_df):
     across the whole universe - computed for all dates in one vectorized op."""
     pivot = master_df.pivot(index="date", columns="stock_id", values="ret_63")
     rs_rank = pivot.rank(axis=1, pct=True) * 100
-    return rs_rank.stack(future_stack=True).rename("rs_rank").reset_index()
+    rs_long = rs_rank.stack(future_stack=True).rename("rs_rank").reset_index()
+    return rs_long
 
 
 def compute_sector_returns(index_df):
@@ -177,7 +179,11 @@ def compute_sector_returns(index_df):
     for symbol, g in index_df.groupby("symbol"):
         g = g.sort_values("date")
         ret = g["close"] / g["close"].shift(SECTOR_LOOKBACK_DAYS) - 1
-        out.append(pd.DataFrame({"sector_symbol": symbol, "date": g["date"].values, "sector_ret": ret.values}))
+        out.append(
+            pd.DataFrame(
+                {"sector_symbol": symbol, "date": g["date"].values, "sector_ret": ret.values}
+            )
+        )
     return pd.concat(out, ignore_index=True)
 
 
@@ -193,7 +199,7 @@ def mark_trade_starts(master_df, mask):
 
 def aggregate_horizon_stats(subset, benchmark_df):
     merged = subset.merge(benchmark_df, on="date", how="left", suffixes=("", "_bench"))
-    stats = {"trade_count": len(subset)}
+    stats = {"trade_count": int(len(subset))}
     for h in FORWARD_HORIZONS:
         col = FORWARD_HORIZON_COLS[h]
         bench_col = f"bench_{col}"
@@ -203,11 +209,13 @@ def aggregate_horizon_stats(subset, benchmark_df):
             stats[f"{h}d"] = None
             continue
         stats[f"{h}d"] = {
-            "n": len(vals),
+            "n": int(len(vals)),
             "win_rate": float(round((vals > 0).mean() * 100, 2)),
             "avg_return_pct": float(round(vals.mean() * 100, 2)),
             "median_return_pct": float(round(vals.median() * 100, 2)),
-            "benchmark_avg_return_pct": float(round(bench_vals.mean() * 100, 2)) if len(bench_vals) else None,
+            "benchmark_avg_return_pct": float(round(bench_vals.mean() * 100, 2))
+            if len(bench_vals)
+            else None,
         }
     return stats
 
@@ -223,8 +231,12 @@ def run_backtest():
         if universe_df.empty:
             print("Empty universe, aborting.")
             return
-        sector_symbol_map = dict(zip(universe_df["stock_id"], universe_df["sector_symbol"], strict=False))
-        stock_symbol_map = dict(zip(universe_df["stock_id"], universe_df["nse_symbol"], strict=False))
+        sector_symbol_map = dict(
+            zip(universe_df["stock_id"], universe_df["sector_symbol"], strict=False)
+        )
+        stock_symbol_map = dict(
+            zip(universe_df["stock_id"], universe_df["nse_symbol"], strict=False)
+        )
 
         print("Loading daily prices for universe...")
         prices_df = load_daily_prices(session, universe_df["stock_id"].tolist(), start_date)
@@ -251,9 +263,15 @@ def run_backtest():
         master_df = master_df.merge(sector_returns, on=["date", "sector_symbol"], how="left")
 
         # Benchmark forward returns (Nifty 500), joined by date only
-        bench_df = index_df[index_df["symbol"] == BENCHMARK_SYMBOL].sort_values("date").reset_index(drop=True)
+        bench_df = (
+            index_df[index_df["symbol"] == BENCHMARK_SYMBOL]
+            .sort_values("date")
+            .reset_index(drop=True)
+        )
         for h in FORWARD_HORIZONS:
-            bench_df[f"bench_{FORWARD_HORIZON_COLS[h]}"] = bench_df["close"].shift(-h) / bench_df["close"] - 1
+            bench_df[f"bench_{FORWARD_HORIZON_COLS[h]}"] = (
+                bench_df["close"].shift(-h) / bench_df["close"] - 1
+            )
         bench_cols = ["date"] + [f"bench_{FORWARD_HORIZON_COLS[h]}" for h in FORWARD_HORIZONS]
         benchmark_df = bench_df[bench_cols]
 
@@ -324,7 +342,9 @@ def run_backtest():
             }
             for h in FORWARD_HORIZONS:
                 val = row[FORWARD_HORIZON_COLS[h]]
-                trade[f"fwd_return_{h}d_pct"] = float(round(val * 100, 2)) if pd.notna(val) else None
+                trade[f"fwd_return_{h}d_pct"] = (
+                    float(round(val * 100, 2)) if pd.notna(val) else None
+                )
             trades_by_month.setdefault(row["month"], []).append(trade)
 
         output = {
@@ -337,7 +357,7 @@ def run_backtest():
                 "forward_horizons": FORWARD_HORIZONS,
                 "benchmark": BENCHMARK_SYMBOL,
             },
-            "universe_size": len(universe_df),
+            "universe_size": int(len(universe_df)),
             "current_year": current_year,
             "results": results,
             "results_current_year": results_current_year,

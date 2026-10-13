@@ -43,16 +43,13 @@ Run: python -X utf8 scripts/fetch_bse_fund.py [--budget N] [--scrips 532701,...]
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import datetime
-import io
 import json
 import os
 import re
 import sys
 import time
-
-import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -87,11 +84,11 @@ MON = {
     "dec": 12,
 }
 DAY_LAST = {3: 31, 6: 30, 9: 30, 12: 31}
-RESULT_HEAD = re.compile(r"result|outcome of (the )?board|financial", re.IGNORECASE)
-REV_RE = re.compile(r"revenue from oper", re.IGNORECASE)
-INC_RE = re.compile(r"total income", re.IGNORECASE)
-PAT_RE = re.compile(r"profit(/loss)? for the (period|year)|profit after tax|net profit", re.IGNORECASE)
-BAD_PAT = re.compile(r"before tax|comprehensive|exceptional|other comprehensive", re.IGNORECASE)
+RESULT_HEAD = re.compile(r"result|outcome of (the )?board|financial", re.I)
+REV_RE = re.compile(r"revenue from oper", re.I)
+INC_RE = re.compile(r"total income", re.I)
+PAT_RE = re.compile(r"profit(/loss)? for the (period|year)|profit after tax|net profit", re.I)
+BAD_PAT = re.compile(r"before tax|comprehensive|exceptional|other comprehensive", re.I)
 
 
 def num(s):
@@ -108,13 +105,15 @@ def qe_from_text(blob):
     if q:
         return q
     m = re.search(
-        r"quarter (and year )?ended\s*(on\s*)?(\d{1,2})[\s.\-/]*([A-Za-z]{3,9})[,\s.\-/]*(\d{4})", blob, re.IGNORECASE
+        r"quarter (and year )?ended\s*(on\s*)?(\d{1,2})[\s.\-/]*([A-Za-z]{3,9})[,\s.\-/]*(\d{4})",
+        blob,
+        re.I,
     )
     if m:
         mo = MON.get(m.group(4).lower()[:3], 0)
         if mo in DAY_LAST:
             return int(m.group(5)) * 10000 + mo * 100 + DAY_LAST[mo]
-    m = re.search(r"ended\s*(on\s*)?([A-Za-z]{3,9})\s*(\d{1,2}),?\s*(\d{4})", blob, re.IGNORECASE)
+    m = re.search(r"ended\s*(on\s*)?([A-Za-z]{3,9})\s*(\d{1,2}),?\s*(\d{4})", blob, re.I)
     if m:
         mo = MON.get(m.group(2).lower()[:3], 0)
         if mo in DAY_LAST:
@@ -124,7 +123,10 @@ def qe_from_text(blob):
 
 def ocr_boxes(png):
     res, _ = OCR(png)
-    return [{"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4} for b, t, sc in (res or [])]
+    return [
+        {"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4}
+        for b, t, sc in (res or [])
+    ]
 
 
 def page_boxes(page):
@@ -148,11 +150,11 @@ def parse_pl(boxes):
     """Return (rev, pat, unit) from a P&L page's OCR boxes. unit scales to ₹ crore."""
     unit = (
         0.01
-        if any(re.search(r"in lakh", b["t"], re.IGNORECASE) for b in boxes)
+        if any(re.search(r"in lakh", b["t"], re.I) for b in boxes)
         else (
             0.1
-            if any(re.search(r"in million", b["t"], re.IGNORECASE) for b in boxes)
-            else (1.0 if any(re.search(r"in (crore|cr\.)", b["t"], re.IGNORECASE) for b in boxes) else None)
+            if any(re.search(r"in million", b["t"], re.I) for b in boxes)
+            else (1.0 if any(re.search(r"in (crore|cr\.)", b["t"], re.I) for b in boxes) else None)
         )
     )
     rev = pat = None
@@ -185,7 +187,8 @@ def declared_recently(op, univ_codes, days=110):
         while page <= 40:
             url = (
                 "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=Result"
-                "&strPrevDate=%s&strToDate=%s&strScrip=&strSearch=P&strType=C&subcategory=-1" % (page, F, T)
+                "&strPrevDate=%s&strToDate=%s&strScrip=&strSearch=P&strType=C&subcategory=-1"
+                % (page, F, T)
             )
             try:
                 tab = json.loads(B.get(op, url)).get("Table", []) or []
@@ -272,7 +275,11 @@ def extract(op, code, name, months, deadline=None, have=()):
                 break
         if ident and qe and unit and pat is not None:
             anni = int(annd.replace("-", "")) if annd else 0
-            rec = {"pat": round(pat * unit, 2), "ann": anni, "basis": "C" if "consol" in hd.lower() else "S"}
+            rec = {
+                "pat": round(pat * unit, 2),
+                "ann": anni,
+                "basis": "C" if "consol" in hd.lower() else "S",
+            }
             if rev is not None:
                 rec["rev"] = round(rev * unit, 2)
             # keep the most recent filing per quarter-end
@@ -286,7 +293,12 @@ def extract(op, code, name, months, deadline=None, have=()):
     # parsing fine must not hide a scanned new one (it did until 2026-09-27).
     tq = want_quarter(cands, raws)
     LAST_TARGET[code] = tq  # main() judges success against THIS quarter
-    if tq and tq not in res and str(tq) not in have and (deadline is None or time.time() < deadline):
+    if (
+        tq
+        and tq not in res
+        and str(tq) not in have
+        and (deadline is None or time.time() < deadline)
+    ):
         try:
             pngs, ann_i = _render_pl_pngs(op, cands, raws, tq)
         except Exception as ex:
@@ -306,7 +318,7 @@ def want_quarter(cands, raws=None):
     filing date."""
     if not cands:
         return 0
-    annd, att, _hd = cands[0]
+    annd, att, hd = cands[0]
     guess = QU.last_qe_before(annd)
     raw = (raws or {}).get(att)
     if raw:
@@ -325,7 +337,9 @@ def _vision_fill(res, name, pngs, tq, ann_i):
     try:
         import bse_vision_api
 
-        v = bse_vision_api.vision_extract_periods(name, pngs)  # reads EVERY printed column with its date
+        v = bse_vision_api.vision_extract_periods(
+            name, pngs
+        )  # reads EVERY printed column with its date
         f = bse_vision_api.TO_CRORE.get((v or {}).get("unit"))
         if v and v.get("ok") and f is not None:
             basis = v.get("basis", "S")
@@ -356,7 +370,9 @@ def _vision_fill(res, name, pngs, tq, ann_i):
             import gemini_vision
 
             if not gemini_vision.quota_dead():
-                g = gemini_vision.read_corp_results(name, QU.label(tq), QU.label(QU.prevq(tq)), QU.label(ya), pngs)
+                g = gemini_vision.read_corp_results(
+                    name, QU.label(tq), QU.label(QU.prevq(tq)), QU.label(ya), pngs
+                )
                 if g and g.get("ok") and g.get("company_matches"):
                     for qe, key in ((tq, "cur"), (ya, "yago")):
                         d = g.get(key) or {}
@@ -402,10 +418,16 @@ def _render_pl_pngs(op, cands, raws, tq):
 
 def main():
     budget = int(sys.argv[sys.argv.index("--budget") + 1]) if "--budget" in sys.argv else 60
-    max_min = float(sys.argv[sys.argv.index("--max-minutes") + 1]) if "--max-minutes" in sys.argv else 70.0
+    max_min = (
+        float(sys.argv[sys.argv.index("--max-minutes") + 1])
+        if "--max-minutes" in sys.argv
+        else 70.0
+    )
     t_start = time.time()
     months = int(sys.argv[sys.argv.index("--months") + 1]) if "--months" in sys.argv else 5
-    min_mcap = float(sys.argv[sys.argv.index("--min-mcap") + 1]) if "--min-mcap" in sys.argv else 100.0
+    min_mcap = (
+        float(sys.argv[sys.argv.index("--min-mcap") + 1]) if "--min-mcap" in sys.argv else 100.0
+    )
     only = None
     if "--scrips" in sys.argv:
         only = set(sys.argv[sys.argv.index("--scrips") + 1].split(","))
@@ -414,8 +436,12 @@ def main():
     univ.sort(key=lambda r: r[6], reverse=True)  # biggest mcap first
     data = json.loads(open(OUT, encoding="utf-8").read()) if os.path.exists(OUT) else {"px": {}}
     done = set(json.load(open(DONE))) if os.path.exists(DONE) else set()
-    fails = json.load(open(FAILS)) if os.path.exists(FAILS) else {}  # code -> retry count (declared misses)
-    seen = json.load(open(SEEN)) if os.path.exists(SEEN) else None  # code -> newest filing date handled
+    fails = (
+        json.load(open(FAILS)) if os.path.exists(FAILS) else {}
+    )  # code -> retry count (declared misses)
+    seen = (
+        json.load(open(SEEN)) if os.path.exists(SEEN) else None
+    )  # code -> newest filing date handled
 
     op = B.session()
     time.sleep(1)
@@ -429,7 +455,9 @@ def main():
     # NEW-QUARTER RE-OPEN. First run with no SEEN ledger: every DONE scrip's current filing counts as
     # handled (what DONE meant until now), so the ledger starts without a re-read wave. After that, a DONE
     # scrip whose newest result filing is newer than both SEEN and every stored quarter's ann gets ground again.
-    save_seen = seen is not None or bool(declared)  # a --scrips run has no declared list: never seed from it
+    save_seen = seen is not None or bool(
+        declared
+    )  # a --scrips run has no declared list: never seed from it
     if seen is None:
         seen = {c: d for c, d in declared.items() if c in done}
         if save_seen:
@@ -453,7 +481,7 @@ def main():
 
     spent = 0
     for r in univ:
-        code, tkr, name, _isin, _grp, _fv, mc, _sec = r
+        code, tkr, name, isin, grp, fv, mc, sec = r
         code = str(code)
         if only is not None:
             if code not in only and tkr not in only:
@@ -470,12 +498,16 @@ def main():
         cur = data["px"].get(code, {})
         have = {q for q, c in cur.items() if c.get("pat") is not None}
         try:
-            recs = extract(op, code, name, months, deadline=time.time() + 120, have=have)  # ≤2 min/scrip
+            recs = extract(
+                op, code, name, months, deadline=time.time() + 120, have=have
+            )  # ≤2 min/scrip
         except Exception as ex:
             print(f"  {code} {tkr} ERR {str(ex)[:60]}")
             recs = {}
         added = 0
-        recs = {q: r for q, r in recs.items() if QU.is_qe(q)}  # never store a garbled period (26310331)
+        recs = {
+            q: r for q, r in recs.items() if QU.is_qe(q)
+        }  # never store a garbled period (26310331)
         for qe, rec in recs.items():  # fill-only: add a quarter, or a figure
             old = cur.get(str(qe))  # a stored cell lacks (same basis only)
             if old is None:
@@ -494,7 +526,9 @@ def main():
         if code in declared:
             # the quarter the newest filing REPORTS (its printed period — a late March result filed in
             # September is March), not the last quarter end before the declared date
-            wq = LAST_TARGET.get(code) or (QU.last_qe_before(declared[code]) if declared[code] else 0)
+            wq = LAST_TARGET.get(code) or (
+                QU.last_qe_before(declared[code]) if declared[code] else 0
+            )
             ok = added > 0 or (wq and (cur.get(str(wq)) or {}).get("pat") is not None)
         else:
             ok = bool(recs)
@@ -502,14 +536,24 @@ def main():
             latest = max(recs) if recs else None
             print(
                 "  ✓ %s %-12s %s PAT=%s rev=%s (+%d)"
-                % (code, tkr, latest, (recs.get(latest) or {}).get("pat"), (recs.get(latest) or {}).get("rev"), added)
+                % (
+                    code,
+                    tkr,
+                    latest,
+                    (recs.get(latest) or {}).get("pat"),
+                    (recs.get(latest) or {}).get("rev"),
+                    added,
+                )
             )
             done.add(code)
             fails.pop(code, None)
             if declared.get(code):
                 seen[code] = declared[code]
         else:
-            print("  · %s %-12s (no anchored result%s)" % (code, tkr, " for its newest filing" if recs else ""))
+            print(
+                "  · %s %-12s (no anchored result%s)"
+                % (code, tkr, " for its newest filing" if recs else "")
+            )
             # Record the failed attempt for EVERY scrip (declared or targeted) — this count drives the
             # page's "filing available — PDF only" label once a filed co has resisted parsing (fail>=2),
             # so users know its number isn't merely queued. A DECLARED scrip keeps retrying up to
@@ -522,7 +566,9 @@ def main():
         if spent % 10 == 0:
             ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
             data["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
-            json.dump(data, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+            json.dump(
+                data, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+            )
             json.dump(sorted(done), open(DONE, "w"))
             json.dump(fails, open(FAILS, "w"))
             if save_seen:
@@ -536,7 +582,10 @@ def main():
     if save_seen:
         json.dump(seen, open(SEEN, "w"), sort_keys=True)
     ncov = len(data["px"])
-    print("WROTE %s: processed %d scrips this run; %d scrips now have numbers" % (os.path.normpath(OUT), spent, ncov))
+    print(
+        "WROTE %s: processed %d scrips this run; %d scrips now have numbers"
+        % (os.path.normpath(OUT), spent, ncov)
+    )
 
 
 if __name__ == "__main__":

@@ -93,14 +93,15 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
     """Compare both snapshots and optionally apply only attested values."""
     database = Path(database).resolve()
     if not database.is_file():
-        msg = f"Database does not exist: {database}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Database does not exist: {database}")
 
     conn = sqlite3.connect(str(database), timeout=30)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA busy_timeout=30000")
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         required = {
             "kite_market_snapshots",
             "scanx_fundamentals_snapshots",
@@ -109,24 +110,28 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
         }
         missing = sorted(required - tables)
         if missing:
-            raise RuntimeError("Cannot reconcile; required tables are missing: " + ", ".join(missing))
+            raise RuntimeError(
+                "Cannot reconcile; required tables are missing: " + ", ".join(missing)
+            )
 
         kite = {
             row["symbol"]: row
             for row in conn.execute(
-                "SELECT * FROM kite_market_snapshots WHERE as_of_date=? AND symbol IS NOT NULL", (as_of,)
+                "SELECT * FROM kite_market_snapshots WHERE as_of_date=? AND symbol IS NOT NULL",
+                (as_of,),
             )
         }
         scanx = {
             row["symbol"]: row
             for row in conn.execute(
-                "SELECT * FROM scanx_fundamentals_snapshots WHERE as_of_date=? AND symbol IS NOT NULL", (as_of,)
+                "SELECT * FROM scanx_fundamentals_snapshots "
+                "WHERE as_of_date=? AND symbol IS NOT NULL",
+                (as_of,),
             )
         }
         overlap = sorted(kite.keys() & scanx.keys())
         if not overlap:
-            msg = f"No symbol-matched KITE/ScanX snapshots for {as_of}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"No symbol-matched KITE/ScanX snapshots for {as_of}")
 
         live_rows = {row["symbol"]: row for row in conn.execute("SELECT * FROM fundamentals")}
         broad_rows = {row["symbol"]: row for row in conn.execute("SELECT * FROM universe_broad")}
@@ -175,7 +180,9 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
                 after = before
                 if accepted:
                     stale_price = (
-                        field == "current_price" and latest_price_date is not None and latest_price_date > as_of
+                        field == "current_price"
+                        and latest_price_date is not None
+                        and latest_price_date > as_of
                     )
                     if stale_price:
                         action = "attested_stale_snapshot_not_applied"
@@ -310,7 +317,9 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
                 }
                 columns = list(values)
                 conn.execute(
-                    f"INSERT INTO fundamentals ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",
+                    "INSERT INTO fundamentals "
+                    f"({','.join(columns)}) VALUES "
+                    f"({','.join('?' for _ in columns)})",
                     [values[column] for column in columns],
                 )
             else:
@@ -318,7 +327,9 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
                 values = list(fields.values())
                 assignments.extend(["uploaded_at=?", "data_source=?"])
                 values.extend([uploaded_at, "kite_scanx_attested", symbol])
-                conn.execute("UPDATE fundamentals SET " + ",".join(assignments) + " WHERE symbol=?", values)
+                conn.execute(
+                    "UPDATE fundamentals SET " + ",".join(assignments) + " WHERE symbol=?", values
+                )
 
         for symbol, field, value, _before in broad_updates:
             if field == "close":
@@ -346,7 +357,9 @@ def reconcile(database, as_of=SNAPSHOT_DATE, apply=False, make_backup=True):
         conn.commit()
         summary["applied"] = True
         summary["backup"] = str(backup_path) if backup_path else None
-        summary["fundamentals_rows_after"] = conn.execute("SELECT COUNT(*) FROM fundamentals").fetchone()[0]
+        summary["fundamentals_rows_after"] = conn.execute(
+            "SELECT COUNT(*) FROM fundamentals"
+        ).fetchone()[0]
         summary["fundamentals_symbols_refreshed"] = len(by_symbol)
         return summary
     except Exception:

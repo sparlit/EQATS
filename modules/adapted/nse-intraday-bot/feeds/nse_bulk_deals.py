@@ -138,24 +138,40 @@ def _normalize_deal(deal: dict, source: str) -> dict | None:
 
     # Client name
     client = (
-        deal.get("clientName") or deal.get("client_name") or deal.get("ClientName") or deal.get("CLIENTNAME") or ""
+        deal.get("clientName")
+        or deal.get("client_name")
+        or deal.get("ClientName")
+        or deal.get("CLIENTNAME")
+        or ""
     ).strip()
 
     # Buy/Sell
     bs = (
-        (deal.get("buySell") or deal.get("buy_sell") or deal.get("BuySell") or deal.get("BUYSELL") or "")
+        (
+            deal.get("buySell")
+            or deal.get("buy_sell")
+            or deal.get("BuySell")
+            or deal.get("BUYSELL")
+            or ""
+        )
         .strip()
         .upper()
     )
 
     # Quantity
-    qty = deal.get("quantity") or deal.get("Quantity") or deal.get("QUANTITY") or deal.get("qty") or 0
+    qty = (
+        deal.get("quantity") or deal.get("Quantity") or deal.get("QUANTITY") or deal.get("qty") or 0
+    )
 
     # Price
-    price = deal.get("price") or deal.get("Price") or deal.get("PRICE") or deal.get("wgtAvgPrice") or 0
+    price = (
+        deal.get("price") or deal.get("Price") or deal.get("PRICE") or deal.get("wgtAvgPrice") or 0
+    )
 
     # Date
-    trade_date = deal.get("tradeDate") or deal.get("trade_date") or deal.get("TRADEDATE") or _ist_date_str()
+    trade_date = (
+        deal.get("tradeDate") or deal.get("trade_date") or deal.get("TRADEDATE") or _ist_date_str()
+    )
 
     if not symbol or bs != "BUY" or not _is_institutional(client):
         return None

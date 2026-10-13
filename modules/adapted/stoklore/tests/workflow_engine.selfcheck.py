@@ -70,14 +70,17 @@ assert order.index("split") < order.index("news") < order.index("merge")
 assert {n["id"]: sorted(p) for n, p in we.topo_order(nodes, edges)}["merge"] == ["news", "price"]
 
 try:
-    we.topo_order([{"id": "a"}, {"id": "b"}], [{"source": "a", "target": "b"}, {"source": "b", "target": "a"}])
-    msg = "a cycle must be refused, not looped over forever"
-    raise AssertionError(msg)
+    we.topo_order(
+        [{"id": "a"}, {"id": "b"}], [{"source": "a", "target": "b"}, {"source": "b", "target": "a"}]
+    )
+    raise AssertionError("a cycle must be refused, not looped over forever")
 except ValueError as e:
     assert "cycle" in str(e)
 
 # An edge to a node that was deleted is ignored rather than crashing the run.
-assert [n["id"] for n, _ in we.topo_order([{"id": "a"}], [{"source": "ghost", "target": "a"}])] == ["a"]
+assert [n["id"] for n, _ in we.topo_order([{"id": "a"}], [{"source": "ghost", "target": "a"}])] == [
+    "a"
+]
 
 # --- executing a graph ------------------------------------------------------------------------------
 calls = []
@@ -88,7 +91,10 @@ def fake_tool(**kwargs):
     return {"price": 100 + len(calls), "symbol": kwargs.get("symbol")}
 
 
-we.TOOLS = {"get_price": fake_tool, "boom": lambda **k: (_ for _ in ()).throw(RuntimeError("upstream 500"))}
+we.TOOLS = {
+    "get_price": fake_tool,
+    "boom": lambda **k: (_ for _ in ()).throw(RuntimeError("upstream 500")),
+}
 # Retries are real seconds. Off by default here so the suite stays instant; the retry behaviour
 # itself is checked deliberately at the bottom of this file.
 we.RETRY_DELAYS = ()
@@ -113,7 +119,9 @@ seen = run(
     [
         node("t", "trigger"),
         node("symbols", "agent", prompt="list them"),
-        node("price", "tool", tool="get_price", for_each="{{ list }}", args={"symbol": "{{ item }}"}),
+        node(
+            "price", "tool", tool="get_price", for_each="{{ list }}", args={"symbol": "{{ item }}"}
+        ),
         node("say", "agent", prompt="Prices: {{ price }}"),
         node("out", "output", message="{{ say }}"),
     ],
@@ -132,7 +140,13 @@ calls.clear()
 seen = run(
     [
         node("syms", "tool", tool="get_price", args={"symbol": "SEED"}),
-        node("price", "tool", tool="get_price", for_each="{{ syms.list }}", args={"symbol": "{{ item }}"}),
+        node(
+            "price",
+            "tool",
+            tool="get_price",
+            for_each="{{ syms.list }}",
+            args={"symbol": "{{ item }}"},
+        ),
     ],
     [{"source": "syms", "target": "price"}],
 )
@@ -143,11 +157,20 @@ assert "nothing at 'list'" in (seen["price"][4] or "") and len(calls) == 1, (
 # The real bug this guards: a parent that returns a list, looped over by a field it doesn't have.
 # Before, the tool ran once with symbol=None and died on `.upper()`.
 calls.clear()
-we.TOOLS["watchlists"] = lambda **k: [{"symbol": "TCS", "list_name": "A"}, {"symbol": "INFY", "list_name": "A"}]
+we.TOOLS["watchlists"] = lambda **k: [
+    {"symbol": "TCS", "list_name": "A"},
+    {"symbol": "INFY", "list_name": "A"},
+]
 seen = run(
     [
         node("lists", "tool", tool="watchlists"),
-        node("price", "tool", tool="get_price", for_each="{{ lists.symbols }}", args={"symbol": "{{ item }}"}),
+        node(
+            "price",
+            "tool",
+            tool="get_price",
+            for_each="{{ lists.symbols }}",
+            args={"symbol": "{{ item }}"},
+        ),
     ],
     [{"source": "lists", "target": "price"}],
 )
@@ -175,7 +198,10 @@ assert len(seen["p"][3]) == 3, "the node's output is the list of per-item result
 # nothing, so a missing edge shows up as missing data instead of quietly working anyway.
 calls.clear()
 seen = run(
-    [node("a", "tool", tool="listing"), node("b", "tool", tool="get_price", args={"symbol": "{{ a.list }}"})],
+    [
+        node("a", "tool", tool="listing"),
+        node("b", "tool", tool="get_price", args={"symbol": "{{ a.list }}"}),
+    ],
     [],  # deliberately no edge
 )
 assert calls == [{"symbol": None}], "an unwired reference is None, not the other node's value"
@@ -189,11 +215,15 @@ assert seen["bad"][4] and "upstream 500" in seen["bad"][4], "the node records it
 assert seen["good"][4] is None, "an unrelated node is unaffected"
 
 # A per-item failure inside a fan-out is that item's result, not the end of the run.
-we.TOOLS["sometimes"] = lambda **k: (_ for _ in ()).throw(RuntimeError("no")) if k["symbol"] == "B" else "ok"
+we.TOOLS["sometimes"] = lambda **k: (
+    (_ for _ in ()).throw(RuntimeError("no")) if k["symbol"] == "B" else "ok"
+)
 seen = run(
     [
         node("l2", "tool", tool="listing"),
-        node("p2", "tool", tool="sometimes", for_each="{{ l2.list }}", args={"symbol": "{{ item }}"}),
+        node(
+            "p2", "tool", tool="sometimes", for_each="{{ l2.list }}", args={"symbol": "{{ item }}"}
+        ),
     ],
     [{"source": "l2", "target": "p2"}],
 )
@@ -232,7 +262,11 @@ def gated(tool, op="gt", right="5"):
             node("say", "agent", prompt="about {{ gate }}"),
             node("out", "output", message="{{ say }}"),
         ],
-        [{"source": "src", "target": "gate"}, {"source": "gate", "target": "say"}, {"source": "say", "target": "out"}],
+        [
+            {"source": "src", "target": "gate"},
+            {"source": "gate", "target": "say"},
+            {"source": "say", "target": "out"},
+        ],
     )
 
 
@@ -253,7 +287,9 @@ assert filed == [], "a gated-off workflow files nothing - that is the entire poi
 assert gated("big", "lt", "5")["gate"][3]["passed"] is False
 assert gated("big", "gte", "7.5")["gate"][3]["passed"] is True
 we.TOOLS["empty"] = lambda **k: {}
-assert gated("empty", "gt", "5")["gate"][3]["passed"] is False, "a missing number must not pass a threshold"
+assert gated("empty", "gt", "5")["gate"][3]["passed"] is False, (
+    "a missing number must not pass a threshold"
+)
 assert gated("empty", "not_empty")["gate"][3]["passed"] is False
 assert gated("big", "not_empty")["gate"][3]["passed"] is True
 # `contains` reads the LEFT value as text, which is how "did the scan mention anything negative"
@@ -282,7 +318,10 @@ we.TOOLS["many"] = lambda **k: [{"symbol": "TCS", "price": 1}, {"symbol": "INFY"
 _, _, collected = we.execute(
     {
         "graph": {
-            "nodes": [node("m", "tool", tool="many"), node("c", "collect", series="prices", rows="{{ m }}")],
+            "nodes": [
+                node("m", "tool", tool="many"),
+                node("c", "collect", series="prices", rows="{{ m }}"),
+            ],
             "edges": [{"source": "m", "target": "c"}],
         }
     }
@@ -295,7 +334,10 @@ assert collected == [("prices", [{"symbol": "TCS", "price": 1}, {"symbol": "INFY
 _, _, collected = we.execute(
     {
         "graph": {
-            "nodes": [node("s", "tool", tool="small"), node("c", "collect", series="s", rows="{{ s.pct }}")],
+            "nodes": [
+                node("s", "tool", tool="small"),
+                node("c", "collect", series="s", rows="{{ s.pct }}"),
+            ],
             "edges": [{"source": "s", "target": "c"}],
         }
     }
@@ -324,8 +366,7 @@ attempts = {"n": 0}
 def flaky(**kwargs):
     attempts["n"] += 1
     if attempts["n"] < 3:
-        msg = "upstream 503"
-        raise RuntimeError(msg)
+        raise RuntimeError("upstream 503")
     return {"ok": True}
 
 
@@ -341,23 +382,28 @@ assert seen["a"][4] and "gone" in seen["a"][4], "a permanent failure still fails
 
 # A condition is pure and a collect is a local write - neither fails for a reason a second attempt
 # would fix, so neither is retried.
-assert "condition" not in we.RETRYABLE
-assert "collect" not in we.RETRYABLE
+assert "condition" not in we.RETRYABLE and "collect" not in we.RETRYABLE
 
-print("ok - workflow engine: templates, order, cycles, scope, fan-out, failure, conditions, collect, retries")
+print(
+    "ok - workflow engine: templates, order, cycles, scope, fan-out, failure, conditions, collect, retries"
+)
 
 # --- a failed quote is neither cached nor handed on -------------------------------------------
-from app import deps  # noqa: E402
+import app.deps as deps  # noqa: E402
 from app.services import agent  # noqa: E402
 
 stored = []
 deps.db.get_cached = lambda *a: None
 deps.db.set_cached = lambda sym, kind, data: stored.append(data)
-assert deps._cached("X", "price", 15, lambda: {"price": None, "changePercent": None})["price"] is None
+assert (
+    deps._cached("X", "price", 15, lambda: {"price": None, "changePercent": None})["price"] is None
+)
 assert stored == [], "an all-null quote is a failed fetch - caching it served blanks for 15 minutes"
-deps._cached("X", "movers", 15, list)
+deps._cached("X", "movers", 15, lambda: [])
 deps._cached("X", "price", 15, lambda: {"price": 10, "changePercent": None})
-assert stored == [[], {"price": 10, "changePercent": None}], "real answers, even empty lists, still cache"
+assert stored == [[], {"price": 10, "changePercent": None}], (
+    "real answers, even empty lists, still cache"
+)
 deps.db.get_cached = lambda *a: {"price": None, "changePercent": None}
 assert deps._cached("X", "price", 15, lambda: {"price": 5, "changePercent": 1})["price"] == 5, (
     "a blank already in the cache is a miss, not 15 more minutes of nulls"
@@ -366,10 +412,13 @@ assert deps._cached("X", "price", 15, lambda: {"price": 5, "changePercent": 1})[
 agent.scraper.get_price = lambda s: {"price": None, "changePercent": None}
 try:
     agent._tool_get_price("coforge")
-    msg = "a null price must fail, not reach the model as 'no move'"
-    raise AssertionError(msg)
+    raise AssertionError("a null price must fail, not reach the model as 'no move'")
 except ValueError as e:
     assert "COFORGE" in str(e)
 agent.scraper.get_price = lambda s: {"price": 1793.0, "changePercent": 1.49}
-assert agent._tool_get_price("coforge") == {"symbol": "COFORGE", "price": 1793.0, "changePercent": 1.49}
+assert agent._tool_get_price("coforge") == {
+    "symbol": "COFORGE",
+    "price": 1793.0,
+    "changePercent": 1.49,
+}
 print("price guard checks passed")

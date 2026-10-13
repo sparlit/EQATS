@@ -5,16 +5,16 @@ use super::common::*;
 // ─── Phase 6: Market order round-trip ───
 
 pub(super) fn phase_market_order(conns: Conns) -> Conns {
-    println!("--- Phase 6: Market Order Round-Trip (SPY) ---");
+    phase!("--- Phase 6: Market Order Round-Trip (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -79,7 +79,7 @@ pub(super) fn phase_market_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected — market may be closed");
+        record_rejection("Order rejected — market may be closed", &shared);
         return conns;
     }
     if buy_price == 0 {
@@ -91,20 +91,20 @@ pub(super) fn phase_market_order(conns: Conns) -> Conns {
     println!("  Buy: ${:.4} (RTT {:.3}ms)", buy_price as f64 / PRICE_SCALE as f64, buy_rtt_us as f64 / 1000.0);
     println!("  Sell: ${:.4} (RTT {:.3}ms)", sell_price as f64 / PRICE_SCALE as f64, sell_rtt_us as f64 / 1000.0);
     println!("  Mean RTT: {:.3}ms", (buy_rtt_us + sell_rtt_us) as f64 / 2000.0);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 7: Limit order submit + cancel ───
 
 pub(super) fn phase_limit_order(conns: Conns) -> Conns {
-    println!("--- Phase 7: Limit Order Submit + Cancel (SPY) ---");
+    phase!("--- Phase 7: Limit Order Submit + Cancel (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
 
     let inst_id = hot_loop.context_mut().register_instrument(756733);
@@ -118,7 +118,7 @@ pub(super) fn phase_limit_order(conns: Conns) -> Conns {
         qty: 1,
         price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
 
     let join = run_hot_loop(hot_loop);
 
@@ -168,7 +168,7 @@ pub(super) fn phase_limit_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected — market may be closed");
+        record_rejection("Order rejected — market may be closed", &shared);
         return conns;
     }
 
@@ -178,7 +178,7 @@ pub(super) fn phase_limit_order(conns: Conns) -> Conns {
     check!(order_cancelled, "Order was never cancelled");
 
     println!("  Submit→Ack: {:.3}ms  Cancel→Conf: {:.3}ms", submit_ack_us as f64 / 1000.0, cancel_conf_us as f64 / 1000.0);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -197,7 +197,7 @@ pub(super) fn phase_stop_order(conns: Conns) -> Conns {
 // ─── Phase 9: Order modify (35=G) ───
 
 pub(super) fn phase_modify_order(conns: Conns) -> Conns {
-    println!("--- Phase 9: Order Modify (35=G) + Cancel (SPY) ---");
+    phase!("--- Phase 9: Order Modify (35=G) + Cancel (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -212,7 +212,7 @@ pub(super) fn phase_modify_order(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -253,7 +253,7 @@ pub(super) fn phase_modify_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Modify test rejected");
+        record_rejection("Modify test rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
@@ -261,7 +261,7 @@ pub(super) fn phase_modify_order(conns: Conns) -> Conns {
     check!(modify_sent, "Modify was never sent");
     check!(modify_acked, "Modify was never acknowledged");
     check!(order_cancelled, "Modified order was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -286,13 +286,13 @@ pub(super) fn phase_stop_limit_order(conns: Conns) -> Conns {
 // ─── Phase 17: Commission tracking ───
 
 pub(super) fn phase_commission(conns: Conns) -> Conns {
-    println!("--- Phase 17: Commission Tracking (GTC+OutsideRTH fill) ---");
+    phase!("--- Phase 17: Commission Tracking (GTC+OutsideRTH fill) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -301,7 +301,7 @@ pub(super) fn phase_commission(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitMarket {
         order_id: buy_id, instrument: inst_id, side: Side::Buy, qty: 1,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -339,7 +339,7 @@ pub(super) fn phase_commission(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected — extended hours may not be active");
+        record_rejection("Order rejected — extended hours may not be active", &shared);
         return conns;
     }
     if buy_price == 0 {
@@ -357,9 +357,9 @@ pub(super) fn phase_commission(conns: Conns) -> Conns {
     check!((bp - sp).abs() / bp < 0.05, "Buy/sell prices should be within 5%: buy={} sell={}", bp, sp);
     if buy_comm > 0 {
         check!(bc < 10.0, "Commission unreasonably high: ${:.4}", bc);
-        println!("  PASS (commission=${:.4})\n", bc);
+        pass!("  PASS (commission=${:.4})\n", bc);
     } else {
-        println!("  PASS (commission=0 — paper account does not report tag 12)\n");
+        pass!("  PASS (commission=0 — paper account does not report tag 12)\n");
     }
     conns
 }
@@ -367,13 +367,13 @@ pub(super) fn phase_commission(conns: Conns) -> Conns {
 // ─── Phase 10b: Outside RTH GTC Stop ───
 
 pub(super) fn phase_outside_rth_stop(conns: Conns) -> Conns {
-    println!("--- Phase 10b: Outside RTH GTC Stop Order (SPY) ---");
+    phase!("--- Phase 10b: Outside RTH GTC Stop Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -382,7 +382,7 @@ pub(super) fn phase_outside_rth_stop(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitStopGtc {
         order_id, instrument: inst_id, side: Side::Sell, qty: 1, stop_price: 1_00_000_000, outside_rth: true,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
@@ -414,20 +414,20 @@ pub(super) fn phase_outside_rth_stop(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("GTC stop outside RTH rejected");
+        record_rejection("GTC stop outside RTH rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
     check!(order_acked, "GTC stop outside RTH was never acknowledged");
     check!(order_cancelled, "GTC stop outside RTH was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 9b: Modify Order Qty ───
 
 pub(super) fn phase_modify_qty(conns: Conns) -> Conns {
-    println!("--- Phase 9b: Order Modify Qty (SPY) ---");
+    phase!("--- Phase 9b: Order Modify Qty (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -442,7 +442,7 @@ pub(super) fn phase_modify_qty(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -483,7 +483,7 @@ pub(super) fn phase_modify_qty(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Modify qty test rejected");
+        record_rejection("Modify qty test rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
@@ -491,7 +491,7 @@ pub(super) fn phase_modify_qty(conns: Conns) -> Conns {
     check!(modify_sent, "Modify was never sent");
     check!(modify_acked_local, "Qty modify was never acknowledged");
     check!(order_cancelled, "Modified order was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -516,13 +516,13 @@ pub(super) fn phase_trailing_stop_limit(conns: Conns) -> Conns {
 // ─── Phase 21: Limit IOC ───
 
 pub(super) fn phase_limit_ioc(conns: Conns) -> Conns {
-    println!("--- Phase 21: Limit IOC Order (SPY) ---");
+    phase!("--- Phase 21: Limit IOC Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -531,7 +531,7 @@ pub(super) fn phase_limit_ioc(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitIoc {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
@@ -554,33 +554,46 @@ pub(super) fn phase_limit_ioc(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("IOC order rejected");
+        record_rejection("IOC order rejected", &shared);
         return conns;
     }
     check!(order_cancelled, "IOC order was not cancelled (should expire immediately at $1)");
-    println!("  PASS (IOC cancelled as expected — no fill at $1)\n");
+    pass!("  PASS (IOC cancelled as expected — no fill at $1)\n");
     conns
 }
 
 // ─── Phase 22: Limit FOK ───
 
+/// The server's reason for a FOK order on a US stock routed SMART, as the
+/// reference gets it (ib-agent ORDER-SUBMIT.md 3.3).
+const FOK_REFERENCE_REJECT: &str = "The time-in-force FOK is invalid for this combination of exchange and security type";
+
+/// The server's reason for an auction order on a US stock routed SMART, as
+/// the reference gets it (captured 28/09/2026, AAPL SMART pre-market:
+/// ib-agent ORDER-SUBMIT.md 3.3, captures/0928).
+const AUC_REFERENCE_REJECT: &str = "The time-in-force AUC is invalid for this combination of exchange and security type";
+
 pub(super) fn phase_limit_fok(conns: Conns) -> Conns {
-    println!("--- Phase 22: Limit FOK Order (SPY) ---");
+    phase!("--- Phase 22: Limit FOK Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
 
     let order_id = next_order_id();
+    // FOK goes out from the reference too and the server refuses it for a
+    // US stock on SMART (captured on paper 25/09/2026 and 28/09/2026, AAPL
+    // SMART pre-market: ib-agent ORDER-SUBMIT.md 3.3, captures/0928), so
+    // that reject is the reference's answer as well.
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitFok {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(30);
@@ -603,11 +616,18 @@ pub(super) fn phase_limit_fok(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("FOK order rejected");
+        let errors: Vec<(i64, String)> = drain_after_reject(&shared)
+            .into_iter().map(|(_, code, text)| (code, text)).collect();
+        if is_reference_reject(&errors, FOK_REFERENCE_REJECT) {
+            pass!("  PASS (rejected by the server as the reference: {})
+", FOK_REFERENCE_REJECT);
+        } else {
+            record_rejection_with("FOK order rejected", &errors);
+        }
         return conns;
     }
     check!(order_cancelled, "FOK order was not cancelled (should expire immediately at $1)");
-    println!("  PASS (FOK cancelled as expected — no fill at $1)\n");
+    pass!("  PASS (FOK cancelled as expected — no fill at $1)\n");
     conns
 }
 
@@ -651,30 +671,28 @@ pub(super) fn phase_lit_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_moc_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 27: MOC Order (SPY)",
-        OrderRequest::SubmitMoc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
-        false)
+    run_close_order_phase(conns, "Phase 27: MOC Order (SPY)",
+        OrderRequest::SubmitMoc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 })
 }
 
 // ─── Phase 28: Limit on Close ───
 
 pub(super) fn phase_loc_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 28: LOC Order (SPY)",
-        OrderRequest::SubmitLoc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000 },
-        false)
+    run_close_order_phase(conns, "Phase 28: LOC Order (SPY)",
+        OrderRequest::SubmitLoc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000 })
 }
 
 // ─── Phase 29: Bracket Order ───
 
 pub(super) fn phase_bracket_order(conns: Conns) -> Conns {
-    println!("--- Phase 29: Bracket Order (SPY) ---");
+    phase!("--- Phase 29: Bracket Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -686,7 +704,7 @@ pub(super) fn phase_bracket_order(conns: Conns) -> Conns {
         parent_id, tp_id, sl_id, instrument: inst_id, side: Side::Buy, qty: 1,
         entry_price: 1_00_000_000, take_profit: 2_00_000_000, stop_loss: 50_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -721,13 +739,13 @@ pub(super) fn phase_bracket_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if any_rejected {
-        record_rejection("Bracket order rejected");
+        record_rejection("Bracket order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(parent_acked) { return conns; }
     check!(parent_acked, "Parent order was never acknowledged");
     println!("  Parent acked: {}, Cancelled: {} orders", parent_acked, cancelled_count);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -762,9 +780,13 @@ pub(super) fn phase_limit_opg(conns: Conns) -> Conns {
 
 pub(super) fn phase_iceberg_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 33: Iceberg Order (SPY)",
+    // The reference sends the display size in the same field and the paper
+    // server refuses every value it was given (ib-agent captures/192 B6:
+    // display size 1, 5, 100, 300), so that reject is the reference's
+    // answer as well.
+    run_submit_cancel_phase_or_server_reject(conns, "Phase 33: Iceberg Order (SPY)",
         OrderRequest::SubmitLimitEx { order_id: oid, instrument: 0, side: Side::Buy, qty: 10, price: 1_00_000_000, tif: b'1', attrs: OrderAttrs { display_size: 1, outside_rth: true, ..OrderAttrs::default() } },
-        false)
+        false, "Display size should be a multiple of lot size")
 }
 
 // ─── Phase 34: Hidden ───
@@ -778,11 +800,14 @@ pub(super) fn phase_hidden_order(conns: Conns) -> Conns {
 
 // ─── Phase 35: Short Sell ───
 
+// The paper logon is neither a super user nor an omnibus logon and the
+// order does not clear away, so the reference refuses the short side
+// locally with 321 and sends nothing (ibx#417).
 pub(super) fn phase_short_sell(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 35: Short Sell Limit Order (SPY)",
+    run_submit_cancel_phase_or_refused(conns, "Phase 35: Short Sell Limit Order (SPY)",
         OrderRequest::SubmitLimitEx { order_id: oid, instrument: 0, side: Side::ShortSell, qty: 1, price: 1_00_000_000, tif: b'0', attrs: OrderAttrs::default() },
-        false)
+        false, Some(321))
 }
 
 // ─── Phase 36: Trailing Stop Percent ───
@@ -790,20 +815,20 @@ pub(super) fn phase_short_sell(conns: Conns) -> Conns {
 pub(super) fn phase_trailing_stop_pct(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 36: Trailing Stop Percent Order (SPY)",
-        OrderRequest::SubmitTrailingStopPct { order_id: oid, instrument: 0, side: Side::Sell, qty: 1, trail_pct: 100, trail_stop_price: 0 },
+        OrderRequest::SubmitTrailingStopPct { order_id: oid, instrument: 0, side: Side::Sell, qty: 1, trail_percent: PRICE_SCALE, trail_stop_price: 0 },
         false)
 }
 
 // ─── Phase 37: OCA Group ───
 
 pub(super) fn phase_oca_group(conns: Conns) -> Conns {
-    println!("--- Phase 37: OCA Group (SPY) ---");
+    phase!("--- Phase 37: OCA Group (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -819,7 +844,7 @@ pub(super) fn phase_oca_group(conns: Conns) -> Conns {
         order_id: id2, instrument: inst_id, side: Side::Buy, qty: 1, price: 2_00_000_000, tif: b'1',
         attrs: OrderAttrs { oca_group: oca, outside_rth: true, ..OrderAttrs::default() },
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -856,14 +881,14 @@ pub(super) fn phase_oca_group(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if any_rejected {
-        record_rejection("OCA order rejected");
+        record_rejection("OCA order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order1_acked && order2_acked) { return conns; }
     check!(order1_acked, "Order 1 never acked");
     check!(order2_acked, "Order 2 never acked");
     println!("  Order1 acked: {}, Order2 acked: {}, Cancelled: {}", order1_acked, order2_acked, cancelled_count);
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
@@ -880,18 +905,22 @@ pub(super) fn phase_mtl_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_mkt_prt_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 39: Market with Protection Order (SPY)",
+    // The reference refuses this type locally with 387 when the contract's
+    // order-type list for the exchange lacks its key (MKTPROT); the SPY list
+    // on SMART lacks it (paper, 01/10/2026).
+    run_submit_cancel_phase_or_refused(conns, "Phase 39: Market with Protection Order (SPY)",
         OrderRequest::SubmitMktPrt { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
-        true)
+        true, Some(387))
 }
 
 // ─── Phase 40: Stop with Protection ───
 
 pub(super) fn phase_stp_prt_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 40: Stop with Protection Order (SPY)",
+    // As phase 39, key STPPROT.
+    run_submit_cancel_phase_or_refused(conns, "Phase 40: Stop with Protection Order (SPY)",
         OrderRequest::SubmitStpPrt { order_id: oid, instrument: 0, side: Side::Sell, qty: 1, stop_price: 1_00_000_000 },
-        false)
+        false, Some(387))
 }
 
 // ─── Phase 41: Mid-Price ───
@@ -908,7 +937,7 @@ pub(super) fn phase_mid_price_order(conns: Conns) -> Conns {
 pub(super) fn phase_snap_mkt_order(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 42: Snap to Market Order (SPY)",
-        OrderRequest::SubmitSnapMkt { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
+        OrderRequest::SubmitSnapMkt { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, offset: 0 },
         true)
 }
 
@@ -917,7 +946,7 @@ pub(super) fn phase_snap_mkt_order(conns: Conns) -> Conns {
 pub(super) fn phase_snap_mid_order(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 43: Snap to Midpoint Order (SPY)",
-        OrderRequest::SubmitSnapMid { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
+        OrderRequest::SubmitSnapMid { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, offset: 0 },
         true)
 }
 
@@ -926,7 +955,7 @@ pub(super) fn phase_snap_mid_order(conns: Conns) -> Conns {
 pub(super) fn phase_snap_pri_order(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 44: Snap to Primary Order (SPY)",
-        OrderRequest::SubmitSnapPri { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
+        OrderRequest::SubmitSnapPri { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, offset: 0 },
         true)
 }
 
@@ -934,9 +963,11 @@ pub(super) fn phase_snap_pri_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_peg_mkt_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 45: Pegged to Market Order (SPY)",
-        OrderRequest::SubmitPegMkt { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, offset: 0 },
-        true)
+    // The reference refuses this type locally with 387 when the server's allowed
+    // order types for the contract and exchange lack it; that refusal is a pass.
+    run_submit_cancel_phase_or_refused(conns, "Phase 45: Pegged to Market Order (SPY)",
+        OrderRequest::SubmitPegMkt { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 0, offset: 0 },
+        true, Some(387))
 }
 
 // ─── Phase 46: Pegged to Midpoint ───
@@ -944,7 +975,7 @@ pub(super) fn phase_peg_mkt_order(conns: Conns) -> Conns {
 pub(super) fn phase_peg_mid_order(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 46: Pegged to Midpoint Order (SPY)",
-        OrderRequest::SubmitPegMid { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, offset: 0 },
+        OrderRequest::SubmitPegMid { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 0, offset: 0 },
         true)
 }
 
@@ -952,8 +983,12 @@ pub(super) fn phase_peg_mid_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_discretionary_order(conns: Conns) -> Conns {
     let oid = next_order_id();
+    // $0.05 on a $1 limit: the server refuses a discretionary amount over
+    // 10% of the limit price ("Can't accept the discretionary amount over
+    // 10% of the limit price.", paper 01/10/2026); the reference has no
+    // local check of it and sends such an order as it is.
     run_submit_cancel_phase(conns, "Phase 47: Discretionary Amount Order (SPY)",
-        OrderRequest::SubmitLimitEx { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, tif: b'1', attrs: OrderAttrs { discretionary_amt: 50_000_000, outside_rth: true, ..OrderAttrs::default() } },
+        OrderRequest::SubmitLimitEx { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, tif: b'1', attrs: OrderAttrs { discretionary_amt: 5_000_000, outside_rth: true, ..OrderAttrs::default() } },
         false)
 }
 
@@ -998,9 +1033,16 @@ pub(super) fn phase_price_condition_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_time_condition_order(conns: Conns) -> Conns {
     let oid = next_order_id();
+    // A time three days ahead in the UTC form, the order to work after
+    // it. The server refuses a time of 2099 ("Invalid value in field #
+    // 6223") for the reference too; it accepts times 3, 60 and 400 days
+    // ahead and one hour back, sent the same way (gateway capture of
+    // 02/10/2026, ibx#416). The reference sends a UTC-form time as given.
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    let time = format_utc_timestamp(now + 3 * 86_400);
     run_submit_cancel_phase(conns, "Phase 58: Time Condition Order (SPY)",
         OrderRequest::SubmitLimitEx { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, tif: b'1',
-            attrs: OrderAttrs { outside_rth: true, conditions: vec![OrderCondition::Time { time: "20991231-23:59:59".into(), is_more: false }], ..OrderAttrs::default() } },
+            attrs: OrderAttrs { outside_rth: true, conditions: vec![OrderCondition::Time { time, is_more: true }], ..OrderAttrs::default() } },
         false)
 }
 
@@ -1097,7 +1139,7 @@ pub(super) fn phase_pct_vol_order(conns: Conns) -> Conns {
 pub(super) fn phase_peg_bench_order(conns: Conns) -> Conns {
     let oid = next_order_id();
     run_submit_cancel_phase(conns, "Phase 68: Pegged to Benchmark Order (SPY pegged to AAPL)",
-        OrderRequest::SubmitPegBench { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, ref_con_id: 265598, is_peg_decrease: false, pegged_change_amount: 50_000_000, ref_change_amount: 50_000_000 },
+        OrderRequest::SubmitPegBench { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000, ref_con_id: 265598, is_peg_decrease: false, pegged_change_amount: 50_000_000, ref_change_amount: 50_000_000, stock_ref_price: 1_00_000_000, ref_exchange: "SMART".into() },
         false)
 }
 
@@ -1105,18 +1147,18 @@ pub(super) fn phase_peg_bench_order(conns: Conns) -> Conns {
 
 pub(super) fn phase_limit_auc_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 69: Limit Auction Order (SPY)",
+    run_submit_cancel_phase_or_server_reject(conns, "Phase 69: Limit Auction Order (SPY)",
         OrderRequest::SubmitLimitAuc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1, price: 1_00_000_000 },
-        false)
+        false, AUC_REFERENCE_REJECT)
 }
 
 // ─── Phase 70: MTL Auction ───
 
 pub(super) fn phase_mtl_auc_order(conns: Conns) -> Conns {
     let oid = next_order_id();
-    run_submit_cancel_phase(conns, "Phase 70: Market-to-Limit Auction Order (SPY)",
+    run_submit_cancel_phase_or_server_reject(conns, "Phase 70: Market-to-Limit Auction Order (SPY)",
         OrderRequest::SubmitMtlAuc { order_id: oid, instrument: 0, side: Side::Buy, qty: 1 },
-        false)
+        false, AUC_REFERENCE_REJECT)
 }
 
 // ─── Phase 71: Box Top (wire-identical to MTL) ───
@@ -1131,7 +1173,7 @@ pub(super) fn phase_box_top_order(conns: Conns) -> Conns {
 // ─── Phase 72: What-If Order ───
 
 pub(super) fn phase_what_if_order(conns: Conns) -> Conns {
-    println!("--- Phase 72: What-If Order (SPY) ---");
+    phase!("--- Phase 72: What-If Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1144,9 +1186,9 @@ pub(super) fn phase_what_if_order(conns: Conns) -> Conns {
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
 
     let order_id = next_order_id();
-    control_tx.send(ControlCommand::Order(OrderRequest::SubmitWhatIf {
-        order_id, instrument: inst_id, side: Side::Buy, qty: 100, price: 1_00_000_000, tif: b'0', attrs: OrderAttrs::default() })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Order(OrderRequest::SubmitWhatIf { request: Box::new(OrderRequest::SubmitLimitEx {
+        order_id, instrument: inst_id, side: Side::Buy, qty: 100, price: 1_00_000_000, tif: b'0', attrs: OrderAttrs::default() }) })).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -1187,16 +1229,23 @@ pub(super) fn phase_what_if_order(conns: Conns) -> Conns {
         let mut w = RecordingWrapper::default();
         eclient.process_msgs(&mut w);
 
-        let open_event = w.events.iter().find(|e| e.starts_with(&format!("open_order:{}:", order_id)));
-        let status_event = w.events.iter().find(|e|
-            e.starts_with(&format!("order_status:{}:PreSubmitted", order_id)));
-        match (open_event, status_event) {
-            (Some(oe), Some(_)) => {
+        // A what-if is answered with open_order only, as the reference
+        // (ibx#462): the margin fields are numbers, and no order_status.
+        // An order-message reply may come first with its own open_order
+        // and no margins; the answer is the last one.
+        let open_event = w.events.iter().rfind(|e| e.starts_with(&format!("open_order:{}:", order_id)));
+        let margins_ok = open_event.is_some_and(|e| {
+            let values: Vec<&str> = e.split(':').filter_map(|f| f.split_once('=').map(|(_, v)| v)).collect();
+            values.len() == 10 && values.iter().all(|v| v.parse::<f64>().is_ok())
+        });
+        let status_event = w.events.iter().find(|e| e.starts_with(&format!("order_status:{}:", order_id)));
+        match (open_event, margins_ok, status_event) {
+            (Some(oe), true, None) => {
                 println!("  Dispatcher: open_order fired with state: {}", oe);
                 true
             }
             _ => {
-                println!("  Dispatcher: FAIL — open_order or order_status missing. events={:?}", w.events);
+                println!("  Dispatcher: FAIL — open_order with the margin fields missing, or an order_status sent. events={:?}", w.events);
                 false
             }
         }
@@ -1210,8 +1259,8 @@ pub(super) fn phase_what_if_order(conns: Conns) -> Conns {
     let commission = response_snapshot.map(|r| r.commission).unwrap_or(0);
     if commission > 0 {
         println!("  Commission: ${:.2}", commission as f64 / PRICE_SCALE as f64);
-        check!(dispatcher_validated, "Dispatcher path (open_order + order_status) failed validation");
-        println!("  PASS\n");
+        check!(dispatcher_validated, "Dispatcher path (open_order only, with the margin fields) failed validation");
+        pass!("  PASS\n");
     } else {
         println!("  SKIP: Commission=0 (pre-market / no active quote)\n");
     }
@@ -1221,13 +1270,13 @@ pub(super) fn phase_what_if_order(conns: Conns) -> Conns {
 // ─── Phase 73: Cash Quantity Order ───
 
 pub(super) fn phase_cash_qty_order(conns: Conns) -> Conns {
-    println!("--- Phase 73: Cash Quantity Order (SPY) ---");
+    phase!("--- Phase 73: Cash Quantity Order (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -1237,7 +1286,7 @@ pub(super) fn phase_cash_qty_order(conns: Conns) -> Conns {
         order_id, instrument: inst_id, side: Side::Buy, qty: 100, price: 1_00_000_000, tif: b'0',
         attrs: OrderAttrs { cash_qty: 1000 * PRICE_SCALE, ..OrderAttrs::default() },
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -1269,74 +1318,25 @@ pub(super) fn phase_cash_qty_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Cash qty rejected (expected on paper account)");
+        record_rejection("Cash qty rejected (expected on paper account)", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
     check!(order_acked, "Order was never acknowledged");
     check!(order_cancelled, "Order was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 74: Fractional Shares Order ───
 
+// The reference refuses a fractional quantity for an API client with
+// 10243 and sends nothing (ib-agent#192 B3, captured on this paper account).
 pub(super) fn phase_fractional_order(conns: Conns) -> Conns {
-    println!("--- Phase 74: Fractional Shares Order (SPY) ---");
-
-    let account_id = conns.account_id;
-    let shared = Arc::new(SharedState::new());
-    let (event_tx, event_rx) = crossbeam_channel::unbounded();
-    let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
-    );
-    let inst_id = hot_loop.context_mut().register_instrument(756733);
-    hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
-
-    let order_id = next_order_id();
-    control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimitFractional {
-        order_id, instrument: inst_id, side: Side::Buy, qty: QTY_SCALE / 2, price: 1_00_000_000,
-    })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
-    let join = run_hot_loop(hot_loop);
-
-    let deadline = Instant::now() + Duration::from_secs(60);
-    let mut order_acked = false;
-    let mut order_cancelled = false;
-    let mut order_rejected = false;
-    let mut cancel_sent = false;
-
-    while Instant::now() < deadline {
-        match event_rx.recv_timeout(Duration::from_millis(100)) {
-            Ok(Event::OrderUpdate(update)) => {
-                match update.status {
-                    OrderStatus::PreSubmitted | OrderStatus::Submitted => {
-                        order_acked = true;
-                        if !cancel_sent {
-                            control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id })).unwrap();
-                            cancel_sent = true;
-                        }
-                    }
-                    OrderStatus::Cancelled => { order_cancelled = true; break; }
-                    OrderStatus::Rejected => { order_rejected = true; break; }
-                    _ => {}
-                }
-            }
-            _ => {}
-        }
-    }
-
-    let conns = shutdown_and_reclaim(&control_tx, join, account_id);
-
-    if order_rejected {
-        record_rejection("Fractional rejected (may be blocked by CCP)");
-        return conns;
-    }
-    if skip_unacked_if_closed(order_acked) { return conns; }
-    check!(order_acked, "Order was never acknowledged");
-    check!(order_cancelled, "Order was never cancelled");
-    println!("  PASS\n");
-    conns
+    let oid = next_order_id();
+    run_submit_cancel_phase_or_refused(conns, "Phase 74: Fractional Shares Order (SPY)",
+        OrderRequest::SubmitLimitFractional { order_id: oid, instrument: 0, side: Side::Buy, qty: QTY_SCALE / 2, price: 1_00_000_000 },
+        false, Some(10243))
 }
 
 // ─── Phase 75: Adjustable Stop ───
@@ -1351,7 +1351,7 @@ pub(super) fn phase_adjustable_stop_order(conns: Conns) -> Conns {
 // ─── Phase 51: Bracket Fill Cascade ───
 
 pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
-    println!("--- Phase 51: Bracket Fill Cascade (SPY) ---");
+    phase!("--- Phase 51: Bracket Fill Cascade (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1361,14 +1361,21 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
+    // The entry is placed below the bid, so it rests until the server has
+    // accepted the two children; then it is moved above the ask to fill.
+    // A parent that fills before the server accepts its children gets the
+    // children rejected ("Parent order is being cancelled"), a race of the
+    // paper server, seen with the same frames as the reference's.
     let deadline = Instant::now() + Duration::from_secs(60);
     let mut tick_count = 0u32;
-    let mut parent_id: Option<u64> = None;
-    let mut tp_id: Option<u64> = None;
-    let mut sl_id: Option<u64> = None;
+    let mut parent_id: Option<OrderId> = None;
+    let mut tp_id: Option<OrderId> = None;
+    let mut sl_id: Option<OrderId> = None;
+    let mut parent_working = false;
+    let mut entry_moved = false;
     let mut entry_filled = false;
     let mut tp_active = false;
     let mut sl_active = false;
@@ -1383,8 +1390,8 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
                 tick_count += 1;
                 if tick_count == 5 && parent_id.is_none() {
                     let q = shared.market.quote(inst_id);
-                    if q.ask <= 0 { continue; }
-                    let entry = q.ask + 1_00_000_000;
+                    if q.ask <= 0 || q.bid <= 0 { continue; }
+                    let entry = q.bid - 5_00_000_000;
                     let pid = next_order_id();
                     let tid = pid + 1;
                     let sid = pid + 2;
@@ -1392,7 +1399,7 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
                         parent_id: pid, tp_id: tid, sl_id: sid,
                         instrument: inst_id, side: Side::Buy, qty: 1,
                         entry_price: entry,
-                        take_profit: entry + 100_00_000_000,
+                        take_profit: q.ask + 100_00_000_000,
                         stop_loss: 1_000_000,
                     })).unwrap();
                     parent_id = Some(pid);
@@ -1407,14 +1414,11 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
             Ok(Event::OrderUpdate(update)) => {
                 match update.status {
                     OrderStatus::PreSubmitted | OrderStatus::Submitted => {
+                        if Some(update.order_id) == parent_id { parent_working = true; }
                         if Some(update.order_id) == tp_id { tp_active = true; }
                         if Some(update.order_id) == sl_id { sl_active = true; }
-                        if tp_active && sl_active && !cancel_sent {
-                            if let Some(t) = tp_id { control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id: t })).unwrap(); }
-                            if let Some(s) = sl_id { control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id: s })).unwrap(); }
-                            cancel_sent = true;
-                        }
                     }
+                    OrderStatus::Filled if Some(update.order_id) == parent_id => { entry_filled = true; }
                     OrderStatus::Cancelled => {
                         cancelled_count += 1;
                         if cancelled_count >= 2 {
@@ -1430,13 +1434,32 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
             }
             _ => {}
         }
+        // Every order of the bracket accepted: move the entry above the ask.
+        if parent_working && tp_active && sl_active && !entry_moved {
+            let q = shared.market.quote(inst_id);
+            if q.ask > 0 {
+                if let Some(pid) = parent_id {
+                    control_tx.send(ControlCommand::Order(OrderRequest::Modify {
+                        order_id: pid, new_order_id: pid, qty: 1,
+                        kind: OrderKind::Limit { price: q.ask + 1_00_000_000 }, tif: b'0', attrs: OrderAttrs::default(),
+                    })).unwrap();
+                    entry_moved = true;
+                }
+            }
+        }
+        // The entry filled with both children working: cancel the children.
+        if entry_filled && tp_active && sl_active && !cancel_sent {
+            if let Some(t) = tp_id { control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id: t })).unwrap(); }
+            if let Some(s) = sl_id { control_tx.send(ControlCommand::Order(OrderRequest::Cancel { order_id: s })).unwrap(); }
+            cancel_sent = true;
+        }
     }
     let _ = done;
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if any_rejected {
-        record_rejection("Bracket fill cascade rejected");
+        record_rejection("Bracket fill cascade rejected", &shared);
         return conns;
     }
     println!("  Entry filled: {}, TP active: {}, SL active: {}", entry_filled, tp_active, sl_active);
@@ -1446,14 +1469,14 @@ pub(super) fn phase_bracket_fill_cascade(conns: Conns) -> Conns {
     }
     check!(tp_active, "Take-profit child was never activated after entry fill");
     check!(sl_active, "Stop-loss child was never activated after entry fill");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 52: PnL After Round Trip ───
 
 pub(super) fn phase_pnl_after_round_trip(conns: Conns) -> Conns {
-    println!("--- Phase 52: PnL After Round Trip (SPY) ---");
+    phase!("--- Phase 52: PnL After Round Trip (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1463,7 +1486,7 @@ pub(super) fn phase_pnl_after_round_trip(conns: Conns) -> Conns {
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let initial_rpnl = shared.portfolio.account().realized_pnl;
@@ -1527,15 +1550,15 @@ pub(super) fn phase_pnl_after_round_trip(conns: Conns) -> Conns {
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
-    if order_rejected { record_rejection("Order rejected"); return conns; }
+    if order_rejected { record_rejection("Order rejected", &shared); return conns; }
     if !buy_filled { println!("  SKIP: No fill — market may not have liquidity\n"); return conns; }
 
     println!("  Buy filled: {}, Sell filled: {}", buy_filled, sell_filled);
     if pnl_updated {
         println!("  RealizedPnL changed: ${:.2}", realized_pnl as f64 / PRICE_SCALE as f64);
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
-        println!("  PASS (PnL not yet updated — paper account delay is expected)\n");
+        pass!("  PASS (PnL not yet updated — paper account delay is expected)\n");
     }
     conns
 }
@@ -1543,7 +1566,7 @@ pub(super) fn phase_pnl_after_round_trip(conns: Conns) -> Conns {
 // ─── Phase 87: CancelReject Event path (issue #78) ───
 
 pub(super) fn phase_cancel_reject(conns: Conns) -> Conns {
-    println!("--- Phase 87: CancelReject Event (bogus order cancel) ---");
+    phase!("--- Phase 87: CancelReject Event (bogus order cancel) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1561,7 +1584,7 @@ pub(super) fn phase_cancel_reject(conns: Conns) -> Conns {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1,
         price: 1_00_000_000, outside_rth: true,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     // Wait for order ack, then cancel it twice — second cancel should produce CancelReject
@@ -1603,7 +1626,7 @@ pub(super) fn phase_cancel_reject(conns: Conns) -> Conns {
         return conns;
     }
     if got_reject {
-        println!("  PASS\n");
+        pass!("  PASS\n");
     } else {
         // CancelReject may not be emitted if IB silently ignores the second cancel
         println!("  SKIP: No CancelReject received (IB may silently ignore duplicate cancel)\n");
@@ -1614,47 +1637,61 @@ pub(super) fn phase_cancel_reject(conns: Conns) -> Conns {
 // ─── Phase 113: Rapid order dedup and interleaving (issue #100) ───
 
 pub(super) fn phase_rapid_order_dedup(conns: Conns) -> Conns {
-    println!("--- Phase 113: Rapid Order Submission + Dedup (5 orders, SPY) ---");
+    phase!("--- Phase 113: Rapid Order Submission + Dedup (5 orders, SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
 
     // Submit 5 limit orders rapidly at different prices
     let base_oid = next_order_id();
-    let order_ids: Vec<u64> = (0..5).map(|i| base_oid + i * 1000).collect();
+    let order_ids: Vec<OrderId> = (0..5).map(|i| base_oid + i * 1000).collect();
     for (i, &oid) in order_ids.iter().enumerate() {
         let price = (1 + i as i64) * 1_00_000_000; // $1, $2, $3, $4, $5
         control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
             order_id: oid, instrument: inst_id, side: Side::Buy, qty: 1, price,
         })).unwrap();
     }
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
-    let mut acked: std::collections::HashSet<u64> = std::collections::HashSet::new();
-    let mut cancelled: std::collections::HashSet<u64> = std::collections::HashSet::new();
-    let mut rejected: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut acked: std::collections::HashSet<OrderId> = std::collections::HashSet::new();
+    let mut cancelled: std::collections::HashSet<OrderId> = std::collections::HashSet::new();
+    let mut rejected: std::collections::HashSet<OrderId> = std::collections::HashSet::new();
     let mut cancel_batch_sent = false;
-    let mut duplicate_acks = 0u32;
-    let mut seen_status: std::collections::HashSet<(u64, u8)> = std::collections::HashSet::new();
+    // Every status update of each order, in order. The reference sends an
+    // order status for every server report of a known order, with no
+    // de-duplication (ib-agent ORDER-STATUS.md section 1 "API push" and
+    // section 7, `jclient.dS.a(dk, fq)@677`), so the same status can come
+    // twice (ibx#473). What must not happen: an update for an order this
+    // phase did not submit, or a status going back (a working status after
+    // a later one, or after the order ended).
+    let mut sequences: std::collections::HashMap<OrderId, Vec<OrderStatus>> = std::collections::HashMap::new();
+    let mut foreign_updates = 0u32;
+    let mut backward: Vec<(OrderId, OrderStatus, OrderStatus)> = Vec::new();
 
     while Instant::now() < deadline {
         match event_rx.recv_timeout(Duration::from_millis(100)) {
             Ok(Event::OrderUpdate(update)) => {
+                if !order_ids.contains(&update.order_id) {
+                    foreign_updates += 1;
+                    continue;
+                }
+                let seq = sequences.entry(update.order_id).or_default();
+                if let Some(&last) = seq.last() {
+                    if update.status.rank() < last.rank() || (last.is_terminal() && update.status != last) {
+                        backward.push((update.order_id, last, update.status));
+                    }
+                }
+                seq.push(update.status);
                 match update.status {
                     OrderStatus::PreSubmitted | OrderStatus::Submitted => {
-                        // PreSubmitted then Submitted is one order being routed;
-                        // only the same status twice is a duplicate.
-                        if !seen_status.insert((update.order_id, update.status as u8)) {
-                            duplicate_acks += 1;
-                        }
                         acked.insert(update.order_id);
                         // Once all 5 are acked, cancel them all
                         if acked.len() == 5 && !cancel_batch_sent {
@@ -1681,25 +1718,31 @@ pub(super) fn phase_rapid_order_dedup(conns: Conns) -> Conns {
 
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
-    println!("  Acked: {} Cancelled: {} Rejected: {} Duplicate acks: {}",
-        acked.len(), cancelled.len(), rejected.len(), duplicate_acks);
+    let repeats: usize = sequences.values()
+        .map(|seq| seq.windows(2).filter(|w| w[0] == w[1]).count()).sum();
+    println!("  Acked: {} Cancelled: {} Rejected: {} Repeated statuses: {}",
+        acked.len(), cancelled.len(), rejected.len(), repeats);
+    for oid in &order_ids {
+        println!("  order {}: {:?}", oid, sequences.get(oid).map(Vec::as_slice).unwrap_or(&[]));
+    }
 
     if rejected.len() == order_ids.len() {
-        record_rejection("All orders rejected");
+        record_rejection("All orders rejected", &shared);
         return conns;
     }
 
-    check_eq!(duplicate_acks, 0, "No duplicate OrderUpdate(Submitted) for same order_id");
+    check_eq!(foreign_updates, 0, "No OrderUpdate for an order id this phase did not submit");
+    check!(backward.is_empty(), "No order status went back (order, from, to): {:?}", backward);
     if skip_unacked_if_closed(acked.len() >= 3) { return conns; }
     check!(acked.len() >= 3, "At least 3 of 5 orders should be acknowledged, got {}", acked.len());
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 115: Modify both price and qty simultaneously ───
 
 pub(super) fn phase_modify_price_and_qty(conns: Conns) -> Conns {
-    println!("--- Phase 115: Modify Price + Qty Simultaneously (SPY) ---");
+    phase!("--- Phase 115: Modify Price + Qty Simultaneously (SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1715,7 +1758,7 @@ pub(super) fn phase_modify_price_and_qty(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -1757,7 +1800,7 @@ pub(super) fn phase_modify_price_and_qty(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected");
+        record_rejection("Order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
@@ -1765,14 +1808,14 @@ pub(super) fn phase_modify_price_and_qty(conns: Conns) -> Conns {
     check!(modify_sent, "Modify was never sent");
     check!(modify_acked, "Modify (price+qty) was never acknowledged");
     check!(order_cancelled, "Modified order was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 116: Double modify chain ───
 
 pub(super) fn phase_double_modify(conns: Conns) -> Conns {
-    println!("--- Phase 116: Double Modify Chain (SPY: $1→$2→$3) ---");
+    phase!("--- Phase 116: Double Modify Chain (SPY: $1→$2→$3) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
@@ -1789,7 +1832,7 @@ pub(super) fn phase_double_modify(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(90);
@@ -1835,26 +1878,26 @@ pub(super) fn phase_double_modify(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected");
+        record_rejection("Order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(phase >= 3) { return conns; }
     check!(phase >= 3, "Did not complete double modify chain (reached phase {})", phase);
     check!(order_cancelled, "Final modified order was never cancelled");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 117: Cancel during modify (race condition) ───
 
 pub(super) fn phase_cancel_during_modify(conns: Conns) -> Conns {
-    println!("--- Phase 117: Cancel During Modify (race condition, SPY) ---");
+    phase!("--- Phase 117: Cancel During Modify (race condition, SPY) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -1866,7 +1909,7 @@ pub(super) fn phase_cancel_during_modify(conns: Conns) -> Conns {
     control_tx.send(ControlCommand::Order(OrderRequest::SubmitLimit {
         order_id, instrument: inst_id, side: Side::Buy, qty: 1, price: 1_00_000_000,
     })).unwrap();
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -1906,27 +1949,27 @@ pub(super) fn phase_cancel_during_modify(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected");
+        record_rejection("Order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(order_acked) { return conns; }
     check!(order_acked, "Order was never acknowledged");
     check!(race_sent, "Race condition commands were never sent");
     check!(order_cancelled, "Order was never cancelled (neither original nor modified)");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 123: Global Cancel (CancelAll — emergency kill switch) ───
 
 pub(super) fn phase_global_cancel(conns: Conns) -> Conns {
-    println!("--- Phase 123: Global Cancel (3 orders → CancelAll) ---");
+    phase!("--- Phase 123: Global Cancel (3 orders → CancelAll) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (mut hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
     let inst_id = hot_loop.context_mut().register_instrument(756733);
     hot_loop.context_mut().set_symbol(inst_id, "SPY".to_string());
@@ -1941,7 +1984,7 @@ pub(super) fn phase_global_cancel(conns: Conns) -> Conns {
             price: 1_00_000_000, outside_rth: true,
         })).unwrap();
     }
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
@@ -1979,36 +2022,36 @@ pub(super) fn phase_global_cancel(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if order_rejected {
-        record_rejection("Order rejected");
+        record_rejection("Order rejected", &shared);
         return conns;
     }
     if skip_unacked_if_closed(cancel_all_sent) { return conns; }
     check!(cancel_all_sent, "CancelAll was never sent (not all orders acked)");
     check_eq!(cancelled.len(), 3, "Expected 3 cancellations, got {}", cancelled.len());
     println!("  All 3 orders cancelled via CancelAll");
-    println!("  PASS\n");
+    pass!("  PASS\n");
     conns
 }
 
 // ─── Phase 124: Cancel Filled Order (expect CancelReject) ───
 
 pub(super) fn phase_cancel_filled_order(conns: Conns) -> Conns {
-    println!("--- Phase 124: Cancel Filled Order (expect CancelReject) ---");
+    phase!("--- Phase 124: Cancel Filled Order (expect CancelReject) ---");
 
     let account_id = conns.account_id;
     let shared = Arc::new(SharedState::new());
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (hot_loop, control_tx) = HotLoop::with_connections(
-        shared, Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
+        shared.clone(), Some(event_tx), account_id.clone(), conns.farm, conns.ccp, conns.hmds, None,
     );
 
-    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, reply_tx: None }).unwrap();
+    control_tx.send(ControlCommand::Subscribe { con_id: 756733, symbol: "SPY".into(), exchange: String::new(), sec_type: String::new(), last_trade_date: String::new(), strike: 0.0, right: String::new(), multiplier: String::new(), mode_9887: 0, snapshot: false, reply_tx: None }).unwrap();
     let join = run_hot_loop(hot_loop);
 
     let deadline = Instant::now() + Duration::from_secs(60);
     let mut tick_count = 0u32;
     let mut phase = 0u8; // 0=wait ticks, 1=buy sent, 2=filled→cancel sent, 3=sell sent
-    let mut buy_order_id = 0u64;
+    let mut buy_order_id = 0 as OrderId;
     let mut got_cancel_reject = false;
     let mut got_order_reject = false;
     let mut instrument_id = 0u32;
@@ -2085,7 +2128,7 @@ pub(super) fn phase_cancel_filled_order(conns: Conns) -> Conns {
     let conns = shutdown_and_reclaim(&control_tx, join, account_id);
 
     if got_order_reject {
-        record_rejection("Order rejected — market closed");
+        record_rejection("Order rejected — market closed", &shared);
         return conns;
     }
     if phase < 2 {
@@ -2095,9 +2138,9 @@ pub(super) fn phase_cancel_filled_order(conns: Conns) -> Conns {
     // IB may silently ignore cancel on filled order (no CancelReject),
     // or it may send one. Either way, the system didn't crash.
     if got_cancel_reject {
-        println!("  PASS (CancelReject received as expected)\n");
+        pass!("  PASS (CancelReject received as expected)\n");
     } else {
-        println!("  PASS (cancel silently ignored — no crash, no CancelReject)\n");
+        pass!("  PASS (cancel silently ignored — no crash, no CancelReject)\n");
     }
     conns
 }

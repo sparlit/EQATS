@@ -45,7 +45,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
     serialized_pb=b'\n\x11matchengine.proto\x12\x0bmatchengine\x1a\x1cgoogle/api/annotations.proto"J\n\x0e\x45thLogMetadata\x12\x14\n\x0c\x62lock_number\x18\x01 \x01(\x04\x12\x0f\n\x07tx_hash\x18\x02 \x01(\t\x12\x11\n\tlog_index\x18\x03 \x01(\t"\x8b\x01\n\x08UserInfo\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x12\n\nl1_address\x18\x02 \x01(\t\x12\x11\n\tl2_pubkey\x18\x03 \x01(\t\x12\x36\n\x0clog_metadata\x18\x04 \x01(\x0b\x32\x1b.matchengine.EthLogMetadataH\x00\x88\x01\x01\x42\x0f\n\r_log_metadata"6\n\x13\x42\x61lanceQueryRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x0e\n\x06\x61ssets\x18\x02 \x03(\t"\x9d\x01\n\x14\x42\x61lanceQueryResponse\x12@\n\x08\x62\x61lances\x18\x01 \x03(\x0b\x32..matchengine.BalanceQueryResponse.AssetBalance\x1a\x43\n\x0c\x41ssetBalance\x12\x10\n\x08\x61sset_id\x18\x01 \x01(\t\x12\x11\n\tavailable\x18\x02 \x01(\t\x12\x0e\n\x06\x66rozen\x18\x03 \x01(\t"\xeb\x01\n\x14\x42\x61lanceUpdateRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\r\n\x05\x61sset\x18\x02 \x01(\t\x12\x10\n\x08\x62usiness\x18\x03 \x01(\t\x12\x13\n\x0b\x62usiness_id\x18\x04 \x01(\x04\x12\r\n\x05\x64\x65lta\x18\x05 \x01(\t\x12\x0e\n\x06\x64\x65tail\x18\x06 \x01(\t\x12\x16\n\tsignature\x18\x07 \x01(\tH\x00\x88\x01\x01\x12\x36\n\x0clog_metadata\x18\x08 \x01(\x0b\x32\x1b.matchengine.EthLogMetadataH\x01\x88\x01\x01\x42\x0c\n\n_signatureB\x0f\n\r_log_metadata"\x17\n\x15\x42\x61lanceUpdateResponse"\x12\n\x10\x41ssetListRequest"\xde\x01\n\x11\x41ssetListResponse\x12=\n\x0b\x61sset_lists\x18\x01 \x03(\x0b\x32(.matchengine.AssetListResponse.AssetInfo\x1a\x89\x01\n\tAssetInfo\x12\x0e\n\x06symbol\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x10\n\x08\x63hain_id\x18\x03 \x01(\x05\x12\x15\n\rtoken_address\x18\x04 \x01(\t\x12\x11\n\tprecision\x18\x05 \x01(\r\x12\x10\n\x08logo_uri\x18\x06 \x01(\t\x12\x10\n\x08inner_id\x18\x07 \x01(\x05"%\n\x13\x41ssetSummaryRequest\x12\x0e\n\x06\x61ssets\x18\x01 \x03(\t"\xff\x01\n\x14\x41ssetSummaryResponse\x12K\n\x0f\x61sset_summaries\x18\x01 \x03(\x0b\x32\x32.matchengine.AssetSummaryResponse.AssetSummaryInfo\x1a\x99\x01\n\x10\x41ssetSummaryInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x15\n\rtotal_balance\x18\x02 \x01(\t\x12\x17\n\x0f\x61vailable_count\x18\x03 \x01(\x05\x12\x19\n\x11\x61vailable_balance\x18\x04 \x01(\t\x12\x14\n\x0c\x66rozen_count\x18\x05 \x01(\x05\x12\x16\n\x0e\x66rozen_balance\x18\x06 \x01(\t"\x8a\x02\n\x0fOrderPutRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x0e\n\x06market\x18\x02 \x01(\t\x12*\n\norder_side\x18\x03 \x01(\x0e\x32\x16.matchengine.OrderSide\x12*\n\norder_type\x18\x04 \x01(\x0e\x32\x16.matchengine.OrderType\x12\x0e\n\x06\x61mount\x18\x05 \x01(\t\x12\r\n\x05price\x18\x06 \x01(\t\x12\x13\n\x0bquote_limit\x18\x07 \x01(\t\x12\x11\n\ttaker_fee\x18\x08 \x01(\t\x12\x11\n\tmaker_fee\x18\t \x01(\t\x12\x11\n\tpost_only\x18\n \x01(\x08\x12\x11\n\tsignature\x18\x0b \x01(\t"\xe7\x02\n\tOrderInfo\x12\n\n\x02id\x18\x01 \x01(\x04\x12\x0e\n\x06market\x18\x02 \x01(\t\x12*\n\norder_side\x18\x03 \x01(\x0e\x32\x16.matchengine.OrderSide\x12*\n\norder_type\x18\x04 \x01(\x0e\x32\x16.matchengine.OrderType\x12\x0f\n\x07user_id\x18\x05 \x01(\r\x12\x13\n\x0b\x63reate_time\x18\x06 \x01(\x01\x12\x13\n\x0bupdate_time\x18\x07 \x01(\x01\x12\r\n\x05price\x18\x08 \x01(\t\x12\x0e\n\x06\x61mount\x18\t \x01(\t\x12\x11\n\ttaker_fee\x18\n \x01(\t\x12\x11\n\tmaker_fee\x18\x0b \x01(\t\x12\x0e\n\x06remain\x18\x0c \x01(\t\x12\x15\n\rfinished_base\x18\r \x01(\t\x12\x16\n\x0e\x66inished_quote\x18\x0e \x01(\t\x12\x14\n\x0c\x66inished_fee\x18\x0f \x01(\t\x12\x11\n\tpost_only\x18\x10 \x01(\x08"S\n\x11OrderQueryRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x0e\n\x06market\x18\x02 \x01(\t\x12\x0e\n\x06offset\x18\x03 \x01(\x05\x12\r\n\x05limit\x18\x04 \x01(\x05"j\n\x12OrderQueryResponse\x12\x0e\n\x06offset\x18\x01 \x01(\x05\x12\r\n\x05limit\x18\x02 \x01(\x05\x12\r\n\x05total\x18\x03 \x01(\x05\x12&\n\x06orders\x18\x04 \x03(\x0b\x32\x16.matchengine.OrderInfo"G\n\x12OrderCancelRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x0e\n\x06market\x18\x02 \x01(\t\x12\x10\n\x08order_id\x18\x03 \x01(\x04"8\n\x15OrderCancelAllRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\r\x12\x0e\n\x06market\x18\x02 \x01(\t"\'\n\x16OrderCancelAllResponse\x12\r\n\x05total\x18\x01 \x01(\r"g\n\x10OrderBookRequest\x12\x0e\n\x06market\x18\x01 \x01(\t\x12$\n\x04side\x18\x02 \x01(\x0e\x32\x16.matchengine.OrderSide\x12\x0e\n\x06offset\x18\x03 \x01(\x05\x12\r\n\x05limit\x18\x04 \x01(\x05"i\n\x11OrderBookResponse\x12\x0e\n\x06offset\x18\x01 \x01(\x05\x12\r\n\x05limit\x18\x02 \x01(\x05\x12\r\n\x05total\x18\x03 \x01(\x04\x12&\n\x06orders\x18\x04 \x03(\x0b\x32\x16.matchengine.OrderInfo"H\n\x15OrderBookDepthRequest\x12\x0e\n\x06market\x18\x01 \x01(\t\x12\r\n\x05limit\x18\x02 \x01(\x05\x12\x10\n\x08interval\x18\x03 \x01(\t"\xbe\x01\n\x16OrderBookDepthResponse\x12;\n\x04\x61sks\x18\x01 \x03(\x0b\x32-.matchengine.OrderBookDepthResponse.PriceInfo\x12;\n\x04\x62ids\x18\x02 \x03(\x0b\x32-.matchengine.OrderBookDepthResponse.PriceInfo\x1a*\n\tPriceInfo\x12\r\n\x05price\x18\x01 \x01(\t\x12\x0e\n\x06\x61mount\x18\x02 \x01(\t"6\n\x12OrderDetailRequest\x12\x0e\n\x06market\x18\x01 \x01(\t\x12\x10\n\x08order_id\x18\x02 \x01(\x04"c\n\x14\x42\x61tchOrderPutRequest\x12\x0e\n\x06market\x18\x01 \x01(\t\x12\r\n\x05reset\x18\x02 \x01(\x08\x12,\n\x06orders\x18\x03 \x03(\x0b\x32\x1c.matchengine.OrderPutRequest"o\n\x15\x42\x61tchOrderPutResponse\x12,\n\x0bresult_code\x18\x01 \x01(\x0e\x32\x17.matchengine.ResultCode\x12\x15\n\rerror_message\x18\x02 \x01(\t\x12\x11\n\torder_ids\x18\x03 \x03(\x04"\x13\n\x11MarketListRequest"\xe9\x01\n\x12MarketListResponse\x12;\n\x07markets\x18\x01 \x03(\x0b\x32*.matchengine.MarketListResponse.MarketInfo\x1a\x95\x01\n\nMarketInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04\x62\x61se\x18\x02 \x01(\t\x12\r\n\x05quote\x18\x03 \x01(\t\x12\x15\n\rfee_precision\x18\x04 \x01(\r\x12\x18\n\x10\x61mount_precision\x18\x05 \x01(\r\x12\x17\n\x0fprice_precision\x18\x06 \x01(\r\x12\x12\n\nmin_amount\x18\x07 \x01(\t"\'\n\x14MarketSummaryRequest\x12\x0f\n\x07markets\x18\x01 \x03(\t"\xe6\x01\n\x15MarketSummaryResponse\x12J\n\x10market_summaries\x18\x01 \x03(\x0b\x32\x30.matchengine.MarketSummaryResponse.MarketSummary\x1a\x80\x01\n\rMarketSummary\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\task_count\x18\x02 \x01(\x05\x12\x12\n\nask_amount\x18\x03 \x01(\t\x12\x11\n\tbid_count\x18\x04 \x01(\x05\x12\x12\n\nbid_amount\x18\x05 \x01(\t\x12\x13\n\x0btrade_count\x18\x06 \x01(\x04",\n\x14ReloadMarketsRequest\x12\x14\n\x0c\x66rom_scratch\x18\x01 \x01(\x08"\x17\n\x15SimpleSuccessResponse"j\n\x0fTransferRequest\x12\x0c\n\x04\x66rom\x18\x01 \x01(\r\x12\n\n\x02to\x18\x02 \x01(\r\x12\r\n\x05\x61sset\x18\x03 \x01(\t\x12\r\n\x05\x64\x65lta\x18\x04 \x01(\t\x12\x0c\n\x04memo\x18\x05 \x01(\t\x12\x11\n\tsignature\x18\x06 \x01(\t"H\n\x10TransferResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x61sset\x18\x02 \x01(\t\x12\x14\n\x0c\x62\x61lance_from\x18\x03 \x01(\t"\x12\n\x10\x44\x65\x62ugDumpRequest"\x13\n\x11\x44\x65\x62ugDumpResponse"\x13\n\x11\x44\x65\x62ugResetRequest"\x14\n\x12\x44\x65\x62ugResetResponse"\x14\n\x12\x44\x65\x62ugReloadRequest"\x15\n\x13\x44\x65\x62ugReloadResponse*\x1d\n\tOrderSide\x12\x07\n\x03\x41SK\x10\x00\x12\x07\n\x03\x42ID\x10\x01*"\n\tOrderType\x12\t\n\x05LIMIT\x10\x00\x12\n\n\x06MARKET\x10\x01*-\n\nResultCode\x12\x0b\n\x07SUCCESS\x10\x00\x12\x12\n\x0eINTERNAL_ERROR\x10\x01\x32\xcf\x0e\n\x0bMatchengine\x12Z\n\x0cRegisterUser\x12\x15.matchengine.UserInfo\x1a\x15.matchengine.UserInfo"\x1c\x82\xd3\xe4\x93\x02\x16"\x11/api/registeruser:\x01*\x12t\n\x0c\x42\x61lanceQuery\x12 .matchengine.BalanceQueryRequest\x1a!.matchengine.BalanceQueryResponse"\x1f\x82\xd3\xe4\x93\x02\x19\x12\x17/api/balances/{user_id}\x12u\n\rBalanceUpdate\x12!.matchengine.BalanceUpdateRequest\x1a".matchengine.BalanceUpdateResponse"\x1d\x82\xd3\xe4\x93\x02\x17"\x12/api/updatebalance:\x01*\x12_\n\tAssetList\x12\x1d.matchengine.AssetListRequest\x1a\x1e.matchengine.AssetListResponse"\x13\x82\xd3\xe4\x93\x02\r\x12\x0b/api/assets\x12W\n\x08OrderPut\x12\x1c.matchengine.OrderPutRequest\x1a\x16.matchengine.OrderInfo"\x15\x82\xd3\xe4\x93\x02\x0f"\n/api/order:\x01*\x12|\n\rBatchOrderPut\x12!.matchengine.BatchOrderPutRequest\x1a".matchengine.BatchOrderPutResponse"$\x82\xd3\xe4\x93\x02\x1e"\x19/api/batchorders/{market}:\x01*\x12u\n\nOrderQuery\x12\x1e.matchengine.OrderQueryRequest\x1a\x1f.matchengine.OrderQueryResponse"&\x82\xd3\xe4\x93\x02 \x12\x1e/api/orders/{market}/{user_id}\x12\x81\x01\n\x0bOrderCancel\x12\x1f.matchengine.OrderCancelRequest\x1a\x16.matchengine.OrderInfo"9\x82\xd3\xe4\x93\x02\x33"./api/cancelorder/{market}/{user_id}/{order_id}:\x01*\x12\x8a\x01\n\x0eOrderCancelAll\x12".matchengine.OrderCancelAllRequest\x1a#.matchengine.OrderCancelAllResponse"/\x82\xd3\xe4\x93\x02)"$/api/cancelorders/{market}/{user_id}:\x01*\x12~\n\x0eOrderBookDepth\x12".matchengine.OrderBookDepthRequest\x1a#.matchengine.OrderBookDepthResponse"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/depth/{market}/{limit}\x12H\n\x0bOrderDetail\x12\x1f.matchengine.OrderDetailRequest\x1a\x16.matchengine.OrderInfo"\x00\x12\x63\n\nMarketList\x12\x1e.matchengine.MarketListRequest\x1a\x1f.matchengine.MarketListResponse"\x14\x82\xd3\xe4\x93\x02\x0e\x12\x0c/api/markets\x12X\n\rReloadMarkets\x12!.matchengine.ReloadMarketsRequest\x1a".matchengine.SimpleSuccessResponse"\x00\x12X\n\rMarketSummary\x12!.matchengine.MarketSummaryRequest\x1a".matchengine.MarketSummaryResponse"\x00\x12\x61\n\x08Transfer\x12\x1c.matchengine.TransferRequest\x1a\x1d.matchengine.TransferResponse"\x18\x82\xd3\xe4\x93\x02\x12"\r/api/transfer:\x01*\x12L\n\tDebugDump\x12\x1d.matchengine.DebugDumpRequest\x1a\x1e.matchengine.DebugDumpResponse"\x00\x12O\n\nDebugReset\x12\x1e.matchengine.DebugResetRequest\x1a\x1f.matchengine.DebugResetResponse"\x00\x12R\n\x0b\x44\x65\x62ugReload\x12\x1f.matchengine.DebugReloadRequest\x1a .matchengine.DebugReloadResponse"\x00\x62\x06proto3',
-    dependencies=[google_dot_api_dot_annotations__pb2.DESCRIPTOR],
+    dependencies=[
+        google_dot_api_dot_annotations__pb2.DESCRIPTOR,
+    ],
 )
 
 _ORDERSIDE = _descriptor.EnumDescriptor(
@@ -505,7 +507,9 @@ _BALANCEQUERYRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_BALANCEQUERYRESPONSE_ASSETBALANCE],
+    nested_types=[
+        _BALANCEQUERYRESPONSE_ASSETBALANCE,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -933,7 +937,9 @@ _ASSETLISTRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_ASSETLISTRESPONSE_ASSETINFO],
+    nested_types=[
+        _ASSETLISTRESPONSE_ASSETINFO,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -1150,7 +1156,9 @@ _ASSETSUMMARYRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_ASSETSUMMARYRESPONSE_ASSETSUMMARYINFO],
+    nested_types=[
+        _ASSETSUMMARYRESPONSE_ASSETSUMMARYINFO,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -2477,7 +2485,9 @@ _ORDERBOOKDEPTHRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_ORDERBOOKDEPTHRESPONSE_PRICEINFO],
+    nested_types=[
+        _ORDERBOOKDEPTHRESPONSE_PRICEINFO,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -2911,7 +2921,9 @@ _MARKETLISTRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_MARKETLISTRESPONSE_MARKETINFO],
+    nested_types=[
+        _MARKETLISTRESPONSE_MARKETINFO,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -3128,7 +3140,9 @@ _MARKETSUMMARYRESPONSE = _descriptor.Descriptor(
         ),
     ],
     extensions=[],
-    nested_types=[_MARKETSUMMARYRESPONSE_MARKETSUMMARY],
+    nested_types=[
+        _MARKETSUMMARYRESPONSE_MARKETSUMMARY,
+    ],
     enum_types=[],
     serialized_options=None,
     is_extendable=False,
@@ -3544,22 +3558,30 @@ _DEBUGRELOADRESPONSE = _descriptor.Descriptor(
 
 _USERINFO.fields_by_name["log_metadata"].message_type = _ETHLOGMETADATA
 _USERINFO.oneofs_by_name["_log_metadata"].fields.append(_USERINFO.fields_by_name["log_metadata"])
-_USERINFO.fields_by_name["log_metadata"].containing_oneof = _USERINFO.oneofs_by_name["_log_metadata"]
+_USERINFO.fields_by_name["log_metadata"].containing_oneof = _USERINFO.oneofs_by_name[
+    "_log_metadata"
+]
 _BALANCEQUERYRESPONSE_ASSETBALANCE.containing_type = _BALANCEQUERYRESPONSE
 _BALANCEQUERYRESPONSE.fields_by_name["balances"].message_type = _BALANCEQUERYRESPONSE_ASSETBALANCE
 _BALANCEUPDATEREQUEST.fields_by_name["log_metadata"].message_type = _ETHLOGMETADATA
-_BALANCEUPDATEREQUEST.oneofs_by_name["_signature"].fields.append(_BALANCEUPDATEREQUEST.fields_by_name["signature"])
-_BALANCEUPDATEREQUEST.fields_by_name["signature"].containing_oneof = _BALANCEUPDATEREQUEST.oneofs_by_name["_signature"]
+_BALANCEUPDATEREQUEST.oneofs_by_name["_signature"].fields.append(
+    _BALANCEUPDATEREQUEST.fields_by_name["signature"]
+)
+_BALANCEUPDATEREQUEST.fields_by_name[
+    "signature"
+].containing_oneof = _BALANCEUPDATEREQUEST.oneofs_by_name["_signature"]
 _BALANCEUPDATEREQUEST.oneofs_by_name["_log_metadata"].fields.append(
     _BALANCEUPDATEREQUEST.fields_by_name["log_metadata"]
 )
-_BALANCEUPDATEREQUEST.fields_by_name["log_metadata"].containing_oneof = _BALANCEUPDATEREQUEST.oneofs_by_name[
-    "_log_metadata"
-]
+_BALANCEUPDATEREQUEST.fields_by_name[
+    "log_metadata"
+].containing_oneof = _BALANCEUPDATEREQUEST.oneofs_by_name["_log_metadata"]
 _ASSETLISTRESPONSE_ASSETINFO.containing_type = _ASSETLISTRESPONSE
 _ASSETLISTRESPONSE.fields_by_name["asset_lists"].message_type = _ASSETLISTRESPONSE_ASSETINFO
 _ASSETSUMMARYRESPONSE_ASSETSUMMARYINFO.containing_type = _ASSETSUMMARYRESPONSE
-_ASSETSUMMARYRESPONSE.fields_by_name["asset_summaries"].message_type = _ASSETSUMMARYRESPONSE_ASSETSUMMARYINFO
+_ASSETSUMMARYRESPONSE.fields_by_name[
+    "asset_summaries"
+].message_type = _ASSETSUMMARYRESPONSE_ASSETSUMMARYINFO
 _ORDERPUTREQUEST.fields_by_name["order_side"].enum_type = _ORDERSIDE
 _ORDERPUTREQUEST.fields_by_name["order_type"].enum_type = _ORDERTYPE
 _ORDERINFO.fields_by_name["order_side"].enum_type = _ORDERSIDE
@@ -3575,7 +3597,9 @@ _BATCHORDERPUTRESPONSE.fields_by_name["result_code"].enum_type = _RESULTCODE
 _MARKETLISTRESPONSE_MARKETINFO.containing_type = _MARKETLISTRESPONSE
 _MARKETLISTRESPONSE.fields_by_name["markets"].message_type = _MARKETLISTRESPONSE_MARKETINFO
 _MARKETSUMMARYRESPONSE_MARKETSUMMARY.containing_type = _MARKETSUMMARYRESPONSE
-_MARKETSUMMARYRESPONSE.fields_by_name["market_summaries"].message_type = _MARKETSUMMARYRESPONSE_MARKETSUMMARY
+_MARKETSUMMARYRESPONSE.fields_by_name[
+    "market_summaries"
+].message_type = _MARKETSUMMARYRESPONSE_MARKETSUMMARY
 DESCRIPTOR.message_types_by_name["EthLogMetadata"] = _ETHLOGMETADATA
 DESCRIPTOR.message_types_by_name["UserInfo"] = _USERINFO
 DESCRIPTOR.message_types_by_name["BalanceQueryRequest"] = _BALANCEQUERYREQUEST

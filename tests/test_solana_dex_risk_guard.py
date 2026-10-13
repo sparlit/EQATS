@@ -1,9 +1,8 @@
 """
 Unit and Integration Tests for Solana DEX Risk Guard Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.solana_dex_risk_guard import SolanaDEXRiskGuard, DEXPoolMetrics
+from institutional_integrations.solana_dex_risk_guard import DEXPoolMetrics, SolanaDEXRiskGuard
+
 
 def test_solana_dex_risk_guard_safe_pool() -> None:
     guard = SolanaDEXRiskGuard()

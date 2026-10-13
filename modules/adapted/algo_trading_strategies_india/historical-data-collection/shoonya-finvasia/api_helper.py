@@ -23,9 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import concurrent.futures
 import time
-from threading import Timer
 
-import pandas as pd
 from NorenRestApiPy.NorenApi import NorenApi
 
 api = None
@@ -34,18 +32,18 @@ api = None
 class Order:
     def __init__(
         self,
-        buy_or_sell: str | None = None,
-        product_type: str | None = None,
-        exchange: str | None = None,
-        tradingsymbol: str | None = None,
-        price_type: str | None = None,
-        quantity: int | None = None,
-        price: float | None = None,
-        trigger_price: float | None = None,
+        buy_or_sell: str = None,
+        product_type: str = None,
+        exchange: str = None,
+        tradingsymbol: str = None,
+        price_type: str = None,
+        quantity: int = None,
+        price: float = None,
+        trigger_price: float = None,
         discloseqty: int = 0,
         retention: str = "DAY",
         remarks: str = "tag",
-        order_id: str | None = None,
+        order_id: str = None,
     ):
         self.buy_or_sell = buy_or_sell
         self.product_type = product_type
@@ -73,7 +71,9 @@ def get_time(time_string):
 class ShoonyaApiPy(NorenApi):
     def __init__(self):
         NorenApi.__init__(
-            self, host="https://api.shoonya.com/NorenWClientTP/", websocket="wss://api.shoonya.com/NorenWSTP/"
+            self,
+            host="https://api.shoonya.com/NorenWClientTP/",
+            websocket="wss://api.shoonya.com/NorenWSTP/",
         )
         global api
         api = self
@@ -98,7 +98,7 @@ class ShoonyaApiPy(NorenApi):
         return result
 
     def placeOrder(self, order: Order):
-        return NorenApi.place_order(
+        ret = NorenApi.place_order(
             self,
             buy_or_sell=order.buy_or_sell,
             product_type=order.product_type,
@@ -113,3 +113,5 @@ class ShoonyaApiPy(NorenApi):
             remarks=order.remarks,
         )
         # print(ret)
+
+        return ret

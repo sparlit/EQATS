@@ -54,4 +54,4 @@ def test_market_movers_losers_only_include_negative_changes(monkeypatch):
 def test_format_calendar_value_normalizes_dates():
     result = _format_calendar_value([pd.Timestamp("2026-04-24")])
 
-    assert result in (["2026-04-24 00:00:00"], ["2026-04-24"])
+    assert result == ["2026-04-24 00:00:00"] or result == ["2026-04-24"]

@@ -1,8 +1,24 @@
-from typing import Any
 import brain
 import connector
 import database
-from brain_agents_orchestrator import AgenticBrainsOrchestrator, AnalystBrainAgent, BrainAgentContext, BrainOrchestratorDirective, DayTradingMethodAgent, LotManagementBrainAgent, MeanReversionStrategyAgent, MtfConfluenceStrategyAgent, PositionTradingMethodAgent, PredictionBrainAgent, ResearchBrainAgent, RiskAssessmentBrainAgent, ScalpingMethodAgent, SwingTradingMethodAgent, TrendFollowingStrategyAgent
+from brain_agents_orchestrator import (
+    AgenticBrainsOrchestrator,
+    AnalystBrainAgent,
+    BrainAgentContext,
+    BrainOrchestratorDirective,
+    DayTradingMethodAgent,
+    LotManagementBrainAgent,
+    MeanReversionStrategyAgent,
+    MtfConfluenceStrategyAgent,
+    PositionTradingMethodAgent,
+    PredictionBrainAgent,
+    ResearchBrainAgent,
+    RiskAssessmentBrainAgent,
+    ScalpingMethodAgent,
+    SwingTradingMethodAgent,
+    TrendFollowingStrategyAgent,
+)
+
 
 class DummyScalper:
 

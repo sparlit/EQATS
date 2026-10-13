@@ -107,14 +107,19 @@ def yahoo_splits(yev, a, b):
 
 
 def yahoo_covered(yev):
-    return any((yev.get(k) or {}).get("status") == "ok" and (yev.get(k) or {}).get("covered") for k in ("ns", "bo"))
+    return any(
+        (yev.get(k) or {}).get("status") == "ok" and (yev.get(k) or {}).get("covered")
+        for k in ("ns", "bo")
+    )
 
 
 import gzip
 
 _CAMP = collections.defaultdict(list)
 try:
-    for _v in json.loads(gzip.open(os.path.join(HERE, "ca2002_campaign", "verdicts.json.gz")).read()):
+    for _v in json.loads(
+        gzip.open(os.path.join(HERE, "ca2002_campaign", "verdicts.json.gz")).read()
+    ):
         _CAMP[_v["sym"]].append(_v)
 except Exception as _e:
     print(f"  (§87 campaign verdicts unavailable: {_e})")
@@ -123,7 +128,9 @@ except Exception as _e:
 _DEM = json.load(open(os.path.join(HERE, "demerger_adj.json")))
 
 
-def campaign(sym, a, b):  # §87 campaign's recorded BSE/Yahoo checks for an ex-date inside [a-7d, b+7d]
+def campaign(
+    sym, a, b
+):  # §87 campaign's recorded BSE/Yahoo checks for an ex-date inside [a-7d, b+7d]
     return [v for v in _CAMP.get(sym, []) if a - 7 <= v["ex"] <= b + 7]
 
 
@@ -139,7 +146,8 @@ def verdict(e):
     other_rows = [
         r
         for r in rows
-        if not r.get("factor") and (r.get("demerger") or any(k in (r.get("subject") or "").lower() for k in RIGHTS_KW))
+        if not r.get("factor")
+        and (r.get("demerger") or any(k in (r.get("subject") or "").lower() for k in RIGHTS_KW))
     ]
     bse = e.get("bse") or {}
     bse_ok = bse.get("status") == "ok"
@@ -158,18 +166,25 @@ def verdict(e):
     nse_prod = day_products(split_rows)
     if any(match(f, F) for f in nse_prod.values()) or any(match(r["factor"], F) for r in bse_split):
         return "REAL", {"nse": split_rows, "bse": bse_split}
-    for ex_, f_ in nse_prod.items():  # exchange row names a split without its ratio; Yahoo supplies it
+    for (
+        ex_,
+        f_,
+    ) in nse_prod.items():  # exchange row names a split without its ratio; Yahoo supplies it
         for y in ys:
             if abs(y["date"] - ex_) <= 3 and match(f_ * y["factor"], F):
                 return "REAL", {
-                    "nse": [dict(r, factor=f_ * y["factor"]) for r in split_rows if r["ex"] == ex_][:1],
+                    "nse": [dict(r, factor=f_ * y["factor"]) for r in split_rows if r["ex"] == ex_][
+                        :1
+                    ],
                     "bse": [],
                     "combined_with_yahoo": y,
                 }
     if split_rows or bse_split:
         return "WRONG_FACTOR", {"nse": split_rows, "bse": bse_split}
     if other_rows or bse_other:
-        dem = [x for x in _DEM if x[0] == e["sym"] and a - 7 <= int(x[1]) <= b + 7 and match(x[2], F)]
+        dem = [
+            x for x in _DEM if x[0] == e["sym"] and a - 7 <= int(x[1]) <= b + 7 and match(x[2], F)
+        ]
         if dem:
             return "LEDGER_DEMERGER", {"demerger_adj": dem, "nse": other_rows}
         return "OTHER_ACTION", {"nse": other_rows, "bse": bse_other}
@@ -179,13 +194,16 @@ def verdict(e):
     all_ex = nse.get("all_ex") or []
     in_era = any(abs(x // 10000 - b // 10000) <= 3 for x in all_ex)
     camp = campaign(e["sym"], a, b)
-    camp_bse_none = any(c.get("bse_reach") and not c.get("bse_factor") and not c.get("bse_rights") for c in camp)
+    camp_bse_none = any(
+        c.get("bse_reach") and not c.get("bse_factor") and not c.get("bse_rights") for c in camp
+    )
     camp_bse_split = [c for c in camp if c.get("bse_factor")]
     if camp_bse_split and any(match(c["bse_factor"], F) for c in camp_bse_split):
         return "REAL", {
             "nse": [],
             "bse": [
-                {"ex": c["ex"], "factor": c["bse_factor"], "subject": "§87 campaign BSE record"} for c in camp_bse_split
+                {"ex": c["ex"], "factor": c["bse_factor"], "subject": "§87 campaign BSE record"}
+                for c in camp_bse_split
             ],
         }
     y_none = yahoo_covered(e.get("yahoo_events") or {}) and not ys
@@ -195,7 +213,11 @@ def verdict(e):
     if e.get("raw_ratio_bhav") is None:
         need.append("no bhavcopy raw move")
     elif not raw_ok:
-        need.append("bhavcopy raw move {} disagrees with audit raw {}".format(e.get("raw_ratio_bhav"), e["raw"]))
+        need.append(
+            "bhavcopy raw move {} disagrees with audit raw {}".format(
+                e.get("raw_ratio_bhav"), e["raw"]
+            )
+        )
     if ys:
         need.append(f"Yahoo lists a non-matching split {ys}")
     if 20060101 <= b < 20160101 and not (y_none or camp_bse_none):
@@ -219,7 +241,10 @@ def verdict(e):
         }
     import datetime as _dt
 
-    if (_dt.date(b // 10000, b // 100 % 100, b % 100) - _dt.date(a // 10000, a // 100 % 100, a % 100)).days > 365:
+    if (
+        _dt.date(b // 10000, b // 100 % 100, b % 100)
+        - _dt.date(a // 10000, a // 100 % 100, a % 100)
+    ).days > 365:
         need.append(
             "boundary spans >1 year with no NSE bars — actions filed only on BSE in that span are "
             "invisible to the NSE feed and BSE is unreachable"
@@ -258,7 +283,11 @@ def main():
                 "evidence": why,
             }
         )
-    json.dump({"rules": __doc__, "verdicts": res}, open(os.path.join(HERE, "ca_review_verdicts.json"), "w"), indent=0)
+    json.dump(
+        {"rules": __doc__, "verdicts": res},
+        open(os.path.join(HERE, "ca_review_verdicts.json"), "w"),
+        indent=0,
+    )
 
     def era(y):
         return "pre2006" if y < 20060101 else "2006-15" if y < 20160101 else "2016+"
@@ -295,7 +324,10 @@ def main():
         # WRONG_FACTOR: the exchange's exact factor goes in the hist ledger AND the event is parked in
         # unconfirmed_ca.json keyed by the official ex-date, so self_heal reconciles it at any age
         # (baked guess -> official factor) and prune_unconfirmed clears it once measured applied.
-        E = {(x["sym"], x["b"]): x for x in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]}
+        E = {
+            (x["sym"], x["b"]): x
+            for x in json.load(open(os.path.join(HERE, "ca_review_evidence.json")))["events"]
+        }
         u_p = os.path.join(HERE, "unconfirmed_ca.json")
         U = json.load(open(u_p)) if os.path.exists(u_p) else {}
         raw_p = os.path.join(HERE, "crash_raw_prices.json")
@@ -328,14 +360,20 @@ def main():
                     r["F"], f, recs[0]["subject"][:60]
                 ),
             }
-            RAW.setdefault(r["sym"], {}).update({str(r["a"]): pa["close"], str(r["b"]): pb["close"]})
+            RAW.setdefault(r["sym"], {}).update(
+                {str(r["a"]): pa["close"], str(r["b"]): pb["close"]}
+            )
             n_wf += 1
         # RIGHTS: TERP residual vs the factor actually baked (exchange raw move / our published move)
         rt_p = os.path.join(HERE, "rights_terp.json")
         RT = json.load(open(rt_p))
         n_rt = 0
         rte_p = os.path.join(HERE, "ca_rights_terp_evidence.json")
-        RTE = {(x["sym"], x["b"]): x for x in json.load(open(rte_p))["events"]} if os.path.exists(rte_p) else {}
+        RTE = (
+            {(x["sym"], x["b"]): x for x in json.load(open(rte_p))["events"]}
+            if os.path.exists(rte_p)
+            else {}
+        )
         for r in res:
             if r["verdict"] != "OTHER_ACTION":
                 continue
@@ -354,7 +392,9 @@ def main():
         # OTHER_ACTION demerger with no demerger_adj factor -> official keep-drop (the day-of policy)
         n_kd = 0
         for r in res:
-            if r["verdict"] == "OTHER_ACTION" and any(x.get("demerger") for x in r["evidence"]["nse"]):
+            if r["verdict"] == "OTHER_ACTION" and any(
+                x.get("demerger") for x in r["evidence"]["nse"]
+            ):
                 v = pc.setdefault(r["sym"], [])
                 if r["b"] not in v:
                     v.append(r["b"])

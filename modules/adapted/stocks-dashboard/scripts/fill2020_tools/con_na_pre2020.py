@@ -258,7 +258,9 @@ def main():
                 std_q.add(qe)
         first_con = min(con_q) if con_q else None
         first_con_filed = (
-            to_qe(con_q[first_con].get("filingDate") or con_q[first_con].get("broadCastDate")) if first_con else None
+            to_qe(con_q[first_con].get("filingDate") or con_q[first_con].get("broadCastDate"))
+            if first_con
+            else None
         )
         mrec = mc.get(sym) or {}
         mcells = mrec.get("cells") or {}
@@ -266,7 +268,12 @@ def main():
         facts = {}
         for qe in gaps:
             st = mcells.get(str(qe), {}).get("state")
-            facts[qe] = {"nse_std": qe in std_q, "nse_con": qe in con_q, "nse_con_cum": qe in cum_q, "mc": st}
+            facts[qe] = {
+                "nse_std": qe in std_q,
+                "nse_con": qe in con_q,
+                "nse_con_cum": qe in cum_q,
+                "mc": st,
+            }
             y = qe // 10000
             yr_scope[y] = yr_scope.get(y, 0) + 1
             if qe in con_q:
@@ -286,7 +293,9 @@ def main():
         refused = {
             k: v.get("skip")
             for k, v in reads.items()
-            if k.startswith(sym + "|") and v.get("skip") and int(k.split("|")[1]) in targets[sym]["qes"]
+            if k.startswith(sym + "|")
+            and v.get("skip")
+            and int(k.split("|")[1]) in targets[sym]["qes"]
         }
         lead = [qe for qe in gaps if first_con is None or qe < first_con]
         trail = [qe for qe in gaps if first_con is not None and qe >= first_con]
@@ -306,7 +315,9 @@ def main():
         lead_mc_diff = [
             qe
             for qe in lead
-            if facts[qe]["mc"] == "differs" and (comp_lo is None or qe < comp_lo) and qe not in held_con
+            if facts[qe]["mc"] == "differs"
+            and (comp_lo is None or qe < comp_lo)
+            and qe not in held_con
         ]
         comp_mc_diff = [qe for qe in comp_win if facts[qe]["mc"] == "differs"]
         # classification
@@ -320,7 +331,9 @@ def main():
             cls = f"CON-FILER-THROUGHOUT(first con {first_con} precedes every gap quarter)"
         elif not mrec.get("id"):
             cls = "ONE-READER(Moneycontrol has no id for this company; the exchange index alone is not closed as N/A)"
-        elif not (mrec["anchor"]["hits"] >= 2 and mrec["anchor"]["hits"] * 2 >= mrec["anchor"]["tries"]):
+        elif not (
+            mrec["anchor"]["hits"] >= 2 and mrec["anchor"]["hits"] * 2 >= mrec["anchor"]["tries"]
+        ):
             cls = (
                 "ONE-READER(Moneycontrol standalone series does not anchor to ours: %d/%d gap quarters reproduce our stored std)"
                 % (mrec["anchor"]["hits"], mrec["anchor"]["tries"])
@@ -352,7 +365,14 @@ def main():
             "mc_std_anchor": mrec.get("anchor"),
             "mc_lead_states": {
                 (s or "unswept"): sum(1 for qe in lead if facts[qe]["mc"] == s)
-                for s in ("differs", "identical", "no-con-row", "no-std-row", "con-row-no-pat", None)
+                for s in (
+                    "differs",
+                    "identical",
+                    "no-con-row",
+                    "no-std-row",
+                    "con-row-no-pat",
+                    None,
+                )
             },
             "comparative_window_quarters": len(comp_win),
             "comparative_window_mc_differs": len(comp_mc_diff),
@@ -372,12 +392,16 @@ def main():
         # the STORE's own earliest consolidated announce date caps the run too: a consolidated
         # quarter landed from a document the exchange index never listed (FEL Sep-2010 from the
         # BSE pack, M&M Dec-2011 from its group-results statement) ends the never-filed run there.
-        store_ann = [r[4] for r in fund.get(key, []) if len(r) > 4 and r[3] is not None and r[4] and r[4] > 0]
+        store_ann = [
+            r[4] for r in fund.get(key, []) if len(r) > 4 and r[3] is not None and r[4] and r[4] > 0
+        ]
         if store_ann:
             hard_to = min(hard_to, day_before(iso(min(store_ann))))
         n_std_lead = lead_std
         for p in CON_PARAMS:
-            dates = [d for d in explain_dates if d <= hard_to and key in set(explain[d].get(p) or [])]
+            dates = [
+                d for d in explain_dates if d <= hard_to and key in set(explain[d].get(p) or [])
+            ]
             if not dates:
                 continue
             e = {
@@ -394,7 +418,9 @@ def main():
                         key,
                         W_FROM,
                         W_TO,
-                        (f"QE {first_con} filed {first_con_filed}") if first_con else "none in the record",
+                        (f"QE {first_con} filed {first_con_filed}")
+                        if first_con
+                        else "none in the record",
                         dates[0],
                         dates[-1],
                     )
@@ -428,7 +454,8 @@ def main():
                         TODAY,
                         mrec.get("note") or "not resolved on MC",
                         srep["mc_lead_states"].get("identical", 0),
-                        srep["mc_lead_states"].get("no-con-row", 0) + srep["mc_lead_states"].get("unswept", 0),
+                        srep["mc_lead_states"].get("no-con-row", 0)
+                        + srep["mc_lead_states"].get("unswept", 0),
                         (
                             "MC does hold %d differing figure(s) inside the four quarters preceding the first consolidated "
                             "filing (QE %s): the comparative column of that filing, public only from its filing date -- "
@@ -472,7 +499,11 @@ def main():
     for p in CON_PARAMS:
         n = 0
         for key, e in entries[p].items():
-            n += sum(1 for d in explain_dates if e["from"] <= d <= e["to"] and key in set(explain[d].get(p) or []))
+            n += sum(
+                1
+                for d in explain_dates
+                if e["from"] <= d <= e["to"] and key in set(explain[d].get(p) or [])
+            )
         excused[p] = n
     report["na_entries"] = n_entries
     report["na_excused_member_dates"] = excused
@@ -515,15 +546,27 @@ def main():
                 merged += 1
                 continue
             # an existing verdict for the same filer: widen only a compatible C-basis window
-            if str(old.get("class", "")).startswith("C-basis") and old.get("from") and old.get("from") > e["to"]:
-                gap_days = (dt.date.fromisoformat(old["from"]) - dt.date.fromisoformat(e["to"])).days
+            if (
+                str(old.get("class", "")).startswith("C-basis")
+                and old.get("from")
+                and old.get("from") > e["to"]
+            ):
+                gap_days = (
+                    dt.date.fromisoformat(old["from"]) - dt.date.fromisoformat(e["to"])
+                ).days
                 if gap_days <= 400:  # contiguous-ish: the same leading run
                     new = dict(old)
                     new["from"] = e["from"]
                     new["supersedes"] = (
                         "bound widened {} by CON-GAP PRE-2020: was {}..{}, is {}..{}; pre-2020 evidence: "
                         "reader_1=[{}] reader_2=[{}]".format(
-                            TODAY, old["from"], old.get("to"), e["from"], old.get("to"), e["reader_1"], e["reader_2"]
+                            TODAY,
+                            old["from"],
+                            old.get("to"),
+                            e["from"],
+                            old.get("to"),
+                            e["reader_1"],
+                            e["reader_2"],
                         )
                     )
                     L[key] = new

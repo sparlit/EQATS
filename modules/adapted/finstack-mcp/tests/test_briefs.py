@@ -26,7 +26,9 @@ from finstack.briefs import generate_daily_brief
 
 def test_generate_daily_brief_shapes_output(monkeypatch):
     monkeypatch.setattr("finstack.briefs.get_market_status", lambda: {"status": "OPEN"})
-    monkeypatch.setattr("finstack.briefs.get_index_data", lambda name: {"index": name, "value": 100})
+    monkeypatch.setattr(
+        "finstack.briefs.get_index_data", lambda name: {"index": name, "value": 100}
+    )
     monkeypatch.setattr(
         "finstack.briefs.get_market_movers",
         lambda kind: {"stocks": [{"symbol": f"{kind.upper()}1", "change_pct": 1.5}]},

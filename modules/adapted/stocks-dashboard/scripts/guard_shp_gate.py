@@ -43,11 +43,17 @@ errs = []
 if "def visible_iso(rec):" not in src:
     errs.append("visible_iso() is missing from fetch_shareholding.py")
 if "def legacy_gate_iso(rec):" not in src or "def regate_recent(" not in src:
-    errs.append("legacy_gate_iso()/regate_recent() (the §149 recogniser for rows the retired gate dated) are missing")
+    errs.append(
+        "legacy_gate_iso()/regate_recent() (the §149 recogniser for rows the retired gate dated) are missing"
+    )
 # The two INGESTION functions must date rows through visible_iso — checked by name, not by counting call
 # sites file-wide: the count-of-2 form broke the moment bank_sme_shares (§145, 2026-09-23 01:00) added a
 # third, harmless call and every shareholding run from 22-Sep 19:42Z failed on the guard, not on data.
-funcs = {n.name: ast.get_source_segment(src, n) for n in ast.walk(ast.parse(src)) if isinstance(n, ast.FunctionDef)}
+funcs = {
+    n.name: ast.get_source_segment(src, n)
+    for n in ast.walk(ast.parse(src))
+    if isinstance(n, ast.FunctionDef)
+}
 n_calls = 0
 for fn in ("refresh_quarters", "refresh_events"):
     body = funcs.get(fn) or ""
@@ -66,7 +72,10 @@ if not errs:
     cases = [
         ("17-JUL-2026 12:24:26", "2026-07-17"),  # before close, trading day -> same day
         ("17-OCT-2025 16:46:27", "2025-10-17"),  # Friday after close -> still Friday
-        ("28-MAR-2026 20:37:02", "2026-03-28"),  # Saturday -> Saturday (visible to Monday's screen via <=)
+        (
+            "28-MAR-2026 20:37:02",
+            "2026-03-28",
+        ),  # Saturday -> Saturday (visible to Monday's screen via <=)
         ("01-JUL-2026 17:47:11", "2026-07-01"),  # weekday after close -> same day
         ("25-JAN-2026 10:00:00", "2026-01-25"),
     ]  # Sunday before Republic Day -> Sunday

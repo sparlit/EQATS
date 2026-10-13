@@ -87,8 +87,12 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-DATA_FILE = Path("/home/ec2-user/nse-factor-engine/hmm-factor-engine/data/nifty500_hmm_data.parquet")
-MODEL_FILE = Path("/home/ec2-user/nse-factor-engine/hmm-factor-engine/regime/models/hmm_3states_200511_201912.pkl")
+DATA_FILE = Path(
+    "/home/ec2-user/nse-factor-engine/hmm-factor-engine/data/nifty500_hmm_data.parquet"
+)
+MODEL_FILE = Path(
+    "/home/ec2-user/nse-factor-engine/hmm-factor-engine/regime/models/hmm_3states_200511_201912.pkl"
+)
 LABELS_FILE = Path(
     "/home/ec2-user/nse-factor-engine/hmm-factor-engine/regime/models/hmm_viterbi_labels_200511_201912.parquet"
 )
@@ -138,18 +142,22 @@ def run_viterbi(train: pd.DataFrame, bundle: dict) -> pd.Series:
 
     X_scaled = scaler.transform(train[features].values)
     viterbi_numeric = model.predict(X_scaled)
-    return pd.Series(
+    viterbi_labels = pd.Series(
         [state_labels[s] for s in viterbi_numeric],
         index=train.index,
         name="regime_raw",
     )
+    return viterbi_labels
 
 
 # ---------------------------------------------------------------------------
 # Minimum duration filter
 # ---------------------------------------------------------------------------
 def apply_min_duration_filter(
-    labels: pd.Series, min_duration: int = MIN_CRISIS_DURATION, target: str = "Crisis", relabel_as: str = "Choppy"
+    labels: pd.Series,
+    min_duration: int = MIN_CRISIS_DURATION,
+    target: str = "Crisis",
+    relabel_as: str = "Choppy",
 ) -> tuple:
     """
     Relabels any 'target' episode shorter than min_duration consecutive
@@ -262,7 +270,10 @@ def print_summary(raw: pd.Series, filtered: pd.Series, changes: list, duration_s
         print("  Episodes relabelled : 0 — no short Crisis episodes found")
 
     print("\n--- Regime distribution (post-filter) ---")
-    print(f"  {'Regime':<10} {'Months':>8} {'Pct':>8} {'Avg Run':>10} {'Max Run':>10} {'Episodes':>10}")
+    print(
+        f"  {'Regime':<10} {'Months':>8} {'Pct':>8} "
+        f"{'Avg Run':>10} {'Max Run':>10} {'Episodes':>10}"
+    )
     print(f"  {'-' * 10} {'-' * 8} {'-' * 8} {'-' * 10} {'-' * 10} {'-' * 10}")
     for regime in ["Bull", "Choppy", "Crisis"]:
         n = counts.get(regime, 0)
@@ -329,7 +340,9 @@ def save_artifacts(
         "min_crisis_duration_filter": MIN_CRISIS_DURATION,
         "filter_changes": changes,
         "regime_counts": {r: int(counts.get(r, 0)) for r in ["Bull", "Choppy", "Crisis"]},
-        "regime_pct": {r: round(counts.get(r, 0) / total * 100, 2) for r in ["Bull", "Choppy", "Crisis"]},
+        "regime_pct": {
+            r: round(counts.get(r, 0) / total * 100, 2) for r in ["Bull", "Choppy", "Crisis"]
+        },
         "duration_stats": duration_stats,
         "stress_validation": stress_val,
     }
@@ -360,7 +373,9 @@ def main():
     print(f"  Decoded {len(raw_labels)} months")
 
     # 4. Apply minimum duration filter
-    print(f"\nApplying minimum Crisis duration filter (threshold = {MIN_CRISIS_DURATION} months) ...")
+    print(
+        f"\nApplying minimum Crisis duration filter (threshold = {MIN_CRISIS_DURATION} months) ..."
+    )
     filtered_labels, changes = apply_min_duration_filter(raw_labels)
     print(f"  Episodes relabelled: {len(changes)}")
 

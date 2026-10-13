@@ -50,7 +50,10 @@ def _rules_entry_timing(ind: dict) -> str:
     if volume_ratio < 1.5:
         return "POOR"
     for level in settings.round_number_levels:
-        if current_price > 0 and abs(current_price - level) / level < settings.resistance_proximity_pct:
+        if (
+            current_price > 0
+            and abs(current_price - level) / level < settings.resistance_proximity_pct
+        ):
             return "POOR"
 
     conditions = [
@@ -144,7 +147,9 @@ def _rules_market_regime(market_context: dict | None) -> str:
     return "NEUTRAL"
 
 
-def compute_rules_confidence(technical: dict, risk: dict, market_context: dict | None = None) -> dict:
+def compute_rules_confidence(
+    technical: dict, risk: dict, market_context: dict | None = None
+) -> dict:
     """Score a setup 0-100 across four banded dimensions.
 
     Returns the score plus the band each dimension landed in, so callers can

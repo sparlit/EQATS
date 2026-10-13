@@ -54,8 +54,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.dirname(HERE)
 ROOT = os.path.dirname(SCRIPTS)
 LEDGER = os.path.join(SCRIPTS, "stdcon_fixes.json")
-FUND = [(os.path.join(ROOT, "docs", "sf_fundamentals.json"), 1), (os.path.join(SCRIPTS, "fundamentals.json"), 1)]
-REVOP = [(os.path.join(ROOT, "docs", "sf_revop.json"), 4), (os.path.join(SCRIPTS, "revop_fundamentals.json"), 4)]
+FUND = [
+    (os.path.join(ROOT, "docs", "sf_fundamentals.json"), 1),
+    (os.path.join(SCRIPTS, "fundamentals.json"), 1),
+]
+REVOP = [
+    (os.path.join(ROOT, "docs", "sf_revop.json"), 4),
+    (os.path.join(SCRIPTS, "revop_fundamentals.json"), 4),
+]
 EPS = 0.005
 
 
@@ -82,20 +88,23 @@ def main():
                 continue
             if not near(row[idx], c["old_std"]):
                 report.append(
-                    "  BLOCK %-44s stored std is %s, ledger expects %s -- NOT touched" % (tag, row[idx], c["old_std"])
+                    "  BLOCK %-44s stored std is %s, ledger expects %s -- NOT touched"
+                    % (tag, row[idx], c["old_std"])
                 )
                 blocked += 1
                 continue
             if len(row) > 3 and not near(row[3], c["con"]):
                 report.append(
-                    "  BLOCK %-44s con slot is %s, ledger expects %s -- NOT touched" % (tag, row[3], c["con"])
+                    "  BLOCK %-44s con slot is %s, ledger expects %s -- NOT touched"
+                    % (tag, row[3], c["con"])
                 )
                 blocked += 1
                 continue
             row[idx] = c["new_std"]
             touched.append((c["sym"], c["qe"]))
             report.append(
-                "  FIX   %-44s std %s -> %s   (con %s left as filed)" % (tag, c["old_std"], c["new_std"], c["con"])
+                "  FIX   %-44s std %s -> %s   (con %s left as filed)"
+                % (tag, c["old_std"], c["new_std"], c["con"])
             )
         assert_only(before, d, touched, path, idx, kind="fund")
         if apply_ and touched:
@@ -159,13 +168,17 @@ def assert_only(before, after, touched, path, idx, kind):
                     diffs.append((k, int(qe), (b or {}).get(qe), (a or {}).get(qe)))
     unexpected = [d for d in diffs if (d[0], d[1]) not in want]
     if unexpected:
-        msg = f"ABORT {os.path.basename(path)}: unexpected diffs {unexpected[:4]}"
-        raise SystemExit(msg)
+        raise SystemExit(f"ABORT {os.path.basename(path)}: unexpected diffs {unexpected[:4]}")
     for sym, qe, b, a in diffs:  # and each intended diff must be ONE slot
-        changed = [i for i in range(max(len(b or []), len(a or []))) if (b or [None] * 9)[i] != (a or [None] * 9)[i]]
+        changed = [
+            i
+            for i in range(max(len(b or []), len(a or [])))
+            if (b or [None] * 9)[i] != (a or [None] * 9)[i]
+        ]
         if changed != [idx]:
             raise SystemExit(
-                "ABORT %s: %s %s changed slots %s, expected only [%d]" % (os.path.basename(path), sym, qe, changed, idx)
+                "ABORT %s: %s %s changed slots %s, expected only [%d]"
+                % (os.path.basename(path), sym, qe, changed, idx)
             )
     print("  [%s] %d cell(s) changed, no collateral edits" % (os.path.basename(path), len(diffs)))
 

@@ -294,8 +294,7 @@ class MonteCarlo:
     def run(self, result: BacktestResult) -> MonteCarloResult:
         """Shuffle trades n_simulations times and compute metric distributions."""
         if not result.trades:
-            msg = "BacktestResult has no trades — cannot run Monte Carlo simulation."
-            raise ValueError(msg)
+            raise ValueError("BacktestResult has no trades — cannot run Monte Carlo simulation.")
 
         rng = np.random.default_rng(self.seed)
         pnl_pcts = np.array([t.pnl_pct for t in result.trades], dtype=float)
@@ -365,8 +364,7 @@ class Bootstrap:
     def run(self, result: BacktestResult) -> BootstrapResult:
         """Resample trades with replacement and compute metric CIs."""
         if not result.trades:
-            msg = "BacktestResult has no trades — cannot run Bootstrap resampling."
-            raise ValueError(msg)
+            raise ValueError("BacktestResult has no trades — cannot run Bootstrap resampling.")
 
         rng = np.random.default_rng(self.seed)
         pnl_pcts = np.array([t.pnl_pct for t in result.trades], dtype=float)
@@ -504,17 +502,18 @@ class WalkForward:
             current += timedelta(days=test_days)
 
         if not windows:
-            msg = (
+            raise RuntimeError(
                 f"No valid walk-forward windows for {symbol} over {period}. "
                 "Try a longer period or shorter window sizes."
             )
-            raise RuntimeError(msg)
 
         avg_test_return = sum(w.test_return for w in windows) / len(windows)
         profitable_windows = sum(1 for w in windows if w.test_return > 0)
         consistency_ratio = profitable_windows / len(windows)
 
-        in_sample_cagr = sum(r.cagr for r in train_results) / len(train_results) if train_results else 0.0
+        in_sample_cagr = (
+            sum(r.cagr for r in train_results) / len(train_results) if train_results else 0.0
+        )
         out_of_sample_cagr = avg_test_return  # proxy: mean test window return
 
         overfitting_ratio = out_of_sample_cagr / in_sample_cagr if in_sample_cagr != 0 else 1.0

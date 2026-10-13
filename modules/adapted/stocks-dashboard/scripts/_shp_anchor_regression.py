@@ -28,7 +28,6 @@ Parses the SAME bytes with origin/main's parse_shp and the patched one. The chan
 purely additive, so the ONLY legal transition is None -> dict. Any dict -> different dict is a
 scale/value regression and fails the run.
 """
-import collections
 import importlib.util
 import json
 import os
@@ -49,7 +48,9 @@ import fetch_shareholding as NEW
 OLDP = "/tmp/_fs_old_%d.py" % os.getpid()
 open(OLDP, "wb").write(
     subprocess.run(
-        ["git", "show", "origin/main:scripts/fetch_shareholding.py"], capture_output=True, cwd=os.path.dirname(HERE)
+        ["git", "show", "origin/main:scripts/fetch_shareholding.py"],
+        capture_output=True,
+        cwd=os.path.dirname(HERE),
     ).stdout
 )
 spec = importlib.util.spec_from_file_location("fs_old", OLDP)
@@ -107,16 +108,23 @@ def jobs():
     out = []
     for code in CODES:
         try:
-            rows = json.loads(get("https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode=%d" % code))[
-                "Table"
-            ]
+            rows = json.loads(
+                get("https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode=%d" % code)
+            )["Table"]
         except Exception as e:
             print("  qlist fail %d %r" % (code, e))
             continue
         for r in rows:
             qe = qe_of(r.get("qtr"))
             if qe and (r.get("XbrlFile") or "").strip():
-                out.append((code, qe, "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + r["XbrlFile"].strip()))
+                out.append(
+                    (
+                        code,
+                        qe,
+                        "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/"
+                        + r["XbrlFile"].strip(),
+                    )
+                )
     return out
 
 
@@ -173,6 +181,10 @@ if gained:
     print("\nnewly parsed (was refused):")
     for code, qe, o, n in res:
         if o is None and isinstance(n, dict):
-            print("  {} {} -> prom={} pub={} fii={} dii={}".format(code, qe, n["prom"], n["pub"], n["fii"], n["dii"]))
+            print(
+                "  {} {} -> prom={} pub={} fii={} dii={}".format(
+                    code, qe, n["prom"], n["pub"], n["fii"], n["dii"]
+                )
+            )
 os.unlink(OLDP)
 sys.exit(1 if changed else 0)

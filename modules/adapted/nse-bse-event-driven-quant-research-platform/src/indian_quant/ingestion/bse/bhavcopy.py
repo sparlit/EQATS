@@ -43,7 +43,9 @@ Sources:
 
 
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+import pandas as pd
 
 from indian_quant.schemas import (
     AdjustmentStatus,
@@ -54,9 +56,6 @@ from indian_quant.schemas import (
     Timeframe,
     make_instrument_id,
 )
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 class SourceBlockedError(RuntimeError):
@@ -134,7 +133,9 @@ class BseBhavcopyIngester:
                 continue
             h = max(h, o, c)
             low = min(low, o, c) if low > 0 else min(o, c)
-            ts = datetime.fromisoformat(str(row.get("TradDt") or day.isoformat())).replace(tzinfo=UTC)
+            ts = datetime.fromisoformat(str(row.get("TradDt") or day.isoformat())).replace(
+                tzinfo=UTC
+            )
             bars.append(
                 MarketBar(
                     instrument_id=make_instrument_id(Exchange.BSE, segment, symbol),

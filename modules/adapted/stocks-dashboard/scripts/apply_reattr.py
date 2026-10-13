@@ -52,7 +52,10 @@ def main():
     tmp = F + ".tmp"
     json.dump(live, open(tmp, "w"), separators=(",", ":"))
     os.replace(tmp, F)
-    print("Applied attributable-to-owners to %d consolidated quarters across %d stocks." % (changed, len(stocks)))
+    print(
+        "Applied attributable-to-owners to %d consolidated quarters across %d stocks."
+        % (changed, len(stocks))
+    )
 
 
 if __name__ == "__main__":

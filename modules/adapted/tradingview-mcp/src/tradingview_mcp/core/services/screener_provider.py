@@ -33,9 +33,7 @@ import time as _time
 from threading import Lock as _Lock
 from threading import RLock as _RLock
 from threading import Semaphore as _Semaphore
-from typing import Any, Dict, List, Optional, Tuple
-
-from ..utils.validators import get_market_type
+from typing import Any
 
 
 # --- Socket-level timeout (added 2026-05-20) ------------------------------
@@ -389,7 +387,7 @@ def _scan_with_retry(q, cookies=None, cache_key: tuple | None = None):
             if cache_key is not None:
                 _cache_set(cache_key, result)
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - intentionally broad, narrowed below
             if not _is_transient_screener_error(e):
                 raise
             last_exc = e
@@ -428,8 +426,7 @@ def resilient_get_multiple_analysis(screener, interval, symbols):
     try:
         from tradingview_ta import get_multiple_analysis as _gma  # type: ignore
     except Exception as e:
-        msg = "tradingview_ta is not installed"
-        raise ImportError(msg) from e
+        raise ImportError("tradingview_ta is not installed") from e
 
     sym_key = tuple(sorted(symbols)) if symbols else ()
     cache_key = ("ta_multi_v1", screener, interval, sym_key)
@@ -438,7 +435,7 @@ def resilient_get_multiple_analysis(screener, interval, symbols):
         return cached
 
     _wait_for_failure_cooldown()
-    delays = (0.0, *_retry_delays())
+    delays = (0.0,) + _retry_delays()
     last_exc: BaseException | None = None
     total_wait = 0.0
     for i, delay in enumerate(delays):
@@ -462,13 +459,14 @@ def resilient_get_multiple_analysis(screener, interval, symbols):
                 _ta_throttle_release()
             _cache_set(cache_key, result)
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             if not _is_transient_screener_error(e):
                 raise
             last_exc = e
             with contextlib.suppress(Exception):
                 print(
-                    f"[tradingview_mcp] transient TA error (attempt {i + 1}/{len(delays)}, slept {wait:.1f}s): {e!r}",
+                    f"[tradingview_mcp] transient TA error (attempt {i + 1}/{len(delays)}, "
+                    f"slept {wait:.1f}s): {e!r}",
                     file=_sys.stderr,
                 )
             continue
@@ -557,7 +555,7 @@ def fetch_atr_for_tickers(
         resp = requests.post(url, json=payload, timeout=timeout)
         resp.raise_for_status()
         body = resp.json()
-    except Exception:
+    except Exception:  # noqa: BLE001 — graceful degrade
         return dict.fromkeys(tickers)
 
     rows = body.get("data") if isinstance(body, dict) else None

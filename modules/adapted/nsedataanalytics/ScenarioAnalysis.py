@@ -30,11 +30,7 @@ import matplotlib.pyplot as plt
 import MySQLdb
 import numpy as np
 import pandas as pd
-import vollib
-from gdata.contentforshopping.data import Price
 from matplotlib import cm
-from matplotlib.ticker import FormatStrFormatter, LinearLocator
-from mpl_toolkits.mplot3d import Axes3D
 from vollib.black_scholes import black_scholes
 from vollib.black_scholes.greeks.analytical import delta, gamma, theta, vega
 from vollib.black_scholes.implied_volatility import implied_volatility
@@ -79,7 +75,9 @@ class Option:
             f"select timestamp from {self.symbol} order by timestamp desc limit 1", db
         ).timestamp[0]
         sql = 'select settle_pr,expiry_dt from %s where timestamp=STR_TO_DATE("%s","%%Y-%%m-%%d") and STRIKE_PR=%f and OPTION_TYP="%s" and MONTH_CODE="1M"'
-        data = pd.read_sql(sql % (self.symbol, self.valdate.date().__str__(), self.strike, self.type), con=db)
+        data = pd.read_sql(
+            sql % (self.symbol, self.valdate.date().__str__(), self.strike, self.type), con=db
+        )
         fut_sql = 'select settle_pr from %s where timestamp=STR_TO_DATE("%s","%%Y-%%m-%%d") and MONTH_CODE="1M" and (INSTRUMENT="FUTSTK" or INSTRUMENT="FUTIDX")'
         fut = pd.read_sql(fut_sql % (self.symbol, self.valdate.date().__str__()), con=db)
         db.close()
@@ -94,7 +92,9 @@ class Option:
         (flag, S, K, t, r, sigma)"""
         global r
 
-        self.vol = implied_volatility(self.price, self.underlying, self.strike, self.timedelta, r, self.flag)
+        self.vol = implied_volatility(
+            self.price, self.underlying, self.strike, self.timedelta, r, self.flag
+        )
         self.delta = delta(self.flag, self.underlying, self.strike, self.timedelta, r, self.vol)
         self.gamma = gamma(self.flag, self.underlying, self.strike, self.timedelta, r, self.vol)
         self.vega = vega(self.flag, self.underlying, self.strike, self.timedelta, r, self.vol)
@@ -103,9 +103,9 @@ class Option:
     def recalc(self, Scenario):
         global r
         S = self.underlying * (1 + Scenario.fut / 100.0)
-        t = (self.expiry - (self.valdate + dt.timedelta(days=Scenario.expiry_delta))).total_seconds() / (
-            365.0 * 24 * 60 * 60
-        )
+        t = (
+            self.expiry - (self.valdate + dt.timedelta(days=Scenario.expiry_delta))
+        ).total_seconds() / (365.0 * 24 * 60 * 60)
         sigma = self.vol + Scenario.vol / 100.0
         self.scenario_price = black_scholes(self.flag, S, self.strike, t, r, sigma)
         self.PnL = 100 * (self.scenario_price - self.price) / self.price
@@ -115,7 +115,8 @@ class Option:
 if __name__ == "__main__":
     option = Option(symbol="AXISBANK", strike=430, type="CE")
     Scenarios = [
-        Scenario(fut=f, vol=v, expiry_delta=7) for f, v in product(np.arange(-20, 21, 1), np.arange(-10, 15, 5))
+        Scenario(fut=f, vol=v, expiry_delta=7)
+        for f, v in product(np.arange(-20, 21, 1), np.arange(-10, 15, 5))
     ]
     profits = [option.recalc(s) for s in Scenarios]
     X = [pro.fut for pro in profits]

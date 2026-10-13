@@ -21,8 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from pprint import pprint
-
 from NseStockAnalyser.utils import *
 
 
@@ -75,11 +73,13 @@ def index_52_wk_lows():
         "Best Buy Index (100 - ((Price diff from low / high52 - low52) * 100))",
     ]
     while True:
-        for i in range(len(sort_types)):
+        for i in range(0, len(sort_types)):
             print(f"{i + 1} : {sort_types[i]}")
 
         try:
-            opt = int(input(f"Which sorting order you prefer? (Input Range 1 - {len(sort_types)}): "))
+            opt = int(
+                input(f"Which sorting order you prefer? (Input Range 1 - {len(sort_types)}): ")
+            )
             if not 1 <= opt <= len(sort_types):
                 raise ValueError
             break

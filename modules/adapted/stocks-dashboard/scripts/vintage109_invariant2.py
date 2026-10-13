@@ -29,7 +29,6 @@ same cell to itself. A single WORSENED row is the §109d hole and blocks the cam
 """
 import json
 import os
-import sys
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))

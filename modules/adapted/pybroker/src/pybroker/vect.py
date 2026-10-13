@@ -292,7 +292,9 @@ def normal_cdf(z: float) -> float:
     zz = np.fabs(z)
     pdf = np.exp(-0.5 * zz * zz) / np.sqrt(2 * np.pi)
     t = 1 / (1 + zz * 0.2316419)
-    poly = ((((1.330274429 * t - 1.821255978) * t + 1.781477937) * t - 0.356563782) * t + 0.319381530) * t
+    poly = (
+        (((1.330274429 * t - 1.821255978) * t + 1.781477937) * t - 0.356563782) * t + 0.319381530
+    ) * t
     return 1 - pdf * poly if z > 0 else pdf * poly
 
 
@@ -335,18 +337,23 @@ def _atr(
     if lookback == 0:
         if use_log:
             return np.log(high[last_bar] / low[last_bar])
-        return high[last_bar] - low[last_bar]
+        else:
+            return high[last_bar] - low[last_bar]
     total = 0.0
     for i in range(last_bar - lookback + 1, last_bar + 1):
         if use_log:
             term = high[i] / low[i]
-            term = max(term, high[i] / close[i - 1])
-            term = max(term, close[i - 1] / low[i])
+            if high[i] / close[i - 1] > term:
+                term = high[i] / close[i - 1]
+            if close[i - 1] / low[i] > term:
+                term = close[i - 1] / low[i]
             total += np.log(term)
         else:
             term = high[i] - low[i]
-            term = max(term, high[i] - close[i - 1])
-            term = max(term, close[i - 1] - low[i])
+            if high[i] - close[i - 1] > term:
+                term = high[i] - close[i - 1]
+            if close[i - 1] - low[i] > term:
+                term = close[i - 1] - low[i]
             total += term
     return total / lookback
 
@@ -374,8 +381,7 @@ def atr(
         The first ``lookback`` values are ``NaN``, since the true range of the
         first bar has no previous close.
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     if not len(close):
         return np.array(())
     _verify_input(close, lookback)
@@ -522,8 +528,7 @@ def macd(
     Returns:
         :class:`numpy.ndarray` of computed values ranging [-50, 50].
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     assert short_length > 0
     assert short_length <= long_length
     assert smoothing >= 0
@@ -540,7 +545,8 @@ def macd(
         diff -= 0.5 * (short_length - 1.0)
         denom = np.sqrt(np.fabs(diff))
         k = int(long_length + smoothing)
-        k = min(k, i)
+        if k > i:
+            k = i
         denom *= _atr(i, k, high, low, close, False)
         output[i] = (short_sum - long_sum) / (denom + 1.0e-15)
         output[i] = 100.0 * normal_cdf(scale * output[i]) - 50.0
@@ -574,10 +580,9 @@ def stochastic(
     Returns:
         :class:`numpy.ndarray` of computed values.
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     assert lookback > 0
-    assert smoothing in {0, 1, 2}
+    assert smoothing == 0 or smoothing == 1 or smoothing == 2
     n = len(close)
     if lookback > n:
         return np.zeros(n)
@@ -589,19 +594,21 @@ def stochastic(
         sto_0 = (close[i] - min_vals[i]) / (max_vals[i] - min_vals[i] + 1.0e-60)
         if smoothing == 0:
             output[i] = 100.0 * sto_0 - 50
-        elif i == front_bad:
-            sto_1 = sto_0
-            output[i] = 100.0 * sto_0 - 50
         else:
-            sto_1 = 0.33333333 * sto_0 + 0.66666667 * sto_1
-            if smoothing == 1:
-                output[i] = 100.0 * sto_1 - 50
-            elif i == front_bad + 1:
-                sto_2 = sto_1
-                output[i] = 100.0 * sto_1 - 50
+            if i == front_bad:
+                sto_1 = sto_0
+                output[i] = 100.0 * sto_0 - 50
             else:
-                sto_2 = 0.33333333 * sto_1 + 0.66666667 * sto_2
-                output[i] = 100.0 * sto_2 - 50
+                sto_1 = 0.33333333 * sto_0 + 0.66666667 * sto_1
+                if smoothing == 1:
+                    output[i] = 100.0 * sto_1 - 50
+                else:
+                    if i == front_bad + 1:
+                        sto_2 = sto_1
+                        output[i] = 100.0 * sto_1 - 50
+                    else:
+                        sto_2 = 0.33333333 * sto_1 + 0.66666667 * sto_2
+                        output[i] = 100.0 * sto_2 - 50
     return output
 
 
@@ -628,7 +635,8 @@ def stochastic_rsi(
     assert smoothing >= 0
     n = len(values)
     front_bad = rsi_lookback + sto_lookback - 1
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     if rsi_lookback >= n:
         return output
@@ -657,8 +665,10 @@ def stochastic_rsi(
         min_val = 1.0e60
         max_val = -1.0e60
         for j in range(sto_lookback):
-            max_val = max(max_val, work1[i - j])
-            min_val = min(min_val, work1[i - j])
+            if work1[i - j] > max_val:
+                max_val = work1[i - j]
+            if work1[i - j] < min_val:
+                min_val = work1[i - j]
         output[i] = 100.0 * (work1[i] - min_val) / (max_val - min_val + 1.0e-60) - 50.0
     # front_bad is clamped up to n, so seeding from output[front_bad] reads one
     # past the end whenever the stochastic window leaves no computable bars.
@@ -754,9 +764,7 @@ def _trend(
     scale: float,
     trend_type: Literal["linear", "quadratic", "cubic"],
 ) -> NDArray[np.float64]:
-    assert len(values) == len(high)
-    assert len(values) == len(low)
-    assert len(values) == len(close)
+    assert len(values) == len(high) and len(values) == len(low) and len(values) == len(close)
     assert lookback > 0
     assert atr_length > 0
     assert scale > 0
@@ -771,8 +779,9 @@ def _trend(
     if trend_type == "linear" and lookback < 2:
         lookback = 2
     n = len(values)
-    front_bad = max(atr_length, lookback - 1)
-    front_bad = min(front_bad, n)
+    front_bad = lookback - 1 if ((lookback - 1) > atr_length) else atr_length
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     dptr = None
     for i in range(front_bad, n):
@@ -807,7 +816,8 @@ def _trend(
             diff = diff - pred
             rsq += diff * diff
         rsq = 1 - rsq / (yss + 1.0e-60)
-        rsq = max(rsq, 0)
+        if rsq < 0:
+            rsq = 0
         output[i] *= rsq
         output[i] = 100 * normal_cdf(scale * output[i]) - 50
     return output
@@ -915,8 +925,7 @@ def adx(
     Returns:
         :class:`numpy.ndarray` of computed values.
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     assert lookback > 0
     n = len(close)
     output = np.zeros(n)
@@ -940,8 +949,10 @@ def adx(
         dms_plus += dm_plus
         dms_minus += dm_minus
         term = high[i] - low[i]
-        term = max(term, high[i] - close[i - 1])
-        term = max(term, close[i - 1] - low[i])
+        if high[i] - close[i - 1] > term:
+            term = high[i] - close[i - 1]
+        if close[i - 1] - low[i] > term:
+            term = close[i - 1] - low[i]
         atr_ += term
         di_plus = dms_plus / (atr_ + 1.0e-10)
         di_minus = dms_minus / (atr_ + 1.0e-10)
@@ -959,8 +970,10 @@ def adx(
         dms_plus = (lookback - 1.0) / lookback * dms_plus + dm_plus
         dms_minus = (lookback - 1.0) / lookback * dms_minus + dm_minus
         term = high[i] - low[i]
-        term = max(term, high[i] - close[i - 1])
-        term = max(term, close[i - 1] - low[i])
+        if high[i] - close[i - 1] > term:
+            term = high[i] - close[i - 1]
+        if close[i - 1] - low[i] > term:
+            term = close[i - 1] - low[i]
         atr_ = (lookback - 1.0) / lookback * atr_ + term
         di_plus = dms_plus / (atr_ + 1.0e-10)
         di_minus = dms_minus / (atr_ + 1.0e-10)
@@ -979,8 +992,10 @@ def adx(
         dms_plus = (lookback - 1.0) / lookback * dms_plus + dm_plus
         dms_minus = (lookback - 1.0) / lookback * dms_minus + dm_minus
         term = high[i] - low[i]
-        term = max(term, high[i] - close[i - 1])
-        term = max(term, close[i - 1] - low[i])
+        if high[i] - close[i - 1] > term:
+            term = high[i] - close[i - 1]
+        if close[i - 1] - low[i] > term:
+            term = close[i - 1] - low[i]
         atr_ = (lookback - 1.0) / lookback * atr_ + term
         di_plus = dms_plus / (atr_ + 1.0e-10)
         di_minus = dms_minus / (atr_ + 1.0e-10)
@@ -1001,7 +1016,7 @@ def _aroon(
     assert lookback > 0
     n = len(high)
     output = np.zeros(n)
-    if aroon_type in {"up", "down"}:
+    if aroon_type == "up" or aroon_type == "down":
         output[0] = 50
     elif aroon_type == "diff":
         output[0] = 0
@@ -1010,7 +1025,7 @@ def _aroon(
         # leave it clobbered for the second scan and for the writes below,
         # which then land on the wrong bar (and on a negative index, which
         # wraps to the end of the array).
-        if aroon_type in {"up", "diff"}:
+        if aroon_type == "up" or aroon_type == "diff":
             i_max = i
             x_max = high[i]
             for j in range(i - 1, i - lookback - 1, -1):
@@ -1019,7 +1034,7 @@ def _aroon(
                 if high[j] > x_max:
                     x_max = high[j]
                     i_max = j
-        if aroon_type in {"down", "diff"}:
+        if aroon_type == "down" or aroon_type == "diff":
             i_min = i
             x_min = low[i]
             for j in range(i - 1, i - lookback - 1, -1):
@@ -1120,14 +1135,14 @@ def close_minus_ma(
     Returns:
         :class:`numpy.ndarray` of computed values ranging [-50, 50].
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     assert lookback > 0
     assert atr_length > 0
     assert scale > 0
     n = len(close)
     front_bad = max(lookback, atr_length)
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         total = 0.0
@@ -1161,8 +1176,9 @@ def _deviation(
     if dev_type == "cubic" and lookback < 5:
         lookback = 5
     front_bad = lookback - 1
-    front_bad = min(front_bad, n)
-    if dev_type in {"quadratic", "cubic"}:
+    if front_bad > n:
+        front_bad = n
+    if dev_type == "quadratic" or dev_type == "cubic":
         work1, work2, work3 = _legendre_3(lookback)
     else:
         work1 = _legendre_1(lookback)
@@ -1177,7 +1193,7 @@ def _deviation(
             c1 += price * dptr[dptr_i]
             dptr_i += 1
         c0 /= lookback
-        if dev_type in {"quadratic", "cubic"}:
+        if dev_type == "quadratic" or dev_type == "cubic":
             dptr = work2
             dptr_i = 0
             for j in range(i - lookback + 1, i + 1):
@@ -1195,7 +1211,7 @@ def _deviation(
         total = 0.0
         for k in range(i - lookback + 1, i + 1):
             pred = c0 + c1 * work1[j]
-            if dev_type in {"quadratic", "cubic"}:
+            if dev_type == "quadratic" or dev_type == "cubic":
                 pred += c2 * work2[j]
             if dev_type == "cubic":
                 pred += c3 * work3[j]
@@ -1209,7 +1225,7 @@ def _deviation(
         # log price, so it sets the scale the residual is measured against.
         if denom > 1.0e-12 * (1.0 + np.fabs(c0)):
             pred = c0 + c1 * work1[lookback - 1]
-            if dev_type in {"quadratic", "cubic"}:
+            if dev_type == "quadratic" or dev_type == "cubic":
                 pred += c2 * work2[lookback - 1]
             if dev_type == "cubic":
                 pred += c3 * work3[lookback - 1]
@@ -1303,22 +1319,25 @@ def price_intensity(
     Returns:
         :class:`numpy.ndarray` of computed values ranging [-50, 50].
     """
-    assert len(open) == len(high)
-    assert len(open) == len(low)
-    assert len(open) == len(close)
+    assert len(open) == len(high) and len(open) == len(low) and len(open) == len(close)
     assert smoothing >= 0
     assert scale > 0
     n = len(close)
-    smoothing = max(smoothing, 1)
+    if smoothing < 1:
+        smoothing = 1
     output = np.zeros(n)
     denom = high[0] - low[0]
-    denom = max(denom, 1.0e-60)
+    if denom < 1.0e-60:
+        denom = 1.0e-60
     output[0] = (close[0] - open[0]) / denom
     for i in range(1, n):
         denom = high[i] - low[i]
-        denom = max(denom, high[i] - close[i - 1])
-        denom = max(denom, close[i - 1] - low[i])
-        denom = max(denom, 1.0e-60)
+        if high[i] - close[i - 1] > denom:
+            denom = high[i] - close[i - 1]
+        if close[i - 1] - low[i] > denom:
+            denom = close[i - 1] - low[i]
+        if denom < 1.0e-60:
+            denom = 1.0e-60
         output[i] = (close[i] - open[i]) / denom
     if smoothing > 1:
         alpha = 2.0 / (smoothing + 1.0)
@@ -1355,16 +1374,17 @@ def price_change_oscillator(
     Returns:
         :class:`numpy.ndarray` of computed values ranging [-50, 50].
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
+    assert len(high) == len(low) and len(high) == len(close)
     assert short_length > 0
     assert multiplier > 0
     assert scale > 0
     n = len(close)
-    multiplier = max(multiplier, 2)
+    if multiplier < 2:
+        multiplier = 2
     long_length = short_length * multiplier
     front_bad = long_length
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         short_sum = 0.0
@@ -1403,9 +1423,7 @@ def _flow(
     smoothing: float,
     flow_type: Literal["intraday", "money_flow"],
 ) -> NDArray[np.float64]:
-    assert len(high) == len(low)
-    assert len(high) == len(close)
-    assert len(high) == len(volume)
+    assert len(high) == len(low) and len(high) == len(close) and len(high) == len(volume)
     assert lookback > 0
     assert smoothing >= 0
     n = len(close)
@@ -1414,7 +1432,8 @@ def _flow(
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(first_volume, n):
         if high[i] > low[i]:
@@ -1526,9 +1545,7 @@ def reactivity(
     Returns:
         :class:`numpy.ndarray` of computed values ranging [-50, 50].
     """
-    assert len(high) == len(low)
-    assert len(high) == len(close)
-    assert len(high) == len(volume)
+    assert len(high) == len(low) and len(high) == len(close) and len(high) == len(volume)
     assert lookback > 0
     assert smoothing >= 0
     assert scale > 0
@@ -1538,7 +1555,8 @@ def reactivity(
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad):
         output[i] = 0.0
@@ -1546,7 +1564,8 @@ def reactivity(
     # instead of smoothing, driving the smoothed range negative and inverting
     # the indicator. ``smoothing`` of 1 gives the textbook 2/(lookback+1).
     alpha = 2.0 / (lookback * smoothing + 1)
-    alpha = min(alpha, 1.0)
+    if alpha > 1.0:
+        alpha = 1.0
     lowest = low[first_volume]
     highest = high[first_volume]
     smoothed_range = highest - lowest
@@ -1556,16 +1575,20 @@ def reactivity(
     if first_volume + 1 >= n or first_volume + lookback >= n:
         return output
     for i in range(first_volume + 1, first_volume + lookback):
-        highest = max(highest, high[i])
-        lowest = min(lowest, low[i])
+        if high[i] > highest:
+            highest = high[i]
+        if low[i] < lowest:
+            lowest = low[i]
         smoothed_range = alpha * (highest - lowest) + (1.0 - alpha) * smoothed_range
         smoothed_volume = alpha * volume[i] + (1.0 - alpha) * smoothed_volume
     for i in range(front_bad, n):
         lowest = low[i]
         highest = high[i]
         for j in range(1, lookback + 1):
-            highest = max(highest, high[i - j])
-            lowest = min(lowest, low[i - j])
+            if high[i - j] > highest:
+                highest = high[i - j]
+            if low[i - j] < lowest:
+                lowest = low[i - j]
         smoothed_range = alpha * (highest - lowest) + (1.0 - alpha) * smoothed_range
         smoothed_volume = alpha * volume[i] + (1.0 - alpha) * smoothed_volume
         aspect_ratio = (highest - lowest) / smoothed_range
@@ -1607,7 +1630,8 @@ def price_volume_fit(
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         x_mean = y_mean = 0.0
@@ -1657,7 +1681,8 @@ def volume_weighted_ma_ratio(
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         total = numer = denom = 0.0
@@ -1692,7 +1717,8 @@ def _on_balance_volume(
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         signed_volume = total_volume = 0.0
@@ -1709,9 +1735,11 @@ def _on_balance_volume(
         value *= np.sqrt(lookback)
         output[i] = 100.0 * normal_cdf(scale * value) - 50.0
     if volume_type == "delta":
-        delta_length = max(delta_length, 1)
+        if delta_length < 1:
+            delta_length = 1
         front_bad += delta_length
-        front_bad = min(front_bad, n)
+        if front_bad > n:
+            front_bad = n
         for i in range(n - 1, front_bad - 1, -1):
             output[i] -= output[i - delta_length]
         # The bars below the new front are levels that were never differenced,
@@ -1781,13 +1809,15 @@ def _normalized_volume_index(
     assert scale > 0
     n = len(close)
     volatility_length = 2 * lookback
-    volatility_length = max(volatility_length, 250)
+    if volatility_length < 250:
+        volatility_length = 250
     front_bad = volatility_length
     for first_volume in range(n):
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     for i in range(front_bad, n):
         total = 0.0
@@ -1881,14 +1911,16 @@ def volume_momentum(
     assert multiplier >= 1
     assert scale > 0
     n = len(volume)
-    multiplier = max(multiplier, 2)
+    if multiplier < 2:
+        multiplier = 2
     long_length = short_length * multiplier
     front_bad = long_length - 1
     for first_volume in range(n):
         if volume[first_volume] > 0:
             break
     front_bad += first_volume
-    front_bad = min(front_bad, n)
+    if front_bad > n:
+        front_bad = n
     output = np.zeros(n)
     denom = np.exp(np.log(multiplier) / 3.0)
     for i in range(front_bad, n):
@@ -1928,9 +1960,7 @@ def laguerre_rsi(
     Returns:
         :class:`numpy.ndarray` of computed values.
     """
-    assert len(open) == len(high)
-    assert len(open) == len(low)
-    assert len(open) == len(close)
+    assert len(open) == len(high) and len(open) == len(low) and len(open) == len(close)
     assert fe_length > 0
     n = len(close)
     output = np.zeros(n)
@@ -1964,8 +1994,16 @@ def laguerre_rsi(
         L1 = -(1 - fe_alpha) * L0 + L0_1 + (1 - fe_alpha) * L1_1
         L2 = -(1 - fe_alpha) * L1 + L1_1 + (1 - fe_alpha) * L2_1
         L3 = -(1 - fe_alpha) * L2 + L2_1 + (1 - fe_alpha) * L3_1
-        CU = (L0 - L1 if L0 >= L1 else 0) + (L1 - L2 if L1 >= L2 else 0) + (L2 - L3 if L2 >= L3 else 0)
-        CD = (0 if L0 >= L1 else L1 - L0) + (0 if L1 >= L2 else L2 - L1) + (0 if L2 >= L3 else L3 - L2)
+        CU = (
+            (L0 - L1 if L0 >= L1 else 0)
+            + (L1 - L2 if L1 >= L2 else 0)
+            + (L2 - L3 if L2 >= L3 else 0)
+        )
+        CD = (
+            (0 if L0 >= L1 else L1 - L0)
+            + (0 if L1 >= L2 else L2 - L1)
+            + (0 if L2 >= L3 else L3 - L2)
+        )
         lrsi = CU / (CU + CD) if CU + CD != 0 else 0
         output[i] = lrsi * 100
         L0_1, L1_1, L2_1, L3_1 = L0, L1, L2, L3

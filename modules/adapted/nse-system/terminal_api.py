@@ -25,6 +25,8 @@ import datetime as dt
 import json
 import os
 import secrets
+import threading
+import time
 from contextlib import asynccontextmanager
 
 import db
@@ -32,7 +34,7 @@ import pandas as pd
 import scheduler_bg
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
@@ -53,13 +55,26 @@ async def lifespan(app):
 app = FastAPI(title="NSE Intelligence Terminal", version="24.1", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="terminal/static"), name="static")
 
+_TRADER_FULL_SCAN_CACHE = {}
+_TRADER_FULL_SCAN_TTL = 1800
+_SWING_SCAN_LOCK = threading.Lock()
+_SWING_SCAN_STATE = {
+    "running": False,
+    "status": "idle",
+    "message": "No swing scan run yet.",
+    "started_at": None,
+    "finished_at": None,
+}
+
 
 def verify_user(credentials: HTTPBasicCredentials = Depends(security)):
     user_ok = secrets.compare_digest(credentials.username, APP_USER)
     pass_ok = secrets.compare_digest(credentials.password, APP_PASS)
     if not (user_ok and pass_ok):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid login", headers={"WWW-Authenticate": "Basic"}
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid login",
+            headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
 
@@ -98,6 +113,85 @@ def source_health(user: str = Depends(verify_user)):
     from data_sources import get_registry
 
     return {"sources": get_registry().health(), "time": dt.datetime.now().isoformat()}
+
+
+@app.get("/api/ideals")
+def ideals_index(user: str = Depends(verify_user)):
+    """Every ideal value band, so the UI can show "actual vs ideal" anywhere.
+
+    Bands come from the system's own rules first (strategy_config gates,
+    scoring/fund_veto thresholds, trader-library thresholds), then from
+    long-standing convention where the system is silent. Each carries its
+    `source` so the owner can see why a number counts as good.
+    """
+    import ideal
+
+    return {
+        "ok": True,
+        "groups": [{"label": label, "keys": keys} for label, keys in ideal.GROUPS],
+        "bands": ideal.catalog(),
+    }
+
+
+@app.get("/api/ideals/{key}")
+def ideal_one(key: str, actual: float = None, user: str = Depends(verify_user)):
+    """One measure compared with its ideal. `?actual=` is optional."""
+    import ideal
+
+    item = ideal.assess(key, actual)
+    if item is None:
+        return {
+            "ok": False,
+            "key": key,
+            "message": "No ideal band is stored for that measure.",
+            "known": sorted(ideal.BANDS),
+        }
+    return {"ok": True, "assessment": item}
+
+
+@app.get("/glossary", response_class=HTMLResponse)
+def glossary_page(user: str = Depends(verify_user)):
+    """Every term explained in ordinary words, generated from explain.py."""
+    import glossary_ui
+
+    return glossary_ui.render()
+
+
+@app.get("/api/explain")
+def explain_index(user: str = Depends(verify_user)):
+    """List every term that can be explained, for the UI's help index."""
+    import explain
+
+    return {
+        "ok": True,
+        "sections": [{"key": k, "label": label} for k, label in explain.SECTIONS],
+        "terms": explain.catalog(),
+    }
+
+
+@app.get("/api/explain/{key}")
+def explain_term(key: str, user: str = Depends(verify_user)):
+    """Plain-language 5W1H for one term.
+
+    Everything the owner sees is meant to be clickable and answerable in
+    ordinary words, so this is the single source for those answers.
+    """
+    import explain
+
+    entry = explain.get(key)
+    if entry is None:
+        return {
+            "ok": False,
+            "key": key,
+            "message": "No explanation is stored for that item yet.",
+            "known": explain.all_keys(),
+        }
+    return {
+        "ok": True,
+        "key": key.strip().lower(),
+        "entry": entry,
+        "sections": [{"key": k, "label": label} for k, label in explain.SECTIONS],
+    }
 
 
 @app.get("/api/deployment-check")
@@ -156,9 +250,13 @@ def deployment_check(user: str = Depends(verify_user)):
 
     try:
         iso = today.isoformat()
-        n = conn.execute("SELECT COUNT(*) FROM swing_signals WHERE signal_date=?", (iso,)).fetchone()[0]
+        n = conn.execute(
+            "SELECT COUNT(*) FROM swing_signals WHERE signal_date=?", (iso,)
+        ).fetchone()[0]
         add(True, "swing signals today", f"{n} signals")
-        n2 = conn.execute("SELECT COUNT(*) FROM trend_candidates WHERE date=?", (iso,)).fetchone()[0]
+        n2 = conn.execute("SELECT COUNT(*) FROM trend_candidates WHERE date=?", (iso,)).fetchone()[
+            0
+        ]
         add(True, "trend candidates today", f"{n2} stocks")
     except Exception as e:
         add(False, "today's activity", str(e))
@@ -235,7 +333,13 @@ def get_trader_api(slug: str, user: str = Depends(verify_user)):
     t = traders.get_trader(slug)
     if not t:
         raise HTTPException(status_code=404, detail="trader not found")
-    return {"slug": t.SLUG, "name": t.NAME, "pillar": t.PILLAR, "source": t.SOURCE, "methods": t.METHODS}
+    return {
+        "slug": t.SLUG,
+        "name": t.NAME,
+        "pillar": t.PILLAR,
+        "source": t.SOURCE,
+        "methods": t.METHODS,
+    }
 
 
 @app.get("/api/traders/{slug}/scan")
@@ -252,17 +356,148 @@ def scan_trader_api(slug: str, limit: int = 800, user: str = Depends(verify_user
         return {"slug": slug, "error": str(e), "signals": []}
 
 
+@app.get("/api/traders/matches/{symbol}")
+def trader_matches_api(symbol: str, user: str = Depends(verify_user)):
+    import re
+
+    import db
+    import traders
+    from universe_helper import band_universe
+
+    sym = symbol.strip().upper()
+    if not re.fullmatch(r"[A-Z0-9&.-]{1,20}", sym):
+        raise HTTPException(status_code=422, detail="invalid NSE symbol")
+
+    conn = db.get_conn()
+    try:
+        prices_as_of = conn.execute("SELECT MAX(date) FROM prices_daily").fetchone()[0]
+        universe = set(band_universe(conn, limit=800))
+        if sym not in universe:
+            return {
+                "symbol": sym,
+                "as_of": prices_as_of,
+                "in_scan_universe": False,
+                "n_traders_checked": 0,
+                "n_methods_matched": 0,
+                "matches": [],
+                "errors": [],
+                "message": "Symbol is outside the current 800-symbol trader scan universe.",
+            }
+
+        cross_sectional = {
+            "oshaughnessy",
+            "quantitative_value",
+            "value_investing_made_easy",
+        }
+        matches = []
+        errors = []
+        checked = 0
+        for trader in traders.REGISTRY:
+            try:
+                if trader.SLUG in cross_sectional:
+                    cache = _TRADER_FULL_SCAN_CACHE.get(trader.SLUG)
+                    if (
+                        cache
+                        and cache[0] == prices_as_of
+                        and time.monotonic() - cache[1] < _TRADER_FULL_SCAN_TTL
+                    ):
+                        signals = cache[2]
+                    else:
+                        signals = trader.scan(conn=conn, limit=800)
+                        _TRADER_FULL_SCAN_CACHE[trader.SLUG] = (
+                            prices_as_of,
+                            time.monotonic(),
+                            signals,
+                        )
+                    signals = [signal for signal in signals if signal.get("symbol") == sym]
+                else:
+                    signals = trader.scan(conn=conn, limit=800, symbols=[sym])
+                checked += 1
+                methods = {
+                    method.get("id"): method for method in trader.METHODS if method.get("id")
+                }
+                for signal in signals:
+                    method_id = signal.get("method")
+                    matches.append(
+                        {
+                            "trader": trader.NAME,
+                            "slug": trader.SLUG,
+                            "source": trader.SOURCE,
+                            "method": methods.get(
+                                method_id,
+                                {
+                                    "id": method_id,
+                                    "name": method_id or "Unnamed method",
+                                    "description": "",
+                                },
+                            ),
+                            "signal": _jsonable(signal),
+                        }
+                    )
+            except Exception as e:
+                errors.append({"trader": trader.NAME, "error": str(e)})
+        return {
+            "symbol": sym,
+            "as_of": prices_as_of,
+            "in_scan_universe": True,
+            "n_traders_checked": checked,
+            "n_methods_matched": len(
+                {(item["slug"], item["method"].get("id")) for item in matches}
+            ),
+            "matches": _jsonable(matches),
+            "errors": _jsonable(errors),
+        }
+    finally:
+        conn.close()
+
+
 # ============================================================
 # Trader League (#087) — Rs 10 lakh paper league + pre-deployment
 # backtest of our system. Engine: trader_league.py. The heavy replay
 # runs as a low-priority background process; the rest are DB reads.
 # ============================================================
+def _jsonable(value):
+    """Recursively convert numpy/pandas scalars into plain Python JSON types.
+
+    Trader methods compute with pandas/numpy, so a signal can carry numpy.bool_
+    or numpy.float64. Returning those straight from a handler makes FastAPI's
+    encoder raise ("'numpy.bool' object is not iterable") and the endpoint
+    answers 500 -- which is what broke /api/traders/matches/{symbol}.
+    """
+    try:
+        import numpy as _np
+    except Exception:
+        _np = None
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+
+    if _np is not None:
+        if isinstance(value, _np.generic):
+            return value.item()
+        if isinstance(value, _np.ndarray):
+            return [_jsonable(v) for v in value.tolist()]
+
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
 def _league_mode(mode, ex):
-    return (mode if mode in ("backtest", "live") else "backtest", ex if ex in ("book", "common") else "book")
+    return (
+        mode if mode in ("backtest", "live") else "backtest",
+        ex if ex in ("book", "common") else "book",
+    )
 
 
 @app.get("/api/league/overview")
-def league_overview(mode: str = "backtest", ex: str = Query("book", alias="exit"), user: str = Depends(verify_user)):
+def league_overview(
+    mode: str = "backtest", ex: str = Query("book", alias="exit"), user: str = Depends(verify_user)
+):
     import trader_league as TL
 
     mode, ex = _league_mode(mode, ex)
@@ -274,7 +509,10 @@ def league_overview(mode: str = "backtest", ex: str = Query("book", alias="exit"
 
 @app.get("/api/league/player/{slug}")
 def league_player(
-    slug: str, mode: str = "backtest", ex: str = Query("book", alias="exit"), user: str = Depends(verify_user)
+    slug: str,
+    mode: str = "backtest",
+    ex: str = Query("book", alias="exit"),
+    user: str = Depends(verify_user),
 ):
     import trader_league as TL
 
@@ -304,7 +542,9 @@ def league_simulate(mode: str = "backtest", user: str = Depends(verify_user)):
 
 
 @app.post("/api/league/replay")
-def league_replay(years: float = 3, symbols: int = 300, workers: int = 1, user: str = Depends(verify_user)):
+def league_replay(
+    years: float = 3, symbols: int = 300, workers: int = 1, user: str = Depends(verify_user)
+):
     import trader_league as TL
 
     years = min(max(float(years), 0.5), 10.0)
@@ -345,7 +585,7 @@ def run_all_strategies(user: str = Depends(verify_user)):
 
 
 @app.post("/api/strategies/backtest-cache/clear")
-def clear_backtest_cache(name: str | None = None, user: str = Depends(verify_user)):
+def clear_backtest_cache(name: str = None, user: str = Depends(verify_user)):
     import strategy_backtest
 
     try:
@@ -454,7 +694,7 @@ def research_sector_api(user: str = Depends(verify_user)):
 
 
 @app.post("/api/research-cache/clear")
-def research_cache_clear(symbol: str | None = None, user: str = Depends(verify_user)):
+def research_cache_clear(symbol: str = None, user: str = Depends(verify_user)):
     import research_cockpit
 
     try:
@@ -505,7 +745,10 @@ def patterns_history(symbol: str, limit: int = 500, user: str = Depends(verify_u
     import patterns
 
     try:
-        return {"symbol": symbol.upper(), "signals": patterns.history_for_symbol(symbol.upper(), limit=limit)}
+        return {
+            "symbol": symbol.upper(),
+            "signals": patterns.history_for_symbol(symbol.upper(), limit=limit),
+        }
     except Exception as e:
         return {"symbol": symbol.upper(), "signals": [], "error": str(e)}
 
@@ -582,7 +825,10 @@ def swing_signals(limit: int = 80, user: str = Depends(verify_user)):
         for r in rows
     ]
     score = {
-        r[0]: r[1] for r in conn.execute("SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome").fetchall()
+        r[0]: r[1]
+        for r in conn.execute(
+            "SELECT outcome, COUNT(*) FROM swing_signals GROUP BY outcome"
+        ).fetchall()
     }
     pw = pwin_cache.get_map(conn)
     conn.close()
@@ -591,16 +837,66 @@ def swing_signals(limit: int = 80, user: str = Depends(verify_user)):
     signals.sort(key=lambda x: -(x["p_win"] if x["p_win"] is not None else -1))
     wins = score.get("WIN", 0)
     graded = wins + score.get("LOSS", 0)
-    return {"signals": signals, "scorecard": score, "win_rate": round(100 * wins / graded, 1) if graded else None}
+    return {
+        "signals": signals,
+        "scorecard": score,
+        "win_rate": round(100 * wins / graded, 1) if graded else None,
+    }
 
 
 @app.post("/api/swing/scan")
 def run_swing_scan(bg: BackgroundTasks, user: str = Depends(verify_user)):
+    with _SWING_SCAN_LOCK:
+        if _SWING_SCAN_STATE["running"]:
+            return {"started": False, "already_running": True}
+        _SWING_SCAN_STATE.update(
+            {
+                "running": True,
+                "status": "running",
+                "message": "Updating outcomes and scanning the current universe.",
+                "started_at": dt.datetime.now().isoformat(timespec="seconds"),
+                "finished_at": None,
+            }
+        )
+    bg.add_task(_run_swing_scan_job)
+    return {"started": True}
+
+
+def _run_swing_scan_job():
+    import logging
+
     import swing_live
 
-    bg.add_task(swing_live.update_outcomes)
-    bg.add_task(swing_live.scan)
-    return {"started": True}
+    try:
+        swing_live.update_outcomes()
+        swing_live.scan()
+    except Exception as error:
+        logging.getLogger(__name__).exception("Swing scan failed")
+        with _SWING_SCAN_LOCK:
+            _SWING_SCAN_STATE.update(
+                {
+                    "running": False,
+                    "status": "error",
+                    "message": str(error),
+                    "finished_at": dt.datetime.now().isoformat(timespec="seconds"),
+                }
+            )
+        return
+    with _SWING_SCAN_LOCK:
+        _SWING_SCAN_STATE.update(
+            {
+                "running": False,
+                "status": "complete",
+                "message": "Swing scan completed successfully.",
+                "finished_at": dt.datetime.now().isoformat(timespec="seconds"),
+            }
+        )
+
+
+@app.get("/api/swing/scan/status")
+def swing_scan_status(user: str = Depends(verify_user)):
+    with _SWING_SCAN_LOCK:
+        return dict(_SWING_SCAN_STATE)
 
 
 @app.get("/api/radar")
@@ -633,7 +929,8 @@ def radar(user: str = Depends(verify_user)):
     events = []
     try:
         erows = conn.execute(
-            "SELECT kind, symbol, text FROM events WHERE date=(SELECT MAX(date) FROM events) LIMIT 30"
+            "SELECT kind, symbol, text FROM events "
+            "WHERE date=(SELECT MAX(date) FROM events) LIMIT 30"
         ).fetchall()
         for kind, sym, text in erows:
             events.append({"kind": kind, "symbol": sym, "text": text})
@@ -680,7 +977,11 @@ def templates_latest(limit: int = 30, user: str = Depends(verify_user)):
     except Exception:
         rows = []
     conn.close()
-    return {"matches": [{"date": r[0], "symbol": r[1], "template": r[2], "similarity": r[3]} for r in rows]}
+    return {
+        "matches": [
+            {"date": r[0], "symbol": r[1], "template": r[2], "similarity": r[3]} for r in rows
+        ]
+    }
 
 
 @app.get("/api/delivery/top")
@@ -709,7 +1010,7 @@ def delivery_symbol(symbol: str, limit: int = 20, user: str = Depends(verify_use
 
 
 @app.get("/api/value-radar")
-def value_radar_api(n: int = 25, tier: str | None = None, user: str = Depends(verify_user)):
+def value_radar_api(n: int = 25, tier: str = None, user: str = Depends(verify_user)):
     import value_radar
 
     try:
@@ -719,7 +1020,7 @@ def value_radar_api(n: int = 25, tier: str | None = None, user: str = Depends(ve
 
 
 @app.get("/api/positional")
-def positional_api(n: int = 25, tier: str | None = None, user: str = Depends(verify_user)):
+def positional_api(n: int = 25, tier: str = None, user: str = Depends(verify_user)):
     import positional_scanner
 
     try:
@@ -798,11 +1099,21 @@ def cockpit_chart(symbol: str, user: str = Depends(verify_user)):
     sym = symbol.upper()
     conn = get_conn()
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+        "SELECT date, open, high, low, close, volume FROM prices_daily "
+        "WHERE symbol=? ORDER BY date",
+        (sym,),
     ).fetchall()
     conn.close()
     if not rows:
-        return {"symbol": sym, "candles": [], "ema10": [], "ema20": [], "ema50": [], "ema200": [], "swing": None}
+        return {
+            "symbol": sym,
+            "candles": [],
+            "ema10": [],
+            "ema20": [],
+            "ema50": [],
+            "ema200": [],
+            "swing": None,
+        }
     df = pd.DataFrame(list(rows), columns=["date", "open", "high", "low", "close", "volume"])
     df["date"] = pd.to_datetime(df["date"])
     for col in ["open", "high", "low", "close", "volume"]:
@@ -834,7 +1145,9 @@ def cockpit_chart(symbol: str, user: str = Depends(verify_user)):
     try:
         from setup import SetupDetector
 
-        raw = df.rename(columns={"close": "Close", "high": "High", "low": "Low", "volume": "Volume"})
+        raw = df.rename(
+            columns={"close": "Close", "high": "High", "low": "Low", "volume": "Volume"}
+        )
         raw = raw.set_index("date")
         st = SetupDetector.detect(raw, sym)
         if st.triggered:
@@ -872,7 +1185,8 @@ def cockpit_summary(symbol: str, user: str = Depends(verify_user)):
     if r:
         mcap = safe_float(r[0])
     r = conn.execute(
-        "SELECT fundamental_score FROM scan_results WHERE symbol=? ORDER BY scan_date DESC LIMIT 1", (sym,)
+        "SELECT fundamental_score FROM scan_results WHERE symbol=? ORDER BY scan_date DESC LIMIT 1",
+        (sym,),
     ).fetchone()
     if r:
         fund_score = safe_float(r[0])
@@ -882,14 +1196,23 @@ def cockpit_summary(symbol: str, user: str = Depends(verify_user)):
     news = []
     try:
         nrows = conn.execute(
-            "SELECT title, age_days, label FROM sentiment_headlines WHERE symbol=? ORDER BY age_days LIMIT 8", (sym,)
+            "SELECT title, age_days, label FROM sentiment_headlines "
+            "WHERE symbol=? ORDER BY age_days LIMIT 8",
+            (sym,),
         ).fetchall()
         for title, age, label in nrows:
             news.append({"title": title, "age_days": age, "label": label})
     except Exception:
         pass
     conn.close()
-    return {"symbol": sym, "sector": sector, "mcap_cr": mcap, "fund_score": fund_score, "status": status, "news": news}
+    return {
+        "symbol": sym,
+        "sector": sector,
+        "mcap_cr": mcap,
+        "fund_score": fund_score,
+        "status": status,
+        "news": news,
+    }
 
 
 @app.get("/api/meta/{symbol}")
@@ -928,7 +1251,9 @@ def ledger_trades(limit: int = 100, user: str = Depends(verify_user)):
 def validate_latest(user: str = Depends(verify_user)):
     conn = get_conn()
     try:
-        rows = conn.execute("SELECT mode, run_date, payload FROM validation_log ORDER BY run_date DESC").fetchall()
+        rows = conn.execute(
+            "SELECT mode, run_date, payload FROM validation_log ORDER BY run_date DESC"
+        ).fetchall()
     except Exception:
         rows = []
     conn.close()
@@ -945,9 +1270,9 @@ def validate_latest(user: str = Depends(verify_user)):
 @app.get("/api/sizing/{symbol}")
 def sizing(
     symbol: str,
-    trigger: float | None = None,
-    stop: float | None = None,
-    shape: float | None = None,
+    trigger: float = None,
+    stop: float = None,
+    shape: float = None,
     user: str = Depends(verify_user),
 ):
     import sizing as sz
@@ -965,8 +1290,7 @@ def sizing_capital(payload: dict, user: str = Depends(verify_user)):
     try:
         v = float(payload.get("capital", 0))
         if v <= 0:
-            msg = "capital must be > 0"
-            raise ValueError(msg)
+            raise ValueError("capital must be > 0")
         return {"capital": sz.set_capital(v)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -30,7 +30,7 @@ Output: sector concentration %, FII flow on each holding,
 """
 
 import logging
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, date, datetime
 
 logger = logging.getLogger("finstack.portfolio")
 
@@ -195,7 +195,9 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
 
         # Promoter pledge risk
         pledge_data = _safe(
-            __import__("finstack.data.market_intelligence", fromlist=["get_promoter_pledge"]).get_promoter_pledge,
+            __import__(
+                "finstack.data.market_intelligence", fromlist=["get_promoter_pledge"]
+            ).get_promoter_pledge,
             symbol,
         )
         pledge_pct = None
@@ -227,7 +229,10 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
         h["weight_pct"] = round(h["current_value"] / total_current * 100, 1)
 
     # Sector concentration
-    sector_pct = {s: round(v / total_current * 100, 1) for s, v in sorted(sector_weights.items(), key=lambda x: -x[1])}
+    sector_pct = {
+        s: round(v / total_current * 100, 1)
+        for s, v in sorted(sector_weights.items(), key=lambda x: -x[1])
+    }
 
     # Concentration risk
     top_sector_pct = max(sector_pct.values()) if sector_pct else 0
@@ -239,7 +244,9 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
     # Single stock concentration
     for h in enriched:
         if h["weight_pct"] > 30:
-            risk_flags.append(f"{h['symbol']} is {h['weight_pct']}% of portfolio — too concentrated")
+            risk_flags.append(
+                f"{h['symbol']} is {h['weight_pct']}% of portfolio — too concentrated"
+            )
 
     # XIRR
     xirr_val = None

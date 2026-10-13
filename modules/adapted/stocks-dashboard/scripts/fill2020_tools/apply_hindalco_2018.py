@@ -116,10 +116,8 @@ CELLS = {
         "src": DOC + " p2: 9M FY19 96,797 minus Q1 (stored 31,077.53) minus Q3 (33,213)",
         "corroboration": [
             "§45 9-month identity; §64 otherwise blocks this cell (no stored con PAT)",
-            (
-                "FY19 - 9M FY19 reproduces stored 2019-03-31 revC to 0.002%, proving the printed "
-                "totals share our series' entity, basis and scale"
-            ),
+            "FY19 - 9M FY19 reproduces stored 2019-03-31 revC to 0.002%, proving the printed "
+            "totals share our series' entity, basis and scale",
         ],
     },
 }

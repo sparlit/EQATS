@@ -23,7 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import time
 
-import numpy as np
 import tensorflow as tf
 
 
@@ -46,7 +45,9 @@ def reducedimension(input_, dimension=2, learning_rate=0.01, hidden_layer=256, e
         "decoder_b2": tf.Variable(tf.random_normal([input_size])),
     }
 
-    first_layer_encoder = tf.nn.sigmoid(tf.add(tf.matmul(X, weights["encoder_h1"]), biases["encoder_b1"]))
+    first_layer_encoder = tf.nn.sigmoid(
+        tf.add(tf.matmul(X, weights["encoder_h1"]), biases["encoder_b1"])
+    )
     second_layer_encoder = tf.nn.sigmoid(
         tf.add(tf.matmul(first_layer_encoder, weights["encoder_h2"]), biases["encoder_b2"])
     )

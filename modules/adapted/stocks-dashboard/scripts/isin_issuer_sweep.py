@@ -194,7 +194,7 @@ def main():
     D = json.loads(gzip.decompress(open(p1, "rb").read()))
     data, meta, sf_end = D["data"], D["meta"], D["end"]
 
-    isin, src, _filled = build_isin(data, meta, sf_end)
+    isin, src, filled = build_isin(data, meta, sf_end)
     missing = sorted(set(data) - set(isin))
 
     issuer = collections.defaultdict(list)
@@ -278,10 +278,21 @@ def main():
                 for r in recs
                 for t in ("DVR", "PP")
                 if (t == "DVR" and "DVR" in r["key"])
-                or (t == "PP" and (r["key"].endswith("PP") or "PARTLY" in (r["name"] or "").upper()))
+                or (
+                    t == "PP" and (r["key"].endswith("PP") or "PARTLY" in (r["name"] or "").upper())
+                )
             }
         )
-        groups.append({"issuer": pre, "kind": kind, "flags": flags, "keys": recs, "overlaps": overlaps, "seams": seams})
+        groups.append(
+            {
+                "issuer": pre,
+                "kind": kind,
+                "flags": flags,
+                "keys": recs,
+                "overlaps": overlaps,
+                "seams": seams,
+            }
+        )
 
     # what the sweep still cannot see, stated as OUR gap and never as evidence of absence
     blind = collections.Counter()
@@ -315,7 +326,10 @@ def main():
     )
     print("issuers holding >1 bin key: %d  %s\n" % (len(groups), out["byKind"]))
     for g in groups:
-        print("%-8s %s%s" % (g["issuer"], g["kind"], "  " + ",".join(g["flags"]) if g["flags"] else ""))
+        print(
+            "%-8s %s%s"
+            % (g["issuer"], g["kind"], "  " + ",".join(g["flags"]) if g["flags"] else "")
+        )
         for r in g["keys"]:
             print(
                 "   %-14s %-13s %-20s %8d..%-8d %5d bars%s  alive=%-5s  %s"

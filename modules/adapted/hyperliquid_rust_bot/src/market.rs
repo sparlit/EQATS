@@ -1,5 +1,6 @@
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::future::Future;
 use std::sync::Arc;
 
 use alloy::signers::local::PrivateKeySigner;
@@ -9,6 +10,7 @@ use crate::backend::scripting::{CompiledStrategy, create_engine};
 use crate::bot::SyncMarketFeeds;
 use crate::broadcast::{CacheCmdIn, CandleCount, CandleSnapshotRequest, PriceAsset, PriceData};
 use crate::helper::exchange_client_with_timeout;
+use crate::margin::MarketBootstrap;
 use crate::metrics;
 use crate::signal::{
     AssetTimeFrameData, EditType, EngineCommand, EngineView, Entry, ExecParam, ExecParams, IndexId,
@@ -38,6 +40,32 @@ const ENGINE_COMMAND_SEND_TIMEOUT_SECS: u64 = 5;
 const MARKET_UPDATE_SEND_TIMEOUT_SECS: u64 = 5;
 const MARKET_TASK_JOIN_TIMEOUT_SECS: u64 = 5;
 
+/// Keep receiving account events while initialization or an executor send awaits
+/// another task. Otherwise a full market queue can deadlock the bot's feed-sync
+/// reply, or the executor's position updates, and drop fills on timeout.
+async fn buffer_market_commands<T>(
+    future: impl Future<Output = T>,
+    receiver: &mut Receiver<MarketCommand>,
+    pending: &mut VecDeque<MarketCommand>,
+) -> Result<T, Error> {
+    tokio::pin!(future);
+    loop {
+        tokio::select! {
+            biased;
+            result = &mut future => return Ok(result),
+            command = receiver.recv() => {
+                let Some(command) = command else {
+                    return Err(Error::Custom("market command channel closed".into()));
+                };
+                if pending.len() >= 8192 {
+                    return Err(Error::Custom("market account-event backlog exceeded 8192; re-add to reconcile".into()));
+                }
+                pending.push_back(command);
+            }
+        }
+    }
+}
+
 pub struct Market {
     exchange_client: ExchangeClient,
     cache_tx: Sender<CacheCmdIn>,
@@ -51,6 +79,11 @@ pub struct Market {
     receivers: MarketReceivers,
     senders: MarketSenders,
     pub margin: f64,
+    current_position: Option<OpenPositionLocal>,
+    is_cross: bool,
+    is_paused: bool,
+    activation_pending: bool,
+    startup_activation_allowed: bool,
 }
 
 /// Filter out indicator removals that conflict with the strategy's required indicators.
@@ -314,7 +347,7 @@ impl Market {
         cache_tx: Sender<CacheCmdIn>,
         px_receiver: Receiver<PriceAsset>,
         asset: AssetMeta,
-        margin: f64,
+        bootstrap: MarketBootstrap,
         lev: usize,
         compiled: CompiledStrategy,
         mut strat_indicators: Vec<IndexId>,
@@ -359,8 +392,15 @@ impl Market {
             log_rv,
         };
 
-        let lev = lev.min(asset.max_leverage);
-        let exec_params = ExecParams::new(margin, lev);
+        let margin = bootstrap.margin;
+        let current_position = bootstrap.position.map(|p| p.local);
+        let lev = bootstrap
+            .position
+            .map_or(lev.min(asset.max_leverage), |p| p.leverage);
+        let is_cross = bootstrap.position.is_some_and(|p| p.is_cross);
+        let mut exec_params = ExecParams::new(margin, lev);
+        exec_params.open_pos = current_position.map(|p| p.sse());
+        exec_params.position_reserve = bootstrap.position.map_or(0.0, |p| p.reserve);
 
         replace_self_with_asset(asset.name.as_str(), &mut strat_indicators);
 
@@ -370,9 +410,14 @@ impl Market {
                 exchange_client,
                 cache_tx,
                 margin,
+                current_position,
+                is_cross,
+                is_paused: true,
+                activation_pending: false,
+                startup_activation_allowed: true,
                 pnl: 0_f64,
                 lev,
-                strategy: (strategy_name, strat_indicators.clone()),
+                strategy: (strategy_name.clone(), strat_indicators.clone()),
                 manual_indicators,
                 asset: asset.clone(),
                 signal_engine: SignalEngine::new(
@@ -388,8 +433,16 @@ impl Market {
                     exec_params,
                 )
                 .await,
-                executor: Executor::new(wallet.wallet.clone(), asset, exec_rv, market_tx.clone())
-                    .await?,
+                executor: Executor::new(
+                    wallet,
+                    asset,
+                    exec_rv,
+                    market_tx.clone(),
+                    current_position,
+                    strategy_name,
+                    bootstrap.snapshot_time,
+                )
+                .await?,
                 receivers,
                 senders,
             },
@@ -399,11 +452,17 @@ impl Market {
 
     async fn init(&mut self, api_key_valid: bool) -> Result<(Option<f64>, Option<String>), Error> {
         //check if lev > max_lev
-        let lev = self.lev.min(self.asset.max_leverage);
-        self.lev = lev;
+        let lev = self.lev;
         let mut auth_error = None;
-        if api_key_valid {
-            match Self::update_lev(&self.exchange_client, self.asset.name.as_str(), lev).await {
+        if api_key_valid && self.current_position.is_none() {
+            match Self::update_lev(
+                &self.exchange_client,
+                self.asset.name.as_str(),
+                lev,
+                self.is_cross,
+            )
+            .await
+            {
                 Ok(lev) => self.lev = lev,
                 Err(Error::AuthError(msg)) => auth_error = Some(msg),
                 Err(err) => return Err(err),
@@ -431,9 +490,14 @@ impl Market {
         Ok((last_price, auth_error))
     }
 
-    async fn update_lev(client: &ExchangeClient, asset: &str, lev: usize) -> Result<usize, Error> {
+    async fn update_lev(
+        client: &ExchangeClient,
+        asset: &str,
+        lev: usize,
+        is_cross: bool,
+    ) -> Result<usize, Error> {
         let response = client
-            .update_leverage(lev as u32, asset, false, None)
+            .update_leverage(lev as u32, asset, is_cross, None)
             .await?;
 
         match response {
@@ -643,10 +707,17 @@ impl Market {
 impl Market {
     pub async fn start(mut self, trading_enabled: bool, api_key_valid: bool) -> Result<(), Error> {
         use ExecCommand::*;
-        let (last_price, auth_error) = self.init(api_key_valid).await?;
+        let mut receiver = std::mem::replace(&mut self.receivers.market_rv, channel(1).1);
+        let mut pending = VecDeque::new();
+        let initialized =
+            buffer_market_commands(self.init(api_key_valid), &mut receiver, &mut pending).await?;
+        self.receivers.market_rv = receiver;
+        let (last_price, auth_error) = initialized?;
         let trading_enabled = trading_enabled && auth_error.is_none();
-        self.signal_engine.set_trading_enabled(trading_enabled);
-        self.executor.set_trading_enabled(trading_enabled);
+        // User fills queued during initialization must reach the executor before
+        // the first strategy tick is allowed to trade.
+        self.signal_engine.set_trading_enabled(false);
+        self.executor.set_trading_enabled(false);
 
         let info = MarketInfo {
             asset: self.asset.name.clone(),
@@ -655,9 +726,9 @@ impl Market {
             strategy_name: self.strategy.0.clone(),
             margin: self.margin,
             pnl: 0.0,
-            is_paused: !trading_enabled,
+            is_paused: true,
             indicators: self.signal_engine.get_indicators_data(),
-            position: None,
+            position: self.current_position,
             engine_state: EngineView::Idle,
         };
         let _ = send_market_update(
@@ -688,6 +759,15 @@ impl Market {
         let mut executor_handle = tokio::spawn(async move {
             executor.start().await;
         });
+        if trading_enabled {
+            self.senders
+                .bot_cmd_tx
+                .send(BotEvent::MarketReady(self.asset.name.clone()))
+                .await
+                .map_err(|_| {
+                    Error::Custom("bot channel closed during market initialization".into())
+                })?;
+        }
         let mut executor_joined = false;
         //Candle Stream
         let engine_price_tx = self.senders.engine_tx.clone();
@@ -796,7 +876,15 @@ impl Market {
         let bot_update_tx = self.senders.bot_tx;
         let asset = self.asset.clone();
 
-        while let Some(cmd) = self.receivers.market_rv.recv().await {
+        loop {
+            let cmd = if let Some(command) = pending.pop_front() {
+                command
+            } else {
+                let Some(command) = self.receivers.market_rv.recv().await else {
+                    break;
+                };
+                command
+            };
             match cmd {
                 MarketCommand::UpdateLeverage(lev) => {
                     if lev == 0 {
@@ -816,8 +904,13 @@ impl Market {
                     if lev == self.lev {
                         continue;
                     }
-                    let upd =
-                        Self::update_lev(&self.exchange_client, asset.name.as_str(), lev).await;
+                    let upd = Self::update_lev(
+                        &self.exchange_client,
+                        asset.name.as_str(),
+                        lev,
+                        self.is_cross,
+                    )
+                    .await;
                     match upd {
                         Ok(lev) => {
                             self.lev = lev;
@@ -953,6 +1046,16 @@ impl Market {
                         continue;
                     }
 
+                    if !send_exec_command(
+                        &self.senders.exec_tx,
+                        asset.name.as_str(),
+                        "strategy attribution",
+                        ExecCommand::UpdateStrategy(name.clone()),
+                    )
+                    .await
+                    {
+                        continue;
+                    }
                     self.strategy = (name, strat_indicators.clone());
 
                     let _ = send_engine_command(
@@ -976,15 +1079,6 @@ impl Market {
                         )
                         .await;
                     }
-
-                    //close any ongoing trade
-                    send_exec_command(
-                        &self.senders.exec_tx,
-                        asset.name.as_str(),
-                        "force-close after strategy update",
-                        Control(ExecControl::ForceClose),
-                    )
-                    .await;
                 }
 
                 MarketCommand::EditIndicators(mut entry_vec) => {
@@ -1124,6 +1218,7 @@ impl Market {
                 }
 
                 MarketCommand::UpdateOpenPosition(pos) => {
+                    self.current_position = pos;
                     let _ = send_market_update(
                         &bot_update_tx,
                         asset.name.as_str(),
@@ -1159,13 +1254,22 @@ impl Market {
                 }
 
                 MarketCommand::UserEvent(event) => {
-                    send_exec_command(
-                        &self.senders.exec_tx,
-                        asset.name.as_str(),
-                        "user event",
-                        Event(event),
+                    let sent = buffer_market_commands(
+                        send_exec_command(
+                            &self.senders.exec_tx,
+                            asset.name.as_str(),
+                            "user event",
+                            Event(event),
+                        ),
+                        &mut self.receivers.market_rv,
+                        &mut pending,
                     )
-                    .await;
+                    .await?;
+                    if !sent {
+                        return Err(Error::Custom(
+                            "failed to deliver account event; re-add to reconcile".into(),
+                        ));
+                    }
                 }
 
                 MarketCommand::UpdateMargin(marge) => {
@@ -1215,6 +1319,9 @@ impl Market {
                 }
 
                 MarketCommand::ManualTradeDetected => {
+                    self.is_paused = true;
+                    self.activation_pending = false;
+                    self.startup_activation_allowed = false;
                     let _ = send_engine_command(
                         &self.senders.engine_tx,
                         asset.name.as_str(),
@@ -1285,57 +1392,6 @@ impl Market {
                     match (market_client, exec_client) {
                         (Ok(new_client), Ok(exec_client)) => {
                             self.exchange_client = new_client;
-                            match Self::update_lev(
-                                &self.exchange_client,
-                                asset.name.as_str(),
-                                self.lev,
-                            )
-                            .await
-                            {
-                                Ok(lev) => {
-                                    self.lev = lev;
-                                    let _ = send_engine_command(
-                                        &engine_update_tx,
-                                        asset.name.as_str(),
-                                        "wallet reload leverage",
-                                        EngineCommand::UpdateExecParams(ExecParam::Lev(lev)),
-                                    )
-                                    .await;
-                                    let _ = send_market_update(
-                                        &bot_update_tx,
-                                        asset.name.as_str(),
-                                        "wallet reload leverage",
-                                        MarketUpdate::MarketInfoUpdate((
-                                            asset.name.clone(),
-                                            EditMarketInfo::Lev(lev),
-                                        )),
-                                    )
-                                    .await;
-                                }
-                                Err(Error::AuthError(msg)) => {
-                                    let _ = send_market_update(
-                                        &bot_update_tx,
-                                        asset.name.as_str(),
-                                        "wallet reload auth failure",
-                                        MarketUpdate::AuthFailed(msg),
-                                    )
-                                    .await;
-                                    continue;
-                                }
-                                Err(err) => {
-                                    let _ = send_market_update(
-                                        &bot_update_tx,
-                                        asset.name.as_str(),
-                                        "wallet reload leverage error",
-                                        MarketUpdate::RelayToFrontend(UpdateFrontend::UserError(
-                                            format!(
-                                                "Failed to apply leverage after API key reload: {err}"
-                                            ),
-                                        )),
-                                    )
-                                    .await;
-                                }
-                            }
                             send_exec_command(
                                 &self.senders.exec_tx,
                                 asset.name.as_str(),
@@ -1355,6 +1411,9 @@ impl Market {
                 }
 
                 MarketCommand::Pause => {
+                    self.is_paused = true;
+                    self.activation_pending = false;
+                    self.startup_activation_allowed = false;
                     send_exec_command(
                         &self.senders.exec_tx,
                         asset.name.as_str(),
@@ -1371,21 +1430,142 @@ impl Market {
                     .await;
                 }
 
-                MarketCommand::Resume => {
-                    send_exec_command(
+                // Public resume requests are reconciled by Bot before reaching us.
+                MarketCommand::Resume => {}
+                MarketCommand::Activate => {
+                    if self.startup_activation_allowed && self.is_paused {
+                        self.activation_pending = send_exec_command(
+                            &self.senders.exec_tx,
+                            asset.name.as_str(),
+                            "activate",
+                            ExecCommand::Activate,
+                        )
+                        .await;
+                    }
+                }
+                MarketCommand::ResumeWithPosition(bootstrap) => {
+                    if !self.is_paused {
+                        continue;
+                    }
+                    if let Some(position) = bootstrap.position {
+                        self.lev = position.leverage;
+                        self.is_cross = position.is_cross;
+                    } else if let Err(error) = Self::update_lev(
+                        &self.exchange_client,
+                        asset.name.as_str(),
+                        self.lev,
+                        self.is_cross,
+                    )
+                    .await
+                    {
+                        let _ = send_market_update(
+                            &bot_update_tx,
+                            asset.name.as_str(),
+                            "resume leverage error",
+                            MarketUpdate::RelayToFrontend(UpdateFrontend::UserError(
+                                error.to_string(),
+                            )),
+                        )
+                        .await;
+                        continue;
+                    }
+                    self.margin = bootstrap.margin;
+                    let params = [
+                        ExecParam::Lev(self.lev),
+                        ExecParam::Margin(self.margin),
+                        ExecParam::PositionReserve(bootstrap.position.map_or(0.0, |p| p.reserve)),
+                    ];
+                    for param in params {
+                        if !send_engine_command(
+                            &engine_update_tx,
+                            asset.name.as_str(),
+                            "reconcile parameters",
+                            EngineCommand::UpdateExecParams(param),
+                        )
+                        .await
+                        {
+                            return Err(Error::Custom("signal engine channel closed".into()));
+                        }
+                    }
+                    self.activation_pending = send_exec_command(
                         &self.senders.exec_tx,
                         asset.name.as_str(),
-                        "resume",
-                        Control(ExecControl::Resume),
+                        "reconcile position",
+                        ExecCommand::ReconcilePosition {
+                            position: bootstrap.position.map(|p| p.local),
+                            snapshot_time: bootstrap.snapshot_time,
+                        },
                     )
                     .await;
-                    let _ = send_engine_command(
-                        &self.senders.engine_tx,
+                }
+                MarketCommand::PositionReconciled(position) => {
+                    self.current_position = position;
+                    if !send_engine_command(
+                        &engine_update_tx,
                         asset.name.as_str(),
-                        "resume",
-                        EngineCommand::ExecResume,
+                        "reconciled position",
+                        EngineCommand::UpdateExecParams(ExecParam::OpenPosition(
+                            position.map(|p| p.sse()),
+                        )),
+                    )
+                    .await
+                    {
+                        return Err(Error::Custom("signal engine channel closed".into()));
+                    }
+                    let _ = send_market_update(
+                        &bot_update_tx,
+                        asset.name.as_str(),
+                        "reconciled position",
+                        MarketUpdate::MarketInfoUpdate((
+                            asset.name.clone(),
+                            EditMarketInfo::OpenPosition(position),
+                        )),
                     )
                     .await;
+                    let _ = send_market_update(
+                        &bot_update_tx,
+                        asset.name.as_str(),
+                        "reconciled leverage",
+                        MarketUpdate::MarketInfoUpdate((
+                            asset.name.clone(),
+                            EditMarketInfo::Lev(self.lev),
+                        )),
+                    )
+                    .await;
+                    if self.activation_pending {
+                        self.activation_pending = false;
+                        if !send_exec_command(
+                            &self.senders.exec_tx,
+                            asset.name.as_str(),
+                            "resume",
+                            Control(ExecControl::Resume),
+                        )
+                        .await
+                        {
+                            continue;
+                        }
+                        if !send_engine_command(
+                            &engine_update_tx,
+                            asset.name.as_str(),
+                            "resume",
+                            EngineCommand::ExecResume,
+                        )
+                        .await
+                        {
+                            continue;
+                        }
+                        self.is_paused = false;
+                        let _ = send_market_update(
+                            &bot_update_tx,
+                            asset.name.as_str(),
+                            "resumed",
+                            MarketUpdate::MarketInfoUpdate((
+                                asset.name.clone(),
+                                EditMarketInfo::Paused(false),
+                            )),
+                        )
+                        .await;
+                    }
                 }
 
                 MarketCommand::ForceClosePosition => {
@@ -1506,6 +1686,12 @@ pub enum MarketCommand {
     AuthError(String),
     #[serde(skip)]
     BuilderApprovalError(String),
+    #[serde(skip)]
+    Activate,
+    #[serde(skip)]
+    ResumeWithPosition(MarketBootstrap),
+    #[serde(skip)]
+    PositionReconciled(Option<OpenPositionLocal>),
     Resume,
     Pause,
     Close,
@@ -1569,6 +1755,244 @@ impl From<&MarketInfo> for MarketState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn market_start_adopts_before_activation_and_strategy_close_reaches_trade_ui() {
+        use crate::test_support::{MockExchange, account, position};
+        use crate::{FillType, PositionOp, Side, TradeFillInfo, TradeOrigin};
+        let exchange = MockExchange::new(account(vec![], "1000", 1000)).await;
+        let wallet = exchange.wallet().await;
+        let raw = position("10", "100", "298");
+        let chain = crate::margin::ChainPosition::parse(
+            &serde_json::from_value(raw["position"].clone()).unwrap(),
+            1000,
+        )
+        .unwrap()
+        .unwrap();
+        let mut info_client = hyperliquid_rust_sdk::InfoClient::new(None, Some(BaseUrl::Localhost))
+            .await
+            .unwrap();
+        info_client.http_client.base_url = exchange.url.clone();
+        let exchange_client = ExchangeClient {
+            http_client: info_client.http_client,
+            wallet: wallet.wallet.clone(),
+            meta: serde_json::from_value(serde_json::json!({"universe":[]})).unwrap(),
+            vault_address: None,
+            coin_to_asset: HashMap::from([("BTC".into(), 0)]),
+        };
+        let asset = serde_json::from_value(
+            serde_json::json!({"name":"BTC","szDecimals":4,"maxLeverage":50}),
+        )
+        .unwrap();
+        let (market_tx, market_rv) = channel(7);
+        let (bot_tx, mut updates) = channel(64);
+        let (bot_cmd_tx, mut bot_commands) = channel(16);
+        let (cache_tx, _cache) = channel(16);
+        let (price_tx, price_rv) = channel(16);
+        let (engine_tx, engine_rv) = channel(16);
+        let (exec_tx, exec_rv) = bounded(3);
+        let (log_tx, log_rv) = channel(16);
+        let rhai = Arc::new(create_engine());
+        let compiled = crate::backend::scripting::compile_strategy(
+            rhai.as_ref(),
+            "open_market(LONG, margin_amount(100.0))",
+            "flatten_market()",
+            "()",
+            None,
+        )
+        .unwrap();
+        let mut params = ExecParams::new(300.0, 5);
+        params.open_pos = Some(chain.local.sse());
+        params.position_reserve = chain.reserve;
+        let signal_engine = SignalEngine::new(
+            Arc::from("BTC"),
+            None,
+            rhai,
+            compiled,
+            vec![],
+            engine_rv,
+            Some(market_tx.clone()),
+            log_tx,
+            exec_tx.clone(),
+            params,
+        )
+        .await;
+        let executor =
+            Executor::for_test(&exchange, exec_rv, market_tx.clone(), Some(chain.local)).await;
+        let market = Market {
+            exchange_client,
+            cache_tx,
+            pnl: 0.0,
+            lev: 5,
+            strategy: ("Original closer".into(), vec![]),
+            manual_indicators: HashSet::new(),
+            asset,
+            signal_engine,
+            executor,
+            margin: 300.0,
+            current_position: Some(chain.local),
+            is_cross: false,
+            is_paused: true,
+            activation_pending: false,
+            startup_activation_allowed: true,
+            receivers: MarketReceivers {
+                price_rv,
+                market_rv,
+                log_rv,
+            },
+            senders: MarketSenders {
+                bot_tx,
+                bot_cmd_tx,
+                engine_tx,
+                exec_tx,
+            },
+        };
+        let activation_tx = market_tx.clone();
+        let bot = tokio::spawn(async move {
+            while let Some(command) = bot_commands.recv().await {
+                match command {
+                    BotEvent::SyncMarketFeeds(request) => {
+                        request.reply.send(Ok(())).unwrap();
+                    }
+                    BotEvent::MarketReady(_) => {
+                        activation_tx.send(MarketCommand::Activate).await.unwrap();
+                    }
+                    _ => {}
+                }
+            }
+        });
+        let task = tokio::spawn(market.start(true, true));
+        let initialized = timeout(Duration::from_secs(3), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let MarketUpdate::InitMarket(info) = initialized else {
+            panic!("market init missing");
+        };
+        assert_eq!(info.position.unwrap(), chain.local);
+        assert_eq!(info.lev, 5);
+        assert!(info.is_paused);
+        timeout(Duration::from_secs(3), async {
+            while let Some(update) = updates.recv().await {
+                if matches!(
+                    update,
+                    MarketUpdate::MarketInfoUpdate((_, EditMarketInfo::Paused(false)))
+                ) {
+                    return;
+                }
+            }
+            panic!("activation missing");
+        })
+        .await
+        .unwrap();
+        for time in [60_000, 120_000] {
+            price_tx
+                .send((
+                    Arc::from("BTC"),
+                    PriceData::Single(crate::Price {
+                        open_time: time,
+                        close_time: time + 60_000,
+                        open: 110.0,
+                        high: 110.0,
+                        low: 110.0,
+                        close: 110.0,
+                        vlm: 1.0,
+                    }),
+                ))
+                .await
+                .unwrap();
+        }
+        timeout(Duration::from_secs(3), async {
+            loop {
+                if exchange
+                    .requests
+                    .lock()
+                    .await
+                    .iter()
+                    .any(|r| r["action"]["type"] == "order")
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        market_tx
+            .send(MarketCommand::UserEvent(ExecEvent::Fill(TradeFillInfo {
+                oid: 42,
+                price: 120.0,
+                sz: 10.0,
+                fee: 1.0,
+                side: Side::Short,
+                intent: PositionOp::Close,
+                fill_type: FillType::Market,
+                time: 2000,
+                tid: Some(1),
+            })))
+            .await
+            .unwrap();
+        let trade = timeout(Duration::from_secs(3), async {
+            while let Some(update) = updates.recv().await {
+                if let MarketUpdate::MarketInfoUpdate((_, EditMarketInfo::Trade(trade))) = update {
+                    return trade;
+                }
+            }
+            panic!("trade update missing");
+        })
+        .await
+        .unwrap();
+        assert_eq!(trade.open.origin, Some(TradeOrigin::Manual));
+        assert_eq!(trade.close.origin, Some(TradeOrigin::Algo));
+        assert_eq!(trade.managed_pnl(), 99.0);
+        assert!(
+            !exchange
+                .requests
+                .lock()
+                .await
+                .iter()
+                .any(|r| r["action"]["type"] == "updateLeverage")
+        );
+        market_tx.send(MarketCommand::Close).await.unwrap();
+        timeout(Duration::from_secs(3), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        bot.abort();
+    }
+
+    #[tokio::test]
+    async fn initialization_buffers_bursts_without_blocking_the_bot_reply() {
+        let (tx, mut rx) = channel(2);
+        let (reply_tx, reply_rx) = oneshot::channel();
+        let producer = tokio::spawn(async move {
+            for i in 0..25 {
+                tx.send(MarketCommand::UpdateMargin(i as f64))
+                    .await
+                    .unwrap();
+            }
+            reply_tx.send(()).unwrap();
+            tx
+        });
+        let mut pending = VecDeque::new();
+        timeout(
+            Duration::from_secs(1),
+            buffer_market_commands(reply_rx, &mut rx, &mut pending),
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+        let _tx = producer.await.unwrap();
+        while let Ok(command) = rx.try_recv() {
+            pending.push_back(command);
+        }
+        assert_eq!(pending.len(), 25);
+        for (i, command) in pending.into_iter().enumerate() {
+            assert!(matches!(command, MarketCommand::UpdateMargin(m) if m == i as f64));
+        }
+    }
 
     #[tokio::test]
     async fn sync_required_assets_via_bot_sends_request_and_returns_reply() {

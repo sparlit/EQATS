@@ -23,15 +23,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import httpx
 
+from indian_quant.adapters.announcements.models import Signal
 from indian_quant.config.settings import UpstoxConfig
 
 if TYPE_CHECKING:
-    from indian_quant.adapters.announcements.models import Signal
     from indian_quant.adapters.upstox.execution import UpstoxExecutionClient
 
 

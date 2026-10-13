@@ -45,7 +45,9 @@ import json
 import os
 
 TREE = "/Users/dhruvan/stocks-wt/revpat-verify"
-G = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gicre", "gicre_quarters_verdicts.json")
+G = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "gicre", "gicre_quarters_verdicts.json"
+)
 PRIOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "arbitration_verdicts.json")
 OUT = os.path.join(TREE, "scripts", "revpat_verify", "staged")
 AUTH = (
@@ -146,7 +148,8 @@ meta = {
     "STATUS": "STAGED -- NOT APPLIED. No builder reads these files.",
     "authorised": AUTH,
     "tree_read_for_guards": TREE,
-    "freeze": "heal freeze in force: SHP nsh reparse not landed and a second session is writing the same PAT stores",
+    "freeze": "heal freeze in force: SHP nsh reparse not landed "
+    "and a second session is writing the same PAT stores",
 }
 json.dump(
     {
@@ -177,7 +180,10 @@ json.dump(
 
 print("STAGED standalone-PAT (-> pat_defects.json): %d" % len(pat))
 for q, v in sorted(pat.items()):
-    print("   GICRE %s   %10s -> %-10s  (%s)" % (q, v["stored_pat"], v["correct_pat"], v["confidence"][:28]))
+    print(
+        "   GICRE %s   %10s -> %-10s  (%s)"
+        % (q, v["stored_pat"], v["correct_pat"], v["confidence"][:28])
+    )
 print("STAGED consolidated-revenue (-> con_copy_reads): %d" % len(rev))
 for k, v in rev.items():
     print("   %-22s %10s -> %-10s" % (k, v["was"], v["value"]))

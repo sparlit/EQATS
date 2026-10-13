@@ -46,9 +46,12 @@ markets = exchange.load_markets()
 
 # this will work (a limited number of symbols)
 result = exchange.fetch_order_books(["ETH/BTC", "LTC/BTC"])
+pprint(result)
 
 # this will also work (a limited number of symbols)
 result = exchange.fetch_order_books(exchange.symbols[0:10])
+pprint(result)
 
 # this will not work (too many symbols)
 result = exchange.fetch_order_books(exchange.symbols)
+pprint(result)

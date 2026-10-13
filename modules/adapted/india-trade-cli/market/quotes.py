@@ -50,7 +50,9 @@ def _ws_quotes(instruments: list[str]) -> dict[str, Quote]:
             tick = ws_manager.get_tick(inst)
             if tick and tick.ltp > 0:
                 result[inst] = Quote(
-                    symbol=tick.symbol.split(":")[-1].split("-")[0] if ":" in tick.symbol else tick.symbol,
+                    symbol=tick.symbol.split(":")[-1].split("-")[0]
+                    if ":" in tick.symbol
+                    else tick.symbol,
                     last_price=tick.ltp,
                     open=tick.open,
                     high=tick.high,

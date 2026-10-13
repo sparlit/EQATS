@@ -34,9 +34,7 @@ import csv
 import gzip
 import json
 import logging
-import subprocess
 import time
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +45,9 @@ from indian_quant.config.settings import load_settings
 log = logging.getLogger(__name__)
 
 MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"
-MASTER_CACHE = Path(__file__).resolve().parent.parent.parent.parent / "data" / "upstox_master.csv.gz"
+MASTER_CACHE = (
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "upstox_master.csv.gz"
+)
 TOKEN_FILE = Path(__file__).resolve().parent.parent.parent.parent / "upstox_tokens.json"
 CACHE_TTL_SECONDS = 30
 
@@ -86,7 +86,8 @@ def _refresh_token() -> str | None:
             TOKEN_FILE.write_text(json.dumps(data, indent=2))
             log.info("Token refreshed successfully")
             return new_data["access_token"]
-        log.warning("Token refresh failed: %s %s", resp.status_code, resp.text[:200])
+        else:
+            log.warning("Token refresh failed: %s %s", resp.status_code, resp.text[:200])
     except Exception as e:
         log.warning("Token refresh error: %s", e)
     return None

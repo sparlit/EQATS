@@ -22,6 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import threading
+from datetime import date
 
 from fastapi import APIRouter, HTTPException
 
@@ -85,7 +86,8 @@ def price_ema_crossover(symbol: str, short: int = 20, long: int = 50):
     signal = prices.ema_crossover(symbol.upper(), short, long)
     if signal is None:
         raise HTTPException(
-            status_code=404, detail=f"Not enough synced history for '{symbol}' yet - run a price sync first"
+            status_code=404,
+            detail=f"Not enough synced history for '{symbol}' yet - run a price sync first",
         )
     return signal
 
@@ -96,7 +98,9 @@ def trigger_max_collect(symbol: str, source: str = price_sources.DEFAULT_SOURCE)
     if source not in price_sources.SOURCES:
         raise HTTPException(status_code=422, detail=f"unknown price source '{source}'")
     if _max_collect_state.get(symbol, {}).get("running"):
-        raise HTTPException(status_code=409, detail=f"Already collecting max history for '{symbol}'")
+        raise HTTPException(
+            status_code=409, detail=f"Already collecting max history for '{symbol}'"
+        )
     threading.Thread(target=_run_max_collect, args=(symbol, source), daemon=True).start()
     return {"ok": True}
 
@@ -137,9 +141,18 @@ def max_history(symbol: str):
 # that cache in well under a second. Declared `def`, so FastAPI runs it in the threadpool and the
 # one slow call doesn't block the event loop.
 @router.get("/api/prices/{symbol}/intraday")
-def intraday_history(symbol: str, interval: str = "15m"):
+def intraday_history(
+    symbol: str, interval: str = "15m", start: date | None = None, end: date | None = None
+):
+    """`start`/`end` (inclusive dates) cut the series first, so the newest-bars cap applies inside
+    them - the engine's executions chart asks for a run's own period, which may be years back."""
     try:
-        return minute_data.get_minute_bars(symbol, interval)
+        return minute_data.get_minute_bars(
+            symbol,
+            interval,
+            start=start.isoformat() if start else None,
+            end=end.isoformat() if end else None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:

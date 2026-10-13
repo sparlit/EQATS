@@ -30,8 +30,17 @@ from corp_actions_nse import get_corp_action_csv
 
 csv_filename = "500209.csv"
 
-COL_NAMES = ["Date", "Open Price", "High Price", "Low Price", "Close Price", "No.of Shares", "Deliverable Quantity"]
+COL_NAMES = [
+    "Date",
+    "Open Price",
+    "High Price",
+    "Low Price",
+    "Close Price",
+    "No.of Shares",
+    "Deliverable Quantity",
+]
 
+#
 infy = pd.read_csv(csv_filename, index_col="Date", usecols=COL_NAMES, parse_dates=True)
 infy.columns = list("OHLCVD")
 

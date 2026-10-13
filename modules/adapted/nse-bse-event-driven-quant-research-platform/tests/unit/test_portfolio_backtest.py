@@ -41,7 +41,9 @@ from indian_quant.research.portfolio_backtest import (  # noqa: E402
 )
 
 
-def make_frame(symbol: str, closes, delivs: list[float], segment="EQ", opens: list[float] | None = None):
+def make_frame(
+    symbol: str, closes, delivs: list[float], segment="EQ", opens: list[float] | None = None
+):
     dates = pd.date_range("2026-01-01", periods=len(closes), freq="B", tz="UTC")
     data = {
         "date": dates,
@@ -109,7 +111,9 @@ class TestPortfolioBacktest:
             delivs = [45.0] * 17 + [95.0] * 23
             opens = [100.0] * 18 + [100.0] * 22
             f = make_frame(sym, closes, delivs, opens=opens)
-            f["deliv_z"] = f["deliv_z"] + {"AAA": 3, "BBB": 2, "CCC": 1}[sym]  # deterministic priority
+            f["deliv_z"] = (
+                f["deliv_z"] + {"AAA": 3, "BBB": 2, "CCC": 1}[sym]
+            )  # deterministic priority
             frames.append(f)
         result = run_portfolio(frames, self._cfg(max_positions=2))
         entered = {t.symbol for t in result.trades}

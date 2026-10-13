@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_iso8601():
@@ -50,7 +50,7 @@ def test_iso8601():
     assert exchange.iso8601(1) == "1970-01-01T00:00:00.001Z"
     assert exchange.iso8601(-1) is None
     # assert (exchange.iso8601 () === undefined);
-    # TODO: assert (exchange.iso8601 () === undefined);
+    # todo: assert (exchange.iso8601 () === undefined);
     assert exchange.iso8601(None) is None
     assert exchange.iso8601("") is None
     assert exchange.iso8601("a") is None
@@ -120,13 +120,16 @@ def test_parse8601():
     assert exchange.parse8601("1986-04-26T01:23:47.062Z") == 514862627062
     assert exchange.parse8601("1986-04-26T01:23:47.06Z") == 514862627060
     assert exchange.parse8601("1986-04-26T01:23:47.6Z") == 514862627600
+    # a negative offset is a zone like any other
+    assert exchange.parse8601("1986-04-26T01:23:47.559-04:00") == 514877027559
+    assert exchange.parse8601("1986-04-26T01:23:47.559+00:00") == 514862627559
     assert exchange.parse8601("1977-13-13T00:00:00.000Z") is None
     assert exchange.parse8601("1986-04-26T25:71:47.000Z") is None
     assert exchange.parse8601("3333") is None
     assert exchange.parse8601("Sr90") is None
     assert exchange.parse8601("") is None
     # assert (exchange.parse8601 () === undefined);
-    # TODO: assert (exchange.parse8601 () === undefined);
+    # todo: assert (exchange.parse8601 () === undefined);
     assert exchange.parse8601(None) is None
     assert exchange.parse8601({}) is None
     assert exchange.parse8601(33) is None
@@ -179,6 +182,28 @@ def test_seconds():
     assert len(value_string) == 10
 
 
+def test_convert_expire_date():
+    exchange = ccxt.Exchange(
+        {
+            "id": "sampleexchange",
+        }
+    )
+    # callers write this into expiryDatetime, which types.ts documents with milliseconds
+    assert exchange.convert_expire_date("260503") == "2026-05-03T00:00:00.000Z"
+    assert exchange.convert_expire_date("240426") == "2024-04-26T00:00:00.000Z"
+    # both spellings of midnight parse to the same instant
+    assert exchange.parse8601(exchange.convert_expire_date("260503")) == 1777766400000
+    assert exchange.parse8601("2026-05-03T00:00:00Z") == exchange.parse8601(
+        exchange.convert_expire_date("260503")
+    )
+    # the notation is now a fixed point of iso8601 (parse8601 (x)) - this is the
+    # invariant the change exists to establish, and it fails on the old spelling
+    assert exchange.convert_expire_date("260503") == exchange.iso8601(
+        exchange.parse8601(exchange.convert_expire_date("260503"))
+    )
+    assert exchange.convert_expire_date(None) is None
+
+
 def test_yymmdd():
     exchange = ccxt.Exchange(
         {
@@ -191,8 +216,7 @@ def test_yymmdd():
     value2 = exchange.yymmdd(exchange.milliseconds())
     assert len(value2) == 6
     int_num = exchange.parse_to_int(value2)
-    assert int_num > 260000
-    assert int_num < 360000
+    assert int_num > 260000 and int_num < 360000  # date between 2026 and 2036
 
 
 def test_yyyymmdd():
@@ -207,8 +231,7 @@ def test_yyyymmdd():
     value2 = exchange.yyyymmdd(exchange.milliseconds())
     assert len(value2) == 10
     int_num = exchange.parse_to_int((value2.replace("-", "")).replace("-", ""))
-    assert int_num > 20260000
-    assert int_num < 20360000
+    assert int_num > 20260000 and int_num < 20360000  # date between 2026 and 2036
 
 
 def test_ymd():
@@ -230,7 +253,9 @@ def test_ymdhms():
     )
     test_ms = 1750123456789  # 17 June 2025
     value = exchange.ymdhms(test_ms, "_")
-    assert value in {"2025-06-17_01:24:16", "2025-06-17_01:24:17"}  # TODO: php/py rounds up to 17
+    assert (
+        value == "2025-06-17_01:24:16" or value == "2025-06-17_01:24:17"
+    )  # todo: php/py rounds up to 17
 
 
 def test_datetime():
@@ -246,3 +271,4 @@ def test_datetime():
     test_seconds()
     test_yymmdd()
     test_yyyymmdd()
+    test_convert_expire_date()

@@ -81,7 +81,9 @@ def main():
     cells = []
     for sym, v in SCREEN.items():
         for qe in v["cells"]:
-            cells.append({"sym": sym, "qe": qe, "size": round(size_of(sym, qe), 2), "era": era_band(qe)})
+            cells.append(
+                {"sym": sym, "qe": qe, "size": round(size_of(sym, qe), 2), "era": era_band(qe)}
+            )
     sizes = sorted(c["size"] for c in cells)
     qs = [sizes[int(len(sizes) * f)] for f in (0.25, 0.5, 0.75)]
     for c in cells:
@@ -94,7 +96,10 @@ def main():
             if c["size"] <= qs[2]
             else "large"
         )
-    print("population %d cells; revenue quartile cuts (cr/qtr): %s" % (len(cells), [round(q, 1) for q in qs]))
+    print(
+        "population %d cells; revenue quartile cuts (cr/qtr): %s"
+        % (len(cells), [round(q, 1) for q in qs])
+    )
     strata = {}
     for c in cells:
         strata.setdefault((c["era"], c["sz"]), []).append(c)
@@ -106,7 +111,7 @@ def main():
     remaining -= sum(floor.values())
     tot = sum(len(strata[k]) for k in order)
     for k in order:
-        n = floor[k] + round(remaining * len(strata[k]) / tot)
+        n = floor[k] + int(round(remaining * len(strata[k]) / tot))
         n = min(n, len(strata[k]))
         pick += rnd.sample(strata[k], n)
     pick = pick[:N]

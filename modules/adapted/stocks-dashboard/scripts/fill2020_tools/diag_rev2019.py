@@ -70,7 +70,9 @@ TARGETS = os.path.join(HERE, "_rev2020_targets.json")
 # Per-campaign output: this diagnostic is year-agnostic (it diagnoses whatever _rev2020_targets.json
 # currently holds), so `--out <name>` keeps one campaign's per-cell verdicts out of another's file
 # and, just as importantly, stops a resume from treating another year's cells as already diagnosed.
-OUT = os.path.join(HERE, sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "_diag_rev2019.json")
+OUT = os.path.join(
+    HERE, sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "_diag_rev2019.json"
+)
 FUND = os.path.join(ROOT, "docs", "sf_fundamentals.json")
 REVOP = os.path.join(ROOT, "docs", "sf_revop.json")
 SCRIPS = os.path.join(SCRIPTS, "bse_scrips.json")
@@ -93,7 +95,9 @@ def main():
     # built from the LIVE master, so DELISTED names resolve to nothing (§52b) — ALBK, ANDHRABANK,
     # CORPBANK, DHFL... Fall back to _bse_master_all.json, which carries the delisted rows too, and
     # take the code from the master rather than hard-coding a guess.
-    name2scrip = {k.upper(): v for k, v in json.load(open(SCRIPS, encoding="utf-8"))["by_id"].items()}
+    name2scrip = {
+        k.upper(): v for k, v in json.load(open(SCRIPS, encoding="utf-8"))["by_id"].items()
+    }
     try:
         for r in json.load(open(os.path.join(SCRIPTS, "_bse_master_all.json"))):
             sid = (r.get("scrip_id") or "").upper()
@@ -130,9 +134,14 @@ def main():
             out[key] = {"stage": "no-bse-scrip"}
             continue
         stored_pat = (fmap.get(sym, {}).get(qe) or [None] * 4)[1 if basis == "std" else 3]
-        lo, hi = qe_date(qe) + datetime.timedelta(days=8), qe_date(qe) + datetime.timedelta(days=160)
+        lo, hi = (
+            qe_date(qe) + datetime.timedelta(days=8),
+            qe_date(qe) + datetime.timedelta(days=160),
+        )
         try:
-            fils = FI.datebound(sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d")) or []
+            fils = (
+                FI.datebound(sess, str(scrip), lo.strftime("%Y%m%d"), hi.strftime("%Y%m%d")) or []
+            )
         except Exception as ex:
             out[key] = {"stage": "ann-list-error", "err": type(ex).__name__}
             continue
@@ -187,7 +196,11 @@ def main():
                     con_pages += 1
                 if is_std:
                     std_pages += 1
-                bases = ["con"] if (is_con and not is_std) else (["std"] if (is_std and not is_con) else ["std", "con"])
+                bases = (
+                    ["con"]
+                    if (is_con and not is_std)
+                    else (["std"] if (is_std and not is_con) else ["std", "con"])
+                )
                 if basis not in bases:
                     continue
                 rows = BG.extract_rows(page)

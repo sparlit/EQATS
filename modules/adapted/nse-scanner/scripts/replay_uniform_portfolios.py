@@ -50,7 +50,9 @@ def archived(path: str, ref: str, count: int) -> dict:
     reports = {}
     for commit in commits:
         report = json.loads(
-            subprocess.check_output(["git", "show", commit + ":" + path], cwd=ROOT, text=True, encoding="utf-8")
+            subprocess.check_output(
+                ["git", "show", commit + ":" + path], cwd=ROOT, text=True, encoding="utf-8"
+            )
         )
         day = report["as_of_date"]
         reports.setdefault(day, (commit, report))
@@ -80,7 +82,11 @@ def main() -> int:
         history = []
         for day, (sha, report) in sorted(reports.items()):
             snapshot = update_portfolio(
-                scanner, report, database, out / (name + ".sqlite"), provenance="RECONSTRUCTED_FROM_ARCHIVED_SIGNALS"
+                scanner,
+                report,
+                database,
+                out / (name + ".sqlite"),
+                provenance="RECONSTRUCTED_FROM_ARCHIVED_SIGNALS",
             )
             write_reports(snapshot, out / day)
             history.append(
@@ -103,7 +109,8 @@ def main() -> int:
                 }
             )
             print(
-                f"{scanner} {day}: open={snapshot['open_positions']} pending={snapshot['pending_setups']}", flush=True
+                f"{scanner} {day}: open={snapshot['open_positions']} pending={snapshot['pending_setups']}",
+                flush=True,
             )
         if history:
             write_reports(snapshot, out / "latest")

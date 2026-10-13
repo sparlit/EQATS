@@ -178,7 +178,11 @@ class TestMultiClientVisibility:
         wrapper.got_open_order_end.clear()
         client_a.req_open_orders()
         wrapper.got_open_order_end.wait(timeout=10)
-        own_orders = [o for o in wrapper.open_orders if o[1] == "SPY" and o[2] == "BUY" and abs(o[4] - 1.0) < 0.01]
+        own_orders = [
+            o
+            for o in wrapper.open_orders
+            if o[1] == "SPY" and o[2] == "BUY" and abs(o[4] - 1.0) < 0.01
+        ]
         print(f"  Session A reqOpenOrders: {len(own_orders)} matching orders")
 
         # Disconnect session A
@@ -195,9 +199,18 @@ class TestMultiClientVisibility:
         client_b.req_all_open_orders()
         wrapper.got_open_order_end.wait(timeout=10)
 
-        matching = [o for o in wrapper.open_orders if o[1] == "SPY" and o[2] == "BUY" and abs(o[4] - 1.0) < 0.01]
-        print(f"  Session B reqAllOpenOrders: {len(matching)} matching, total: {len(wrapper.open_orders)}")
-        assert len(matching) > 0, f"Session A's order not visible in Session B. Orders: {wrapper.open_orders}"
+        matching = [
+            o
+            for o in wrapper.open_orders
+            if o[1] == "SPY" and o[2] == "BUY" and abs(o[4] - 1.0) < 0.01
+        ]
+        print(
+            f"  Session B reqAllOpenOrders: {len(matching)} matching, "
+            f"total: {len(wrapper.open_orders)}"
+        )
+        assert len(matching) > 0, (
+            f"Session A's order not visible in Session B. Orders: {wrapper.open_orders}"
+        )
 
         # reqExecutions — should see shared executions
         client_b.req_executions(6001, None)

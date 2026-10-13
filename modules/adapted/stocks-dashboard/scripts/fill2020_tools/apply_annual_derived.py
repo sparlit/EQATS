@@ -110,7 +110,10 @@ def main():
         ok.append((sym, qe, field, val, conf, rec))
 
     print("derived %d | WOULD FILL %d | held %d\n" % (len(derived), len(ok), len(skip)))
-    print("by year :", dict(sorted(collections.Counter(q[:4] for _s, q, _f, _v, _c, _r in ok).items())))
+    print(
+        "by year :",
+        dict(sorted(collections.Counter(q[:4] for _s, q, _f, _v, _c, _r in ok).items())),
+    )
     print("by field:", dict(collections.Counter(f for _s, _q, f, _v, _c, _r in ok)))
     print("by conf :", dict(collections.Counter(c for _s, _q, _f, _v, c, _r in ok)))
     for sym, qe, field, val, conf, rec in ok[:25]:

@@ -58,7 +58,12 @@ def fy_of(qe):
 
 
 def fy_quarters(fy):
-    return [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+    return [
+        (fy - 1) * 10000 + 630,
+        (fy - 1) * 10000 + 930,
+        (fy - 1) * 10000 + 1231,
+        fy * 10000 + 331,
+    ]
 
 
 def main():
@@ -86,7 +91,11 @@ def main():
                 if not all(q in vals for q in earlier) or len(others) < 2:
                     continue
                 sib = sorted(vals[q] for q in others)
-                med = sib[len(sib) // 2] if len(sib) % 2 else (sib[len(sib) // 2 - 1] + sib[len(sib) // 2]) / 2.0
+                med = (
+                    sib[len(sib) // 2]
+                    if len(sib) % 2
+                    else (sib[len(sib) // 2 - 1] + sib[len(sib) // 2]) / 2.0
+                )
                 if med <= 0:
                     continue
                 v = vals[qe]
@@ -108,12 +117,21 @@ def main():
     hits.sort(key=lambda h: -h["ratio"])
     print("cumulative-looking cells: %d\n" % len(hits))
     print(
-        "%-12s %-9s %-5s %12s %12s %12s %6s" % ("sym", "quarter", "field", "stored", "implied Q", "sib median", "ratio")
+        "%-12s %-9s %-5s %12s %12s %12s %6s"
+        % ("sym", "quarter", "field", "stored", "implied Q", "sib median", "ratio")
     )
     for h in hits[:45]:
         print(
             "%-12s %-9d %-5s %12.2f %12.2f %12.2f %6.2f"
-            % (h["sym"], h["qe"], h["field"], h["stored"], h["implied_quarter"], h["sibling_median"], h["ratio"])
+            % (
+                h["sym"],
+                h["qe"],
+                h["field"],
+                h["stored"],
+                h["implied_quarter"],
+                h["sibling_median"],
+                h["ratio"],
+            )
         )
     json.dump(hits, open("/tmp/cumulative_cells.json", "w"), indent=1)
     print("\n-> /tmp/cumulative_cells.json")

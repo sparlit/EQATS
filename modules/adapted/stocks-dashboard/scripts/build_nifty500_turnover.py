@@ -153,11 +153,15 @@ def main():
     # --- membership snapshots, sorted by date ---
     raw = json.load(open(MEMB, encoding="utf-8"))["Nifty 500"]
     snaps = sorted(
-        (date.fromisoformat(s["effectiveDate"]), {x for x in s["symbols"] if not str(x).upper().startswith("DUMMY")})
+        (
+            date.fromisoformat(s["effectiveDate"]),
+            {x for x in s["symbols"] if not str(x).upper().startswith("DUMMY")},
+        )
         for s in raw
     )
     print(
-        "membership: %d snapshots, %s .. %s" % (len(snaps), snaps[0][0].isoformat(), snaps[-1][0].isoformat()),
+        "membership: %d snapshots, %s .. %s"
+        % (len(snaps), snaps[0][0].isoformat(), snaps[-1][0].isoformat()),
         flush=True,
     )
 
@@ -175,7 +179,8 @@ def main():
     is_lakhs = classify_units(data)
     n_l = sum(1 for v in is_lakhs.values() if v)
     print(
-        "unit verdict: %d dates classified (%d lakhs-days, %d rupees-days)" % (len(is_lakhs), n_l, len(is_lakhs) - n_l),
+        "unit verdict: %d dates classified (%d lakhs-days, %d rupees-days)"
+        % (len(is_lakhs), n_l, len(is_lakhs) - n_l),
         flush=True,
     )
 

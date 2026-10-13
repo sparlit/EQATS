@@ -51,9 +51,9 @@ import fitz
 import gemini_vision as GV
 import headcount_extract as H
 
-_TITLE = re.compile(r"Employees\s+and\s+workers", re.IGNORECASE)
+_TITLE = re.compile(r"Employees\s+and\s+workers", re.I)
 _ROWS = re.compile(
-    r"Permanent\s*\(?\s*[D-H]|Other\s+than\s+[Pp]ermanent|Total\s+employees|Total\s+workers", re.IGNORECASE
+    r"Permanent\s*\(?\s*[D-H]|Other\s+than\s+[Pp]ermanent|Total\s+employees|Total\s+workers", re.I
 )
 # Outside a table, the row letter must be a real standalone capital: under re.I "Permanent\s*[D-H]" also matches
 # the prose words "permanent employees"/"permanent health" (HATHWAY FY26 well-being page won on them,
@@ -62,12 +62,12 @@ _ROWS = re.compile(
 _ROWS_STRICT = re.compile(
     r"Permanent\s*\(?\s*(?-i:[D-H])(?![A-Za-z])|Other\s+than\s+[Pp]ermanent|"
     r"Total\s+employees|Total\s+workers",
-    re.IGNORECASE,
+    re.I,
 )
-_GRID_HDR = re.compile(r"Total\s*\(\s*A\s*\)", re.IGNORECASE)
+_GRID_HDR = re.compile(r"Total\s*\(\s*A\s*\)", re.I)
 
 
-_SECTION = re.compile(r"section\s+a\b|general\s+disclosures|business\s+responsibility|BRSR", re.IGNORECASE)
+_SECTION = re.compile(r"section\s+a\b|general\s+disclosures|business\s+responsibility|BRSR", re.I)
 
 
 def brsr_pages(doc):
@@ -89,23 +89,29 @@ def brsr_pages(doc):
         # the title alone is NOT a signal: "For all employees and workers" sits in GRI assurance appendices
         # (RELIANCE FY25/26 p51/p64 scored 5 on the title alone and won with no grid anywhere in the report)
         a = (5 if rows and _TITLE.search(t) else 0) + rows
-        if re.search(r"Total\s+employees", t, re.IGNORECASE) and re.search(r"Permanent", t):
+        if re.search(r"Total\s+employees", t, re.I) and re.search(r"Permanent", t):
             a += 3
         b = 0
-        if re.search(r"details\s+as\s+at\s+the\s+end\s+of\s+(the\s+)?financial\s+year", t, re.IGNORECASE):
+        if re.search(r"details\s+as\s+at\s+the\s+end\s+of\s+(the\s+)?financial\s+year", t, re.I):
             b += 8  # the BRSR Q18/20 heading — the strongest, most specific signal
-        b += 3 * len(re.findall(r"other\s+than\s+permanent", t, re.IGNORECASE))
-        if b or rows:  # generic headings count only beside a grid-specific signal: "differently abled
-            if re.search(r"differently\s+abled\s+employees", t, re.IGNORECASE):  # employees and workers" is also
+        b += 3 * len(re.findall(r"other\s+than\s+permanent", t, re.I))
+        if (
+            b or rows
+        ):  # generic headings count only beside a grid-specific signal: "differently abled
+            if re.search(
+                r"differently\s+abled\s+employees", t, re.I
+            ):  # employees and workers" is also
                 b += 5  # well-being prose (HATHWAY FY26)
-            if re.search(r"employees\s+and\s+workers", t, re.IGNORECASE):
-                b += 2  # generic — also appears in GRI injury tables / prose, so needs corroboration
+            if re.search(r"employees\s+and\s+workers", t, re.I):
+                b += (
+                    2  # generic — also appears in GRI injury tables / prose, so needs corroboration
+                )
         # demote governance / GRI / well-being pages that merely mention "employees and workers"
         if re.search(
             r"corporate\s+governance|board\s+of\s+directors|GRI\s+30|work[- ]related\s+injur|"
             r"well[- ]being\s+measures\s+of|acknowledgement",
             t,
-            re.IGNORECASE,
+            re.I,
         ):
             b -= 6
         s = max(a, b)
@@ -131,18 +137,18 @@ def brsr_pages(doc):
 _ROLLS = re.compile(
     r"on\s+the\s+rolls\s+of\s+(?:the\s+)?(?:compan|bank)|"
     r"employees?\s+(?:were\s+|are\s+)?on\s+(?:the\s+|their\s+|its\s+)?rolls?\b",
-    re.IGNORECASE,
+    re.I,
 )
 _CADRE = (
-    re.compile(r"\bofficers?\b", re.IGNORECASE),
-    re.compile(r"\bclerk", re.IGNORECASE),
-    re.compile(r"sub[\s-]*staff|subordinate\s+staff", re.IGNORECASE),
+    re.compile(r"\bofficers?\b", re.I),
+    re.compile(r"\bclerk", re.I),
+    re.compile(r"sub[\s-]*staff|subordinate\s+staff", re.I),
 )
-_BRRTOT = re.compile(r"total\s+number\s+of\s+employees", re.IGNORECASE)
+_BRRTOT = re.compile(r"total\s+number\s+of\s+employees", re.I)
 _REFONLY = re.compile(
     r"available\s+for\s+inspection|forms?\s+part\s+of\s+this\s+report|"
     r"excluding\s+the\s+aforesaid",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -189,8 +195,10 @@ def locate(doc):
 # ("...is available on the Company's website and can be accessed at https://www.hathway.com/documents/
 # Annual_Report/Business_Responsibility_and_Sustainability_Report_2025-26.pdf"). No page of such a report
 # holds the grid, so the locator must follow the company's OWN printed link (2026-09-13).
-_BRSR_URL = re.compile(r"brsr|business[\W_]*responsib", re.IGNORECASE)  # [\W_]: "Business_Responsibility" (HATHWAY)
-_URL_TXT = re.compile(r"https?://\S+?(?:\s*\n\s*\S+?){0,4}?\.pdf\b", re.IGNORECASE)
+_BRSR_URL = re.compile(
+    r"brsr|business[\W_]*responsib", re.I
+)  # [\W_]: "Business_Responsibility" (HATHWAY)
+_URL_TXT = re.compile(r"https?://\S+?(?:\s*\n\s*\S+?){0,4}?\.pdf\b", re.I)
 
 
 def brsr_links(doc):
@@ -335,7 +343,7 @@ Return ONLY the JSON."""
 
 def _int(v):
     try:
-        return round(float(v)) if v is not None else None
+        return int(round(float(v))) if v is not None else None
     except (TypeError, ValueError):
         return None
 
@@ -344,7 +352,8 @@ def read_employees(company, fy, pngs):
     if not GV._key() or not pngs:
         return None
     parts = [
-        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}} for p in pngs[:4]
+        {"inline_data": {"mime_type": "image/png", "data": base64.standard_b64encode(p).decode()}}
+        for p in pngs[:4]
     ]
     parts.append({"text": _PROMPT % {"company": company, "fy": fy}})
     return GV._post(
@@ -390,7 +399,12 @@ def validate(d):
         "onroll_perm": onroll,
         "total_incl_workers": max(total_wf, onroll),
     }
-    return {"count": onroll, "total_workforce": max(total_wf, onroll), "basis": "vision", "brsr": detail}
+    return {
+        "count": onroll,
+        "total_workforce": max(total_wf, onroll),
+        "basis": "vision",
+        "brsr": detail,
+    }
 
 
 def process(sym, want_fys, max_reports=4, verbose=True):
@@ -457,7 +471,8 @@ def _load_names():
         for x in json.load(open(os.path.join(H.HERE, "_bse_master_all.json"), encoding="utf-8")):
             if x.get("scrip_id"):
                 _NAME.setdefault(
-                    x["scrip_id"], re.sub(r"\s+(Ltd|Limited)\.?$", "", (x.get("Scrip_Name") or "").strip())
+                    x["scrip_id"],
+                    re.sub(r"\s+(Ltd|Limited)\.?$", "", (x.get("Scrip_Name") or "").strip()),
                 )
     except Exception:
         pass
@@ -504,7 +519,8 @@ def prep(syms, want_fys, outdir, max_reports=3, verbose=True):
                 )
     json.dump(manifest, open(os.path.join(outdir, "manifest.json"), "w"), indent=1)
     print(
-        "PREP DONE: %d entries / %d PNG pages for %d symbols -> %s" % (len(manifest), npng, len(syms), outdir),
+        "PREP DONE: %d entries / %d PNG pages for %d symbols -> %s"
+        % (len(manifest), npng, len(syms), outdir),
         flush=True,
     )
 
@@ -527,7 +543,18 @@ def merge(reads_path):
             continue
         d = {"ok": True, "company_matches": True}
         d.update(
-            {k: r.get(k) for k in ("emp_perm", "emp_other", "emp_total", "wrk_perm", "wrk_total", "male", "female")}
+            {
+                k: r.get(k)
+                for k in (
+                    "emp_perm",
+                    "emp_other",
+                    "emp_total",
+                    "wrk_perm",
+                    "wrk_total",
+                    "male",
+                    "female",
+                )
+            }
         )
         rec = validate(d)
         if not rec:
@@ -537,7 +564,11 @@ def merge(reads_path):
         if links.get((r["sym"], int(r["fy"]), r.get("page"))):
             rec["src"]["url"] = links[(r["sym"], int(r["fy"]), r.get("page"))]
         p = os.path.join(H.LEDGER_DIR, r["sym"] + ".json")
-        led = json.load(open(p)) if os.path.exists(p) else {"sym": r["sym"], "bse": H.scripcode(r["sym"])}
+        led = (
+            json.load(open(p))
+            if os.path.exists(p)
+            else {"sym": r["sym"], "bse": H.scripcode(r["sym"])}
+        )
         led.setdefault("fy", {})[str(int(r["fy"]))] = rec
         led["by"] = "vision"
         json.dump(led, open(p, "w"), indent=1, default=str)
@@ -554,8 +585,16 @@ def main():
     ap.add_argument("--since-fy", type=int, default=2020)
     ap.add_argument("--max-reports", type=int, default=4)
     ap.add_argument("--save", action="store_true")
-    ap.add_argument("--prep", metavar="DIR", help="native-vision: render BRSR pages to PNGs + manifest (no Gemini)")
-    ap.add_argument("--merge", metavar="READS_JSON", help="land subagent vision reads (gate-enforced) into the ledgers")
+    ap.add_argument(
+        "--prep",
+        metavar="DIR",
+        help="native-vision: render BRSR pages to PNGs + manifest (no Gemini)",
+    )
+    ap.add_argument(
+        "--merge",
+        metavar="READS_JSON",
+        help="land subagent vision reads (gate-enforced) into the ledgers",
+    )
     a = ap.parse_args()
     want = set(range(a.since_fy, date.today().year + 1))
     if a.merge:
@@ -569,7 +608,11 @@ def main():
         return
     print(
         "vision: %d symbols, model %s, key=%s"
-        % (len(syms), os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"), "set" if GV._key() else "MISSING"),
+        % (
+            len(syms),
+            os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
+            "set" if GV._key() else "MISSING",
+        ),
         flush=True,
     )
     os.makedirs(H.LEDGER_DIR, exist_ok=True)

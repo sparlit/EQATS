@@ -31,8 +31,12 @@ class ImplicitAPI:
     spot_public_get_announcements = spotPublicGetAnnouncements = Entry[_Dict](
         "announcements", ["spot", "public"], "GET", {"cost": 8}
     )
-    spot_public_get_ping = spotPublicGetPing = Entry[_Dict]("ping", ["spot", "public"], "GET", {"cost": 1})
-    spot_public_get_time = spotPublicGetTime = Entry[_Dict]("time", ["spot", "public"], "GET", {"cost": 1})
+    spot_public_get_ping = spotPublicGetPing = Entry[_Dict](
+        "ping", ["spot", "public"], "GET", {"cost": 1}
+    )
+    spot_public_get_time = spotPublicGetTime = Entry[_Dict](
+        "time", ["spot", "public"], "GET", {"cost": 1}
+    )
     spot_public_get_defaultsymbols = spotPublicGetDefaultSymbols = Entry[_Dict](
         "defaultSymbols", ["spot", "public"], "GET", {"cost": 1}
     )
@@ -42,16 +46,24 @@ class ImplicitAPI:
     spot_public_get_exchangeinfo = spotPublicGetExchangeInfo = Entry[_Dict](
         "exchangeInfo", ["spot", "public"], "GET", {"cost": 25}
     )
-    spot_public_get_depth = spotPublicGetDepth = Entry[_Dict]("depth", ["spot", "public"], "GET", {"cost": 3})
-    spot_public_get_trades = spotPublicGetTrades = Entry[_List]("trades", ["spot", "public"], "GET", {"cost": 5})
+    spot_public_get_depth = spotPublicGetDepth = Entry[_Dict](
+        "depth", ["spot", "public"], "GET", {"cost": 3}
+    )
+    spot_public_get_trades = spotPublicGetTrades = Entry[_List](
+        "trades", ["spot", "public"], "GET", {"cost": 5}
+    )
     spot_public_get_historicaltrades = spotPublicGetHistoricalTrades = Entry[_List](
         "historicalTrades", ["spot", "public"], "GET", {"cost": 1}
     )
     spot_public_get_aggtrades = spotPublicGetAggTrades = Entry[_List](
         "aggTrades", ["spot", "public"], "GET", {"cost": 1}
     )
-    spot_public_get_klines = spotPublicGetKlines = Entry[_List]("klines", ["spot", "public"], "GET", {"cost": 1})
-    spot_public_get_avgprice = spotPublicGetAvgPrice = Entry[_Dict]("avgPrice", ["spot", "public"], "GET", {"cost": 1})
+    spot_public_get_klines = spotPublicGetKlines = Entry[_List](
+        "klines", ["spot", "public"], "GET", {"cost": 1}
+    )
+    spot_public_get_avgprice = spotPublicGetAvgPrice = Entry[_Dict](
+        "avgPrice", ["spot", "public"], "GET", {"cost": 1}
+    )
     spot_public_get_ticker_24hr = spotPublicGetTicker24hr = Entry[_Dict | _List](
         "ticker/24hr", ["spot", "public"], "GET", {"cost": 25}
     )
@@ -61,19 +73,30 @@ class ImplicitAPI:
     spot_public_get_ticker_bookticker = spotPublicGetTickerBookTicker = Entry[_List](
         "ticker/bookTicker", ["spot", "public"], "GET", {"cost": 10}
     )
-    spot_public_get_etf_info = spotPublicGetEtfInfo = Entry[_Dict]("etf/info", ["spot", "public"], "GET", {"cost": 1})
+    spot_public_get_etf_info = spotPublicGetEtfInfo = Entry[_Dict](
+        "etf/info", ["spot", "public"], "GET", {"cost": 1}
+    )
     spot_private_get_kyc_status = spotPrivateGetKycStatus = Entry[_Dict](
         "kyc/status", ["spot", "private"], "GET", {"cost": 1}
     )
-    spot_private_get_uid = spotPrivateGetUid = Entry[_Dict]("uid", ["spot", "private"], "GET", {"cost": 1})
-    spot_private_get_order = spotPrivateGetOrder = Entry[_Dict]("order", ["spot", "private"], "GET", {"cost": 2})
+    spot_private_get_uid = spotPrivateGetUid = Entry[_Dict](
+        "uid", ["spot", "private"], "GET", {"cost": 1}
+    )
+    spot_private_get_apikeyinfo = spotPrivateGetApiKeyInfo = Entry[_Dict](
+        "apiKeyInfo", ["spot", "private"], "GET", {"cost": 1}
+    )
+    spot_private_get_order = spotPrivateGetOrder = Entry[_Dict](
+        "order", ["spot", "private"], "GET", {"cost": 2}
+    )
     spot_private_get_openorders = spotPrivateGetOpenOrders = Entry[_List](
         "openOrders", ["spot", "private"], "GET", {"cost": 3}
     )
     spot_private_get_allorders = spotPrivateGetAllOrders = Entry[_List](
         "allOrders", ["spot", "private"], "GET", {"cost": 10}
     )
-    spot_private_get_account = spotPrivateGetAccount = Entry[_Dict]("account", ["spot", "private"], "GET", {"cost": 10})
+    spot_private_get_account = spotPrivateGetAccount = Entry[_Dict](
+        "account", ["spot", "private"], "GET", {"cost": 10}
+    )
     spot_private_get_mytrades = spotPrivateGetMyTrades = Entry[_List](
         "myTrades", ["spot", "private"], "GET", {"cost": 10}
     )
@@ -116,12 +139,14 @@ class ImplicitAPI:
     spot_private_get_capital_transfer_tranid = spotPrivateGetCapitalTransferTranId = Entry[_Dict](
         "capital/transfer/tranId", ["spot", "private"], "GET", {"cost": 1}
     )
-    spot_private_get_capital_transfer_internal = spotPrivateGetCapitalTransferInternal = Entry[_Dict](
-        "capital/transfer/internal", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_capital_sub_account_universaltransfer = spotPrivateGetCapitalSubAccountUniversalTransfer = Entry[
+    spot_private_get_capital_transfer_internal = spotPrivateGetCapitalTransferInternal = Entry[
         _Dict
-    ]("capital/sub-account/universalTransfer", ["spot", "private"], "GET", {"cost": 1})
+    ]("capital/transfer/internal", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_capital_sub_account_universaltransfer = (
+        spotPrivateGetCapitalSubAccountUniversalTransfer
+    ) = Entry[_Dict](
+        "capital/sub-account/universalTransfer", ["spot", "private"], "GET", {"cost": 1}
+    )
     spot_private_get_capital_convert = spotPrivateGetCapitalConvert = Entry[_Dict](
         "capital/convert", ["spot", "private"], "GET", {"cost": 1}
     )
@@ -161,15 +186,15 @@ class ImplicitAPI:
     spot_private_get_margin_isolated_pair = spotPrivateGetMarginIsolatedPair = Entry[_Dict](
         "margin/isolated/pair", ["spot", "private"], "GET", {"cost": 1}
     )
-    spot_private_get_margin_forceliquidationrec = spotPrivateGetMarginForceLiquidationRec = Entry[_Dict](
-        "margin/forceLiquidationRec", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_margin_isolatedmargindata = spotPrivateGetMarginIsolatedMarginData = Entry[_Dict](
-        "margin/isolatedMarginData", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_margin_isolatedmargintier = spotPrivateGetMarginIsolatedMarginTier = Entry[_Dict](
-        "margin/isolatedMarginTier", ["spot", "private"], "GET", {"cost": 1}
-    )
+    spot_private_get_margin_forceliquidationrec = spotPrivateGetMarginForceLiquidationRec = Entry[
+        _Dict
+    ]("margin/forceLiquidationRec", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_margin_isolatedmargindata = spotPrivateGetMarginIsolatedMarginData = Entry[
+        _Dict
+    ]("margin/isolatedMarginData", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_margin_isolatedmargintier = spotPrivateGetMarginIsolatedMarginTier = Entry[
+        _Dict
+    ]("margin/isolatedMarginTier", ["spot", "private"], "GET", {"cost": 1})
     spot_private_get_rebate_taxquery = spotPrivateGetRebateTaxQuery = Entry[_Dict](
         "rebate/taxQuery", ["spot", "private"], "GET", {"cost": 1}
     )
@@ -182,23 +207,23 @@ class ImplicitAPI:
     spot_private_get_rebate_refercode = spotPrivateGetRebateReferCode = Entry[_Dict](
         "rebate/referCode", ["spot", "private"], "GET", {"cost": 1}
     )
-    spot_private_get_rebate_affiliate_commission = spotPrivateGetRebateAffiliateCommission = Entry[_Dict](
-        "rebate/affiliate/commission", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_rebate_affiliate_withdraw = spotPrivateGetRebateAffiliateWithdraw = Entry[_Dict](
-        "rebate/affiliate/withdraw", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_rebate_affiliate_commission_detail = spotPrivateGetRebateAffiliateCommissionDetail = Entry[_Dict](
-        "rebate/affiliate/commission/detail", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_rebate_affiliate_campaign = spotPrivateGetRebateAffiliateCampaign = Entry[_Dict](
-        "rebate/affiliate/campaign", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_rebate_affiliate_referral = spotPrivateGetRebateAffiliateReferral = Entry[_Dict](
-        "rebate/affiliate/referral", ["spot", "private"], "GET", {"cost": 1}
-    )
-    spot_private_get_rebate_affiliate_subaffiliates = spotPrivateGetRebateAffiliateSubaffiliates = Entry[_Dict](
-        "rebate/affiliate/subaffiliates", ["spot", "private"], "GET", {"cost": 1}
+    spot_private_get_rebate_affiliate_commission = spotPrivateGetRebateAffiliateCommission = Entry[
+        _Dict
+    ]("rebate/affiliate/commission", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_rebate_affiliate_withdraw = spotPrivateGetRebateAffiliateWithdraw = Entry[
+        _Dict
+    ]("rebate/affiliate/withdraw", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_rebate_affiliate_commission_detail = (
+        spotPrivateGetRebateAffiliateCommissionDetail
+    ) = Entry[_Dict]("rebate/affiliate/commission/detail", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_rebate_affiliate_campaign = spotPrivateGetRebateAffiliateCampaign = Entry[
+        _Dict
+    ]("rebate/affiliate/campaign", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_rebate_affiliate_referral = spotPrivateGetRebateAffiliateReferral = Entry[
+        _Dict
+    ]("rebate/affiliate/referral", ["spot", "private"], "GET", {"cost": 1})
+    spot_private_get_rebate_affiliate_subaffiliates = spotPrivateGetRebateAffiliateSubaffiliates = (
+        Entry[_Dict]("rebate/affiliate/subaffiliates", ["spot", "private"], "GET", {"cost": 1})
     )
     spot_private_get_rebate_affiliate_list = spotPrivateGetRebateAffiliateList = Entry[_Dict](
         "rebate/affiliate/list", ["spot", "private"], "GET", {"cost": 1}
@@ -212,18 +237,20 @@ class ImplicitAPI:
     spot_private_get_selfsymbols = spotPrivateGetSelfSymbols = Entry[_Dict](
         "selfSymbols", ["spot", "private"], "GET", {"cost": 1}
     )
-    spot_private_get_asset_internal_transfer_record = spotPrivateGetAssetInternalTransferRecord = Entry[_Dict](
-        "asset/internal/transfer/record", ["spot", "private"], "GET", {"cost": 10}
+    spot_private_get_asset_internal_transfer_record = spotPrivateGetAssetInternalTransferRecord = (
+        Entry[_Dict]("asset/internal/transfer/record", ["spot", "private"], "GET", {"cost": 10})
     )
-    spot_private_post_order = spotPrivatePostOrder = Entry[_Dict]("order", ["spot", "private"], "POST", {"cost": 1})
+    spot_private_post_order = spotPrivatePostOrder = Entry[_Dict](
+        "order", ["spot", "private"], "POST", {"cost": 1}
+    )
     spot_private_post_order_test = spotPrivatePostOrderTest = Entry[_Dict](
         "order/test", ["spot", "private"], "POST", {"cost": 1}
     )
     spot_private_post_apikeyinfo = spotPrivatePostApiKeyInfo = Entry[_Dict](
         "apiKeyInfo", ["spot", "private"], "POST", {"cost": 1}
     )
-    spot_private_post_sub_account_virtualsubaccount = spotPrivatePostSubAccountVirtualSubAccount = Entry[_Dict](
-        "sub-account/virtualSubAccount", ["spot", "private"], "POST", {"cost": 1}
+    spot_private_post_sub_account_virtualsubaccount = spotPrivatePostSubAccountVirtualSubAccount = (
+        Entry[_Dict]("sub-account/virtualSubAccount", ["spot", "private"], "POST", {"cost": 1})
     )
     spot_private_post_sub_account_apikey = spotPrivatePostSubAccountApiKey = Entry[_Dict](
         "sub-account/apiKey", ["spot", "private"], "POST", {"cost": 1}
@@ -240,6 +267,9 @@ class ImplicitAPI:
     spot_private_post_strategy_group = spotPrivatePostStrategyGroup = Entry[_Dict](
         "strategy/group", ["spot", "private"], "POST", {"cost": 20}
     )
+    spot_private_post_strategy_group_uid = spotPrivatePostStrategyGroupUid = Entry[_Dict](
+        "strategy/group/uid", ["spot", "private"], "POST", {"cost": 20}
+    )
     spot_private_post_capital_withdraw_apply = spotPrivatePostCapitalWithdrawApply = Entry[_Dict](
         "capital/withdraw/apply", ["spot", "private"], "POST", {"cost": 1}
     )
@@ -249,15 +279,17 @@ class ImplicitAPI:
     spot_private_post_capital_transfer = spotPrivatePostCapitalTransfer = Entry[_Dict](
         "capital/transfer", ["spot", "private"], "POST", {"cost": 50}
     )
-    spot_private_post_capital_transfer_internal = spotPrivatePostCapitalTransferInternal = Entry[_Dict](
-        "capital/transfer/internal", ["spot", "private"], "POST", {"cost": 1}
-    )
+    spot_private_post_capital_transfer_internal = spotPrivatePostCapitalTransferInternal = Entry[
+        _Dict
+    ]("capital/transfer/internal", ["spot", "private"], "POST", {"cost": 1})
     spot_private_post_capital_deposit_address = spotPrivatePostCapitalDepositAddress = Entry[_Dict](
         "capital/deposit/address", ["spot", "private"], "POST", {"cost": 1}
     )
-    spot_private_post_capital_sub_account_universaltransfer = spotPrivatePostCapitalSubAccountUniversalTransfer = Entry[
-        _Dict
-    ]("capital/sub-account/universalTransfer", ["spot", "private"], "POST", {"cost": 1})
+    spot_private_post_capital_sub_account_universaltransfer = (
+        spotPrivatePostCapitalSubAccountUniversalTransfer
+    ) = Entry[_Dict](
+        "capital/sub-account/universalTransfer", ["spot", "private"], "POST", {"cost": 1}
+    )
     spot_private_post_capital_convert = spotPrivatePostCapitalConvert = Entry[_Dict](
         "capital/convert", ["spot", "private"], "POST", {"cost": 10}
     )
@@ -300,7 +332,9 @@ class ImplicitAPI:
     spot_private_delete_capital_withdraw = spotPrivateDeleteCapitalWithdraw = Entry[_Dict](
         "capital/withdraw", ["spot", "private"], "DELETE", {"cost": 1}
     )
-    contract_public_get_ping = contractPublicGetPing = Entry[_Dict]("ping", ["contract", "public"], "GET", {"cost": 2})
+    contract_public_get_ping = contractPublicGetPing = Entry[_Dict](
+        "ping", ["contract", "public"], "GET", {"cost": 2}
+    )
     contract_public_get_detail = contractPublicGetDetail = Entry[_Dict](
         "detail", ["contract", "public"], "GET", {"cost": 100}
     )
@@ -310,8 +344,8 @@ class ImplicitAPI:
     contract_public_get_depth_symbol = contractPublicGetDepthSymbol = Entry[_Dict](
         "depth/{symbol}", ["contract", "public"], "GET", {"cost": 2}
     )
-    contract_public_get_depth_commits_symbol_limit = contractPublicGetDepthCommitsSymbolLimit = Entry[_Dict](
-        "depth_commits/{symbol}/{limit}", ["contract", "public"], "GET", {"cost": 2}
+    contract_public_get_depth_commits_symbol_limit = contractPublicGetDepthCommitsSymbolLimit = (
+        Entry[_Dict]("depth_commits/{symbol}/{limit}", ["contract", "public"], "GET", {"cost": 2})
     )
     contract_public_get_index_price_symbol = contractPublicGetIndexPriceSymbol = Entry[_Dict](
         "index_price/{symbol}", ["contract", "public"], "GET", {"cost": 2}
@@ -325,12 +359,12 @@ class ImplicitAPI:
     contract_public_get_kline_symbol = contractPublicGetKlineSymbol = Entry[_Dict](
         "kline/{symbol}", ["contract", "public"], "GET", {"cost": 2}
     )
-    contract_public_get_kline_index_price_symbol = contractPublicGetKlineIndexPriceSymbol = Entry[_Dict](
-        "kline/index_price/{symbol}", ["contract", "public"], "GET", {"cost": 2}
-    )
-    contract_public_get_kline_fair_price_symbol = contractPublicGetKlineFairPriceSymbol = Entry[_Dict](
-        "kline/fair_price/{symbol}", ["contract", "public"], "GET", {"cost": 2}
-    )
+    contract_public_get_kline_index_price_symbol = contractPublicGetKlineIndexPriceSymbol = Entry[
+        _Dict
+    ]("kline/index_price/{symbol}", ["contract", "public"], "GET", {"cost": 2})
+    contract_public_get_kline_fair_price_symbol = contractPublicGetKlineFairPriceSymbol = Entry[
+        _Dict
+    ]("kline/fair_price/{symbol}", ["contract", "public"], "GET", {"cost": 2})
     contract_public_get_deals_symbol = contractPublicGetDealsSymbol = Entry[_Dict](
         "deals/{symbol}", ["contract", "public"], "GET", {"cost": 2}
     )
@@ -349,147 +383,169 @@ class ImplicitAPI:
     contract_private_get_account_assets = contractPrivateGetAccountAssets = Entry[_Dict](
         "account/assets", ["contract", "private"], "GET", {"cost": 2}
     )
-    contract_private_get_account_asset_currency = contractPrivateGetAccountAssetCurrency = Entry[_Dict](
-        "account/asset/{currency}", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_transfer_record = contractPrivateGetAccountTransferRecord = Entry[_Dict](
-        "account/transfer_record", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_profit_rate_type = contractPrivateGetAccountProfitRateType = Entry[_Dict](
-        "account/profit_rate/{type}", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_asset_analysis_type = contractPrivateGetAccountAssetAnalysisType = Entry[_Dict](
-        "account/asset/analysis/{type}", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_feedeductconfigs = contractPrivateGetAccountFeeDeductConfigs = Entry[_Dict](
-        "account/feeDeductConfigs", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_asset_analysis_yesterday_pnl = contractPrivateGetAccountAssetAnalysisYesterdayPnl = (
-        Entry[_Dict]("account/asset/analysis/yesterday_pnl", ["contract", "private"], "GET", {"cost": 2})
-    )
-    contract_private_get_account_asset_analysis_today_pnl = contractPrivateGetAccountAssetAnalysisTodayPnl = Entry[
+    contract_private_get_account_asset_currency = contractPrivateGetAccountAssetCurrency = Entry[
         _Dict
-    ]("account/asset/analysis/today_pnl", ["contract", "private"], "GET", {"cost": 2})
+    ]("account/asset/{currency}", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_account_transfer_record = contractPrivateGetAccountTransferRecord = Entry[
+        _Dict
+    ]("account/transfer_record", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_account_profit_rate_type = contractPrivateGetAccountProfitRateType = Entry[
+        _Dict
+    ]("account/profit_rate/{type}", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_account_asset_analysis_type = (
+        contractPrivateGetAccountAssetAnalysisType
+    ) = Entry[_Dict]("account/asset/analysis/{type}", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_account_feedeductconfigs = contractPrivateGetAccountFeeDeductConfigs = (
+        Entry[_Dict]("account/feeDeductConfigs", ["contract", "private"], "GET", {"cost": 2})
+    )
+    contract_private_get_account_asset_analysis_yesterday_pnl = (
+        contractPrivateGetAccountAssetAnalysisYesterdayPnl
+    ) = Entry[_Dict](
+        "account/asset/analysis/yesterday_pnl", ["contract", "private"], "GET", {"cost": 2}
+    )
+    contract_private_get_account_asset_analysis_today_pnl = (
+        contractPrivateGetAccountAssetAnalysisTodayPnl
+    ) = Entry[_Dict](
+        "account/asset/analysis/today_pnl", ["contract", "private"], "GET", {"cost": 2}
+    )
     contract_private_get_account_config_contractfeediscountconfig = (
         contractPrivateGetAccountConfigContractFeeDiscountConfig
-    ) = Entry[_Dict]("account/config/contractFeeDiscountConfig", ["contract", "private"], "GET", {"cost": 2})
+    ) = Entry[_Dict](
+        "account/config/contractFeeDiscountConfig", ["contract", "private"], "GET", {"cost": 2}
+    )
     contract_private_get_order_fee_details = contractPrivateGetOrderFeeDetails = Entry[_Dict](
         "order/fee_details", ["contract", "private"], "GET", {"cost": 2}
     )
-    contract_private_get_account_discounttype = contractPrivateGetAccountDiscountType = Entry[_Dict](
-        "account/discountType", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_account_asset_analysis_export = contractPrivateGetAccountAssetAnalysisExport = Entry[_Dict](
-        "account/asset/analysis/export", ["contract", "private"], "GET", {"cost": 2}
-    )
+    contract_private_get_account_discounttype = contractPrivateGetAccountDiscountType = Entry[
+        _Dict
+    ]("account/discountType", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_account_asset_analysis_export = (
+        contractPrivateGetAccountAssetAnalysisExport
+    ) = Entry[_Dict]("account/asset/analysis/export", ["contract", "private"], "GET", {"cost": 2})
     contract_private_get_account_asset_book_order_deal_fee_total = (
         contractPrivateGetAccountAssetBookOrderDealFeeTotal
-    ) = Entry[_Dict]("account/asset_book/order_deal_fee/total", ["contract", "private"], "GET", {"cost": 2})
-    contract_private_get_account_contract_fee_rate = contractPrivateGetAccountContractFeeRate = Entry[_Dict](
-        "account/contract/fee_rate", ["contract", "private"], "GET", {"cost": 2}
+    ) = Entry[_Dict](
+        "account/asset_book/order_deal_fee/total", ["contract", "private"], "GET", {"cost": 2}
     )
-    contract_private_get_account_contract_zero_fee_rate = contractPrivateGetAccountContractZeroFeeRate = Entry[_Dict](
-        "account/contract/zero_fee_rate", ["contract", "private"], "GET", {"cost": 2}
+    contract_private_get_account_contract_fee_rate = contractPrivateGetAccountContractFeeRate = (
+        Entry[_Dict]("account/contract/fee_rate", ["contract", "private"], "GET", {"cost": 2})
     )
-    contract_private_get_position_list_history_positions = contractPrivateGetPositionListHistoryPositions = Entry[
+    contract_private_get_account_contract_zero_fee_rate = (
+        contractPrivateGetAccountContractZeroFeeRate
+    ) = Entry[_Dict]("account/contract/zero_fee_rate", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_position_list_history_positions = (
+        contractPrivateGetPositionListHistoryPositions
+    ) = Entry[_Dict]("position/list/history_positions", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_position_open_positions = contractPrivateGetPositionOpenPositions = Entry[
         _Dict
-    ]("position/list/history_positions", ["contract", "private"], "GET", {"cost": 2})
-    contract_private_get_position_open_positions = contractPrivateGetPositionOpenPositions = Entry[_Dict](
-        "position/open_positions", ["contract", "private"], "GET", {"cost": 2}
+    ]("position/open_positions", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_position_funding_records = contractPrivateGetPositionFundingRecords = (
+        Entry[_Dict]("position/funding_records", ["contract", "private"], "GET", {"cost": 2})
     )
-    contract_private_get_position_funding_records = contractPrivateGetPositionFundingRecords = Entry[_Dict](
-        "position/funding_records", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_position_position_mode = contractPrivateGetPositionPositionMode = Entry[_Dict](
-        "position/position_mode", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_list_open_orders_symbol = contractPrivateGetOrderListOpenOrdersSymbol = Entry[_Dict](
-        "order/list/open_orders/{symbol}", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_list_open_orders = contractPrivateGetOrderListOpenOrders = Entry[_Dict](
-        "order/list/open_orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_list_history_orders = contractPrivateGetOrderListHistoryOrders = Entry[_Dict](
-        "order/list/history_orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_list_order_deals_v3 = contractPrivateGetOrderListOrderDealsV3 = Entry[_Dict](
-        "order/list/order_deals/v3", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_external_symbol_external_oid = contractPrivateGetOrderExternalSymbolExternalOid = Entry[
+    contract_private_get_position_position_mode = contractPrivateGetPositionPositionMode = Entry[
         _Dict
-    ]("order/external/{symbol}/{external_oid}", ["contract", "private"], "GET", {"cost": 2})
+    ]("position/position_mode", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_order_list_open_orders_symbol = (
+        contractPrivateGetOrderListOpenOrdersSymbol
+    ) = Entry[_Dict]("order/list/open_orders/{symbol}", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_order_list_open_orders = contractPrivateGetOrderListOpenOrders = Entry[
+        _Dict
+    ]("order/list/open_orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_order_list_history_orders = contractPrivateGetOrderListHistoryOrders = (
+        Entry[_Dict]("order/list/history_orders", ["contract", "private"], "GET", {"cost": 2})
+    )
+    contract_private_get_order_list_order_deals_v3 = contractPrivateGetOrderListOrderDealsV3 = (
+        Entry[_Dict]("order/list/order_deals/v3", ["contract", "private"], "GET", {"cost": 2})
+    )
+    contract_private_get_order_external_symbol_external_oid = (
+        contractPrivateGetOrderExternalSymbolExternalOid
+    ) = Entry[_Dict](
+        "order/external/{symbol}/{external_oid}", ["contract", "private"], "GET", {"cost": 2}
+    )
     contract_private_get_order_get_order_id = contractPrivateGetOrderGetOrderId = Entry[_Dict](
         "order/get/{order_id}", ["contract", "private"], "GET", {"cost": 2}
     )
     contract_private_get_order_batch_query = contractPrivateGetOrderBatchQuery = Entry[_Dict](
         "order/batch_query", ["contract", "private"], "GET", {"cost": 8}
     )
-    contract_private_get_order_deal_details_order_id = contractPrivateGetOrderDealDetailsOrderId = Entry[_Dict](
-        "order/deal_details/{order_id}", ["contract", "private"], "GET", {"cost": 2}
+    contract_private_get_order_deal_details_order_id = contractPrivateGetOrderDealDetailsOrderId = (
+        Entry[_Dict]("order/deal_details/{order_id}", ["contract", "private"], "GET", {"cost": 2})
     )
-    contract_private_get_order_list_order_deals = contractPrivateGetOrderListOrderDeals = Entry[_Dict](
-        "order/list/order_deals", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_order_list_close_orders = contractPrivateGetOrderListCloseOrders = Entry[_Dict](
-        "order/list/close_orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_planorder_list_orders = contractPrivateGetPlanorderListOrders = Entry[_Dict](
-        "planorder/list/orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_stoporder_list_orders = contractPrivateGetStoporderListOrders = Entry[_Dict](
-        "stoporder/list/orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_stoporder_open_orders = contractPrivateGetStoporderOpenOrders = Entry[_Dict](
-        "stoporder/open_orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_stoporder_order_details_stop_order_id = contractPrivateGetStoporderOrderDetailsStopOrderId = (
-        Entry[_Dict]("stoporder/order_details/{stop_order_id}", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_order_list_order_deals = contractPrivateGetOrderListOrderDeals = Entry[
+        _Dict
+    ]("order/list/order_deals", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_order_list_close_orders = contractPrivateGetOrderListCloseOrders = Entry[
+        _Dict
+    ]("order/list/close_orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_planorder_list_orders = contractPrivateGetPlanorderListOrders = Entry[
+        _Dict
+    ]("planorder/list/orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_stoporder_list_orders = contractPrivateGetStoporderListOrders = Entry[
+        _Dict
+    ]("stoporder/list/orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_stoporder_open_orders = contractPrivateGetStoporderOpenOrders = Entry[
+        _Dict
+    ]("stoporder/open_orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_stoporder_order_details_stop_order_id = (
+        contractPrivateGetStoporderOrderDetailsStopOrderId
+    ) = Entry[_Dict](
+        "stoporder/order_details/{stop_order_id}", ["contract", "private"], "GET", {"cost": 2}
     )
     contract_private_get_account_risk_limit = contractPrivateGetAccountRiskLimit = Entry[_Dict](
         "account/risk_limit", ["contract", "private"], "GET", {"cost": 2}
     )
-    contract_private_get_account_tiered_fee_rate = contractPrivateGetAccountTieredFeeRate = Entry[_Dict](
-        "account/tiered_fee_rate", ["contract", "private"], "GET", {"cost": 2}
-    )
+    contract_private_get_account_tiered_fee_rate = contractPrivateGetAccountTieredFeeRate = Entry[
+        _Dict
+    ]("account/tiered_fee_rate", ["contract", "private"], "GET", {"cost": 2})
     contract_private_get_position_leverage = contractPrivateGetPositionLeverage = Entry[_Dict](
         "position/leverage", ["contract", "private"], "GET", {"cost": 2}
     )
-    contract_private_get_account_tiered_fee_rate_v2 = contractPrivateGetAccountTieredFeeRateV2 = Entry[_Dict](
-        "account/tiered_fee_rate/v2", ["contract", "private"], "GET", {"cost": 2}
+    contract_private_get_account_tiered_fee_rate_v2 = contractPrivateGetAccountTieredFeeRateV2 = (
+        Entry[_Dict]("account/tiered_fee_rate/v2", ["contract", "private"], "GET", {"cost": 2})
     )
-    contract_private_get_trackorder_list_orders = contractPrivateGetTrackorderListOrders = Entry[_Dict](
-        "trackorder/list/orders", ["contract", "private"], "GET", {"cost": 2}
-    )
-    contract_private_get_market_maker_self_trade_blacklist = contractPrivateGetMarketMakerSelfTradeBlacklist = Entry[
+    contract_private_get_trackorder_list_orders = contractPrivateGetTrackorderListOrders = Entry[
         _Dict
-    ]("market_maker/self_trade/blacklist", ["contract", "private"], "GET", {"cost": 2})
+    ]("trackorder/list/orders", ["contract", "private"], "GET", {"cost": 2})
+    contract_private_get_market_maker_self_trade_blacklist = (
+        contractPrivateGetMarketMakerSelfTradeBlacklist
+    ) = Entry[_Dict](
+        "market_maker/self_trade/blacklist", ["contract", "private"], "GET", {"cost": 2}
+    )
     contract_private_get_market_maker_self_trade_blacklist_search = (
         contractPrivateGetMarketMakerSelfTradeBlacklistSearch
-    ) = Entry[_Dict]("market_maker/self_trade/blacklist/search", ["contract", "private"], "GET", {"cost": 2})
-    contract_private_post_account_asset_analysis_v3 = contractPrivatePostAccountAssetAnalysisV3 = Entry[_Dict](
-        "account/asset/analysis/v3", ["contract", "private"], "POST", {"cost": 2}
+    ) = Entry[_Dict](
+        "market_maker/self_trade/blacklist/search", ["contract", "private"], "GET", {"cost": 2}
+    )
+    contract_private_post_account_asset_analysis_v3 = contractPrivatePostAccountAssetAnalysisV3 = (
+        Entry[_Dict]("account/asset/analysis/v3", ["contract", "private"], "POST", {"cost": 2})
     )
     contract_private_post_account_asset_analysis_calendar_daily_v3 = (
         contractPrivatePostAccountAssetAnalysisCalendarDailyV3
-    ) = Entry[_Dict]("account/asset/analysis/calendar/daily/v3", ["contract", "private"], "POST", {"cost": 2})
+    ) = Entry[_Dict](
+        "account/asset/analysis/calendar/daily/v3", ["contract", "private"], "POST", {"cost": 2}
+    )
     contract_private_post_account_asset_analysis_calendar_monthly_v3 = (
         contractPrivatePostAccountAssetAnalysisCalendarMonthlyV3
-    ) = Entry[_Dict]("account/asset/analysis/calendar/monthly/v3", ["contract", "private"], "POST", {"cost": 2})
-    contract_private_post_account_asset_analysis_recent_v3 = contractPrivatePostAccountAssetAnalysisRecentV3 = Entry[
+    ) = Entry[_Dict](
+        "account/asset/analysis/calendar/monthly/v3", ["contract", "private"], "POST", {"cost": 2}
+    )
+    contract_private_post_account_asset_analysis_recent_v3 = (
+        contractPrivatePostAccountAssetAnalysisRecentV3
+    ) = Entry[_Dict](
+        "account/asset/analysis/recent/v3", ["contract", "private"], "POST", {"cost": 2}
+    )
+    contract_private_post_position_change_margin = contractPrivatePostPositionChangeMargin = Entry[
         _Dict
-    ]("account/asset/analysis/recent/v3", ["contract", "private"], "POST", {"cost": 2})
-    contract_private_post_position_change_margin = contractPrivatePostPositionChangeMargin = Entry[_Dict](
-        "position/change_margin", ["contract", "private"], "POST", {"cost": 2}
+    ]("position/change_margin", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_position_change_auto_add_im = (
+        contractPrivatePostPositionChangeAutoAddIm
+    ) = Entry[_Dict]("position/change_auto_add_im", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_position_change_leverage = contractPrivatePostPositionChangeLeverage = (
+        Entry[_Dict]("position/change_leverage", ["contract", "private"], "POST", {"cost": 2})
     )
-    contract_private_post_position_change_auto_add_im = contractPrivatePostPositionChangeAutoAddIm = Entry[_Dict](
-        "position/change_auto_add_im", ["contract", "private"], "POST", {"cost": 2}
-    )
-    contract_private_post_position_change_leverage = contractPrivatePostPositionChangeLeverage = Entry[_Dict](
-        "position/change_leverage", ["contract", "private"], "POST", {"cost": 2}
-    )
-    contract_private_post_position_change_position_mode = contractPrivatePostPositionChangePositionMode = Entry[_Dict](
-        "position/change_position_mode", ["contract", "private"], "POST", {"cost": 2}
-    )
+    contract_private_post_position_change_position_mode = (
+        contractPrivatePostPositionChangePositionMode
+    ) = Entry[_Dict]("position/change_position_mode", ["contract", "private"], "POST", {"cost": 2})
     contract_private_post_position_reverse = contractPrivatePostPositionReverse = Entry[_Dict](
         "position/reverse", ["contract", "private"], "POST", {"cost": 2}
     )
@@ -505,32 +561,36 @@ class ImplicitAPI:
     contract_private_post_order_submit_batch = contractPrivatePostOrderSubmitBatch = Entry[_Dict](
         "order/submit_batch", ["contract", "private"], "POST", {"cost": 40}
     )
-    contract_private_post_order_chase_limit_order = contractPrivatePostOrderChaseLimitOrder = Entry[_Dict](
-        "order/chase_limit_order", ["contract", "private"], "POST", {"cost": 40}
-    )
-    contract_private_post_order_change_limit_order = contractPrivatePostOrderChangeLimitOrder = Entry[_Dict](
-        "order/change_limit_order", ["contract", "private"], "POST", {"cost": 40}
+    contract_private_post_order_chase_limit_order = contractPrivatePostOrderChaseLimitOrder = Entry[
+        _Dict
+    ]("order/chase_limit_order", ["contract", "private"], "POST", {"cost": 40})
+    contract_private_post_order_change_limit_order = contractPrivatePostOrderChangeLimitOrder = (
+        Entry[_Dict]("order/change_limit_order", ["contract", "private"], "POST", {"cost": 40})
     )
     contract_private_post_order_cancel = contractPrivatePostOrderCancel = Entry[_Dict](
         "order/cancel", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_order_batch_cancel_with_external = contractPrivatePostOrderBatchCancelWithExternal = Entry[
-        _Dict
-    ]("order/batch_cancel_with_external", ["contract", "private"], "POST", {"cost": 2})
-    contract_private_post_order_cancel_with_external = contractPrivatePostOrderCancelWithExternal = Entry[_Dict](
-        "order/cancel_with_external", ["contract", "private"], "POST", {"cost": 2}
+    contract_private_post_order_batch_cancel_with_external = (
+        contractPrivatePostOrderBatchCancelWithExternal
+    ) = Entry[_Dict](
+        "order/batch_cancel_with_external", ["contract", "private"], "POST", {"cost": 2}
     )
+    contract_private_post_order_cancel_with_external = (
+        contractPrivatePostOrderCancelWithExternal
+    ) = Entry[_Dict]("order/cancel_with_external", ["contract", "private"], "POST", {"cost": 2})
     contract_private_post_order_cancel_all = contractPrivatePostOrderCancelAll = Entry[_Dict](
         "order/cancel_all", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_order_open_order_total_count = contractPrivatePostOrderOpenOrderTotalCount = Entry[_Dict](
-        "order/open_order_total_count", ["contract", "private"], "POST", {"cost": 2}
+    contract_private_post_order_open_order_total_count = (
+        contractPrivatePostOrderOpenOrderTotalCount
+    ) = Entry[_Dict]("order/open_order_total_count", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_order_batch_query_with_external = (
+        contractPrivatePostOrderBatchQueryWithExternal
+    ) = Entry[_Dict](
+        "order/batch_query_with_external", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_order_batch_query_with_external = contractPrivatePostOrderBatchQueryWithExternal = Entry[
-        _Dict
-    ]("order/batch_query_with_external", ["contract", "private"], "POST", {"cost": 2})
-    contract_private_post_account_change_risk_level = contractPrivatePostAccountChangeRiskLevel = Entry[_Dict](
-        "account/change_risk_level", ["contract", "private"], "POST", {"cost": 2}
+    contract_private_post_account_change_risk_level = contractPrivatePostAccountChangeRiskLevel = (
+        Entry[_Dict]("account/change_risk_level", ["contract", "private"], "POST", {"cost": 2})
     )
     contract_private_post_planorder_place = contractPrivatePostPlanorderPlace = Entry[_Dict](
         "planorder/place", ["contract", "private"], "POST", {"cost": 2}
@@ -541,45 +601,51 @@ class ImplicitAPI:
     contract_private_post_planorder_cancel = contractPrivatePostPlanorderCancel = Entry[_Dict](
         "planorder/cancel", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_planorder_cancel_all = contractPrivatePostPlanorderCancelAll = Entry[_Dict](
-        "planorder/cancel_all", ["contract", "private"], "POST", {"cost": 2}
-    )
-    contract_private_post_planorder_change_stop_order = contractPrivatePostPlanorderChangeStopOrder = Entry[_Dict](
-        "planorder/change_stop_order", ["contract", "private"], "POST", {"cost": 2}
-    )
+    contract_private_post_planorder_cancel_all = contractPrivatePostPlanorderCancelAll = Entry[
+        _Dict
+    ]("planorder/cancel_all", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_planorder_change_stop_order = (
+        contractPrivatePostPlanorderChangeStopOrder
+    ) = Entry[_Dict]("planorder/change_stop_order", ["contract", "private"], "POST", {"cost": 2})
     contract_private_post_stoporder_place = contractPrivatePostStoporderPlace = Entry[_Dict](
         "stoporder/place", ["contract", "private"], "POST", {"cost": 2}
     )
     contract_private_post_stoporder_cancel = contractPrivatePostStoporderCancel = Entry[_Dict](
         "stoporder/cancel", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_stoporder_cancel_all = contractPrivatePostStoporderCancelAll = Entry[_Dict](
-        "stoporder/cancel_all", ["contract", "private"], "POST", {"cost": 2}
-    )
-    contract_private_post_stoporder_change_price = contractPrivatePostStoporderChangePrice = Entry[_Dict](
-        "stoporder/change_price", ["contract", "private"], "POST", {"cost": 2}
-    )
-    contract_private_post_stoporder_change_plan_price = contractPrivatePostStoporderChangePlanPrice = Entry[_Dict](
-        "stoporder/change_plan_price", ["contract", "private"], "POST", {"cost": 2}
-    )
+    contract_private_post_stoporder_cancel_all = contractPrivatePostStoporderCancelAll = Entry[
+        _Dict
+    ]("stoporder/cancel_all", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_stoporder_change_price = contractPrivatePostStoporderChangePrice = Entry[
+        _Dict
+    ]("stoporder/change_price", ["contract", "private"], "POST", {"cost": 2})
+    contract_private_post_stoporder_change_plan_price = (
+        contractPrivatePostStoporderChangePlanPrice
+    ) = Entry[_Dict]("stoporder/change_plan_price", ["contract", "private"], "POST", {"cost": 2})
     contract_private_post_trackorder_place = contractPrivatePostTrackorderPlace = Entry[_Dict](
         "trackorder/place", ["contract", "private"], "POST", {"cost": 2}
     )
     contract_private_post_trackorder_cancel = contractPrivatePostTrackorderCancel = Entry[_Dict](
         "trackorder/cancel", ["contract", "private"], "POST", {"cost": 2}
     )
-    contract_private_post_trackorder_change_order = contractPrivatePostTrackorderChangeOrder = Entry[_Dict](
-        "trackorder/change_order", ["contract", "private"], "POST", {"cost": 2}
+    contract_private_post_trackorder_change_order = contractPrivatePostTrackorderChangeOrder = (
+        Entry[_Dict]("trackorder/change_order", ["contract", "private"], "POST", {"cost": 2})
     )
     contract_private_post_market_maker_self_trade_blacklist_create = (
         contractPrivatePostMarketMakerSelfTradeBlacklistCreate
-    ) = Entry[_Dict]("market_maker/self_trade/blacklist/create", ["contract", "private"], "POST", {"cost": 2})
+    ) = Entry[_Dict](
+        "market_maker/self_trade/blacklist/create", ["contract", "private"], "POST", {"cost": 2}
+    )
     contract_private_post_market_maker_self_trade_blacklist_update = (
         contractPrivatePostMarketMakerSelfTradeBlacklistUpdate
-    ) = Entry[_Dict]("market_maker/self_trade/blacklist/update", ["contract", "private"], "POST", {"cost": 2})
+    ) = Entry[_Dict](
+        "market_maker/self_trade/blacklist/update", ["contract", "private"], "POST", {"cost": 2}
+    )
     contract_private_post_market_maker_self_trade_blacklist_delete = (
         contractPrivatePostMarketMakerSelfTradeBlacklistDelete
-    ) = Entry[_Dict]("market_maker/self_trade/blacklist/delete", ["contract", "private"], "POST", {"cost": 2})
+    ) = Entry[_Dict](
+        "market_maker/self_trade/blacklist/delete", ["contract", "private"], "POST", {"cost": 2}
+    )
     spot2_public_get_market_symbols = spot2PublicGetMarketSymbols = Entry[_Dict](
         "market/symbols", ["spot2", "public"], "GET", {"cost": 1}
     )
@@ -604,9 +670,9 @@ class ImplicitAPI:
     spot2_public_get_market_kline = spot2PublicGetMarketKline = Entry[_Dict](
         "market/kline", ["spot2", "public"], "GET", {"cost": 1}
     )
-    spot2_public_get_market_api_default_symbols = spot2PublicGetMarketApiDefaultSymbols = Entry[_Dict](
-        "market/api_default_symbols", ["spot2", "public"], "GET", {"cost": 2}
-    )
+    spot2_public_get_market_api_default_symbols = spot2PublicGetMarketApiDefaultSymbols = Entry[
+        _Dict
+    ]("market/api_default_symbols", ["spot2", "public"], "GET", {"cost": 2})
     spot2_private_get_account_info = spot2PrivateGetAccountInfo = Entry[_Dict](
         "account/info", ["spot2", "private"], "GET", {"cost": 1}
     )
@@ -625,9 +691,9 @@ class ImplicitAPI:
     spot2_private_get_order_deal_detail = spot2PrivateGetOrderDealDetail = Entry[_Dict](
         "order/deal_detail", ["spot2", "private"], "GET", {"cost": 1}
     )
-    spot2_private_get_asset_deposit_address_list = spot2PrivateGetAssetDepositAddressList = Entry[_Dict](
-        "asset/deposit/address/list", ["spot2", "private"], "GET", {"cost": 2}
-    )
+    spot2_private_get_asset_deposit_address_list = spot2PrivateGetAssetDepositAddressList = Entry[
+        _Dict
+    ]("asset/deposit/address/list", ["spot2", "private"], "GET", {"cost": 2})
     spot2_private_get_asset_deposit_list = spot2PrivateGetAssetDepositList = Entry[_Dict](
         "asset/deposit/list", ["spot2", "private"], "GET", {"cost": 2}
     )
@@ -637,14 +703,14 @@ class ImplicitAPI:
     spot2_private_get_asset_withdraw_list = spot2PrivateGetAssetWithdrawList = Entry[_Dict](
         "asset/withdraw/list", ["spot2", "private"], "GET", {"cost": 2}
     )
-    spot2_private_get_asset_internal_transfer_record = spot2PrivateGetAssetInternalTransferRecord = Entry[_Dict](
-        "asset/internal/transfer/record", ["spot2", "private"], "GET", {"cost": 10}
-    )
+    spot2_private_get_asset_internal_transfer_record = (
+        spot2PrivateGetAssetInternalTransferRecord
+    ) = Entry[_Dict]("asset/internal/transfer/record", ["spot2", "private"], "GET", {"cost": 10})
     spot2_private_get_account_balance = spot2PrivateGetAccountBalance = Entry[_Dict](
         "account/balance", ["spot2", "private"], "GET", {"cost": 10}
     )
-    spot2_private_get_asset_internal_transfer_info = spot2PrivateGetAssetInternalTransferInfo = Entry[_Dict](
-        "asset/internal/transfer/info", ["spot2", "private"], "GET", {"cost": 10}
+    spot2_private_get_asset_internal_transfer_info = spot2PrivateGetAssetInternalTransferInfo = (
+        Entry[_Dict]("asset/internal/transfer/info", ["spot2", "private"], "GET", {"cost": 10})
     )
     spot2_private_get_market_api_symbols = spot2PrivateGetMarketApiSymbols = Entry[_Dict](
         "market/api_symbols", ["spot2", "private"], "GET", {"cost": 2}
@@ -655,27 +721,27 @@ class ImplicitAPI:
     spot2_private_post_order_place_batch = spot2PrivatePostOrderPlaceBatch = Entry[_Dict](
         "order/place_batch", ["spot2", "private"], "POST", {"cost": 1}
     )
-    spot2_private_post_order_advanced_place_batch = spot2PrivatePostOrderAdvancedPlaceBatch = Entry[_Dict](
-        "order/advanced/place_batch", ["spot2", "private"], "POST", {"cost": 1}
-    )
+    spot2_private_post_order_advanced_place_batch = spot2PrivatePostOrderAdvancedPlaceBatch = Entry[
+        _Dict
+    ]("order/advanced/place_batch", ["spot2", "private"], "POST", {"cost": 1})
     spot2_private_post_asset_withdraw = spot2PrivatePostAssetWithdraw = Entry[_Dict](
         "asset/withdraw", ["spot2", "private"], "POST", {"cost": 2}
     )
-    spot2_private_post_asset_internal_transfer = spot2PrivatePostAssetInternalTransfer = Entry[_Dict](
-        "asset/internal/transfer", ["spot2", "private"], "POST", {"cost": 10}
-    )
+    spot2_private_post_asset_internal_transfer = spot2PrivatePostAssetInternalTransfer = Entry[
+        _Dict
+    ]("asset/internal/transfer", ["spot2", "private"], "POST", {"cost": 10})
     spot2_private_delete_order_cancel = spot2PrivateDeleteOrderCancel = Entry[_Dict](
         "order/cancel", ["spot2", "private"], "DELETE", {"cost": 1}
     )
-    spot2_private_delete_order_cancel_by_symbol = spot2PrivateDeleteOrderCancelBySymbol = Entry[_Dict](
-        "order/cancel_by_symbol", ["spot2", "private"], "DELETE", {"cost": 1}
-    )
+    spot2_private_delete_order_cancel_by_symbol = spot2PrivateDeleteOrderCancelBySymbol = Entry[
+        _Dict
+    ]("order/cancel_by_symbol", ["spot2", "private"], "DELETE", {"cost": 1})
     spot2_private_delete_asset_withdraw = spot2PrivateDeleteAssetWithdraw = Entry[_Dict](
         "asset/withdraw", ["spot2", "private"], "DELETE", {"cost": 2}
     )
-    broker_private_get_sub_account_universaltransfer = brokerPrivateGetSubAccountUniversalTransfer = Entry[_List](
-        "sub-account/universalTransfer", ["broker", "private"], "GET", {"cost": 1}
-    )
+    broker_private_get_sub_account_universaltransfer = (
+        brokerPrivateGetSubAccountUniversalTransfer
+    ) = Entry[_List]("sub-account/universalTransfer", ["broker", "private"], "GET", {"cost": 1})
     broker_private_get_sub_account_list = brokerPrivateGetSubAccountList = Entry[_Dict](
         "sub-account/list", ["broker", "private"], "GET", {"cost": 1}
     )
@@ -685,33 +751,33 @@ class ImplicitAPI:
     broker_private_get_sub_account_apikey = brokerPrivateGetSubAccountApiKey = Entry[_Dict](
         "sub-account/apiKey", ["broker", "private"], "GET", {"cost": 1}
     )
-    broker_private_get_capital_deposit_subaddress = brokerPrivateGetCapitalDepositSubAddress = Entry[_List](
-        "capital/deposit/subAddress", ["broker", "private"], "GET", {"cost": 1}
+    broker_private_get_capital_deposit_subaddress = brokerPrivateGetCapitalDepositSubAddress = (
+        Entry[_List]("capital/deposit/subAddress", ["broker", "private"], "GET", {"cost": 1})
     )
-    broker_private_get_capital_deposit_subhisrec = brokerPrivateGetCapitalDepositSubHisrec = Entry[_List](
-        "capital/deposit/subHisrec", ["broker", "private"], "GET", {"cost": 1}
-    )
-    broker_private_get_capital_deposit_subhisrec_getall = brokerPrivateGetCapitalDepositSubHisrecGetall = Entry[_List](
-        "capital/deposit/subHisrec/getall", ["broker", "private"], "GET", {"cost": 1}
-    )
+    broker_private_get_capital_deposit_subhisrec = brokerPrivateGetCapitalDepositSubHisrec = Entry[
+        _List
+    ]("capital/deposit/subHisrec", ["broker", "private"], "GET", {"cost": 1})
+    broker_private_get_capital_deposit_subhisrec_getall = (
+        brokerPrivateGetCapitalDepositSubHisrecGetall
+    ) = Entry[_List]("capital/deposit/subHisrec/getall", ["broker", "private"], "GET", {"cost": 1})
     broker_private_get_rebate_taxquery = brokerPrivateGetRebateTaxQuery = Entry[_Dict](
         "rebate/taxQuery", ["broker", "private"], "GET", {"cost": 1}
     )
-    broker_private_post_sub_account_virtualsubaccount = brokerPrivatePostSubAccountVirtualSubAccount = Entry[_Dict](
-        "sub-account/virtualSubAccount", ["broker", "private"], "POST", {"cost": 1}
-    )
+    broker_private_post_sub_account_virtualsubaccount = (
+        brokerPrivatePostSubAccountVirtualSubAccount
+    ) = Entry[_Dict]("sub-account/virtualSubAccount", ["broker", "private"], "POST", {"cost": 1})
     broker_private_post_sub_account_apikey = brokerPrivatePostSubAccountApiKey = Entry[_Dict](
         "sub-account/apiKey", ["broker", "private"], "POST", {"cost": 1}
     )
-    broker_private_post_capital_deposit_subaddress = brokerPrivatePostCapitalDepositSubAddress = Entry[_Dict](
-        "capital/deposit/subAddress", ["broker", "private"], "POST", {"cost": 1}
+    broker_private_post_capital_deposit_subaddress = brokerPrivatePostCapitalDepositSubAddress = (
+        Entry[_Dict]("capital/deposit/subAddress", ["broker", "private"], "POST", {"cost": 1})
     )
-    broker_private_post_capital_withdraw_apply = brokerPrivatePostCapitalWithdrawApply = Entry[_Dict](
-        "capital/withdraw/apply", ["broker", "private"], "POST", {"cost": 1}
-    )
-    broker_private_post_sub_account_universaltransfer = brokerPrivatePostSubAccountUniversalTransfer = Entry[_Dict](
-        "sub-account/universalTransfer", ["broker", "private"], "POST", {"cost": 1}
-    )
+    broker_private_post_capital_withdraw_apply = brokerPrivatePostCapitalWithdrawApply = Entry[
+        _Dict
+    ]("capital/withdraw/apply", ["broker", "private"], "POST", {"cost": 1})
+    broker_private_post_sub_account_universaltransfer = (
+        brokerPrivatePostSubAccountUniversalTransfer
+    ) = Entry[_Dict]("sub-account/universalTransfer", ["broker", "private"], "POST", {"cost": 1})
     broker_private_post_sub_account_futures = brokerPrivatePostSubAccountFutures = Entry[_Dict](
         "sub-account/futures", ["broker", "private"], "POST", {"cost": 1}
     )

@@ -35,7 +35,6 @@ contractual. Every FY value keeps a source tag (filing FY, page, method) for pro
 import json
 import os
 import re
-import statistics
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -46,20 +45,31 @@ SNAPS = os.path.join(HERE, "_wb_n500_snaps.json")
 MASTER = os.path.join(HERE, "_bse_master_all.json")
 SECTORS = os.path.join(HERE, "_bse_sectors.json")
 RENAME = os.path.join(HERE, "_rename_map.json")
-KEEP = os.path.join(HERE, "headcount_keep.json")  # {sym: {fy: reason}} — verified real jumps the cliff guard must keep
+KEEP = os.path.join(
+    HERE, "headcount_keep.json"
+)  # {sym: {fy: reason}} — verified real jumps the cliff guard must keep
 START_FY = 2020
-_KEEP = {k: v for k, v in (json.load(open(KEEP)) if os.path.exists(KEEP) else {}).items() if not k.startswith("_")}
+_KEEP = {
+    k: v
+    for k, v in (json.load(open(KEEP)) if os.path.exists(KEEP) else {}).items()
+    if not k.startswith("_")
+}
 
 
 def _max_ratio(series):
     """Largest ratio between consecutive-FY values (>=1). 1.0 for <2 points."""
     ys = sorted(series, key=int)
     v = [series[y] for y in ys]
-    return max((max(v[i], v[i - 1]) / min(v[i], v[i - 1]) for i in range(1, len(v)) if v[i - 1] and v[i]), default=1.0)
+    return max(
+        (max(v[i], v[i - 1]) / min(v[i], v[i - 1]) for i in range(1, len(v)) if v[i - 1] and v[i]),
+        default=1.0,
+    )
 
 
 CLIFF = 1.8  # a >1.8x step between consecutive FYs marks a basis flip worth resolving
-CLUSTER = 1.6  # once flagged, group same-basis years within this ratio (tighter, to isolate outliers)
+CLUSTER = (
+    1.6  # once flagged, group same-basis years within this ratio (tighter, to isolate outliers)
+)
 
 
 def implausible_years(emp):
@@ -73,8 +83,12 @@ def implausible_years(emp):
     if len(ys) < 3:
         return set()
     v = [emp[y] for y in ys]
-    monotonic = all(v[i] >= v[i - 1] for i in range(1, len(v))) or all(v[i] <= v[i - 1] for i in range(1, len(v)))
-    has_cliff = any(max(v[i], v[i - 1]) / min(v[i], v[i - 1]) > CLIFF for i in range(1, len(v)) if v[i - 1])
+    monotonic = all(v[i] >= v[i - 1] for i in range(1, len(v))) or all(
+        v[i] <= v[i - 1] for i in range(1, len(v))
+    )
+    has_cliff = any(
+        max(v[i], v[i - 1]) / min(v[i], v[i - 1]) > CLIFF for i in range(1, len(v)) if v[i - 1]
+    )
     if monotonic or not has_cliff:
         return set()
     best = None
@@ -159,7 +173,9 @@ def main():
                     continue
                 b = c.get("brsr") or {}
                 onroll[yi] = c["count"]  # perm employees + perm workers
-                etot[yi] = b["emp_total"] if isinstance(b.get("emp_total"), int) else c["count"]  # BRSR D+E
+                etot[yi] = (
+                    b["emp_total"] if isinstance(b.get("emp_total"), int) else c["count"]
+                )  # BRSR D+E
                 if isinstance(c.get("total_workforce"), int):
                     total[yi] = c["total_workforce"]
                 if isinstance(b.get("male"), int) and isinstance(b.get("female"), int):
@@ -172,9 +188,15 @@ def main():
             # on-roll series jumpy AND total-employees (the summary row) is smoother, use total-employees
             # — a single consistent basis for that company. Clean series (INFY, Asian Paints, Bharti,
             # banks) keep on-roll untouched.
-            emp = etot if (_max_ratio(onroll) > 1.8 and _max_ratio(etot) < _max_ratio(onroll)) else onroll
+            emp = (
+                etot
+                if (_max_ratio(onroll) > 1.8 and _max_ratio(etot) < _max_ratio(onroll))
+                else onroll
+            )
         for y in implausible_years(emp):  # drop spikes rather than ship a wrong headcount
-            if str(y) in _KEEP.get(sym, {}):  # …unless the ledger says this jump is real (SEQUENT FY26 merger)
+            if str(y) in _KEEP.get(
+                sym, {}
+            ):  # …unless the ledger says this jump is real (SEQUENT FY26 merger)
                 continue
             emp.pop(y, None)
             total.pop(y, None)
@@ -209,7 +231,9 @@ def main():
             }
         )
     payload = {
-        "updated": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M IST"),  # CI runners are UTC
+        "updated": datetime.now(ZoneInfo("Asia/Kolkata")).strftime(
+            "%Y-%m-%d %H:%M IST"
+        ),  # CI runners are UTC
         "basis": "Employee headcount — permanent on-roll employees (permanent employees + permanent "
         "workers), or total reported employees where that gives a consistent year-on-year series. "
         "Source: company annual reports on BSE (BRSR 'Employees and workers' table). "

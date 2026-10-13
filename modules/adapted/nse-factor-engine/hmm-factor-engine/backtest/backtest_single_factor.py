@@ -74,7 +74,11 @@ FACTORS = {
 def load_monthly_returns() -> pd.DataFrame:
     prices = pd.read_parquet(PRICE_FILE)
     prices["date"] = pd.to_datetime(prices["date"])
-    monthly = prices.groupby(["symbol", pd.Grouper(key="date", freq="ME")])["close"].last().unstack("symbol")
+    monthly = (
+        prices.groupby(["symbol", pd.Grouper(key="date", freq="ME")])["close"]
+        .last()
+        .unstack("symbol")
+    )
     return monthly.pct_change()
 
 
@@ -132,7 +136,11 @@ def run_single_factor(
             continue
 
         # Pick top N
-        top_stocks = sig.nlargest(TOP_N).index.tolist() if higher_is_better else sig.nsmallest(TOP_N).index.tolist()
+        top_stocks = (
+            sig.nlargest(TOP_N).index.tolist()
+            if higher_is_better
+            else sig.nsmallest(TOP_N).index.tolist()
+        )
 
         avail = [s for s in top_stocks if s in monthly_ret.columns]
         rets = monthly_ret.loc[t1_end, avail].dropna()
@@ -218,7 +226,10 @@ def main():
         f"  {'Strategy':<12} {'Ann Ret':>8} {'Vol':>7} {'Sharpe':>8} {'MaxDD':>8} "
         f"{'Hit%':>6} {'Ann Ex':>8} {'IR':>7} {'CumRet':>8}"
     )
-    print(f"  {'-' * 12} {'-' * 8} {'-' * 7} {'-' * 8} {'-' * 8} {'-' * 6} {'-' * 8} {'-' * 7} {'-' * 8}")
+    print(
+        f"  {'-' * 12} {'-' * 8} {'-' * 7} {'-' * 8} {'-' * 8} "
+        f"{'-' * 6} {'-' * 8} {'-' * 7} {'-' * 8}"
+    )
     for name, row in summary.iterrows():
         print(
             f"  {name:<12} "

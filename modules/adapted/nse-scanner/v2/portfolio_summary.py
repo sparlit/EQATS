@@ -25,10 +25,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """On-demand V2 portfolio P&L and risk report rendering."""
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .portfolio_performance import PortfolioSnapshot
+from .portfolio_performance import PortfolioSnapshot
 
 
 def _money(value: float) -> str:

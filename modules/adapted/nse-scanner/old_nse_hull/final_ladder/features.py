@@ -75,7 +75,9 @@ def feature_history(frame, calendar, action_dates=()):
         if len(positions):
             action_gap.iloc[positions[0]] = True
     # Gaps/invalid bars known by each date only; future events do not veto earlier entries.
-    f["quality_window_ok"] = f.continuous_320 & ((~valid) | action_gap).rolling(320, min_periods=320).sum().eq(0)
+    f["quality_window_ok"] = f.continuous_320 & ((~valid) | action_gap).rolling(
+        320, min_periods=320
+    ).sum().eq(0)
     f["action_review_now"] = action_gap | ~valid
     return f
 

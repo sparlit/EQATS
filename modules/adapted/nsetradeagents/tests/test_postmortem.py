@@ -181,13 +181,17 @@ def test_fills_a_pending_record(pm_db, monkeypatch):
 
 def test_ignores_records_that_are_too_recent(pm_db, monkeypatch):
     add_record(pm_db, days_ago=3)
-    monkeypatch.setattr(postmortem, "safe_yf_download", lambda *a, **k: pytest.fail("should not fetch"))
+    monkeypatch.setattr(
+        postmortem, "safe_yf_download", lambda *a, **k: pytest.fail("should not fetch")
+    )
     assert fill_outcomes() == 0
 
 
 def test_ignores_already_filled_records(pm_db, monkeypatch):
     add_record(pm_db, filled=True)
-    monkeypatch.setattr(postmortem, "safe_yf_download", lambda *a, **k: pytest.fail("should not fetch"))
+    monkeypatch.setattr(
+        postmortem, "safe_yf_download", lambda *a, **k: pytest.fail("should not fetch")
+    )
     assert fill_outcomes() == 0
 
 
@@ -198,8 +202,7 @@ def test_one_bad_ticker_does_not_stop_the_job(pm_db, monkeypatch):
 
     def flaky(raw, ticker):
         if ticker == "BAD.NS":
-            msg = "malformed frame"
-            raise ValueError(msg)
+            raise ValueError("malformed frame")
         return frame
 
     monkeypatch.setattr(postmortem, "safe_yf_download", lambda *a, **k: frame)
@@ -273,8 +276,7 @@ def test_a_missing_benchmark_still_records_the_raw_outcome(pm_db, monkeypatch):
 
     def fake_download(tickers, *a, **k):
         if tickers == postmortem.BENCHMARK:
-            msg = "index unavailable"
-            raise RuntimeError(msg)
+            raise RuntimeError("index unavailable")
         return stock
 
     monkeypatch.setattr(postmortem, "safe_yf_download", fake_download)

@@ -66,7 +66,8 @@ def pipeline(tmp_path):
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": body.get("id"), "result": {}})
 
     client = NseBseMcpClient(
-        "http://localhost:3000/mcp", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+        "http://localhost:3000/mcp",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     settings = Settings()
     settings.paths.data_root = tmp_path / "data"
@@ -76,7 +77,7 @@ def pipeline(tmp_path):
     service = NseIngestionService(client, RawStore(settings.data_root / "raw"))
     bars = service.equity_historical("TEST", "2025-06-01", "2025-06-30")
     unique = deduplicate_bars(bars)
-    _report, clean = run_quality_suite(unique, dataset="NSE:TEST")
+    report, clean = run_quality_suite(unique, dataset="NSE:TEST")
 
     store = ParquetStore(settings.data_root)
     store.write_bars(clean, layer="normalized")
@@ -94,12 +95,16 @@ def pipeline(tmp_path):
 class TestPipeline:
     def test_ingestion_produced_bars(self, pipeline):
         settings, _ = pipeline
-        df = ParquetStore(settings.data_root).read_bars(layer="validated", exchange="NSE", symbol="TEST")
+        df = ParquetStore(settings.data_root).read_bars(
+            layer="validated", exchange="NSE", symbol="TEST"
+        )
         assert len(df) == 5
 
     def test_lineage_preserved(self, pipeline):
         settings, _ = pipeline
-        df = ParquetStore(settings.data_root).read_bars(layer="validated", exchange="NSE", symbol="TEST")
+        df = ParquetStore(settings.data_root).read_bars(
+            layer="validated", exchange="NSE", symbol="TEST"
+        )
         assert df.iloc[0]["raw_hash"] is not None
         assert set(df["source"]) == {"NSE"}
 

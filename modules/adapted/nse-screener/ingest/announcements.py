@@ -39,10 +39,21 @@ from ingest import nse
 
 import config
 
-URL = "https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={frm}&to_date={to}"
+URL = (
+    "https://www.nseindia.com/api/corporate-announcements"
+    "?index=equities&from_date={frm}&to_date={to}"
+)
 DIR = config.DATA_DIR / "announcements"
 
-KEEP = ("buyback", "buy back", "buy-back", "award of order", "receipt of order", "bagging", "order received")
+KEEP = (
+    "buyback",
+    "buy back",
+    "buy-back",
+    "award of order",
+    "receipt of order",
+    "bagging",
+    "order received",
+)
 
 
 def fetch_week(d0: date) -> pd.DataFrame | None:
@@ -59,12 +70,15 @@ def fetch_week(d0: date) -> pd.DataFrame | None:
     if sym_col not in df.columns:
         return None
     df = df.rename(columns={sym_col: "symbol"})
-    blob = (df.get("desc", "").astype(str) + " " + df.get("attchmntText", "").astype(str)).str.lower()
+    blob = (
+        df.get("desc", "").astype(str) + " " + df.get("attchmntText", "").astype(str)
+    ).str.lower()
     df["kind"] = ""
     df.loc[blob.str.contains("buyback|buy back|buy-back", regex=True), "kind"] = "buyback"
-    df.loc[blob.str.contains("award of order|receipt of order|bagging|order received", regex=True), "kind"] = (
-        "order_win"
-    )
+    df.loc[
+        blob.str.contains("award of order|receipt of order|bagging|order received", regex=True),
+        "kind",
+    ] = "order_win"
     rng = random.Random(str(d0))
     baseline = df[df["kind"] == ""].sample(frac=0.02, random_state=rng.randint(0, 2**31))
     baseline = baseline.assign(kind="baseline")

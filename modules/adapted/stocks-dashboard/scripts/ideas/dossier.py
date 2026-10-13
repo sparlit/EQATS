@@ -40,11 +40,12 @@ import os
 import re
 import statistics
 import sys
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # scripts/, for bse_names (runbook §204). Appended, so this folder's bse.py / ist.py still resolve first.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import contextlib
+
 import bse
 import bse_names
 import ist
@@ -123,12 +124,16 @@ def results(scrip, n_quarters=10):
                     "type": f.get("Type"),
                     "begin": f.get("Date Begin"),
                     "end": f.get("Date End"),
-                    "revenue_cr": num("Net Sales/Revenue From Operations", "Revenue From Operations", "Net Sales"),
+                    "revenue_cr": num(
+                        "Net Sales/Revenue From Operations", "Revenue From Operations", "Net Sales"
+                    ),
                     "other_income_cr": num("Other Income"),
                     "total_income_cr": num("Total Income"),
                     "expenditure_cr": num("Expenditure"),
                     "pbt_cr": num("Profit before tax", "Profit/(Loss) before tax"),
-                    "pat_cr": num("Net Profit/(Loss) for the period", "Net Profit", "Profit after tax"),
+                    "pat_cr": num(
+                        "Net Profit/(Loss) for the period", "Net Profit", "Profit after tax"
+                    ),
                     "eps": None,
                     "raw": f,
                 }
@@ -154,9 +159,11 @@ def results(scrip, n_quarters=10):
 def shareholding(scrip):
     try:
         t = (
-            json.loads(bse._get(f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={scrip}")).get(
-                "Table"
-            )
+            json.loads(
+                bse._get(
+                    f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={scrip}"
+                )
+            ).get("Table")
             or []
         )
     except Exception:
@@ -174,7 +181,9 @@ def shareholding(scrip):
             page = bse._get(rec["url"], sleep=0.3).decode("utf-8", "ignore")
             text = re.sub(r"<[^>]+>", " ", page)
             text = html.unescape(re.sub(r"\s+", " ", text))
-            m = re.search(r"Promoter\s*(?:&|and)\s*Promoter Group.{0,400}?(\d{1,3}\.\d{2})", text, re.IGNORECASE)
+            m = re.search(
+                r"Promoter\s*(?:&|and)\s*Promoter Group.{0,400}?(\d{1,3}\.\d{2})", text, re.I
+            )
             if m:
                 rec["promoter_pct"] = float(m.group(1))
         except Exception:
@@ -183,19 +192,71 @@ def shareholding(scrip):
     return rows
 
 
+# Why the range is read in 90-day windows, every page of each: BSE refuses a range over 12 months with
+# {"Status":false,"Message":"Date range cannot exceed 12 months."} (no Table), which the old single read
+# turned into "0 filings" - Recode Studios 544755 at --days 500 on 2026-09-28, while 3-month windows
+# returned all 56. Measured the same day on 544755/500325/543272/532540: 365 days served, 366 refused
+# (366 served only when the span held 29-Feb, so the rule is one calendar year). The old read also took
+# page 1 only, so any range over 50 filings was cut to the newest 50 (500325 at 240 days: 50 of 115).
+# See scripts/ideas/PLAYBOOK.md.
+ANN_CHUNK_DAYS = 90
+last_ann_status = (
+    None  # 'complete', or 'SUSPECT - <reason>' when the list may be short; shown in dossier.md
+)
+
+
 def announcements_for(scrip, days):
+    global last_ann_status
     d_to = ist.today()
     d_from = d_to - datetime.timedelta(days=days)
-    url = (
-        "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=1&strCat=-1&strPrevDate={}&strScrip={}"
-        "&strSearch=P&strToDate={}&strType=C&subcategory=-1".format(
-            d_from.strftime("%Y%m%d"), scrip, d_to.strftime("%Y%m%d")
-        )
-    )
-    try:
-        rows = json.loads(bse._get(url)).get("Table") or []
-    except Exception:
-        rows = []
+    rows, seen, problems = [], set(), []
+    a = d_from
+    while a <= d_to:
+        b = min(a + datetime.timedelta(days=ANN_CHUNK_DAYS - 1), d_to)
+        got, reported = 0, None
+        for p in range(
+            1, 41
+        ):  # 40 pages = 2,000 filings in 90 days for one scrip: a runaway guard only
+            url = (
+                "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=-1&strPrevDate=%s&strScrip=%s"
+                "&strSearch=P&strToDate=%s&strType=C&subcategory=-1"
+                % (p, a.strftime("%Y%m%d"), scrip, b.strftime("%Y%m%d"))
+            )
+            try:
+                j = json.loads(bse._get(url))
+            except Exception as e:
+                problems.append(f"{a}..{b} page {p} failed ({e})")
+                break
+            if (
+                "Table" not in j
+            ):  # a refusal ({Status, Message}), not an empty list: never read it as "no filings"
+                problems.append(f"{a}..{b} refused by BSE: {j.get('Message') or j}")
+                break
+            t = j.get("Table") or []
+            if reported is None:
+                with contextlib.suppress(TypeError, ValueError, IndexError, AttributeError):
+                    reported = int((j.get("Table1") or [{}])[0].get("ROWCNT"))
+            for r in t:
+                k = r.get("NEWSID")
+                if k is None or k not in seen:
+                    seen.add(k)
+                    rows.append(r)
+                    got += 1
+            if len(t) < 50 or (reported is not None and got >= reported):
+                break
+        else:
+            problems.append(f"{a}..{b} stopped at the 40-page guard")
+        if (
+            reported is not None
+            and got < reported
+            and not any(x.startswith(f"{a}..{b}") for x in problems)
+        ):
+            problems.append(f"{a}..{b} read {got} of the {reported} filings BSE reports")
+        a = b + datetime.timedelta(days=1)
+    rows.sort(key=lambda r: r.get("NEWS_DT") or "", reverse=True)
+    last_ann_status = "complete" if not problems else "SUSPECT - " + "; ".join(problems)
+    if problems:
+        print(f"announcements {scrip}: {last_ann_status}")
     return [
         {
             "date": (r.get("NEWS_DT") or "")[:10],
@@ -212,9 +273,11 @@ def announcements_for(scrip, days):
 def annual_reports(scrip):
     try:
         t = (
-            json.loads(bse._get(f"https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode={scrip}")).get(
-                "Table"
-            )
+            json.loads(
+                bse._get(
+                    f"https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode={scrip}"
+                )
+            ).get("Table")
             or []
         )
     except Exception:
@@ -311,7 +374,7 @@ DOC_SKIP = re.compile(
     r"newspaper publication|board meeting intimation|trading window|scrutinizer|"
     r"certificate under reg|shareholders communication|weblink|voting result|"
     r"record date|postal ballot|compliance",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -321,7 +384,7 @@ def doc_rank(a):
     if DOC_SKIP.search(t):
         return None
     for i, pat in enumerate(DOC_CLASSES):
-        if re.search(pat, t, re.IGNORECASE):
+        if re.search(pat, t, re.I):
             return i
     return None
 
@@ -354,9 +417,13 @@ def extract_pdf(url, dst, max_pages=60):
 def build(scrip, days, pdf=True):
     d = os.path.join(OUT, str(scrip))
     os.makedirs(d, exist_ok=True)
-    uni = {r["scrip"]: r for r in json.load(open(os.path.join(DOCS, "ideas", "universe.json")))["rows"]}
+    uni = {
+        r["scrip"]: r for r in json.load(open(os.path.join(DOCS, "ideas", "universe.json")))["rows"]
+    }
     u = uni.get(str(scrip), {})
-    if u.get("name"):  # a universe kept from before runbook §204 can still carry BSE's "-$" name marker
+    if u.get(
+        "name"
+    ):  # a universe kept from before runbook §204 can still carry BSE's "-$" name marker
         u["name"] = bse_names.clean_scrip_name(u["name"])
     hdr = header(scrip)
     res = results(scrip)
@@ -374,7 +441,9 @@ def build(scrip, days, pdf=True):
         for i, a in enumerate(want[:6]):
             p = extract_pdf(a["pdf"], os.path.join(d, f"doc{i + 1}.txt"))
             if p:
-                key_docs.append({"file": os.path.basename(p), "subject": a["subject"], "url": a["pdf"]})
+                key_docs.append(
+                    {"file": os.path.basename(p), "subject": a["subject"], "url": a["pdf"]}
+                )
         # The annual report is the method's core document (MD&A, capacity, related-party notes,
         # auditor remarks) but it is filed as its own record, not as an announcement, so it used to
         # be listed and never extracted - every run had to fetch it by hand. Take the latest one,
@@ -384,7 +453,9 @@ def build(scrip, days, pdf=True):
             if url:
                 p = extract_pdf(url, os.path.join(d, "annual_report.txt"), max_pages=300)
                 if p:
-                    key_docs.append({"file": os.path.basename(p), "subject": f"Annual report {yr}", "url": url})
+                    key_docs.append(
+                        {"file": os.path.basename(p), "subject": f"Annual report {yr}", "url": url}
+                    )
     dj = {
         "scrip": str(scrip),
         "universe": u,
@@ -409,8 +480,11 @@ def build(scrip, days, pdf=True):
         },
         "results": res,
         "shareholding": shp,
-        "corporate_actions": [{"ex": e[0].isoformat(), "factor": e[1], "label": e[2]} for e in acts],
+        "corporate_actions": [
+            {"ex": e[0].isoformat(), "factor": e[1], "label": e[2]} for e in acts
+        ],
         "announcements": ann,
+        "announcements_status": last_ann_status,
         "annual_reports": ars,
         "price": st,
         "price_adjustments": adj,
@@ -422,10 +496,8 @@ def build(scrip, days, pdf=True):
     L = [
         f"# Dossier: {u.get('name') or hdr.get('SecurityId')} (BSE {scrip}{', NSE ' + u['nse'] if u.get('nse') else ''})",
         "",
-        (
-            f"Built {dj['built']}. Market cap ₹{u.get('mcap')} cr (BSE master). Group {u.get('group')}{' SME' if u.get('sme') else ''}. "
-            f"Industry: {hdr.get('Industry')} / {hdr.get('Sector')} / {hdr.get('ISubGroup')}. BSE header EPS {hdr.get('EPS')}, PE {hdr.get('PE')}, PB {hdr.get('PB')}, ROE {hdr.get('ROE')}."
-        ),
+        f"Built {dj['built']}. Market cap ₹{u.get('mcap')} cr (BSE master). Group {u.get('group')}{' SME' if u.get('sme') else ''}. "
+        f"Industry: {hdr.get('Industry')} / {hdr.get('Sector')} / {hdr.get('ISubGroup')}. BSE header EPS {hdr.get('EPS')}, PE {hdr.get('PE')}, PB {hdr.get('PB')}, ROE {hdr.get('ROE')}.",
         "",
         "## Price (adjusted for bonus/split)",
         "",
@@ -454,7 +526,16 @@ def build(scrip, days, pdf=True):
         )
     L += ["", "## Corporate actions (bonus/split)", ""]
     L += [f"- {e[0]} x{e[1]:g} {e[2]}" for e in acts] or ["- none recorded"]
-    L += ["", f"## Announcements, last {days} days ({len(ann)})", ""]
+    L += [
+        "",
+        f"## Announcements, last {days} days ({len(ann)}{', newest 60 listed; all in dossier.json' if len(ann) > 60 else ''})",
+        "",
+    ]
+    if last_ann_status != "complete":
+        L.append(
+            f'**Read status: {last_ann_status}. This list may be short - re-run before treating a gap as "nothing filed".**'
+        )
+        L.append("")
     for a in ann[:60]:
         L.append(
             f"- {a['date']} [{a['category']}/{a['sub']}] {a['subject'][:110]} — {a['headline'][:160]} {('— ' + a['pdf']) if a['pdf'] else ''}"
@@ -467,7 +548,10 @@ def build(scrip, days, pdf=True):
         "| Peer | Mcap ₹cr | PE |",
         "|---|---|---|",
     ]
-    L += [f"| {p['name']} ({p['symbol']}) | {p['mcap']} | {p['pe'] if p['pe'] is not None else 'n/a'} |" for p in prs]
+    L += [
+        f"| {p['name']} ({p['symbol']}) | {p['mcap']} | {p['pe'] if p['pe'] is not None else 'n/a'} |"
+        for p in prs
+    ]
     if key_docs:
         L += ["", "## Extracted documents (read these)", ""] + [
             f"- {k['file']}: {k['subject'][:100]} — {k['url']}" for k in key_docs

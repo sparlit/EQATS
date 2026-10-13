@@ -177,7 +177,9 @@ for period in periods:
 print(f"\n{'=' * 70}")
 print(f"  BACKTEST RESULTS  {BACKTEST_START} → {BACKTEST_END}  (OOS)")
 print(f"{'=' * 70}")
-print(f"  {'Method':<14} {'Months':>7} {'Ann Ret':>9} {'Sharpe':>8} {'Hit Rate':>10} {'Cum Ret':>9}")
+print(
+    f"  {'Method':<14} {'Months':>7} {'Ann Ret':>9} {'Sharpe':>8} {'Hit Rate':>10} {'Cum Ret':>9}"
+)
 print(f"  {'-' * 14} {'-' * 7} {'-' * 9} {'-' * 8} {'-' * 10} {'-' * 9}")
 
 for method in METHODS:

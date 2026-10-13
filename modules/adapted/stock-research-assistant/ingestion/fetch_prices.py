@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import json
 import os
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 import yfinance as yf
 

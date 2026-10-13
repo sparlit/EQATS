@@ -24,7 +24,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Example usage of merged_module.py
 
 import pyotp
-from trendmaster import DataLoader, Inferencer, Trainer, TransAm, plot_predictions, plot_results, set_seed
+from trendmaster import DataLoader, Inferencer, Trainer, TransAm, set_seed
 
 # Set seed for reproducibility
 set_seed(42)
@@ -66,7 +66,11 @@ trainer.save_model("transam_model.pth")
 # Initialize inferencer and make predictions
 inferencer = Inferencer(model, device, data_loader)
 predictions = inferencer.predict(
-    symbol="RELIANCE", from_date="2023-02-27", to_date="2023-12-31", input_window=30, future_steps=10
+    symbol="RELIANCE",
+    from_date="2023-02-27",
+    to_date="2023-12-31",
+    input_window=30,
+    future_steps=10,
 )
 
 # Evaluate the model

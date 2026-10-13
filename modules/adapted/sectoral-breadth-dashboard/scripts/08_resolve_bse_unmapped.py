@@ -32,7 +32,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import contextlib
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -118,7 +118,9 @@ def load_mapping() -> pd.DataFrame:
     for column in MAPPING_COLUMNS:
         if column not in mapping.columns:
             mapping[column] = ""
-    mapping["attempt_count"] = pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+    mapping["attempt_count"] = (
+        pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
     return mapping[MAPPING_COLUMNS]
 
 
@@ -142,7 +144,11 @@ def find_bse_record(bse: BSE, isin: str, symbol: str, company_name: str) -> tupl
 
 def extract_hierarchy(metadata: dict) -> tuple[str, str, str]:
     sector = clean(metadata.get("Sector"))
-    industry = clean(metadata.get("IGroup")) or clean(metadata.get("IndustryNew")) or clean(metadata.get("Industry"))
+    industry = (
+        clean(metadata.get("IGroup"))
+        or clean(metadata.get("IndustryNew"))
+        or clean(metadata.get("Industry"))
+    )
     basic_industry = clean(metadata.get("ISubGroup")) or clean(metadata.get("Industry"))
     return sector, industry, basic_industry
 
@@ -168,7 +174,9 @@ def write_still_unmapped(master: pd.DataFrame) -> pd.DataFrame:
         "fallback_bse_last_attempt_utc",
     ]
     columns = [column for column in columns if column in incomplete.columns]
-    incomplete = incomplete[columns].drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"])
+    incomplete = (
+        incomplete[columns].drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"])
+    )
     incomplete.to_csv(STILL_UNMAPPED_FILE, index=False)
     return incomplete
 
@@ -176,23 +184,24 @@ def write_still_unmapped(master: pd.DataFrame) -> pd.DataFrame:
 def main() -> None:
     print("========== BSE FALLBACK CLASSIFICATION START ==========")
     if not MASTER_FILE.exists():
-        msg = f"Missing master file: {MASTER_FILE}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing master file: {MASTER_FILE}")
     if not UNMAPPED_FILE.exists():
-        msg = f"Missing BSE exception report: {UNMAPPED_FILE}. Run script 07 first."
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(
+            f"Missing BSE exception report: {UNMAPPED_FILE}. Run script 07 first."
+        )
 
     master = ensure_master_columns(pd.read_parquet(MASTER_FILE))
     report = pd.read_csv(UNMAPPED_FILE, dtype=str).fillna("")
     mapping = load_mapping()
 
     if "isin" not in report.columns:
-        msg = f"Exception report lacks ISIN column: {UNMAPPED_FILE}"
-        raise ValueError(msg)
+        raise ValueError(f"Exception report lacks ISIN column: {UNMAPPED_FILE}")
 
     report["isin"] = text_series(report["isin"])
     report["symbol"] = text_series(report.get("symbol", pd.Series("", index=report.index)))
-    report["company_name"] = text_series(report.get("company_name", pd.Series("", index=report.index)))
+    report["company_name"] = text_series(
+        report.get("company_name", pd.Series("", index=report.index))
+    )
 
     eligible_isins = set(report["isin"]) - {""}
     candidates = master[
@@ -200,7 +209,9 @@ def main() -> None:
         & ~complete_mask(master)
         & text_series(master["classification_status"]).isin(RETRYABLE_STATUSES)
     ].copy()
-    candidates = candidates.sort_values(["fallback_bse_attempt_count", "symbol", "isin"]).head(BATCH_SIZE)
+    candidates = candidates.sort_values(["fallback_bse_attempt_count", "symbol", "isin"]).head(
+        BATCH_SIZE
+    )
 
     print(f"Exception-report rows: {len(report):,}")
     print(f"Fallback candidates in this run: {len(candidates):,}")
@@ -221,9 +232,13 @@ def main() -> None:
             symbol = clean(row["symbol"])
             company_name = clean(row["company_name"])
             prior_count = int(master.at[master_index, "fallback_bse_attempt_count"])
-            print(f"[{number}/{len(candidates)}] {symbol} | {isin} | fallback attempts: {prior_count}")
+            print(
+                f"[{number}/{len(candidates)}] {symbol} | {isin} | fallback attempts: {prior_count}"
+            )
 
-            bse_code, lookup_method, failure_reason = find_bse_record(bse, isin, symbol, company_name)
+            bse_code, lookup_method, failure_reason = find_bse_record(
+                bse, isin, symbol, company_name
+            )
             metadata: dict = {}
             if bse_code:
                 try:
@@ -255,7 +270,11 @@ def main() -> None:
                 master.at[master_index, "classification_failure_reason"] = (
                     failure_reason or "BSE returned incomplete hierarchy"
                 )
-                status, source, reason = "BSE_RETRY", "", master.at[master_index, "classification_failure_reason"]
+                status, source, reason = (
+                    "BSE_RETRY",
+                    "",
+                    master.at[master_index, "classification_failure_reason"],
+                )
                 print(f"  Still retryable: {reason}")
 
             new_mapping_rows.append(
@@ -285,11 +304,19 @@ def main() -> None:
 
     if new_mapping_rows:
         mapping = pd.concat([mapping, pd.DataFrame(new_mapping_rows)], ignore_index=True)
-        mapping["attempt_count"] = pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
-        mapping = mapping.drop_duplicates("isin", keep="last").sort_values(["symbol", "isin"]).reset_index(drop=True)
+        mapping["attempt_count"] = (
+            pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+        )
+        mapping = (
+            mapping.drop_duplicates("isin", keep="last")
+            .sort_values(["symbol", "isin"])
+            .reset_index(drop=True)
+        )
 
     master = (
-        master.drop_duplicates("isin", keep="last").sort_values(["symbol", "series", "isin"]).reset_index(drop=True)
+        master.drop_duplicates("isin", keep="last")
+        .sort_values(["symbol", "series", "isin"])
+        .reset_index(drop=True)
     )
     master.to_parquet(MASTER_FILE, index=False)
     mapping.to_csv(MAPPING_FILE, index=False)

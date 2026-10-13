@@ -64,7 +64,11 @@ HEALTH_FILE = Path("scan_health.json")
 
 
 def write_health(status, **kwargs):
-    payload = {"run_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"), "status": status, **kwargs}
+    payload = {
+        "run_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
+        "status": status,
+        **kwargs,
+    }
     HEALTH_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
@@ -249,7 +253,9 @@ def backfill_historical_data(target_date, days_back=90):
     trading_days = get_trading_days(start_date, end_date)
     trading_days = trading_days[-days_back:]
 
-    print(f"  Date range: {trading_days[0].strftime('%d-%b-%Y')} to {trading_days[-1].strftime('%d-%b-%Y')}")
+    print(
+        f"  Date range: {trading_days[0].strftime('%d-%b-%Y')} to {trading_days[-1].strftime('%d-%b-%Y')}"
+    )
     print(f"  Trading days to load: {len(trading_days)}")
 
     loaded = 0
@@ -272,7 +278,10 @@ def backfill_historical_data(target_date, days_back=90):
                 print(f"  ❌ {d.strftime('%d-%b-%Y')}: {e}")
 
         if (i + 1) % 10 == 0:
-            print(f"  Progress: {i + 1}/{len(trading_days)} (loaded={loaded} skipped={skipped} failed={failed})")
+            print(
+                f"  Progress: {i + 1}/{len(trading_days)} "
+                f"(loaded={loaded} skipped={skipped} failed={failed})"
+            )
 
         import time
 
@@ -307,14 +316,20 @@ def run_pipeline():
     print("\n[CANARY] Testing JSON write path...")
     canary = Path("telegram_last_scan.json")
     try:
-        canary.write_text(json.dumps({"scan_date": today.strftime("%Y-%m-%d"), "canary": True}), encoding="utf-8")
+        canary.write_text(
+            json.dumps({"scan_date": today.strftime("%Y-%m-%d"), "canary": True}), encoding="utf-8"
+        )
         if json.loads(canary.read_text())["scan_date"] != today.strftime("%Y-%m-%d"):
-            msg = "Canary mismatch"
-            raise ValueError(msg)
+            raise ValueError("Canary mismatch")
         print("[CANARY] ✅ OK")
     except Exception as e:
         send_failure_alert("CANARY JSON", str(e), today)
-        write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="CANARY", reason=str(e))
+        write_health(
+            status="FAILED",
+            scan_date=today.strftime("%Y-%m-%d"),
+            failed_step="CANARY",
+            reason=str(e),
+        )
         return False
 
     write_health(status="RUNNING", scan_date=today.strftime("%Y-%m-%d"))
@@ -340,12 +355,22 @@ def run_pipeline():
                 reason = f"Backfill did not reach the required {MIN_SCAN_HISTORY_DAYS} usable trading days"
                 print(f"[STEP 0] ❌ {reason}")
                 send_failure_alert("Backfill", reason, today)
-                write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 0", reason=reason)
+                write_health(
+                    status="FAILED",
+                    scan_date=today.strftime("%Y-%m-%d"),
+                    failed_step="STEP 0",
+                    reason=reason,
+                )
                 return False
         except Exception as e:
             print(f"[STEP 0] Backfill error: {e}")
             send_failure_alert("Backfill", str(e), today)
-            write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 0", reason=str(e))
+            write_health(
+                status="FAILED",
+                scan_date=today.strftime("%Y-%m-%d"),
+                failed_step="STEP 0",
+                reason=str(e),
+            )
             return False
     else:
         print("[STEP 0] ✅ DB has enough data. Loading today only.")
@@ -356,11 +381,15 @@ def run_pipeline():
 
             downloaded = download_direct(today)
             if downloaded == 0:
-                msg = "No NSE files downloaded for the completed trading day"
-                raise RuntimeError(msg)
+                raise RuntimeError("No NSE files downloaded for the completed trading day")
         except Exception as e:
             send_failure_alert("NSE Download", str(e), today)
-            write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 1", reason=str(e))
+            write_health(
+                status="FAILED",
+                scan_date=today.strftime("%Y-%m-%d"),
+                failed_step="STEP 1",
+                reason=str(e),
+            )
             return False
 
         # Step 2: Load today
@@ -369,11 +398,15 @@ def run_pipeline():
 
             load_result = load_day(today, do_cleanup=False)
             if load_result["status"] not in ("ok", "already_loaded"):
-                msg = f"NSE load did not complete: {load_result}"
-                raise RuntimeError(msg)
+                raise RuntimeError(f"NSE load did not complete: {load_result}")
         except Exception as e:
             send_failure_alert("DB Load", str(e), today)
-            write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 2", reason=str(e))
+            write_health(
+                status="FAILED",
+                scan_date=today.strftime("%Y-%m-%d"),
+                failed_step="STEP 2",
+                reason=str(e),
+            )
             return False
 
     # Persist normalized history for the next disposable GitHub Actions runner.
@@ -382,7 +415,12 @@ def run_pipeline():
         print(f"[STEP 2.5] Market snapshots ready ({snapshots_written} new files)")
     except Exception as e:
         send_failure_alert("Market Snapshot", str(e), today)
-        write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 2.5", reason=str(e))
+        write_health(
+            status="FAILED",
+            scan_date=today.strftime("%Y-%m-%d"),
+            failed_step="STEP 2.5",
+            reason=str(e),
+        )
         return False
 
     # NSE corporate universe/cap/surveillance layer. Collector failures retain
@@ -396,7 +434,9 @@ def run_pipeline():
         restored = restore_snapshots("nse_scanner.db")
         corporate_health = run_collection("nse_scanner.db", today.isoformat())
         exported = export_snapshots("nse_scanner.db")
-        print(f"[STEP 2.6] Corporate data: {corporate_health['status']} (restored={restored}, exported={exported})")
+        print(
+            f"[STEP 2.6] Corporate data: {corporate_health['status']} (restored={restored}, exported={exported})"
+        )
     except Exception as e:
         print(f"[STEP 2.6] Corporate collection degraded: {e}")
 
@@ -404,14 +444,21 @@ def run_pipeline():
     # Compare against the runner's date, not the previous completed EOD date:
     # the 04-Aug-2026 morning report correctly uses the 03-Aug market close.
     if date.today() >= V2_GO_LIVE_DATE:
-        print(f"[V2] Go-live active from {V2_GO_LIVE_DATE.isoformat()}; V1 Telegram delivery is disabled.")
+        print(
+            f"[V2] Go-live active from {V2_GO_LIVE_DATE.isoformat()}; V1 Telegram delivery is disabled."
+        )
         try:
             from v2.orchestrator import run_daily as run_v2_daily
             from v2.state_file import export_state_file, restore_state_file
 
             restored_state = restore_state_file("nse_scanner.db", "v2_portfolio_state.json")
             print(f"[V2] Portfolio state restored: {'yes' if restored_state else 'first run'}")
-            strict_v3 = os.environ.get("V3_STRICT_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+            strict_v3 = os.environ.get("V3_STRICT_ENABLED", "false").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
             # `today` is the last completed NSE session, which can be older
             # than the calendar date over a weekend or holiday. Activation is
             # a calendar policy and must use IST rather than runner UTC.
@@ -421,7 +468,9 @@ def run_pipeline():
 
                 readiness = audit_v3_operations("nse_scanner.db", as_of=today.isoformat())
                 strict_v3 = readiness.status == "READY"
-                print(f"[V3] Activation gate: {readiness.status}; blockers={list(readiness.blockers)}")
+                print(
+                    f"[V3] Activation gate: {readiness.status}; blockers={list(readiness.blockers)}"
+                )
             elif strict_v3:
                 strict_v3 = False
                 print(
@@ -460,7 +509,9 @@ def run_pipeline():
                 selected=result.selected,
                 portfolio_positions=result.portfolio_positions,
             )
-            print(f"[V2] {result.delivery.message_count} user Telegram message(s) sent and portfolio state saved.")
+            print(
+                f"[V2] {result.delivery.message_count} user Telegram message(s) sent and portfolio state saved."
+            )
             return True
         except Exception as e:
             send_failure_alert("V2 Daily Run", str(e), today)
@@ -481,11 +532,18 @@ def run_pipeline():
 
         if results_df.empty:
             print("⚠️ No stocks found — keeping previous data")
-            write_health(status="NO_RESULTS", scan_date=today.strftime("%Y-%m-%d"), reason="Empty scan")
+            write_health(
+                status="NO_RESULTS", scan_date=today.strftime("%Y-%m-%d"), reason="Empty scan"
+            )
             return True
     except Exception as e:
         send_failure_alert("STEP 3 Scan", str(e), today)
-        write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 3", reason=str(e))
+        write_health(
+            status="FAILED",
+            scan_date=today.strftime("%Y-%m-%d"),
+            failed_step="STEP 3",
+            reason=str(e),
+        )
         return False
 
     # ── STEP 3.5: News Collection & Enrichment ────────────────
@@ -502,8 +560,14 @@ def run_pipeline():
     except Exception as e:
         print(f"[STEP 3.5] ⚠️ News enrichment failed: {e}")
 
-    hc = (results_df["conviction"] == "HIGH CONVICTION").sum() if "conviction" in results_df.columns else 0
-    wl = (results_df["conviction"] == "Watchlist").sum() if "conviction" in results_df.columns else 0
+    hc = (
+        (results_df["conviction"] == "HIGH CONVICTION").sum()
+        if "conviction" in results_df.columns
+        else 0
+    )
+    wl = (
+        (results_df["conviction"] == "Watchlist").sum() if "conviction" in results_df.columns else 0
+    )
 
     # ── STEP 4: Output (Excel + Telegram morning scan) ────────
     print(f"\n{'=' * 55}\n  Step 4: Output\n{'=' * 55}")
@@ -513,7 +577,12 @@ def run_pipeline():
         generate_report(results_df, today)
     except Exception as e:
         send_failure_alert("STEP 4 Output", str(e), today)
-        write_health(status="FAILED", scan_date=today.strftime("%Y-%m-%d"), failed_step="STEP 4", reason=str(e))
+        write_health(
+            status="FAILED",
+            scan_date=today.strftime("%Y-%m-%d"),
+            failed_step="STEP 4",
+            reason=str(e),
+        )
         return False
 
     # ── STEP 5: Portfolio Manager ─────────────────────────────
@@ -553,7 +622,9 @@ def run_pipeline():
     d = json.loads(json_path.read_text())
     expected = today.strftime("%Y-%m-%d")
     if d.get("scan_date") != expected:
-        send_failure_alert("JSON Freshness", f"Expected {expected}, found {d.get('scan_date')}", today)
+        send_failure_alert(
+            "JSON Freshness", f"Expected {expected}, found {d.get('scan_date')}", today
+        )
         write_health(status="FAILED", scan_date=expected, failed_step="STEP 6", reason="STALE JSON")
         return False
     print(f"  ✅ JSON date matches: {expected}")
@@ -582,9 +653,8 @@ def run_pipeline():
         print("  ✅ telegram_last_scan.json pushed")
 
     history_path = Path("scan_history.json")
-    if history_path.exists():
-        if push_file_to_github(history_path, f"Auto: history {expected}"):
-            print("  ✅ scan_history.json pushed")
+    if history_path.exists() and push_file_to_github(history_path, f"Auto: history {expected}"):
+        print("  ✅ scan_history.json pushed")
 
     # Push portfolio.json to GitHub (so bot can read it)
     # Push portfolio.json to GitHub (so bot can read it)

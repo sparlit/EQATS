@@ -44,16 +44,24 @@ def test_discovery_uses_acceleration_shortlist_without_paper_entry():
             )
     result = discover(pd.DataFrame(rows))
     assert set(result.shortlist["symbol"]) == {"AAA", "BBB"}
-    assert {"rs_acceleration", "price_acceleration", "early_signal_count"}.issubset(result.shortlist.columns)
+    assert {"rs_acceleration", "price_acceleration", "early_signal_count"}.issubset(
+        result.shortlist.columns
+    )
 
 
 def test_discovery_can_surface_fresh_acceleration_without_positive_1m_return():
     days = pd.bdate_range("2025-01-01", periods=80)
     close = pd.Series(
-        [100 - index * 0.12 for index in range(70)] + [91.6, 91.7, 91.8, 91.9, 92.0, 92.1, 92.25, 92.4, 92.6, 92.8]
+        [100 - index * 0.12 for index in range(70)]
+        + [91.6, 91.7, 91.8, 91.9, 92.0, 92.1, 92.25, 92.4, 92.6, 92.8]
     )
     frame = pd.DataFrame(
-        {"symbol": "TURN", "trade_date": days, "close": close, "volume": [100_000] * 75 + [140_000] * 5}
+        {
+            "symbol": "TURN",
+            "trade_date": days,
+            "close": close,
+            "volume": [100_000] * 75 + [140_000] * 5,
+        }
     )
     result = discover(frame)
     assert not result.shortlist.empty
@@ -105,7 +113,9 @@ def test_ladder_portfolio_never_uses_retired_pine_topic(monkeypatch):
 def test_paper_trade_topic_never_treats_ready_as_entered():
     report = {
         "as_of_date": "2026-08-18",
-        "shortlist": [{"symbol": "AAA", "discovery_score": 90.0, "discovery_rank": 1, "hull_state": "READY"}],
+        "shortlist": [
+            {"symbol": "AAA", "discovery_score": 90.0, "discovery_rank": 1, "hull_state": "READY"}
+        ],
     }
     text = render_paper_trades(report)
     assert "PORTFOLIO" in text

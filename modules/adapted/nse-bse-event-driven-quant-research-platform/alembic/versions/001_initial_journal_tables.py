@@ -28,9 +28,7 @@ Revises: None
 Create Date: 2026-09-07
 """
 from collections.abc import Sequence
-from typing import Union
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "001_initial"

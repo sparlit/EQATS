@@ -44,7 +44,7 @@ import json
 import os
 import sys
 import urllib.request
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS_FUND = os.path.join(HERE, "..", "docs", "sf_fundamentals.json")
@@ -76,7 +76,11 @@ def rpc(fn, args):
     req = urllib.request.Request(
         API + fn,
         data=json.dumps(args).encode(),
-        headers={"apikey": ANON, "Authorization": "Bearer " + ANON, "Content-Type": "application/json"},
+        headers={
+            "apikey": ANON,
+            "Authorization": "Bearer " + ANON,
+            "Content-Type": "application/json",
+        },
     )
     with urllib.request.urlopen(req, timeout=30) as r:
         body = r.read().decode()
@@ -162,7 +166,13 @@ def main():
             continue
         # ann as INT: the store holds announce dates as ints; a str here crashed fill_ann_dates.py
         # ("'<=' not supported between str and int", run 35648665228, 2026-09-22) and failed the job.
-        sym, qe, con, ann, force = e["sym"], e["qe"], float(e["con"]), int(str(e["ann"])), bool(e.get("force"))
+        sym, qe, con, ann, force = (
+            e["sym"],
+            e["qe"],
+            float(e["con"]),
+            int(str(e["ann"])),
+            bool(e.get("force")),
+        )
         cur = next((r for r in docs.get(sym, []) if r[0] == qe), None)
         if cur is not None and cur[3] is not None and not force:
             e["rejected"] = f"already filled ({cur[3]:.2f} cr) — tick overwrite to correct"
@@ -176,14 +186,22 @@ def main():
         if ch1 or ch2:
             e["applied"] = today
             n_applied += 1
-            print("APPLY  {} {} con={:.2f} ann={}{}".format(sym, qe, con, ann, " (overwrite)" if force else ""))
+            print(
+                "APPLY  {} {} con={:.2f} ann={}{}".format(
+                    sym, qe, con, ann, " (overwrite)" if force else ""
+                )
+            )
         else:
             e["rejected"] = "no change (value identical?)"
             n_rejected += 1
 
     if n_applied:
-        json.dump(docs, open(DOCS_FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-        json.dump(src, open(SRC_FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        json.dump(
+            docs, open(DOCS_FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
+        json.dump(
+            src, open(SRC_FUND, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
         open(FLAG, "w").write(today)
         print(
             "filed %d entr%s into sf_fundamentals.json (+ scripts mirror), flagged rebuild"

@@ -64,4 +64,6 @@ req = urllib.request.Request(
     URL, body, {"apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json"}
 )
 resp = urllib.request.urlopen(req, timeout=30).read().decode()
-print("Restored %d entries from %s  (server: %s)" % (len(data), os.path.basename(path), resp or "ok"))
+print(
+    "Restored %d entries from %s  (server: %s)" % (len(data), os.path.basename(path), resp or "ok")
+)

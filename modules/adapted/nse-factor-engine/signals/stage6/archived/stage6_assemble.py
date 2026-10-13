@@ -87,7 +87,9 @@ dated.sort(key=lambda x: pd.Timestamp(day=int(x[0][:2]), month=int(x[0][2:4]), y
 run_date_str, SIGNALS_PATH = dated[-1]
 
 print("=" * 70)
-print(f"STAGE 6 — Portfolio Selection (G6_MR Hybrid | {'MONITOR' if MONITOR_MODE else 'REBALANCE'})")
+print(
+    f"STAGE 6 — Portfolio Selection (G6_MR Hybrid | {'MONITOR' if MONITOR_MODE else 'REBALANCE'})"
+)
 print(f"USE_G6_GATE      : {USE_G6_GATE}  (lower_circuit_hits_63d < 3)")
 print(f"PORTFOLIO_N      : {PORTFOLIO_N}")
 print(f"BUFFER_ZONE      : {BUFFER_ZONE}")
@@ -109,9 +111,14 @@ if PORTFOLIO_STATE_PATH.exists():
     portfolio_state = pd.read_parquet(PORTFOLIO_STATE_PATH)
     current_holdings = set(portfolio_state["symbol"])
     stored_last_rebalance_date = (
-        pd.Timestamp(portfolio_state["last_rebalance_date"].iloc[0]) if len(portfolio_state) > 0 else None
+        pd.Timestamp(portfolio_state["last_rebalance_date"].iloc[0])
+        if len(portfolio_state) > 0
+        else None
     )
-    print(f"\nExisting portfolio  : {len(current_holdings)} holdings, last_rebalance_date={stored_last_rebalance_date}")
+    print(
+        f"\nExisting portfolio  : {len(current_holdings)} holdings, "
+        f"last_rebalance_date={stored_last_rebalance_date}"
+    )
 
     if not MONITOR_MODE and stored_last_rebalance_date is not None:
         days_since = (pd.Timestamp.now().normalize() - stored_last_rebalance_date).days
@@ -162,7 +169,14 @@ if MONITOR_MODE:
         holding_rows = holding_rows.sort_values("mr_rank")
         cols = [
             c
-            for c in ["mr_rank", "symbol", "norm_momentum_score", "weighted_z", "weinstein_stage2", "ret_12m1m"]
+            for c in [
+                "mr_rank",
+                "symbol",
+                "norm_momentum_score",
+                "weighted_z",
+                "weinstein_stage2",
+                "ret_12m1m",
+            ]
             if c in holding_rows.columns
         ]
         print(holding_rows[cols].to_string(index=False))
@@ -170,7 +184,10 @@ if MONITOR_MODE:
         # Holdings that would be forced out
         would_force_out = holding_rows[holding_rows["mr_rank"] > BUFFER_ZONE]
         if len(would_force_out) > 0:
-            print(f"\n  ⚠ Would be forced out (rank > {BUFFER_ZONE}): {sorted(would_force_out['symbol'].tolist())}")
+            print(
+                f"\n  ⚠ Would be forced out (rank > {BUFFER_ZONE}): "
+                f"{sorted(would_force_out['symbol'].tolist())}"
+            )
 
     # What the portfolio would look like if rebalanced today
     print("\nIf rebalanced TODAY :")
@@ -190,7 +207,9 @@ if MONITOR_MODE:
     port_files = sorted(STAGE6_OUTPUT_DIR.glob("portfolio_recommendations_*.parquet"))
     if port_files:
         last_port_df = pd.read_parquet(port_files[-1])
-        rsi_at_rebal = last_port_df[last_port_df["tier"] == "TOP_25"].set_index("symbol")["rsi_14"].to_dict()
+        rsi_at_rebal = (
+            last_port_df[last_port_df["tier"] == "TOP_25"].set_index("symbol")["rsi_14"].to_dict()
+        )
         rebal_date = pd.to_datetime(last_port_df["as_of_date"].iloc[0]).date()
         display_df["rsi_14_rebal"] = display_df["symbol"].map(rsi_at_rebal)
 
@@ -214,7 +233,9 @@ if MONITOR_MODE:
                 _avg_l = _loss.ewm(com=13, min_periods=14).mean()
                 _rs = _avg_g / _avg_l.replace(0, float("nan"))
                 _rsi = 100 - (100 / (1 + _rs))
-                display_df.loc[display_df["symbol"] == _sym, "rsi_14_rebal"] = round(_rsi.iloc[-1], 4)
+                display_df.loc[display_df["symbol"] == _sym, "rsi_14_rebal"] = round(
+                    _rsi.iloc[-1], 4
+                )
 
         display_df["rsi_14_today"] = display_df["rsi_14"]
         display_df["rsi_chg"] = (display_df["rsi_14_today"] - display_df["rsi_14_rebal"]).round(1)
@@ -225,17 +246,9 @@ if MONITOR_MODE:
 
     cols = [
         c
-        for c in [
-            "mr_rank",
-            "symbol",
-            "action",
-            "norm_momentum_score",
-            "ret_12m1m",
-            *rsi_cols,
-            "beta_12m",
-            "stock_12m_ret",
-            "alpha_12m",
-        ]
+        for c in ["mr_rank", "symbol", "action", "norm_momentum_score", "ret_12m1m"]
+        + rsi_cols
+        + ["beta_12m", "stock_12m_ret", "alpha_12m"]
         if c in display_df.columns
     ]
     print(display_df[cols].to_string(index=False))
@@ -256,16 +269,24 @@ if MONITOR_MODE:
                 "score": round(float(_r["norm_momentum_score"]), 2)
                 if pd.notna(_r.get("norm_momentum_score"))
                 else None,
-                "ret12m": round(float(_r["ret_12m1m"]), 4) if pd.notna(_r.get("ret_12m1m")) else None,
+                "ret12m": round(float(_r["ret_12m1m"]), 4)
+                if pd.notna(_r.get("ret_12m1m"))
+                else None,
                 "rsi_rebal": round(float(_r["rsi_14_rebal"]), 1)
                 if "rsi_14_rebal" in _r and pd.notna(_r["rsi_14_rebal"])
                 else None,
                 "rsi_today": round(float(_r["rsi_14_today"]), 1)
                 if "rsi_14_today" in _r and pd.notna(_r["rsi_14_today"])
                 else None,
-                "rsi_chg": round(float(_r["rsi_chg"]), 1) if "rsi_chg" in _r and pd.notna(_r["rsi_chg"]) else None,
-                "beta": round(float(_r["beta_12m"]), 2) if "beta_12m" in _r and pd.notna(_r["beta_12m"]) else None,
-                "alpha": round(float(_r["alpha_12m"]), 4) if "alpha_12m" in _r and pd.notna(_r["alpha_12m"]) else None,
+                "rsi_chg": round(float(_r["rsi_chg"]), 1)
+                if "rsi_chg" in _r and pd.notna(_r["rsi_chg"])
+                else None,
+                "beta": round(float(_r["beta_12m"]), 2)
+                if "beta_12m" in _r and pd.notna(_r["beta_12m"])
+                else None,
+                "alpha": round(float(_r["alpha_12m"]), 4)
+                if "alpha_12m" in _r and pd.notna(_r["alpha_12m"])
+                else None,
             }
         )
     print("<<<MONITOR_JSON_START>>>")
@@ -296,7 +317,9 @@ if MONITOR_MODE:
     if len(watchlist) > 0:
         print(f"\nWATCHLIST (rank <= {BUFFER_ZONE}, {len(watchlist)} symbols):")
         wl_cols = [
-            c for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"] if c in watchlist.columns
+            c
+            for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"]
+            if c in watchlist.columns
         ]
         print(watchlist[wl_cols].to_string(index=False))
 
@@ -308,7 +331,11 @@ if MONITOR_MODE:
     # Weinstein rejects
     if len(weinstein_rejects) > 0:
         print(f"\nWeinstein rejects ({len(weinstein_rejects)}):")
-        print(weinstein_rejects[["symbol", "mr_rank", "rejection_stage", "rejection_reason"]].to_string(index=False))
+        print(
+            weinstein_rejects[
+                ["symbol", "mr_rank", "rejection_stage", "rejection_reason"]
+            ].to_string(index=False)
+        )
 
     print(
         f"\nMONITOR complete. Next rebalance eligible after: "
@@ -409,7 +436,10 @@ new_portfolio_state = pd.DataFrame(
     }
 )
 new_portfolio_state.to_parquet(PORTFOLIO_STATE_PATH, index=False)
-print(f"\nPortfolio state updated : {len(new_portfolio_state)} holdings, last_rebalance_date={as_of_date.date()}")
+print(
+    f"\nPortfolio state updated : {len(new_portfolio_state)} holdings, "
+    f"last_rebalance_date={as_of_date.date()}"
+)
 
 # ── Step 11: Write history snapshot ──
 history_path = PORTFOLIO_HISTORY_DIR / f"portfolio_{run_date_ddmmyyyy}.parquet"
@@ -442,7 +472,11 @@ print(top25_out[display_cols].to_string(index=False))
 watchlist = ranked[ranked["action"] == "WATCHLIST"]
 if len(watchlist) > 0:
     print(f"\nWATCHLIST (rank <= {BUFFER_ZONE}, {len(watchlist)} symbols):")
-    wl_cols = [c for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"] if c in watchlist.columns]
+    wl_cols = [
+        c
+        for c in ["mr_rank", "symbol", "weinstein_stage2", "norm_momentum_score"]
+        if c in watchlist.columns
+    ]
     print(watchlist[wl_cols].to_string(index=False))
 
 sells = ranked[ranked["action"] == "SELL"]

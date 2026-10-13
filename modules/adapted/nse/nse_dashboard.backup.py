@@ -125,8 +125,7 @@ def get_json(s, url, referer, retries=4, pause=2.0):
             time.sleep(pause * i)
             with contextlib.suppress(Exception):
                 s.get(BASE, timeout=15)
-    msg = f"{url} failed after {retries} tries: {last}"
-    raise RuntimeError(msg)
+    raise RuntimeError(f"{url} failed after {retries} tries: {last}")
 
 
 # --------------------------------------------------------------------------- #
@@ -267,8 +266,7 @@ def gather_live(stamp=None, write=True):
     s = new_session()
     preopen_raw = get_json(s, PREOPEN_API, PAGE_PREOPEN)
     if not preopen_raw.get("data"):
-        msg = "pre-open API returned no data"
-        raise RuntimeError(msg)
+        raise RuntimeError("pre-open API returned no data")
     p_rows, p_sum = parse_preopen(preopen_raw)
 
     deriv_cats = []
@@ -402,13 +400,62 @@ def sample_payload():
         },
     ]
     oi = [
-        {"symbol": "RELIANCE", "oiPct": 8.4, "pricePct": 1.51, "ltp": 2945.0, "changeInOI": 410000, "volume": 88420},
-        {"symbol": "SBIN", "oiPct": 12.7, "pricePct": 1.70, "ltp": 843.0, "changeInOI": 980000, "volume": 120340},
-        {"symbol": "HDFCBANK", "oiPct": 5.1, "pricePct": 1.12, "ltp": 1681.0, "changeInOI": 260000, "volume": 97650},
-        {"symbol": "TCS", "oiPct": -4.6, "pricePct": -0.99, "ltp": 3886.0, "changeInOI": -120000, "volume": 41010},
-        {"symbol": "INFY", "oiPct": -7.2, "pricePct": -1.78, "ltp": 1543.0, "changeInOI": -230000, "volume": 55220},
-        {"symbol": "TATAMOTORS", "oiPct": 15.3, "pricePct": -2.51, "ltp": 977.0, "changeInOI": 640000, "volume": 76110},
-        {"symbol": "TATASTEEL", "oiPct": 9.8, "pricePct": 2.10, "ltp": 168.9, "changeInOI": 1500000, "volume": 210300},
+        {
+            "symbol": "RELIANCE",
+            "oiPct": 8.4,
+            "pricePct": 1.51,
+            "ltp": 2945.0,
+            "changeInOI": 410000,
+            "volume": 88420,
+        },
+        {
+            "symbol": "SBIN",
+            "oiPct": 12.7,
+            "pricePct": 1.70,
+            "ltp": 843.0,
+            "changeInOI": 980000,
+            "volume": 120340,
+        },
+        {
+            "symbol": "HDFCBANK",
+            "oiPct": 5.1,
+            "pricePct": 1.12,
+            "ltp": 1681.0,
+            "changeInOI": 260000,
+            "volume": 97650,
+        },
+        {
+            "symbol": "TCS",
+            "oiPct": -4.6,
+            "pricePct": -0.99,
+            "ltp": 3886.0,
+            "changeInOI": -120000,
+            "volume": 41010,
+        },
+        {
+            "symbol": "INFY",
+            "oiPct": -7.2,
+            "pricePct": -1.78,
+            "ltp": 1543.0,
+            "changeInOI": -230000,
+            "volume": 55220,
+        },
+        {
+            "symbol": "TATAMOTORS",
+            "oiPct": 15.3,
+            "pricePct": -2.51,
+            "ltp": 977.0,
+            "changeInOI": 640000,
+            "volume": 76110,
+        },
+        {
+            "symbol": "TATASTEEL",
+            "oiPct": 9.8,
+            "pricePct": 2.10,
+            "ltp": 168.9,
+            "changeInOI": 1500000,
+            "volume": 210300,
+        },
         {
             "symbol": "ADANIENT",
             "oiPct": -11.4,
@@ -417,10 +464,22 @@ def sample_payload():
             "changeInOI": -180000,
             "volume": 62110,
         },
-        {"symbol": "AXISBANK", "oiPct": 3.2, "pricePct": -1.05, "ltp": 1176.0, "changeInOI": 90000, "volume": 71230},
+        {
+            "symbol": "AXISBANK",
+            "oiPct": 3.2,
+            "pricePct": -1.05,
+            "ltp": 1176.0,
+            "changeInOI": 90000,
+            "volume": 71230,
+        },
     ]
     return build_payload(
-        p_rows, p_sum, deriv, oi, datetime.now(), note="Sample data — run without --demo for live NSE numbers."
+        p_rows,
+        p_sum,
+        deriv,
+        oi,
+        datetime.now(),
+        note="Sample data — run without --demo for live NSE numbers.",
     )
 
 
@@ -447,7 +506,9 @@ def publish():
     if not PUBLISH_CMD:
         return
     try:
-        r = subprocess.run(PUBLISH_CMD, shell=True, cwd=OUT_DIR, capture_output=True, text=True, timeout=180)
+        r = subprocess.run(
+            PUBLISH_CMD, shell=True, cwd=OUT_DIR, capture_output=True, text=True, timeout=180
+        )
         if r.returncode == 0:
             print("[publish] ok")
         else:
@@ -509,7 +570,9 @@ def serve(port):
             pass
 
     srv = HTTPServer(("127.0.0.1", port), Handler)
-    print(f"[ok] live dashboard: http://localhost:{port}  (refresh every {REFRESH_SECS // 60} min, Ctrl+C to stop)")
+    print(
+        f"[ok] live dashboard: http://localhost:{port}  (refresh every {REFRESH_SECS // 60} min, Ctrl+C to stop)"
+    )
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -521,9 +584,15 @@ def serve(port):
 # --------------------------------------------------------------------------- #
 def main():
     ap = argparse.ArgumentParser(description="NSE pre-open + derivatives dashboard")
-    ap.add_argument("--serve", action="store_true", help="run live server, auto-refresh every 5 min")
+    ap.add_argument(
+        "--serve", action="store_true", help="run live server, auto-refresh every 5 min"
+    )
     ap.add_argument("--demo", action="store_true", help="build from sample data, no network")
-    ap.add_argument("--publish", metavar="CMD", help="shell command to run after each build (e.g. publish_github.bat)")
+    ap.add_argument(
+        "--publish",
+        metavar="CMD",
+        help="shell command to run after each build (e.g. publish_github.bat)",
+    )
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
 

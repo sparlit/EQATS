@@ -56,7 +56,6 @@ class Investing(AnalyseStocks):
             if len(df):
                 return df[df["index"].isin(indices)]
             print(f"{symbol} does not belong in any of the Nifty, Sectoral and Thematic Indices")
-        return None
 
     def _get_all_ichi(self, budget: float, index: str = "nifty_500", refit=False):
         """
@@ -123,7 +122,9 @@ class Investing(AnalyseStocks):
 
         if not custom_stocks:
             keys = (
-                set(self._eligible.keys()).intersection(set(self.data[nifty])) if nifty else list(self._eligible.keys())
+                set(self._eligible.keys()).intersection(set(self.data[nifty]))
+                if nifty
+                else list(self._eligible.keys())
             )
             if not len(keys):
                 warnings.warn("No matching Stocks Found. Increase Distance or Nifty Index")
@@ -153,7 +154,11 @@ class Investing(AnalyseStocks):
 
             else:
                 values.append(df.iloc[0, :])
-                one_can.append(CP.find_name(df.loc[0, "OPEN"], df.loc[0, "CLOSE"], df.loc[0, "LOW"], df.loc[0, "HIGH"]))
+                one_can.append(
+                    CP.find_name(
+                        df.loc[0, "OPEN"], df.loc[0, "CLOSE"], df.loc[0, "LOW"], df.loc[0, "HIGH"]
+                    )
+                )
                 two_can.append(CP.double_candle_pattern(df))
                 three_can.append(CP.triple_candle_pattern(df))
                 rsi.append(self.get_RSI(df))
@@ -165,7 +170,10 @@ class Investing(AnalyseStocks):
 
         columns = df.columns
         df = pd.DataFrame(values, columns=columns, index=range(len(values)))
-        df = df.merge(pd.DataFrame({"SYMBOL": self._eligible.keys(), "Diff": self._eligible.values()}), on="SYMBOL")
+        df = df.merge(
+            pd.DataFrame({"SYMBOL": self._eligible.keys(), "Diff": self._eligible.values()}),
+            on="SYMBOL",
+        )
 
         # df['Rising'] = df['SYMBOL'].apply(lambda x: self.rising[x]) # Get Rising or Falling
         df["CCI Value"] = cci_value
@@ -181,12 +189,15 @@ class Investing(AnalyseStocks):
         df["Double Candle"] = two_can
         df["Recent Candle"] = one_can
 
-        df["Index"] = df["SYMBOL"].apply(self.get_index)  # Get Rising or Falling
+        df["Index"] = df["SYMBOL"].apply(lambda x: self.get_index(x))  # Get Rising or Falling
 
         self.picked = df.sort_values("Diff", ascending=True)
         if show_only:
-            return self.picked.style.apply(self.highlight_falling, column=["Rising"], axis=1)  # set style
-        return self.picked
+            return self.picked.style.apply(
+                self.highlight_falling, column=["Rising"], axis=1
+            )  # set style
+        else:
+            return self.picked
 
     def show_full_stats(
         self,
@@ -211,7 +222,9 @@ class Investing(AnalyseStocks):
             diff: MAx Allowed Difference between Line and the Price. diff is the %  of the Recent Closing Price
             custom_stocks: Whether to override in place of Custom
         """
-        self.picked = self.calculate(budget, custom_stocks, High, Close, delta, nifty=nifty, diff=diff, show_only=False)
+        self.picked = self.calculate(
+            budget, custom_stocks, High, Close, delta, nifty=nifty, diff=diff, show_only=False
+        )
 
         expec_change = []
         max_risk = []
@@ -241,8 +254,8 @@ class Investing(AnalyseStocks):
         risk: float,
         risk_to_reward_ratio: float = 2,
         leverage: float = 1,
-        entry: float | None = None,
-        stop_loss: float | None = None,
+        entry: float = None,
+        stop_loss: float = None,
         Low: str = "LOW",
         High: str = "HIGH",
         delta: float = 0.001,
@@ -268,7 +281,9 @@ class Investing(AnalyseStocks):
         df = self.open_downloaded_stock(name)
 
         if risk_to_reward_ratio > 2:
-            warnings.warn(f"Don't be greedy with risk to reward ratio of {risk_to_reward_ratio}. Stick to system")
+            warnings.warn(
+                f"Don't be greedy with risk to reward ratio of {risk_to_reward_ratio}. Stick to system"
+            )
 
         # delta = 0.0008 if df.loc[0,High] >= 1000 else 0.0015
         buy_delta = df.loc[0, High] * delta

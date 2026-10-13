@@ -52,7 +52,9 @@ def main() -> int:
     parser.add_argument("--restore-snapshots", action="store_true")
     parser.add_argument("--send-telegram", action="store_true")
     parser.add_argument(
-        "--uniform-portfolio-dir", default=rollout_directory(), help="Opt-in common PAPER accounting reports"
+        "--uniform-portfolio-dir",
+        default=rollout_directory(),
+        help="Opt-in common PAPER accounting reports",
     )
     args = parser.parse_args()
     if args.restore_snapshots:
@@ -62,7 +64,9 @@ def main() -> int:
         args.db,
         state_path=args.state_file,
         as_of=args.date,
-        config=PineConfig(capital_base=args.capital, cash_accounting=bool(args.uniform_portfolio_dir)),
+        config=PineConfig(
+            capital_base=args.capital, cash_accounting=bool(args.uniform_portfolio_dir)
+        ),
     )
     signals, portfolio = render_daily_signals(result), render_portfolio_message(result)
     portfolio_pages = [portfolio]
@@ -75,9 +79,19 @@ def main() -> int:
         portfolio_pages = write_reports(snapshot, args.uniform_portfolio_dir)
         portfolio = "\n\n".join(portfolio_pages)
     signals_delivery = send_signals([signals], enabled=args.send_telegram)
-    portfolio_deliveries = [send_portfolio(page, enabled=args.send_telegram) for page in portfolio_pages]
-    portfolio_delivery = next((d for d in portfolio_deliveries if not d.sent), portfolio_deliveries[-1])
-    payload = {**result, "delivery": {"signals": signals_delivery.__dict__, "portfolio": portfolio_delivery.__dict__}}
+    portfolio_deliveries = [
+        send_portfolio(page, enabled=args.send_telegram) for page in portfolio_pages
+    ]
+    portfolio_delivery = next(
+        (d for d in portfolio_deliveries if not d.sent), portfolio_deliveries[-1]
+    )
+    payload = {
+        **result,
+        "delivery": {
+            "signals": signals_delivery.__dict__,
+            "portfolio": portfolio_delivery.__dict__,
+        },
+    }
     destination = Path(args.output)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -86,8 +100,12 @@ def main() -> int:
     deliveries = {"daily": signals_delivery, "portfolio": portfolio_delivery}
     for topic, delivery in deliveries.items():
         status = "SENT" if delivery.sent else ("SKIPPED" if not args.send_telegram else "FAILED")
-        print(f"[TELEGRAM] {topic}: {status} ({delivery.reason}; messages={delivery.message_count})")
-    failed = [topic for topic, result in deliveries.items() if args.send_telegram and not result.sent]
+        print(
+            f"[TELEGRAM] {topic}: {status} ({delivery.reason}; messages={delivery.message_count})"
+        )
+    failed = [
+        topic for topic, result in deliveries.items() if args.send_telegram and not result.sent
+    ]
     if failed:
         print(f"::warning::Hull Telegram delivery incomplete for: {', '.join(failed)}")
     return 2 if args.send_telegram and len(failed) == len(deliveries) else 0

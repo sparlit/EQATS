@@ -45,7 +45,9 @@ live = json.load(open(os.path.join(ROOT, "docs", "sf_fundamentals.json")))
 RX_SYM = re.compile(r"<[a-z\-]+:Symbol\b[^>]*>\s*([A-Z][A-Z0-9&\-]{1,14})\s*</")
 RX_NAT = re.compile(r"<[a-z\-]+:NatureOfReportStandaloneConsolidated\b[^>]*>\s*([^<]+?)\s*</")
 RX_QE = re.compile(r"<[a-z\-]+:DateOfEndOfReportingPeriod\b[^>]*>\s*(\d{4})-(\d{2})-(\d{2})")
-RX_TOT = re.compile(r'<[a-z\-]+:ProfitLossFor(?:The)?Period\b[^>]*contextRef="OneD"[^>]*>\s*([-0-9.eE+]+)\s*</')
+RX_TOT = re.compile(
+    r'<[a-z\-]+:ProfitLossFor(?:The)?Period\b[^>]*contextRef="OneD"[^>]*>\s*([-0-9.eE+]+)\s*</'
+)
 RX_ATTR = re.compile(
     r'<[a-z\-]+:ProfitOrLossAttributableToOwnersOfParent\b[^>]*contextRef="OneD"[^>]*>\s*([-0-9.eE+]+)\s*</'
 )
@@ -62,7 +64,10 @@ def main():
     rejected = 0
     for i, f in enumerate(files):
         if i % 20000 == 0:
-            print("  ...%d/%d, con-with-owners=%d rejected=%d" % (i, len(files), con, rejected), flush=True)
+            print(
+                "  ...%d/%d, con-with-owners=%d rejected=%d" % (i, len(files), con, rejected),
+                flush=True,
+            )
         try:
             xml = open(f, encoding="utf-8", errors="replace").read()
         except Exception:
@@ -94,7 +99,11 @@ def main():
         qe = int(qm.group(1) + qm.group(2) + qm.group(3))
         best[(sm.group(1), qe)] = round(attr, 2)
         con += 1
-    print("consolidated quarters with a clean owners' figure: %d  (rejected %d)" % (len(best), rejected), flush=True)
+    print(
+        "consolidated quarters with a clean owners' figure: %d  (rejected %d)"
+        % (len(best), rejected),
+        flush=True,
+    )
     changed = []
     for sym, arr in live.items():
         for row in arr:
@@ -102,7 +111,8 @@ def main():
             if a is not None and row[3] is not None and abs(a - row[3]) > 0.5:
                 changed.append([sym, row[0], row[3], a, round(row[3] - a, 2)])
     json.dump(
-        {"%s|%d" % (k[0], k[1]): v for k, v in best.items()}, open(os.path.join(HERE, "_reattr_owners.json"), "w")
+        {"%s|%d" % (k[0], k[1]): v for k, v in best.items()},
+        open(os.path.join(HERE, "_reattr_owners.json"), "w"),
     )
     json.dump(changed, open(os.path.join(HERE, "_reattr_changes.json"), "w"))
     changed.sort(key=lambda c: abs(c[4]), reverse=True)
@@ -115,7 +125,11 @@ def main():
     # validation against known-good examples
     bm = {"%s|%d" % (k[0], k[1]): v for k, v in best.items()}
     print("\nVALIDATION (should match Trendlyne examples):")
-    for k, exp in [("REDINGTON|20250331", 665.62), ("ADANIPOWER|20260331", 4017.1), ("VEDL|20260331", 6698.0)]:
+    for k, exp in [
+        ("REDINGTON|20250331", 665.62),
+        ("ADANIPOWER|20260331", 4017.1),
+        ("VEDL|20260331", 6698.0),
+    ]:
         print("  %-22s owners=%s  (expected ~%s)" % (k, bm.get(k), exp))
     print("\nTop 25 changes by minority size (sym, qe, total -> owners):")
     for c in changed[:25]:

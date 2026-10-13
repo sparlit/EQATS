@@ -46,7 +46,6 @@ import json
 import math
 import os
 import sqlite3
-from typing import Optional
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -166,13 +165,25 @@ def _gbm_predict(hist: pd.DataFrame, x: pd.Series, date: str, arms: list) -> dic
                 l2_regularization=1.0,
                 random_state=7,
             )
-            clf.fit(hist.loc[traded, FEATURES], (r[traded] > 0).astype(int), sample_weight=sw_all[traded])
+            clf.fit(
+                hist.loc[traded, FEATURES],
+                (r[traded] > 0).astype(int),
+                sample_weight=sw_all[traded],
+            )
 
             # Decayed win/loss magnitudes and fire rate
             w_tr = sw_all[traded]
             wins = r[traded] > 0
-            W = float((r[traded][wins] * w_tr[wins]).sum() / max(w_tr[wins].sum(), 1e-9)) if wins.any() else 0.0
-            L = float((-r[traded][~wins] * w_tr[~wins]).sum() / max(w_tr[~wins].sum(), 1e-9)) if (~wins).any() else 0.0
+            W = (
+                float((r[traded][wins] * w_tr[wins]).sum() / max(w_tr[wins].sum(), 1e-9))
+                if wins.any()
+                else 0.0
+            )
+            L = (
+                float((-r[traded][~wins] * w_tr[~wins]).sum() / max(w_tr[~wins].sum(), 1e-9))
+                if (~wins).any()
+                else 0.0
+            )
             ok = r.notna()
             fire = float((t[ok] * sw_all[ok]).sum() / max(sw_all[ok].sum(), 1e-9))
 
@@ -298,8 +309,12 @@ def record_day(date: str, symbol: str, features: dict, arm_results: dict) -> Non
     feat_json = json.dumps(versioned_features)
     with sqlite3.connect(DB_PATH) as con:
         con.executemany(
-            "INSERT OR REPLACE INTO arm_history (date, symbol, arm, r, traded, features) VALUES (?,?,?,?,?,?)",
-            [(date, symbol, arm, res["r"], res["traded"], feat_json) for arm, res in arm_results.items()],
+            "INSERT OR REPLACE INTO arm_history (date, symbol, arm, r, traded, features) "
+            "VALUES (?,?,?,?,?,?)",
+            [
+                (date, symbol, arm, res["r"], res["traded"], feat_json)
+                for arm, res in arm_results.items()
+            ],
         )
     _history_cache.update(before=None, df=None)  # table changed → invalidate
 
@@ -309,7 +324,8 @@ def record_no_data(date: str, symbol: str) -> None:
     feat_json = json.dumps({"__feature_version": FEATURE_VERSION})
     with sqlite3.connect(DB_PATH) as con:
         con.execute(
-            "INSERT OR REPLACE INTO arm_history (date, symbol, arm, r, traded, features) VALUES (?,?,'NODATA',0,0,?)",
+            "INSERT OR REPLACE INTO arm_history (date, symbol, arm, r, traded, features) "
+            "VALUES (?,?,'NODATA',0,0,?)",
             (date, symbol, feat_json),
         )
 
@@ -322,7 +338,9 @@ def has_day(date: str, symbol: str) -> bool:
         ).fetchall()
     if any(arm == "NODATA" for arm, _ in rows):
         try:
-            return all(json.loads(fj).get("__feature_version", 0) == FEATURE_VERSION for _, fj in rows)
+            return all(
+                json.loads(fj).get("__feature_version", 0) == FEATURE_VERSION for _, fj in rows
+            )
         except Exception:
             return False
     if len(rows) < len(ARMS):
@@ -380,7 +398,7 @@ def _load_history(before_date: str) -> pd.DataFrame:
 # ── Choose: conditional expectancy via KNN over past day-states ──────────────
 
 
-def choose(features: dict, date: str, allowed_arms: list | None = None) -> dict:
+def choose(features: dict, date: str, allowed_arms: list = None) -> dict:
     """
     Pick the arm with the best conditional expectancy for this day-state.
 
@@ -439,11 +457,15 @@ def choose(features: dict, date: str, allowed_arms: list | None = None) -> dict:
         losses = traded_r < 0
         trade_rate = float(traded_w.sum() / w.sum()) if traded_w.sum() > 0 else 0.0
         cond_win_prob = float(traded_w[wins].sum() / traded_w.sum()) if traded_w.sum() > 0 else 0.0
-        cond_loss_prob = float(traded_w[losses].sum() / traded_w.sum()) if traded_w.sum() > 0 else 0.0
+        cond_loss_prob = (
+            float(traded_w[losses].sum() / traded_w.sum()) if traded_w.sum() > 0 else 0.0
+        )
         day_win_prob = trade_rate * cond_win_prob
         day_loss_prob = trade_rate * cond_loss_prob
         avg_loss = (
-            float(((-traded_r[losses]) * traded_w[losses]).sum() / traded_w[losses].sum()) if losses.any() else 0.0
+            float(((-traded_r[losses]) * traded_w[losses]).sum() / traded_w[losses].sum())
+            if losses.any()
+            else 0.0
         )
         tail_loss = 0.0
         if losses.any():
@@ -546,7 +568,9 @@ _SCAN_EDGE_MARGIN = 0.05  # higher bar than single-symbol mode: argmax over many
 # noisy estimates suffers winner's curse
 
 
-def choose_day(features_by_symbol: dict, date: str, allowed_arms: list | None = None, top_n: int = 3) -> dict:
+def choose_day(
+    features_by_symbol: dict, date: str, allowed_arms: list = None, top_n: int = 3
+) -> dict:
     """
     The day's trade list, cross-sectionally.
 
@@ -561,7 +585,9 @@ def choose_day(features_by_symbol: dict, date: str, allowed_arms: list | None = 
     in_play = [
         sym
         for sym, f in features_by_symbol.items()
-        if f and f.get("vol_ratio_rank", 0.0) >= _IN_PLAY_MIN_RANK and f.get("vol_ratio", 0.0) >= _IN_PLAY_MIN_VOLR
+        if f
+        and f.get("vol_ratio_rank", 0.0) >= _IN_PLAY_MIN_RANK
+        and f.get("vol_ratio", 0.0) >= _IN_PLAY_MIN_VOLR
     ]
     picks = []
     for sym in in_play:

@@ -44,7 +44,9 @@ import glob
 import json
 import os
 
-TREE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root of THIS checkout
+TREE = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)  # repo root of THIS checkout
 BASE = ""  # set by --base: the directory holding p2/*_map.json and <site>/<site>_pilot.jsonl
 ABS_FLOOR, REL_BAND = 0.5, 0.005  # frozen in P2: max(Rs 0.5cr, 0.5%)
 
@@ -72,8 +74,14 @@ def load_ours():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="quorum.json")
-    ap.add_argument("--suffix", default="pilot", help="which extraction set to read: <site>/<site>_<suffix>.jsonl")
-    ap.add_argument("--base", required=True, help="dir holding p2/<site>_map.json and <site>/<site>_pilot.jsonl")
+    ap.add_argument(
+        "--suffix",
+        default="pilot",
+        help="which extraction set to read: <site>/<site>_<suffix>.jsonl",
+    )
+    ap.add_argument(
+        "--base", required=True, help="dir holding p2/<site>_map.json and <site>/<site>_pilot.jsonl"
+    )
     a = ap.parse_args()
     global BASE
     BASE = a.base
@@ -165,7 +173,7 @@ def main():
             st = "SINGLE_SITE_OK"
         elif big and len(big["sites"]) >= 2 and not with_us:
             st = "CONTRADICTED"
-        elif (against and with_us) or len(blocs) > 1:
+        elif against and with_us or len(blocs) > 1:
             st = "SITES_DISAGREE"
         else:
             st = "SINGLE_SITE_DISSENT"
@@ -215,7 +223,9 @@ def main():
                 )
             )
 
-    bad = [r for r in out if r["status"] in ("CONTRADICTED", "SITES_DISAGREE", "SINGLE_SITE_DISSENT")]
+    bad = [
+        r for r in out if r["status"] in ("CONTRADICTED", "SITES_DISAGREE", "SINGLE_SITE_DISSENT")
+    ]
     if bad:
         print("\ncells needing arbitration at the filing (%d):" % len(bad))
         for r in sorted(bad, key=lambda r: -abs(max(r["sites"].values()) - r["ours"]))[:20]:

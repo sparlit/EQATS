@@ -30,7 +30,6 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import numpy as np
 import pandas as pd
 
 
@@ -38,11 +37,11 @@ def analyze_risk(risk):
     path = f"backtest_results/trades_{risk}_risk.csv"
     if not os.path.exists(path):
         print(f"  {risk}: no data")
-        return None
+        return
     df = pd.read_csv(path)
     if df.empty:
         print(f"  {risk}: empty")
-        return None
+        return
 
     winners = df[df["pnl"] > 0]
     losers = df[df["pnl"] <= 0]
@@ -96,20 +95,28 @@ def analyze_risk(risk):
         to_lose = to[to["pnl"] <= 0]
         print(f"\n  3. TIMEOUT ANALYSIS ({len(to)} trades, {len(to_lose)} losing):")
         print(f"     Losing timeouts drain ₹{to_lose['pnl'].sum():+,.0f}")
-        print(f"     Avg losing timeout: ₹{to_lose['pnl'].mean():+,.0f}" if len(to_lose) > 0 else "")
+        print(
+            f"     Avg losing timeout: ₹{to_lose['pnl'].mean():+,.0f}" if len(to_lose) > 0 else ""
+        )
         # Check: are timeouts close to breakeven? (means we should exit earlier)
         near_be = to[(to["pnl"].abs() / (to["entry_premium"] * to["lot_size"])) < 0.05]
         if len(near_be) > 0:
-            print(f"     Near-breakeven timeouts (< 5% move): {len(near_be)} — potential early exit candidates")
+            print(
+                f"     Near-breakeven timeouts (< 5% move): {len(near_be)} — potential early exit candidates"
+            )
 
     # ── 4. Trailing SL effectiveness ─────────────────────────────────────
     tsl = df[df["result"] == "TRAILING_SL"]
     if not tsl.empty:
         tsl_lose = tsl[tsl["pnl"] <= 0]
         print(f"\n  4. TRAILING SL ({len(tsl)} trades):")
-        print(f"     Avg pnl: ₹{tsl['pnl'].mean():+,.0f}  |  {(tsl['pnl'] > 0).sum()}W/{(tsl['pnl'] <= 0).sum()}L")
+        print(
+            f"     Avg pnl: ₹{tsl['pnl'].mean():+,.0f}  |  {(tsl['pnl'] > 0).sum()}W/{(tsl['pnl'] <= 0).sum()}L"
+        )
         if len(tsl_lose) > 0:
-            print(f"     Losing trailing stops: {len(tsl_lose)} — trail locks at breakeven but gives back profit?")
+            print(
+                f"     Losing trailing stops: {len(tsl_lose)} — trail locks at breakeven but gives back profit?"
+            )
             print(f"     Avg losing TSL pnl: ₹{tsl_lose['pnl'].mean():+,.0f}")
 
     # ── 5. RR decomposition ──────────────────────────────────────────────
@@ -127,7 +134,9 @@ def analyze_risk(risk):
     if rr > 0:
         needed_avg_win = abs(avg_loss) * 1.7
         pct_increase = (needed_avg_win / avg_win - 1) * 100 if avg_win > 0 else 0
-        print(f"     To reach RR 1.7: avg winner needs to be ₹{needed_avg_win:+,.0f} (+{pct_increase:.0f}%)")
+        print(
+            f"     To reach RR 1.7: avg winner needs to be ₹{needed_avg_win:+,.0f} (+{pct_increase:.0f}%)"
+        )
 
     # ── 6. Strategy-level problem detection ──────────────────────────────
     print("\n  6. STRATEGY PERFORMANCE:")
@@ -136,7 +145,11 @@ def analyze_risk(risk):
         wr = w / len(g) * 100
         g_win = g[g["pnl"] > 0]
         g_lose = g[g["pnl"] <= 0]
-        s_rr = abs(g_win["pnl"].mean() / g_lose["pnl"].mean()) if len(g_lose) > 0 and len(g_win) > 0 else 0
+        s_rr = (
+            abs(g_win["pnl"].mean() / g_lose["pnl"].mean())
+            if len(g_lose) > 0 and len(g_win) > 0
+            else 0
+        )
         flag = " ❌ DRAG" if g["pnl"].sum() < 0 and len(g) >= 3 else ""
         print(
             f"     {s:30s}  {len(g):3d} trades  WR={wr:4.0f}%  RR={s_rr:.2f}  "
@@ -148,7 +161,9 @@ def analyze_risk(risk):
     for d, g in df.groupby("direction"):
         w = (g["pnl"] > 0).sum()
         flag = " ❌ DRAG" if g["pnl"].sum() < -500 else ""
-        print(f"     {d:4s}  {len(g)} trades  |  WR={w / len(g) * 100:.0f}%  |  P&L=₹{g['pnl'].sum():+,.0f}{flag}")
+        print(
+            f"     {d:4s}  {len(g)} trades  |  WR={w / len(g) * 100:.0f}%  |  P&L=₹{g['pnl'].sum():+,.0f}{flag}"
+        )
 
     # ── 8. Premium sizing analysis ───────────────────────────────────────
     print("\n  8. PREMIUM & LOT SIZING:")
@@ -160,13 +175,18 @@ def analyze_risk(risk):
     )
     # Risk per trade
     df["risk_amount"] = df["entry_premium"] * df["sl_pct"] * df["lot_size"]
-    print(f"     Risk per trade: mean=₹{df['risk_amount'].mean():,.0f}  max=₹{df['risk_amount'].max():,.0f}")
+    print(
+        f"     Risk per trade: mean=₹{df['risk_amount'].mean():,.0f}  max=₹{df['risk_amount'].max():,.0f}"
+    )
 
     # ── 9. Score vs outcome correlation ──────────────────────────────────
     print("\n  9. SCORE-OUTCOME CORRELATION:")
     if len(df) > 5:
         corr = df["final_score"].corr(df["pnl"])
-        print(f"     Score-PnL correlation: {corr:.3f}" + (" (weak — score not predictive)" if abs(corr) < 0.2 else ""))
+        print(
+            f"     Score-PnL correlation: {corr:.3f}"
+            + (" (weak — score not predictive)" if abs(corr) < 0.2 else "")
+        )
         # High score vs low score trades
         median_score = df["final_score"].median()
         high_score = df[df["final_score"] > median_score]

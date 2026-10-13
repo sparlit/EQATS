@@ -205,7 +205,10 @@ def fetch_index_catalog(force_refresh: bool = False, verbose: bool = True) -> di
         json.dump(catalog, f, indent=1)
     if verbose:
         n_sectoral = sum(1 for k in catalog.values() if k == "SECTORAL INDICES")
-        print(f"[sector_universe] index catalog: {n_sectoral} sectoral + {len(catalog) - n_sectoral} thematic indices")
+        print(
+            f"[sector_universe] index catalog: {n_sectoral} sectoral + "
+            f"{len(catalog) - n_sectoral} thematic indices"
+        )
     return catalog
 
 
@@ -224,7 +227,11 @@ def fetch_index_constituents(force_refresh: bool = False, verbose: bool = True) 
         with open(INDEX_CONSTITUENTS_CACHE_PATH) as f:
             cached = json.load(f)
         age_days = (time.time() - os.path.getmtime(INDEX_CONSTITUENTS_CACHE_PATH)) / 86400
-        if not force_refresh and age_days < CACHE_MAX_AGE_DAYS and all(name in cached for name in catalog):
+        if (
+            not force_refresh
+            and age_days < CACHE_MAX_AGE_DAYS
+            and all(name in cached for name in catalog)
+        ):
             return cached
 
     s = nse_api.session()
@@ -238,7 +245,9 @@ def fetch_index_constituents(force_refresh: bool = False, verbose: bool = True) 
                 timeout=15,
             )
             rows = r.json().get("data", [])
-            constituents[name] = {row["cmSymbol"]: row.get("weightage") for row in rows if row.get("cmSymbol")}
+            constituents[name] = {
+                row["cmSymbol"]: row.get("weightage") for row in rows if row.get("cmSymbol")
+            }
             ok += 1
         except Exception as e:
             if verbose:
@@ -250,12 +259,15 @@ def fetch_index_constituents(force_refresh: bool = False, verbose: bool = True) 
         json.dump(constituents, f, indent=1)
     if verbose:
         print(
-            f"[sector_universe] index constituents: {ok}/{len(catalog)} fetched fresh, {len(constituents)} total cached"
+            f"[sector_universe] index constituents: {ok}/{len(catalog)} "
+            f"fetched fresh, {len(constituents)} total cached"
         )
     return constituents
 
 
-def resolve_sector_profiles(symbols: list[str], force_refresh: bool = False, verbose: bool = True) -> dict[str, dict]:
+def resolve_sector_profiles(
+    symbols: list[str], force_refresh: bool = False, verbose: bool = True
+) -> dict[str, dict]:
     """Each symbol's ground-truth PRIMARY sector: highest-weightage
     SECTORAL-category membership, falling back to highest-weightage
     THEMATIC-category membership (excluding _NON_INDUSTRY_THEMES) only if
@@ -281,7 +293,9 @@ def resolve_sector_profiles(symbols: list[str], force_refresh: bool = False, ver
     profiles = {}
     for sym in symbols:
         mems = sym_memberships.get(sym, [])
-        sectoral = sorted((m for m in mems if m[1] == "SECTORAL INDICES"), key=lambda m: -(m[2] or 0))
+        sectoral = sorted(
+            (m for m in mems if m[1] == "SECTORAL INDICES"), key=lambda m: -(m[2] or 0)
+        )
         thematic = sorted(
             (m for m in mems if m[1] == "THEMATIC INDICES" and m[0] not in _NON_INDUSTRY_THEMES),
             key=lambda m: -(m[2] or 0),
@@ -358,7 +372,9 @@ def fetch_sector_index_candles(names: list[str], days: int = 1200) -> dict[str, 
     return out
 
 
-def sector_rs_asof(sector_candles: dict[str, pd.DataFrame], bench: pd.DataFrame, date, lookback_days: int) -> pd.Series:
+def sector_rs_asof(
+    sector_candles: dict[str, pd.DataFrame], bench: pd.DataFrame, date, lookback_days: int
+) -> pd.Series:
     """Point-in-time relative strength (vs NIFTY 50) for every sector index,
     as of `date` -- the exact indicators.relative_strength() formula already
     used for every stock's rs_3m/rs_6m, just applied to sector indices.
@@ -386,7 +402,9 @@ def sector_rs_asof(sector_candles: dict[str, pd.DataFrame], bench: pd.DataFrame,
     return pd.Series(scores, dtype=float).sort_values(ascending=False)
 
 
-def stock_sector_rs(symbol: str, membership: dict[str, list[str]], sector_rank: pd.Series) -> float | None:
+def stock_sector_rs(
+    symbol: str, membership: dict[str, list[str]], sector_rank: pd.Series
+) -> float | None:
     """A stock's sector-strength signal: the MAX relative strength across
     every sector basket it belongs to (in practice, its single ground-truth
     primary sector -- see sector_membership_only()). None if the stock has
@@ -398,7 +416,9 @@ def stock_sector_rs(symbol: str, membership: dict[str, list[str]], sector_rank: 
     return max(vals) if vals else None
 
 
-def stock_top_sector(symbol: str, membership: dict[str, list[str]], sector_rank: pd.Series) -> str | None:
+def stock_top_sector(
+    symbol: str, membership: dict[str, list[str]], sector_rank: pd.Series
+) -> str | None:
     """The NAME of the sector basket that produced stock_sector_rs()'s max
     -- not the value itself. Used by the sector-diversification gate/cap
     (backtest.py) to check whether a stock's best sector is currently
@@ -426,7 +446,10 @@ def sector_breadth(membership: dict[str, list[str]], gate_status: pd.Series) -> 
             continue
         for s in secs:
             sector_members.setdefault(s, []).append(sym)
-    return pd.Series({sec: gate_status.loc[members].mean() for sec, members in sector_members.items()}, dtype=float)
+    return pd.Series(
+        {sec: gate_status.loc[members].mean() for sec, members in sector_members.items()},
+        dtype=float,
+    )
 
 
 def sector_composite_score(

@@ -82,17 +82,28 @@ fn claudecode_env_model_id(real_id: &str, var: &str, one_m: bool) -> String {
 /// The relay side-channel (~/.echobird/claudecode.json) is written in BOTH
 /// modes so `read_claudecode` can round-trip the active model back to the UI.
 pub(super) fn apply_claudecode(model_info: &ModelInfo) -> ApplyResult {
-    let home = match dirs::home_dir() {
-        Some(h) => h,
-        None => {
+    let config_dir = match crate::services::claude_code_accounts::config_dir() {
+        Ok(dir) => dir,
+        Err(message) => {
             return ApplyResult {
                 success: false,
-                message: "Cannot resolve home directory.".to_string(),
+                message,
             }
         }
     };
-    let settings_path = home.join(".claude").join("settings.json");
+    let settings_path = config_dir.join("settings.json");
+    apply_claudecode_at(
+        model_info,
+        &settings_path,
+        &echobird_dir().join("claudecode.json"),
+    )
+}
 
+fn apply_claudecode_at(
+    model_info: &ModelInfo,
+    settings_path: &std::path::Path,
+    relay_path: &std::path::Path,
+) -> ApplyResult {
     // Frontend collapses the chosen protocol's URL into base_url (same
     // convention as apply_claudedesktop). Accept either field.
     let anthropic_url = model_info
@@ -159,7 +170,7 @@ pub(super) fn apply_claudecode(model_info: &ModelInfo) -> ApplyResult {
     // by another tool), ABORT — defaulting to {} here and writing back would
     // wipe the user's allowedTools / permissions / hooks / MCP config.
     let mut config = if settings_path.exists() {
-        match read_json_file(&settings_path) {
+        match read_json_file(settings_path) {
             Some(v) if v.is_object() => v,
             _ => {
                 return ApplyResult {
@@ -231,7 +242,7 @@ pub(super) fn apply_claudecode(model_info: &ModelInfo) -> ApplyResult {
         }
     }
 
-    if let Err(e) = write_json_file(&settings_path, &config) {
+    if let Err(e) = write_json_file(settings_path, &config) {
         return ApplyResult {
             success: false,
             message: format!("Failed to write Claude Code settings: {}", e),
@@ -240,7 +251,6 @@ pub(super) fn apply_claudecode(model_info: &ModelInfo) -> ApplyResult {
 
     // Relay side-channel — real upstream, read fresh by anthropic_proxy on
     // every /claudecode/v1/messages request and by read_claudecode for the UI.
-    let relay_path = echobird_dir().join("claudecode.json");
     let relay = serde_json::json!({
         "baseUrl": anthropic_url,
         "apiKey": api_key,
@@ -248,7 +258,7 @@ pub(super) fn apply_claudecode(model_info: &ModelInfo) -> ApplyResult {
         "modelName": model_info.name.as_deref().unwrap_or(real_model_id.as_str()),
         "relayMode": relay_mode,
     });
-    if let Err(e) = write_json_file(&relay_path, &relay) {
+    if let Err(e) = write_json_file(relay_path, &relay) {
         return ApplyResult {
             success: false,
             message: format!("Failed to write Claude Code relay file: {}", e),
@@ -306,6 +316,7 @@ pub(super) fn read_claudecode() -> Option<ModelInfo> {
         protocol: Some("anthropic".to_string()),
         display_model: None,
         relay_mode: None,
+        web_search: None,
         one_m_context: None,
     })
 }
@@ -316,6 +327,25 @@ pub(super) fn read_claudecode() -> Option<ModelInfo> {
 /// keeps in settings.json — deleting it wholesale would wipe their Claude Code
 /// setup, not just our model config.
 pub(super) fn restore_claudecode_to_official() -> ApplyResult {
+    let config_dir = match crate::services::claude_code_accounts::config_dir() {
+        Ok(dir) => dir,
+        Err(message) => {
+            return ApplyResult {
+                success: false,
+                message,
+            }
+        }
+    };
+    restore_claudecode_at(
+        &config_dir.join("settings.json"),
+        &echobird_dir().join("claudecode.json"),
+    )
+}
+
+fn restore_claudecode_at(
+    settings_path: &std::path::Path,
+    relay_path: &std::path::Path,
+) -> ApplyResult {
     const OUR_ENV_KEYS: [&str; 12] = [
         "ANTHROPIC_BASE_URL",
         "ANTHROPIC_AUTH_TOKEN",
@@ -337,24 +367,14 @@ pub(super) fn restore_claudecode_to_official() -> ApplyResult {
     ];
 
     {
-        let config_dir = match crate::services::claude_code_accounts::config_dir() {
-            Ok(dir) => dir,
-            Err(message) => {
-                return ApplyResult {
-                    success: false,
-                    message,
-                }
-            }
-        };
-        let settings_path = config_dir.join("settings.json");
         if settings_path.exists() {
-            match read_json_file(&settings_path) {
+            match read_json_file(settings_path) {
                 Some(mut config) => {
                     if let Some(env) = config.get_mut("env").and_then(|v| v.as_object_mut()) {
                         for key in OUR_ENV_KEYS {
                             env.remove(key);
                         }
-                        if let Err(message) = write_json_file(&settings_path, &config) {
+                        if let Err(message) = write_json_file(settings_path, &config) {
                             return ApplyResult {
                                 success: false,
                                 message,
@@ -378,9 +398,8 @@ pub(super) fn restore_claudecode_to_official() -> ApplyResult {
         }
     }
 
-    let relay_path = echobird_dir().join("claudecode.json");
     if relay_path.exists() {
-        let _ = fs::remove_file(&relay_path);
+        let _ = fs::remove_file(relay_path);
     }
 
     ApplyResult {
@@ -394,6 +413,29 @@ pub(super) fn restore_claudecode_to_official() -> ApplyResult {
 mod tests {
     use super::*;
 
+    #[test]
+    fn applies_and_restores_within_the_selected_config_directory() {
+        let dir = std::env::temp_dir().join(format!("claude-config-{}", uuid::Uuid::new_v4()));
+        let relay = dir.join("relay.json");
+        let unchanged = dir.join("unrelated/settings.json");
+        let original = serde_json::json!({"permissions":{"allow":["Read"]}, "env":{"KEEP":"yes"}});
+        write_json_file(&unchanged, &original).unwrap();
+        for name in [".claude", "custom-profile"] {
+            let path = dir.join(name).join("settings.json");
+            write_json_file(&path, &original).unwrap();
+            for mode in [false, true] {
+                assert!(
+                    apply_claudecode_at(&claudecode_model_info(Some(mode)), &path, &relay).success
+                );
+                assert!(read_json_file(&path).unwrap()["env"]["ANTHROPIC_BASE_URL"].is_string());
+                assert!(restore_claudecode_at(&path, &relay).success);
+                assert_eq!(read_json_file(&path).unwrap(), original);
+                assert_eq!(read_json_file(&unchanged).unwrap(), original);
+            }
+        }
+        fs::remove_dir_all(dir).unwrap();
+    }
+
     fn claudecode_model_info(relay_mode: Option<bool>) -> ModelInfo {
         ModelInfo {
             name: Some("MiMo v2.5 Pro".to_string()),
@@ -404,6 +446,7 @@ mod tests {
             protocol: Some("anthropic".to_string()),
             display_model: None,
             relay_mode,
+            web_search: None,
             one_m_context: None,
         }
     }

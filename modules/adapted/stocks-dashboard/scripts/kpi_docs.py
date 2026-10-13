@@ -60,7 +60,9 @@ from datetime import date, datetime, timedelta
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPS = os.path.join(HERE, "bse_scrips.json")
-CACHE = os.environ.get("KPI_DOC_CACHE") or os.path.join(os.path.expanduser("~"), ".cache", "kpi_docs")
+CACHE = os.environ.get("KPI_DOC_CACHE") or os.path.join(
+    os.path.expanduser("~"), ".cache", "kpi_docs"
+)
 
 HDR = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
@@ -77,7 +79,9 @@ def _get(url, timeout=60, binary=False):
     if wait > 0:
         time.sleep(wait)
     PACE["last"] = time.time()
-    req = urllib.request.Request(url, headers=BH.HEADERS if BH.is_bse(url) else HDR)  # honest BSE set (§181)
+    req = urllib.request.Request(
+        url, headers=BH.HEADERS if BH.is_bse(url) else HDR
+    )  # honest BSE set (§181)
     r = urllib.request.urlopen(req, timeout=timeout)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":
@@ -123,7 +127,10 @@ def classify(row):
     # board-meeting intimations/outcomes mention "financial results" without carrying any — the
     # Result-category row holds the actual packet (measured 2026-09-06: RIL/KTKBANK intimations
     # were 1-page PDFs classified as `res`)
-    if str(row.get("CATEGORYNAME") or "").lower().startswith("board meeting") or "intimation" in low:
+    if (
+        str(row.get("CATEGORYNAME") or "").lower().startswith("board meeting")
+        or "intimation" in low
+    ):
         return None
     for kind, rx in KIND_RULES:
         if re.search(rx, low):
@@ -159,7 +166,10 @@ def list_docs(sym, since="2015-04-01", until=None, kinds=("ip", "pr", "res", "ar
             try:
                 j = json.loads(_get(url))
             except Exception as ex:
-                print("  list_docs %s %s..%s p%d ERR %s" % (sym, F, T, page, str(ex)[:80]), file=sys.stderr)
+                print(
+                    "  list_docs %s %s..%s p%d ERR %s" % (sym, F, T, page, str(ex)[:80]),
+                    file=sys.stderr,
+                )
                 break
             rows = j.get("Table") or []
             for r in rows:
@@ -171,7 +181,9 @@ def list_docs(sym, since="2015-04-01", until=None, kinds=("ip", "pr", "res", "ar
                     continue
                 seen.add(att)
                 dt = (r.get("NEWS_DT") or "")[:10]
-                title = max((str(r.get("NEWSSUB") or ""), str(r.get("HEADLINE") or "")), key=len).strip()
+                title = max(
+                    (str(r.get("NEWSSUB") or ""), str(r.get("HEADLINE") or "")), key=len
+                ).strip()
                 out.append(
                     {
                         "kind": kind,
@@ -208,7 +220,9 @@ def annual_reports(sym):
     if not code:
         return []
     try:
-        j = json.loads(_get("https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode=%d" % code))
+        j = json.loads(
+            _get("https://api.bseindia.com/BseIndiaAPI/api/AnnualReport_New/w?scripcode=%d" % code)
+        )
     except Exception as ex:
         print(f"  annual_reports {sym} ERR {str(ex)[:80]}", file=sys.stderr)
         return []
@@ -291,14 +305,22 @@ if __name__ == "__main__":
     ap.add_argument("syms", nargs="+")
     ap.add_argument("--since", default="2025-06-01")
     ap.add_argument("--kinds", default="ip,pr,res,ar")
-    ap.add_argument("--fetch", action="store_true", help="download the listed documents into the cache")
+    ap.add_argument(
+        "--fetch", action="store_true", help="download the listed documents into the cache"
+    )
     ap.add_argument("-v", action="store_true")
     a = ap.parse_args()
     for s in a.syms:
         docs = list_docs(s, since=a.since, kinds=tuple(a.kinds.split(",")), verbose=a.v)
         print("%s (BSE %s): %d docs" % (s, scripcode(s), len(docs)))
         for d in docs:
-            line = "  %s %-4s %7.1fMB %s  %s" % (d["date"], d["kind"], d["size"] / 1e6, d["att"], d["title"][:60])
+            line = "  %s %-4s %7.1fMB %s  %s" % (
+                d["date"],
+                d["kind"],
+                d["size"] / 1e6,
+                d["att"],
+                d["title"][:60],
+            )
             if a.fetch:
                 p = fetch(d, s)
                 line += "  -> %s" % (os.path.basename(p) if p else "FAILED")

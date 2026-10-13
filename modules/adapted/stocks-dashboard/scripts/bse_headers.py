@@ -69,7 +69,12 @@ def complete(req):
         for store in (req.headers, req.unredirected_hdrs):
             for k in list(store):
                 kl = k.lower()
-                if kl in {"user-agent", "origin"} or kl.startswith(("sec-ch-ua", "sec-fetch-")):
+                if (
+                    kl == "user-agent"
+                    or kl == "origin"
+                    or kl.startswith("sec-ch-ua")
+                    or kl.startswith("sec-fetch-")
+                ):
                     del store[k]
         have = {k.lower() for k in req.headers} | {k.lower() for k in req.unredirected_hdrs}
         for k, v in HEADERS.items():
@@ -101,7 +106,12 @@ install()
 # json(), headers). HTTP errors come back as a response (like requests/curl_cffi), network errors raise.
 class Response:
     def __init__(self, status_code, content, headers=None, url=""):
-        self.status_code, self.content, self.headers, self.url = status_code, content, dict(headers or {}), url
+        self.status_code, self.content, self.headers, self.url = (
+            status_code,
+            content,
+            dict(headers or {}),
+            url,
+        )
         self.ok = 200 <= status_code < 400
 
     @property
@@ -121,7 +131,9 @@ class Session:
         import http.cookiejar
 
         self.headers = {}
-        self._op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        self._op = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
 
     def get(self, url, headers=None, timeout=60, params=None, **_ignored):
         import urllib.error

@@ -64,7 +64,9 @@ def is_market_open() -> bool:
 
 def send(text: str) -> bool:
     try:
-        r = requests.post(f"{BASE}/sendMessage", json={"chat_id": CHAT_ID, "text": text}, timeout=10)
+        r = requests.post(
+            f"{BASE}/sendMessage", json={"chat_id": CHAT_ID, "text": text}, timeout=10
+        )
         ok = r.json().get("ok", False)
         if not ok:
             print(f"[TG ERROR] {r.json().get('description')}")
@@ -149,7 +151,8 @@ def format_alert(sig: dict) -> str:
         + [f"  + {r}" for r in sig.get("reasons", [])]
         + [
             "",
-            (f"VWAP: Rs{sig.get('vwap', '?')}  RSI:{sig.get('rsi', '?')}  Gap:{sig.get('gap_pct', '?')}%"),
+            f"VWAP: Rs{sig.get('vwap', '?')}  RSI:{sig.get('rsi', '?')}  "
+            f"Gap:{sig.get('gap_pct', '?')}%",
             "",
             "Exit Rules:",
             "  - Hard SL at setup candle low",

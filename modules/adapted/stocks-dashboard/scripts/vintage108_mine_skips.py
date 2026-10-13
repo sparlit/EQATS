@@ -42,8 +42,8 @@ import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 QS = (20150630, 20150930, 20151231, 20160331, 20160630, 20160930, 20161231, 20170331)
-PAT = re.compile(r"pat[- ]anchor\s+(-?[\d.]+)\s+vs\s+stored\s+(-?[\d.]+)", re.IGNORECASE)
-KEY = re.compile(r"^([A-Z0-9&._-]+)\|(\d{8})\|(std|con)$", re.IGNORECASE)
+PAT = re.compile(r"pat[- ]anchor\s+(-?[\d.]+)\s+vs\s+stored\s+(-?[\d.]+)", re.I)
+KEY = re.compile(r"^([A-Z0-9&._-]+)\|(\d{8})\|(std|con)$", re.I)
 
 
 def main():

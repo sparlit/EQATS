@@ -44,8 +44,6 @@ Usage:
 """
 
 
-from typing import Optional
-
 from rich.console import Console
 from rich.panel import Panel
 
@@ -100,7 +98,7 @@ def classify_gex_regime(total_gex: float, threshold: float = 50) -> str:
     """Classify market regime based on total net GEX."""
     if total_gex > threshold:
         return "POSITIVE"  # Mean-reverting / pinning
-    if total_gex < -threshold:
+    elif total_gex < -threshold:
         return "NEGATIVE"  # Trending / breakout
     return "NEUTRAL"
 
@@ -140,7 +138,7 @@ def get_gex_analysis(underlying: str, expiry: str | None = None) -> dict:
                 continue
 
             try:
-                exp_str = c.expiry or expiry or ""
+                exp_str = c.expiry if c.expiry else expiry or ""
                 if not exp_str:
                     continue
                 greeks = compute_greeks(spot, s, exp_str, c.option_type, c.last_price)
@@ -169,7 +167,9 @@ def get_gex_analysis(underlying: str, expiry: str | None = None) -> dict:
         regime = classify_gex_regime(total_gex)
 
         # Find max GEX strike
-        max_gex_strike = max(sorted_strikes, key=lambda x: abs(x["net_gex"]))["strike"] if sorted_strikes else 0
+        max_gex_strike = (
+            max(sorted_strikes, key=lambda x: abs(x["net_gex"]))["strike"] if sorted_strikes else 0
+        )
 
         return {
             "underlying": underlying,
@@ -191,7 +191,7 @@ def _interpret_gex(regime: str, flip: float | None, spot: float) -> str:
         if flip:
             msg += f" Breakout risk above {flip:,.0f}."
         return msg
-    if regime == "NEGATIVE":
+    elif regime == "NEGATIVE":
         msg = "Dealers amplify moves — expect TRENDING / BREAKOUT."
         if flip:
             msg += f" Stabilizes below {flip:,.0f}."

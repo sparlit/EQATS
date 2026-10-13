@@ -46,7 +46,6 @@ Usage:
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -284,7 +283,10 @@ def compute_portfolio_risk() -> PortfolioRiskReport:
             p_var_95 = sum(v.var_95 for v in holding_vars)
             p_var_99 = sum(v.var_99 for v in holding_vars)
             p_cvar = sum(v.cvar_95 for v in holding_vars)
-            port_vol = sum(v.volatility * (values[i] / total_value) for i, v in enumerate(holding_vars)) / 100
+            port_vol = (
+                sum(v.volatility * (values[i] / total_value) for i, v in enumerate(holding_vars))
+                / 100
+            )
     else:
         p_var_95 = sum(v.var_95 for v in holding_vars)
         p_var_99 = sum(v.var_99 for v in holding_vars)
@@ -332,7 +334,8 @@ def _get_daily_returns(symbol: str, days: int = 252) -> np.ndarray | None:
         if not data or len(data) < 30:
             return None
         closes = np.array([d["close"] for d in data if d["close"] and d["close"] > 0])
-        return np.diff(closes) / closes[:-1]
+        returns = np.diff(closes) / closes[:-1]
+        return returns
     except Exception:
         return None
 

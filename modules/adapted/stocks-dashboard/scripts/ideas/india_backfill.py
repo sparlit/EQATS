@@ -117,17 +117,21 @@ def slips(sources):
         p = [float(r["price"]) for r in v]
         for i in range(1, len(v) - 1):
             a, b = p[i - 1], p[i + 1]
-            if a > 0 and b > 0 and abs(a / b - 1) <= 0.25 and abs(p[i] / a - 1) > 0.5 and abs(p[i] / b - 1) > 0.5:
+            if (
+                a > 0
+                and b > 0
+                and abs(a / b - 1) <= 0.25
+                and abs(p[i] / a - 1) > 0.5
+                and abs(p[i] / b - 1) > 0.5
+            ):
                 k = (v[i]["date"], v[i]["source"], v[i]["series"], v[i]["price"])
                 if k not in have:
                     new.append(
                         [
                             *k,
                             v[i]["unit"],
-                            (
-                                f"one-day value in the source's own data that breaks from both neighbours "
-                                f"({a:g} before, {b:g} after) - a data-entry slip; left out, not corrected"
-                            ),
+                            f"one-day value in the source's own data that breaks from both neighbours "
+                            f"({a:g} before, {b:g} after) - a data-entry slip; left out, not corrected",
                         ]
                     )
     if new:
@@ -150,11 +154,18 @@ def metalbook_records(html_text):
             o = json.loads(m.replace("\x00", '\\"'))
             pid = o["_id"]
             city = (o.get("location") or pid.get("location") or "").strip()
-            name = re.sub(r"\s+", " ", f"{pid.get('product_name', '')} {pid.get('grade') or ''}").strip()
+            name = re.sub(
+                r"\s+", " ", f"{pid.get('product_name', '')} {pid.get('grade') or ''}"
+            ).strip()
             d = (
-                datetime.datetime.utcfromtimestamp(o["price_date"] / 1000) + datetime.timedelta(hours=5, minutes=30)
+                datetime.datetime.utcfromtimestamp(o["price_date"] / 1000)
+                + datetime.timedelta(hours=5, minutes=30)
             ).strftime("%Y-%m-%d")
-            yield I.series_key({"city": city, "name": name}), d, round(float(o["price_per_ton"]) / 1000, 2)
+            yield (
+                I.series_key({"city": city, "name": name}),
+                d,
+                round(float(o["price_per_ton"]) / 1000, 2),
+            )
         except (ValueError, KeyError, TypeError):
             continue
 
@@ -176,15 +187,23 @@ def metalbook():
             )
             stamps += [r[0] for r in cdx[1:]]
         except Exception as e:
-            print(f"metalbook: CDX for {q} failed ({str(e)[:70]}); using the captures already cached")
-    stamps = sorted(set(stamps) | {os.path.basename(p)[:14] for p in glob.glob(os.path.join(cache, "*.html"))})
+            print(
+                f"metalbook: CDX for {q} failed ({str(e)[:70]}); using the captures already cached"
+            )
+    stamps = sorted(
+        set(stamps) | {os.path.basename(p)[:14] for p in glob.glob(os.path.join(cache, "*.html"))}
+    )
     rows, conflicts, per = {}, [], []
     for ts in stamps:
         fn = os.path.join(cache, ts + ".html")
         if not os.path.exists(fn):
             try:
                 open(fn, "w").write(
-                    I.get(f"http://web.archive.org/web/{ts}id_/https://www.metalbook.com/", timeout=90, retries=2)
+                    I.get(
+                        f"http://web.archive.org/web/{ts}id_/https://www.metalbook.com/",
+                        timeout=90,
+                        retries=2,
+                    )
                 )
                 time.sleep(1.0)
             except Exception as e:
@@ -198,7 +217,14 @@ def metalbook():
                 continue  # first capture that stated it stands
             rows.setdefault(
                 k,
-                {"date": d, "source": "metalbook", "series": key, "price": p, "unit": "Rs/kg", "via": f"wayback {ts}"},
+                {
+                    "date": d,
+                    "source": "metalbook",
+                    "series": key,
+                    "price": p,
+                    "unit": "Rs/kg",
+                    "via": f"wayback {ts}",
+                },
             )
             n += 1
         per.append((ts, n))
@@ -226,7 +252,10 @@ def ppac():
     t = re.sub(r"\s+", " ", " ".join(pg.get_text() for pg in doc))
     num = r"(\d{2,3}\.\d{2})"
     pat = re.compile(
-        r"(?<![\d-])(\d{1,2}-[A-Za-z]{3}-\d{2})\s+" + r"\s+".join([num] * 4) + r"\s+\1\s+" + r"\s+".join([num] * 4)
+        r"(?<![\d-])(\d{1,2}-[A-Za-z]{3}-\d{2})\s+"
+        + r"\s+".join([num] * 4)
+        + r"\s+\1\s+"
+        + r"\s+".join([num] * 4)
     )
     rows, bad, days = [], [], set()
     for m in pat.finditer(t):
@@ -252,7 +281,11 @@ def ppac():
                     }
                 )
     ds = sorted(days)
-    span = (datetime.date.fromisoformat(ds[-1]) - datetime.date.fromisoformat(ds[0])).days + 1 if ds else 0
+    span = (
+        (datetime.date.fromisoformat(ds[-1]) - datetime.date.fromisoformat(ds[0])).days + 1
+        if ds
+        else 0
+    )
     added, dup = append(rows)
     print(
         f"ppac: {len(ds)} days {ds[0] if ds else '-'} -> {ds[-1] if ds else '-'} ({span} calendar days in the span), "
@@ -276,7 +309,9 @@ def rubber(start_year=2001):
 
     cur = {r["key"] for r in json.load(open(I.OUT))["sources"]["rubber"]["rows"]}
     cj = http.cookiejar.CookieJar()
-    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj), urllib.request.HTTPSHandler(context=I.LAX))
+    op = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(cj), urllib.request.HTTPSHandler(context=I.LAX)
+    )
     op.addheaders = [("User-Agent", I.UA)]
     op.open("https://rubberboard.gov.in/public?lang=E", timeout=60).read()
     rows, fails, wrong_grade = {}, [], []
@@ -311,7 +346,11 @@ def rubber(start_year=2001):
                 time.sleep(3)
                 continue
             said = re.search(r"Daily Market Price of\s*(?:<[^>]+>\s*)*([A-Za-z0-9()%]+)", h)
-            if said and said.group(1).upper().replace("(60%)", "")[:4] != grade.upper().replace("(60%)", "")[:4]:
+            if (
+                said
+                and said.group(1).upper().replace("(60%)", "")[:4]
+                != grade.upper().replace("(60%)", "")[:4]
+            ):
                 wrong_grade.append((code, grade, said.group(1)))
                 continue
             for mkt in ("Kottayam", "Kochi", "Agartala"):
@@ -319,16 +358,23 @@ def rubber(start_year=2001):
                 if i < 0:
                     continue
                 j = min(
-                    [k for k in (h.find('<div id="Kochi"', i + 5), h.find('<div id="Agartala"', i + 5)) if k > 0]
+                    [
+                        k
+                        for k in (
+                            h.find('<div id="Kochi"', i + 5),
+                            h.find('<div id="Agartala"', i + 5),
+                        )
+                        if k > 0
+                    ]
                     or [len(h)]
                 )
                 key = I.series_key({"market": mkt, "name": grade})
                 if key not in cur:
                     continue
-                for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", h[i:j], re.DOTALL):
+                for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", h[i:j], re.S):
                     cells = [
                         re.sub(r"\s+", " ", H.unescape(re.sub(r"<[^>]+>", " ", c))).strip()
-                        for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.DOTALL)
+                        for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
                     ]
                     if len(cells) < 2 or not re.match(r"\d{2}-\d{2}-\d{4}$", cells[0]):
                         continue
@@ -364,7 +410,14 @@ def ibja():
     ch = I.ibja_chart(I.get("https://ibjarates.com/", ctx=I.LAX))
     unit = {"gold 999": "Rs/10g", "gold 916 (22k)": "Rs/10g", "silver 999": "Rs/kg"}
     rows = [
-        {"date": d, "source": "ibja", "series": name, "price": v, "unit": unit[name], "via": "IBJA chart data (PM fix)"}
+        {
+            "date": d,
+            "source": "ibja",
+            "series": name,
+            "price": v,
+            "unit": unit[name],
+            "via": "IBJA chart data (PM fix)",
+        }
         for name, pts in ch.items()
         for d, v in pts
     ]
@@ -383,7 +436,9 @@ def sugar(start="2023-03-06"):
     answers an error and is skipped. The table reads 'Destination-wise Spot Prices as on Sept, 22 2026 : City
     Grade Rate Delhi M/30 ₹4,809.00 ...'. The post's own date is used, and only series the page shows today."""
     cur = {r["key"] for r in json.load(open(I.OUT))["sources"]["sugar"]["rows"]}
-    cities = sorted({k.split(" | ")[0] for k in cur} | {"Bangaluru", "Bangalore"}, key=len, reverse=True)
+    cities = sorted(
+        {k.split(" | ")[0] for k in cur} | {"Bangaluru", "Bangalore"}, key=len, reverse=True
+    )
     cache = os.path.join(CACHE, "chinimandi")
     os.makedirs(cache, exist_ok=True)
     rows, missing, unparsed = {}, 0, []
@@ -394,7 +449,9 @@ def sugar(start="2023-03-06"):
             fn = os.path.join(cache, slug + ".html")
             if not os.path.exists(fn):
                 try:
-                    open(fn, "w").write(I.get(f"https://www.chinimandi.com/{slug}/", timeout=60, retries=1))
+                    open(fn, "w").write(
+                        I.get(f"https://www.chinimandi.com/{slug}/", timeout=60, retries=1)
+                    )
                     time.sleep(1.0)
                 except Exception:
                     open(fn + ".none", "w").close() if not os.path.exists(fn + ".none") else None
@@ -402,13 +459,19 @@ def sugar(start="2023-03-06"):
                     d += datetime.timedelta(days=1)
                     continue
             t = I.plain(open(fn, errors="ignore").read())
-            m = re.search(r"Destination-wise Spot Prices as on\s*([A-Za-z]+)\.?,?\s*(\d{1,2}),?\s*(\d{4})(.{0,700})", t)
+            m = re.search(
+                r"Destination-wise Spot Prices as on\s*([A-Za-z]+)\.?,?\s*(\d{1,2}),?\s*(\d{4})(.{0,700})",
+                t,
+            )
             pd = I.iso_date(f"{m.group(1)} {m.group(2)}, {m.group(3)}") if m else None
             if not m or not pd:
                 unparsed.append(d.isoformat())
             else:
                 for cm in re.finditer(
-                    r"(" + "|".join(map(re.escape, cities)) + r")\s+([SM]/\d+)\s*₹\s?([\d,]+(?:\.\d+)?)", m.group(4)
+                    r"("
+                    + "|".join(map(re.escape, cities))
+                    + r")\s+([SM]/\d+)\s*₹\s?([\d,]+(?:\.\d+)?)",
+                    m.group(4),
                 ):
                     city = SUGAR_CITY.get(cm.group(1).lower(), cm.group(1))
                     key = I.series_key({"city": city, "grade": cm.group(2)})

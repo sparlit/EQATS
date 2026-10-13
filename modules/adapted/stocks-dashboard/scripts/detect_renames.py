@@ -84,7 +84,8 @@ STOP = {
 
 
 def norm_name(n):
-    return [t for t in re.split(r"[^A-Z0-9]+", (n or "").upper()) if t and t not in STOP]
+    toks = [t for t in re.split(r"[^A-Z0-9]+", (n or "").upper()) if t and t not in STOP]
+    return toks
 
 
 def name_match(a, b):
@@ -100,14 +101,18 @@ def name_match(a, b):
 
 
 def dl(url):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": UA, "Referer": "https://www.nseindia.com/"}
+    )
     return urllib.request.urlopen(req, timeout=60).read()
 
 
 def load_equity_names():
     """symbol -> (company name, isin) from NSE's EQUITY_L master. Empty on failure (fuzzy degrades)."""
     try:
-        raw = dl("https://archives.nseindia.com/content/equities/EQUITY_L.csv").decode("utf-8", "replace")
+        raw = dl("https://archives.nseindia.com/content/equities/EQUITY_L.csv").decode(
+            "utf-8", "replace"
+        )
         rows = list(csv.reader(io.StringIO(raw)))
         head = [h.strip().upper() for h in rows[0]]
         si = head.index("SYMBOL")
@@ -126,14 +131,19 @@ def load_equity_names():
 def load_symbol_changes():
     """[(old, new, yyyymmdd)] from NSE's symbol-change master. Empty on failure."""
     try:
-        raw = dl("https://archives.nseindia.com/content/equities/symbolchange.csv").decode("utf-8", "replace")
+        raw = dl("https://archives.nseindia.com/content/equities/symbolchange.csv").decode(
+            "utf-8", "replace"
+        )
         out = []
         for r in csv.reader(io.StringIO(raw)):
             if len(r) < 3:
                 continue
             cells = [c.strip() for c in r]
             # layout observed: NAME, OLD, NEW, DD-MON-YYYY (be defensive: find the date cell)
-            di = next((i for i, c in enumerate(cells) if re.match(r"^\d{1,2}-[A-Za-z]{3}-\d{4}$", c)), None)
+            di = next(
+                (i for i, c in enumerate(cells) if re.match(r"^\d{1,2}-[A-Za-z]{3}-\d{4}$", c)),
+                None,
+            )
             if di is None or di < 2:
                 continue
             m = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{4})$", cells[di])
@@ -169,7 +179,11 @@ def main():
     def od(ymd):
         return datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100).toordinal()
 
-    new_syms = {s: e["d"][0] for s, e in data.items() if e.get("d") and od(end) - od(e["d"][0]) <= WINDOW_NEW}
+    new_syms = {
+        s: e["d"][0]
+        for s, e in data.items()
+        if e.get("d") and od(end) - od(e["d"][0]) <= WINDOW_NEW
+    }
     # no early exit when new_syms is empty: an official pair whose new key carries a prepended older tape is not
     # a "new series" by first bar, and branch (a) below still has to see it (§199)
     ended = {
@@ -252,7 +266,13 @@ def main():
     for p in suspects:
         print(
             "⚠️ RENAME SUSPECT: {} -> {}  ({})  old='{}' last={} | new='{}' first={}".format(
-                p["old"], p["new"], p["via"], p["oldName"], p["oldLast"], p["newName"], p["newFirst"]
+                p["old"],
+                p["new"],
+                p["via"],
+                p["oldName"],
+                p["oldLast"],
+                p["newName"],
+                p["newFirst"],
             )
         )
         print(
@@ -260,7 +280,10 @@ def main():
             " (or ack in scripts/_rename_ack.json)".format(p["new"], p["old"])
         )
     if not suspects:
-        print("no rename suspects among %d new / %d recently-ended series" % (len(new_syms), len(ended)))
+        print(
+            "no rename suspects among %d new / %d recently-ended series"
+            % (len(new_syms), len(ended))
+        )
     json.dump({"checked": D["end"], "pairs": suspects}, open(OUT, "w"), indent=1)
 
 

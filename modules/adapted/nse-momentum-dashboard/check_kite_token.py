@@ -53,7 +53,9 @@ def _alert():
     print(f"{dt.datetime.now():%d %b %Y %H:%M:%S} Kite token EXPIRED -- sending push notification.")
     title = "KK Trading -- Kite login needed"
     message = "Today's Kite session has expired. Log in before the 09:16 gap-check / market open."
-    for dead in notify.send_webpush_all(state_db.get_push_subscriptions(), title, message, notify.DASHBOARD_URL):
+    for dead in notify.send_webpush_all(
+        state_db.get_push_subscriptions(), title, message, notify.DASHBOARD_URL
+    ):
         state_db.delete_push_subscription(dead)
 
 
@@ -68,7 +70,8 @@ def main():
         _alert()
     except Exception as e:
         print(
-            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Token check itself failed (not necessarily an expired token): {e}"
+            f"{dt.datetime.now():%d %b %Y %H:%M:%S} Token check itself "
+            f"failed (not necessarily an expired token): {e}"
         )
 
 

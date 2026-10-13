@@ -54,7 +54,7 @@ async def main():
     amount = 1
     price = 2.1
     try:
-        await exchange.create_order(symbol, order_type, side, amount, price)
+        response = await exchange.create_order(symbol, order_type, side, amount, price)
         # Implicit API:
         # response = await exchange.eapiPrivatePostOrder({
         #     # ETH/USDT call option strike 1700 USDT expiry on 2022-10-28
@@ -64,6 +64,7 @@ async def main():
         #     'quantity': 1,
         #     'price': 2.1,
         # })
+        pprint(response)
     except ccxt.InsufficientFunds as e:
         print("create_order() failed - not enough funds")
         print(e)

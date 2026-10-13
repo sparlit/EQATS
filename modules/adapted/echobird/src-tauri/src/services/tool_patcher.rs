@@ -97,7 +97,7 @@ import { homedir as _wc_homedir } from "node:os";
 /// Find npm global module install directory
 fn find_npm_global_module(package_name: &str) -> Option<PathBuf> {
     // Try `npm root -g` first
-    if let Ok(output) = std::process::Command::new("npm")
+    if let Ok(output) = crate::utils::process::command("npm")
         .args(["root", "-g"])
         .output()
     {

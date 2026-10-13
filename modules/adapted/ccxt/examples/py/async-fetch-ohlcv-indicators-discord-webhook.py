@@ -28,7 +28,6 @@ from importlib.util import find_spec
 run = import_module(next(filter(find_spec, ("uvloop", "winloop", "asyncio")))).run
 import ccxt.async_support as ccxt  # noqa: E402
 import pandas as pd
-import pandas_ta as ta
 
 # -----------------------------------------------------------------------------
 
@@ -67,7 +66,14 @@ async def run_ohlcv_loop(exchange, symbol, timeframe, limit):
                     print(iso8601, timeframe, symbol, "\tRSI_14 =", last_row["RSI_14"])
                     rsienterob = previous_row["RSI_14"] < 70 and last_row["RSI_14"] > 70
                     if rsienterob:
-                        message = iso8601 + " " + timeframe + " " + symbol + " is entering overbought zone"
+                        message = (
+                            iso8601
+                            + " "
+                            + timeframe
+                            + " "
+                            + symbol
+                            + " is entering overbought zone"
+                        )
                         print(message)
                         ensure_future(send_discord_webhook_messsage(exchange, symbol, message))
         except Exception as e:

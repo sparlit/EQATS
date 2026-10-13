@@ -56,7 +56,9 @@ def test_catalog_and_session_expose_replay_timeline() -> None:
 
 
 def test_chain_computes_smile_greeks_and_gex() -> None:
-    response = client.get("/api/chain?symbol=SPY&date=2026-07-10&minute=10:30&expiration=2026-07-10")
+    response = client.get(
+        "/api/chain?symbol=SPY&date=2026-07-10&minute=10:30&expiration=2026-07-10"
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["spot"] > 0
@@ -68,7 +70,9 @@ def test_chain_computes_smile_greeks_and_gex() -> None:
     assert payload["quality"]["usable_pct"] > 0
     assert payload["gex_by_strike"]
     assert all(0 < row["iv"] <= 400 for row in payload["rows"])
-    assert all("quality_score" in row and "vanna" in row and "charm" in row for row in payload["rows"])
+    assert all(
+        "quality_score" in row and "vanna" in row and "charm" in row for row in payload["rows"]
+    )
     assert {row["right"] for row in payload["rows"]} == {"CALL", "PUT"}
 
 
@@ -89,7 +93,9 @@ def test_surface_samples_multiple_expirations() -> None:
 
 
 def test_volatility_context_contains_rv_rank_and_expected_move() -> None:
-    response = client.get("/api/volatility-context?symbol=SPY&date=2026-07-10&minute=10:30&expiration=2026-07-17")
+    response = client.get(
+        "/api/volatility-context?symbol=SPY&date=2026-07-10&minute=10:30&expiration=2026-07-17"
+    )
     assert response.status_code == 200
     payload = response.json()
     assert payload["expected_move"] > 0

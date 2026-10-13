@@ -73,7 +73,9 @@ def num(v):
 
 
 def load_hist(pin):
-    r = subprocess.run(["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO)
+    r = subprocess.run(
+        ["git", "show", f"{pin}:scripts/shp_history.json"], capture_output=True, cwd=REPO
+    )
     if r.returncode:
         sys.exit(f"cannot read shp_history.json at {pin}")
     return json.loads(r.stdout)
@@ -128,7 +130,14 @@ def main():
         % (a.site, len(obs), len(labels), len(common))
     )
 
-    card = {"site": a.site, "precision": 2, "map": {}, "_derived": {}, "_pin": a.pin, "_comparable_rows": len(obs)}
+    card = {
+        "site": a.site,
+        "precision": 2,
+        "map": {},
+        "_derived": {},
+        "_pin": a.pin,
+        "_comparable_rows": len(obs),
+    }
     if a.scale != 1.0:
         card["scale"] = {"nsh": a.scale}  # carried into the diff engine, which applies it
 
@@ -185,7 +194,11 @@ def main():
                 for m, _n, c, h, _b, _u in best[1:4]
             ],
         }
-        verdict = "OK" if (med <= TOL[field] and hold >= 0.9) else ("WEAK" if hold >= 0.6 else "NO CREDIBLE MAPPING")
+        verdict = (
+            "OK"
+            if (med <= TOL[field] and hold >= 0.9)
+            else ("WEAK" if hold >= 0.6 else "NO CREDIBLE MAPPING")
+        )
         print(
             "  %-5s <- %-52s med|d|=%-7.4f hold=%5.1f%% bias=%+7.4f  %s"
             % (field, " + ".join(combo)[:52], med, 100 * hold, bias, verdict)
@@ -212,7 +225,10 @@ def main():
                     "median_bias": round(b2, 4),
                     "rows": u2,
                 }
-                print("        %-13s <- %-38s med|d|=%-7.4f hold=%5.1f%%" % (tag, " + ".join(c2)[:38], m2, 100 * h2))
+                print(
+                    "        %-13s <- %-38s med|d|=%-7.4f hold=%5.1f%%"
+                    % (tag, " + ".join(c2)[:38], m2, 100 * h2)
+                )
             if eras:
                 entry["eras"] = eras
                 # Only adopt a per-era override when the OLD era stands on its own; collected

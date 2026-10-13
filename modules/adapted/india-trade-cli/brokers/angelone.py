@@ -45,12 +45,10 @@ Install extra deps:
 """
 
 
-import contextlib
 import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from brokers.base import (
     BrokerAPI,
@@ -108,15 +106,13 @@ class AngelOneAPI(BrokerAPI):
 
             return pyotp.TOTP(self._totp_secret).now()
         except ImportError:
-            msg = "pyotp not installed. Run: pip install pyotp"
-            raise RuntimeError(msg)
+            raise RuntimeError("pyotp not installed. Run: pip install pyotp")
 
     def _smart_connect(self):
         try:
             from SmartApi import SmartConnect
         except ImportError:
-            msg = "smartapi-python not installed. Run: pip install smartapi-python"
-            raise RuntimeError(msg)
+            raise RuntimeError("smartapi-python not installed. Run: pip install smartapi-python")
         return SmartConnect(api_key=self._api_key)
 
     def get_login_url(self) -> str:
@@ -148,8 +144,7 @@ class AngelOneAPI(BrokerAPI):
                 )
             elif "session" in msg_lower or "expired" in msg_lower:
                 hint = "\nYour session has expired. Try logging in again."
-            msg_0 = f"Angel One login failed: {msg}{hint}"
-            raise RuntimeError(msg_0)
+            raise RuntimeError(f"Angel One login failed: {msg}{hint}")
 
         d = data.get("data", {})
         self._auth_token = d.get("jwtToken", "")
@@ -206,8 +201,10 @@ class AngelOneAPI(BrokerAPI):
             if self._auth_token:
                 obj = self._smart_connect()
                 # Re-attach the saved token to the SDK object
-                with contextlib.suppress(ImportError):
-                    import logzero
+                try:
+                    import logzero  # noqa: F401
+                except ImportError:
+                    pass
                 self._obj = obj
                 self._profile_cache = UserProfile(
                     user_id=d.get("client_code", self._client_code),
@@ -238,8 +235,7 @@ class AngelOneAPI(BrokerAPI):
         if self._profile_cache:
             return self._profile_cache
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.getProfile(self._refresh_token)
         pd = data.get("data", {}) if data else {}
         self._profile_cache = UserProfile(
@@ -252,8 +248,7 @@ class AngelOneAPI(BrokerAPI):
 
     def get_funds(self) -> Funds:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.rmsLimit()
         d = data.get("data", {}) if data else {}
 
@@ -274,8 +269,7 @@ class AngelOneAPI(BrokerAPI):
 
     def get_holdings(self) -> list[Holding]:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.holding()
         holdings = data.get("data", []) if data else []
         result = []
@@ -297,7 +291,9 @@ class AngelOneAPI(BrokerAPI):
                         pnl_pct=pnl_pct,
                         day_change=round(ltp - float(h.get("close", 0) or 0), 2),
                         day_change_pct=round(
-                            (ltp - float(h.get("close", 0) or 0)) / float(h.get("close", 0) or 1) * 100,
+                            (ltp - float(h.get("close", 0) or 0))
+                            / float(h.get("close", 0) or 1)
+                            * 100,
                             2,
                         ),
                     )
@@ -308,8 +304,7 @@ class AngelOneAPI(BrokerAPI):
 
     def get_positions(self) -> list[Position]:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.position()
         positions = data.get("data", []) if data else []
         result = []
@@ -347,8 +342,7 @@ class AngelOneAPI(BrokerAPI):
         but we convert the symbol format for a clean interface.
         """
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         result = {}
         # Group by exchange
         by_exchange: dict[str, list[str]] = {}
@@ -394,8 +388,7 @@ class AngelOneAPI(BrokerAPI):
         Uses the public NSE options chain endpoint as fallback.
         """
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         # Angel One doesn't have a dedicated chain endpoint in the free tier —
         # delegate to the NSE public endpoint (already implemented in market/options.py)
         try:
@@ -447,8 +440,7 @@ class AngelOneAPI(BrokerAPI):
 
     def place_order(self, order: OrderRequest) -> OrderResponse:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         params = {
             "variety": "NORMAL",
             "tradingsymbol": order.symbol,
@@ -466,12 +458,11 @@ class AngelOneAPI(BrokerAPI):
         data = self._obj.placeOrder(params)
         if not data or data.get("status") is False:
             msg = data.get("message", "Order failed") if data else "No response"
-            msg_0 = (
+            raise RuntimeError(
                 f"Angel One order error: {msg}\n"
                 "Check that the symbol is valid, you have sufficient margin, and markets are open.\n"
                 "Run 'funds' to check available margin, or 'positions' to review open positions."
             )
-            raise RuntimeError(msg_0)
         return OrderResponse(
             order_id=data.get("data", {}).get("orderid", ""),
             status="OPEN",
@@ -480,8 +471,7 @@ class AngelOneAPI(BrokerAPI):
 
     def get_orders(self) -> list[Order]:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.orderBook()
         orders = data.get("data", []) if data else []
         result = []
@@ -510,8 +500,7 @@ class AngelOneAPI(BrokerAPI):
 
     def cancel_order(self, order_id: str) -> bool:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
         data = self._obj.cancelOrder(order_id, "NORMAL")
         return bool(data and data.get("status") is not False)
 
@@ -526,8 +515,7 @@ class AngelOneAPI(BrokerAPI):
         to_date: datetime | None = None,
     ) -> list[dict]:
         if not self._obj:
-            msg = "Not authenticated. Run the 'login' command first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Not authenticated. Run the 'login' command first.")
 
         interval_map = {
             "day": "ONE_DAY",
@@ -546,8 +534,7 @@ class AngelOneAPI(BrokerAPI):
             search = self._obj.searchScrip(exchange, symbol)
             scrip_list = search.get("data", []) if search else []
             if not scrip_list:
-                msg = f"Symbol {symbol} not found on {exchange}"
-                raise ValueError(msg)
+                raise ValueError(f"Symbol {symbol} not found on {exchange}")
             symbol_token = scrip_list[0].get("symboltoken", "")
 
             params = {
@@ -573,11 +560,10 @@ class AngelOneAPI(BrokerAPI):
                 for candle in candles
             ]
         except Exception as e:
-            msg = (
+            raise RuntimeError(
                 f"Angel One historical data error: {e}\n"
                 "Check that the symbol and date range are valid. If your session expired, try: logout → login"
-            )
-            raise RuntimeError(msg) from e
+            ) from e
 
 
 # ── Field mapping helpers ─────────────────────────────────────

@@ -58,7 +58,9 @@ def apply_g6_gate(signals_df: pd.DataFrame) -> tuple:
         def get_failed_conditions(row):
             reasons = []
             if not (row["lower_circuit_hits_63d"] < 3):
-                reasons.append(f"lower_circuit_hits_63d={int(row['lower_circuit_hits_63d'])} (>= 3)")
+                reasons.append(
+                    f"lower_circuit_hits_63d={int(row['lower_circuit_hits_63d'])} (>= 3)"
+                )
             return " | ".join(reasons)
 
         rejects["rejection_reason"] = rejects.apply(get_failed_conditions, axis=1)
@@ -73,7 +75,9 @@ def apply_g6_gate(signals_df: pd.DataFrame) -> tuple:
 
         print(f"G6 gate rejects    : {len(rejects)} stocks")
     else:
-        reject_df = pd.DataFrame(columns=["symbol", "lower_circuit_hits_63d", "rejection_stage", "rejection_reason"])
+        reject_df = pd.DataFrame(
+            columns=["symbol", "lower_circuit_hits_63d", "rejection_stage", "rejection_reason"]
+        )
         print("G6 gate rejects    : 0 stocks failed")
 
     # ── Return passing rows ──

@@ -72,18 +72,14 @@ intent = {
 order = do.build_order(intent, "100")
 assert order["transactionType"] == "BUY"
 assert order["orderType"] == "MARKET" and order["price"] == 0, "a market order carries no price"
-assert order["securityId"] == "100"
-assert order["quantity"] == 10
-assert order["exchangeSegment"] == "NSE_EQ"
-assert order["validity"] == "DAY"
+assert order["securityId"] == "100" and order["quantity"] == 10
+assert order["exchangeSegment"] == "NSE_EQ" and order["validity"] == "DAY"
 
 limit = do.build_order({**intent, "limit_price": 99.5}, "100")
-assert limit["orderType"] == "LIMIT"
-assert limit["price"] == 99.5
+assert limit["orderType"] == "LIMIT" and limit["price"] == 99.5
 
 sup = do.build_super_order(intent, "100")
-assert sup["targetPrice"] == 120.0
-assert sup["stopLossPrice"] == 95.0
+assert sup["targetPrice"] == 120.0 and sup["stopLossPrice"] == 95.0
 assert "trailingJump" not in sup, "no trail asked for, no key sent"
 assert do.build_super_order({**intent, "trailing_jump": 0.5}, "100")["trailingJump"] == 0.5
 
@@ -93,11 +89,14 @@ assert short["transactionType"] == "SELL"
 # Only the legal fields per leg - Dhan rejects the rest, and finding that out from a 400 while a
 # position is open is the wrong time.
 entry = do.modify_payload("C1", "42", "ENTRY_LEG", price=101.0, quantity=5)
-assert entry["legName"] == "ENTRY_LEG"
-assert entry["price"] == 101.0
-assert entry["quantity"] == 5
+assert entry["legName"] == "ENTRY_LEG" and entry["price"] == 101.0 and entry["quantity"] == 5
 target = do.modify_payload("C1", "42", "TARGET_LEG", targetPrice=130.0, price=None)
-assert target == {"dhanClientId": "C1", "orderId": "42", "legName": "TARGET_LEG", "targetPrice": 130.0}
+assert target == {
+    "dhanClientId": "C1",
+    "orderId": "42",
+    "legName": "TARGET_LEG",
+    "targetPrice": 130.0,
+}
 for bad in (
     lambda: do.modify_payload("C1", "42", "TARGET_LEG", price=101.0),
     lambda: do.modify_payload("C1", "42", "STOP_LOSS_LEG", quantity=5),
@@ -105,21 +104,24 @@ for bad in (
 ):
     try:
         bad()
-        msg = "should have refused an illegal leg modification"
-        raise AssertionError(msg)
+        raise AssertionError("should have refused an illegal leg modification")
     except ValueError:
         pass
 
 # Closing reads the direction off the position, never off the caller.
 flat = do.exit_intent({"net_qty": 10, "product": "INTRADAY"}, "C", "client")
-assert flat["direction"] == "short"
-assert flat["quantity"] == 10
+assert flat["direction"] == "short" and flat["quantity"] == 10
 assert do.exit_intent({"net_qty": -4}, "C", "client")["direction"] == "long"
 
 assert len(do.correlation_id("SL", datetime(2026, 8, 30, 10, 15, 0), "1")) <= 30
 
 # --- guardrails --------------------------------------------------------------------------------------
-LIMITS = {"enabled": True, "max_order_value": 25000, "max_orders_per_day": 20, "daily_loss_limit": 5000}
+LIMITS = {
+    "enabled": True,
+    "max_order_value": 25000,
+    "max_orders_per_day": 20,
+    "daily_loss_limit": 5000,
+}
 CLEAR = {"halted": False, "orders_today": 0, "realised_today": 0}
 
 assert do.guardrail_errors(intent, LIMITS, CLEAR) == [], do.guardrail_errors(intent, LIMITS, CLEAR)
@@ -127,7 +129,9 @@ assert do.guardrail_errors(intent, LIMITS, CLEAR) == [], do.guardrail_errors(int
 off = do.guardrail_errors(intent, {**LIMITS, "enabled": False}, CLEAR)
 assert any("switched off" in e for e in off), off
 
-halted = do.guardrail_errors(intent, LIMITS, {**CLEAR, "halted": True, "halt_reason": "kill switch"})
+halted = do.guardrail_errors(
+    intent, LIMITS, {**CLEAR, "halted": True, "halt_reason": "kill switch"}
+)
 assert any("halted" in e for e in halted), halted
 
 big = do.guardrail_errors({**intent, "quantity": 400}, LIMITS, CLEAR)  # 400 x 100 = 40,000
@@ -137,7 +141,9 @@ many = do.guardrail_errors(intent, LIMITS, {**CLEAR, "orders_today": 20})
 assert any("cap is 20" in e for e in many), many
 
 # The loss limit trips at exactly the limit, not one rupee past it.
-assert any("past the" in e for e in do.guardrail_errors(intent, LIMITS, {**CLEAR, "realised_today": -5000}))
+assert any(
+    "past the" in e for e in do.guardrail_errors(intent, LIMITS, {**CLEAR, "realised_today": -5000})
+)
 assert do.guardrail_errors(intent, LIMITS, {**CLEAR, "realised_today": -4999.99}) == []
 
 wrong_stop = do.guardrail_errors({**intent, "stop_price": 105.0}, LIMITS, CLEAR)
@@ -146,16 +152,74 @@ wrong_target = do.guardrail_errors({**intent, "target_price": 90.0}, LIMITS, CLE
 assert any("Target must be above entry" in e for e in wrong_target), wrong_target
 # ... and the same levels are correct for a sell, which is why the check reads the direction.
 assert (
-    do.guardrail_errors({**intent, "direction": "short", "stop_price": 105.0, "target_price": 90.0}, LIMITS, CLEAR)
+    do.guardrail_errors(
+        {**intent, "direction": "short", "stop_price": 105.0, "target_price": 90.0}, LIMITS, CLEAR
+    )
     == []
 )
 
-assert any("whole number" in e for e in do.guardrail_errors({**intent, "quantity": 1.5}, LIMITS, CLEAR))
+assert any(
+    "whole number" in e for e in do.guardrail_errors({**intent, "quantity": 1.5}, LIMITS, CLEAR)
+)
 assert any("above 0" in e for e in do.guardrail_errors({**intent, "quantity": 0}, LIMITS, CLEAR))
 assert any(
     "No price to size" in e
-    for e in do.guardrail_errors({**intent, "reference_price": None, "limit_price": None}, LIMITS, CLEAR)
+    for e in do.guardrail_errors(
+        {**intent, "reference_price": None, "limit_price": None}, LIMITS, CLEAR
+    )
 )
+
+# --- the other order shapes: stops, IOC, disclosed quantity, after-market ---------------------------
+plain = {**intent, "stop_price": None, "target_price": None}
+slm = do.build_order({**plain, "order_type": "STOP_LOSS_MARKET", "trigger_price": 104.0}, "100")
+assert (
+    slm["orderType"] == "STOP_LOSS_MARKET" and slm["triggerPrice"] == 104.0 and slm["price"] == 0
+), slm
+sl = do.build_order(
+    {**plain, "order_type": "STOP_LOSS", "trigger_price": 104.0, "limit_price": 105.0}, "100"
+)
+assert sl["orderType"] == "STOP_LOSS" and sl["price"] == 105.0 and sl["triggerPrice"] == 104.0, sl
+assert "triggerPrice" not in order and "afterMarketOrder" not in order, "unused keys are not sent"
+# a market order never carries a price, even if a stale limit_price came along with it
+assert do.build_order({**plain, "order_type": "MARKET", "limit_price": 99.0}, "100")["price"] == 0
+extra = do.build_order(
+    {**plain, "validity": "IOC", "disclosed_quantity": 4, "amo": True, "amo_time": "OPEN_30"}, "100"
+)
+assert (
+    extra["validity"],
+    extra["disclosedQuantity"],
+    extra["afterMarketOrder"],
+    extra["amoTime"],
+) == ("IOC", 4, True, "OPEN_30"), extra
+assert do.build_order({**plain, "amo": True}, "100")["amoTime"] == "OPEN", (
+    "AMO defaults to the open"
+)
+assert do.build_order({**plain, "product": "CNC"}, "100")["productType"] == "CNC"
+# super orders drop the keys Dhan's /super/orders does not take
+assert "validity" not in sup and "triggerPrice" not in sup, sup
+
+errs = lambda **kw: do.guardrail_errors({**plain, **kw}, LIMITS, CLEAR)  # noqa: E731
+assert errs(order_type="STOP_LOSS_MARKET", trigger_price=104.0) == []
+assert any("needs a trigger" in e for e in errs(order_type="STOP_LOSS_MARKET"))
+assert any("needs a limit price" in e for e in errs(order_type="LIMIT"))
+assert any("needs a limit price" in e for e in errs(order_type="STOP_LOSS", trigger_price=104.0))
+assert any(
+    "at or beyond its trigger" in e
+    for e in errs(order_type="STOP_LOSS", trigger_price=104.0, limit_price=103.0)
+)
+assert errs(order_type="STOP_LOSS", trigger_price=104.0, limit_price=104.5) == []
+assert errs(direction="short", order_type="STOP_LOSS", trigger_price=96.0, limit_price=95.5) == []
+assert any("Disclosed quantity" in e for e in errs(disclosed_quantity=2))  # 2 of 10 < 30%
+assert errs(disclosed_quantity=3) == []
+# Super Order: both legs or neither, and only a plain DAY market/limit entry
+assert any("both a stop-loss and a target" in e for e in errs(stop_price=95.0))
+assert any("both a stop-loss and a target" in e for e in errs(target_price=120.0))
+both = {"stop_price": 95.0, "target_price": 120.0}
+assert any(
+    "market or limit" in e for e in errs(**both, order_type="STOP_LOSS_MARKET", trigger_price=101.0)
+)
+assert any("after-market" in e for e in errs(**both, amo=True))
+assert any("DAY order" in e for e in errs(**both, validity="IOC"))
 
 # --- reading the broker back ---------------------------------------------------------------------------
 raw_order = {
@@ -173,14 +237,16 @@ raw_order = {
     "updateTime": "2026-08-30 10:15:04",
 }
 norm = do.normalize_order(raw_order)
-assert norm["order_id"] == "112111182198"
-assert norm["status"] == "TRADED"
-assert norm["avg_price"] == 100.5
+assert (
+    norm["order_id"] == "112111182198" and norm["status"] == "TRADED" and norm["avg_price"] == 100.5
+)
 
 # Dhan puts a message in omsErrorDescription on the way through, not only when something broke.
 assert do.normalize_order({**raw_order, "omsErrorDescription": "TRADE CONFIRMED"})["error"] is None
 assert (
-    do.normalize_order({**raw_order, "orderStatus": "REJECTED", "omsErrorDescription": "insufficient funds"})["error"]
+    do.normalize_order(
+        {**raw_order, "orderStatus": "REJECTED", "omsErrorDescription": "insufficient funds"}
+    )["error"]
     == "insufficient funds"
 )
 
@@ -223,9 +289,12 @@ now = [
 ]
 changed = {o["order_id"]: was for o, was in do.status_changes(before, now)}
 assert changed == {"1": "PENDING", "2": None, "3": None}, changed
-assert do.status_changes({"1": {"order_id": "1", "status": "TRADED"}}, [{"order_id": "1", "status": "TRADED"}]) == [], (
-    "no change, no alert"
-)
+assert (
+    do.status_changes(
+        {"1": {"order_id": "1", "status": "TRADED"}}, [{"order_id": "1", "status": "TRADED"}]
+    )
+    == []
+), "no change, no alert"
 
 # A position that went to zero AND one that vanished from the book both count as closed - Dhan
 # drops settled intraday positions rather than reporting them at zero.
@@ -279,7 +348,14 @@ assert long_trade == {
 }, long_trade
 
 short_trade = do.journal_trade(
-    {"symbol": "TCS", "position_type": "SHORT", "buy_qty": 5, "sell_qty": 5, "buy_avg": 2980.0, "sell_avg": 3000.0}
+    {
+        "symbol": "TCS",
+        "position_type": "SHORT",
+        "buy_qty": 5,
+        "sell_qty": 5,
+        "buy_avg": 2980.0,
+        "sell_avg": 3000.0,
+    }
 )
 assert short_trade["direction"] == "short"
 assert short_trade["entry_price"] == 3000.0 and short_trade["exit_price"] == 2980.0, (
@@ -294,14 +370,13 @@ assert do.journal_trade({"buy_qty": 0, "sell_qty": 0}) is None
 above = {"kind": "price", "active": True, "condition": "above", "price": 100.0, "symbol": "TCS"}
 below = {**above, "condition": "below"}
 assert alerts.should_fire(above, 100.0), "at the level counts - 'tell me at 100' means 100"
-assert alerts.should_fire(above, 101.0)
-assert not alerts.should_fire(above, 99.9)
-assert alerts.should_fire(below, 99.0)
-assert not alerts.should_fire(below, 100.01)
+assert alerts.should_fire(above, 101.0) and not alerts.should_fire(above, 99.9)
+assert alerts.should_fire(below, 99.0) and not alerts.should_fire(below, 100.01)
 assert not alerts.should_fire({**above, "active": False}, 200.0), "a disarmed alert stays quiet"
 assert not alerts.should_fire({**above, "kind": "order"}, 200.0), "order events aren't conditions"
 assert not alerts.should_fire(above, None), "no quote is not a trigger"
-assert "TCS" in alerts.message_for(above, 101.0)
-assert "101" in alerts.message_for(above, 101.0)
+assert "TCS" in alerts.message_for(above, 101.0) and "101" in alerts.message_for(above, 101.0)
 
-print("ok - live trading: scrip filter, payloads, leg rules, guardrails, mirror reads, journaling, alerts")
+print(
+    "ok - live trading: scrip filter, payloads, leg rules, guardrails, mirror reads, journaling, alerts"
+)

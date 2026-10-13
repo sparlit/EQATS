@@ -29,7 +29,6 @@ Cluster = ≥3 distinct insiders of one company filing purchases within 21
 calendar days, combined ≥$250k. Event = filing that completes the cluster.
 Entry next open, hold 63 sessions, excess vs SPY, S&P 500 members only.
 """
-import numpy as np
 import pandas as pd
 from us.event_study import load
 from us.event_study import report as ev_report
@@ -38,7 +37,9 @@ from us.insiders import load_all
 OFFICER_RE = r"CEO|CFO|COO|Pres|Chief"
 
 
-def clusters(ins: pd.DataFrame, n_insiders=3, min_value=250_000, window=21, officers_only=False) -> pd.DataFrame:
+def clusters(
+    ins: pd.DataFrame, n_insiders=3, min_value=250_000, window=21, officers_only=False
+) -> pd.DataFrame:
     d = ins.copy()
     if officers_only:
         d = d[d["title"].astype(str).str.contains(OFFICER_RE, case=False, na=False)]
@@ -93,12 +94,19 @@ def study(ev, close, open_, member_at, hold=63):
             continue
         raw = p1 / p0 - 1
         spy = spy_c.iloc[pos + hold] / spy_o.iloc[pos] - 1
-        rows.append({"date": e["date"], "symbol": tkr, "raw_pct": 100 * raw, "excess_pct": 100 * (raw - spy)})
+        rows.append(
+            {
+                "date": e["date"],
+                "symbol": tkr,
+                "raw_pct": 100 * raw,
+                "excess_pct": 100 * (raw - spy),
+            }
+        )
     return pd.DataFrame(rows)
 
 
 def main():
-    close, open_, _vol, member_at = load()
+    close, open_, vol, member_at = load()
     ins = load_all()
     print(f"{len(ins)} insider purchase filings loaded")
 

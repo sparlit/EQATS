@@ -55,7 +55,7 @@ import re
 import sys
 import time
 import urllib.parse
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -105,8 +105,7 @@ def get_env() -> dict[str, str]:
     }
     missing = [k for k, v in required.items() if not v]
     if missing:
-        msg = f"Missing env vars: {', '.join(missing)}"
-        raise SystemExit(msg)
+        raise SystemExit(f"Missing env vars: {', '.join(missing)}")
     return required
 
 
@@ -295,7 +294,9 @@ def run_login_flow(headed: bool = False) -> dict | None:
 
     # Build login URL
     login_url = (
-        f"{LOGIN_URL}?response_type=code&client_id={api_key}&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
+        f"{LOGIN_URL}?response_type=code"
+        f"&client_id={api_key}"
+        f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
     )
     log.info("Login URL: %s", login_url[:120] + "...")
 
@@ -309,7 +310,8 @@ def run_login_flow(headed: bool = False) -> dict | None:
         ctx = browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=(
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
             ),
         )
         page = ctx.new_page()
@@ -497,7 +499,9 @@ def run_login_flow(headed: bool = False) -> dict | None:
                         log.info("  Got code after navigation!")
                     break
 
-                if "pin" in body_text.lower() and ("enter" in body_text.lower() or "6-digit" in body_text.lower()):
+                if "pin" in body_text.lower() and (
+                    "enter" in body_text.lower() or "6-digit" in body_text.lower()
+                ):
                     log.info("  PIN page detected!")
                     _screenshot(page, "step9a_pin_page")
 
@@ -702,12 +706,14 @@ def _exchange_and_save(code: str, api_key: str, api_secret: str, redirect_uri: s
             return None
 
         payload = resp.json()
-        log.info("Token exchange OK — access_token length: %d", len(payload.get("access_token", "")))
+        log.info(
+            "Token exchange OK — access_token length: %d", len(payload.get("access_token", ""))
+        )
         save_tokens(payload)
         return payload
 
     except Exception as e:
-        log.exception("Token exchange error: %s", e)
+        log.error("Token exchange error: %s", e)
         return None
 
 

@@ -109,7 +109,9 @@ def main() -> int:
     shadow_messages: list[str] = []
     if args.multi_horizon_shadow:
         shadow_messages = render_shadow_messages(report)
-        Path(args.shadow_preview_html).write_text("\n\n<hr/>\n\n".join(shadow_messages), encoding="utf-8")
+        Path(args.shadow_preview_html).write_text(
+            "\n\n<hr/>\n\n".join(shadow_messages), encoding="utf-8"
+        )
     print(message)
     for portfolio_message in portfolio_messages:
         print(portfolio_message)
@@ -131,8 +133,12 @@ def main() -> int:
             else:
                 preview_errors.append(f"page_{index}:{delivery.reason}")
         if preview_errors:
-            print(f"::warning::Momentum Ladder validation preview partially failed: {', '.join(preview_errors)}")
-            print(f"[TELEGRAM] validation: PARTIAL ({preview_sent}/{len(shadow_messages)} pages sent)")
+            print(
+                f"::warning::Momentum Ladder validation preview partially failed: {', '.join(preview_errors)}"
+            )
+            print(
+                f"[TELEGRAM] validation: PARTIAL ({preview_sent}/{len(shadow_messages)} pages sent)"
+            )
         else:
             print(f"[TELEGRAM] validation: SENT ({preview_sent}/{len(shadow_messages)} pages)")
     return 0

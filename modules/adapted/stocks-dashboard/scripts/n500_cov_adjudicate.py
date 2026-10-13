@@ -49,7 +49,6 @@ import collections
 import datetime
 import json
 import os
-import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS, SCRIPTS = os.path.join(ROOT, "docs"), os.path.join(ROOT, "scripts")
@@ -170,7 +169,8 @@ for r in Q["rows"]:
         have = sum(
             1
             for c in rmap.values()
-            if (len(c) > slot[0] and c[slot[0]] is not None) or (len(c) > slot[1] and c[slot[1]] is not None)
+            if (len(c) > slot[0] and c[slot[0]] is not None)
+            or (len(c) > slot[1] and c[slot[1]] is not None)
         )
         # A ledger verdict may carry from/to bounds (format belongs to the FILING, not the company
         # — BAJFINANCE flips F/N both directions). Months OUTSIDE the bounds are NOT covered by the

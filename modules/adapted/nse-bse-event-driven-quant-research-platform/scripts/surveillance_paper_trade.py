@@ -145,7 +145,9 @@ def main():
         else:
             n_delivery += 1
 
-    print(f"Current open positions: {len(open_papers)} total ({n_delivery} delivery, {n_surveillance} surveillance)")
+    print(
+        f"Current open positions: {len(open_papers)} total ({n_delivery} delivery, {n_surveillance} surveillance)"
+    )
     if open_syms:
         print(f"  Symbols: {', '.join(sorted(open_syms))}")
     print()
@@ -161,7 +163,9 @@ def main():
 
         # Enforce max surveillance positions (separate from delivery)
         if n_surveillance >= MAX_SURVEILLANCE_POSITIONS:
-            print(f"  SKIP {sym} — max surveillance positions ({MAX_SURVEILLANCE_POSITIONS}) reached")
+            print(
+                f"  SKIP {sym} — max surveillance positions ({MAX_SURVEILLANCE_POSITIONS}) reached"
+            )
             break
 
         # Get current price
@@ -176,10 +180,12 @@ def main():
             win_rate, avg_win, avg_loss = dynamic_kelly_params(get_engine())
             kf = kelly_fraction(win_rate, avg_win, avg_loss)
             qty = kelly_position(hz_capital, 0.01, current_price, hz["stop_pct"], kf)
-            qty = max(qty, 1)
+            if qty < 1:
+                qty = 1
             # House rule: ₹1L notional per trade (kelly→0 with no history floors to 1)
             lakh_qty = max(1, int(100_000 / current_price))
-            qty = max(qty, lakh_qty)
+            if qty < lakh_qty:
+                qty = lakh_qty
 
             position_value = qty * current_price
             stop_dist = current_price * hz["stop_pct"]

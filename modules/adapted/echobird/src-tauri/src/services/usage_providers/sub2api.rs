@@ -99,6 +99,7 @@ fn parse_subscription_quotas(body: &serde_json::Value) -> Option<Vec<UsageQuota>
                 .or_else(|| sub.get("daily_usage_usd").and_then(parse_f64))
                 .unwrap_or(0.0);
             quotas.push(UsageQuota {
+                period: Some(super::QuotaPeriod::Daily),
                 percentage: pct(usage, limit),
                 reset_at: daily_reset_ms(),
                 balance: None,
@@ -120,6 +121,7 @@ fn parse_subscription_quotas(body: &serde_json::Value) -> Option<Vec<UsageQuota>
                 .map(|ms| ms + week_ms)
                 .unwrap_or_else(|| now_millis() + week_ms);
             quotas.push(UsageQuota {
+                period: Some(super::QuotaPeriod::Weekly),
                 percentage: pct(usage, limit),
                 reset_at: reset,
                 balance: None,
@@ -142,6 +144,7 @@ fn parse_subscription_quotas(body: &serde_json::Value) -> Option<Vec<UsageQuota>
                 .and_then(parse_iso_ms)
                 .unwrap_or_else(|| now_millis() + month_ms);
             quotas.push(UsageQuota {
+                period: Some(super::QuotaPeriod::Monthly),
                 percentage: pct(usage, limit),
                 reset_at: reset,
                 balance: None,
@@ -170,6 +173,7 @@ fn parse_balance_quota(body: &serde_json::Value) -> Option<UsageQuota> {
         .unwrap_or("USD");
 
     Some(UsageQuota {
+        period: None,
         percentage: 0.0,
         reset_at: now_millis() + 30 * 24 * 60 * 60 * 1000,
         balance: Some(balance),
@@ -281,6 +285,7 @@ impl UsageProvider for Sub2ApiProvider {
             success: true,
             data: Some(ModelUsageData {
                 quotas: vec![UsageQuota {
+                    period: None,
                     percentage,
                     reset_at,
                     balance: None,

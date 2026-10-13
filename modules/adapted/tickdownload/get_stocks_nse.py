@@ -78,7 +78,8 @@ _DB_METADATA = None
 _DATE_FMT = "%d-%m-%Y"
 
 _BHAV_URL_BASE = (
-    "https://www.nseindia.com/content/historical/EQUITIES/%(year)s/%(mon)s/cm%(dd)s%(mon)s%(year)sbhav.csv.zip"
+    "https://www.nseindia.com/content/historical/EQUITIES/"
+    "%(year)s/%(mon)s/cm%(dd)s%(mon)s%(year)sbhav.csv.zip"
 )
 
 _DELIV_URL_BASE = "https://www.nseindia.com/archives/equities/mto/MTO_%(dd)s%(mm)s%(year)s.DAT"
@@ -131,8 +132,9 @@ def get_bhavcopy(date="01-01-2002"):
     error_code = None
     if bhavcopy_response.status_code == 404 or delivery_response.status_code == 404:
         error_code = "NOT_FOUND"
-    elif not (bhavcopy_response.ok and delivery_response.ok):
-        error_code = "DLOAD_ERR"
+    else:
+        if not (bhavcopy_response.ok and delivery_response.ok):
+            error_code = "DLOAD_ERR"
 
     _update_dload_success(d2, bhavcopy_response.ok, delivery_response.ok, error_code)
 
@@ -171,7 +173,7 @@ def get_bhavcopy(date="01-01-2002"):
             try:
                 stocks_dict[sym][-1] = int(d)
             except KeyError:
-                module_logger.exception("For Symbol: %s Delivery Data found but no Bhavcopy Data", sym)
+                module_logger.error("For Symbol: %s Delivery Data found but no Bhavcopy Data", sym)
             i += 1
 
         for sym in stocks_dict:
@@ -179,11 +181,14 @@ def get_bhavcopy(date="01-01-2002"):
             module_logger.debug("ScripInfo(%s): %s", sym, str(stocks_dict[sym]))
 
         return stocks_dict
-    if not bhavcopy_response.ok:
-        module_logger.error("GET:Bhavcopy URL %s (%d)", bhav_url, bhavcopy_response.status_code)
-    if not delivery_response.ok:
-        module_logger.error("GET:Delivery URL %s (%d)", deliv_url, delivery_response.status_code)
-    return None
+    else:
+        if not bhavcopy_response.ok:
+            module_logger.error("GET:Bhavcopy URL %s (%d)", bhav_url, bhavcopy_response.status_code)
+        if not delivery_response.ok:
+            module_logger.error(
+                "GET:Delivery URL %s (%d)", deliv_url, delivery_response.status_code
+            )
+        return None
 
 
 def _update_dload_success(fdate, bhav_ok, deliv_ok, error_code=None):
@@ -212,7 +217,12 @@ def _update_dload_success(fdate, bhav_ok, deliv_ok, error_code=None):
         ins_or_upd_st = (
             tbl.update()
             .where(tbl.c.download_date == fdate)
-            .values(download_date=fdate, bhav_success=bhav_ok, deliv_success=deliv_ok, error_type=error_code)
+            .values(
+                download_date=fdate,
+                bhav_success=bhav_ok,
+                deliv_success=deliv_ok,
+                error_type=error_code,
+            )
         )
     module_logger.debug(ins_or_upd_st.compile().params)
 
@@ -290,7 +300,11 @@ def _apply_name_changes_to_db(syms):
 
         chdt = dt.date(dt.strptime(chdate, "%d-%b-%Y"))
 
-        upd = hist_data.update().values(symbol=new).where(and_expr(hist_data.c.symbol == old, hist_data.c.date < chdt))
+        upd = (
+            hist_data.update()
+            .values(symbol=new)
+            .where(and_expr(hist_data.c.symbol == old, hist_data.c.date < chdt))
+        )
 
         update_statements.append(upd)
 
@@ -310,15 +324,23 @@ def main(args):
 
     # --from option
     parser.add_argument(
-        "--from", help="From Date in DD-MM-YYYY format. Default is 01-01-2002", dest="fromdate", default="01-01-2002"
+        "--from",
+        help="From Date in DD-MM-YYYY format. Default is 01-01-2002",
+        dest="fromdate",
+        default="01-01-2002",
     )
     # --to option
     parser.add_argument(
-        "--to", help="From Date in DD-MM-YYYY format. Default is Today.", dest="todate", default="today"
+        "--to",
+        help="From Date in DD-MM-YYYY format. Default is Today.",
+        dest="todate",
+        default="today",
     )
 
     # --yes option
-    parser.add_argument("--yes", help="Answer yes to all questions.", dest="sure", action="store_true")
+    parser.add_argument(
+        "--yes", help="Answer yes to all questions.", dest="sure", action="store_true"
+    )
 
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")
@@ -355,7 +377,9 @@ def main(args):
         if args.sure:
             sure = True
         else:
-            sure = input("Tatal number of days for download is %1d. Are you Sure?[y|N] " % num_days.days)
+            sure = input(
+                "Tatal number of days for download is %1d. Are you Sure?[y|N] " % num_days.days
+            )
             sure = sure.lower() in ("y", "ye", "yes")
     else:
         sure = True

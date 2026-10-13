@@ -1,9 +1,11 @@
 """
 Unit and Integration Tests for Apex Trading Engine.
 """
-from typing import Any
-import pytest
-from institutional_integrations.apex_trading_engine import ApexTradingRiskEngine, ApexTradingAISignalEngine
+from institutional_integrations.apex_trading_engine import (
+    ApexTradingAISignalEngine,
+    ApexTradingRiskEngine,
+)
+
 
 def test_apex_risk_var_and_cvar() -> None:
     risk_engine = ApexTradingRiskEngine()

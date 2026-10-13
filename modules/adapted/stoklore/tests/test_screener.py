@@ -154,8 +154,7 @@ def test_parses_screen_fixture():
     # /consolidated/ is a view of the same company, not part of its symbol.
     assert (gabriel["symbol"], gabriel["bse_code"]) == ("GABRIEL", None)
     # Numbers, thousands separator and all - so a condition node can compare them.
-    assert citizen["current_price"] == 199.65
-    assert gabriel["current_price"] == 1300.50
+    assert citizen["current_price"] == 199.65 and gabriel["current_price"] == 1300.50
     assert gabriel["change_in_promoter_holding"] is None, "a blank cell is None, not 0"
 
 
@@ -174,12 +173,13 @@ REGISTER_WALL = """
 def test_screen_login_wall_is_named():
     # Not "no table, so private or deleted" - the screen is fine, screener wants a login.
     try:
-        scraper.parse_screen_html(REGISTER_WALL, "https://www.screener.in/screens/86/quarterly-growers/")
+        scraper.parse_screen_html(
+            REGISTER_WALL, "https://www.screener.in/screens/86/quarterly-growers/"
+        )
     except scraper.ScreenLoginRequired as e:
         assert "login" in str(e)
     else:
-        msg = "a register page must raise ScreenLoginRequired, not parse as nothing"
-        raise AssertionError(msg)
+        raise AssertionError("a register page must raise ScreenLoginRequired, not parse as nothing")
     # Still a ValueError, so the tool and the endpoint report it without their own except clause.
     assert issubclass(scraper.ScreenLoginRequired, ValueError)
 
@@ -191,7 +191,9 @@ def test_screen_sends_the_saved_session_and_explains_the_wall():
     scraper.netfetch.get_html = lambda url, **kwargs: sent.append(kwargs) or REGISTER_WALL
     try:
         try:
-            scraper.get_screen("https://www.screener.in/screens/86/quarterly-growers/", session_cookie="abc123")
+            scraper.get_screen(
+                "https://www.screener.in/screens/86/quarterly-growers/", session_cookie="abc123"
+            )
         except scraper.ScreenLoginRequired as e:
             assert "login" in str(e) and "expired" in str(e), str(e)
         assert sent[0]["headers"] == {"cookie": "sessionid=abc123"}
@@ -208,7 +210,9 @@ def test_screen_sends_the_saved_session_and_explains_the_wall():
 
 
 def test_screen_page_without_table_is_none():
-    assert scraper.parse_screen_html("<h1>Login</h1>", "https://www.screener.in/screens/1/x/") is None
+    assert (
+        scraper.parse_screen_html("<h1>Login</h1>", "https://www.screener.in/screens/1/x/") is None
+    )
 
 
 def test_screen_url_is_canonical_and_guarded():
@@ -218,7 +222,9 @@ def test_screen_url_is_canonical_and_guarded():
         "https://screener.in/screens/86/quarterly-growers",
         "http://www.screener.in/screens/86/quarterly-growers/",
     ):
-        assert scraper.screen_url(pasted) == "https://www.screener.in/screens/86/quarterly-growers/", pasted
+        assert (
+            scraper.screen_url(pasted) == "https://www.screener.in/screens/86/quarterly-growers/"
+        ), pasted
 
     # A server-side fetch of a pasted URL: everything that isn't a screener.in screen is refused.
     for bad in (
@@ -233,8 +239,7 @@ def test_screen_url_is_canonical_and_guarded():
             scraper.screen_url(bad)
         except ValueError:
             continue
-        msg = f"should have refused {bad!r}"
-        raise AssertionError(msg)
+        raise AssertionError(f"should have refused {bad!r}")
 
 
 def test_returns_none_without_company_heading():

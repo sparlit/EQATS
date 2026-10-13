@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_urlencode_with_array_repeat():
@@ -52,5 +52,10 @@ def test_urlencode_with_array_repeat():
     expected2b = "product_ids=AA&product_ids=BB&a=1"
     result2 = exchange.urlencode_with_array_repeat(dict2)
     assert result2 in (expected2a, expected2b), (
-        "urlencodeWithArrayRepeat: expected " + expected2a + " or " + expected2b + " but got " + result2
+        "urlencodeWithArrayRepeat: expected "
+        + expected2a
+        + " or "
+        + expected2b
+        + " but got "
+        + result2
     )

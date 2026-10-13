@@ -34,15 +34,11 @@ Fallback chain:
 """
 
 
-from typing import TYPE_CHECKING, Optional
-
 import pandas as pd
+from brokers.base import OptionsContract
 from brokers.session import get_data_broker
 from market.nse_scraper import nse_get_options_chain
 from market.source_tracker import record_source, warn_fallback
-
-if TYPE_CHECKING:
-    from brokers.base import OptionsContract
 
 
 def get_options_chain(
@@ -84,7 +80,8 @@ def get_expiries(underlying: str) -> list[str]:
     Returns dates as "YYYY-MM-DD" strings.
     """
     chain = get_data_broker().get_options_chain(underlying)
-    return sorted({c.expiry for c in chain})
+    dates = sorted({c.expiry for c in chain})
+    return dates
 
 
 def chain_to_dataframe(contracts: list[OptionsContract]) -> pd.DataFrame:

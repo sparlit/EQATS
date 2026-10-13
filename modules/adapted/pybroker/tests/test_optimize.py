@@ -51,7 +51,7 @@ from pybroker.slippage import (
 from pybroker.strategy import Strategy
 from pybroker.vect import highv
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401,F403
 
 START_DATE = "2020-01-02"
 END_DATE = "2021-12-31"
@@ -161,9 +161,8 @@ def test_optimize_grid_smoke(data_source_df):
 
     def exec_fn(ctx):
         vals = ctx.indicator(hhv.name)
-        if len(vals) > 0 and vals[-1] > 0:
-            if not ctx.long_pos():
-                ctx.buy_shares = 10
+        if len(vals) > 0 and vals[-1] > 0 and not ctx.long_pos():
+            ctx.buy_shares = 10
 
     strategy.add_execution(exec_fn, "AAPL", indicators=[hhv])
     opt = strategy.optimize(
@@ -198,9 +197,8 @@ def test_optimize_result_to_json(data_source_df):
 
     def exec_fn(ctx):
         vals = ctx.indicator(hhv.name)
-        if len(vals) > 0 and vals[-1] > 0:
-            if not ctx.long_pos():
-                ctx.buy_shares = 10
+        if len(vals) > 0 and vals[-1] > 0 and not ctx.long_pos():
+            ctx.buy_shares = 10
 
     strategy.add_execution(exec_fn, "AAPL", indicators=[hhv])
     opt = strategy.optimize(
@@ -284,9 +282,8 @@ def test_optimize_indicator_integration(data_source_df):
 
     def exec_fn(ctx):
         vals = ctx.indicator(hhv.name)
-        if len(vals) > 0 and vals[-1] > 0:
-            if not ctx.long_pos():
-                ctx.buy_shares = 10
+        if len(vals) > 0 and vals[-1] > 0 and not ctx.long_pos():
+            ctx.buy_shares = 10
 
     strategy.add_execution(exec_fn, "AAPL", indicators=[hhv])
     opt = strategy.optimize(
@@ -399,14 +396,15 @@ def test_grid_explosion_guard(data_source_df):
     study = MagicMock()
     study.best_params = {"p": 1}
     study.best_value = 1.0
-    with pytest.warns(UserWarning, match="Grid size"), patch("optuna.create_study", return_value=study):
-        with patch.object(study, "optimize"):
-            strategy.optimize(
-                lambda r: r.metrics.total_pnl,
-                n_trials=None,
-                train_size=0.5,
-                parallel_indicators=False,
-            )
+    with pytest.warns(UserWarning, match="Grid size"):
+        with patch("optuna.create_study", return_value=study):
+            with patch.object(study, "optimize"):
+                strategy.optimize(
+                    lambda r: r.metrics.total_pnl,
+                    n_trials=None,
+                    train_size=0.5,
+                    parallel_indicators=False,
+                )
 
 
 def test_optimize_rejects_models(data_source_df):
@@ -578,7 +576,11 @@ def test_load_pretrained_models_threads_lookahead(data_source_df, monkeypatch):
         "AAPL",
         models=[trainable.intervals("base", "weekly")],
     )
-    df = data_source_df[data_source_df["symbol"] == "AAPL"].sort_values("date").reset_index(drop=True)
+    df = (
+        data_source_df[data_source_df["symbol"] == "AAPL"]
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
     window = next(iter(strategy.walkforward_split(df, windows=1, lookahead=3, train_size=0.5)))
     captured: dict = {}
 
@@ -604,7 +606,9 @@ def test_load_pretrained_models_threads_lookahead(data_source_df, monkeypatch):
     assert captured["lookahead"] == 3
     model_syms = set(captured["model_syms"])
     assert ModelSymbol("lookahead_thread_model", "AAPL") in model_syms
-    assert ModelSymbol(model_interval_name("lookahead_thread_model", "weekly"), "AAPL") in model_syms
+    assert (
+        ModelSymbol(model_interval_name("lookahead_thread_model", "weekly"), "AAPL") in model_syms
+    )
 
 
 def test_load_pretrained_models_pooled_interval_groups(data_source_df, monkeypatch):
@@ -622,7 +626,11 @@ def test_load_pretrained_models_pooled_interval_groups(data_source_df, monkeypat
         "AAPL",
         models=[pooled_model.intervals("base", "weekly")],
     )
-    df = data_source_df[data_source_df["symbol"] == "AAPL"].sort_values("date").reset_index(drop=True)
+    df = (
+        data_source_df[data_source_df["symbol"] == "AAPL"]
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
     window = next(iter(strategy.walkforward_split(df, windows=1, lookahead=1, train_size=0.5)))
     captured: dict = {}
 
@@ -721,15 +729,17 @@ def test_optimize_trials_never_see_test_bars(data_source_df):
     )
     sym_df = data_source_df[data_source_df["symbol"] == "AAPL"]
     sym_df = (
-        sym_df[(sym_df["date"] >= pd.Timestamp(START_DATE)) & (sym_df["date"] <= pd.Timestamp(END_DATE))]
+        sym_df[
+            (sym_df["date"] >= pd.Timestamp(START_DATE))
+            & (sym_df["date"] <= pd.Timestamp(END_DATE))
+        ]
         .sort_values("date")
         .reset_index(drop=True)
     )
     window = next(iter(strategy.walkforward_split(sym_df, windows=1, lookahead=1, train_size=0.5)))
     train_dates = {pd.Timestamp(date) for date in sym_df["date"].iloc[window.train_data]}
     test_dates = {pd.Timestamp(date) for date in sym_df["date"].iloc[window.test_data]}
-    assert train_dates
-    assert test_dates
+    assert train_dates and test_dates
     best = opt.best_params["lookback"]
     assert best in (5, 10)
     losing = 5 if best == 10 else 10
@@ -963,7 +973,7 @@ def test_optimize_when_windows_not_positive_then_error(data_source_df):
 
 
 @pytest.mark.parametrize(
-    ("start_date", "end_date"),
+    "start_date, end_date",
     [("2019-01-01", None), (None, "2022-06-01")],
 )
 def test_optimize_when_dates_out_of_range_then_error(data_source_df, start_date, end_date):
@@ -1064,8 +1074,7 @@ def test_optimize_when_max_long_positions_is_hyperparam_and_windows(
         parallel_indicators=False,
     )
     assert result.best_params["mlp"] in (1, 2, 3)
-    assert result.windows is not None
-    assert len(result.windows) == 2
+    assert result.windows is not None and len(result.windows) == 2
 
 
 def test_optimize_invariant_indicator_computed_once_per_run(data_source_df):

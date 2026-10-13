@@ -29,7 +29,6 @@ import gzip
 import json
 import os
 import re
-import sys
 import sys as _s
 import time
 
@@ -67,9 +66,9 @@ def page(c, qi):
     ):
         if os.path.exists(p):
             return gzip.open(p, "rt", encoding="utf-8", errors="ignore").read()
-    u = "https://www.bseindia.com/corporates/ShareholdingPattern.aspx?scripcd=%d&flag_qtr=1&qtrid=%d.00&Flag=New" % (
-        c,
-        qi,
+    u = (
+        "https://www.bseindia.com/corporates/ShareholdingPattern.aspx?scripcd=%d&flag_qtr=1&qtrid=%d.00&Flag=New"
+        % (c, qi)
     )
     code, body = PG(u)  # plain, honestly identified client — www host only (no impersonation)
     txt = body.decode("utf-8", "ignore")
@@ -136,7 +135,9 @@ for s in sorted(sel):
             stat[s + "|" + q] = "already on (A+B)"
             continue
         if dABC > 0.06:
-            stat[s + "|" + q] = f"stored promoter matches neither column ({stored:.2f} vs {ref[1]:.2f}/{ref[2]:.2f})"
+            stat[s + "|" + q] = (
+                f"stored promoter matches neither column ({stored:.2f} vs {ref[1]:.2f}/{ref[2]:.2f})"
+            )
             continue
         new = list(cell)
         for i in range(5):

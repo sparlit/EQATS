@@ -96,6 +96,5 @@ class TestParityHarness:
         closes = pd.Series([50] * 20 + [100] * 20 + [150, 160, 175])
         seq = rp.signal_sequence(closes, fast=5, slow=10)
         # flat-low -> -1; sustained rally flips and stays +1
-        assert seq[0] == -1
-        assert seq[-1] == 1
+        assert seq[0] == -1 and seq[-1] == 1
         assert set(seq) <= {-1, 1}

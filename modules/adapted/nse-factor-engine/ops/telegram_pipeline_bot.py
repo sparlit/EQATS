@@ -64,7 +64,9 @@ PARQUET_MAX_WAIT = 300
 # ─────────────────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO, filename="/home/ec2-user/telegram_bot.log"
+    format="%(asctime)s %(levelname)s %(message)s",
+    level=logging.INFO,
+    filename="/home/ec2-user/telegram_bot.log",
 )
 
 
@@ -130,11 +132,9 @@ def format_monitor_mid_message(data, mode):
         header = f"📊 <b>Monitor · {data['as_of']}</b>"
         lines = [
             header,
-            (
-                f"Rebal: {data.get('rebal_date', '—')} | "
-                f"Nifty500 returns past 12m: {data['mkt_ret'] * 100:+.1f}% | "
-                f"Port β: {data['port_beta']:.2f}"
-            ),
+            f"Rebal: {data.get('rebal_date', '—')} | "
+            f"Nifty500 returns past 12m: {data['mkt_ret'] * 100:+.1f}% | "
+            f"Port β: {data['port_beta']:.2f}",
             "",
         ]
 
@@ -144,7 +144,11 @@ def format_monitor_mid_message(data, mode):
         # Insert divider before first SELL
         if s["action"] == "SELL" and not sell_divider_inserted:
             lines.append("─" * 32)
-            label = "🔴 <b>MID-MONTH EXITS</b>" if mode == "mid_month" else "🔴 <b>EXITING POSITIONS</b>"
+            label = (
+                "🔴 <b>MID-MONTH EXITS</b>"
+                if mode == "mid_month"
+                else "🔴 <b>EXITING POSITIONS</b>"
+            )
             lines.append(label)
             lines.append("")
             sell_divider_inserted = True
@@ -174,7 +178,9 @@ def format_monitor_mid_message(data, mode):
                 em = "🔵"
             rsi_vals = f"{r:.0f}→{t:.0f} ({chg:+.0f})"
             exit_flag = (r < 50 and t < 50 and chg <= 0) or (r >= 50 and t < 50)
-            rsi = f"⚠️ <b>RSI(rebal→now) {rsi_vals}</b>" if exit_flag else f"RSI(rebal→now) {rsi_vals}"
+            rsi = (
+                f"⚠️ <b>RSI(rebal→now) {rsi_vals}</b>" if exit_flag else f"RSI(rebal→now) {rsi_vals}"
+            )
 
         elif s.get("rsi_today") is not None:
             # rsi_rebal not available (e.g. mid_month BUY — new entry)
@@ -276,7 +282,9 @@ async def run_pipeline_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🔀 Mid-Month", callback_data="pipeline_mid_month"),
         ]
     ]
-    await update.message.reply_text("Select pipeline mode:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(
+        "Select pipeline mode:", reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 # ── Button callback — mode selected ───────────────────────────────────────────
@@ -325,10 +333,10 @@ async def pipeline_mode_callback(update: Update, context: ContextTypes.DEFAULT_T
                     if "<<<MONITOR_JSON_START>>>" in line:
                         in_json_block[0] = True
                         continue
-                    if "<<<MONITOR_JSON_END>>>" in line:
+                    elif "<<<MONITOR_JSON_END>>>" in line:
                         in_json_block[0] = False
                         continue
-                    if in_json_block[0]:
+                    elif in_json_block[0]:
                         json_lines.append(line.strip())
 
                 # Stage progress messages
@@ -388,7 +396,8 @@ async def pipeline_mode_callback(update: Update, context: ContextTypes.DEFAULT_T
 
         if process.returncode != 0:
             await query.message.reply_text(
-                f"Pipeline failed (exit {process.returncode}). Check logs: journalctl -u telegram-pipeline-bot -n 50"
+                f"Pipeline failed (exit {process.returncode}). "
+                f"Check logs: journalctl -u telegram-pipeline-bot -n 50"
             )
             return
 
@@ -408,7 +417,8 @@ async def pipeline_mode_callback(update: Update, context: ContextTypes.DEFAULT_T
                     logging.exception("Monitor/mid_month format error")
             else:
                 await query.message.reply_text(
-                    f"{'Monitor' if mode == 'monitor' else 'Mid-month'} mode complete — no summary captured."
+                    f"{'Monitor' if mode == 'monitor' else 'Mid-month'} "
+                    f"mode complete — no summary captured."
                 )
 
         # ── Rebalance: portfolio PDFs ─────────────────────────────────────────
@@ -430,11 +440,15 @@ async def pipeline_mode_callback(update: Update, context: ContextTypes.DEFAULT_T
                         await query.message.reply_text(f"PDF not found: {p.name}")
             else:
                 err = fmt_stderr.decode("utf-8", errors="replace")[-500:]
-                await query.message.reply_text(f"Portfolio PDF failed:\n<pre>{err}</pre>", parse_mode="HTML")
+                await query.message.reply_text(
+                    f"Portfolio PDF failed:\n<pre>{err}</pre>", parse_mode="HTML"
+                )
 
         # ── Market movement PDF — all modes ──────────────────────────────────
         run_date_str = pd.Timestamp.now(tz="Asia/Kolkata").strftime("%d%m%Y")
-        await send_pdf(query, MKT_PDF_DIR / f"market_movement_report_{run_date_str}.pdf", "Market movement")
+        await send_pdf(
+            query, MKT_PDF_DIR / f"market_movement_report_{run_date_str}.pdf", "Market movement"
+        )
 
     except Exception as e:
         await query.message.reply_text(f"Error: {e}")
@@ -472,7 +486,9 @@ async def run_regime(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 elif "STEP 1a" in line:
                     await update.message.reply_text("🔄 Step 1a — checking stock prices")
                 elif "STEP 1b" in line:
-                    await update.message.reply_text("🔄 Step 1b — liquidity & risk index (4 universes)")
+                    await update.message.reply_text(
+                        "🔄 Step 1b — liquidity & risk index (4 universes)"
+                    )
                 elif "STEP 2" in line and "Narrative" in line:
                     await update.message.reply_text("🔄 Step 2 — generating narratives")
                 elif "STEP 3a" in line:
@@ -506,7 +522,9 @@ async def run_regime(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         run_date_str = pd.Timestamp.now(tz="Asia/Kolkata").strftime("%Y-%m-%d")
-        await send_pdf(update, REGIME_PDF_DIR / f"regime_report_design_{run_date_str}.pdf", "Regime report")
+        await send_pdf(
+            update, REGIME_PDF_DIR / f"regime_report_design_{run_date_str}.pdf", "Regime report"
+        )
 
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -521,12 +539,20 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     pipeline_proc = await asyncio.create_subprocess_exec(
-        "pgrep", "-f", "run_pipeline.py", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+        "pgrep",
+        "-f",
+        "run_pipeline.py",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
     )
     p_out, _ = await pipeline_proc.communicate()
 
     regime_proc = await asyncio.create_subprocess_exec(
-        "pgrep", "-f", "regime_master.py", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+        "pgrep",
+        "-f",
+        "regime_master.py",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
     )
     r_out, _ = await regime_proc.communicate()
 

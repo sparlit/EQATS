@@ -44,7 +44,6 @@ on ``tradingview_ta`` / ``tradingview-screener`` being functional in CI.
 import asyncio
 import inspect
 import time
-from unittest import mock
 
 import pytest
 from tradingview_mcp import server
@@ -176,7 +175,9 @@ async def test_top_gainers_offloads_to_thread(monkeypatch):
     async def parallel_marker():
         await asyncio.sleep(0.2)
 
-    gainers_task = asyncio.create_task(server.top_gainers(exchange="KUCOIN", timeframe="15m", limit=5))
+    gainers_task = asyncio.create_task(
+        server.top_gainers(exchange="KUCOIN", timeframe="15m", limit=5)
+    )
     marker_task = asyncio.create_task(parallel_marker())
     rows, _ = await asyncio.gather(gainers_task, marker_task)
     elapsed = time.perf_counter() - start
@@ -333,8 +334,7 @@ async def test_multi_timeframe_analysis_offloads(monkeypatch):
         server.multi_timeframe_analysis("ETHUSDT", "KUCOIN"),
     )
     elapsed = time.perf_counter() - start
-    assert a["ok"] is True
-    assert b["ok"] is True
+    assert a["ok"] is True and b["ok"] is True
     # Parallel ≈ 0.2s, sequential ≈ 0.4s — bound midway for CI jitter.
     assert elapsed < 0.32
 

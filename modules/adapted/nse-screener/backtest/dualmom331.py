@@ -118,12 +118,18 @@ def main():
         share = q[q > 0].max() / q[q > 0].sum() if (q > 0).any() else 1.0
         good = share < 0.40
         a2 &= good
-        print(f"  {wname}: best quarter = {share:.0%} of positive excess [{'ok' if good else 'FAIL'}]")
+        print(
+            f"  {wname}: best quarter = {share:.0%} of positive excess [{'ok' if good else 'FAIL'}]"
+        )
 
     print("\nStage A3 — after-tax:")
     a3 = True
     for wname, lo, hi in WINDOWS:
-        wl = [(a, b, r) for a, b, r in lots if str(a.date()) >= lo and (hi is None or str(b.date()) <= hi)]
+        wl = [
+            (a, b, r)
+            for a, b, r in lots
+            if str(a.date()) >= lo and (hi is None or str(b.date()) <= hi)
+        ]
         eq_at = 1.0
         for a, b, r in wl:
             tax = STCG if (b - a).days <= 365 else LTCG

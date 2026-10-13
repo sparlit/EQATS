@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.async_support.base.ws.cache import (
+from ccxt.async_support.base.ws.cache import (  # noqa: F402
     ArrayCache,
     ArrayCacheByOutcomeById,
     ArrayCacheBySymbolById,
@@ -468,7 +470,7 @@ def test_ws_cache():
     symbol = "BTC/USDT"
     cache_symbol_id_2 = ArrayCacheBySymbolById()
     initial_length = 5
-    for i in range(initial_length):
+    for i in range(0, initial_length):
         cache_symbol_id_2.append(
             {
                 "symbol": symbol,
@@ -481,7 +483,7 @@ def test_ws_cache():
     # ----------------------------------------------------------------------------
     cache_symbol_id_3 = ArrayCacheBySymbolById()
     append_items_length = 3
-    for i in range(append_items_length):
+    for i in range(0, append_items_length):
         cache_symbol_id_3.append(
             {
                 "symbol": symbol,
@@ -500,7 +502,7 @@ def test_ws_cache():
     symbol = "BTC/USDT"
     cache_symbol_id_4 = ArrayCacheBySymbolById()
     initial_length = 5
-    for i in range(initial_length):
+    for i in range(0, initial_length):
         cache_symbol_id_4.append(
             {
                 "symbol": symbol,
@@ -513,7 +515,7 @@ def test_ws_cache():
     # ----------------------------------------------------------------------------
     cache_symbol_id_6 = ArrayCacheBySymbolById()
     append_items_length = 3
-    for i in range(append_items_length):
+    for i in range(0, append_items_length):
         cache_symbol_id_6.append(
             {
                 "symbol": symbol,
@@ -562,12 +564,12 @@ def test_ws_cache():
     # test testLimitArrayCacheByTimestamp limit
     timestamp_cache_2 = ArrayCacheByTimestamp()
     initial_length = 5
-    for i in range(initial_length):
+    for i in range(0, initial_length):
         timestamp_cache_2.append([i * 10, i * 10, i * 10, i * 10])
     limited = timestamp_cache_2.get_limit(None, None)
     assert initial_length == limited
     append_items_length = 3
-    for i in range(append_items_length):
+    for i in range(0, append_items_length):
         timestamp_cache_2.append([i * 4, i * 4, i * 4, i * 4])
     outside_limit = 5
     limited = timestamp_cache_2.get_limit(None, outside_limit)
@@ -819,12 +821,9 @@ def test_ws_cache():
             "contracts": 4,
         }
     )  # update first position
-    assert cache_symbol_side_4[0]["contracts"] == 1
-    assert cache_symbol_side_4[0]["symbol"] == symbol
-    assert cache_symbol_side_4[1]["contracts"] == 3
-    assert cache_symbol_side_4[1]["symbol"] == symbol3
-    assert cache_symbol_side_4[2]["contracts"] == 4
-    assert cache_symbol_side_4[2]["symbol"] == symbol2
+    assert cache_symbol_side_4[0]["contracts"] == 1 and cache_symbol_side_4[0]["symbol"] == symbol
+    assert cache_symbol_side_4[1]["contracts"] == 3 and cache_symbol_side_4[1]["symbol"] == symbol3
+    assert cache_symbol_side_4[2]["contracts"] == 4 and cache_symbol_side_4[2]["symbol"] == symbol2
     array_length = len(cache_symbol_side_4)
     assert array_length == 3
     # ----------------------------------------------------------------------------
@@ -1128,7 +1127,7 @@ def test_ws_cache():
     # symbols used to leak one empty object per symbol into the hashmap forever,
     # so the map grew without bound even though the array stayed at maxSize
     cache_evict_buckets = ArrayCacheBySymbolById(3)
-    for i in range(10):
+    for i in range(0, 10):
         cache_evict_buckets.append(
             {
                 "symbol": "S" + str(i) + "/USDT",
@@ -1170,7 +1169,9 @@ def test_ws_cache():
         }
     )
     global_scope = cache_two_scopes.get_limit(None, 100)
-    assert global_scope == 2  # distinct ids a and b since no global poll happened - id a must not double-count
+    assert (
+        global_scope == 2
+    )  # distinct ids a and b since no global poll happened - id a must not double-count
     symbol_scope_second = cache_two_scopes.get_limit("BTC/USDT", 100)
     assert symbol_scope_second == 1  # id a since the last symbol-scoped poll
     # the inverse direction: a global poll (and the append that fires its
@@ -1190,7 +1191,9 @@ def test_ws_cache():
         }
     )
     global_scope_second = cache_two_scopes.get_limit(None, 100)
-    assert global_scope_second == 2  # ids d and e since the first global poll - id a was consumed by it
+    assert (
+        global_scope_second == 2
+    )  # ids d and e since the first global poll - id a was consumed by it
     cache_two_scopes.append(
         {
             "symbol": "BTC/USDT",
@@ -1229,7 +1232,9 @@ def test_ws_cache():
         }
     )
     side_global = side_two_scopes.get_limit(None, 100)
-    assert side_global == 2  # long and short distinct since no global poll - the re-updated long must not double-count
+    assert (
+        side_global == 2
+    )  # long and short distinct since no global poll - the re-updated long must not double-count
     side_two_scopes.append(
         {
             "symbol": "BTC/USDT:USDT",

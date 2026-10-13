@@ -62,8 +62,12 @@ SRC_FILES = [
 SRC_FILES.append(("_nsearch_reads.json", None))  # NSE archived-HTML pull; cell carries its own fin
 SRC_FILES.append(("_nsexbrl_reads.json", None))  # NSE per-filing XBRL (2018-19)
 SRC_FILES.append(("_mc_reads.json", None))  # Moneycontrol browser-driven (PAT-anchored per cell)
-SRC_FILES.append(("_screener_reads.json", None))  # Screener.in annual-total derivation (see _screener_annual.py)
-SRC_FILES.append(("_bsedet_reads.json", None))  # BSE detailed-results JSON (as-filed, _bse_detres.py)
+SRC_FILES.append(
+    ("_screener_reads.json", None)
+)  # Screener.in annual-total derivation (see _screener_annual.py)
+SRC_FILES.append(
+    ("_bsedet_reads.json", None)
+)  # BSE detailed-results JSON (as-filed, _bse_detres.py)
 # Companies delisted from EQUITY but still filing under BSE's DEBT segment (listed NCDs keep
 # Reg-33/52 obligations alive): their results never appear under the equity scrip code, so the
 # equity-side routes all report "no filing". Look the issuer up in ListofScripData?segment=Debt.
@@ -96,9 +100,15 @@ PRE2015_LEDGERS = [
     os.path.join(HERE, "pre2015_reads_n.json"),  # STEP N: NSE archive 2005-07 + residue
     os.path.join(HERE, "pre2015_reads_w.json"),  # STEP W: archived NSE eod/results.jsp 2002-04
     os.path.join(HERE, "pre2015_reads_a.json"),  # STEP A: NSE annual-minus-3-siblings derivation
-    os.path.join(HERE, "pre2015_reads_e.json"),  # STEP E: detres EPS-recon re-gate of D's unread-EPS refusals
-    os.path.join(HERE, "pre2015_reads_f.json"),  # STEP F: NSE-archive EPS-recon for cells with no stored PAT anchor
-    os.path.join(HERE, "pre2015_reads_g.json"),  # STEP G: bespoke 2014 close-out (cross-publisher field completion)
+    os.path.join(
+        HERE, "pre2015_reads_e.json"
+    ),  # STEP E: detres EPS-recon re-gate of D's unread-EPS refusals
+    os.path.join(
+        HERE, "pre2015_reads_f.json"
+    ),  # STEP F: NSE-archive EPS-recon for cells with no stored PAT anchor
+    os.path.join(
+        HERE, "pre2015_reads_g.json"
+    ),  # STEP G: bespoke 2014 close-out (cross-publisher field completion)
     # STEP X: GATE X over the CLASS-D residue, 2026-08-26. PRE2015_CAMPAIGN.md's own
     # note on that residue -- "the DATA was read, only the proof failed; a third gate
     # (cross-source agreement, the old GATE X idea) could close some without any new
@@ -174,7 +184,9 @@ def main_pre2015():
                     skipped.append((sym, qe, "gate-S but no stored PAT at apply time (drifted?)"))
                     continue
                 if not close(row[1], pat):
-                    skipped.append((sym, qe, f"gate-S anchor drift at apply: stored={row[1]} read={pat}"))
+                    skipped.append(
+                        (sym, qe, f"gate-S anchor drift at apply: stored={row[1]} read={pat}")
+                    )
                     continue
                 stored_pat = row[1]
             elif gate == "C":
@@ -188,10 +200,25 @@ def main_pre2015():
                 # whole chain; it is RE-COMPUTED here rather than trusted from harvest time,
                 # exactly as gates S/F re-verify. Every link must close within 0.01 cr.
                 ch = c.get("chain") or {}
-                need = ("rev", "totexp", "op_before", "other_income", "pbit", "interest", "pbt", "tax", "pat")
+                need = (
+                    "rev",
+                    "totexp",
+                    "op_before",
+                    "other_income",
+                    "pbit",
+                    "interest",
+                    "pbt",
+                    "tax",
+                    "pat",
+                )
                 if any(ch.get(k) is None for k in need):
                     skipped.append(
-                        (sym, qe, "gate-C incomplete chain: missing %s" % [k for k in need if ch.get(k) is None])
+                        (
+                            sym,
+                            qe,
+                            "gate-C incomplete chain: missing %s"
+                            % [k for k in need if ch.get(k) is None],
+                        )
                     )
                     continue
                 links = [
@@ -205,12 +232,18 @@ def main_pre2015():
                     skipped.append((sym, qe, f"gate-C chain does not close: {bad}"))
                     continue
                 if not close(ch["pat"], pat):
-                    skipped.append((sym, qe, "gate-C chain pat {} != ledger pat {}".format(ch["pat"], pat)))
+                    skipped.append(
+                        (sym, qe, "gate-C chain pat {} != ledger pat {}".format(ch["pat"], pat))
+                    )
                     continue
                 if row is not None and row[1] is not None:
                     if not close(row[1], pat):
                         skipped.append(
-                            (sym, qe, f"gate-C but stored PAT now present and disagrees: stored={row[1]} read={pat}")
+                            (
+                                sym,
+                                qe,
+                                f"gate-C but stored PAT now present and disagrees: stored={row[1]} read={pat}",
+                            )
                         )
                         continue
                     stored_pat = row[1]
@@ -301,7 +334,13 @@ def main_pre2015():
     gc = Counter(g for _, _, g in applied)
     print(
         "pre2015: applied %d cells (%s) | %d new fundamentals rows | %d std slots filled in place | skipped %d"
-        % (len(applied), ", ".join("%s=%d" % kv for kv in sorted(gc.items())), fund_new, fund_fill, len(skipped))
+        % (
+            len(applied),
+            ", ".join("%s=%d" % kv for kv in sorted(gc.items())),
+            fund_new,
+            fund_fill,
+            len(skipped),
+        )
     )
     for s in skipped:
         print("  SKIP", s)
@@ -342,10 +381,19 @@ def main():
                     row = fmap.get(sym, {}).get(qe)
                     stored_pat = None
                     if row:
-                        stored_pat = row[1] if basis == "std" else (row[3] if len(row) > 3 else None)
+                        stored_pat = (
+                            row[1] if basis == "std" else (row[3] if len(row) > 3 else None)
+                        )
                     if not close(stored_pat, c.get("pat_seen")):
                         skipped.append(
-                            (sym, qe, basis, "anchor drift stored={} seen={}".format(stored_pat, c.get("pat_seen")))
+                            (
+                                sym,
+                                qe,
+                                basis,
+                                "anchor drift stored={} seen={}".format(
+                                    stored_pat, c.get("pat_seen")
+                                ),
+                            )
                         )
                         continue
                     ri, oi_ = (0, 2) if basis == "std" else (1, 3)
@@ -384,7 +432,6 @@ def main():
         json.dump(scr, open(SCR, "w"), separators=(",", ":"))
         json.dump(ledger, open(LEDGER, "w"), indent=0, sort_keys=True)
         print("written: sf_revop.json, revop_fundamentals.json, vision_rev_fills.json")
-    return None
 
 
 if __name__ == "__main__":

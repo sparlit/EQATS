@@ -389,8 +389,7 @@ fn parse_agent_jsonl(file_path: &Path, family: Family) -> Option<SavedSession> {
 ///   - `thread_source == "subagent"` (`ThreadSource::Subagent`).
 ///
 /// `forked_from_id` is deliberately NOT a marker: it identifies user-initiated
-/// fork/resume sessions, which are legit top-level user sessions. Mirrors
-/// orca's `isCodexWorkerSession` and cc-switch's `is_subagent_source`.
+/// fork/resume sessions, which are legit top-level user sessions.
 fn is_codex_subagent_session(payload: &serde_json::Value) -> bool {
     if payload
         .get("source")

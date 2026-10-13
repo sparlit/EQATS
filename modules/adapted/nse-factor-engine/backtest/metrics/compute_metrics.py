@@ -146,7 +146,7 @@ def norm_ppf(p: float) -> float:
         return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
             (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
         )
-    if p <= p_high:
+    elif p <= p_high:
         q = p - 0.5
         r = q * q
         return (
@@ -154,10 +154,11 @@ def norm_ppf(p: float) -> float:
             * q
             / (((((b[1] * r + b[2]) * r + b[3]) * r + b[4]) * r + b[5]) * r + 1)
         )
-    q = sqrt(-2 * log(1 - p))
-    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
-        (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
-    )
+    else:
+        q = sqrt(-2 * log(1 - p))
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
+        )
 
 
 def _dd_buckets(weekly_rets: pd.Series) -> dict:

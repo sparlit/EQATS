@@ -28,7 +28,7 @@ importing a router from main.py just to reach it would invert the dependency.
 """
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.core import db, scraper
 from app.deps import _cached
@@ -46,7 +46,9 @@ QUOTE_TTL_MINUTES = 1
 # queue another fetch for the same handful of symbols while the first ones are still running.
 _refreshing = set()
 _refresh_lock = threading.Lock()
-_refresh_pool = ThreadPoolExecutor(max_workers=MAX_QUOTE_WORKERS, thread_name_prefix="quote-refresh")
+_refresh_pool = ThreadPoolExecutor(
+    max_workers=MAX_QUOTE_WORKERS, thread_name_prefix="quote-refresh"
+)
 
 
 def paper_price(symbol):

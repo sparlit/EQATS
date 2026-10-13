@@ -125,7 +125,15 @@ class Stop(NamedTuple):
     percent: Decimal | None
     points: Decimal | None
     bars: int | None
-    fill_price: int | float | np.floating | Decimal | PriceType | Callable[[str, BarData], int | float | Decimal] | None
+    fill_price: (
+        int
+        | float
+        | np.floating
+        | Decimal
+        | PriceType
+        | Callable[[str, BarData], int | float | Decimal]
+        | None
+    )
     limit_price: Decimal | None
     exit_price: PriceType | None
 
@@ -468,9 +476,8 @@ def _calculate_pnl_mae_mfe(
     low: float | None,
     high: float | None,
 ):
-    if pos.type not in {"long", "short"}:
-        msg = f"Unknown position type: {pos.type}"
-        raise ValueError(msg)
+    if pos.type != "long" and pos.type != "short":
+        raise ValueError(f"Unknown position type: {pos.type}")
     low_d = to_decimal(low) if low is not None else None
     high_d = to_decimal(high) if high is not None else None
     pnl = Decimal()
@@ -548,7 +555,7 @@ class Portfolio:
     def __init__(
         self,
         cash: float,
-        fee_mode: FeeMode | Callable[[FeeInfo], Decimal] | None = None,
+        fee_mode: FeeMode | Callable[[FeeInfo], Decimal] | None | None = None,
         fee_amount: float | None = None,
         enable_fractional_shares: bool = False,
         position_mode: PositionMode = PositionMode.DEFAULT,
@@ -660,25 +667,21 @@ class Portfolio:
             fees = self._fee_amount * shares
         else:
             _unreachable_fee_mode: Never = self._fee_mode
-            msg = f"Unknown FeeMode: {self._fee_mode!r}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown FeeMode: {self._fee_mode!r}")
         return fees
 
     def _verify_input(
         self,
-        shares: float | Decimal,
+        shares: int | float | Decimal,
         fill_price: Decimal,
         limit_price: Decimal | None,
     ):
         if shares < 0:
-            msg = f"Shares cannot be negative: {shares}"
-            raise ValueError(msg)
+            raise ValueError(f"Shares cannot be negative: {shares}")
         if fill_price <= 0:
-            msg = f"Fill price must be > 0: {fill_price}"
-            raise ValueError(msg)
+            raise ValueError(f"Fill price must be > 0: {fill_price}")
         if limit_price is not None and limit_price <= 0:
-            msg = f"Limit price must be > 0: {limit_price}"
-            raise ValueError(msg)
+            raise ValueError(f"Limit price must be > 0: {limit_price}")
 
     def _add_entry(
         self,
@@ -786,8 +789,7 @@ class Portfolio:
             return price * float(stop.percent) / 100.0
         if stop.points is not None:
             return float(stop.points)
-        msg = "Stop amount not set."
-        raise ValueError(msg)
+        raise ValueError("Stop amount not set.")
 
     def _get_stop_amount(self, stop: Stop, price: Decimal) -> Decimal:
         return to_decimal(self._get_stop_amount_f(stop, float(price)))
@@ -801,15 +803,15 @@ class Portfolio:
         # on the same bar wins, reproducible.
         for stop in sorted(stops, key=lambda s: s.id):
             if stop.id in self._stop_data:
-                msg = f"Duplicate stop ID: {stop.id}"
-                raise ValueError(msg)
+                raise ValueError(f"Duplicate stop ID: {stop.id}")
             entry.stops.append(stop)
             if stop.stop_type == StopType.BAR:
                 continue
             amount = self._get_stop_amount_f(stop, float(entry.price))
             entry_price = float(entry.price)
             if (stop.pos_type == "long" and stop.stop_type == StopType.PROFIT) or (
-                stop.pos_type == "short" and (stop.stop_type in (StopType.LOSS, StopType.TRAILING))
+                stop.pos_type == "short"
+                and (stop.stop_type == StopType.LOSS or stop.stop_type == StopType.TRAILING)
             ):
                 stop_value = entry_price + amount
             else:
@@ -1025,7 +1027,7 @@ class Portfolio:
         if not covered.filled_shares and not bought_shares:
             return None
         intent = PositionIntent.BUY_TO_OPEN if bought_shares else PositionIntent.BUY_TO_CLOSE
-        return self._add_order(
+        order = self._add_order(
             date=date,
             symbol=symbol,
             type="buy",
@@ -1037,6 +1039,7 @@ class Portfolio:
             market_price=market_price,
             fill_price=fill_price,
         )
+        return order
 
     def _cover(
         self,
@@ -1223,7 +1226,7 @@ class Portfolio:
         if not sold.filled_shares and not short_shares:
             return None
         intent = PositionIntent.SELL_TO_OPEN if short_shares else PositionIntent.SELL_TO_CLOSE
-        return self._add_order(
+        order = self._add_order(
             date=date,
             symbol=symbol,
             type="sell",
@@ -1235,6 +1238,7 @@ class Portfolio:
             market_price=market_price,
             fill_price=fill_price,
         )
+        return order
 
     def _sell_existing(
         self,
@@ -1313,8 +1317,9 @@ class Portfolio:
         if pos.type == "long":
             if pos.symbol in self.long_positions:
                 del self.long_positions[pos.symbol]
-        elif pos.symbol in self.short_positions:
-            del self.short_positions[pos.symbol]
+        else:
+            if pos.symbol in self.short_positions:
+                del self.short_positions[pos.symbol]
         if (
             pos.symbol in self.symbols
             and pos.symbol not in self.long_positions
@@ -1615,7 +1620,11 @@ class Portfolio:
         """
         for pos in itertools.chain(self.long_positions.values(), self.short_positions.values()):
             pos.bars += 1
-            has_bar = True if price_scope is None or date is None else price_scope.has_bar_on(pos.symbol, date)
+            has_bar = (
+                True
+                if price_scope is None or date is None
+                else price_scope.has_bar_on(pos.symbol, date)
+            )
             for entry in pos.entries:
                 entry.bars += 1
                 if has_bar:
@@ -1736,7 +1745,10 @@ class Portfolio:
                 entry = stop_data.entry
                 if entry.id in triggered_entry_ids:
                     continue
-                pos = self.long_positions.get(sym) if stop.pos_type == "long" else self.short_positions.get(sym)
+                if stop.pos_type == "long":
+                    pos = self.long_positions.get(sym)
+                else:
+                    pos = self.short_positions.get(sym)
                 if pos is None:
                     continue
                 triggered, fill_price = self._trigger_stop(
@@ -1832,7 +1844,9 @@ class Portfolio:
             symbol=stop.symbol,
             stop_type=stop.stop_type.value,
             pos_type=stop.pos_type,
-            curr_value=(to_decimal(self._stop_data[stop.id].value) if stop.id in self._stop_data else None),
+            curr_value=(
+                to_decimal(self._stop_data[stop.id].value) if stop.id in self._stop_data else None
+            ),
             curr_bars=(entry.sym_bars if stop.stop_type == StopType.BAR else None),
             bars=stop.bars,
             percent=stop.percent,
@@ -1896,14 +1910,13 @@ class Portfolio:
             return False, fill_price
         if stop.stop_type == StopType.BAR:
             fill_price = self._trigger_bar_stop(stop, price_scope, entry)
-        elif stop.stop_type in (StopType.LOSS, StopType.PROFIT):
+        elif stop.stop_type == StopType.LOSS or stop.stop_type == StopType.PROFIT:
             fill_price = self._trigger_profit_or_loss_stop(stop, price_scope)
         elif stop.stop_type == StopType.TRAILING:
             fill_price = self._trigger_trailing_stop(stop, price_scope)
         else:
             _unreachable_trigger_stop_type: Never = stop.stop_type
-            msg = f"Unknown stop type: {stop.stop_type}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown stop type: {stop.stop_type}")
         if fill_price is None:
             return False, fill_price
         market_price = fill_price
@@ -1934,9 +1947,11 @@ class Portfolio:
             order_type = "buy"
         else:
             _unreachable_pos_type: Never = stop.pos_type
-            msg = f"Unknown pos_type: {stop.pos_type}"
-            raise ValueError(msg)
-        intent = PositionIntent.SELL_TO_CLOSE if stop.pos_type == "long" else PositionIntent.BUY_TO_CLOSE
+            raise ValueError(f"Unknown pos_type: {stop.pos_type}")
+        if stop.pos_type == "long":
+            intent = PositionIntent.SELL_TO_CLOSE
+        else:
+            intent = PositionIntent.BUY_TO_CLOSE
         if stop.stop_type == StopType.BAR:
             stop_order_type = OrderType.STOP_BAR
         elif stop.stop_type == StopType.LOSS:
@@ -1947,8 +1962,7 @@ class Portfolio:
             stop_order_type = OrderType.STOP_TRAILING
         else:
             _unreachable_order_stop_type: Never = stop.stop_type
-            msg = f"Unknown stop type: {stop.stop_type}"
-            raise ValueError(msg)
+            raise ValueError(f"Unknown stop type: {stop.stop_type}")
         self._add_order(
             date=date,
             symbol=pos.symbol,
@@ -1963,16 +1977,19 @@ class Portfolio:
         )
         return True, fill_price
 
-    def _trigger_bar_stop(self, stop: Stop, price_scope: PriceScope, entry: Entry) -> Decimal | None:
+    def _trigger_bar_stop(
+        self, stop: Stop, price_scope: PriceScope, entry: Entry
+    ) -> Decimal | None:
         if stop.bars is None:
-            msg = "Bars not set on bar stop."
-            raise ValueError(msg)
+            raise ValueError("Bars not set on bar stop.")
         # Counted against the symbol's own bars, not the portfolio clock: a
         # hold_bars of 3 on a symbol that trades every third date must exit
         # after three of its bars, not after one.
         if entry.sym_bars >= stop.bars:
             fill_price: _BarStopFillPrice = (
-                PriceType.MIDDLE if stop.fill_price is None else cast("_BarStopFillPrice", stop.fill_price)
+                PriceType.MIDDLE
+                if stop.fill_price is None
+                else cast(_BarStopFillPrice, stop.fill_price)
             )
             resolved = price_scope.fetch(stop.symbol, fill_price)
             self._verify_stop_fill_price(stop, resolved)
@@ -1981,9 +1998,10 @@ class Portfolio:
 
     def _trigger_profit_or_loss_stop(self, stop: Stop, price_scope: PriceScope) -> Decimal | None:
         stop_value = self._stop_data[stop.id].value
-        if (stop.pos_type == "long" and (stop.stop_type in (StopType.LOSS, StopType.TRAILING))) or (
-            stop.pos_type == "short" and stop.stop_type == StopType.PROFIT
-        ):
+        if (
+            stop.pos_type == "long"
+            and (stop.stop_type == StopType.LOSS or stop.stop_type == StopType.TRAILING)
+        ) or (stop.pos_type == "short" and stop.stop_type == StopType.PROFIT):
             if stop.exit_price is not None:
                 exit_price = price_scope.fetch_float(stop.symbol, stop.exit_price)
                 if exit_price <= stop_value:
@@ -1994,7 +2012,8 @@ class Portfolio:
                     high = price_scope.fetch_float(stop.symbol, PriceType.HIGH)
                     return to_decimal(min(stop_value, high))
         elif (stop.pos_type == "long" and stop.stop_type == StopType.PROFIT) or (
-            stop.pos_type == "short" and (stop.stop_type in (StopType.LOSS, StopType.TRAILING))
+            stop.pos_type == "short"
+            and (stop.stop_type == StopType.LOSS or stop.stop_type == StopType.TRAILING)
         ):
             if stop.exit_price is not None:
                 exit_price = price_scope.fetch_float(stop.symbol, stop.exit_price)
@@ -2015,14 +2034,15 @@ class Portfolio:
         is especially quiet: every limit comparison against it is ``False``.
         """
         if fill_price.is_nan() or not fill_price.is_finite():
-            msg = f"Stop {stop.id} for {stop.symbol} resolved to a non-finite fill price: {fill_price}."
-            raise ValueError(msg)
+            raise ValueError(
+                f"Stop {stop.id} for {stop.symbol} resolved to a non-finite "
+                f"fill price: {fill_price}."
+            )
         if fill_price <= 0:
-            msg = (
+            raise ValueError(
                 f"Stop {stop.id} for {stop.symbol} resolved to a fill price "
                 f"of {fill_price}. Stop fill price must be > 0."
             )
-            raise ValueError(msg)
 
     def _trigger_trailing_stop(self, stop: Stop, price_scope: PriceScope) -> Decimal | None:
         fill_price = self._trigger_profit_or_loss_stop(stop, price_scope)

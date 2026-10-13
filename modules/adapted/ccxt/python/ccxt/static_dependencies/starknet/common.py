@@ -21,7 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import Literal, Union
+from typing import Literal
 
 
 def int_from_hex(number: str | int) -> int:

@@ -189,8 +189,7 @@ def test_prompt_carries_the_details_the_verdict_depends_on():
 
     assert "16 August 2026" in prompt  # recency judgements hinge on this
     assert "Menon Bearings Ltd" in prompt
-    assert "MENONBE" in prompt
-    assert ".NS" not in prompt
+    assert "MENONBE" in prompt and ".NS" not in prompt  # exchange suffix stripped
     assert "Auto Components" in prompt
     assert "229.68" in prompt
     assert "3.6" in prompt
@@ -330,7 +329,9 @@ def test_long_tool_results_are_truncated():
 
 def test_the_whole_transcript_is_capped():
     """Bounds a runaway loop, so row size is set here rather than by the agent."""
-    messages = [ToolMessage(content="y" * veto.MAX_TOOL_CHARS, tool_call_id=f"t{i}") for i in range(50)]
+    messages = [
+        ToolMessage(content="y" * veto.MAX_TOOL_CHARS, tool_call_id=f"t{i}") for i in range(50)
+    ]
 
     t = call(StubAgent(verdict(), messages))["transcript"]
 

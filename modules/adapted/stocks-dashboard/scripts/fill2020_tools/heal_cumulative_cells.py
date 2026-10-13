@@ -77,10 +77,8 @@ EXTRA = [
         "revS",
         3220.82,
         1667.11,
-        (
-            "stored value is EXACTLY Jun-2024 (1553.71) + 1667.11; screener Sep-2024 = 1667. "
-            "Year-to-date half-year figure stored as the quarter."
-        ),
+        "stored value is EXACTLY Jun-2024 (1553.71) + 1667.11; screener Sep-2024 = 1667. "
+        "Year-to-date half-year figure stored as the quarter.",
     ),
     (
         "CCAVENUE",
@@ -88,16 +86,19 @@ EXTRA = [
         "revS",
         97.29,
         697.0,
-        (
-            "neighbours 608.25 / 739.91 / 860.26 and screener 697 -- a lost leading digit. "
-            "crore-rounded from screener; exact filing figure not recovered."
-        ),
+        "neighbours 608.25 / 739.91 / 860.26 and screener 697 -- a lost leading digit. "
+        "crore-rounded from screener; exact filing figure not recovered.",
     ),
 ]
 
 
 def fy_quarters(fy):
-    return [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+    return [
+        (fy - 1) * 10000 + 630,
+        (fy - 1) * 10000 + 930,
+        (fy - 1) * 10000 + 1231,
+        fy * 10000 + 331,
+    ]
 
 
 def main():
@@ -161,12 +162,21 @@ def main():
         # And a "cumulative" whose correction is within noise was never cumulative -- KERNEX
         # 2.11 -> 2.07 is a 2% rounding difference, not a year parked in a quarter.
         if kind == "cumulative" and abs(new - cur) < 0.15 * abs(cur):
-            skip.append((sym, qe, field, f"correction {new:.2f} vs {cur:.2f} is within noise -- not cumulative"))
+            skip.append(
+                (
+                    sym,
+                    qe,
+                    field,
+                    f"correction {new:.2f} vs {cur:.2f} is within noise -- not cumulative",
+                )
+            )
             continue
         if sibs:
             m = sorted(sibs)[len(sibs) // 2]
             if m > 0 and not (0.25 * m <= new <= 4 * m):
-                skip.append((sym, qe, field, f"replacement {new} outside band of sibling median {m}"))
+                skip.append(
+                    (sym, qe, field, f"replacement {new} outside band of sibling median {m}")
+                )
                 continue
         ok.append((sym, qe, field, cur, new, ev))
 

@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 ALLOWED_STATUSES = {"PENDING", "READY", "BLOCKED", "REQUIRES_APPROVAL", "COMPLETED"}
 ALLOWED_ACTIONS = {"OBSERVE", "RESEARCH", "REVIEW", "ALERT", "NO_ACTION"}
@@ -39,20 +38,15 @@ class AutonomousTask:
 
     def __post_init__(self) -> None:
         if not self.task_id.strip():
-            msg = "task_id is required"
-            raise ValueError(msg)
+            raise ValueError("task_id is required")
         if self.action not in ALLOWED_ACTIONS:
-            msg = "unsupported action"
-            raise ValueError(msg)
+            raise ValueError("unsupported action")
         if self.status not in ALLOWED_STATUSES:
-            msg = "unsupported status"
-            raise ValueError(msg)
+            raise ValueError("unsupported status")
         if self.action != "NO_ACTION" and not self.evidence_refs:
-            msg = "actionable tasks require evidence"
-            raise ValueError(msg)
+            raise ValueError("actionable tasks require evidence")
         if self.status == "COMPLETED" and self.requires_human_approval:
-            msg = "approved execution must be recorded before completion"
-            raise ValueError(msg)
+            raise ValueError("approved execution must be recorded before completion")
 
 
 @dataclass(frozen=True)
@@ -64,8 +58,6 @@ class AutonomousCycle:
 
     def __post_init__(self) -> None:
         if not self.cycle_id.strip():
-            msg = "cycle_id is required"
-            raise ValueError(msg)
+            raise ValueError("cycle_id is required")
         if self.execution_enabled:
-            msg = "automated trade execution is not permitted"
-            raise ValueError(msg)
+            raise ValueError("automated trade execution is not permitted")

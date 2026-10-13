@@ -34,8 +34,6 @@ try harder as much as we can. eg.
    there to get previous business day before record date if it's there.
 """
 
-import sys
-
 import bs4
 import requests
 
@@ -70,7 +68,10 @@ other_data = {
     "ctl00$ContentPlaceHolder1$ddlPurpose": "Select",
 }
 
-button_data = {"ctl00$ContentPlaceHolder1$btnSubmit.x": "37", "ctl00$ContentPlaceHolder1$btnSubmit.y": "9"}
+button_data = {
+    "ctl00$ContentPlaceHolder1$btnSubmit.x": "37",
+    "ctl00$ContentPlaceHolder1$btnSubmit.y": "9",
+}
 
 url2 = "http://www.bseindia.com/corporates/corporate_act.aspx"
 form_data.update(other_data)
@@ -85,7 +86,7 @@ print("***********")
 y = requests.post(url2, data=form_data, stream=True)
 if not y.ok:
     print(y.text)
-    sys.exit(1)
+    exit(1)
 
 html = bs4.BeautifulSoup(y.text, "html.parser")
 hidden_elems = html.findAll(attrs={"type": "hidden"})
@@ -121,5 +122,5 @@ form_data2.update(other_data2)
 y2 = requests.post(url2, data=form_data2, stream=True)
 if not y2.ok:
     print(y2.text)
-    sys.exit(1)
+    exit(1)
 print(y2.text)

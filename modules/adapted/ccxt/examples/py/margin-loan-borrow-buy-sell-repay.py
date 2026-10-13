@@ -96,23 +96,27 @@ async def example():
                     "type": "spot",
                 }
             )
-            if exchange.parse_number(balance_spot[collateral_coin]["free"]) < needed_collateral_amount:
+            if (
+                exchange.parse_number(balance_spot[collateral_coin]["free"])
+                < needed_collateral_amount
+            ):
                 print(
                     "hmm, I neither do have enough balance on spot - only ",
                     balance_spot[collateral_coin]["free"],
                     ". Script can not continue...",
                 )
                 return
-            print("Transferring  ", needed_collateral_amount, " to margin account")
-            await exchange.transfer(
-                collateral_coin,
-                needed_collateral_amount,
-                "spot",
-                margin_mode,
-                {
-                    "symbol": symbol,
-                },
-            )
+            else:
+                print("Transferring  ", needed_collateral_amount, " to margin account")
+                await exchange.transfer(
+                    collateral_coin,
+                    needed_collateral_amount,
+                    "spot",
+                    margin_mode,
+                    {
+                        "symbol": symbol,
+                    },
+                )
         # now, as we have enough margin collateral, initiate borrow
         print("Initiating margin borrow of ", needed_amount_to_borrow, " ", borrow_coin)
         await exchange.borrow_margin(
@@ -148,7 +152,9 @@ async def example():
     if needed_amount_to_borrow is not None:
         amount_to_repay_back = needed_amount_to_borrow
         # At first, you need to get back the borrowed coin, by making an opposide trade
-        print("Making purchase back of ", amount_to_repay_back, " ", borrow_coin, " to repay it back.")
+        print(
+            "Making purchase back of ", amount_to_repay_back, " ", borrow_coin, " to repay it back."
+        )
         purchase_back_price = 1.01
         await exchange.create_order(
             symbol,

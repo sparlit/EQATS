@@ -22,9 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """Tests for the on-disk cache."""
-import json
 import os
-import tempfile
 import time
 from unittest.mock import patch
 
@@ -205,7 +203,9 @@ def test_cache_wrapper_writes_and_replays(_cache_enabled):
     # Second call: yf.Ticker should NOT be invoked if the cache hit short-
     # circuits before the yfinance call.
     with patch.object(technicals.yf, "Ticker") as fake_ticker:
-        fake_ticker.return_value.history.side_effect = AssertionError("yfinance should not be called on cache hit")
+        fake_ticker.return_value.history.side_effect = AssertionError(
+            "yfinance should not be called on cache hit"
+        )
         second = technicals.compute_technicals("TCS.NS")
 
     assert first == second

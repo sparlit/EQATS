@@ -34,7 +34,7 @@ from old_nse_hull.multi_horizon.historical_replay import run as run_historical_r
 from old_nse_hull.multi_horizon.market_context import load_context
 from old_nse_hull.multi_horizon.paper_lifecycle import update as update_paper_lifecycle
 from old_nse_hull.multi_horizon.readiness import assess
-from old_nse_hull.multi_horizon.telegram import MAX_MESSAGE_CHARS, render_messages
+from old_nse_hull.multi_horizon.telegram import render_messages
 from old_nse_hull.multi_horizon.trade_levels import build_levels
 from old_nse_hull.multi_horizon.walkforward import run as run_walkforward
 
@@ -76,9 +76,13 @@ def test_shadow_records_lifecycle_without_touching_baseline_tables(tmp_path):
     assert result["qualified"] >= 1
     json.dumps(result, default=str)
     with sqlite3.connect(db_path) as conn:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         assert tables == {"old_nse_hull_multi_horizon_daily"}
-        assert conn.execute("SELECT COUNT(*) FROM old_nse_hull_multi_horizon_daily").fetchone()[0] == 2
+        assert (
+            conn.execute("SELECT COUNT(*) FROM old_nse_hull_multi_horizon_daily").fetchone()[0] == 2
+        )
 
 
 def test_old_hull_tradeability_gate_excludes_etf_and_terminal_merger(tmp_path, monkeypatch):
@@ -93,7 +97,9 @@ def test_old_hull_tradeability_gate_excludes_etf_and_terminal_merger(tmp_path, m
     with sqlite3.connect(tmp_path / "scanner.db"):
         pass
     prices = _prices().assign(
-        symbol=lambda frame: frame["symbol"].replace({"LEADER": "NEXT50IETF", "LAGGARD": "JBCHEPHARM"})
+        symbol=lambda frame: frame["symbol"].replace(
+            {"LEADER": "NEXT50IETF", "LAGGARD": "JBCHEPHARM"}
+        )
     )
     filtered, summary = _tradeable_prices(prices, tmp_path / "scanner.db")
     assert filtered.empty
@@ -106,8 +112,13 @@ def test_shadow_rerun_is_idempotent_for_same_session(tmp_path):
     run_shadow(prices, db_path)
     second = run_shadow(prices, db_path)
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM old_nse_hull_multi_horizon_daily").fetchone()[0] == 2
-    assert {row["lifecycle_status"] for row in second["candidates"]} <= {"CARRY_FORWARD", "FIRST_QUALIFIED"}
+        assert (
+            conn.execute("SELECT COUNT(*) FROM old_nse_hull_multi_horizon_daily").fetchone()[0] == 2
+        )
+    assert {row["lifecycle_status"] for row in second["candidates"]} <= {
+        "CARRY_FORWARD",
+        "FIRST_QUALIFIED",
+    }
 
 
 def test_shadow_derives_a_transition_from_shared_prior_price_session(tmp_path):
@@ -182,7 +193,13 @@ def test_period_report_keeps_shadow_promotion_blocked_before_20_sessions(tmp_pat
 
 def test_trade_levels_reject_a_wide_structural_stop_without_clamping():
     levels = build_levels(
-        {"primary_horizon": "1M", "close": 100, "atr": 2, "previous_20d_high": 100, "previous_10d_low": 80}
+        {
+            "primary_horizon": "1M",
+            "close": 100,
+            "atr": 2,
+            "previous_20d_high": 100,
+            "previous_10d_low": 80,
+        }
     )
     assert not levels["eligible_for_paper"]
     assert levels["rejection_code"] == "risk_exceeds_maximum"
@@ -228,7 +245,9 @@ def test_paper_lifecycle_records_stop_after_entry(tmp_path):
     }
     update_paper_lifecycle(path, "2026-08-20", [candidate])
     update_paper_lifecycle(path, "2026-08-21", [], [{"symbol": "AAA", "high": 103, "low": 100}])
-    stopped = update_paper_lifecycle(path, "2026-08-22", [], [{"symbol": "AAA", "high": 100, "low": 97}])
+    stopped = update_paper_lifecycle(
+        path, "2026-08-22", [], [{"symbol": "AAA", "high": 100, "low": 97}]
+    )
     assert stopped["closed"] == 1
     assert any(event["event"] == "PAPER_STOPPED" for event in stopped["events_today"])
 
@@ -240,7 +259,10 @@ def test_market_context_uses_current_nifty_500_and_breadth(tmp_path):
         conn.execute("CREATE TABLE index_perf (index_name TEXT, date TEXT, close REAL)")
         conn.executemany(
             "INSERT INTO index_perf VALUES (?, ?, ?)",
-            [("Nifty 500", date.date().isoformat(), 100 + index) for index, date in enumerate(dates)],
+            [
+                ("Nifty 500", date.date().isoformat(), 100 + index)
+                for index, date in enumerate(dates)
+            ],
         )
     context = load_context(db_path, latest_features(_prices()))
     assert context["status"] == "CURRENT"
@@ -275,7 +297,9 @@ def test_readiness_blocks_without_real_shadow_window(tmp_path):
 
 
 def test_historical_replay_uses_as_of_history_without_downloads(tmp_path):
-    result = run_historical_replay(_prices(), tmp_path / "replay.db", tmp_path / "replay.json", sessions=2)
+    result = run_historical_replay(
+        _prices(), tmp_path / "replay.db", tmp_path / "replay.json", sessions=2
+    )
     assert result["mode"] == "HISTORICAL_REPLAY"
     assert result["sessions_completed"] == 2
     assert result["comparison_summary"]["sessions_observed"] == 2

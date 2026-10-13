@@ -36,13 +36,11 @@ The output is a DataFrame indexed by timestamp with columns:
 
 import re
 from datetime import datetime
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-from utils.logger import get_logger
-
 from database.db import read_sql
+from utils.logger import get_logger
 
 logger = get_logger("option_chain_builder")
 
@@ -153,9 +151,9 @@ def build_option_chain_timeseries(
 
         # Merge ATM into option bars
         opt_with_atm = opt_df.merge(idx[["timestamp", "atm_strike"]], on="timestamp", how="inner")
-        opt_with_atm["relative_strike"] = ((opt_with_atm["strike"] - opt_with_atm["atm_strike"]) / strike_gap).astype(
-            int
-        )
+        opt_with_atm["relative_strike"] = (
+            (opt_with_atm["strike"] - opt_with_atm["atm_strike"]) / strike_gap
+        ).astype(int)
 
         # Near-ATM (|rel| <= 1) and far (|rel| >= 2) masks
         near = opt_with_atm[opt_with_atm["relative_strike"].abs() <= 1]
@@ -180,10 +178,18 @@ def build_option_chain_timeseries(
         pe_with_rel = opt_with_atm[opt_with_atm["option_type"] == "PE"]
 
         max_ce_idx = ce_with_rel.groupby("timestamp")["oi"].idxmax().dropna()
-        max_oi_call = ce_with_rel.loc[max_ce_idx].set_index("timestamp")["relative_strike"].rename("max_oi_call_rel")
+        max_oi_call = (
+            ce_with_rel.loc[max_ce_idx]
+            .set_index("timestamp")["relative_strike"]
+            .rename("max_oi_call_rel")
+        )
 
         max_pe_idx = pe_with_rel.groupby("timestamp")["oi"].idxmax().dropna()
-        max_oi_put = pe_with_rel.loc[max_pe_idx].set_index("timestamp")["relative_strike"].rename("max_oi_put_rel")
+        max_oi_put = (
+            pe_with_rel.loc[max_pe_idx]
+            .set_index("timestamp")["relative_strike"]
+            .rename("max_oi_put_rel")
+        )
 
         # Join all ATM-relative features
         for feat in [pcr_near, pcr_far, oi_conc, max_oi_call, max_oi_put]:
@@ -192,7 +198,9 @@ def build_option_chain_timeseries(
     chain_df = chain_df.reset_index()
     chain_df = chain_df.sort_values("timestamp")
 
-    logger.info(f"Built option chain timeseries: {len(chain_df):,} rows, columns: {list(chain_df.columns)}")
+    logger.info(
+        f"Built option chain timeseries: {len(chain_df):,} rows, columns: {list(chain_df.columns)}"
+    )
 
     return chain_df
 
@@ -218,11 +226,13 @@ def enrich_index_with_options(
 
     opt_cols = [c for c in chain_df.columns if c != "timestamp"]
     merged = index_df.merge(
-        chain_df[["timestamp", *opt_cols]],
+        chain_df[["timestamp"] + opt_cols],
         on="timestamp",
         how="left",
     )
 
-    logger.info(f"Enriched index data: {len(merged)} rows with {len(opt_cols)} option chain columns.")
+    logger.info(
+        f"Enriched index data: {len(merged)} rows with {len(opt_cols)} option chain columns."
+    )
 
     return merged

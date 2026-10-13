@@ -47,7 +47,10 @@ from data.data_store import get_data_store
 def main():
     parser = argparse.ArgumentParser(description="Fetch & store fundamentals")
     parser.add_argument(
-        "--universe", default="sp500", choices=["sp500", "nasdaq100"], help="Stock universe (default: sp500)"
+        "--universe",
+        default="sp500",
+        choices=["sp500", "nasdaq100"],
+        help="Stock universe (default: sp500)",
     )
     parser.add_argument("--start-date", default="2021-01-01")
     parser.add_argument("--end-date", default="2026-04-01")
@@ -70,7 +73,9 @@ def main():
         current_set = set(current["tickers"].tolist()) if current is not None else set()
         combined = sorted(all_hist | current_set)
         tickers = pd.DataFrame({"tickers": combined, "sectors": ""})
-        print(f"Universe: {len(tickers)} tickers (historical: {len(all_hist)}, current: {len(current_set)})")
+        print(
+            f"Universe: {len(tickers)} tickers (historical: {len(all_hist)}, current: {len(current_set)})"
+        )
     else:
         print(f"Fetching {args.universe.upper()} universe ...")
         if args.universe == "nasdaq100":
@@ -79,15 +84,16 @@ def main():
             tickers = fetch_sp500_tickers(preferred_source=args.preferred_source)
 
         if tickers is None or len(tickers) == 0:
-            msg = f"Failed to fetch {args.universe} tickers"
-            raise ValueError(msg)
+            raise ValueError(f"Failed to fetch {args.universe} tickers")
         if args.limit > 0:
             tickers = tickers.head(args.limit)
         print(f"Universe: {len(tickers)} tickers")
 
     # 2. Fetch fundamental data
     print(f"Fetching fundamentals {args.start_date} ~ {args.end_date} ...")
-    df = fetch_fundamental_data(tickers, args.start_date, args.end_date, preferred_source=args.preferred_source)
+    df = fetch_fundamental_data(
+        tickers, args.start_date, args.end_date, preferred_source=args.preferred_source
+    )
     print(f"Fetched {len(df)} fundamental records")
 
     if df.empty:

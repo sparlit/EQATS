@@ -23,13 +23,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 from logging import warn
 
-import numpy as np
-import pandas as pd
-
 from ..FnO import analyse_option_chain
 from ..intraday import In
 
-warning("""WARNING: These strategies ONLY generate SIGNALS as a SCREENER so that you can you can do some other work work until the alert goes off. It does not mean that you have to Buy or Sell or execute order.
+warn("""WARNING: These strategies ONLY generate SIGNALS as a SCREENER so that you can you can do some other work work until the alert goes off. It does not mean that you have to Buy or Sell or execute order.
 It only means that you should start watching your stock from now on and in coming candles, you might or might not get a trade.
 Before placing any order, don't forget to apply your knowledge of Price Action, market behaviour and Risk management skills.""")
 
@@ -56,8 +53,14 @@ def n_candles_range_breakout(
 
     df = data.copy()
 
-    high_mean, high_std = df.loc[1 : previous_n + 1, High].mean(), df.loc[1 : previous_n + 1, High].std()
-    low_mean, low_std = df.loc[1 : previous_n + 1, Low].mean(), df.loc[1 : previous_n + 1, Low].std()
+    high_mean, high_std = (
+        df.loc[1 : previous_n + 1, High].mean(),
+        df.loc[1 : previous_n + 1, High].std(),
+    )
+    low_mean, low_std = (
+        df.loc[1 : previous_n + 1, Low].mean(),
+        df.loc[1 : previous_n + 1, Low].std(),
+    )
 
     if df.loc[0, high_reference] > high_mean + (num_of_std * high_std):
         return "Buy"
@@ -69,7 +72,11 @@ def n_candles_range_breakout(
 
 
 def MA_crossover(
-    data, fast_ma: int = 50, slow_ma: int = 200, names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"), simple: bool = True
+    data,
+    fast_ma: int = 50,
+    slow_ma: int = 200,
+    names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"),
+    simple: bool = True,
 ):
     """
     Generate signals when Fast Moving average crossed Slow MA. Could be (9,20), (20,50), (20,200), (50, 200) or nay of your choice
@@ -80,14 +87,14 @@ def MA_crossover(
         names: Column names showing ('OPEN','CLOSE','LOW','HIGH') in the same order
         simple: Whether to return Simple or Exponential Moving Average
     """
-    _, _Close, _Low, _High = names
+    _, Close, Low, High = names
 
-    fast = f"{fast_ma!s}-MA"
-    slow = f"{slow_ma!s}-MA"
+    fast = f"{str(fast_ma)}-MA"
+    slow = f"{str(slow_ma)}-MA"
 
     df = data.copy()
     if df.iloc[0, 0] > df.iloc[1, 0]:
-        df = df.sort_index(ascending=False)
+        df.sort_index(ascending=False, inplace=True)
 
     df = In.get_MA(df, fast_ma, names, simple, return_df=True)
     df = In.get_MA(df, slow_ma, names, simple, return_df=True)
@@ -95,14 +102,18 @@ def MA_crossover(
     if (df.loc[0, fast] > df.loc[0, slow]) and (df.loc[1, fast] < df.loc[1, slow]):
         return "Buy"
 
-    if (df.loc[0, fast] < df.loc[0, slow]) and (df.loc[1, fast] > df.loc[1, slow]):
+    elif (df.loc[0, fast] < df.loc[0, slow]) and (df.loc[1, fast] > df.loc[1, slow]):
         return "Sell"
 
     return None
 
 
 def MA_support_resistance(
-    data, ma: int = 50, gap: float = 0.005, names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"), simple: bool = True
+    data,
+    ma: int = 50,
+    gap: float = 0.005,
+    names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH"),
+    simple: bool = True,
 ):
     """
     Generate signals stock has support / resistance on the MA line. After generating Buy signal, buy once price crosses last candle's high. Reverse applies for Sell Signal
@@ -113,13 +124,13 @@ def MA_support_resistance(
         names: Column names showing ('OPEN','CLOSE','LOW','HIGH') in the same order
         simple: Whether to return Simple or Exponential Moving Average
     """
-    _ma = f"{ma!s}-MA"
+    _ma = f"{str(ma)}-MA"
     ma_200 = "200-MA"
     Open, Close, Low, High = names
 
     df = data.copy()
     if df.iloc[0, 0] > df.iloc[1, 0]:
-        df = df.sort_index(ascending=False)
+        df.sort_index(ascending=False, inplace=True)
 
     df = In.get_MA(df, ma, names, simple, return_df=True)
     df = In.get_MA(df, 200, names, simple, return_df=True)
@@ -127,13 +138,17 @@ def MA_support_resistance(
     if df.loc[0, ma_200] <= df.loc[0, _ma]:
         if df.loc[0, High] >= df.loc[0, Close] > df.loc[0, Open]:
             if df.loc[0, Close] > df.loc[0, _ma]:
-                if (df.loc[0, Low] < df.loc[0, _ma]) or (df.loc[0, Low] - df.loc[0, _ma] < df.loc[0, _ma] * gap):
+                if (df.loc[0, Low] < df.loc[0, _ma]) or (
+                    df.loc[0, Low] - df.loc[0, _ma] < df.loc[0, _ma] * gap
+                ):
                     return "Buy"
 
     elif df.loc[0, ma_200] >= df.loc[0, _ma]:
         if df.loc[0, Low] <= df.loc[0, Close] < df.loc[0, Open]:
             if df.loc[0, Close] < df.loc[0, _ma]:
-                if (df.loc[0, High] > df.loc[0, _ma]) or (df.loc[0, _ma] - df.loc[0, High] < df.loc[0, _ma] * gap):
+                if (df.loc[0, High] > df.loc[0, _ma]) or (
+                    df.loc[0, _ma] - df.loc[0, High] < df.loc[0, _ma] * gap
+                ):
                     return "Sell"
 
     return None
@@ -161,7 +176,7 @@ def rsi_overbought_oversold(
     """
     df = data.copy()
     if df.iloc[0, 0] > df.iloc[1, 0]:
-        df = df.sort_index(ascending=False)
+        df.sort_index(ascending=False, inplace=True)
 
     df = In.get_RSI(df, periods=periods, Close=Close, ema=ema, return_df=True, signal_only=False)
 
@@ -198,26 +213,24 @@ def bollinger_bands(
         names: Column names showing ('OPEN','CLOSE','LOW','HIGH') in the same order
         include_200_ma: Whether to consider the 200 Moving Average as the reference line. Look for Buy signals above it and Sell signals below it
     """
-    _Open, Close, _Low, _High = names
+    Open, Close, Low, High = names
     df = data.copy()
 
     if include_rsi_divergence and "RSI" not in df.columns:
-        warning("No RSI column found. RSI will be calculated based on default settings")
+        warn("No RSI column found. RSI will be calculated based on default settings")
         df = In.get_RSI(df, Close=Close, return_df=True)
 
     df = In.get_BollingerBands(df, mv=moving_average, Close=Close)
     df = In.get_MA(df, 200, names, return_df=True)
 
     if df.loc[0, Close] > df.loc[0, "Upper Band"]:
-        if include_200_ma:
-            if df.loc[0, Close] < df.loc[0, "200-MA"]:
-                return "Sell"
+        if include_200_ma and df.loc[0, Close] < df.loc[0, "200-MA"]:
+            return "Sell"
         return "Sell"
 
-    if df.loc[0, Close] < df.loc[0, "Lower Band"]:
-        if include_200_ma:
-            if df.loc[0, Close] > df.loc[0, "200-MA"]:
-                return "Buy"
+    elif df.loc[0, Close] < df.loc[0, "Lower Band"]:
+        if include_200_ma and df.loc[0, Close] > df.loc[0, "200-MA"]:
+            return "Buy"
         return "Buy"
 
     return None
@@ -242,14 +255,14 @@ def rsi_divergence(
         lookback_period: No of candles to look back fro mthe current candle to calculate divergence
         include_200_ma: Whether to consider the 200 Moving Average as the reference line. Look for Buy signals above it and Sell signals below it
     """
-    _Open, Close, _Low, _High = names
+    Open, Close, Low, High = names
 
     df = data.copy()
     if df.iloc[0, 0] > df.iloc[1, 0]:
-        df = df.sort_index(ascending=False)
+        df.sort_index(ascending=False, inplace=True)
 
     if "RSI" not in df.columns:
-        warning("Data found without prior calculated 'RSI'. Getting RSI using defaults")
+        warn("Data found without prior calculated 'RSI'. Getting RSI using defaults")
         df = In.get_RSI(df, Close=Close, return_df=True)
 
     max_rsi = df.loc[:lookback_period, "RSI"].max()
@@ -260,9 +273,8 @@ def rsi_divergence(
         max_rsi_close = df.loc[id_, Close]
 
         if (df.loc[0, "RSI"] < max_rsi) and (df.loc[0, Close] > max_rsi_close):
-            if include_200_ma:
-                if df.loc[0, Close] < df.loc[0, "200-MA"]:
-                    return "Sell"
+            if include_200_ma and df.loc[0, Close] < df.loc[0, "200-MA"]:
+                return "Sell"
             return "Sell"
 
     elif min_rsi < lower_threshold:
@@ -270,15 +282,16 @@ def rsi_divergence(
         min_rsi_close = df.loc[id_, Close]
 
         if (df.loc[0, "RSI"] > min_rsi) and (df.loc[0, Close] < min_rsi_close):
-            if include_200_ma:
-                if df.loc[0, Close] > df.loc[0, "200-MA"]:
-                    return "Buy"
+            if include_200_ma and df.loc[0, Close] > df.loc[0, "200-MA"]:
+                return "Buy"
             return "Buy"
 
     return None
 
 
-def option_chain_SR(data, name, gap_reference: float = 0.0075, col_names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH")):
+def option_chain_SR(
+    data, name, gap_reference: float = 0.0075, col_names: tuple = ("OPEN", "CLOSE", "LOW", "HIGH")
+):
     """
     Look if a stock's High / Low price has reached around the highest Calls or Puts Open Interest. Look at the Price Action to see if it reverses fro mthe position
     args:
@@ -288,21 +301,24 @@ def option_chain_SR(data, name, gap_reference: float = 0.0075, col_names: tuple 
         gap_reference: 0.03 means that when the gap between S-R and High / Low is within the 0.03% of the recent Close, then only consider it
     """
     assert name in In.data["f&o"], f"{name} not listed in Futures and Options"
-    _Open, Close, Low, High = col_names
+    Open, Close, Low, High = col_names
 
     df = data.copy()
 
     df_option = analyse_option_chain(name, compare_with="openInterest", plot=False)
     resistance_index = df_option[df_option["contract_type"] == "Calls_CE"]["openInterest"].idxmax()
     support_index = df_option[df_option["contract_type"] == "Puts_PE"]["openInterest"].idxmax()
-    support, resistance = df_option.loc[support_index, "strike_price"], df_option.loc[resistance_index, "strike_price"]
+    support, resistance = (
+        df_option.loc[support_index, "strike_price"],
+        df_option.loc[resistance_index, "strike_price"],
+    )
     support, resistance
 
     closing = df.loc[0, Close]
     if 0 <= resistance - df.loc[0, High] <= closing * gap_reference:
         return "Sell"
 
-    if 0 <= df.loc[0, Low] - support <= closing * gap_reference:
+    elif 0 <= df.loc[0, Low] - support <= closing * gap_reference:
         return "Buy"
 
     return None

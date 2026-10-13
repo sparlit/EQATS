@@ -47,4 +47,8 @@ def compute(window: pd.DataFrame) -> pd.DataFrame:
                 pos_weeks += 1
         return pd.Series({"smoothness": pos_weeks / complete_weeks})
 
-    return window.groupby("symbol", group_keys=False).apply(compute_smoothness, include_groups=False).reset_index()
+    return (
+        window.groupby("symbol", group_keys=False)
+        .apply(compute_smoothness, include_groups=False)
+        .reset_index()
+    )

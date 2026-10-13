@@ -51,7 +51,7 @@ from pybroker.data import (
 from pybroker.ext.data import AKShare, YQuery
 from yahooquery import Ticker
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 API_KEY = "api_key"
 API_SECRET = "api_secret"
@@ -70,49 +70,49 @@ ALPACA_COLS = [
     "volume",
     "vwap",
 ]
-ALPACA_CRYPTO_COLS = [*ALPACA_COLS, "trade_count"]
+ALPACA_CRYPTO_COLS = ALPACA_COLS + ["trade_count"]
 
 
-@pytest.fixture
+@pytest.fixture()
 def alpaca_df():
     df = pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/daily_1.pkl"))
     df["date"] = df["date"].dt.tz_localize("US/Eastern")
     return df.assign(vwap=1)[ALPACA_COLS]
 
 
-@pytest.fixture
+@pytest.fixture()
 def alpaca_crypto_df():
     df = pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/daily_1.pkl"))
     df["date"] = df["date"].dt.tz_localize("US/Eastern")
     return df.assign(vwap=1, trade_count=1)[ALPACA_CRYPTO_COLS]
 
 
-@pytest.fixture
+@pytest.fixture()
 def bars_df(alpaca_df):
     return alpaca_df.rename(columns={"date": "timestamp"})
 
 
-@pytest.fixture
+@pytest.fixture()
 def crypto_bars_df(alpaca_crypto_df):
     return alpaca_crypto_df.rename(columns={"date": "timestamp"})
 
 
-@pytest.fixture
+@pytest.fixture()
 def yfinance_df():
     return pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/yfinance.pkl"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def yfinance_single_df():
     return pd.read_pickle(os.path.join(os.path.dirname(__file__), "testdata/yfinance_single.pkl"))
 
 
-@pytest.fixture
+@pytest.fixture()
 def symbols(alpaca_df):
     return list(alpaca_df["symbol"].unique())
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_cache(scope):
     with (
         mock.patch.object(scope, "data_source_cache") as cache,
@@ -121,13 +121,13 @@ def mock_cache(scope):
         yield cache
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_alpaca():
     with mock.patch("alpaca.data.historical.stock.StockHistoricalDataClient") as client:
         yield client
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_alpaca_crypto():
     with mock.patch("alpaca.data.historical.crypto.CryptoHistoricalDataClient") as client:
         yield client
@@ -157,10 +157,14 @@ class TestDataSourceCacheMixin:
 
         with mock.patch.object(scope, "data_source_cache", DictCache()):
             SourceA().set_cached(TIMEFRAME, START_DATE, END_DATE, ADJUST, alpaca_df)
-            df_a, uncached_a = SourceA().get_cached(symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST)
+            df_a, uncached_a = SourceA().get_cached(
+                symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST
+            )
             assert not df_a.empty
             assert not uncached_a
-            df_b, uncached_b = SourceB().get_cached(symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST)
+            df_b, uncached_b = SourceB().get_cached(
+                symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST
+            )
             assert df_b.empty
             assert list(uncached_b) == list(symbols)
 
@@ -217,7 +221,7 @@ class TestDataSourceCacheMixin:
                 self.store.clear()
 
         cache = DictCache()
-        query_symbols = [*list(symbols), "ZZZNODATA"]
+        query_symbols = list(symbols) + ["ZZZNODATA"]
         with mock.patch.object(scope, "data_source_cache", cache):
             source = FakeSource()
             first = source.query(query_symbols, START_DATE, END_DATE, TIMEFRAME, ADJUST)
@@ -252,7 +256,9 @@ class TestDataSourceCacheMixin:
     def test_get_cached_when_empty(self, mock_cache, query_symbols, request):
         query_symbols = get_fixture(request, query_symbols)
         cache_mixin = DataSourceCacheMixin()
-        df, uncached_syms = cache_mixin.get_cached(query_symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST)
+        df, uncached_syms = cache_mixin.get_cached(
+            query_symbols, TIMEFRAME, START_DATE, END_DATE, ADJUST
+        )
         assert df.empty
         assert uncached_syms == query_symbols
         assert len(mock_cache.get.call_args_list) == len(query_symbols)
@@ -287,7 +293,7 @@ class TestDataSourceCacheMixin:
 
     @pytest.mark.usefixtures("mock_cache")
     @pytest.mark.parametrize(
-        ("timeframe", "start_date", "end_date", "error"),
+        "timeframe, start_date, end_date, error",
         [
             (
                 "dffdfdf",
@@ -339,7 +345,9 @@ class TestAlpaca:
         with mock.patch.object(alpaca._api, "get_stock_bars", return_value=mock_bars):
             df = alpaca.query(symbols, START_DATE, END_DATE, TIMEFRAME, adjust="all")
             df = df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
-            expected = alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            expected = (
+                alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            )
             assert df.equals(expected)
 
     def test_query_when_invalid_adj_then_error(self, symbols):
@@ -360,7 +368,9 @@ class TestAlpaca:
         with mock.patch.object(alpaca._api, "get_stock_bars", return_value=mock_bars):
             df = alpaca.query(symbols, START_DATE, END_DATE, TIMEFRAME, ADJUST)
             df = df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
-            expected = alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            expected = (
+                alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            )
             assert df.equals(expected)
 
     @pytest.mark.usefixtures("setup_enabled_ds_cache", "mock_alpaca", "tmp_path")
@@ -394,7 +404,9 @@ class TestAlpaca:
             alpaca.query(symbols, START_DATE, END_DATE, TIMEFRAME)
             df = alpaca.query(symbols, START_DATE, END_DATE, TIMEFRAME)
             df = df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
-            expected = alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            expected = (
+                alpaca_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            )
             assert df.equals(expected)
 
     @pytest.mark.parametrize(
@@ -470,7 +482,11 @@ class TestAlpacaCrypto:
         with mock.patch.object(crypto._api, "get_crypto_bars", return_value=mock_bars):
             df = crypto.query(symbols, START_DATE, END_DATE, TIMEFRAME)
             df = df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
-            expected = alpaca_crypto_df.sort_values(["symbol", "date"]).reset_index(drop=True).sort_index(axis=1)
+            expected = (
+                alpaca_crypto_df.sort_values(["symbol", "date"])
+                .reset_index(drop=True)
+                .sort_index(axis=1)
+            )
             assert df.equals(expected)
 
     @pytest.mark.parametrize(
@@ -530,7 +546,7 @@ class TestAlpacaCrypto:
 
 class TestYFinance:
     @pytest.mark.parametrize(
-        ("param_symbols", "expected_df", "expected_rows"),
+        "param_symbols, expected_df, expected_rows",
         [
             (
                 LazyFixture("symbols"),
@@ -890,7 +906,8 @@ class TestYQuery:
             pytest.raises(
                 ValueError,
                 match=re.escape(
-                    "Unsupported timeframe: '90min'.\nSupported timeframes: ['', '1hour', '1day', '5day', '1week']."
+                    "Unsupported timeframe: '90min'.\n"
+                    "Supported timeframes: ['', '1hour', '1day', '5day', '1week']."
                 ),
             ),
             mock.patch.object(Ticker, "history", return_value=expected_df),
@@ -948,8 +965,7 @@ class TestExtDataEdgeCases:
 
         def em_fetch(symbol, **_kwargs):
             if symbol == "000002":
-                msg = "EM down for this symbol"
-                raise ConnectionError(msg)
+                raise ConnectionError("EM down for this symbol")
             return em_frame.copy()
 
         ak = AKShare()

@@ -140,7 +140,9 @@ class TestQuoteSkill:
 
     def test_prefixes_exchange(self, client):
         """Symbol without exchange prefix should get NSE: added."""
-        with patch("market.quotes.get_quote", return_value={"NSE:TCS": FakeQuote(symbol="NSE:TCS")}) as mock:
+        with patch(
+            "market.quotes.get_quote", return_value={"NSE:TCS": FakeQuote(symbol="NSE:TCS")}
+        ) as mock:
             client.post("/skills/quote", json={"symbol": "TCS"})
         mock.assert_called_once_with(["NSE:TCS"])
 
@@ -317,7 +319,9 @@ class TestChatSkill:
         mock_agent._history = [{"role": "user"}, {"role": "assistant"}]
 
         with patch("agent.core.TradingAgent", return_value=mock_agent):
-            r = client.post("/skills/chat", json={"message": "Analyse RELIANCE", "session_id": "test-1"})
+            r = client.post(
+                "/skills/chat", json={"message": "Analyse RELIANCE", "session_id": "test-1"}
+            )
         assert r.status_code == 200
         d = r.json()["data"]
         assert "RELIANCE" in d["response"]
@@ -335,7 +339,9 @@ class TestChatSkill:
 
         _chat_sessions["reuse-session"] = mock_agent
 
-        r = client.post("/skills/chat", json={"message": "Follow up", "session_id": "reuse-session"})
+        r = client.post(
+            "/skills/chat", json={"message": "Follow up", "session_id": "reuse-session"}
+        )
         assert r.status_code == 200
         mock_agent.chat.assert_called_once_with("Follow up")
 

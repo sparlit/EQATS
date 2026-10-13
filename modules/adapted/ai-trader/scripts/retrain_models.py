@@ -43,19 +43,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import pandas as pd
+from database.db import read_sql
 from features.indicators import compute_all_macro_indicators
 from models.strategy_models import StrategyPredictor, train_all_strategy_models
-from models.train_model import MacroModelTrainer, train_all_models
+from models.train_model import MacroModelTrainer
 from utils.logger import get_logger
-
-from database.db import read_sql
 
 logger = get_logger("retrain")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Retrain ML models")
-    parser.add_argument("--recent", type=int, default=0, help="Only use last N days of data (0 = all)")
+    parser.add_argument(
+        "--recent", type=int, default=0, help="Only use last N days of data (0 = all)"
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -82,7 +83,9 @@ def main():
 
     candles["timestamp"] = pd.to_datetime(candles["timestamp"])
     print(f"  Candles loaded: {len(candles):,}")
-    print(f"  Date range: {candles['timestamp'].min().date()} → {candles['timestamp'].max().date()}")
+    print(
+        f"  Date range: {candles['timestamp'].min().date()} → {candles['timestamp'].max().date()}"
+    )
     days = candles["timestamp"].dt.date.nunique()
     print(f"  Trading days: {days}")
 

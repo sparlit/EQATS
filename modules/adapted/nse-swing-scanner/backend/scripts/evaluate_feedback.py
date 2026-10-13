@@ -67,7 +67,7 @@ import json
 import random
 import sys
 from collections import defaultdict
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _PATH_BOOTSTRAP_DONE = False
@@ -98,18 +98,14 @@ BOOTSTRAP_SEED = 42
 SUB_SCORE_KEYS = sorted(WEIGHTS.keys())
 
 PROMOTION_CHECKLIST = [
-    (
-        "Out-of-sample: the candidate weights beat baseline on the tracker's "
-        "top-band mean excess for 4 consecutive weekly runs (not just this "
-        "in-sample report)."
-    ),
-    ("The candidate's top-band (63+) T+5 mean CI sits above the baseline's, with n >= 20 in both."),
-    ("No band's hit rate regresses by more than 5 points without a documented trade-off rationale."),
-    (
-        "The weight change is a single commit touching only "
-        "backend/settings.py WEIGHTS + CHANGELOG.md, so the tracker can "
-        "attribute the regime change to score_version."
-    ),
+    "Out-of-sample: the candidate weights beat baseline on the tracker's "
+    "top-band mean excess for 4 consecutive weekly runs (not just this "
+    "in-sample report).",
+    "The candidate's top-band (63+) T+5 mean CI sits above the baseline's, with n >= 20 in both.",
+    "No band's hit rate regresses by more than 5 points without a documented trade-off rationale.",
+    "The weight change is a single commit touching only "
+    "backend/settings.py WEIGHTS + CHANGELOG.md, so the tracker can "
+    "attribute the regime change to score_version.",
 ]
 
 
@@ -185,7 +181,11 @@ def subscore_ics(rows, window):
             sub = (r.get("sub_scores") or {}).get(key)
             w = (r.get("windows") or {}).get(window) or {}
             v = w.get("excess_return_pct")
-            if isinstance(sub, (int, float)) and isinstance(v, (int, float)) and not w.get("untrackable"):
+            if (
+                isinstance(sub, (int, float))
+                and isinstance(v, (int, float))
+                and not w.get("untrackable")
+            ):
                 pairs.append((float(sub), float(v)))
         ic = spearman_ic([p[0] for p in pairs], [p[1] for p in pairs])
         out[key] = {
@@ -228,8 +228,7 @@ def _shadow_score(sub_scores, weights):
 def _normalize(weights):
     total = sum(weights.values())
     if total <= 0:
-        msg = "candidate weights must sum to a positive value"
-        raise ValueError(msg)
+        raise ValueError("candidate weights must sum to a positive value")
     return {k: w / total for k, w in weights.items()}
 
 
@@ -250,7 +249,8 @@ def shadow_compare(rows, candidates):
     usable = [
         r
         for r in rows
-        if isinstance(r.get("sub_scores"), dict) and any(isinstance(v, (int, float)) for v in r["sub_scores"].values())
+        if isinstance(r.get("sub_scores"), dict)
+        and any(isinstance(v, (int, float)) for v in r["sub_scores"].values())
     ]
     buckets = {w: {c: defaultdict(list) for c in candidates} for w in WINDOWS}
     mismatch = 0
@@ -321,7 +321,9 @@ def build_feedback(perf_path: Path) -> dict:
         r
         for r in rows
         if any(
-            isinstance(((r.get("windows") or {}).get(w) or {}).get("excess_return_pct"), (int, float))
+            isinstance(
+                ((r.get("windows") or {}).get(w) or {}).get("excess_return_pct"), (int, float)
+            )
             and not ((r.get("windows") or {}).get(w) or {}).get("untrackable")
             for w in WINDOWS
         )
@@ -397,7 +399,10 @@ def render_report(fb: dict) -> str:
         lift = fb["top_band_lift"][w]
         if not lift:
             continue
-        parts = ", ".join(f"{k}: {v:+.2f}pp" if isinstance(v, (int, float)) else f"{k}: n/a" for k, v in lift.items())
+        parts = ", ".join(
+            f"{k}: {v:+.2f}pp" if isinstance(v, (int, float)) else f"{k}: n/a"
+            for k, v in lift.items()
+        )
         ap(f"- Top-band lift vs baseline at {w}: {parts}")
     ap("")
     ap("Full band tables live in `feedback-latest.json` (`shadow.windows`).")
@@ -411,7 +416,9 @@ def render_report(fb: dict) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Evaluate the feedback loop evidence for the scoring weights.")
+    ap = argparse.ArgumentParser(
+        description="Evaluate the feedback loop evidence for the scoring weights."
+    )
     ap.add_argument("--performance", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--report", default=None, help="Also write a human-readable markdown report")

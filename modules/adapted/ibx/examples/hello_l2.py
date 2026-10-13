@@ -63,7 +63,9 @@ class L2Wrapper(EWrapper):
     def next_valid_id(self, order_id):
         self.connected.set()
 
-    def update_mkt_depth_l2(self, req_id, position, market_maker, operation, side, price, size, is_smart_depth):
+    def update_mkt_depth_l2(
+        self, req_id, position, market_maker, operation, side, price, size, is_smart_depth
+    ):
         if req_id in self.books:
             self.books[req_id].apply(position, market_maker, operation, side, price, size)
 
@@ -99,8 +101,7 @@ c.connect(
 )
 threading.Thread(target=c.run, daemon=True).start()
 if not w.connected.wait(timeout=15):
-    msg = "connect failed"
-    raise RuntimeError(msg)
+    raise RuntimeError("connect failed")
 
 for req_id, contract in SUBSCRIPTIONS:
     c.req_mkt_depth(req_id, contract, num_rows=5)

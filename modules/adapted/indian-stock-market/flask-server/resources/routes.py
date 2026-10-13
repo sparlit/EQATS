@@ -37,7 +37,9 @@ def initialize_routes(api):
     api.add_resource(PortfolioApi, "/api/portfolio_overview")
 
     api.add_resource(Watchlist, "/api/watchlist")
-    api.add_resource(AddToWatchlist, "/api/watchlist/add/<code>", "/api/watchlist/add/<code>/<index>")
+    api.add_resource(
+        AddToWatchlist, "/api/watchlist/add/<code>", "/api/watchlist/add/<code>/<index>"
+    )
     api.add_resource(RemoveFromWatchlist, "/api/watchlist/remove/<code>")
     api.add_resource(CommonDetails, "/api/common_details")
 

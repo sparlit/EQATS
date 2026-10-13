@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_string_to_base64():
@@ -44,5 +44,8 @@ def test_string_to_base64():
             "id": "sampleexchange",
         }
     )
-    # TODO: add single & double quotes in transpilable manner
-    assert exchange.string_to_base64('hello world 123!@#$%^&*()"-+)S') == "aGVsbG8gd29ybGQgMTIzIUAjJCVeJiooKSItKylT"
+    # todo: add single & double quotes in transpilable manner
+    assert (
+        exchange.string_to_base64('hello world 123!@#$%^&*()"-+)S')
+        == "aGVsbG8gd29ybGQgMTIzIUAjJCVeJiooKSItKylT"
+    )

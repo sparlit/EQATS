@@ -42,6 +42,10 @@ Key properties:
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    pass
+
+
 # ── Thresholds ───────────────────────────────────────────────
 
 FAST_PATH_AGREEMENT_THRESHOLD: int = 75  # % analyst agreement to skip debate
@@ -112,7 +116,8 @@ def build_compact_signals(
 
         verdict_icon = {"BULLISH": "▲", "BEARISH": "▼", "NEUTRAL": "─"}.get(r.verdict, "?")
         lines.append(
-            f"  {r.analyst:<{col_w}} {verdict_icon} {r.verdict:<8} score:{r.score:+.0f}  conf:{r.confidence}%  {metric}"
+            f"  {r.analyst:<{col_w}} {verdict_icon} {r.verdict:<8} "
+            f"score:{r.score:+.0f}  conf:{r.confidence}%  {metric}"
         )
 
     # Scorecard summary
@@ -195,7 +200,10 @@ def run_analysis_pipeline(
     ]
 
     # Run analysts
-    reports = _run_parallel(analysts, symbol, exchange) if parallel else _run_sequential(analysts, symbol, exchange)
+    if parallel:
+        reports = _run_parallel(analysts, symbol, exchange)
+    else:
+        reports = _run_sequential(analysts, symbol, exchange)
 
     # Scorecard
     scorecard = compute_scorecard(reports)

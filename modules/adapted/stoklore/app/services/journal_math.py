@@ -181,7 +181,7 @@ def _ist(value):
     if value is None:
         return None
     if isinstance(value, str):
-        value = datetime.fromisoformat(value)
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return value.astimezone(IST) if value.tzinfo else value.replace(tzinfo=IST)
 
 
@@ -189,7 +189,9 @@ def session(traded_at):
     """Which NSE session the trade was taken in, in IST - sessionFor."""
     t = _ist(traded_at)
     minutes = t.hour * 60 + t.minute
-    return next((name for name, start, end in NSE_SESSIONS if start <= minutes < end), "After hours")
+    return next(
+        (name for name, start, end in NSE_SESSIONS if start <= minutes < end), "After hours"
+    )
 
 
 def weekday(traded_at):

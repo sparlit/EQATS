@@ -34,7 +34,6 @@ import sys
 
 import db
 import numpy as np
-import pandas as pd
 
 
 def _ensure(conn):
@@ -85,7 +84,8 @@ def monte_carlo(conn=None, n_sim=10000, seed=7):
             if r > 0:
                 wins += 1
             eq += r
-            peak = max(peak, eq)
+            if eq > peak:
+                peak = eq
             mdd = max(mdd, peak - eq)
         wrs.append(wins / n)
         exps.append(eq / n)
@@ -132,7 +132,11 @@ def walk_forward(conn=None, n_symbols=500, seed=7, years=5):
     trades = result.trades
     n = len(trades)
     if n == 0:
-        return {"n_symbols": len(syms), "n_trades": 0, "verdict": "NO TRADES — check regime gate / data"}
+        return {
+            "n_symbols": len(syms),
+            "n_trades": 0,
+            "verdict": "NO TRADES — check regime gate / data",
+        }
 
     wins = [t for t in trades if t.pnl_pct > 0]
     losses = [t for t in trades if t.pnl_pct <= 0]
@@ -180,7 +184,10 @@ def run_mode(mode):
         out = walk_forward(conn)
     else:
         out = {"error": "unknown mode"}
-    conn.execute("INSERT OR REPLACE INTO validation_log VALUES (?,?,?)", (today, mode, json.dumps(out, default=str)))
+    conn.execute(
+        "INSERT OR REPLACE INTO validation_log VALUES (?,?,?)",
+        (today, mode, json.dumps(out, default=str)),
+    )
     conn.commit()
     conn.close()
     print(f"[VALIDATE] {mode}:")

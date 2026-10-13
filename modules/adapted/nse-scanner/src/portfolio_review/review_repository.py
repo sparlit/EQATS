@@ -51,8 +51,7 @@ def save_review(
     latest_path = symbol_dir / "latest.json"
 
     if dated_path.exists() and not overwrite:
-        msg = f"Monthly review already exists: {dated_path}"
-        raise ReviewAlreadyExistsError(msg)
+        raise ReviewAlreadyExistsError(f"Monthly review already exists: {dated_path}")
 
     encoded = json.dumps(review, indent=2, ensure_ascii=False, default=str) + "\n"
     dated_path.write_text(encoded, encoding="utf-8")
@@ -60,7 +59,9 @@ def save_review(
     return dated_path, latest_path
 
 
-def load_latest_review(symbol: str, reports_root: str | Path = "reports/portfolio") -> dict[str, Any] | None:
+def load_latest_review(
+    symbol: str, reports_root: str | Path = "reports/portfolio"
+) -> dict[str, Any] | None:
     path = Path(reports_root) / symbol.strip().upper() / "latest.json"
     if not path.exists():
         return None

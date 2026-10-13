@@ -1,0 +1,134 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+from flask import Blueprint
+from flask_restx import Api
+
+api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+api = Api(
+    api_v1_bp,
+    version="1.0",
+    title="OpenAlgo API",
+    description="API for OpenAlgo Trading Platform",
+    doc=False,
+)
+
+# Import namespaces
+from .analyzer import api as analyzer_ns
+from .basket_order import api as basket_order_ns
+from .cancel_all_order import api as cancel_all_order_ns
+from .cancel_gtt_order import api as cancel_gtt_order_ns
+from .cancel_order import api as cancel_order_ns
+from .chart_api import api as chart_ns
+from .close_position import api as close_position_ns
+from .depth import api as depth_ns
+from .expiry import api as expiry_ns
+from .funds import api as funds_ns
+from .gtt_orderbook import api as gtt_orderbook_ns
+from .history import api as history_ns
+from .holdings import api as holdings_ns
+from .instruments import api as instruments_ns
+from .intervals import api as intervals_ns
+from .margin import api as margin_ns
+from .market_holidays import api as market_holidays_ns
+from .market_timings import api as market_timings_ns
+from .modify_gtt_order import api as modify_gtt_order_ns
+from .modify_order import api as modify_order_ns
+from .multi_option_greeks import api as multi_option_greeks_ns
+from .multiquotes import api as multiquotes_ns
+from .openposition import api as openposition_ns
+from .option_chain import api as option_chain_ns
+from .option_greeks import api as option_greeks_ns
+from .option_symbol import api as option_symbol_ns
+from .options_multiorder import api as options_multiorder_ns
+from .options_order import api as options_order_ns
+from .orderbook import api as orderbook_ns
+from .orderstatus import api as orderstatus_ns
+from .ping import api as ping_ns
+from .place_gtt_order import api as place_gtt_order_ns
+from .place_order import api as place_order_ns
+from .place_smart_order import api as place_smart_order_ns
+from .pnl_symbols import api as pnl_symbols_ns
+from .portfolio import api as portfolio_ns
+from .positionbook import api as positionbook_ns
+from .quotes import api as quotes_ns
+from .search import api as search_ns
+from .sip import api as sip_ns
+from .split_order import api as split_order_ns
+from .strategy import api as strategy_ns
+from .symbol import api as symbol_ns
+from .synthetic_future import api as synthetic_future_ns
+from .telegram_bot import api as telegram_ns
+from .ticker import api as ticker_ns
+from .tradebook import api as tradebook_ns
+from .whatsapp_bot import api as whatsapp_ns
+
+# Add namespaces
+api.add_namespace(place_order_ns, path="/placeorder")
+api.add_namespace(place_smart_order_ns, path="/placesmartorder")
+api.add_namespace(modify_order_ns, path="/modifyorder")
+api.add_namespace(cancel_order_ns, path="/cancelorder")
+api.add_namespace(close_position_ns, path="/closeposition")
+api.add_namespace(cancel_all_order_ns, path="/cancelallorder")
+api.add_namespace(quotes_ns, path="/quotes")
+api.add_namespace(multiquotes_ns, path="/multiquotes")
+api.add_namespace(history_ns, path="/history")
+api.add_namespace(portfolio_ns, path="/portfolio")
+api.add_namespace(sip_ns, path="/sip")
+api.add_namespace(depth_ns, path="/depth")
+api.add_namespace(option_chain_ns, path="/optionchain")
+api.add_namespace(intervals_ns, path="/intervals")
+api.add_namespace(funds_ns, path="/funds")
+api.add_namespace(orderbook_ns, path="/orderbook")
+api.add_namespace(tradebook_ns, path="/tradebook")
+api.add_namespace(positionbook_ns, path="/positionbook")
+api.add_namespace(holdings_ns, path="/holdings")
+api.add_namespace(basket_order_ns, path="/basketorder")
+api.add_namespace(split_order_ns, path="/splitorder")
+api.add_namespace(orderstatus_ns, path="/orderstatus")
+api.add_namespace(openposition_ns, path="/openposition")
+api.add_namespace(ticker_ns, path="/ticker")
+api.add_namespace(symbol_ns, path="/symbol")
+api.add_namespace(search_ns, path="/search")
+api.add_namespace(expiry_ns, path="/expiry")
+api.add_namespace(option_symbol_ns, path="/optionsymbol")
+api.add_namespace(options_order_ns, path="/optionsorder")
+api.add_namespace(options_multiorder_ns, path="/optionsmultiorder")
+api.add_namespace(option_greeks_ns, path="/optiongreeks")
+api.add_namespace(multi_option_greeks_ns, path="/multioptiongreeks")
+api.add_namespace(synthetic_future_ns, path="/syntheticfuture")
+api.add_namespace(analyzer_ns, path="/analyzer")
+api.add_namespace(ping_ns, path="/ping")
+api.add_namespace(telegram_ns, path="/telegram")
+api.add_namespace(whatsapp_ns, path="/whatsapp")
+api.add_namespace(margin_ns, path="/margin")
+api.add_namespace(instruments_ns, path="/instruments")
+api.add_namespace(chart_ns, path="/chart")
+api.add_namespace(market_holidays_ns, path="/market/holidays")
+api.add_namespace(market_timings_ns, path="/market/timings")
+api.add_namespace(pnl_symbols_ns, path="/pnl")
+api.add_namespace(place_gtt_order_ns, path="/placegttorder")
+api.add_namespace(modify_gtt_order_ns, path="/modifygttorder")
+api.add_namespace(cancel_gtt_order_ns, path="/cancelgttorder")
+api.add_namespace(gtt_orderbook_ns, path="/gttorderbook")
+api.add_namespace(strategy_ns, path="/strategy")

@@ -128,7 +128,9 @@ def get_open(sym, date):
 # ── Scoring (identical to v3_backtest.py) ────────────────────────────────────
 def compute_mr_scores(signals_df):
     df = signals_df[signals_df["in_universe"]].copy()
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
     if len(df) < 10:
         return pd.DataFrame()
@@ -137,7 +139,9 @@ def compute_mr_scores(signals_df):
     df["z_12"] = (df["mr_12"] - df["mr_12"].mean()) / df["mr_12"].std(ddof=1)
     df["z_6"] = (df["mr_6"] - df["mr_6"].mean()) / df["mr_6"].std(ddof=1)
     df["weighted_z"] = W_12M * df["z_12"] + W_6M * df["z_6"]
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
     return df.sort_values("mr_rank").reset_index(drop=True)
 
@@ -173,7 +177,9 @@ total_replaced = 0
 for period in all_periods[:-1]:
     next_per = period_to_next[period]
 
-    held = act[(pd.to_datetime(act["friday_date"]) == period) & (act["action"].isin(["BUY", "HOLD"]))].copy()
+    held = act[
+        (pd.to_datetime(act["friday_date"]) == period) & (act["action"].isin(["BUY", "HOLD"]))
+    ].copy()
     if held.empty:
         continue
 
@@ -235,7 +241,10 @@ for period in all_periods[:-1]:
             if not ranked_df.empty:
                 portfolio_syms = set(held["symbol"])
                 watchlist = (
-                    ranked_df[(ranked_df["mr_rank"] <= BUFFER_ZONE) & (~ranked_df["symbol"].isin(portfolio_syms))]
+                    ranked_df[
+                        (ranked_df["mr_rank"] <= BUFFER_ZONE)
+                        & (~ranked_df["symbol"].isin(portfolio_syms))
+                    ]
                     .sort_values("mr_rank")
                     .reset_index(drop=True)
                 )
@@ -270,7 +279,11 @@ for period in all_periods[:-1]:
         if np.isnan(entry_price) or entry_price == 0:
             continue
 
-        exit_ret = float(exit15_open) / entry_price - 1 if pd.notna(exit15_open) and exit15_open > 0 else 0.0
+        exit_ret = (
+            float(exit15_open) / entry_price - 1
+            if pd.notna(exit15_open) and exit15_open > 0
+            else 0.0
+        )
 
         if idx < len(replacements):
             repl = replacements[idx]
@@ -297,7 +310,9 @@ for period in all_periods[:-1]:
 elapsed = time.time() - t0
 print(f"  Processed in {elapsed / 60:.1f} min")
 print(f"  Total RSI exits  : {total_exits}")
-print(f"  Total replaced   : {total_replaced} ({total_replaced / max(1, total_exits) * 100:.1f}% of exits)")
+print(
+    f"  Total replaced   : {total_replaced} ({total_replaced / max(1, total_exits) * 100:.1f}% of exits)"
+)
 print(f"  Went to cash     : {total_exits - total_replaced}")
 
 # ── Period returns + costs ────────────────────────────────────────────────────
@@ -342,7 +357,7 @@ print(f"  Total RSI exits  : {total_exits}")
 print(f"  Replaced         : {total_replaced} ({total_replaced / max(1, total_exits) * 100:.1f}%)")
 print(f"  Went to cash     : {total_exits - total_replaced}")
 print(f"  Avg cost/period  : {avg_cost * 100:.4f}%")
-print()
+print("")
 print(f"  CAGR        : {cagr * 100:.2f}%")
 print(f"  Sharpe      : {sharpe:.3f}")
 print(f"  Max DD      : {max_dd * 100:.2f}%")

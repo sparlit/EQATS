@@ -32,7 +32,6 @@ trade-plan geometry without using future prices.
 
 import argparse
 import json
-import sqlite3
 from collections import Counter
 from pathlib import Path
 
@@ -82,15 +81,14 @@ def run(db_path: Path, output_dir: Path, warmup: int = 120, stride: int = 5) -> 
 
     frame = pd.DataFrame(records)
     if frame.empty:
-        msg = "Calibration produced no candidate observations"
-        raise RuntimeError(msg)
+        raise RuntimeError("Calibration produced no candidate observations")
 
     selected = frame[frame["selected"]]
     reason_counter = Counter(reason for reasons in frame["reasons_against"] for reason in reasons)
     result = {
         "status": "PASS",
-        "observations": len(frame),
-        "selected": len(selected),
+        "observations": int(len(frame)),
+        "selected": int(len(selected)),
         "selection_rate_pct": round(100.0 * len(selected) / len(frame), 3),
         "selected_per_scan_median": float(selected.groupby("trade_date").size().median())
         if not selected.empty
@@ -100,7 +98,9 @@ def run(db_path: Path, output_dir: Path, warmup: int = 120, stride: int = 5) -> 
         "selected_score_quantiles": selected["score"].quantile([0.1, 0.5, 0.9]).round(2).to_dict()
         if not selected.empty
         else {},
-        "median_stop_pct": float(((selected["entry"] - selected["stop"]) / selected["entry"] * 100).median())
+        "median_stop_pct": float(
+            ((selected["entry"] - selected["stop"]) / selected["entry"] * 100).median()
+        )
         if not selected.empty
         else 0.0,
         "median_rr_t1": float(selected["reward_risk_t1"].median()) if not selected.empty else 0.0,
@@ -112,8 +112,12 @@ def run(db_path: Path, output_dir: Path, warmup: int = 120, stride: int = 5) -> 
             "reason": "Sprint 3 calibration measures signal density and plan geometry only; profitability thresholds require Sprint 7 point-in-time testing.",
         },
     }
-    frame.to_json(output_dir / "sprint3_calibration_observations.jsonl", orient="records", lines=True)
-    (output_dir / "sprint3_calibration_summary.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    frame.to_json(
+        output_dir / "sprint3_calibration_observations.jsonl", orient="records", lines=True
+    )
+    (output_dir / "sprint3_calibration_summary.json").write_text(
+        json.dumps(result, indent=2), encoding="utf-8"
+    )
     return result
 
 

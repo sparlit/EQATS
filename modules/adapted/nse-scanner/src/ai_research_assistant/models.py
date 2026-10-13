@@ -44,14 +44,11 @@ class ResearchQuery:
 
     def __post_init__(self) -> None:
         if not self.query_id.strip():
-            msg = "query_id is required"
-            raise ValueError(msg)
+            raise ValueError("query_id is required")
         if not self.question.strip():
-            msg = "question is required"
-            raise ValueError(msg)
+            raise ValueError("question is required")
         if self.query_type not in _ALLOWED_QUERY_TYPES:
-            msg = f"Unsupported query type: {self.query_type}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported query type: {self.query_type}")
         date.fromisoformat(self.requested_date)
         normalized = tuple(symbol.strip().upper() for symbol in self.symbols if symbol.strip())
         object.__setattr__(self, "symbols", normalized)
@@ -70,21 +67,15 @@ class ResearchAnswer:
 
     def __post_init__(self) -> None:
         if not self.query_id.strip():
-            msg = "query_id is required"
-            raise ValueError(msg)
+            raise ValueError("query_id is required")
         date.fromisoformat(self.generated_date)
         if self.status not in _ALLOWED_STATUSES:
-            msg = f"Unsupported answer status: {self.status}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported answer status: {self.status}")
         if self.confidence not in _ALLOWED_CONFIDENCE:
-            msg = f"Unsupported confidence: {self.confidence}"
-            raise ValueError(msg)
+            raise ValueError(f"Unsupported confidence: {self.confidence}")
         if self.status == "READY" and not self.evidence_references:
-            msg = "READY answers require evidence references"
-            raise ValueError(msg)
+            raise ValueError("READY answers require evidence references")
         if self.status == "INSUFFICIENT_DATA" and self.confidence not in {"LOW", "UNKNOWN"}:
-            msg = "INSUFFICIENT_DATA answers cannot have medium or high confidence"
-            raise ValueError(msg)
+            raise ValueError("INSUFFICIENT_DATA answers cannot have medium or high confidence")
         if self.status != "REJECTED" and not self.summary.strip():
-            msg = "summary is required"
-            raise ValueError(msg)
+            raise ValueError("summary is required")

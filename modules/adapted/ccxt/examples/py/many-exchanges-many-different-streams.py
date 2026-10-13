@@ -40,7 +40,9 @@ async def symbol_loop(exchange, method, symbol):
             now = exchange.milliseconds()
             iso8601 = exchange.iso8601(now)
             if method == "watchOrderBook":
-                print(iso8601, exchange.id, method, symbol, response["asks"][0], response["bids"][0])
+                print(
+                    iso8601, exchange.id, method, symbol, response["asks"][0], response["bids"][0]
+                )
             elif method == "watchTicker":
                 print(
                     iso8601,

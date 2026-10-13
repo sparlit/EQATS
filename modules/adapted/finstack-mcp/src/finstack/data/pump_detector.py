@@ -34,7 +34,7 @@ Detects coordinated pump patterns in Indian small/mid caps:
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.pump_detector")
 
@@ -68,7 +68,9 @@ def _check_volume_and_price(symbol: str) -> dict:
 
         price_5d_ago = hist["Close"].iloc[-6]
         price_now = hist["Close"].iloc[-1]
-        price_surge = round((price_now - price_5d_ago) / price_5d_ago * 100, 1) if price_5d_ago > 0 else 0
+        price_surge = (
+            round((price_now - price_5d_ago) / price_5d_ago * 100, 1) if price_5d_ago > 0 else 0
+        )
 
         # Check for upper circuits (price hits high = open = close with high volume)
         recent = hist.tail(7)
@@ -197,15 +199,21 @@ def detect_pump(symbol: str) -> dict:
     if score >= 8:
         pump_probability = "critical"
         verdict = "HIGH PROBABILITY PUMP. Multiple operator signals firing. This pattern reverses violently."
-        recommendation = "Do not buy. If holding, exit before volume dries up. Operator will distribute."
+        recommendation = (
+            "Do not buy. If holding, exit before volume dries up. Operator will distribute."
+        )
     elif score >= 5:
         pump_probability = "high"
-        verdict = "Likely pump activity detected. Unusual price/volume action without fundamental news."
+        verdict = (
+            "Likely pump activity detected. Unusual price/volume action without fundamental news."
+        )
         recommendation = "Extreme caution. Wait for volume normalization before any position."
     elif score >= 3:
         pump_probability = "medium"
         verdict = "Some unusual activity. Could be genuine breakout or early-stage pump."
-        recommendation = "Check for fundamental catalyst (results, order win, merger). If no news — be cautious."
+        recommendation = (
+            "Check for fundamental catalyst (results, order win, merger). If no news — be cautious."
+        )
     else:
         pump_probability = "low"
         verdict = "No significant pump signals. Normal trading activity."

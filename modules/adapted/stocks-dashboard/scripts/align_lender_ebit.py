@@ -54,7 +54,7 @@ def lender_symbols():
     led = json.load(open(os.path.join(HERE, "coverage_na_ledger.json")))
     syms = {s for s, e in led.get("ebit", {}).items() if not s.startswith("_")}
     src = open(os.path.join(DOCS, "backtest-engine.js")).read()
-    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.DOTALL)
+    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.S)
     alias = json.loads(re.sub(r"(\w+)\s*:", r'"\1":', m.group(1)).replace("'", '"')) if m else {}
     out = set(syms)
     for s in syms:
@@ -70,7 +70,7 @@ def heal(path, targets):
     d = json.load(open(path))
     before = [0] * 9
     for sym, rows in d.items():
-        for c in rows.values():
+        for _q, c in rows.items():
             for i in range(min(9, len(c))):
                 if i != 6 and c[i] is not None:
                     before[i] += 1
@@ -81,7 +81,7 @@ def heal(path, targets):
         if not rows:
             continue
         n = 0
-        for c in rows.values():
+        for _q, c in rows.items():
             for i in (7, 8):
                 if len(c) > i and c[i] is not None:
                     c[i] = None
@@ -91,7 +91,7 @@ def heal(path, targets):
             changed += n
     after = [0] * 9
     for sym, rows in d.items():
-        for c in rows.values():
+        for _q, c in rows.items():
             for i in range(min(9, len(c))):
                 if i != 6 and c[i] is not None:
                     after[i] += 1

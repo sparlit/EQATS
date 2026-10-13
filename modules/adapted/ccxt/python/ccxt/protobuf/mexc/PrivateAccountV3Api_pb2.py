@@ -52,7 +52,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
     _globals[
         "DESCRIPTOR"
-    ]._serialized_options = b"\n\034com.mxc.push.common.protobufB\030PrivateAccountV3ApiProtoH\001P\001"
+    ]._serialized_options = (
+        b"\n\034com.mxc.push.common.protobufB\030PrivateAccountV3ApiProtoH\001P\001"
+    )
     _globals["_PRIVATEACCOUNTV3API"]._serialized_start = 30
     _globals["_PRIVATEACCOUNTV3API"]._serialized_end = 216
 # @@protoc_insertion_point(module_scope)

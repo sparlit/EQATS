@@ -41,7 +41,7 @@ exchange = ccxt.bitfinex()
 # the rateLimit is in milliseconds → divide it by a thousand to get seconds
 delay = exchange.rateLimit / 1000
 
-for _i in range(10):
+for _i in range(0, 10):
     # this can be any call instead of fetch_ticker, really
     print(exchange.fetch_ticker("BTC/USD"))
     time.sleep(delay)  # sleep a little before sending each next request

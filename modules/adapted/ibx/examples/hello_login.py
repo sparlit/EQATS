@@ -54,8 +54,7 @@ c.connect(
 threading.Thread(target=c.run, daemon=True).start()
 
 if not w.ready.wait(timeout=15):
-    msg = "did not receive next_valid_id"
-    raise RuntimeError(msg)
+    raise RuntimeError("did not receive next_valid_id")
 
 print(f"logged in. next_valid_id = {w.order_id}")
 

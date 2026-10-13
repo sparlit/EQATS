@@ -35,14 +35,24 @@ import ccxt.pro  # noqa: E402
 def describe(update):
     # summarize whatever a watch*ForSymbols call returned
     if isinstance(update, dict) and "bids" in update:  # order book
-        return update["symbol"] + " bid " + str(update["bids"][0]) + " ask " + str(update["asks"][0])
+        return (
+            update["symbol"] + " bid " + str(update["bids"][0]) + " ask " + str(update["asks"][0])
+        )
     if isinstance(update, dict):  # watch_ohlcv_for_symbols -> {symbol: {timeframe: candles}}
-        symbol = next(iter(update.keys()))
-        timeframe = next(iter(update[symbol].keys()))
+        symbol = list(update.keys())[0]
+        timeframe = list(update[symbol].keys())[0]
         candle = update[symbol][timeframe][-1]
         return symbol + " " + timeframe + " candle " + str(candle)
     trade = update[0]  # trades -> list of trade structures
-    return trade["symbol"] + " " + trade["side"] + " " + str(trade["amount"]) + " @ " + str(trade["price"])
+    return (
+        trade["symbol"]
+        + " "
+        + trade["side"]
+        + " "
+        + str(trade["amount"])
+        + " @ "
+        + str(trade["price"])
+    )
 
 
 async def watch_for(exchange, watch, args, seconds):

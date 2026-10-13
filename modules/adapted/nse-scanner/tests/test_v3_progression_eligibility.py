@@ -54,14 +54,21 @@ def test_strict_eligibility_passes_liquid_valid_eq_stock():
         "ABC",
         _history(),
         as_of_date="2026-02-28",
-        metadata={"series": "EQ", "active": 1, "market_cap_cr": 5000, "market_cap_as_of": "2026-02-15"},
+        metadata={
+            "series": "EQ",
+            "active": 1,
+            "market_cap_cr": 5000,
+            "market_cap_as_of": "2026-02-15",
+        },
     )
     assert result.eligible
     assert result.reason_code == "ELIGIBLE"
 
 
 def test_missing_delivery_fails_closed():
-    result = evaluate_eligibility("ABC", _history().drop(columns=["delivery_pct"]), metadata={"series": "EQ"})
+    result = evaluate_eligibility(
+        "ABC", _history().drop(columns=["delivery_pct"]), metadata={"series": "EQ"}
+    )
     assert not result.eligible
     assert result.reason_code == "DELIVERY_DATA_MISSING"
 
@@ -72,7 +79,12 @@ def test_strict_v3_requires_current_promoter_holding():
         _history(),
         as_of_date="2026-02-28",
         require_promoter_holding=True,
-        metadata={"series": "EQ", "active": 1, "market_cap_cr": 5000, "market_cap_as_of": "2026-02-15"},
+        metadata={
+            "series": "EQ",
+            "active": 1,
+            "market_cap_cr": 5000,
+            "market_cap_as_of": "2026-02-15",
+        },
     )
     assert not result.eligible
     assert result.stage == "OWNERSHIP"

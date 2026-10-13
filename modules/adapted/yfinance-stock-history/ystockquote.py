@@ -172,14 +172,15 @@ def get_historical_prices(symbol, start_date, end_date):
     """
     url = (
         f"http://ichart.yahoo.com/table.csv?s={symbol}&"
-        f"d={int(end_date[4:6]) - 1!s}&"
-        f"e={int(end_date[6:8])!s}&"
-        f"f={int(end_date[0:4])!s}&"
-        "g=d&"
-        f"a={int(start_date[4:6]) - 1!s}&"
-        f"b={int(start_date[6:8])!s}&"
-        f"c={int(start_date[0:4])!s}&"
-        "ignore=.csv"
+        + f"d={str(int(end_date[4:6]) - 1)}&"
+        + f"e={str(int(end_date[6:8]))}&"
+        + f"f={str(int(end_date[0:4]))}&"
+        + "g=d&"
+        + f"a={str(int(start_date[4:6]) - 1)}&"
+        + f"b={str(int(start_date[6:8]))}&"
+        + f"c={str(int(start_date[0:4]))}&"
+        + "ignore=.csv"
     )
     days = urllib.urlopen(url).readlines()
-    return [day[:-2].split(",") for day in days]
+    data = [day[:-2].split(",") for day in days]
+    return data

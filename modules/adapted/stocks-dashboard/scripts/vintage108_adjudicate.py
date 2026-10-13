@@ -86,7 +86,12 @@ def fy_quarters(qe, calendar=False):
     """The four quarter-ends of the fiscal year containing `qe`, plus the FY-end quarter."""
     y, m = qe // 10000, (qe // 100) % 100
     if calendar:
-        return [y * 10000 + 331, y * 10000 + 630, y * 10000 + 930, y * 10000 + 1231], y * 10000 + 1231
+        return [
+            y * 10000 + 331,
+            y * 10000 + 630,
+            y * 10000 + 930,
+            y * 10000 + 1231,
+        ], y * 10000 + 1231
     fy = y + 1 if m > 3 else y
     return (
         [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331],
@@ -116,15 +121,20 @@ def main():
     out.setdefault("syms", {})
 
     bysym = {}
-    for v in cells.values():
+    for _k, v in cells.items():
         if v.get("state") != "done":
             continue
         bysym.setdefault(v["sym"], []).append(v)
     flagged = sorted(
-        s for s, vs in bysym.items() if any(v.get("verdict") == "FLAG" for v in vs) and (not only or s in only)
+        s
+        for s, vs in bysym.items()
+        if any(v.get("verdict") == "FLAG" for v in vs) and (not only or s in only)
     )
     todo = [s for s in flagged if s not in out["syms"]][:limit]
-    print("flagged symbols: %d  (already adjudicated %d)  this batch %d" % (len(flagged), len(out["syms"]), len(todo)))
+    print(
+        "flagged symbols: %d  (already adjudicated %d)  this batch %d"
+        % (len(flagged), len(out["syms"]), len(todo))
+    )
 
     try:
         import agg_sources
@@ -191,7 +201,11 @@ def main():
             b, ee = sweep.parse_dt(a.get("Date Begin")), sweep.parse_dt(a.get("Date End"))
             span = None
             if b and ee:
-                span = (ee // 10000 * 12 + (ee // 100) % 100) - (b // 10000 * 12 + (b // 100) % 100) + 1
+                span = (
+                    (ee // 10000 * 12 + (ee // 100) % 100)
+                    - (b // 10000 * 12 + (b // 100) % 100)
+                    + 1
+                )
             fy = {
                 "convention": "Jan-Dec" if cal else "Apr-Mar",
                 "dbeg": b,
@@ -214,7 +228,10 @@ def main():
                         d_sum += dv
                         d_have += 1
                 fy.update(
-                    stored_sum=round(s_sum, 4), stored_have=s_have, detres_sum=round(d_sum, 4), detres_have=d_have
+                    stored_sum=round(s_sum, 4),
+                    stored_have=s_have,
+                    detres_sum=round(d_sum, 4),
+                    detres_have=d_have,
                 )
                 # Keep the ERROR, not just the §42 boolean: a row that reproduces the audited
                 # annual to the paisa and one that misses it by 5 cr both "reconcile" at 3% on a
@@ -266,7 +283,9 @@ def main():
 
         rec["proposed"] = classify(rec)
         out["syms"][sym] = rec
-        print("  %-14s flags %d/%d  -> %s" % (sym, rec["n_flag"], rec["n_compared"], rec["proposed"]))
+        print(
+            "  %-14s flags %d/%d  -> %s" % (sym, rec["n_flag"], rec["n_compared"], rec["proposed"])
+        )
         if n % 5 == 0 or n == len(todo):
             sweep.save(OUT, out)
     sweep.save(OUT, out)
@@ -283,7 +302,8 @@ def classify(rec):
     if any(c.get("equals_other_period") for c in cells.values()):
         return "period-mismatch"
     exc_ok = all(
-        c.get("exceptional_mn") and close(c["stored"], c["detres"] - c["exceptional_mn"] / 10.0) for c in cells.values()
+        c.get("exceptional_mn") and close(c["stored"], c["detres"] - c["exceptional_mn"] / 10.0)
+        for c in cells.values()
     )
     if cells and exc_ok:
         return "definition-exceptional"

@@ -91,16 +91,20 @@ def main() -> int:
         benchmark = "zero (single-instrument universe)"
 
     events = pd.DatetimeIndex(pd.to_datetime(adf["published_at"], utc=True)).sort_values()
-    result: EventStudyResult = event_study(returns, market_returns, events, pre=args.pre, post=args.post)
+    result: EventStudyResult = event_study(
+        returns, market_returns, events, pre=args.pre, post=args.post
+    )
 
     report = {
         "symbol": symbol,
-        "n_announcements": len(adf),
+        "n_announcements": int(len(adf)),
         "window": list(result.window),
         "benchmark": benchmark,
         "n_events_in_sample": result.n_events,
         "mean_car": round(result.mean_car, 6) if result.mean_car == result.mean_car else None,
-        "median_car": round(result.median_car, 6) if result.median_car == result.median_car else None,
+        "median_car": round(result.median_car, 6)
+        if result.median_car == result.median_car
+        else None,
         "t_stat": round(result.t_stat, 3) if result.t_stat == result.t_stat else None,
         "p_value": round(result.p_value, 4) if result.p_value == result.p_value else None,
     }

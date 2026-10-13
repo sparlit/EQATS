@@ -139,7 +139,8 @@ WISDOM = [
         "theme": "trend",
         "id": "market_sideways_70pct",
         "principle": "70% of the time the market is sideways.",
-        "quant": "Range-bound != trending. Trend-following works 30% of the time; range-trading works 70%.",
+        "quant": "Range-bound != trending. Trend-following works 30% "
+        "of the time; range-trading works 70%.",
         "sources": ["Singhal"],
         "why": "Most losing trades come from applying trending tools in a range-bound market.",
         "violated_when": "Trend-following during confirmed sideways regimes.",
@@ -259,7 +260,7 @@ WISDOM = [
         "id": "wait_gap_fill",
         "principle": "Wait for gap fill before entering.",
         "quant": "Breakaway gap -> wait for fill -> enter on confirmation (higher high).",
-        "sources": ["McAllen", "Nison (windows)", ("Singhal (institutional gap retracement)")],
+        "sources": ["McAllen", "Nison (windows)", "Singhal (institutional gap retracement)"],
         "why": "Gaps are vacuums. Fills shake loose weak hands.",
         "violated_when": "Buying the gap on day 1.",
     },
@@ -267,7 +268,8 @@ WISDOM = [
         "theme": "entry",
         "id": "reversal_candle_context",
         "principle": "Reversal candles need context: support + volume.",
-        "quant": "Hammer/engulfing at validated support (>=2 prior touches) + volume >= 1.2x average.",
+        "quant": "Hammer/engulfing at validated support (>=2 prior "
+        "touches) + volume >= 1.2x average.",
         "sources": ["Nison", "Ishaan", "McAllen", "Patel & Kiri"],
         "why": "A candle alone is a shape. Context makes it a signal.",
         "violated_when": "Trading candle patterns in isolation.",
@@ -276,7 +278,8 @@ WISDOM = [
         "theme": "entry",
         "id": "first_retracement_only",
         "principle": "First retracement only.",
-        "quant": "When trading gap retracements, take the first retrace only. Second or third is a trap.",
+        "quant": "When trading gap retracements, take the first "
+        "retrace only. Second or third is a trap.",
         "sources": ["Singhal"],
         "why": "When the market touches the gap zone the second or "
         "third time, it can block funds and lead to sideways "
@@ -287,7 +290,8 @@ WISDOM = [
         "theme": "entry",
         "id": "longer_consolidation_stronger",
         "principle": "Longer consolidation = more reliable breakout.",
-        "quant": "Base length correlates with breakout reliability. Minimum 5-7 weeks for swing bases.",
+        "quant": "Base length correlates with breakout reliability. "
+        "Minimum 5-7 weeks for swing bases.",
         "sources": ["Singhal", "O'Neil (flat base)", "Chande"],
         "why": "Longer consolidation = more significant buildup of buying/selling pressure.",
         "violated_when": "Trading breakouts from 3-day ranges as if they were real bases.",
@@ -378,7 +382,8 @@ WISDOM = [
         "theme": "exit",
         "id": "time_based_exit_intraday",
         "principle": "Time-based exits for intraday setups.",
-        "quant": "Exit at 3:15 PM (or 3:29 PM) for intraday positions. Options exits at 9:55 AM on expiry day.",
+        "quant": "Exit at 3:15 PM (or 3:29 PM) for intraday "
+        "positions. Options exits at 9:55 AM on expiry day.",
         "sources": ["Singhal"],
         "why": "Intraday positions held past close become overnight positions with different risk.",
         "violated_when": "Carrying an intraday setup into the next session.",
@@ -390,7 +395,8 @@ WISDOM = [
         "quant": "Stop below the pattern's structural low (swing low, candle low, cloud bottom).",
         "sources": ["Singhal", "Nison", "McAllen"],
         "why": "The setup is invalidated if the structural low is breached.",
-        "violated_when": "Using a fixed % stop that gets hit before the pattern is actually invalid.",
+        "violated_when": "Using a fixed % stop that gets hit before "
+        "the pattern is actually invalid.",
     },
     # ---------------- VOLUME ----------------
     {

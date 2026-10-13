@@ -73,7 +73,9 @@ def _fii(net: float, days: int = 1) -> list[FIIDIIData]:
 def _breadth(adv: int, dec: int) -> MarketBreadth:
     ratio = adv / max(dec, 1)
     v = "BROAD_RALLY" if ratio > 2.0 else "BROAD_DECLINE" if ratio < 0.5 else "MIXED"
-    return MarketBreadth(advances=adv, declines=dec, unchanged=0, ad_ratio=round(ratio, 2), verdict=v)
+    return MarketBreadth(
+        advances=adv, declines=dec, unchanged=0, ad_ratio=round(ratio, 2), verdict=v
+    )
 
 
 # ── SentimentSignal dataclass ─────────────────────────────────────
@@ -118,13 +120,13 @@ class TestComponentWeights:
 class TestFIIDIISignal:
     def test_bullish_on_strong_fii_buying(self):
         with patch("market.sentiment.get_fii_dii_data", return_value=_fii(3000, 5)):
-            sig, score, _sources = _fii_dii_signal()
+            sig, score, sources = _fii_dii_signal()
         assert sig == "BULLISH"
         assert score > 0
 
     def test_bearish_on_strong_fii_selling(self):
         with patch("market.sentiment.get_fii_dii_data", return_value=_fii(-3000, 5)):
-            sig, score, _sources = _fii_dii_signal()
+            sig, score, sources = _fii_dii_signal()
         assert sig == "BEARISH"
         assert score < 0
 
@@ -136,13 +138,13 @@ class TestFIIDIISignal:
 
     def test_neutral_on_empty_data(self):
         with patch("market.sentiment.get_fii_dii_data", return_value=[]):
-            sig, _score, sources = _fii_dii_signal()
+            sig, score, sources = _fii_dii_signal()
         assert sig == "NEUTRAL"
         assert sources == []
 
     def test_neutral_on_exception(self):
         with patch("market.sentiment.get_fii_dii_data", side_effect=Exception("NSE down")):
-            sig, score, _sources = _fii_dii_signal()
+            sig, score, sources = _fii_dii_signal()
         assert sig == "NEUTRAL"
         assert score == 0.0
 
@@ -179,7 +181,7 @@ class TestNewsSignal:
                 },
             ),
         ):
-            sig, score, _sources = _news_signal("INFY")
+            sig, score, sources = _news_signal("INFY")
         assert sig == "BULLISH"
         assert score > 0
 
@@ -199,19 +201,19 @@ class TestNewsSignal:
                 },
             ),
         ):
-            sig, score, _sources = _news_signal("INFY")
+            sig, score, sources = _news_signal("INFY")
         assert sig == "BEARISH"
         assert score < 0
 
     def test_neutral_on_no_news(self):
         with patch("market.news.get_stock_news", return_value=[]):
-            sig, _score, sources = _news_signal("INFY")
+            sig, score, sources = _news_signal("INFY")
         assert sig == "NEUTRAL"
         assert sources == []
 
     def test_neutral_on_exception(self):
         with patch("market.news.get_stock_news", side_effect=Exception("timeout")):
-            sig, _score, _sources = _news_signal("INFY")
+            sig, score, sources = _news_signal("INFY")
         assert sig == "NEUTRAL"
 
 
@@ -228,26 +230,26 @@ class TestBulkDealsSignal:
     def test_bullish_on_net_buying(self):
         deals = [self._make_deal("BUY", 200_000)] * 3 + [self._make_deal("SELL", 10_000)]
         with patch("market.bulk_deals.get_bulk_deals", return_value=deals):
-            sig, score, _sources = _bulk_deals_signal("INFY")
+            sig, score, sources = _bulk_deals_signal("INFY")
         assert sig == "BULLISH"
         assert score > 0
 
     def test_bearish_on_net_selling(self):
         deals = [self._make_deal("SELL", 200_000)] * 3 + [self._make_deal("BUY", 10_000)]
         with patch("market.bulk_deals.get_bulk_deals", return_value=deals):
-            sig, score, _sources = _bulk_deals_signal("INFY")
+            sig, score, sources = _bulk_deals_signal("INFY")
         assert sig == "BEARISH"
         assert score < 0
 
     def test_neutral_on_no_deals(self):
         with patch("market.bulk_deals.get_bulk_deals", return_value=[]):
-            sig, _score, sources = _bulk_deals_signal("INFY")
+            sig, score, sources = _bulk_deals_signal("INFY")
         assert sig == "NEUTRAL"
         assert sources == []
 
     def test_neutral_on_exception(self):
         with patch("market.bulk_deals.get_bulk_deals", side_effect=Exception("API down")):
-            sig, _score, _sources = _bulk_deals_signal("INFY")
+            sig, score, sources = _bulk_deals_signal("INFY")
         assert sig == "NEUTRAL"
 
     def test_sources_describe_deals(self):
@@ -263,31 +265,31 @@ class TestBulkDealsSignal:
 class TestBreadthSignal:
     def test_bullish_on_broad_rally(self):
         with patch("market.sentiment.get_market_breadth", return_value=_breadth(400, 100)):
-            sig, score, _sources = _breadth_signal()
+            sig, score, sources = _breadth_signal()
         assert sig == "BULLISH"
         assert score > 0
 
     def test_bearish_on_broad_decline(self):
         with patch("market.sentiment.get_market_breadth", return_value=_breadth(50, 400)):
-            sig, score, _sources = _breadth_signal()
+            sig, score, sources = _breadth_signal()
         assert sig == "BEARISH"
         assert score < 0
 
     def test_neutral_on_mixed(self):
         with patch("market.sentiment.get_market_breadth", return_value=_breadth(200, 200)):
-            sig, _score, _sources = _breadth_signal()
+            sig, score, sources = _breadth_signal()
         assert sig == "NEUTRAL"
 
     def test_neutral_on_unavailable(self):
         unavail = MarketBreadth(0, 0, 0, 0.0, "UNAVAILABLE")
         with patch("market.sentiment.get_market_breadth", return_value=unavail):
-            sig, _score, sources = _breadth_signal()
+            sig, score, sources = _breadth_signal()
         assert sig == "NEUTRAL"
         assert sources == []
 
     def test_neutral_on_exception(self):
         with patch("market.sentiment.get_market_breadth", side_effect=Exception("down")):
-            sig, _score, _sources = _breadth_signal()
+            sig, score, sources = _breadth_signal()
         assert sig == "NEUTRAL"
 
 
@@ -404,7 +406,9 @@ class TestGetSentiment:
 
     def test_sources_aggregated_from_all_components(self):
         with (
-            patch("market.sentiment._fii_dii_signal", return_value=("BULLISH", 1.0, ["fii source"])),
+            patch(
+                "market.sentiment._fii_dii_signal", return_value=("BULLISH", 1.0, ["fii source"])
+            ),
             patch("market.sentiment._news_signal", return_value=("BULLISH", 1.0, ["news source"])),
             patch(
                 "market.sentiment._bulk_deals_signal",

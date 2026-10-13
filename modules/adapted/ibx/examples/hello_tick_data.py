@@ -72,8 +72,7 @@ c.connect(
 )
 threading.Thread(target=c.run, daemon=True).start()
 if not w.connected.wait(timeout=15):
-    msg = "connect failed"
-    raise RuntimeError(msg)
+    raise RuntimeError("connect failed")
 
 spy = Contract()
 spy.con_id = 756733

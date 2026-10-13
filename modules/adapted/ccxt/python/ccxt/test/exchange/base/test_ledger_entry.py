@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,7 +37,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_ledger_entry(exchange, skipped_properties, method, entry, requested_code, now):
@@ -57,12 +59,19 @@ def test_ledger_entry(exchange, skipped_properties, method, entry, requested_cod
         "type": "deposit",
     }
     empty_allowed_for = ["referenceId", "referenceAccount", "id"]
-    test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
-    test_shared_methods.assert_timestamp_and_datetime(exchange, skipped_properties, method, entry, now)
+    test_shared_methods.assert_structure(
+        exchange, skipped_properties, method, entry, format, empty_allowed_for
+    )
+    test_shared_methods.assert_timestamp_and_datetime(
+        exchange, skipped_properties, method, entry, now
+    )
     test_shared_methods.assert_currency_code(
         exchange, skipped_properties, method, entry, entry["currency"], requested_code
     )
-    test_shared_methods.assert_in_array(exchange, skipped_properties, method, entry, "direction", ["in", "out"])
+    #
+    test_shared_methods.assert_in_array(
+        exchange, skipped_properties, method, entry, "direction", ["in", "out"]
+    )
     test_shared_methods.assert_in_array(
         exchange,
         skipped_properties,
@@ -71,7 +80,13 @@ def test_ledger_entry(exchange, skipped_properties, method, entry, requested_cod
         "type",
         ["trade", "transaction", "margin", "cashback", "referral", "transfer", "fee"],
     )
-    # testSharedMethods.assertInArray (exchange, skippedProperties, method, entry, 'account', ['spot', 'swap', .. ]); # TODO
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "amount", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "before", "0")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "after", "0")
+    # testSharedMethods.assertInArray (exchange, skippedProperties, method, entry, 'account', ['spot', 'swap', .. ]); # todo
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "amount", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "before", "0"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "after", "0"
+    )

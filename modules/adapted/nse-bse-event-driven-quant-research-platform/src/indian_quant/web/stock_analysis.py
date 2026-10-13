@@ -27,7 +27,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -76,7 +75,9 @@ def get_stock_analysis(symbol: str, user_id: int | None = None) -> dict[str, Any
 
     # Recent series for charts (last 60 days)
     tail = frame.tail(60)
-    price_dates = [str(d.date()) if hasattr(d, "date") else str(d)[:10] for d in pd.to_datetime(tail["date"])]
+    price_dates = [
+        str(d.date()) if hasattr(d, "date") else str(d)[:10] for d in pd.to_datetime(tail["date"])
+    ]
     price_closes = [round(float(v), 2) for v in tail["close"]]
     price_volumes = [int(v) if pd.notna(v) else 0 for v in tail.get("volume", [])]
     sma_20_series = [round(float(v), 2) if pd.notna(v) else None for v in tail.get("sma_20", [])]
@@ -84,9 +85,16 @@ def get_stock_analysis(symbol: str, user_id: int | None = None) -> dict[str, Any
 
     # Delivery z-score series (last 30 days)
     deliv_tail = frame.tail(30)
-    deliv_z_series = [round(float(v), 2) if pd.notna(v) else None for v in deliv_tail.get("deliv_z", [])]
-    deliv_pct_series = [round(float(v), 1) if pd.notna(v) else None for v in deliv_tail.get("deliv_pct", [])]
-    deliv_dates = [str(d.date()) if hasattr(d, "date") else str(d)[:10] for d in pd.to_datetime(deliv_tail["date"])]
+    deliv_z_series = [
+        round(float(v), 2) if pd.notna(v) else None for v in deliv_tail.get("deliv_z", [])
+    ]
+    deliv_pct_series = [
+        round(float(v), 1) if pd.notna(v) else None for v in deliv_tail.get("deliv_pct", [])
+    ]
+    deliv_dates = [
+        str(d.date()) if hasattr(d, "date") else str(d)[:10]
+        for d in pd.to_datetime(deliv_tail["date"])
+    ]
 
     # Recent suggestions (from PostgreSQL)
     recent_suggestions = []
@@ -117,16 +125,26 @@ def get_stock_analysis(symbol: str, user_id: int | None = None) -> dict[str, Any
         "latest_date": str(pd.to_datetime(last["date"]).date()),
         "latest_close": close,
         "prev_close": round(float(prev["close"]), 2),
-        "ret_1d_pct": round((close / float(prev["close"]) - 1) * 100, 2) if float(prev["close"]) > 0 else 0,
+        "ret_1d_pct": round((close / float(prev["close"]) - 1) * 100, 2)
+        if float(prev["close"]) > 0
+        else 0,
         "signal_type": signal_type,
-        "deliv_pct": round(float(last.get("deliv_pct", 0)), 1) if pd.notna(last.get("deliv_pct")) else None,
-        "deliv_z": round(float(last.get("deliv_z", 0)), 2) if pd.notna(last.get("deliv_z")) else None,
+        "deliv_pct": round(float(last.get("deliv_pct", 0)), 1)
+        if pd.notna(last.get("deliv_pct"))
+        else None,
+        "deliv_z": round(float(last.get("deliv_z", 0)), 2)
+        if pd.notna(last.get("deliv_z"))
+        else None,
         "vol_z": round(float(last.get("vol_z", 0)), 2) if pd.notna(last.get("vol_z")) else None,
         "hi_streak": int(last.get("hi_streak", 0)) if pd.notna(last.get("hi_streak")) else 0,
         "rsi": round(float(last.get("rsi", 0)), 1) if pd.notna(last.get("rsi")) else None,
         "macd": round(float(last.get("macd", 0)), 2) if pd.notna(last.get("macd")) else None,
-        "macd_signal": round(float(last.get("macd_signal", 0)), 2) if pd.notna(last.get("macd_signal")) else None,
-        "macd_hist": round(float(last.get("macd_hist", 0)), 2) if pd.notna(last.get("macd_hist")) else None,
+        "macd_signal": round(float(last.get("macd_signal", 0)), 2)
+        if pd.notna(last.get("macd_signal"))
+        else None,
+        "macd_hist": round(float(last.get("macd_hist", 0)), 2)
+        if pd.notna(last.get("macd_hist"))
+        else None,
         "sma_20": round(float(last.get("sma_20", 0)), 2) if pd.notna(last.get("sma_20")) else None,
         "sma_50": round(float(last.get("sma_50", 0)), 2) if pd.notna(last.get("sma_50")) else None,
         "atr_14": round(atr, 2),

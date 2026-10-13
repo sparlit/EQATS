@@ -56,19 +56,19 @@ def _is_active(position: dict[str, Any]) -> bool:
     return status in {"ACTIVE", "OPEN"} and not exit_date and quantity_is_positive
 
 
-def load_active_positions(portfolio_path: str | Path = "portfolio.json") -> dict[str, dict[str, Any]]:
+def load_active_positions(
+    portfolio_path: str | Path = "portfolio.json",
+) -> dict[str, dict[str, Any]]:
     path = Path(portfolio_path)
     if not path.exists():
-        msg = f"Portfolio file not found: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Portfolio file not found: {path}")
 
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
     positions = payload.get("positions", {})
     if not isinstance(positions, dict):
-        msg = "portfolio.json field 'positions' must be an object"
-        raise ValueError(msg)
+        raise ValueError("portfolio.json field 'positions' must be an object")
 
     active: dict[str, dict[str, Any]] = {}
     for raw_symbol, raw_position in positions.items():
@@ -87,7 +87,10 @@ def build_review_queue(
     """Build a deterministic, symbol-level queue for the monthly review job."""
     period = review_period or date.today().strftime("%Y-%m")
     active = load_active_positions(portfolio_path)
-    items = [ReviewQueueItem(symbol=symbol, position=active[symbol]).to_dict() for symbol in sorted(active)]
+    items = [
+        ReviewQueueItem(symbol=symbol, position=active[symbol]).to_dict()
+        for symbol in sorted(active)
+    ]
 
     return {
         "review_period": period,

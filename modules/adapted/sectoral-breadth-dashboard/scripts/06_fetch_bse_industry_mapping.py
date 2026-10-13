@@ -30,7 +30,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import contextlib
 import time
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -103,15 +103,16 @@ def ensure_master_schema(frame: pd.DataFrame) -> pd.DataFrame:
         if column != "listing_date":
             data[column] = text_series(data[column])
     data["listing_date"] = pd.to_datetime(data["listing_date"], errors="coerce")
-    data["bse_attempt_count"] = pd.to_numeric(data["bse_attempt_count"], errors="coerce").fillna(0).astype(int)
+    data["bse_attempt_count"] = (
+        pd.to_numeric(data["bse_attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
     return data
 
 
 def load_master() -> pd.DataFrame:
     source = OUTPUT_FILE if OUTPUT_FILE.exists() else INPUT_FILE
     if not source.exists():
-        msg = f"Missing NSE master input: {source}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing NSE master input: {source}")
     print(f"Loading master: {source}")
     return ensure_master_schema(pd.read_parquet(source))
 
@@ -123,7 +124,9 @@ def load_mapping() -> pd.DataFrame:
     for column in MAPPING_COLUMNS:
         if column not in data.columns:
             data[column] = ""
-    data["attempt_count"] = pd.to_numeric(data["attempt_count"], errors="coerce").fillna(0).astype(int)
+    data["attempt_count"] = (
+        pd.to_numeric(data["attempt_count"], errors="coerce").fillna(0).astype(int)
+    )
     return data[MAPPING_COLUMNS]
 
 
@@ -139,7 +142,9 @@ def eligible_mask(frame: pd.DataFrame) -> pd.Series:
 
 def extract_classification(meta: dict) -> tuple[str, str, str]:
     sector = clean(meta.get("Sector"))
-    industry = clean(meta.get("IGroup")) or clean(meta.get("IndustryNew")) or clean(meta.get("Industry"))
+    industry = (
+        clean(meta.get("IGroup")) or clean(meta.get("IndustryNew")) or clean(meta.get("Industry"))
+    )
     basic_industry = clean(meta.get("ISubGroup")) or clean(meta.get("Industry"))
     return sector, industry, basic_industry
 
@@ -167,9 +172,13 @@ def save_outputs(master: pd.DataFrame, mapping: pd.DataFrame) -> None:
     )
     mapping = mapping.copy()
     if not mapping.empty:
-        mapping["attempt_count"] = pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+        mapping["attempt_count"] = (
+            pd.to_numeric(mapping["attempt_count"], errors="coerce").fillna(0).astype(int)
+        )
         mapping = (
-            mapping.drop_duplicates(subset=["isin"], keep="last").sort_values(["symbol", "isin"]).reset_index(drop=True)
+            mapping.drop_duplicates(subset=["isin"], keep="last")
+            .sort_values(["symbol", "isin"])
+            .reset_index(drop=True)
         )
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     master.to_parquet(OUTPUT_FILE, index=False)
@@ -203,7 +212,9 @@ def main() -> None:
             symbol = clean(row["symbol"])
             isin = clean(row["isin"])
             previous_attempts = int(master.at[index, "bse_attempt_count"] or 0)
-            print(f"[{number}/{len(pending)}] {symbol} | {isin} | prior attempts: {previous_attempts}")
+            print(
+                f"[{number}/{len(pending)}] {symbol} | {isin} | prior attempts: {previous_attempts}"
+            )
 
             bse_code, meta, failure_reason = attempt_bse_classification(bse, isin)
             sector, industry, basic_industry = extract_classification(meta)

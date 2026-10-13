@@ -91,20 +91,26 @@ def fetch_market_context(
     try:
         nifty_raw = nifty_df if nifty_df is not None else safe_yf_download("^NSEI", period="60d")
         nifty_close = nifty_raw["Close"].squeeze()
-        nifty_day_pct = float((nifty_close.iloc[-1] - nifty_close.iloc[-2]) / nifty_close.iloc[-2] * 100)
+        nifty_day_pct = float(
+            (nifty_close.iloc[-1] - nifty_close.iloc[-2]) / nifty_close.iloc[-2] * 100
+        )
         nifty_5d_pct = (
             float((nifty_close.iloc[-1] - nifty_close.iloc[-6]) / nifty_close.iloc[-6] * 100)
             if len(nifty_close) >= 6
             else 0.0
         )
         nifty_10d_pct = (
-            float((nifty_close.values[-1] - nifty_close.values[-11]) / nifty_close.values[-11] * 100)
+            float(
+                (nifty_close.values[-1] - nifty_close.values[-11]) / nifty_close.values[-11] * 100
+            )
             if len(nifty_close) >= 11
             else 0.0
         )
 
         nifty_20d_pct = (
-            float((nifty_close.values[-1] - nifty_close.values[-21]) / nifty_close.values[-21] * 100)
+            float(
+                (nifty_close.values[-1] - nifty_close.values[-21]) / nifty_close.values[-21] * 100
+            )
             if len(nifty_close) >= 21
             else 0.0
         )
@@ -177,9 +183,7 @@ def fetch_market_context(
                 elif above_sma50 and not above_sma20:
                     trend_label = "above SMA50 but below SMA20 - early correction developing"
                 else:
-                    trend_label = (
-                        "below SMA50 - sustained downtrend"  # Should be blocked by regime gate, but good to note
-                    )
+                    trend_label = "below SMA50 - sustained downtrend"  # Should be blocked by regime gate, but good to note
             else:
                 trend_label = "above SMA20" if above_sma20 else "below SMA20 - short-term weakness"
     except Exception as e:

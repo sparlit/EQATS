@@ -29,7 +29,7 @@ from pathlib import Path
 # is not installed, it just sits at the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from app.core import db, events, scraper, sentiment
 
@@ -61,7 +61,9 @@ def test_scan_symbol_inserts_then_dedups():
     db.init_schema()
     _stub()
     try:
-        assert events.scan_symbol(SYMBOL) == 4  # news + price_move + volume_spike + corporate_action
+        assert (
+            events.scan_symbol(SYMBOL) == 4
+        )  # news + price_move + volume_spike + corporate_action
         assert events.scan_symbol(SYMBOL) == 0  # identical re-scan: every dedup key already exists
         types = {e["event_type"] for e in db.list_events(symbol=SYMBOL)}
         assert types == {"news", "price_move", "volume_spike", "corporate_action"}

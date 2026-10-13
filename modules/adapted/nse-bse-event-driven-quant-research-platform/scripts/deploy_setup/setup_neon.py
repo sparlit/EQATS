@@ -109,13 +109,17 @@ def _create_project(email: str, password: str, project_name: str) -> str:
         else:
             # Create project
             with suppress(Exception):
-                sb.click('button:contains("Create project"), a:contains("Create project")', timeout=5)
+                sb.click(
+                    'button:contains("Create project"), a:contains("Create project")', timeout=5
+                )
             with suppress(Exception):
                 sb.click('a[href*="create"], button:contains("New")', timeout=3)
             sb.sleep(2)
 
             with suppress(Exception):
-                name_input = sb.find_element('input[name="name"], input[placeholder*="project"]', timeout=5)
+                name_input = sb.find_element(
+                    'input[name="name"], input[placeholder*="project"]', timeout=5
+                )
                 name_input.clear()
                 sb.type('input[name="name"], input[placeholder*="project"]', project_name)
                 sb.sleep(0.5)
@@ -146,7 +150,12 @@ def _extract_connection_string(sb: SB) -> str:
         with suppress(Exception):
             elements = sb.find_elements(sel)
             for el in elements:
-                txt = el.get_attribute("data-clipboard-text") or el.text or el.get_attribute("value") or ""
+                txt = (
+                    el.get_attribute("data-clipboard-text")
+                    or el.text
+                    or el.get_attribute("value")
+                    or ""
+                )
                 if "postgresql://" in txt:
                     return txt.strip()
 

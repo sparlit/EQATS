@@ -30,10 +30,9 @@ Must run before any screener or trade entry decision.
 
 from dataclasses import dataclass
 
-import pandas as pd
 import yfinance as yf
 from loguru import logger
-from utils.indicators import adx, ema
+from utils.indicators import adx
 
 
 @dataclass
@@ -101,7 +100,7 @@ def classify_regime() -> RegimeResult:
             max_positions=2,
             reason="Price > EMA50 > EMA200, ADX strong, not near 52W low",
         )
-    if not above_ema50 and not ema_aligned:
+    elif not above_ema50 and not ema_aligned:
         return RegimeResult(
             regime="BEARISH",
             nifty_close=round(price, 2),
@@ -115,19 +114,20 @@ def classify_regime() -> RegimeResult:
             max_positions=0,
             reason="Price < EMA50 and EMA50 < EMA200 — no long entries",
         )
-    return RegimeResult(
-        regime="NEUTRAL",
-        nifty_close=round(price, 2),
-        ema50=round(e50, 2),
-        ema200=round(e200, 2),
-        adx_value=round(adx_val, 1),
-        high_52w=round(high_52, 2),
-        low_52w=round(low_52, 2),
-        position_multiplier=0.5,
-        min_rr=2.5,
-        max_positions=1,
-        reason="Mixed signals — reduced size, Grade A only",
-    )
+    else:
+        return RegimeResult(
+            regime="NEUTRAL",
+            nifty_close=round(price, 2),
+            ema50=round(e50, 2),
+            ema200=round(e200, 2),
+            adx_value=round(adx_val, 1),
+            high_52w=round(high_52, 2),
+            low_52w=round(low_52, 2),
+            position_multiplier=0.5,
+            min_rr=2.5,
+            max_positions=1,
+            reason="Mixed signals — reduced size, Grade A only",
+        )
 
 
 def _fallback_regime(reason: str) -> RegimeResult:

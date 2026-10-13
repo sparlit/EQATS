@@ -49,7 +49,9 @@ from persistence import (
 from render import _is_valid_num
 
 
-def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: dict[str, dict[str, Any]]) -> None:
+def render_bottom_cards(
+    portfolio: list[str], final_ticker: str, entry_prices: dict[str, dict[str, Any]]
+) -> None:
     """Render the bottom Portfolio + Track Record cards section.
 
     Uses Streamlit native containers with glassmorphism styling for a
@@ -68,7 +70,11 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
         ac1, ac2, ac3, ac4 = st.columns([1.8, 0.8, 0.8, 0.4])
         with ac1:
             new_t = st.text_input(
-                "Ticker", placeholder="RELIANCE", label_visibility="collapsed", max_chars=15, key="btm_add_ticker"
+                "Ticker",
+                placeholder="RELIANCE",
+                label_visibility="collapsed",
+                max_chars=15,
+                key="btm_add_ticker",
             )
         with ac2:
             ep_input = st.text_input(
@@ -89,7 +95,10 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                 help="Number of shares held",
             )
         with ac4:
-            if st.button("+", use_container_width=True, key="btm_add_btn", help="Add to portfolio") and new_t.strip():
+            if (
+                st.button("+", use_container_width=True, key="btm_add_btn", help="Add to portfolio")
+                and new_t.strip()
+            ):
                 t = new_t.strip().upper().replace(".NS", "")
                 # Resolve aliases (e.g. "HDFC BANK" → "HDFCBANK")
                 _rt, _rn = resolve_ticker(t)
@@ -126,16 +135,18 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
 
                 ep_price, ep_qty = get_entry_info(ep)
 
-                ticker_html = (
-                    f'<span style="font-weight:600;font-size:0.85rem;color:#f0f2f5;min-width:3.5rem">{t}</span>'
-                )
+                ticker_html = f'<span style="font-weight:600;font-size:0.85rem;color:#f0f2f5;min-width:3.5rem">{t}</span>'
                 parts = [ticker_html]
 
                 if _is_valid_num(cp):
-                    parts.append(f'<span style="font-size:0.8rem;color:#c0c5ce">\u20b9{cp:,.2f}</span>')
+                    parts.append(
+                        f'<span style="font-size:0.8rem;color:#c0c5ce">\u20b9{cp:,.2f}</span>'
+                    )
 
                 if ep_qty > 0:
-                    parts.append(f'<span style="font-size:0.7rem;color:#6b7280">\u00d7{ep_qty}</span>')
+                    parts.append(
+                        f'<span style="font-size:0.7rem;color:#6b7280">\u00d7{ep_qty}</span>'
+                    )
 
                 if ep_price and _is_valid_num(cp):
                     pnl = calc_portfolio_pnl(ep_price, cp, ep_qty)
@@ -144,9 +155,13 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                     parts.append(
                         f'<span style="font-size:0.78rem;font-weight:600;color:{pnl_color}">{pnl_sign}{pnl["pnl_pct"]:.1f}%</span>'
                     )
-                    parts.append(f'<span style="font-size:0.7rem;color:#6b7280">ATP \u20b9{ep_price:,.0f}</span>')
+                    parts.append(
+                        f'<span style="font-size:0.7rem;color:#6b7280">ATP \u20b9{ep_price:,.0f}</span>'
+                    )
                 elif ep_price:
-                    parts.append(f'<span style="font-size:0.7rem;color:#6b7280">ATP \u20b9{ep_price:,.0f}</span>')
+                    parts.append(
+                        f'<span style="font-size:0.7rem;color:#6b7280">ATP \u20b9{ep_price:,.0f}</span>'
+                    )
 
                 row_parts.append(
                     f'<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;'
@@ -166,7 +181,9 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                 if (sd := st.session_state.get("_stock_price_cache", {}).get(t))
                 and _is_valid_num(sd.get("current_price"))
             )
-            n_with_prices = sum(1 for t in portfolio if st.session_state.get("_stock_price_cache", {}).get(t))
+            n_with_prices = sum(
+                1 for t in portfolio if st.session_state.get("_stock_price_cache", {}).get(t)
+            )
             day_chg = sum(
                 sd.get("change_pct", 0) or 0
                 for t in portfolio
@@ -186,8 +203,8 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                     f'<span style="font-size:0.75rem;color:#8891a0">Current <span style="font-weight:600;color:#c0c5ce">\u20b9{total_current:,.0f}</span></span>'
                 )
             if total_pnl_pct is not None:
-                pnl_color = "#22c55e" if cast("float", total_pnl) >= 0 else "#ef4444"
-                pnl_sign = "+" if cast("float", total_pnl) >= 0 else ""
+                pnl_color = "#22c55e" if cast(float, total_pnl) >= 0 else "#ef4444"
+                pnl_sign = "+" if cast(float, total_pnl) >= 0 else ""
                 sum_items.append(
                     f'<span style="font-size:0.75rem;color:#8891a0">P&amp;L <span style="font-weight:600;color:{pnl_color}">{pnl_sign}{total_pnl_pct:.1f}%</span></span>'
                 )
@@ -228,12 +245,16 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                 f"</div>"
             )
         st.markdown(card_html, unsafe_allow_html=True)
-        if portfolio:
-            if st.button("Clear all holdings", key="clear_portfolio_main", type="secondary", use_container_width=True):
-                save_portfolio([])
-                ENTRY_PRICES_FILE.write_text("{}", encoding="utf-8")
-                st.session_state._skip_reanalysis = True
-                st.rerun()
+        if portfolio and st.button(
+            "Clear all holdings",
+            key="clear_portfolio_main",
+            type="secondary",
+            use_container_width=True,
+        ):
+            save_portfolio([])
+            ENTRY_PRICES_FILE.write_text("{}", encoding="utf-8")
+            st.session_state._skip_reanalysis = True
+            st.rerun()
 
     with bc2:
         recs = load_track_record()
@@ -371,7 +392,7 @@ def render_bottom_cards(portfolio: list[str], final_ticker: str, entry_prices: d
                     if not df.empty:
                         chart_df = df.set_index("date")[["smartscore"]]
                         st.line_chart(chart_df, y="smartscore", use_container_width=True)
-            csv_data = cast("str", history_to_csv(final_ticker, history))
+            csv_data = cast(str, history_to_csv(final_ticker, history))
             st.download_button(
                 label="Export CSV",
                 data=csv_data,

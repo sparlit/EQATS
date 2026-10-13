@@ -330,7 +330,9 @@ def _fundamentals_map(conn):
 
 
 def _last_close(conn, sym):
-    r = conn.execute("SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,)).fetchone()
+    r = conn.execute(
+        "SELECT close FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 1", (sym,)
+    ).fetchone()
     return _safe_num(r[0]) if r else None
 
 
@@ -383,7 +385,11 @@ def _build_features(conn, syms):
         }
         if i % 200 == 0:
             log.info(f"  features {i}/{len(syms)}")
-    log.info(f"features: kept={len(features)}, sector-excluded={excluded_sector}, no-fundamentals={missing_fund}")
+    log.info(
+        f"features: kept={len(features)}, "
+        f"sector-excluded={excluded_sector}, "
+        f"no-fundamentals={missing_fund}"
+    )
     return features
 
 
@@ -401,7 +407,9 @@ def _percentile_rank_map(items):
 
 
 def _universe_stats(features):
-    mcaps = sorted([f["market_cap_cr"] for f in features.values() if f.get("market_cap_cr") is not None])
+    mcaps = sorted(
+        [f["market_cap_cr"] for f in features.values() if f.get("market_cap_cr") is not None]
+    )
     mcap_40pct = None
     if mcaps:
         idx = max(0, int(len(mcaps) * UNIVERSE_MIN_PCT / 100.0) - 1)
@@ -616,7 +624,9 @@ def _evaluate_symbol(sym, f, rankings):
                 sym,
                 "composite_price_ratios_proxy",
                 "MED",
-                f"Composite: E/Y {_fmt_num(ey_pct, 2)}% + B/M {_fmt_num(bm, 3)} + DY {_fmt_num(dy, 2)}%",
+                f"Composite: E/Y {_fmt_num(ey_pct, 2)}% "
+                f"+ B/M {_fmt_num(bm, 3)} "
+                f"+ DY {_fmt_num(dy, 2)}%",
                 {"earnings_yield": ey, "book_to_market": bm, "dividend_yield": dy},
             ),
         )
@@ -627,7 +637,11 @@ def _evaluate_symbol(sym, f, rankings):
         _try_emit(
             sigs,
             lambda: _signal(
-                sym, "roce_quality_gate", "HIGH", f"ROCE {_fmt_num(roce, 1)}% ≥ {ROCE_QUALITY_MIN}", {"roce": roce}
+                sym,
+                "roce_quality_gate",
+                "HIGH",
+                f"ROCE {_fmt_num(roce, 1)}% ≥ {ROCE_QUALITY_MIN}",
+                {"roce": roce},
             ),
         )
 

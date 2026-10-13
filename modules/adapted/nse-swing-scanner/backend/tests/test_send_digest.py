@@ -71,13 +71,13 @@ class TestBuildMessage(unittest.TestCase):
             with open(path, "w") as fp:
                 json.dump(_make_scan(idx_pct=-3.5, passed_count=3), fp)
             msg = send_digest.build_message(path, None)
-        assert msg is not None
-        assert "NSE Swing Scanner" in msg
-        assert "Regime" in msg
-        assert "Below 200EMA" in msg
-        assert "PASS" in msg
-        assert "SYM0" in msg
-        assert "Top 5" in msg
+        self.assertIsNotNone(msg)
+        self.assertIn("NSE Swing Scanner", msg)
+        self.assertIn("Regime", msg)
+        self.assertIn("Below 200EMA", msg)
+        self.assertIn("PASS", msg)
+        self.assertIn("SYM0", msg)
+        self.assertIn("Top 5", msg)
 
     def test_no_pass_does_not_crash(self):
         # When passed_count=0 the stocks array is empty so we cannot
@@ -87,11 +87,11 @@ class TestBuildMessage(unittest.TestCase):
             with open(path, "w") as fp:
                 json.dump(_make_scan(idx_pct=2.0, passed_count=0), fp)
             msg = send_digest.build_message(path, None)
-        assert "No names passed" in msg
-        assert "(unknown)" in msg
+        self.assertIn("No names passed", msg)
+        self.assertIn("(unknown)", msg)
 
     def test_missing_file_returns_none(self):
-        assert send_digest.build_message("/nonexistent/latest.json", None) is None
+        self.assertIsNone(send_digest.build_message("/nonexistent/latest.json", None))
 
     def test_stale_sources_listed(self):
         with tempfile.TemporaryDirectory() as f:
@@ -99,8 +99,8 @@ class TestBuildMessage(unittest.TestCase):
             with open(path, "w") as fp:
                 json.dump(_make_scan(idx_pct=-1.0, passed_count=1, with_stale=True), fp)
             msg = send_digest.build_message(path, None)
-        assert "Source warnings" in msg
-        assert "Surveillance" in msg
+        self.assertIn("Source warnings", msg)
+        self.assertIn("Surveillance", msg)
 
     def test_coverage_line(self):
         scan = _make_scan(idx_pct=-1.0, passed_count=2)
@@ -110,27 +110,28 @@ class TestBuildMessage(unittest.TestCase):
             with open(path, "w") as fp:
                 json.dump(scan, fp)
             msg = send_digest.build_message(path, None)
-        assert "Coverage" in msg
-        assert "450/500" in msg
-        assert "rate-limited" in msg
+        self.assertIn("Coverage", msg)
+        self.assertIn("450/500", msg)
+        self.assertIn("rate-limited", msg)
 
 
 class TestSendTelegram(unittest.TestCase):
     def test_missing_secrets_skips_soft(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             ok, info = send_digest.send_telegram("hello")
-        assert not ok
-        assert "not set" in info
+        self.assertFalse(ok)
+        self.assertIn("not set", info)
 
     def test_http_error_is_soft(self):
         env = {"TELEGRAM_BOT_TOKEN": "x", "TELEGRAM_CHAT_ID": "1"}
-        with mock.patch.dict(os.environ, env, clear=False), mock.patch("urllib.request.urlopen") as u:
-            u.side_effect = __import__("urllib.error").error.HTTPError(
-                "http://x", 400, "Bad Request", {}, __import__("io").BytesIO(b"oops")
-            )
-            ok, info = send_digest.send_telegram("hello")
-        assert not ok
-        assert "HTTPError" in info
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch("urllib.request.urlopen") as u:
+                u.side_effect = __import__("urllib.error").error.HTTPError(
+                    "http://x", 400, "Bad Request", {}, __import__("io").BytesIO(b"oops")
+                )
+                ok, info = send_digest.send_telegram("hello")
+        self.assertFalse(ok)
+        self.assertIn("HTTPError", info)
 
 
 if __name__ == "__main__":

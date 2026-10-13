@@ -53,7 +53,6 @@ import json
 import time
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
 
 import httpx
 from brokers.base import (
@@ -173,33 +172,32 @@ class UpstoxAPI(BrokerAPI):
         except Exception:
             status = resp.status_code
             if status == 401:
-                msg = (
+                raise RuntimeError(
                     "Upstox login failed: invalid credentials.\n"
                     "Check your API Key and Secret at upstox.com/developer/apps.\n"
                     "To re-enter:\n"
                     "  credentials delete UPSTOX_API_KEY\n"
                     "  credentials delete UPSTOX_API_SECRET"
                 )
-                raise RuntimeError(msg)
-            if status == 429:
-                msg = "Upstox login failed: rate limited. Wait a minute and try again."
-                raise RuntimeError(msg)
-            msg = (
-                f"Upstox login failed (HTTP {status}): {resp.text[:200]}\n"
-                "This may be a temporary server issue. Wait a moment and try again.\n"
-                "If it persists, verify your credentials and try:\n"
-                "  credentials delete UPSTOX_API_KEY\n"
-                "  credentials delete UPSTOX_API_SECRET"
-            )
-            raise RuntimeError(msg)
+            elif status == 429:
+                raise RuntimeError(
+                    "Upstox login failed: rate limited. Wait a minute and try again."
+                )
+            else:
+                raise RuntimeError(
+                    f"Upstox login failed (HTTP {status}): {resp.text[:200]}\n"
+                    "This may be a temporary server issue. Wait a moment and try again.\n"
+                    "If it persists, verify your credentials and try:\n"
+                    "  credentials delete UPSTOX_API_KEY\n"
+                    "  credentials delete UPSTOX_API_SECRET"
+                )
         payload = resp.json()
         token = payload.get("access_token", "")
         if not token:
-            msg = (
+            raise RuntimeError(
                 "Upstox login failed: no access token in response.\n"
                 "The auth code may have expired — try logging in again."
             )
-            raise RuntimeError(msg)
 
         self._access_token = token
         self._token_ts = time.time()
@@ -396,7 +394,7 @@ class UpstoxAPI(BrokerAPI):
             "order_type": req.order_type,
             "transaction_type": req.transaction_type,
             "disclosed_quantity": 0,
-            "trigger_price": req.trigger_price or 0,
+            "trigger_price": req.trigger_price if req.trigger_price else 0,
             "is_amo": False,
         }
         data = self._post("/order/place", payload)
@@ -492,11 +490,10 @@ class UpstoxAPI(BrokerAPI):
                 for candle in candles
             ]
         except Exception as e:
-            msg = (
+            raise RuntimeError(
                 f"Upstox historical data error: {e}\n"
                 "Check that the symbol and date range are valid. If your session expired, try: logout → login"
-            )
-            raise RuntimeError(msg) from e
+            ) from e
 
     # ── Helpers ───────────────────────────────────────────────
 

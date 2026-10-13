@@ -28,18 +28,52 @@ Uses pydantic-settings for environment variable loading with validation.
 Includes cross-field validation to ensure configuration consistency.
 """
 
+import os
 from functools import lru_cache
-from typing import Literal
+from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import Field, PrivateAttr, SecretStr, model_validator
+from pydantic import (
+    Field,
+    PrivateAttr,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Anchors for files the app owns. Never resolve these against the working directory.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE_OVERRIDE = "RAKSHAQUANT_ENV_FILE"  # a path, or "none" to read no .env at all
+
+
+def _env_file() -> Path | None:
+    override = os.environ.get(ENV_FILE_OVERRIDE)
+    if override is None:
+        return REPO_ROOT / ".env"
+    if override.strip().lower() in ("", "none"):
+        return None
+    path = Path(override).expanduser()
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+ENV_FILE = _env_file()
+
+Environment = Literal["dev", "paper", "demo", "test"]
+
+
+def _repo_path(value: Any) -> Path:
+    """An absolute path; relative values are anchored at the repo root, never the CWD."""
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else REPO_ROOT / path
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -56,24 +90,180 @@ class Settings(BaseSettings):
         return self._config_warnings
 
     # ===========================================
-    # LLM Provider - Groq
+    # Environment & runtime state
     # ===========================================
-    groq_api_key: SecretStr = Field(..., description="Groq API key for LLM access")
-    groq_model_primary: str = Field(
-        default="llama-3.3-70b-versatile",
-        description="Primary Groq model for agent reasoning",
+    environment: Environment = Field(
+        default="dev",
+        description="Runtime environment; selects the state directory. The month run uses "
+        "'paper'; 'demo' is for simulated/replayed data; 'test' is for the test suite.",
     )
-    groq_model_fallback: str = Field(
-        default="llama-3.1-8b-instant",
-        description="Fallback Groq model for rate limit scenarios",
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
+        default="INFO",
+        description="Level for the JSON log file under var/logs/",
     )
-    groq_temperature: float = Field(
-        default=0.1,
-        description="Temperature for LLM responses (low for consistency)",
+    var_dir: Path = Field(
+        default=None,
+        validate_default=True,
+        description="Root of all runtime files (default <repo>/var): per-environment state plus "
+        "the shared tape/, logs/, reports/, reference/, models/, datasets/ and archive/.",
     )
-    groq_max_tokens: int = Field(
-        default=2048,
-        description="Maximum tokens per LLM response",
+    state_dir: Path = Field(
+        default=None,
+        validate_default=True,
+        description="Absolute directory for this environment's state (default "
+        "<var_dir>/<environment>). Relative values resolve against the repo root, never the CWD.",
+    )
+
+    @field_validator("var_dir", mode="before")
+    @classmethod
+    def _resolve_var_dir(cls, value: Any) -> Path:
+        if value is None or value == "":
+            return REPO_ROOT / "var"
+        return _repo_path(value)
+
+    @field_validator("state_dir", mode="before")
+    @classmethod
+    def _resolve_state_dir(cls, value: Any, info: ValidationInfo) -> Path:
+        if value is None or value == "":
+            var_dir = info.data.get("var_dir", REPO_ROOT / "var")
+            return Path(var_dir) / str(info.data.get("environment", "dev"))
+        return _repo_path(value)
+
+    @property
+    def db_path(self) -> Path:
+        """The environment's SQLite event store."""
+        return self.state_dir / "rakshaquant.db"
+
+    @property
+    def halt_file(self) -> Path:
+        """Create this file to trip the global kill switch (content ``FLATTEN`` to flatten)."""
+        return self.state_dir / "HALT"
+
+    @property
+    def tape_dir(self) -> Path:
+        return self.var_dir / "tape"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.var_dir / "logs"
+
+    @property
+    def reports_dir(self) -> Path:
+        return self.var_dir / "reports"
+
+    @property
+    def reference_dir(self) -> Path:
+        return self.var_dir / "reference"
+
+    @property
+    def models_dir(self) -> Path:
+        return self.var_dir / "models"
+
+    @property
+    def datasets_dir(self) -> Path:
+        return self.var_dir / "datasets"
+
+    @property
+    def archive_dir(self) -> Path:
+        return self.var_dir / "archive"
+
+    # ===========================================
+    # LLM provider keys (plan M6): set only the providers your roles use
+    # ===========================================
+    groq_api_key: SecretStr | None = Field(
+        default=None, description="Groq API key (optional: only for roles that use groq:)"
+    )
+    openai_api_key: SecretStr | None = Field(default=None, description="OpenAI API key")
+    openrouter_api_key: SecretStr | None = Field(default=None, description="OpenRouter API key")
+    anthropic_api_key: SecretStr | None = Field(default=None, description="Anthropic API key")
+    ollama_base_url: str = Field(
+        default="http://localhost:11434/v1", description="Ollama's OpenAI-compatible endpoint"
+    )
+    llm_compat_base_url: str | None = Field(
+        default=None, description="Any other OpenAI-compatible endpoint (provider 'compat')"
+    )
+    llm_compat_api_key: SecretStr | None = Field(default=None, description="Key for 'compat'")
+    llm_timeout_s: float = Field(default=20.0, gt=0, le=120, description="Per LLM call")
+    llm_breaker_failures: int = Field(
+        default=3, ge=1, le=50, description="Consecutive failures that open a model's breaker"
+    )
+    llm_breaker_cooldown_s: float = Field(
+        default=120.0, gt=0, le=3600, description="How long an open breaker skips the model"
+    )
+    llm_cache_enabled: bool = Field(
+        default=True, description="Reuse a stored reply for an identical prompt and model"
+    )
+    # Roles: "provider:model" (empty = role disabled), comma-separated fallbacks, optional effort.
+    llm_role_veto: str = Field(default="", description="Book C veto (online, entry window)")
+    llm_role_veto_fallbacks: str = ""
+    llm_role_veto_effort: str | None = None
+    llm_role_review: str = Field(default="", description="Nightly post-trade review (offline)")
+    llm_role_review_fallbacks: str = ""
+    llm_role_review_effort: str | None = None
+    llm_role_explain: str = Field(default="", description="Trade explanations (offline)")
+    llm_role_explain_fallbacks: str = ""
+    llm_role_explain_effort: str | None = None
+    llm_role_label: str = Field(default="", description="Teacher labels (offline, batch)")
+    llm_role_label_fallbacks: str = ""
+    llm_role_label_effort: str | None = None
+    llm_role_research: str = Field(default="", description="Weekly research memo (offline)")
+    llm_role_research_fallbacks: str = ""
+    llm_role_research_effort: str | None = None
+    usd_inr: float = Field(default=88.0, gt=0, description="USD->INR for LLM cost accounting")
+    llm_budget_daily_inr: float = Field(
+        default=200.0, ge=0, description="All roles, per IST day (0 = unlimited)"
+    )
+    llm_budget_role_daily_inr: dict[str, float] = Field(
+        default_factory=dict, description='Per role, per IST day, e.g. {"veto": 50}'
+    )
+    llm_budget_per_decision_inr: float = Field(
+        default=10.0, ge=0, description="Per decision_id (0 = unlimited)"
+    )
+    llm_openrouter_referer: str = Field(
+        default="", description="Optional HTTP-Referer sent to OpenRouter (app attribution)"
+    )
+    llm_openrouter_deny_data_collection: bool = Field(
+        default=True, description="Ask OpenRouter to route only to no-data-retention providers"
+    )
+    llm_anthropic_fallbacks: bool = Field(
+        default=True, description="Anthropic server-side refusal fallbacks (where supported)"
+    )
+
+    # ===========================================
+    # Corporate announcements (plan M7.6)
+    # ===========================================
+    announcements_enabled: bool = Field(
+        default=True, description="Poll NSE's announcements RSS feed during the session"
+    )
+    announcements_url: str = Field(
+        default="https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml",
+        description="The RSS feed (polled no faster than its <ttl>)",
+    )
+
+    # ===========================================
+    # Typed decision models (plan M7): Laya (local) -> Jev (TypeSafe)
+    # ===========================================
+    decision_laya_enabled: bool = Field(
+        default=True, description="Use local Laya when the decision-local extra is installed"
+    )
+    decision_laya_checkpoint: Literal["english", "multilingual", "typed-decisions"] = Field(
+        default="multilingual", description="Fastest on CPU (docs/plan/decision-model-benchmark.md)"
+    )
+    typesafe_api_key: SecretStr | None = Field(default=None, description="Jev (TypeSafe) key")
+    typesafe_model: str = Field(default="jev-1.13.0", description="Pinned Jev model")
+    decision_escalate_low: float = Field(default=0.35, ge=0, le=1)
+    decision_escalate_high: float = Field(default=0.65, ge=0, le=1)
+    infra_cost_inr_per_day: float | None = Field(
+        default=None, ge=0, description="Power, data and API plans per day, for the daily report"
+    )
+    experiment_file: Path | None = Field(
+        default=None, description="The experiment definition (default src/config/experiment.yaml)"
+    )
+    decision_shadow_pct: float = Field(
+        default=0.20,
+        ge=0,
+        le=1,
+        description="Laya-only states also sent to Jev to measure agreement",
     )
 
     # ===========================================
@@ -93,101 +283,18 @@ class Settings(BaseSettings):
     )
 
     # ===========================================
-    # Observability - LangSmith
+    # Execution venue
     # ===========================================
-    langsmith_api_key: SecretStr = Field(..., description="LangSmith API key")
-    langsmith_project: str = Field(
-        default="trading-agent",
-        description="LangSmith project name for tracing",
-    )
-    langsmith_tracing_v2: bool = Field(
-        default=True,
-        description="Enable LangSmith tracing v2",
-    )
-
-    # ===========================================
-    # Database - PostgreSQL
-    # ===========================================
-    database_url: str = Field(
-        default="postgresql://postgres:postgres@localhost:5432/trading_agent",
-        description="PostgreSQL connection URL",
-    )
-
-    # ===========================================
-    # Optional: Redis (not required for basic functionality)
-    # ===========================================
-    redis_url: str | None = Field(
-        default=None,
-        description="Optional Redis URL for market data caching",
-    )
-
-    # ===========================================
-    # Trading Configuration
-    # ===========================================
-    trading_mode: Literal["paper", "live"] = Field(
-        default="paper",
-        description="Trading mode - paper for simulation, live for real trading",
-    )
-    max_daily_trades: int = Field(
-        default=50,
-        description="Maximum number of trades allowed per day",
-    )
-    max_position_size: float = Field(
-        default=100000.0,
-        description="Maximum position size in INR",
-    )
-    daily_loss_limit: float = Field(
-        default=10000.0,
-        description="Maximum daily loss limit in INR (kill switch trigger)",
-    )
-
-    # ===========================================
-    # Agent Memory Configuration
-    # ===========================================
-    memory_top_n_lessons: int = Field(
-        default=5,
-        description="Number of top lessons to inject into agent context",
-    )
-    memory_decay_days: int = Field(
-        default=30,
-        description="Days after which lesson relevance starts decaying",
-    )
-    enable_learning: bool = Field(
-        default=True,
-        description="Close the learn-from-losses loop: classify closed trades into lessons and "
-        "mark injected lessons as successful/not (adds an LLM call per loss). Disable to skip.",
-    )
-
-    # ===========================================
-    # Free Tier Configuration
-    # ===========================================
-    market_data_source: Literal["yfinance", "dhan"] = Field(
-        default="yfinance",
-        description="Market data source: yfinance (free) or dhan (requires account)",
-    )
     execution_mode: Literal["local_paper", "shadow", "dhan_paper", "live"] = Field(
         default="local_paper",
-        description="Execution mode: local_paper (free), shadow (mirror live, send nothing), "
-        "dhan_paper (sandbox), or live",
-    )
-    allow_live_orders: bool = Field(
-        default=False,
-        description="Master safety gate: real broker orders are only ever sent when this is "
-        "True. With live/dhan_paper but this False, execution runs in SHADOW (no orders sent).",
-    )
-    enable_news_analysis: bool = Field(
-        default=True,
-        description="Enable AI-powered news sentiment analysis",
-    )
-    paper_wallet_balance: float = Field(
-        default=1000000.0,
-        description="Starting balance for local paper trading (INR)",
+        description="The requested venue. The v2 engine trades on the simulated broker only: "
+        "anything but local_paper/shadow is ignored, with a warning.",
     )
 
     # ===========================================
     # Telegram Notifications
     # ===========================================
-    telegram_bot_token: str | None = Field(
+    telegram_bot_token: SecretStr | None = Field(
         default=None,
         description="Telegram bot token from @BotFather",
     )
@@ -201,193 +308,6 @@ class Settings(BaseSettings):
     )
 
     # ===========================================
-    # Market Hours Configuration
-    # ===========================================
-    market_open_time: str = Field(
-        default="09:15",
-        description="Market open time (HH:MM) in IST",
-    )
-    market_close_time: str = Field(
-        default="15:30",
-        description="Market close time (HH:MM) in IST",
-    )
-    no_trading_before: str = Field(
-        default="09:15",
-        description="No trading before this time (HH:MM)",
-    )
-    no_trading_after: str = Field(
-        default="15:15",
-        description="No trading after this time (HH:MM)",
-    )
-
-    # ===========================================
-    # Position Sizing Configuration
-    # ===========================================
-    max_position_pct: float = Field(
-        default=0.10,
-        description="Maximum position size as fraction of capital (0.10 = 10%)",
-    )
-    risk_per_trade: float = Field(
-        default=0.02,
-        description="Maximum risk per trade as fraction of capital (0.02 = 2%)",
-    )
-    max_total_risk: float = Field(
-        default=0.10,
-        description="Maximum total portfolio risk (0.10 = 10%)",
-    )
-
-    # ===========================================
-    # Tail-risk guards (deterministic; independent of the LLM stack)
-    # ===========================================
-    kill_switch_flatten: bool = Field(
-        default=True,
-        description="When the kill switch fires, also flatten open positions (not just block "
-        "new entries) to stop the bleed",
-    )
-    circuit_guard_enabled: bool = Field(
-        default=True,
-        description="Skip new entries in scrips at/through their NSE circuit band",
-    )
-    default_circuit_band_pct: float = Field(
-        default=10.0,
-        description="Assumed NSE circuit band % when per-scrip data is unavailable (2/5/10/20)",
-    )
-    max_sector_exposure: float = Field(
-        default=0.30,
-        description="Maximum exposure to single sector (0.30 = 30%)",
-    )
-
-    # ===========================================
-    # Rate Limiting Configuration
-    # ===========================================
-    groq_requests_per_minute: int = Field(
-        default=30,
-        description="Groq API rate limit (requests per minute)",
-    )
-    enable_rate_limiting: bool = Field(
-        default=True,
-        description="Enable rate limiting for API calls",
-    )
-
-    # ===========================================
-    # Circuit Breaker Configuration
-    # ===========================================
-    circuit_breaker_failure_threshold: int = Field(
-        default=5,
-        description="Failures before circuit breaker opens",
-    )
-    circuit_breaker_recovery_time: float = Field(
-        default=60.0,
-        description="Seconds before circuit breaker attempts recovery",
-    )
-
-    # ===========================================
-    # Cache Configuration
-    # ===========================================
-    cache_news_ttl: int = Field(
-        default=300,
-        description="News cache TTL in seconds (5 minutes)",
-    )
-    cache_quotes_ttl: int = Field(
-        default=60,
-        description="Quote cache TTL in seconds (1 minute)",
-    )
-    cache_sentiment_ttl: int = Field(
-        default=600,
-        description="Sentiment cache TTL in seconds (10 minutes)",
-    )
-
-    # ===========================================
-    # FinOps - Cost tracking & budgets
-    # ===========================================
-    finops_enabled: bool = Field(
-        default=True,
-        description="Enable LLM cost/token accounting and budget alerts",
-    )
-    daily_token_budget: int = Field(
-        default=0,
-        description="Max Groq tokens per IST day across all agents (0 = unlimited)",
-    )
-    daily_cost_budget_usd: float = Field(
-        default=0.0,
-        description="Max paid-tier-equivalent LLM spend per IST day in USD (0 = unlimited)",
-    )
-    finops_budget_soft_pct: float = Field(
-        default=0.8,
-        description="Soft-alert threshold as a fraction of a daily budget (0.8 = 80%)",
-    )
-
-    # ===========================================
-    # Paper trading costs (slippage + NSE-style charges; configurable approximations)
-    # ===========================================
-    paper_slippage_bps: float = Field(
-        default=2.0,
-        description="Adverse slippage applied to paper fills, in basis points (2 = 0.02%)",
-    )
-    paper_brokerage_bps: float = Field(
-        default=3.0,
-        description="Brokerage as basis points of notional (3 = 0.03%)",
-    )
-    paper_brokerage_max: float = Field(
-        default=20.0,
-        description="Per-order brokerage cap in INR (0 = uncapped); mirrors discount brokers",
-    )
-    paper_statutory_bps: float = Field(
-        default=5.0,
-        description="Combined STT + exchange txn + SEBI + stamp charges, in basis points",
-    )
-    paper_gst_pct: float = Field(
-        default=18.0,
-        description="GST as a percentage of brokerage",
-    )
-
-    # ===========================================
-    # Data ingestion / efficiency
-    # ===========================================
-    signals_exclude_forming_bar: bool = Field(
-        default=True,
-        description="Compute indicators/signals on settled bars only (drop the still-forming "
-        "current-day bar) to avoid intra-bar repainting / look-ahead",
-    )
-    max_quote_staleness_seconds: int = Field(
-        default=0,
-        description="Skip NEW entries when the freshest quote is older than this many seconds "
-        "(0 = disabled). Exits still run on the last known price.",
-    )
-
-    # ===========================================
-    # Profit-target goal engine
-    # ===========================================
-    monthly_profit_target_pct: float = Field(
-        default=0.0,
-        description="Monthly profit target as a fraction of capital (0.05 = 5%/mo; 0 = disabled)",
-    )
-    monthly_profit_target_amount: float = Field(
-        default=0.0,
-        description="Monthly profit target in INR (alternative to pct; the larger of the two wins)",
-    )
-    trading_days_per_month: int = Field(
-        default=21,
-        description="Assumed NSE trading days per month, used to derive the daily pace target",
-    )
-    expected_trades_per_day: int = Field(
-        default=5,
-        description="Expected trades/day, used to derive the win-rate the target requires",
-    )
-    goal_assumed_win_rate: float = Field(
-        default=0.5,
-        description="Assumed win rate, used to derive the trade frequency the target requires",
-    )
-    goal_reward_risk_ratio: float = Field(
-        default=1.5,
-        description="Assumed reward:risk per trade for goal math (matches risk min_risk_reward)",
-    )
-    goal_off_pace_tolerance: float = Field(
-        default=0.2,
-        description="How far below straight-line pace before flagged off-pace (0.2 = 20%)",
-    )
-
-    # ===========================================
     # Validation
     # ===========================================
 
@@ -396,47 +316,12 @@ class Settings(BaseSettings):
         """Validate configuration consistency."""
         errors = []
 
-        # Live trading requires broker credentials
-        if self.trading_mode == "live":
-            if not self.dhan_client_id or not self.dhan_access_token:
-                errors.append("Live trading requires Dhan credentials (DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN)")
-
-        # Dhan execution modes require Dhan data source
-        if self.execution_mode in ["dhan_paper", "live"] and self.market_data_source == "yfinance":
-            errors.append("Dhan execution modes should use 'dhan' market_data_source for consistency")
-
-        # Validate risk parameters
-        if self.risk_per_trade > self.max_position_pct:
+        # The v2 engine has no broker path: a broker venue is ignored, never honoured
+        if self.execution_mode not in ("local_paper", "shadow"):
             errors.append(
-                f"risk_per_trade ({self.risk_per_trade}) should not exceed max_position_pct ({self.max_position_pct})"
+                f"EXECUTION_MODE={self.execution_mode} is ignored: the v2 engine trades on the "
+                "simulated broker only (paper)"
             )
-
-        if self.max_total_risk < self.risk_per_trade:
-            errors.append(
-                f"max_total_risk ({self.max_total_risk}) should not be less than risk_per_trade ({self.risk_per_trade})"
-            )
-
-        # Validate market hours
-        try:
-            from datetime import datetime
-
-            open_time = datetime.strptime(self.market_open_time, "%H:%M")
-            close_time = datetime.strptime(self.market_close_time, "%H:%M")
-            if open_time >= close_time:
-                errors.append("market_open_time must be before market_close_time")
-        except ValueError as e:
-            errors.append(f"Invalid market hours format: {e}")
-
-        # Validate trading window
-        try:
-            from datetime import datetime
-
-            no_before = datetime.strptime(self.no_trading_before, "%H:%M")
-            no_after = datetime.strptime(self.no_trading_after, "%H:%M")
-            if no_before >= no_after:
-                errors.append("no_trading_before must be before no_trading_after")
-        except ValueError as e:
-            errors.append(f"Invalid trading window format: {e}")
 
         # Telegram requires both token and chat_id
         if self.telegram_enabled:

@@ -182,7 +182,11 @@ def main():
         json.dump(d, open(path, "w"), separators=(",", ":"))
         print(f"  wrote {os.path.basename(path)}")
     json.dump(
-        {"corrected": CORRECT, "kept_after_adjudication": KEPT, "suspects_reported_not_patched": SUSPECTS_NOT_TOUCHED},
+        {
+            "corrected": CORRECT,
+            "kept_after_adjudication": KEPT,
+            "suspects_reported_not_patched": SUSPECTS_NOT_TOUCHED,
+        },
         open(LEDGER, "w"),
         indent=1,
         sort_keys=True,

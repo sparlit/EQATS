@@ -95,7 +95,10 @@ def fetch_list(sess, sym, period):
     )
     r = sess.get(
         u,
-        headers={"Referer": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"},
+        headers={
+            "Referer": "https://www.nseindia.com/companies-listing/"
+            "corporate-filings-financial-results"
+        },
         timeout=45,
     )
     if r.status_code != 200:
@@ -140,13 +143,19 @@ def main():
             with contextlib.suppress(Exception):
                 sess = fresh_session()
             if consec_err >= 10:
-                print("!! 10 consecutive failures -- NSE lockdown? aborting sweep (resumable).", flush=True)
+                print(
+                    "!! 10 consecutive failures -- NSE lockdown? aborting sweep (resumable).",
+                    flush=True,
+                )
                 break
         inv[sym] = rec
         if (i + 1) % 20 == 0 or i + 1 == len(todo):
             json.dump(inv, open(OUT, "w"), indent=0, sort_keys=True)
             hits = sum(len(v["qtr"]) for v in inv.values())
-            print("  [%d/%d] %s -- con-qtr hits so far: %d" % (i + 1, len(todo), sym, hits), flush=True)
+            print(
+                "  [%d/%d] %s -- con-qtr hits so far: %d" % (i + 1, len(todo), sym, hits),
+                flush=True,
+            )
     json.dump(inv, open(OUT, "w"), indent=0, sort_keys=True)
     hits = sum(len(v["qtr"]) for v in inv.values())
     anns = sum(len(v["ann"]) for v in inv.values())

@@ -37,7 +37,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import yfinance as yf
 from loguru import logger
-from monitors.telegram_bot import is_configured, send_alert, send_message
+from monitors.telegram_bot import is_configured, send_alert
 from utils.indicators import adx_full, atr, bollinger_bands, ema, macd, rsi
 
 from config import (
@@ -49,7 +49,6 @@ from config import (
     MACD_FAST,
     MACD_SIGNAL,
     MACD_SLOW,
-    MIN_ADX,
     RSI_PERIOD,
     VOLUME_SMA_PERIOD,
 )
@@ -76,7 +75,8 @@ def _fetch_15m(symbol: str, days: int = 5) -> pd.DataFrame:
         df.columns = [c.lower() for c in df.columns]
         if hasattr(df.index, "tzinfo") and df.index.tzinfo:
             df.index = df.index.tz_localize(None)
-        return df.dropna(subset=["close", "high", "low", "volume"])
+        df = df.dropna(subset=["close", "high", "low", "volume"])
+        return df
     except Exception as exc:
         logger.debug("15m fetch failed for {}: {}", symbol, exc)
         return pd.DataFrame()
@@ -130,7 +130,11 @@ def _compute_signals(df: pd.DataFrame) -> dict[str, object]:
     ema21_val = float(ema21.iloc[-1])
     ema50_val = float(ema50.iloc[-1])
 
-    lookback_high = float(df["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max()) if len(df) > BREAKOUT_LOOKBACK else 0
+    lookback_high = (
+        float(df["close"].iloc[-(BREAKOUT_LOOKBACK + 1) : -1].max())
+        if len(df) > BREAKOUT_LOOKBACK
+        else 0
+    )
 
     signals: list[str] = []
 
@@ -143,7 +147,12 @@ def _compute_signals(df: pd.DataFrame) -> dict[str, object]:
         signals.append("BB_SQUEEZE_SETUP")
 
     # MOMENTUM_CONT: EMA aligned + MACD bullish + RSI in sweet spot
-    if ema9_val > ema21_val > ema50_val and macd_hist > 0 and macd_line > macd_sig and 50 <= rsi_val <= 75:
+    if (
+        ema9_val > ema21_val > ema50_val
+        and macd_hist > 0
+        and macd_line > macd_sig
+        and 50 <= rsi_val <= 75
+    ):
         signals.append("MOMENTUM_CONT")
 
     return {
@@ -182,7 +191,9 @@ class IntradayMonitor:
         if now.weekday() >= 5:
             return False
         open_ = now.replace(hour=MARKET_OPEN_HOUR, minute=MARKET_OPEN_MIN, second=0, microsecond=0)
-        close_ = now.replace(hour=MARKET_CLOSE_HOUR, minute=MARKET_CLOSE_MIN, second=0, microsecond=0)
+        close_ = now.replace(
+            hour=MARKET_CLOSE_HOUR, minute=MARKET_CLOSE_MIN, second=0, microsecond=0
+        )
         return open_ <= now <= close_
 
     def scan_once(self) -> dict[str, dict]:
@@ -250,7 +261,9 @@ class IntradayMonitor:
                     last_reset_date = today
 
                 if self._is_market_hours():
-                    logger.info("Scanning {} symbols @ {}", len(self.symbols), now_ist.strftime("%H:%M IST"))
+                    logger.info(
+                        "Scanning {} symbols @ {}", len(self.symbols), now_ist.strftime("%H:%M IST")
+                    )
                     self.scan_once()
                 else:
                     logger.debug("Outside market hours — sleeping")

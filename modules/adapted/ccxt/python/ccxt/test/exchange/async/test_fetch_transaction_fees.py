@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -40,5 +42,5 @@ async def test_fetch_transaction_fees(exchange, skipped_properties):
     # const method = 'fetchTransactionFees';
     # const fees = await exchange.fetchTransactionFees ();
     # const withdrawKeys = Object.keys (fees['withdraw']);
-    # TODO : assert each entry
+    # todo : assert each entry
     return None

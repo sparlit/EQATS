@@ -35,9 +35,8 @@ Ref: https://github.com/deepentropy/ib-agent/issues/98
 import os
 import sys
 import threading
-import time
 
-from ibx import Contract, EClient, EWrapper
+from ibx import EClient, EWrapper
 
 EXPECTED_ACCOUNT_KEYS = {"NetLiquidation", "TotalCashValue", "BuyingPower"}
 
@@ -83,7 +82,15 @@ class Wrapper(EWrapper):
         self.account_values[key] = (value, currency)
 
     def update_portfolio(
-        self, contract, position, market_price, market_value, average_cost, unrealized_pnl, realized_pnl, account_name
+        self,
+        contract,
+        position,
+        market_price,
+        market_value,
+        average_cost,
+        unrealized_pnl,
+        realized_pnl,
+        account_name,
     ):
         self.portfolio.append(
             {
@@ -157,7 +164,12 @@ def run_example():
 
     w = Wrapper()
     c = EClient(w)
-    c.connect(username=username, password=password, host=os.environ.get("IB_HOST", "cdc1.ibllc.com"), paper=True)
+    c.connect(
+        username=username,
+        password=password,
+        host=os.environ.get("IB_HOST", "cdc1.ibllc.com"),
+        paper=True,
+    )
     t = threading.Thread(target=c.run, daemon=True)
     t.start()
     assert w.connected.wait(timeout=15), "Connection failed"
@@ -243,7 +255,9 @@ def run_example():
 
     # ── Step 6: Account summary ───────────────────────────────────────────
     print("\n=== Step 6: reqAccountSummary ===")
-    tags = "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,ExcessLiquidity,Cushion,Leverage"
+    tags = (
+        "NetLiquidation,TotalCashValue,BuyingPower,AvailableFunds,ExcessLiquidity,Cushion,Leverage"
+    )
     c.req_account_summary(9003, "All", tags)
     assert w.got_summary_end.wait(timeout=15), "account_summary_end not received"
     c.cancel_account_summary(9003)

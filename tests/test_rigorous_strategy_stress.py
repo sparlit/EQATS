@@ -1,13 +1,15 @@
-from typing import Any
-import os
-import unittest
-import random
 import math
+import os
+import random
+import unittest
+from typing import Any
+
 import brain
 import config
 import database
 import indicators
 import main
+
 
 class TestRigorousStrategyStress(unittest.TestCase):
     """

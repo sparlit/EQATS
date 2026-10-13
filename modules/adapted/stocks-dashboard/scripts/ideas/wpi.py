@@ -61,9 +61,8 @@ def main():
     page = get(SITE + "download_data_1112.asp").decode("utf-8", "ignore")
     links = re.findall(r'href="(indx_download_1112/monthly_index_(\d{6})\.xls)"', page)
     if not links:
-        msg = "monthly_index link not found on download_data_1112.asp"
-        raise SystemExit(msg)
-    link, _stamp = max(links, key=lambda t: t[1])
+        raise SystemExit("monthly_index link not found on download_data_1112.asp")
+    link, stamp = sorted(links, key=lambda t: t[1])[-1]
     raw = get(SITE + link)
     tmp = tempfile.NamedTemporaryFile(suffix=".xls", delete=False)
     tmp.write(raw)
@@ -112,5 +111,7 @@ if __name__ == "__main__":
         main()
     except urllib.error.URLError as e:
         # Same rule as the other builders: report the unreachable source, keep the committed file.
-        msg = f"wpi: eaindustry.nic.in unreachable ({e.reason}); docs/ideas/wpi.json.gz LEFT UNCHANGED"
-        raise SystemExit(msg)
+        raise SystemExit(
+            f"wpi: eaindustry.nic.in unreachable ({e.reason}); "
+            "docs/ideas/wpi.json.gz LEFT UNCHANGED"
+        )

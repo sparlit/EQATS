@@ -71,7 +71,10 @@ def url_for(d):
             "https://nsearchives.nseindia.com/content/historical/DERIVATIVES/"
             f"{d.year}/{m}/fo{d.day:02d}{m}{d.year}bhav.csv.zip"
         )
-    return f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{d:%Y%m%d}_F_0000.csv.zip"
+    return (
+        "https://nsearchives.nseindia.com/content/fo/"
+        f"BhavCopy_NSE_FO_0_0_0_{d:%Y%m%d}_F_0000.csv.zip"
+    )
 
 
 def cache_path(d):
@@ -212,7 +215,9 @@ def main():
         if (ok + nofile + err) % 200 == 0:
             print(f"...{iso}  ok={ok} new={new} nofile={nofile} err={err}", flush=True)
         d += dt.timedelta(days=1)
-    log["error"] = [x for x in log["error"] if not os.path.exists(cache_path(dt.date.fromisoformat(x)))]
+    log["error"] = [
+        x for x in log["error"] if not os.path.exists(cache_path(dt.date.fromisoformat(x)))
+    ]
     os.makedirs(CACHE_DIR, exist_ok=True)
     json.dump(log, open(log_p, "w"), indent=1)
     print(f"DONE ok={ok} new={new} nofile(holiday)={nofile} error={err}")

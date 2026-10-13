@@ -236,10 +236,13 @@ def main():
         (d for d in decisions if days_between(d["qe"], d["new_ann"]) > QE_LAG_MAX_DAYS),
         key=lambda d: -days_between(d["qe"], d["new_ann"]),
     )
-    print(f"  accepted lag >{QE_LAG_MAX_DAYS}d      {len(big)}  (single-date rows only — eyeball these)")
+    print(
+        f"  accepted lag >{QE_LAG_MAX_DAYS}d      {len(big)}  (single-date rows only — eyeball these)"
+    )
     for d in big[:10]:
         print(
-            f"      {d['sym']:12s} qe={d['qe']} lag={days_between(d['qe'], d['new_ann'])}d  {(d['newssub'] or '')[:70]}"
+            f"      {d['sym']:12s} qe={d['qe']} lag={days_between(d['qe'], d['new_ann'])}d  "
+            f"{(d['newssub'] or '')[:70]}"
         )
 
     json.dump(decisions, open(os.path.join(HERE, "redate_ledger.json"), "w"), indent=1)
@@ -253,7 +256,10 @@ def main():
     for d in decisions:
         by_sym_qe.setdefault((d["sym"], d["qe"]), {})[d["basis"]] = d["new_ann"]
 
-    for path in (os.path.join(DOCS, "sf_fundamentals.json"), os.path.join(SCRIPTS, "fundamentals.json")):
+    for path in (
+        os.path.join(DOCS, "sf_fundamentals.json"),
+        os.path.join(SCRIPTS, "fundamentals.json"),
+    ):
         fund = load(path)
         cnt = 0
         for sym, rows in fund.items():
@@ -285,7 +291,9 @@ def main():
             agg_updated += 1
     if agg_updated:
         json.dump(agg, open(agg_path, "w"), indent=1)
-    print(f"synced {agg_updated} entries in agg_pat_cell_fills.json (of {len(decisions)} decisions)")
+    print(
+        f"synced {agg_updated} entries in agg_pat_cell_fills.json (of {len(decisions)} decisions)"
+    )
     print("DONE.")
 
 

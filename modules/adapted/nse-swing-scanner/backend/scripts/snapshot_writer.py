@@ -56,14 +56,16 @@ import json
 import os
 import re
 import sys
-from typing import List, Optional, Tuple
 
 SNAPSHOT_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-(am|pm)\.json$")
 
 
 def parse_iso_utc(s: str) -> datetime.datetime:
     """Parse a YYYY-MM-DD or full ISO-8601 string; returns tz-aware UTC."""
-    dt = datetime.datetime.fromisoformat(s) if "T" in s else datetime.datetime.fromisoformat(s)
+    if "T" in s:
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    else:
+        dt = datetime.datetime.fromisoformat(s)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.UTC)
     return dt.astimezone(datetime.UTC)
@@ -105,32 +107,26 @@ def write_snapshot(
     Returns (snapshot_filename, history_index_dict).
     """
     if slot not in ("am", "pm"):
-        msg = f"slot must be 'am' or 'pm'; got {slot!r}"
-        raise ValueError(msg)
+        raise ValueError(f"slot must be 'am' or 'pm'; got {slot!r}")
     if retention_days <= 0:
-        msg = f"retention_days must be positive; got {retention_days}"
-        raise ValueError(msg)
+        raise ValueError(f"retention_days must be positive; got {retention_days}")
 
     if not os.path.exists(latest_path):
-        msg = f"latest_scan.json not found at {latest_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"latest_scan.json not found at {latest_path}")
     os.makedirs(snapshots_dir, exist_ok=True)
 
     with open(latest_path) as f:
         scan = json.load(f)
 
     if not isinstance(scan, dict) or "stocks" not in scan:
-        msg = "latest_scan.json is not a valid scan payload (missing 'stocks')"
-        raise ValueError(msg)
+        raise ValueError("latest_scan.json is not a valid scan payload (missing 'stocks')")
     if not isinstance(scan["stocks"], list) or len(scan["stocks"]) == 0:
-        msg = "latest_scan.json has no stocks (refusing to snapshot empty universe)"
-        raise ValueError(msg)
+        raise ValueError("latest_scan.json has no stocks (refusing to snapshot empty universe)")
 
     if not generated_at_iso:
         generated_at_iso = scan.get("generated_at")
     if not generated_at_iso:
-        msg = "no generated_at provided or present in latest_scan.json"
-        raise ValueError(msg)
+        raise ValueError("no generated_at provided or present in latest_scan.json")
 
     date_str = date_for_filename(generated_at_iso)
     filename = f"{date_str}-{slot}.json"
@@ -160,7 +156,9 @@ def write_snapshot(
         "file": filename,
         "generated_at": generated_at_iso,
         "universe_size": scan.get("universe_size", len(scan["stocks"])),
-        "gate_pass_count": scan.get("gate_pass_count", sum(1 for s in scan["stocks"] if s.get("gate_pass"))),
+        "gate_pass_count": scan.get(
+            "gate_pass_count", sum(1 for s in scan["stocks"] if s.get("gate_pass"))
+        ),
     }
 
     # Replace any prior entry for this (date, slot).
@@ -225,14 +223,26 @@ def prune_snapshots(snapshots_dir: str, index: list[dict], retention_days: int) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Persist the latest scan as a dated, minified snapshot.")
+    p = argparse.ArgumentParser(
+        description="Persist the latest scan as a dated, minified snapshot."
+    )
     p.add_argument("--latest", required=True, help="Path to latest_scan.json")
-    p.add_argument("--snapshots", required=True, help="Directory for snapshot files (created if missing)")
     p.add_argument(
-        "--slot", choices=["am", "pm"], default=None, help="Snapshot slot; if omitted, derived from generated_at hour."
+        "--snapshots", required=True, help="Directory for snapshot files (created if missing)"
+    )
+    p.add_argument(
+        "--slot",
+        choices=["am", "pm"],
+        default=None,
+        help="Snapshot slot; if omitted, derived from generated_at hour.",
     )
     p.add_argument("--now", default=None, help="Override 'now' (UTC ISO); for tests.")
-    p.add_argument("--retention-days", type=int, default=90, help="Keep snapshots within this many days; default 90.")
+    p.add_argument(
+        "--retention-days",
+        type=int,
+        default=90,
+        help="Keep snapshots within this many days; default 90.",
+    )
     args = p.parse_args(argv)
 
     try:
@@ -255,7 +265,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     kept = len(idx["entries"])
-    print(f"snapshot_writer: wrote {filename}; index entries={kept}; retention={args.retention_days}d")
+    print(
+        f"snapshot_writer: wrote {filename}; index entries={kept}; retention={args.retention_days}d"
+    )
     return 0
 
 

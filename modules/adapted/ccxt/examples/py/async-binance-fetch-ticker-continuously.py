@@ -44,11 +44,23 @@ async def main(symbol):
     exchange = ccxt.binance()
     while True:
         print("--------------------------------------------------------------")
-        print(exchange.iso8601(exchange.milliseconds()), "fetching", symbol, "ticker from", exchange.name)
+        print(
+            exchange.iso8601(exchange.milliseconds()),
+            "fetching",
+            symbol,
+            "ticker from",
+            exchange.name,
+        )
         # this can be any call instead of fetch_ticker, really
         try:
             ticker = await exchange.fetch_ticker(symbol)
-            print(exchange.iso8601(exchange.milliseconds()), "fetched", symbol, "ticker from", exchange.name)
+            print(
+                exchange.iso8601(exchange.milliseconds()),
+                "fetched",
+                symbol,
+                "ticker from",
+                exchange.name,
+            )
             print(ticker)
         except ccxt.RequestTimeout as e:
             print("[" + type(e).__name__ + "]")

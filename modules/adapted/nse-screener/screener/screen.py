@@ -36,7 +36,15 @@ from ingest import bhavcopy, bulk_deals, corporate_actions, etf_list
 
 import config
 
-FIELDS = ["close", "trend_ok", "rs_raw", "vcp_score", "deliv_spike", "pct_off_high", "avg_turnover_lacs"]
+FIELDS = [
+    "close",
+    "trend_ok",
+    "rs_raw",
+    "vcp_score",
+    "deliv_spike",
+    "pct_off_high",
+    "avg_turnover_lacs",
+]
 
 
 def _per_symbol(g: pd.DataFrame) -> pd.Series:
@@ -73,7 +81,8 @@ def _per_symbol(g: pd.DataFrame) -> pd.Series:
     # --- VCP proxy over the last VCP_LOOKBACK days ---
     w = g.tail(config.VCP_LOOKBACK)
     tr = np.maximum(
-        w["high"] - w["low"], np.maximum((w["high"] - w["close"].shift()).abs(), (w["low"] - w["close"].shift()).abs())
+        w["high"] - w["low"],
+        np.maximum((w["high"] - w["close"].shift()).abs(), (w["low"] - w["close"].shift()).abs()),
     )
     atr_pct = (tr / w["close"]).rolling(10).mean()
     tightening = atr_pct.iloc[-1] < 0.75 * atr_pct.iloc[9] if atr_pct.notna().sum() > 10 else False
@@ -83,7 +92,9 @@ def _per_symbol(g: pd.DataFrame) -> pd.Series:
 
     # --- delivery footprint: today's delivered qty vs its 20d average ---
     dq = g["deliv_qty"].tail(21)
-    deliv_spike = dq.iloc[-1] > config.DELIVERY_SPIKE_MULT * dq.iloc[:-1].mean() and close > c.iloc[-2]
+    deliv_spike = (
+        dq.iloc[-1] > config.DELIVERY_SPIKE_MULT * dq.iloc[:-1].mean() and close > c.iloc[-2]
+    )
 
     return pd.Series(
         {
@@ -103,7 +114,11 @@ def run() -> pd.DataFrame:
     df = df[~df["symbol"].isin(etf_list.symbols())]  # stocks only, no ETFs
     asof = df["date"].max()
 
-    feats = df.groupby("symbol", group_keys=False).apply(_per_symbol, include_groups=False).dropna(subset=["rs_raw"])
+    feats = (
+        df.groupby("symbol", group_keys=False)
+        .apply(_per_symbol, include_groups=False)
+        .dropna(subset=["rs_raw"])
+    )
 
     feats = feats[feats["avg_turnover_lacs"] >= config.MIN_AVG_TURNOVER_LACS]
     feats["rs_pctile"] = feats["rs_raw"].rank(pct=True) * 100
@@ -116,7 +131,9 @@ def run() -> pd.DataFrame:
         recent = deals
         for datecol in ("date", "deal_date"):
             if datecol in deals.columns:
-                recent = deals[pd.to_datetime(deals[datecol], errors="coerce", dayfirst=True) >= cutoff]
+                recent = deals[
+                    pd.to_datetime(deals[datecol], errors="coerce", dayfirst=True) >= cutoff
+                ]
                 break
         short["recent_deal"] = short.index.isin(set(recent["symbol"].str.strip()))
     else:

@@ -73,7 +73,8 @@ def main():
             f"buy&hold {100 * bh:+7.1f}%"
         )
         print(
-            f"  C2 EW stocks : overnight {100 * cum(ew_on.loc[w]):+9.1f}%   intraday {100 * cum(ew_in.loc[w]):+7.1f}%"
+            f"  C2 EW stocks : overnight {100 * cum(ew_on.loc[w]):+9.1f}%   "
+            f"intraday {100 * cum(ew_in.loc[w]):+7.1f}%"
         )
         if lo is None:
             continue
@@ -123,4 +124,7 @@ def index_cells():
             continue
         for cost in TIERS:
             net = cum((1 + on.loc[w].dropna()) * (1 - cost) - 1)
-            print(f"    C3@{100 * cost:.2f}%RT: {100 * net:+8.1f}%  [{'beats bh' if net > bh else 'dead'}]")
+            print(
+                f"    C3@{100 * cost:.2f}%RT: {100 * net:+8.1f}%  "
+                f"[{'beats bh' if net > bh else 'dead'}]"
+            )

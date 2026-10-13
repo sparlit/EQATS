@@ -148,7 +148,11 @@ for rel in REVOP_TWINS:
             skipped.append("{} {} revS already {}".format(rel, qe, e["now"]))
             continue
         if not close(c[0], e["was"]):
-            problems.append("{} {}: REV GUARD FAILED revS={} expected the sub-line {}".format(rel, qe, c[0], e["was"]))
+            problems.append(
+                "{} {}: REV GUARD FAILED revS={} expected the sub-line {}".format(
+                    rel, qe, c[0], e["was"]
+                )
+            )
             continue
         c[0] = e["now"]
         plan.append((rel, qe, "revS", e["was"], e["now"]))
@@ -172,7 +176,10 @@ for rel in orig:
     if stray:
         problems.append(f"{rel}: BLAST RADIUS stray diffs {sorted(stray)[:8]}")
 
-print("planned edits: %d   skipped(already-correct): %d   problems: %d" % (len(plan), len(skipped), len(problems)))
+print(
+    "planned edits: %d   skipped(already-correct): %d   problems: %d"
+    % (len(plan), len(skipped), len(problems))
+)
 for p in plan:
     print("  EDIT", p)
 for s in skipped:
@@ -193,7 +200,15 @@ for rel in orig:
 rd = load("scripts/rev_defects.json")
 for qe, e in HEAL.items():
     ent = rd.setdefault(SYM, {}).setdefault(qe, {})
-    ent.update({"bad_rev": e["was"], "basis": "std", "correct_rev": e["now"], "defect": DEFECT, "source": e["src"]})
+    ent.update(
+        {
+            "bad_rev": e["was"],
+            "basis": "std",
+            "correct_rev": e["now"],
+            "defect": DEFECT,
+            "source": e["src"],
+        }
+    )
 # indent=1, ensure_ascii default (existing entries escape as §), and NO trailing newline —
 # the three conventions the file is already written in, so the diff shows only the new entries.
 p = os.path.join(ROOT, "scripts/rev_defects.json")

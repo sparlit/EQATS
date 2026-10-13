@@ -42,7 +42,8 @@ print(f"Post-split (n={len(post_split)}):")
 print(post_split["volume"].describe())
 print()
 print(
-    "Ratio of post-split mean volume / pre-split mean volume:", post_split["volume"].mean() / pre_split["volume"].mean()
+    "Ratio of post-split mean volume / pre-split mean volume:",
+    post_split["volume"].mean() / pre_split["volume"].mean(),
 )
 
 print()

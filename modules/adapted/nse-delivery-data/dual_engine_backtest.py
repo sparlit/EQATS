@@ -50,7 +50,9 @@ def get_deterministic_mcap(symbol):
 
 
 def load_and_adjust_data(
-    folder_path="./HistoricalBhavCopy/NSE", sector_map_path="./nifty500_sectors.csv", index_path="./nifty500_index.csv"
+    folder_path="./HistoricalBhavCopy/NSE",
+    sector_map_path="./nifty500_sectors.csv",
+    index_path="./nifty500_index.csv",
 ):
     print("[Quant Engine] Loading Local BhavCopy & Calculating Baseline Metrics...")
     try:
@@ -65,7 +67,9 @@ def load_and_adjust_data(
         nifty_df = nifty_df.dropna(subset=["DATE", "CLOSE_PRICE"]).sort_values("DATE")
         nifty_df["NIFTY_EMA_200"] = nifty_df["CLOSE_PRICE"].ewm(span=200, adjust=False).mean()
         nifty_df["NIFTY_DAILY_RET"] = nifty_df["CLOSE_PRICE"].pct_change()
-        nifty_df["NIFTY_VOL_20D"] = nifty_df["NIFTY_DAILY_RET"].rolling(20).std() * np.sqrt(252) * 100
+        nifty_df["NIFTY_VOL_20D"] = (
+            nifty_df["NIFTY_DAILY_RET"].rolling(20).std() * np.sqrt(252) * 100
+        )
     else:
         nifty_df = pd.DataFrame(columns=["DATE", "CLOSE_PRICE", "NIFTY_EMA_200"])
 
@@ -178,7 +182,9 @@ def call_gemini_institutional_analor(top_50_df, target_limit, date_str, cache):
 
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(client.models.generate_content, model="gemini-2.5-flash", contents=prompt)
+            future = executor.submit(
+                client.models.generate_content, model="gemini-2.5-flash", contents=prompt
+            )
             resp = future.result(timeout=60)
 
         syms, reasons = parse_ai_reasoning_payload(resp.text, valid_symbols)
@@ -216,13 +222,23 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
     ret_6m = (df["P_1M"] - df["P_7M"]) / df["P_7M"]
     df["PRICE_MOMENTUM"] = (ret_12m * 0.70) + (ret_6m * 0.30)
 
-    df["EMA_51"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(lambda x: x.ewm(span=51, adjust=False).mean())
-    df["EMA_100"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(lambda x: x.ewm(span=100, adjust=False).mean())
-    df["EMA_200"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(lambda x: x.ewm(span=200, adjust=False).mean())
+    df["EMA_51"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(
+        lambda x: x.ewm(span=51, adjust=False).mean()
+    )
+    df["EMA_100"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(
+        lambda x: x.ewm(span=100, adjust=False).mean()
+    )
+    df["EMA_200"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(
+        lambda x: x.ewm(span=200, adjust=False).mean()
+    )
     df["52W_HIGH"] = df.groupby("SYMBOL")["CLOSE_PRICE"].transform(lambda x: x.rolling(252).max())
 
-    df["AVG_TURNOVER"] = df.groupby("SYMBOL")["TURNOVER_LACS"].transform(lambda x: x.rolling(20).mean())
-    df["AVG_DELIV_PER"] = df.groupby("SYMBOL")["DELIV_PER"].transform(lambda x: x.rolling(20).mean())
+    df["AVG_TURNOVER"] = df.groupby("SYMBOL")["TURNOVER_LACS"].transform(
+        lambda x: x.rolling(20).mean()
+    )
+    df["AVG_DELIV_PER"] = df.groupby("SYMBOL")["DELIV_PER"].transform(
+        lambda x: x.rolling(20).mean()
+    )
 
     df["MOMENTUM_PTS"] = df.groupby("DATE")["PRICE_MOMENTUM"].rank(pct=True) * 50.0
     df["DELIV_PTS"] = df.groupby("DATE")["AVG_DELIV_PER"].rank(pct=True) * 15.0
@@ -285,7 +301,9 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
                 weight_block = capital_selected / num_holdings
                 for _, row in prev_portfolio_df.iterrows():
                     sym = row["SYMBOL"]
-                    temp_selected += weight_block * (day_prices.get(sym, row["CLOSE_PRICE"]) / row["CLOSE_PRICE"])
+                    temp_selected += weight_block * (
+                        day_prices.get(sym, row["CLOSE_PRICE"]) / row["CLOSE_PRICE"]
+                    )
                 capital_selected = temp_selected
 
         candidates = valid_pool[valid_pool["DATE"] == current_date].copy()
@@ -298,7 +316,11 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
             if not bench_past.empty:
                 latest_nifty = bench_past.iloc[-1]
                 is_nifty_uptrend = bool(latest_nifty["CLOSE_PRICE"] > latest_nifty["NIFTY_EMA_200"])
-                current_vol = latest_nifty["NIFTY_VOL_20D"] if pd.notna(latest_nifty["NIFTY_VOL_20D"]) else 15.0
+                current_vol = (
+                    latest_nifty["NIFTY_VOL_20D"]
+                    if pd.notna(latest_nifty["NIFTY_VOL_20D"])
+                    else 15.0
+                )
             else:
                 is_nifty_uptrend = True
                 current_vol = 15.0
@@ -336,7 +358,9 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
         valid_candidates = valid_candidates.sort_values(by="MASTER_SCORE", ascending=False)
         top_50 = valid_candidates.head(50).copy()
 
-        ai_symbols, ai_reasons = call_gemini_institutional_analor(top_50, target_limit, curr_date_str, ai_cache)
+        ai_symbols, ai_reasons = call_gemini_institutional_analor(
+            top_50, target_limit, curr_date_str, ai_cache
+        )
 
         final_portfolio = top_50[top_50["SYMBOL"].isin(ai_symbols)].head(target_limit).copy()
         rejected_portfolio = top_50[~top_50["SYMBOL"].isin(ai_symbols)].copy()
@@ -367,7 +391,13 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
             sym = row["SYMBOL"]
             is_chosen = sym in current_symbols
             raw_pnl = (
-                ((day_prices.get(sym, row["CLOSE_PRICE"]) / entry_prices.get(sym, row["CLOSE_PRICE"])) - 1)
+                (
+                    (
+                        day_prices.get(sym, row["CLOSE_PRICE"])
+                        / entry_prices.get(sym, row["CLOSE_PRICE"])
+                    )
+                    - 1
+                )
                 if sym in entry_prices
                 else 0.0
             )
@@ -390,7 +420,9 @@ def run_momentum_backtest(df, nifty_df, risk_on=20, risk_off=10, friction_tax=0.
                     "TURN_PTS": row["TURN_PTS"],
                     "RAW_PNL": raw_pnl,
                     "PNL": pnl_str,
-                    "REASON": ai_reasons.get(sym, "Algorithmically verified. Favorable structural profile."),
+                    "REASON": ai_reasons.get(
+                        sym, "Algorithmically verified. Favorable structural profile."
+                    ),
                 }
             )
 
@@ -412,10 +444,16 @@ def generate_static_html(df_snaps, df_equity):
     init_eq = 1000000.0
     fin_sel = df_equity["SELECTED_EQUITY"].iloc[-1]
     fin_rej = df_equity["REJECTED_EQUITY"].iloc[-1]
-    total_friction = df_equity["FRICTION_CUMULATIVE"].iloc[-1] if "FRICTION_CUMULATIVE" in df_equity.columns else 0.0
+    total_friction = (
+        df_equity["FRICTION_CUMULATIVE"].iloc[-1]
+        if "FRICTION_CUMULATIVE" in df_equity.columns
+        else 0.0
+    )
 
     # CAGR Math
-    days_span = (pd.to_datetime(df_equity["DATE"].iloc[-1]) - pd.to_datetime(df_equity["DATE"].iloc[0])).days
+    days_span = (
+        pd.to_datetime(df_equity["DATE"].iloc[-1]) - pd.to_datetime(df_equity["DATE"].iloc[0])
+    ).days
     if days_span == 0:
         days_span = 1
     years_span = days_span / 365.25
@@ -433,18 +471,45 @@ def generate_static_html(df_snaps, df_equity):
     sortino = (cagr_sel - rf_rate) / down_vol if down_vol > 0 else 0
 
     df_equity["PEAK_SEL"] = df_equity["SELECTED_EQUITY"].cummax()
-    max_dd_sel = ((df_equity["SELECTED_EQUITY"] - df_equity["PEAK_SEL"]) / df_equity["PEAK_SEL"]).min() * 100
+    max_dd_sel = (
+        (df_equity["SELECTED_EQUITY"] - df_equity["PEAK_SEL"]) / df_equity["PEAK_SEL"]
+    ).min() * 100
 
     # Trade Efficiency Math
-    active_trades = df_snaps[(df_snaps["ACTION"] == "SELECTED") & (df_snaps["RAW_PNL"] != 0.0)]["RAW_PNL"]
-    win_rate = (len(active_trades[active_trades > 0]) / len(active_trades) * 100) if len(active_trades) > 0 else 0
-    avg_win = active_trades[active_trades > 0].mean() * 100 if len(active_trades[active_trades > 0]) > 0 else 0
-    avg_loss = active_trades[active_trades < 0].mean() * 100 if len(active_trades[active_trades < 0]) > 0 else 0
+    active_trades = df_snaps[(df_snaps["ACTION"] == "SELECTED") & (df_snaps["RAW_PNL"] != 0.0)][
+        "RAW_PNL"
+    ]
+    win_rate = (
+        (len(active_trades[active_trades > 0]) / len(active_trades) * 100)
+        if len(active_trades) > 0
+        else 0
+    )
+    avg_win = (
+        active_trades[active_trades > 0].mean() * 100
+        if len(active_trades[active_trades > 0]) > 0
+        else 0
+    )
+    avg_loss = (
+        active_trades[active_trades < 0].mean() * 100
+        if len(active_trades[active_trades < 0]) > 0
+        else 0
+    )
     payoff_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else 0
 
     monthly_data = {}
     unique_dates = sorted(df_snaps["DATE"].unique(), reverse=True)
-    fields = ["SYMBOL", "SECTOR", "PRICE", "SCORE", "MOM_PTS", "EMA_PTS", "DEL_PTS", "TURN_PTS", "PNL", "REASON"]
+    fields = [
+        "SYMBOL",
+        "SECTOR",
+        "PRICE",
+        "SCORE",
+        "MOM_PTS",
+        "EMA_PTS",
+        "DEL_PTS",
+        "TURN_PTS",
+        "PNL",
+        "REASON",
+    ]
     df_snaps = df_snaps.fillna(0)
 
     for d in unique_dates:

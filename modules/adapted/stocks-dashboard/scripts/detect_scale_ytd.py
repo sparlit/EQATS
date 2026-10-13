@@ -63,13 +63,15 @@ import xbrl_symbol
 
 CACHE = os.environ.get("XBRL_CACHE") or os.path.join(HERE, "_xbrl_cache")
 NS = r"in-(?:bse-fin|capmkt)"
-RE_SYM = re.compile(r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>')
+RE_SYM = re.compile(
+    r'<xbrli:identifier scheme="http://www\.nseindia\.com/NSESymbol">([^<]+)</xbrli:identifier>'
+)
 RE_SYM2 = re.compile(r"<" + NS + r':Symbol contextRef="OneD"[^>]*>([^<]+)<')
 RE_CTX = {
     c: re.compile(
         r'<xbrli:context id="' + c + r'">.*?<xbrli:startDate>(\d{4}-\d{2}-\d{2})</xbrli:startDate>'
         r"<xbrli:endDate>(\d{4}-\d{2}-\d{2})</xbrli:endDate>",
-        re.DOTALL,
+        re.S,
     )
     for c in ("OneD", "FourD")
 }
@@ -88,7 +90,10 @@ TAGS = (
     ("sc", "PaidUpValueOfEquityShareCapital"),
 )
 T = {
-    k: {c: re.compile(r"<" + NS + ":" + t + r' contextRef="' + c + r'"[^>]*>([^<]+)<') for c in ("OneD", "FourD")}
+    k: {
+        c: re.compile(r"<" + NS + ":" + t + r' contextRef="' + c + r'"[^>]*>([^<]+)<')
+        for c in ("OneD", "FourD")
+    }
     for k, t in TAGS
 }
 
@@ -154,7 +159,12 @@ def index_one(fn):
         "nat4": bool(n4),
         "same4": bool(n4) and (("consol" in n4) == ("consol" in n1)),
     }
-    for k, alts in (("rev", ("rev", "ie")), ("pat", ("pat", "pat2")), ("own", ("own",)), ("sc", ("sc",))):
+    for k, alts in (
+        ("rev", ("rev", "ie")),
+        ("pat", ("pat", "pat2")),
+        ("own", ("own",)),
+        ("sc", ("sc",)),
+    ):
         for c, suf in (("OneD", "1"), ("FourD", "4")):
             v = None
             for a in alts:
@@ -200,7 +210,9 @@ def ytd(r, k):
 def main():
     out_path = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else None
     if not os.path.isdir(CACHE):
-        sys.exit(f"XBRL cache not found at {CACHE} -- set XBRL_CACHE (it lives in the MAIN checkout)")
+        sys.exit(
+            f"XBRL cache not found at {CACHE} -- set XBRL_CACHE (it lives in the MAIN checkout)"
+        )
     fns = sorted(os.listdir(CACHE))
     recs = []
     with ProcessPoolExecutor(8) as ex:
@@ -283,7 +295,10 @@ def main():
         "pairs: %d | anomalous (rev AND pat exact 10^k): %d | explained by an armed filing: %d"
         % (len(pairs), n_anom, n_expl)
     )
-    print("recall on the ledger: %d of %d cached armed filings re-found" % (len(refound), len(cached_armed)))
+    print(
+        "recall on the ledger: %d of %d cached armed filings re-found"
+        % (len(refound), len(cached_armed))
+    )
 
     # ---- triage against the served stores ---------------------------------------------------------------------------------------
     rev = json.load(open(os.path.join(ROOT, "docs", "sf_revop.json")))
@@ -345,9 +360,17 @@ def main():
     cells = defaultdict(list)
     for x in rows:
         cells[(x["sym"], x["qe"], x["basis"])].append(x)
-    live = sorted(c for c, xs in cells.items() if any("SCALED" in (x["rev_store_is"], x["pat_store_is"]) for x in xs))
-    xtra_only = sorted(c for c, xs in cells.items() if c not in live and any(x["latest"] for x in xs))
-    superseded = sorted(c for c, xs in cells.items() if c not in live and not any(x["latest"] for x in xs))
+    live = sorted(
+        c
+        for c, xs in cells.items()
+        if any("SCALED" in (x["rev_store_is"], x["pat_store_is"]) for x in xs)
+    )
+    xtra_only = sorted(
+        c for c, xs in cells.items() if c not in live and any(x["latest"] for x in xs)
+    )
+    superseded = sorted(
+        c for c, xs in cells.items() if c not in live and not any(x["latest"] for x in xs)
+    )
     print(
         "candidates NOT in the ledger: %d filings / %d cells | undecided pairs: %d"
         % (len(rows), len(cells), sum(len(c["pairs"]) for c in undecided))
@@ -360,7 +383,10 @@ def main():
             sum(1 for c in live if any(x["pat_store_is"] == "SCALED" for x in cells[c])),
         )
     )
-    print("  stores right, scaled filing is the latest (xbrl_extra exposure): %d %s" % (len(xtra_only), xtra_only))
+    print(
+        "  stores right, scaled filing is the latest (xbrl_extra exposure): %d %s"
+        % (len(xtra_only), xtra_only)
+    )
     print("  stores right, scaled filing superseded by a later one: %d" % len(superseded))
     for x in sorted(rows, key=lambda x: (x["sym"], x["qe"], x["basis"])):
         print(

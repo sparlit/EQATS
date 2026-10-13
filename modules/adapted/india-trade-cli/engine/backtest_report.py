@@ -87,8 +87,7 @@ def generate_html_report(
         Absolute path to the saved HTML file.
     """
     if not results:
-        msg = "At least one BacktestResult is required"
-        raise ValueError(msg)
+        raise ValueError("At least one BacktestResult is required")
 
     html = _build_html(results)
 

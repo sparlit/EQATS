@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_aggregate():
@@ -60,13 +60,19 @@ def test_aggregate():
     test_shared_methods.assert_deep_equal(exchange, None, "aggregate", exchange.aggregate([]), [])
     # Test 1: Simple aggregation - same price combined
     result1 = exchange.aggregate([[100.2, 1.01], [101.5, 2.01], [100.2, 0.5]])
-    test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result1, [[100.2, 1.51], [101.5, 2.01]])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testAggregate", result1, [[100.2, 1.51], [101.5, 2.01]]
+    )
     # Test 2: With extra fields (should be ignored)
     result2 = exchange.aggregate([[100.2, 1.01, "extra"], [101.5, 2.01, "data", "more"]])
-    test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result2, [[100.2, 1.01], [101.5, 2.01]])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testAggregate", result2, [[100.2, 1.01], [101.5, 2.01]]
+    )
     # Test 3: Zero volumes should be skipped
     result3 = exchange.aggregate([[100.2, 1.01], [101.5, 0], [102.4, 2.01]])
-    test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result3, [[100.2, 1.01], [102.4, 2.01]])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testAggregate", result3, [[100.2, 1.01], [102.4, 2.01]]
+    )
     # Test 4: Empty array
     result4 = exchange.aggregate([])
     test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result4, [])
@@ -84,9 +90,13 @@ def test_aggregate():
     # testSharedMethods.assertDeepEqual (exchange, undefined, 'testAggregate', result8, [ [ 103, 1.0 ], [ 101.5, 1.5 ], [ 102.4, 1.0 ] ]);
     # Test 9: Decimal prices
     result9 = exchange.aggregate([[100.5, 1.04], [100.5, 2.04], [101.5, 1.05]])
-    test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result9, [[100.5, 3.08], [101.5, 1.05]])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testAggregate", result9, [[100.5, 3.08], [101.5, 1.05]]
+    )
     # Test 10: Mixed zero and non-zero for same price
     result10 = exchange.aggregate([[100.2, 1.04], [100.2, 0], [100.2, 2.04]])
-    test_shared_methods.assert_deep_equal(exchange, None, "testAggregate", result10, [[100.2, 3.08]])
+    test_shared_methods.assert_deep_equal(
+        exchange, None, "testAggregate", result10, [[100.2, 3.08]]
+    )
     # @SKIP_END_GO
     exchange.uuid()  # placeholder for astt

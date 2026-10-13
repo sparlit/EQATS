@@ -69,29 +69,24 @@ class MarketBar(BaseModel):
     @classmethod
     def _positive_price(cls, v: float) -> float:
         if v <= 0:
-            msg = f"price must be positive, got {v}"
-            raise ValueError(msg)
+            raise ValueError(f"price must be positive, got {v}")
         return v
 
     @field_validator("volume")
     @classmethod
     def _non_negative_volume(cls, v: float) -> float:
         if v < 0:
-            msg = f"volume must be non-negative, got {v}"
-            raise ValueError(msg)
+            raise ValueError(f"volume must be non-negative, got {v}")
         return v
 
     @model_validator(mode="after")
     def _validate_ohlc(self) -> MarketBar:
         if self.high < max(self.open, self.close):
-            msg = f"high {self.high} < max(open,close)"
-            raise ValueError(msg)
+            raise ValueError(f"high {self.high} < max(open,close)")
         if self.low > min(self.open, self.close):
-            msg = f"low {self.low} > min(open,close)"
-            raise ValueError(msg)
+            raise ValueError(f"low {self.low} > min(open,close)")
         if self.low > self.high:
-            msg = f"low {self.low} > high {self.high}"
-            raise ValueError(msg)
+            raise ValueError(f"low {self.low} > high {self.high}")
         return self
 
 
@@ -124,8 +119,7 @@ class OptionQuote(BaseModel):
     @model_validator(mode="after")
     def _validate_spread(self) -> OptionQuote:
         if self.bid is not None and self.ask is not None and self.bid > self.ask:
-            msg = f"bid {self.bid} > ask {self.ask}"
-            raise ValueError(msg)
+            raise ValueError(f"bid {self.bid} > ask {self.ask}")
         return self
 
 
@@ -156,4 +150,11 @@ def bars_to_frame(bars: list[MarketBar]) -> pd.DataFrame:
     return df.sort_values(["instrument_id", "timestamp"]).reset_index(drop=True)
 
 
-__all__ = ["InstrumentIdentity", "Lineage", "MarketBar", "OptionQuote", "QualityStamp", "bars_to_frame"]
+__all__ = [
+    "MarketBar",
+    "OptionQuote",
+    "bars_to_frame",
+    "Lineage",
+    "QualityStamp",
+    "InstrumentIdentity",
+]

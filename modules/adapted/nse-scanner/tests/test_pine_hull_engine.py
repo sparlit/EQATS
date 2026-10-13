@@ -24,15 +24,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import sqlite3
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from pine_hull.engine import PineConfig, load_state, pine_metrics, run_daily
 from pine_hull.preview import render_daily_signals
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _frame(rows: int = 330, *, final_low: float | None = None, end: float = 260.0) -> pd.DataFrame:
@@ -58,7 +55,9 @@ def _database(path: Path, frame: pd.DataFrame) -> None:
         conn.execute("""CREATE TABLE daily_prices_v2 (
             symbol TEXT, trade_date TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL
         )""")
-        loaded = frame.assign(symbol="PINE")[["symbol", "trade_date", "open", "high", "low", "close", "volume"]].copy()
+        loaded = frame.assign(symbol="PINE")[
+            ["symbol", "trade_date", "open", "high", "low", "close", "volume"]
+        ].copy()
         loaded["trade_date"] = loaded["trade_date"].dt.strftime("%Y-%m-%d")
         loaded.to_sql("daily_prices_v2", conn, if_exists="append", index=False)
 
@@ -98,7 +97,15 @@ def test_pine_signal_message_matches_compact_daily_candidate_style() -> None:
                 "htf_weekly_bullish": True,
             }
         ],
-        "watch": [{"symbol": "TCS", "score": 82.0, "overextended": False, "chop": False, "rotational": False}],
+        "watch": [
+            {
+                "symbol": "TCS",
+                "score": 82.0,
+                "overextended": False,
+                "chop": False,
+                "rotational": False,
+            }
+        ],
     }
     message = render_daily_signals(result)
     assert "PINE HULL — DAILY WATCHLIST" in message

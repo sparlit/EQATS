@@ -28,7 +28,6 @@ T = latest date with >= 490 symbols (no skip-month — George & Hwang 2004)
 All 500 symbols. NaN for symbols with < 253 rows (can't reach T-252).
 """
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"
@@ -81,10 +80,18 @@ if len(above_1) > 0:
     print(above_1[["symbol", "close_T", "high_52w", "proximity_52w_high"]])
 
 print("\n--- Top 10 highest proximity (closest to 52w high) ---")
-print(result.nlargest(10, "proximity_52w_high")[["symbol", "close_T", "high_52w", "proximity_52w_high"]])
+print(
+    result.nlargest(10, "proximity_52w_high")[
+        ["symbol", "close_T", "high_52w", "proximity_52w_high"]
+    ]
+)
 
 print("\n--- Top 10 lowest proximity (furthest from 52w high) ---")
-print(result.nsmallest(10, "proximity_52w_high")[["symbol", "close_T", "high_52w", "proximity_52w_high"]])
+print(
+    result.nsmallest(10, "proximity_52w_high")[
+        ["symbol", "close_T", "high_52w", "proximity_52w_high"]
+    ]
+)
 
 # ── Save ─────────────────────────────────────────────────────────────────────
 out_path = f"{BASE}/signals/stage3/stage3_step4_52wk_high.parquet"

@@ -1,0 +1,941 @@
+import datetime
+
+import pytz
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
+
+import os
+import sys
+import time
+import uuid
+from typing import Any
+
+from database.auth_db import get_auth_token
+from dotenv import load_dotenv
+from utils.logging import get_logger
+
+from utils import runtime as _runtime
+
+# Load environment variables
+load_dotenv()
+
+# Add parent directory to path to allow imports
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
+
+from websocket_proxy.base_adapter import BaseBrokerWebSocketAdapter
+from websocket_proxy.mapping import SymbolMapper
+
+from .firstock_websocket import FirstockWebSocket
+
+_real_threading = _runtime.original("threading")
+
+
+class FirstockWebSocketAdapter(BaseBrokerWebSocketAdapter):
+    """Firstock-specific implementation of the WebSocket adapter"""
+
+    def __init__(self):
+        super().__init__()
+        self.logger = get_logger("firstock_websocket")
+        self.ws_client = None
+        self.user_id = None
+        self.broker_name = "firstock"
+        self.running = False
+        self.lock = _real_threading.Lock()
+        self._wire_operation_lock = _real_threading.Lock()
+        self.subscription_queue = []
+        self.batch_timer = None
+        self.batch_delay = 0.5
+        # Snapshot management for value retention (similar to Shoonya implementation).
+        # Keyed by scrip ("NFO:65872"), not by the bare token: Firstock tokens are
+        # unique only within an exchange segment and the live master carries
+        # thousands of cross-exchange duplicates (NSE/CDS, BSE_INDEX/NSE, BSE/MCX),
+        # which a token-keyed snapshot merged into one slot - see #1732
+        self.market_snapshots = {}  # {scrip: snapshot_data} - retains previous values
+        self.ws_subscription_refs = {}  # Reference counting for WebSocket subscriptions
+
+    def initialize(
+        self, broker_name: str, user_id: str, auth_data: dict[str, str] | None = None
+    ) -> None:
+        """
+        Initialize connection with Firstock WebSocket API
+
+        Args:
+            broker_name: Name of the broker (always 'firstock' in this case)
+            user_id: Client ID/user ID
+            auth_data: If provided, use these credentials instead of fetching from DB
+
+        Raises:
+            ValueError: If required authentication tokens are not found
+        """
+        self.user_id = user_id
+        self.broker_name = broker_name
+
+        # Get tokens from database if not provided
+        if not auth_data:
+            # Fetch authentication tokens from database
+            # IMPORTANT: For Firstock, this must be the 'susertoken' from login API response
+            auth_token = get_auth_token(user_id, bypass_cache=True)
+
+            # Auth token must come from database (after Firstock login)
+
+            if not auth_token:
+                self.logger.error(f"No authentication token found for user {user_id}")
+                self.logger.error(
+                    "For Firstock, the auth_token must be the 'susertoken' from the login API"
+                )
+                raise ValueError(
+                    f"No authentication token found for user {user_id}. Please login through Firstock's login API first."
+                )
+
+            self.auth_token = auth_token
+
+            # For Firstock, we need to get the broker-specific user ID from BROKER_API_KEY
+            # The BROKER_API_KEY contains the Firstock user ID (e.g., RR0884_API)
+            broker_api_key = os.getenv("BROKER_API_KEY", "")
+            if broker_api_key:
+                # Extract the user ID part (remove _API suffix if present)
+                self.firstock_user_id = broker_api_key.replace("_API", "")
+                self.logger.info(
+                    f"Using Firstock user ID '{self.firstock_user_id}' from BROKER_API_KEY"
+                )
+            else:
+                # Fallback to OpenAlgo user ID if BROKER_API_KEY not set
+                self.firstock_user_id = user_id
+                self.logger.warning(
+                    f"BROKER_API_KEY not found in environment. Using OpenAlgo user ID '{user_id}' which may fail authentication"
+                )
+
+        else:
+            # Use provided tokens
+            # IMPORTANT: For Firstock, this must be the 'susertoken' from login API response
+            auth_token = auth_data.get("auth_token")
+
+            if not auth_token:
+                self.logger.error("Missing required authentication data")
+                self.logger.error(
+                    "For Firstock, the auth_token must be the 'susertoken' from the login API"
+                )
+                raise ValueError("Missing required authentication data")
+
+            self.auth_token = auth_token
+
+            # Check if broker-specific user ID is provided
+            if "broker_user_id" in auth_data:
+                self.firstock_user_id = auth_data["broker_user_id"]
+                self.logger.info(f"Using Firstock user ID '{self.firstock_user_id}' from auth_data")
+            else:
+                # Get from BROKER_API_KEY environment variable
+                broker_api_key = os.getenv("BROKER_API_KEY", "")
+                if broker_api_key:
+                    # Extract the user ID part (remove _API suffix if present)
+                    self.firstock_user_id = broker_api_key.replace("_API", "")
+                    self.logger.info(
+                        f"Using Firstock user ID '{self.firstock_user_id}' from BROKER_API_KEY"
+                    )
+                else:
+                    # Fallback to OpenAlgo user ID if BROKER_API_KEY not set
+                    self.firstock_user_id = user_id
+                    self.logger.warning(
+                        f"BROKER_API_KEY not found in environment. Using OpenAlgo user ID '{user_id}' which may fail authentication"
+                    )
+
+        # Create FirstockWebSocket instance
+        # Use Firstock-specific user ID if available.
+        # Pass a token_provider so the client can re-read a fresh susertoken
+        # from the DB before each reconnect (Firstock tokens roll over daily
+        # at ~3 AM IST; reusing the construction-time token reconnects dead).
+        self.ws_client = FirstockWebSocket(
+            user_id=self.firstock_user_id,
+            auth_token=self.auth_token,
+            max_retry_attempt=5,
+            retry_delay=5,
+            token_provider=self._fetch_fresh_auth_token,
+        )
+
+        # Set callbacks
+        self.ws_client.on_open = self._on_open
+        self.ws_client.on_data = self._on_data
+        self.ws_client.on_error = self._on_error
+        self.ws_client.on_close = self._on_close
+        self.ws_client.on_message = self._on_message
+
+        self.running = True
+
+    def _fetch_fresh_auth_token(self) -> str | None:
+        """Re-read a fresh auth token (susertoken) from the database.
+
+        Used by the WebSocket client to refresh the token before each
+        reconnect so a daily token rollover does not leave the feed dead.
+        Returns None if no user_id or token is available, in which case the
+        client keeps its existing token.
+        """
+        if not self.user_id:
+            return None
+        try:
+            fresh_token = get_auth_token(self.user_id, bypass_cache=True)
+            if not fresh_token:
+                self.logger.warning(
+                    "Could not fetch fresh auth token on reconnect; using existing token"
+                )
+                return None
+            return fresh_token
+        except Exception as e:
+            self.logger.error(f"Error fetching fresh auth token on reconnect: {e}")
+            return None
+
+    def connect(self) -> None:
+        """Establish connection to Firstock WebSocket"""
+        if not self.ws_client:
+            self.logger.error("WebSocket client not initialized. Call initialize() first.")
+            return
+
+        try:
+            self.ws_client.connect()
+        except Exception as e:
+            self.logger.error(f"Failed to connect to Firstock WebSocket: {e}")
+            raise
+
+    def disconnect(self) -> None:
+        """Disconnect from Firstock WebSocket"""
+        self.running = False
+
+        with self.lock:
+            if self.batch_timer:
+                self.batch_timer.cancel()
+                self.batch_timer = None
+            self.subscription_queue.clear()
+
+        if self.ws_client:
+            self.ws_client.close_connection()
+
+        # Clear snapshots
+        self.market_snapshots.clear()
+
+        # Clean up ZeroMQ resources
+        self.cleanup_zmq()
+
+    def subscribe(
+        self, symbol: str, exchange: str, mode: int = 2, depth_level: int = 5
+    ) -> dict[str, Any]:
+        """
+        Subscribe to market data with Firstock-specific implementation
+
+        Args:
+            symbol: Trading symbol (e.g., 'RELIANCE')
+            exchange: Exchange code (e.g., 'NSE', 'BSE', 'NFO')
+            mode: Subscription mode - 1:LTP, 2:Quote, 3:Depth (Firstock always provides full data)
+            depth_level: Market depth level (Firstock provides 5-level depth)
+
+        Returns:
+            Dict: Response with status and error message if applicable
+        """
+        self.logger.info(f"[SUBSCRIBE] Request for {symbol}.{exchange} mode={mode}")
+
+        # Firstock provides full market data including depth in a single feed
+        # Mode parameter is maintained for API consistency but all data is provided
+
+        # Map symbol to token using symbol mapper
+        token_info = SymbolMapper.get_token_from_symbol(symbol, exchange)
+        if not token_info:
+            return self._create_error_response(
+                "SYMBOL_NOT_FOUND", f"Symbol {symbol} not found for exchange {exchange}"
+            )
+
+        token = token_info["token"]
+        brexchange = token_info["brexchange"]
+
+        # Create subscription token in Firstock format (EXCHANGE:TOKEN)
+        subscription_token = f"{brexchange}:{token}"
+
+        # Generate a unique correlation_id for each subscription
+        # This allows multiple clients to subscribe to the same symbol
+        unique_id = str(uuid.uuid4())[:8]
+        correlation_id = f"{symbol}_{exchange}_{mode}_{unique_id}"
+
+        # Check if we need to subscribe to WebSocket
+        base_correlation_id = f"{symbol}_{exchange}_{mode}"
+        already_ws_subscribed = any(
+            cid.startswith(base_correlation_id) for cid in self.subscriptions
+        )
+
+        if already_ws_subscribed:
+            self.logger.info(
+                f"[SUBSCRIBE] WebSocket already subscribed for {base_correlation_id}, adding client subscription {correlation_id}"
+            )
+        else:
+            self.logger.info(f"[SUBSCRIBE] New WebSocket subscription needed for {correlation_id}")
+
+        # Always store the subscription (each client gets their own entry)
+        with self.lock:
+            self.subscriptions[correlation_id] = {
+                "symbol": symbol,
+                "exchange": exchange,
+                "brexchange": brexchange,
+                "token": token,
+                "subscription_token": subscription_token,
+                "mode": mode,
+                "depth_level": depth_level,
+            }
+
+        # Subscribe via WebSocket (reference counting will handle duplicates)
+        if self.ws_client and self.ws_client.is_connected():
+            # Check if we need to send WebSocket subscription
+            with self.lock:
+                should_subscribe = self._should_ws_subscribe(subscription_token, mode)
+                if should_subscribe:
+                    self._queue_ws_subscription_locked(brexchange, token)
+            if should_subscribe:
+                self.logger.info(
+                    f"[SUBSCRIBE] Queued WebSocket subscription for {subscription_token}"
+                )
+            else:
+                self.logger.info(
+                    f"[SUBSCRIBE] WebSocket already has active subscription for {subscription_token}"
+                )
+        else:
+            self.logger.warning(
+                f"[SUBSCRIBE] Not connected, cannot subscribe to {symbol}.{exchange}"
+            )
+
+        # Log current subscription state
+        self.logger.info(f"[SUBSCRIBE] Total active subscriptions: {len(self.subscriptions)}")
+
+        # Return success
+        return self._create_success_response(
+            "Subscription requested",
+            symbol=symbol,
+            exchange=exchange,
+            mode=mode,
+            depth_level=5,  # Firstock always provides 5-level depth
+        )
+
+    def unsubscribe(self, symbol: str, exchange: str, mode: int = 2) -> dict[str, Any]:
+        """
+        Unsubscribe from market data
+
+        Args:
+            symbol: Trading symbol
+            exchange: Exchange code
+            mode: Subscription mode
+
+        Returns:
+            Dict: Response with status
+        """
+        # Map symbol to token
+        token_info = SymbolMapper.get_token_from_symbol(symbol, exchange)
+        if not token_info:
+            return self._create_error_response(
+                "SYMBOL_NOT_FOUND", f"Symbol {symbol} not found for exchange {exchange}"
+            )
+
+        token = token_info["token"]
+        brexchange = token_info["brexchange"]
+
+        # Create subscription token in Firstock format
+        subscription_token = f"{brexchange}:{token}"
+
+        # Find base correlation ID pattern
+        base_correlation_id = f"{symbol}_{exchange}_{mode}"
+
+        unsubscribe_ws = False
+        with self.lock:
+            # Find the first matching subscription for this client
+            matching_subscriptions = [
+                (cid, sub)
+                for cid, sub in self.subscriptions.items()
+                if cid.startswith(base_correlation_id)
+            ]
+
+            if not matching_subscriptions:
+                return self._create_error_response(
+                    "NOT_SUBSCRIBED", f"Not subscribed to {symbol}.{exchange}"
+                )
+
+            # Remove the first matching subscription
+            correlation_id, subscription = matching_subscriptions[0]
+
+            # Remove the subscription
+            del self.subscriptions[correlation_id]
+
+            # Drop the retained snapshot once nothing is subscribed to this scrip.
+            # Keyed on scrip, not token: a token still subscribed on another
+            # exchange segment must keep its own snapshot slot intact (#1732)
+            if not any(
+                sub["subscription_token"] == subscription_token
+                for sub in self.subscriptions.values()
+            ):
+                self.market_snapshots.pop(subscription_token, None)
+
+            # Only unsubscribe from WebSocket if this was the last subscription
+            if self._should_ws_unsubscribe(subscription_token, mode):
+                queued = self._remove_queued_ws_subscription_locked(subscription_token)
+                unsubscribe_ws = not queued
+
+        # Only send an unsubscribe if the subscribe already left the batch queue.
+        if unsubscribe_ws and self.ws_client and self.ws_client.is_connected():
+            try:
+                token_list = [{"exchangeType": brexchange, "tokens": [token]}]
+                with self._wire_operation_lock:
+                    self.ws_client.unsubscribe(correlation_id, mode, token_list)
+                self.logger.info(f"WebSocket unsubscribed from {symbol}.{exchange}")
+            except Exception as e:
+                self.logger.error(f"Error unsubscribing from {symbol}.{exchange}: {e}")
+
+        return self._create_success_response(
+            f"Unsubscribed from {symbol}.{exchange}", symbol=symbol, exchange=exchange, mode=mode
+        )
+
+    def _on_open(self, ws) -> None:
+        """Callback when connection is established"""
+        self.logger.info("Connected to Firstock WebSocket")
+        self.connected = True
+
+        # Resubscribe to existing subscriptions if reconnecting
+        self._resubscribe_all()
+
+    def _queue_ws_subscription_locked(self, brexchange: str, token: str) -> None:
+        subscription_token = f"{brexchange}:{token}"
+        if not any(
+            item["subscription_token"] == subscription_token for item in self.subscription_queue
+        ):
+            self.subscription_queue.append(
+                {
+                    "brexchange": brexchange,
+                    "token": token,
+                    "subscription_token": subscription_token,
+                }
+            )
+
+        if self.batch_timer is None:
+            self.batch_timer = _real_threading.Timer(
+                self.batch_delay, self._process_subscription_batch
+            )
+            self.batch_timer.daemon = True
+            self.batch_timer.start()
+
+    def _remove_queued_ws_subscription_locked(self, subscription_token: str) -> bool:
+        queued_before = len(self.subscription_queue)
+        self.subscription_queue = [
+            item
+            for item in self.subscription_queue
+            if item["subscription_token"] != subscription_token
+        ]
+        removed = len(self.subscription_queue) < queued_before
+        if not self.subscription_queue and self.batch_timer:
+            self.batch_timer.cancel()
+            self.batch_timer = None
+        return removed
+
+    def _process_subscription_batch(self) -> None:
+        with self.lock:
+            self.batch_timer = None
+            if not self.subscription_queue:
+                return
+
+            ws_client = self.ws_client
+            if (
+                not ws_client
+                or not ws_client.is_connected()
+                or not getattr(ws_client, "is_running", True)
+            ):
+                return
+            if not getattr(ws_client, "authenticated", True):
+                self._queue_ws_subscription_locked(
+                    self.subscription_queue[0]["brexchange"],
+                    self.subscription_queue[0]["token"],
+                )
+                return
+
+            queued = self.subscription_queue
+            self.subscription_queue = []
+
+        try:
+            with self._wire_operation_lock:
+                with self.lock:
+                    queued = [
+                        item
+                        for item in queued
+                        if any(
+                            self.ws_subscription_refs.get(item["subscription_token"], {}).values()
+                        )
+                    ]
+                if not queued:
+                    return
+                token_list = []
+                exchange_tokens = {}
+                for item in queued:
+                    exchange_tokens.setdefault(item["brexchange"], []).append(item["token"])
+                for exchange_type, tokens in exchange_tokens.items():
+                    token_list.append({"exchangeType": exchange_type, "tokens": tokens})
+                ws_client.subscribe(f"batch_{uuid.uuid4().hex}", 2, token_list)
+            self.logger.info(
+                f"Batch subscribed {sum(len(tokens) for tokens in exchange_tokens.values())} Firstock tokens"
+            )
+        except Exception as e:
+            with self.lock:
+                for item in queued:
+                    if self.ws_subscription_refs.get(item["subscription_token"]):
+                        self._queue_ws_subscription_locked(item["brexchange"], item["token"])
+            self.logger.error(f"Firstock batch subscription failed: {e}")
+
+    def _resubscribe_all(self) -> None:
+        """Resubscribe to all existing subscriptions after reconnection"""
+        with self.lock:
+            # Reset reference counts
+            self.ws_subscription_refs = {}
+
+            # Group client subscriptions by token while preserving per-mode refs.
+            unique_subscriptions = {}
+
+            for _correlation_id, sub in self.subscriptions.items():
+                subscription_key = sub["subscription_token"]
+
+                if subscription_key not in unique_subscriptions:
+                    unique_subscriptions[subscription_key] = {
+                        "brexchange": sub["brexchange"],
+                        "token": sub["token"],
+                        "mode": sub["mode"],
+                        "subscription_token": sub["subscription_token"],
+                        "count": 1,
+                    }
+                else:
+                    unique_subscriptions[subscription_key]["count"] += 1
+
+                # Update reference counts
+                if sub["subscription_token"] not in self.ws_subscription_refs:
+                    self.ws_subscription_refs[sub["subscription_token"]] = {}
+
+                mode_key = f"mode_{sub['mode']}"
+                if mode_key not in self.ws_subscription_refs[sub["subscription_token"]]:
+                    self.ws_subscription_refs[sub["subscription_token"]][mode_key] = 0
+                self.ws_subscription_refs[sub["subscription_token"]][mode_key] += 1
+
+            # Queue unique tokens together; _on_open runs before Firstock auth completes.
+            for sub_info in unique_subscriptions.values():
+                self._queue_ws_subscription_locked(sub_info["brexchange"], sub_info["token"])
+
+    def _should_ws_subscribe(self, subscription_token: str, mode: int) -> bool:
+        """
+        Check if we should send WebSocket subscription using reference counting
+
+        Args:
+            subscription_token: Exchange:Token identifier
+            mode: Subscription mode
+
+        Returns:
+            bool: True if we need to subscribe, False if already subscribed
+        """
+        refs = self.ws_subscription_refs.setdefault(subscription_token, {})
+        mode_key = f"mode_{mode}"
+        first_wire_subscription = not refs
+        refs[mode_key] = refs.get(mode_key, 0) + 1
+        if not first_wire_subscription:
+            self.logger.info(
+                f"Additional subscription for {subscription_token} mode {mode}, count: {refs[mode_key]}"
+            )
+        return first_wire_subscription
+
+    def _should_ws_unsubscribe(self, subscription_token: str, mode: int) -> bool:
+        """
+        Check if we should send WebSocket unsubscription using reference counting
+
+        Args:
+            subscription_token: Exchange:Token identifier
+            mode: Subscription mode
+
+        Returns:
+            bool: True if we should unsubscribe, False if other clients still subscribed
+        """
+        refs = self.ws_subscription_refs.get(subscription_token)
+        if not refs:
+            return True
+        mode_key = f"mode_{mode}"
+        if mode_key in refs:
+            refs[mode_key] -= 1
+            if refs[mode_key] <= 0:
+                del refs[mode_key]
+
+        if refs:
+            return False
+
+        self.ws_subscription_refs.pop(subscription_token, None)
+        return True
+
+    def _on_error(self, ws, error) -> None:
+        """Callback for WebSocket errors"""
+        self.logger.error(f"Firstock WebSocket error: {error}")
+
+    def _on_close(self, ws) -> None:
+        """Callback when connection is closed"""
+        self.logger.info("Firstock WebSocket connection closed")
+        self.connected = False
+
+    def _on_message(self, ws, message) -> None:
+        """Callback for text messages from the WebSocket"""
+        self.logger.debug(f"Received text message: {message}")
+
+    def _on_data(self, ws, data) -> None:
+        """Callback for data messages from the WebSocket"""
+        try:
+            # Per-tick — keep at debug; the live feed would otherwise dump
+            # every tick's full payload at info, drowning the log.
+            self.logger.debug(f"Received data from Firstock WebSocket: {data}")
+
+            # Handle market data
+            if isinstance(data, dict) and "c_symbol" in data:
+                self._process_market_data(data)
+            # Handle order updates
+            elif isinstance(data, dict) and "norenordno" in data:
+                self._process_order_update(data)
+            # Handle position updates
+            elif isinstance(data, dict) and "netqty" in data and "pcode" in data:
+                self._process_position_update(data)
+            else:
+                self.logger.debug(f"Received unknown data type: {data}")
+
+        except Exception as e:
+            self.logger.error(f"Error processing data: {e}", exc_info=True)
+
+    def _update_market_snapshot(self, scrip: str, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Update market snapshot for value retention.
+        Only updates non-zero/non-invalid values to retain previous valid data.
+
+        Keyed by scrip (``"NFO:65872"``), never by the bare token: Firstock tokens
+        are unique only within an exchange segment, and the live master carries
+        thousands of cross-exchange duplicates (NSE/CDS, BSE_INDEX/NSE, BSE/MCX).
+        A token-keyed snapshot merged two different instruments into one slot, so
+        one symbol's retained values bled into the other's feed (#1732).
+        """
+        # Get existing snapshot or create empty one
+        snapshot = self.market_snapshots.get(scrip, {})
+
+        # Fields to merge (only if not invalid/zero)
+        merge_fields = [
+            # Price fields
+            "i_last_traded_price",
+            "i_open_price",
+            "i_high_price",
+            "i_low_price",
+            "i_closing_price",
+            "i_average_trade_price",
+            "i_upper_circuit_limit",
+            "i_lower_circuit_limit",
+            # Quantity/volume fields
+            "i_volume_traded_today",
+            "i_last_trade_quantity",
+            "i_total_buy_quantity",
+            "i_total_sell_quantity",
+            "i_open_interest",
+            "i_total_open_interest",
+            # Time fields
+            "i_last_trade_time",
+            "i_feed_time",
+            "c_exch_feed_time",
+        ]
+
+        # Always update these fields (metadata)
+        always_update = [
+            "c_symbol",
+            "c_exch_seg",
+            "c_net_change_indicator",
+            "i_buy_depth_size",
+            "i_sell_depth_size",
+        ]
+
+        # Update snapshot with always-update fields
+        for field in always_update:
+            if field in data:
+                snapshot[field] = data[field]
+
+        # Merge non-invalid values from update
+        updated_fields = []
+        for field in merge_fields:
+            if field in data:
+                value = data[field]
+                # Skip Firstock's invalid values (9223372036854775808 or 0 for prices)
+                if (
+                    isinstance(value, (int, float))
+                    and value != 9223372036854775808
+                    and (
+                        field
+                        not in [
+                            "i_last_traded_price",
+                            "i_open_price",
+                            "i_high_price",
+                            "i_low_price",
+                            "i_closing_price",
+                            "i_average_trade_price",
+                            "i_upper_circuit_limit",
+                            "i_lower_circuit_limit",
+                        ]
+                        or value != 0
+                    )
+                ):
+                    snapshot[field] = value
+                    updated_fields.append(field)
+                elif not isinstance(value, (int, float)):
+                    # Non-numeric fields (like timestamps) - always update
+                    snapshot[field] = value
+                    updated_fields.append(field)
+
+        # Handle depth data separately - only update if we have valid depth data
+        if "best_buy" in data and "best_sell" in data:
+            new_buy_depth = self._filter_depth_data(data.get("best_buy", []))
+            new_sell_depth = self._filter_depth_data(data.get("best_sell", []))
+
+            self.logger.debug(
+                f"Scrip {scrip} depth analysis - buy entries: {len(new_buy_depth)}, sell entries: {len(new_sell_depth)}"
+            )
+
+            # Only update depth if we have valid new data, otherwise retain previous snapshot
+            if new_buy_depth:  # Has valid buy data
+                snapshot["best_buy"] = new_buy_depth
+                updated_fields.append("best_buy")
+                self.logger.debug(
+                    f"Scrip {scrip} updated buy depth with {len(new_buy_depth)} valid entries"
+                )
+            elif "best_buy" not in snapshot:  # No previous data, initialize empty
+                snapshot["best_buy"] = []
+            else:
+                self.logger.debug(
+                    f"Scrip {scrip} retaining previous buy depth ({len(snapshot.get('best_buy', []))} entries)"
+                )
+
+            if new_sell_depth:  # Has valid sell data
+                snapshot["best_sell"] = new_sell_depth
+                updated_fields.append("best_sell")
+                self.logger.debug(
+                    f"Scrip {scrip} updated sell depth with {len(new_sell_depth)} valid entries"
+                )
+            elif "best_sell" not in snapshot:  # No previous data, initialize empty
+                snapshot["best_sell"] = []
+            else:
+                self.logger.debug(
+                    f"Scrip {scrip} retaining previous sell depth ({len(snapshot.get('best_sell', []))} entries)"
+                )
+
+        # Update stored snapshot
+        self.market_snapshots[scrip] = snapshot
+
+        if updated_fields:
+            self.logger.debug(f"Updated snapshot fields for scrip {scrip}: {updated_fields}")
+
+        return snapshot
+
+    def _filter_depth_data(self, depth_list: list[dict]) -> list[dict]:
+        """Filter out invalid depth entries and retain valid ones"""
+        filtered_depth = []
+        for level in depth_list:
+            price = level.get("price", 0)
+            quantity = level.get("quantity", 0)
+            orders = level.get("orders", 0)
+
+            # Keep entries that have valid data (not the invalid marker)
+            if (
+                price != 9223372036854775808
+                and quantity != 9223372036854775808
+                and orders != 9223372036854775808
+                and (price > 0 or quantity > 0)
+            ):
+                filtered_depth.append(level)
+
+        return filtered_depth
+
+    def _process_market_data(self, data: dict[str, Any]) -> None:
+        """Process market data from Firstock"""
+        try:
+            # Extract token from c_symbol field
+            token = data.get("c_symbol", "")
+            exchange_seg = data.get("c_exch_seg", "")
+
+            self.logger.debug(
+                f"Processing market data for token: {token}, exchange: {exchange_seg}"
+            )
+            self.logger.debug(f"Raw data keys: {list(data.keys())}")
+
+            # Find ALL subscriptions that match this token - we need to publish for each mode
+            matching_subscriptions = []
+            with self.lock:
+                for sub in self.subscriptions.values():
+                    if sub["token"] == token and sub["brexchange"] == exchange_seg:
+                        matching_subscriptions.append(sub)
+
+            if not matching_subscriptions:
+                self.logger.warning(
+                    f"Received data for unsubscribed token: {token} on {exchange_seg}"
+                )
+                self.logger.debug(f"Available subscriptions: {list(self.subscriptions.keys())}")
+                return
+
+            # Update snapshot with current data (retains previous values for
+            # invalid/zero fields). Keyed on the full scrip so a token shared
+            # across exchange segments does not merge two instruments (#1732)
+            processed_data = self._update_market_snapshot(
+                matching_subscriptions[0]["subscription_token"], data
+            )
+
+            # Publish data for each subscribed mode
+            for subscription in matching_subscriptions:
+                symbol = subscription["symbol"]
+                exchange = subscription["exchange"]
+                mode = subscription["mode"]
+
+                # Firstock provides all data in one feed, so we publish based on requested mode
+                mode_str = {1: "LTP", 2: "QUOTE", 3: "DEPTH"}[mode]
+                topic = f"{exchange}_{symbol}_{mode_str}"
+
+                # Normalize the data based on the requested mode using processed snapshot
+                market_data = self._normalize_market_data(processed_data, mode)
+
+                # Add metadata
+                market_data.update(
+                    {
+                        "symbol": symbol,
+                        "exchange": exchange,
+                        "mode": mode,
+                        "timestamp": int(time.time() * 1000),  # Current timestamp in ms
+                    }
+                )
+
+                # Per-tick publish — keep at debug to avoid per-message
+                # spam. The ZMQ publish itself is the real event; for
+                # debugging payloads, raise log level via the logging
+                # config rather than leaving this at info permanently.
+                self.logger.debug(
+                    f"Publishing {mode_str} data for {symbol}.{exchange}: {market_data}"
+                )
+
+                # Publish to ZeroMQ
+                self.publish_market_data(topic, market_data)
+
+        except Exception as e:
+            self.logger.error(f"Error processing market data: {e}", exc_info=True)
+
+    def _normalize_market_data(self, data: dict[str, Any], mode: int) -> dict[str, Any]:
+        """
+        Normalize Firstock data format to a common format
+
+        Args:
+            data: The raw message from Firstock
+            mode: Subscription mode
+
+        Returns:
+            Dict: Normalized market data
+        """
+        # Firstock prices are in paise, convert to rupees by dividing by 100
+
+        if mode == 1:  # LTP mode
+            return {
+                "ltp": float(data.get("i_last_traded_price", 0)) / 100.0,
+                "ltt": data.get("i_last_trade_time", 0),
+            }
+        elif mode == 2:  # Quote mode
+            return {
+                "ltp": float(data.get("i_last_traded_price", 0)) / 100.0,
+                "ltt": data.get("i_last_trade_time", 0),
+                "volume": data.get("i_volume_traded_today", 0),
+                "open": float(data.get("i_open_price", 0)) / 100.0,
+                "high": float(data.get("i_high_price", 0)) / 100.0,
+                "low": float(data.get("i_low_price", 0)) / 100.0,
+                "close": float(data.get("i_closing_price", 0)) / 100.0,
+                "last_quantity": data.get("i_last_trade_quantity", 0),
+                "average_price": float(data.get("i_average_trade_price", 0)) / 100.0,
+                "total_buy_quantity": data.get("i_total_buy_quantity", 0),
+                "total_sell_quantity": data.get("i_total_sell_quantity", 0),
+                "oi": data.get("i_open_interest", 0),
+                "upper_circuit": float(data.get("i_upper_circuit_limit", 0)) / 100.0,
+                "lower_circuit": float(data.get("i_lower_circuit_limit", 0)) / 100.0,
+            }
+        elif mode == 3:  # Depth mode
+            result = {
+                "ltp": float(data.get("i_last_traded_price", 0)) / 100.0,
+                "ltt": data.get("i_last_trade_time", 0),
+                "volume": data.get("i_volume_traded_today", 0),
+                "open": float(data.get("i_open_price", 0)) / 100.0,
+                "high": float(data.get("i_high_price", 0)) / 100.0,
+                "low": float(data.get("i_low_price", 0)) / 100.0,
+                "close": float(data.get("i_closing_price", 0)) / 100.0,
+                "oi": data.get("i_total_open_interest", 0),
+                "upper_circuit": float(data.get("i_upper_circuit_limit", 0)) / 100.0,
+                "lower_circuit": float(data.get("i_lower_circuit_limit", 0)) / 100.0,
+            }
+
+            # Extract depth data
+            result["depth"] = {
+                "buy": self._extract_depth_data(data.get("best_buy", []), is_buy=True),
+                "sell": self._extract_depth_data(data.get("best_sell", []), is_buy=False),
+            }
+
+            return result
+        else:
+            return {}
+
+    def _extract_depth_data(self, depth_list: list[dict], is_buy: bool) -> list[dict[str, Any]]:
+        """
+        Extract depth data from Firstock's format (used by normalize method)
+        This converts the retained snapshot depth data to the final output format
+
+        Args:
+            depth_list: List of depth levels from snapshot (already filtered)
+            is_buy: Whether this is buy or sell side
+
+        Returns:
+            List: List of depth levels with price, quantity, and orders
+        """
+        depth = []
+
+        for level in depth_list:
+            # These should already be filtered, but double-check
+            price = level.get("price", 0)
+            quantity = level.get("quantity", 0)
+            orders = level.get("orders", 0)
+
+            # Convert invalid values to 0 for display
+            if price == 9223372036854775808:
+                price = 0
+            if quantity == 9223372036854775808:
+                quantity = 0
+            if orders == 9223372036854775808:
+                orders = 0
+
+            depth.append(
+                {
+                    "price": float(price) / 100.0,  # Convert from paise to rupees
+                    "quantity": quantity,
+                    "orders": orders,
+                }
+            )
+
+        # Ensure we have at least 5 levels
+        while len(depth) < 5:
+            depth.append({"price": 0.0, "quantity": 0, "orders": 0})
+
+        return depth[:5]  # Return only first 5 levels
+
+    def _process_order_update(self, data: dict[str, Any]) -> None:
+        """Process order update from Firstock"""
+        # This can be implemented if order updates via WebSocket are needed
+        self.logger.debug(f"Received order update: {data}")
+
+    def _process_position_update(self, data: dict[str, Any]) -> None:
+        """Process position update from Firstock"""
+        # This can be implemented if position updates via WebSocket are needed
+        self.logger.debug(f"Received position update: {data}")

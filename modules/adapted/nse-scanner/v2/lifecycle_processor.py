@@ -29,13 +29,10 @@ Conservative execution rule: when a stop and target are both reachable inside th
 same daily bar, the stop is processed first because intraday ordering is unknown.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from .lifecycle import Position, TradeState, transition
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -56,8 +53,7 @@ TRAIL_ATR_MULTIPLIER = {
 def _price(bar: Mapping[str, float], field: str) -> float:
     value = bar.get(field)
     if value is None:
-        msg = f"bar missing {field}"
-        raise ValueError(msg)
+        raise ValueError(f"bar missing {field}")
     return float(value)
 
 

@@ -98,7 +98,7 @@ def test_set_parallel_multiprocessing_backend_raises():
     assert get_parallel_config() is before
 
 
-@pytest.fixture
+@pytest.fixture()
 def ray_backend():
     import ray
     from ray.util.joblib import register_ray
@@ -117,7 +117,7 @@ def test_set_parallel_ray_backend_when_registered(ray_backend):
     assert config.n_jobs == 2
 
 
-@pytest.fixture
+@pytest.fixture()
 def scope():
     yield StaticScope.instance()
     StaticScope.set_instance(None)

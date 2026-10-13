@@ -56,6 +56,7 @@ import re
 import backtest as bt
 import backtest_report
 import fundamentals_agent as fa
+import intraday_backtest as ibt
 import intraday_db as idb
 import intraday_market as imkt
 import intraday_strategy as istrat
@@ -69,8 +70,13 @@ import plotly.graph_objects as go
 import screener
 import sector_universe as su
 import streamlit as st
-from background_jobs import cancel_background_job, clear_background_job, get_background_job, start_background_job
-from kiteconnect.exceptions import TokenException
+from background_jobs import (
+    cancel_background_job,
+    clear_background_job,
+    get_background_job,
+    start_background_job,
+)
+from kiteconnect.exceptions import InputException, TokenException
 from plotly.subplots import make_subplots
 
 import config
@@ -118,6 +124,44 @@ st.set_page_config(
     layout="wide",
     page_icon="assets/logo.png" if os.path.exists("assets/logo.png") else "📈",
 )
+
+
+def _is_invalid_api_key_error(e: Exception) -> bool:
+    """True for Kite's `{"error_type":"InputException","message":"Invalid
+    `api_key`."}` response -- returned whenever the Kite Connect APP
+    itself (not the day's login session) is rejected outright: most
+    commonly because its paid API subscription has lapsed or the app was
+    deactivated on the developer console, NOT because today's login/2FA
+    needs redoing. Redirecting to Kite's login page in this case would
+    just loop forever (login can succeed, but the token exchange right
+    after it fails the same way every time) while flashing Kite's raw
+    JSON error -- see _show_api_subscription_error()."""
+    return isinstance(e, InputException) and "api_key" in str(e).lower()
+
+
+def _show_api_subscription_error() -> None:
+    """Dedicated, non-looping error page for _is_invalid_api_key_error()
+    -- deliberately does NOT call _redirect_to_kite_login(), since
+    redirecting back to Kite's login page cannot fix this (the app
+    itself is being rejected, not this session's token) and would just
+    bounce the user through Zerodha's login+2FA again for nothing."""
+    st.error("⚠️ Kite Connect API subscription issue")
+    st.markdown(
+        "Zerodha's Kite API rejected this app's `api_key` outright "
+        "(`Invalid api_key`) — this is **not** a login/session problem, "
+        "so signing in again won't fix it. It means the Kite Connect "
+        "**app itself** is inactive, almost always because its paid API "
+        "subscription has lapsed or the app was deactivated.\n\n"
+        "**To fix:** open the Kite Connect developer console (the one "
+        "you registered this app's `api_key`/`api_secret` in, at "
+        "developer.kite.trade), check the app's subscription/billing "
+        "status, and renew or reactivate it there. Once that's active "
+        "again, come back and reload this page — no code or config "
+        "change needed here."
+    )
+    if st.button("I've renewed it — retry"):
+        st.rerun()
+    st.stop()
 
 
 def _redirect_to_kite_login(error: str | None = None) -> None:
@@ -201,8 +245,11 @@ if request_token and request_token != st.session_state.get("_kite_token_exchange
         st.rerun()
     except Exception as e:
         st.query_params.clear()
+        if _is_invalid_api_key_error(e):
+            _show_api_subscription_error()
         _redirect_to_kite_login(
-            f"Token exchange failed (request_token is single-use and may have already been used): {e}"
+            f"Token exchange failed (request_token is "
+            f"single-use and may have already been used): {e}"
         )
 elif request_token:
     st.query_params.clear()
@@ -296,6 +343,8 @@ try:
 except TokenException:
     _redirect_to_kite_login()
 except Exception as e:
+    if _is_invalid_api_key_error(e):
+        _show_api_subscription_error()
     st.error(f"Couldn't reach Kite to check your account: {e}")
     st.caption(
         "This looks like a transient network/API issue, not an "
@@ -309,6 +358,7 @@ except Exception as e:
 SCREEN_CACHE = os.path.join("cache", "screen.pkl")
 VALUE_SCORE_CACHE = os.path.join("cache", "fno_value_scores.pkl")
 BACKTEST_CACHE = os.path.join("cache", "backtest_result.pkl")
+INTRADAY_BACKTEST_CACHE = os.path.join("cache", "intraday_backtest_result.pkl")
 FUNDAMENTALS_HISTORY_CACHE = os.path.join("cache", "fundamentals_history.pkl")
 
 
@@ -855,7 +905,16 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 """
 
 _OV_TONE_CYCLE = ["blue", "purple", "teal", "amber", "green", "coral"]
-_OV_HEX_CYCLE = ["#534ab7", "#7f77dd", "#1d9e75", "#5dcaa5", "#ef9f27", "#378add", "#d85a30", "#d4537e"]
+_OV_HEX_CYCLE = [
+    "#534ab7",
+    "#7f77dd",
+    "#1d9e75",
+    "#5dcaa5",
+    "#ef9f27",
+    "#378add",
+    "#d85a30",
+    "#d4537e",
+]
 
 
 def _ov_arrow(better: bool | None) -> str:
@@ -927,7 +986,10 @@ def _ov_table_html(
         better = (v > ref) == higher_is_better
         return _ov_arrow(better)
 
-    header = "".join(f"<th{' class="r"' if c in right_cols else ''}>{html_lib.escape(_label(c))}</th>" for c in columns)
+    header = "".join(
+        f"<th{' class="r"' if c in right_cols else ''}>{html_lib.escape(_label(c))}</th>"
+        for c in columns
+    )
 
     rows_html = []
     for _, row in df.iterrows():
@@ -950,19 +1012,25 @@ def _ov_table_html(
                 cls = "ov-pos" if fv >= 0 else "ov-neg"
                 fmt = num_fmt.get(c, "{:+,.2f}")
                 cells.append(
-                    f'<td{r_attr}>{_arrow_prefix(c, row)}<span class="{cls} ov-sym">{fmt.format(fv)}</span></td>'
+                    f'<td{r_attr}>{_arrow_prefix(c, row)}<span class="{cls} ov-sym">'
+                    f"{fmt.format(fv)}</span></td>"
                 )
             elif c in num_fmt:
                 cells.append(
-                    f'<td{r_attr}>{_arrow_prefix(c, row)}<span class="{sym_cls}">{num_fmt[c].format(v)}</span></td>'
+                    f'<td{r_attr}>{_arrow_prefix(c, row)}<span class="{sym_cls}">'
+                    f"{num_fmt[c].format(v)}</span></td>"
                 )
             else:
                 cells.append(
-                    f'<td>{_arrow_prefix(c, row)}<span class="{sym_cls}">{html_lib.escape(str(v))}</span></td>'
+                    f'<td>{_arrow_prefix(c, row)}<span class="{sym_cls}">'
+                    f"{html_lib.escape(str(v))}</span></td>"
                 )
         rows_html.append(f"<tr>{''.join(cells)}</tr>")
 
-    return f'<div class="ov-tbl-scroll"><table class="ov-table"><tr>{header}</tr>{"".join(rows_html)}</table></div>'
+    return (
+        f'<div class="ov-tbl-scroll"><table class="ov-table">'
+        f"<tr>{header}</tr>{''.join(rows_html)}</table></div>"
+    )
 
 
 def _ov_page_slice(df: pd.DataFrame, key: str, page_size: int = 10) -> pd.DataFrame:
@@ -1004,7 +1072,9 @@ def _ov_pagination_controls(df: pd.DataFrame, key: str, page_size: int = 10) -> 
             unsafe_allow_html=True,
         )
     with pc3:
-        if st.button("Next →", key=f"{key}_pg_next", disabled=page >= n_pages - 1, use_container_width=True):
+        if st.button(
+            "Next →", key=f"{key}_pg_next", disabled=page >= n_pages - 1, use_container_width=True
+        ):
             st.session_state[state_key] = page + 1
             st.rerun()
 
@@ -1050,7 +1120,12 @@ def _ov_donut_svg(values: list[float], center_label: str) -> str:
 
 
 def _ov_metric_html(
-    label: str, value: str, note: str | None = None, note_cls: str = "", tone: str = "blue", value_cls: str = ""
+    label: str,
+    value: str,
+    note: str | None = None,
+    note_cls: str = "",
+    tone: str = "blue",
+    value_cls: str = "",
 ) -> str:
     """One metric-card's HTML -- callers join several of these into one
     `<div class="ov-grid-metrics">...</div>` and render with a SINGLE
@@ -1085,6 +1160,7 @@ COLUMN_LABELS = {
     "exit_date": "Exit date",
     "entry_price": "Entry price",
     "exit_price": "Exit price",
+    "capital_used": "Capital used",
     "current_price": "Current price",
     "current_stop": "Current stop",
     "recommended_stop": "Recommended stop",
@@ -1274,7 +1350,9 @@ def log_equity_snapshot(
     return state_db.log_equity_snapshot(value, invested_amount, holdings_value)
 
 
-def _annualized_returns(portfolio_value: float, equity_log: pd.DataFrame) -> tuple[float | None, float | None]:
+def _annualized_returns(
+    portfolio_value: float, equity_log: pd.DataFrame
+) -> tuple[float | None, float | None]:
     """Returns (current_year_xirr, overall_xirr) as fractions (0.12 = 12%),
     or None for either if there isn't enough data yet to annualize.
 
@@ -1292,7 +1370,9 @@ def _annualized_returns(portfolio_value: float, equity_log: pd.DataFrame) -> tup
     today = dt.date.today()
     year_start = dt.date(today.year, 1, 1)
 
-    overall_series = [(dt.date.fromisoformat(r["date"]), -float(r["amount"])) for _, r in cash_flows.iterrows()]
+    overall_series = [
+        (dt.date.fromisoformat(r["date"]), -float(r["amount"])) for _, r in cash_flows.iterrows()
+    ]
     overall_series.append((today, portfolio_value))
     overall = indicators.xirr(sorted(overall_series))
 
@@ -1443,13 +1523,21 @@ def _live_kpi_row():
         with contextlib.suppress(Exception):
             live_cash += lr.get_cash_sweep_holding()[1]
 
-    live_invested = float((live_merged["qty"] * live_merged["avg_price"]).sum()) if not live_merged.empty else 0.0
-    live_holdings_value = float((live_merged["qty"] * live_merged["ltp"]).sum()) if not live_merged.empty else 0.0
+    live_invested = (
+        float((live_merged["qty"] * live_merged["avg_price"]).sum())
+        if not live_merged.empty
+        else 0.0
+    )
+    live_holdings_value = (
+        float((live_merged["qty"] * live_merged["ltp"]).sum()) if not live_merged.empty else 0.0
+    )
     live_unrealized_pnl = float(live_merged["pnl"].sum()) if not live_merged.empty else 0.0
     live_portfolio_value = live_cash + live_holdings_value
     live_realized_pnl = state_db.get_realized_pnl()
     live_total_pnl = live_realized_pnl + live_unrealized_pnl
-    live_current_xirr, live_overall_xirr = _annualized_returns(live_portfolio_value, state_db.get_equity_log())
+    live_current_xirr, live_overall_xirr = _annualized_returns(
+        live_portfolio_value, state_db.get_equity_log()
+    )
 
     unrealized_pct = (live_unrealized_pnl / live_invested * 100) if live_invested else None
     pct_deployed = (live_invested / live_portfolio_value * 100) if live_portfolio_value else None
@@ -1486,7 +1574,11 @@ def _live_kpi_row():
             _ov_metric_html(
                 "Total capital",
                 f"₹{live_portfolio_value:,.0f}",
-                (f"{day_change:+,.0f} today" if day_change is not None else "no prior snapshot yet"),
+                (
+                    f"{day_change:+,.0f} today"
+                    if day_change is not None
+                    else "no prior snapshot yet"
+                ),
                 "ov-pos" if (day_change or 0) >= 0 else "ov-neg",
                 "blue",
             ),
@@ -1546,7 +1638,11 @@ def _live_kpi_row():
                 "ov-pos" if (alpha or 0) >= 0 else "ov-neg",
             ),
             _ov_metric_html(
-                "Max drawdown", f"{max_dd:.1f}%" if max_dd is not None else "—", "Peak to trough", "", "coral"
+                "Max drawdown",
+                f"{max_dd:.1f}%" if max_dd is not None else "—",
+                "Peak to trough",
+                "",
+                "coral",
             ),
         ]
     )
@@ -1564,7 +1660,9 @@ def page_cockpit():
     merged = merged_holdings()
     if not merged.empty:
         merged["value"] = merged["qty"] * merged["ltp"]
-    invested_amount = float((merged["qty"] * merged["avg_price"]).sum()) if not merged.empty else 0.0
+    invested_amount = (
+        float((merged["qty"] * merged["avg_price"]).sum()) if not merged.empty else 0.0
+    )
     holdings_value = float(merged["value"].sum()) if not merged.empty else 0.0
     # Whatever's parked in the cash-sweep instrument is still real capital
     # -- fold it in here too, not just the live KPI strip, since this
@@ -1616,7 +1714,12 @@ def page_cockpit():
             _chart_title_slot = st.empty()
             _range_days = {"1W": 7, "1M": 30, "3M": 90, "6M": 182, "1Y": 365, "All": None}
             _range_choice = st.segmented_control(
-                "Range", list(_range_days), default="All", required=True, key="perf_range", label_visibility="collapsed"
+                "Range",
+                list(_range_days),
+                default="All",
+                required=True,
+                key="perf_range",
+                label_visibility="collapsed",
             )
             _chart_title_slot.markdown(
                 '<p class="ov-card-title" style="border-bottom:0px solid var(--ov-border);">'
@@ -1677,11 +1780,19 @@ def page_cockpit():
                 height=310,
                 margin={"l": 10, "r": 10, "t": 20, "b": 10},
                 hovermode="x unified",
-                yaxis={"tickprefix": "₹", "separatethousands": True, "range": [y_lo - pad, y_hi + pad]},
+                yaxis={
+                    "tickprefix": "₹",
+                    "separatethousands": True,
+                    "range": [y_lo - pad, y_hi + pad],
+                },
                 legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "x": 0},
             )
             chart_selection = st.plotly_chart(
-                fig, width="stretch", on_select="rerun", selection_mode="points", key="equity_chart_select"
+                fig,
+                width="stretch",
+                on_select="rerun",
+                selection_mode="points",
+                key="equity_chart_select",
             )
             if plot_log["holdings_value"].isna().any() or plot_log["invested_amount"].isna().any():
                 st.caption(
@@ -1722,9 +1833,14 @@ def page_cockpit():
                         ),
                     )
                     _pct_deployed_day = (
-                        _day_invested / _day["value"] * 100 if pd.notna(_day_invested) and _day["value"] else None
+                        _day_invested / _day["value"] * 100
+                        if pd.notna(_day_invested) and _day["value"]
+                        else None
                     )
-                    dc3.metric("% deployed", f"{_pct_deployed_day:.0f}%" if _pct_deployed_day is not None else "—")
+                    dc3.metric(
+                        "% deployed",
+                        f"{_pct_deployed_day:.0f}%" if _pct_deployed_day is not None else "—",
+                    )
         else:
             st.caption(
                 "Portfolio value is logged once a day when you open this page — "
@@ -1756,7 +1872,9 @@ def page_cockpit():
                 # (or more) versus what the Screener page showed for the
                 # exact same stock. Confirmed live 2026-08-04: KALYANKJIL
                 # showed #1 on Screener, #2 here.
-                _screen_candidates = _screen[_screen["all_gates"]] if "all_gates" in _screen.columns else _screen
+                _screen_candidates = (
+                    _screen[_screen["all_gates"]] if "all_gates" in _screen.columns else _screen
+                )
                 _rank_map = {sym: i + 1 for i, sym in enumerate(_screen_candidates.index)}
             _keep_zone = (config.STRATEGY.get("max_positions") or 0) * 2
 
@@ -1795,7 +1913,9 @@ def page_cockpit():
             # rank" -- confirmed real mismatch, fixed 2026-08-04.
             pos_desc = merged.copy()
             pos_desc["rank"] = pos_desc["symbol"].map(_rank_map)
-            pos_desc = pos_desc.sort_values("rank", ascending=True, na_position="last").reset_index(drop=True)
+            pos_desc = pos_desc.sort_values("rank", ascending=True, na_position="last").reset_index(
+                drop=True
+            )
 
             # Entry rank -- the "Ranked #N of M momentum candidates"
             # this symbol's FIRST open trade recorded (live_rebalance.
@@ -1850,10 +1970,15 @@ def page_cockpit():
             _last_run_pos = state_db.get_last_rebalance_run()
             if _last_run_pos is not None:
                 _sells_pos = _last_run_pos.get("sells", pd.DataFrame())
-                _at_risk = [s for s in pos_desc["symbol"] if not _sells_pos.empty and s in set(_sells_pos["symbol"])]
+                _at_risk = [
+                    s
+                    for s in pos_desc["symbol"]
+                    if not _sells_pos.empty and s in set(_sells_pos["symbol"])
+                ]
                 if _at_risk:
                     st.markdown(
-                        f'<div class="ov-alert">⚠ Likely exit next rebalance: {", ".join(_at_risk)}</div>',
+                        f'<div class="ov-alert">⚠ Likely exit next rebalance: '
+                        f"{', '.join(_at_risk)}</div>",
                         unsafe_allow_html=True,
                     )
 
@@ -1888,7 +2013,9 @@ def page_cockpit():
         for i, row in alloc_desc.iterrows():
             color = _OV_HEX_CYCLE[i % len(_OV_HEX_CYCLE)]
             weight_pct = (row["value"] / total_equity * 100) if total_equity else 0.0
-            allocbar_segments.append(f'<div style="width:{weight_pct:.2f}%;background:{color};"></div>')
+            allocbar_segments.append(
+                f'<div style="width:{weight_pct:.2f}%;background:{color};"></div>'
+            )
             if target_pct:
                 drift = weight_pct - target_pct
                 fill_pct = min(100.0, (weight_pct / target_pct) * 80)
@@ -1922,8 +2049,17 @@ def page_cockpit():
         try:
             membership = su.sector_membership_only(merged["symbol"].tolist(), verbose=False)
             sector_of = merged["symbol"].map(lambda s: (membership.get(s) or ["Unclassified"])[0])
-            symbols_by_sector = merged.assign(sector=sector_of).groupby("sector")["symbol"].apply(", ".join)
-            sector_group = merged.assign(sector=sector_of).groupby("sector")["value"].sum().sort_values(ascending=False)
+            symbols_by_sector = (
+                merged.assign(sector=sector_of)
+                .groupby("sector")["symbol"]
+                .apply(lambda s: ", ".join(s))
+            )
+            sector_group = (
+                merged.assign(sector=sector_of)
+                .groupby("sector")["value"]
+                .sum()
+                .sort_values(ascending=False)
+            )
             donut_total = float(sector_group.sum()) or 1.0
             legend_rows = []
             for i, (sector, value) in enumerate(sector_group.items()):
@@ -1973,7 +2109,9 @@ def page_cockpit():
                 f'<p class="ov-card-meta">Sector data unavailable right now: {e}</p></div>'
             )
 
-        st.markdown(f'<div class="ov-two-col">{alloc_html}{donut_html}</div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="ov-two-col">{alloc_html}{donut_html}</div>', unsafe_allow_html=True
+        )
 
         # ---- Rebalance preview (real data from the last scan) + Watchlist
         # (next-in-queue candidates from the cached screener ranking), laid
@@ -1984,7 +2122,9 @@ def page_cockpit():
         _last_run = state_db.get_last_rebalance_run()
         col_rebal, col_watch = st.columns(2)
         with col_rebal, st.container(border=True, key="ov-card-rebal"):
-            _scan_meta = f"as of {_last_run['run_time']:%d %b %H:%M}" if _last_run is not None else ""
+            _scan_meta = (
+                f"as of {_last_run['run_time']:%d %b %H:%M}" if _last_run is not None else ""
+            )
             st.markdown(
                 '<p class="ov-card-title"><span class="ov-dot" '
                 'style="background:var(--ov-amber);"></span>Rebalance preview '
@@ -2011,7 +2151,9 @@ def page_cockpit():
                         f"Enter</span>&nbsp; {r['symbol']}</span>"
                         f'<span class="ov-card-meta">{price_str}</span></div>'
                     )
-                hold_syms = [s for s in merged["symbol"] if s not in sold_syms] if not merged.empty else []
+                hold_syms = (
+                    [s for s in merged["symbol"] if s not in sold_syms] if not merged.empty else []
+                )
                 if hold_syms:
                     rebal_rows.append(
                         '<div class="ov-row"><span><span class="ov-badge ov-badge-gray">'
@@ -2023,53 +2165,64 @@ def page_cockpit():
             else:
                 st.markdown(
                     '<p class="ov-card-meta">'
-                    + ("No changes proposed in the last scan." if _last_run is not None else "No scan has run yet.")
+                    + (
+                        "No changes proposed in the last scan."
+                        if _last_run is not None
+                        else "No scan has run yet."
+                    )
                     + "</p>",
                     unsafe_allow_html=True,
                 )
-            if st.button("Review rebalance orders →", key="ov_review_rebal", type="primary", use_container_width=True):
+            if st.button(
+                "Review rebalance orders →",
+                key="ov_review_rebal",
+                type="primary",
+                use_container_width=True,
+            ):
                 st.switch_page(page_live_rebalance_p)
 
-        with col_watch, st.container(border=True, key="ov-card-watchlist"):
-            st.markdown(
-                '<p class="ov-card-title"><span class="ov-dot" '
-                'style="background:var(--ov-teal);"></span>'
-                "Watchlist — next in queue</p>",
-                unsafe_allow_html=True,
-            )
-            _screen = _load_screen_cache()
-            watch_rows = []
-            if _screen is not None and "all_gates" in _screen.columns:
-                held_syms = set(merged["symbol"])
-                buy_syms = (
-                    set(_last_run["buys"]["symbol"])
-                    if _last_run is not None and not _last_run.get("buys", pd.DataFrame()).empty
-                    else set()
-                )
-                candidates = _screen[_screen["all_gates"]]
-                for i, sym in enumerate(candidates.index):
-                    if sym in held_syms:
-                        continue
-                    rank = i + 1
-                    if sym in buy_syms:
-                        watch_rows.append(
-                            f'<div class="ov-row"><span class="ov-sym">{sym}</span>'
-                            f'<span class="ov-badge ov-badge-green">Rank {rank} · entering</span></div>'
-                        )
-                    else:
-                        watch_rows.append(
-                            f'<div class="ov-row"><span class="ov-sym">{sym}</span>'
-                            f'<span class="ov-card-meta">Rank {rank} · reserve</span></div>'
-                        )
-                    if len(watch_rows) >= 4:
-                        break
-            if watch_rows:
-                st.markdown("".join(watch_rows), unsafe_allow_html=True)
-            else:
+        with col_watch:
+            with st.container(border=True, key="ov-card-watchlist"):
                 st.markdown(
-                    '<p class="ov-card-meta">Run a scan (Live Rebalance or Screener) to populate the watchlist.</p>',
+                    '<p class="ov-card-title"><span class="ov-dot" '
+                    'style="background:var(--ov-teal);"></span>'
+                    "Watchlist — next in queue</p>",
                     unsafe_allow_html=True,
                 )
+                _screen = _load_screen_cache()
+                watch_rows = []
+                if _screen is not None and "all_gates" in _screen.columns:
+                    held_syms = set(merged["symbol"])
+                    buy_syms = (
+                        set(_last_run["buys"]["symbol"])
+                        if _last_run is not None and not _last_run.get("buys", pd.DataFrame()).empty
+                        else set()
+                    )
+                    candidates = _screen[_screen["all_gates"]]
+                    for i, sym in enumerate(candidates.index):
+                        if sym in held_syms:
+                            continue
+                        rank = i + 1
+                        if sym in buy_syms:
+                            watch_rows.append(
+                                f'<div class="ov-row"><span class="ov-sym">{sym}</span>'
+                                f'<span class="ov-badge ov-badge-green">Rank {rank} · entering</span></div>'
+                            )
+                        else:
+                            watch_rows.append(
+                                f'<div class="ov-row"><span class="ov-sym">{sym}</span>'
+                                f'<span class="ov-card-meta">Rank {rank} · reserve</span></div>'
+                            )
+                        if len(watch_rows) >= 4:
+                            break
+                if watch_rows:
+                    st.markdown("".join(watch_rows), unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<p class="ov-card-meta">Run a scan (Live Rebalance or '
+                        "Screener) to populate the watchlist.</p>",
+                        unsafe_allow_html=True,
+                    )
 
     st.divider()
     with st.expander("Full funds breakdown (from Kite margins API)"):
@@ -2089,7 +2242,9 @@ def page_cockpit():
             fc1, fc2 = st.columns(2)
             with fc1, st.container(border=True, key="ov-card-funds-available"):
                 st.markdown('<p class="ov-card-title">Available</p>', unsafe_allow_html=True)
-                st.markdown(_ov_table_html(_breakdown_table(m["available"])), unsafe_allow_html=True)
+                st.markdown(
+                    _ov_table_html(_breakdown_table(m["available"])), unsafe_allow_html=True
+                )
             with fc2, st.container(border=True, key="ov-card-funds-utilised"):
                 st.markdown('<p class="ov-card-title">Utilised</p>', unsafe_allow_html=True)
                 st.markdown(_ov_table_html(_breakdown_table(m["utilised"])), unsafe_allow_html=True)
@@ -2111,10 +2266,13 @@ def page_ledger():
 
     ledger = state_db.get_cash_flows()
     _ledger_sel_id = st.session_state.get("_admin_ledger_sel_id")
-    _editing = _ledger_sel_id is not None and not ledger.empty and _ledger_sel_id in ledger["id"].values
+    _editing = (
+        _ledger_sel_id is not None and not ledger.empty and _ledger_sel_id in ledger["id"].values
+    )
 
     _cashflow_tip = html_lib.escape(
-        "Kite's API can't see bank transfers — this ledger is what keeps XIRR accurate as you add money over time."
+        "Kite's API can't see bank transfers — this ledger is what keeps "
+        "XIRR accurate as you add money over time."
     )
     with st.container(border=True, key="ov-card-admin-cashflow"):
         st.markdown(
@@ -2137,16 +2295,23 @@ def page_ledger():
             _def_note = _edit_row["note"] or ""
         else:
             _def_date, _def_amount, _def_note = dt.date.today(), 0.0, ""
-        with st.form(f"cash_flow_form_{_ledger_sel_id if _editing else 'new'}", clear_on_submit=not _editing):
+        with st.form(
+            f"cash_flow_form_{_ledger_sel_id if _editing else 'new'}", clear_on_submit=not _editing
+        ):
             cff1, cff2 = st.columns(2)
             cf_date = cff1.date_input("Date", value=_def_date)
             cf_amount = cff2.number_input(
-                "Amount (₹) — + deposit / − withdrawal", value=_def_amount, step=1000.0, format="%.2f"
+                "Amount (₹) — + deposit / − withdrawal",
+                value=_def_amount,
+                step=1000.0,
+                format="%.2f",
             )
             cf_note = st.text_input("Note (optional)", value=_def_note)
             if _editing:
                 fb1, fb2 = st.columns(2)
-                cf_submitted = fb1.form_submit_button("Save changes", type="primary", use_container_width=True)
+                cf_submitted = fb1.form_submit_button(
+                    "Save changes", type="primary", use_container_width=True
+                )
                 cf_delete_clicked = fb2.form_submit_button(
                     "Delete entry", key="admin_ledger_delete_btn", use_container_width=True
                 )
@@ -2157,7 +2322,9 @@ def page_ledger():
             if cf_amount == 0:
                 st.error("Amount can't be zero.")
             elif _editing:
-                state_db.update_cash_flow(_ledger_sel_id, cf_date.isoformat(), float(cf_amount), cf_note)
+                state_db.update_cash_flow(
+                    _ledger_sel_id, cf_date.isoformat(), float(cf_amount), cf_note
+                )
                 st.session_state["_admin_ledger_sel_id"] = None
                 st.success("Updated.")
                 st.rerun()
@@ -2191,9 +2358,11 @@ def page_ledger():
             ledger_page = _ov_page_slice(display_ledger, key="admin_ledger")
 
             with st.container(key="admin_ledger_head"):
-                _hh1, hh2, hh3, hh4 = st.columns([0.4, 1.3, 1.3, 2.4])
+                hh1, hh2, hh3, hh4 = st.columns([0.4, 1.3, 1.3, 2.4])
                 hh2.markdown('<span class="ov-manual-th">Date</span>', unsafe_allow_html=True)
-                hh3.markdown('<span class="ov-manual-th r">Amount (₹)</span>', unsafe_allow_html=True)
+                hh3.markdown(
+                    '<span class="ov-manual-th r">Amount (₹)</span>', unsafe_allow_html=True
+                )
                 hh4.markdown('<span class="ov-manual-th">Note</span>', unsafe_allow_html=True)
             with st.container(key="admin_ledger_rows"):
                 for _, r in ledger_page.iterrows():
@@ -2205,13 +2374,18 @@ def page_ledger():
                             key=f"admin_ledger_radio_{rid}",
                             help="Select to edit/delete",
                         ):
-                            st.session_state["_admin_ledger_sel_id"] = None if rid == _ledger_sel_id else rid
+                            st.session_state["_admin_ledger_sel_id"] = (
+                                None if rid == _ledger_sel_id else rid
+                            )
                             st.rerun()
                     amt = float(r["amount"])
                     amt_cls = "ov-pos" if amt >= 0 else "ov-neg"
-                    rc2.markdown(f'<span class="ov-manual-cell">{r["date"]}</span>', unsafe_allow_html=True)
+                    rc2.markdown(
+                        f'<span class="ov-manual-cell">{r["date"]}</span>', unsafe_allow_html=True
+                    )
                     rc3.markdown(
-                        f'<span class="ov-manual-cell r {amt_cls} ov-sym">{amt:+,.2f}</span>', unsafe_allow_html=True
+                        f'<span class="ov-manual-cell r {amt_cls} ov-sym">{amt:+,.2f}</span>',
+                        unsafe_allow_html=True,
                     )
                     rc4.markdown(
                         f'<span class="ov-manual-cell">{html_lib.escape(r["note"] or "—")}</span>',
@@ -2293,12 +2467,17 @@ def page_ledger():
             _cash_instruments = sorted(set(_cash_instruments) | {_current_symbol})
         with st.form("cash_sweep_form"):
             csf1, csf2 = st.columns([1, 2])
-            cash_sweep_enabled = csf1.checkbox("Enabled", value=bool(config.STRATEGY.get("cash_sweep_enabled", False)))
+            cash_sweep_enabled = csf1.checkbox(
+                "Enabled", value=bool(config.STRATEGY.get("cash_sweep_enabled", False))
+            )
             cash_sweep_symbol = csf2.selectbox(
                 "Instrument", _cash_instruments, index=_cash_instruments.index(_current_symbol)
             )
             if st.form_submit_button("Save", type="primary"):
-                updates = {"cash_sweep_enabled": bool(cash_sweep_enabled), "cash_sweep_symbol": cash_sweep_symbol}
+                updates = {
+                    "cash_sweep_enabled": bool(cash_sweep_enabled),
+                    "cash_sweep_symbol": cash_sweep_symbol,
+                }
                 state_db.update_strategy_config(updates)
                 config.STRATEGY.update(updates)
                 st.success("Saved.")
@@ -2306,7 +2485,9 @@ def page_ledger():
 
     _recurring = state_db.get_recurring_charges()
     _rec_sel_id = st.session_state.get("_admin_recurring_sel_id")
-    _rec_editing = _rec_sel_id is not None and not _recurring.empty and _rec_sel_id in _recurring["id"].values
+    _rec_editing = (
+        _rec_sel_id is not None and not _recurring.empty and _rec_sel_id in _recurring["id"].values
+    )
     _interval_labels = {1: "Monthly", 3: "Quarterly", 6: "Half-yearly", 12: "Yearly"}
     _interval_months = {v: k for k, v in _interval_labels.items()}
 
@@ -2343,7 +2524,8 @@ def page_ledger():
             _rdef_note, _rdef_amount, _rdef_interval = "", 0.0, 3
             _rdef_due, _rdef_active = dt.date.today(), True
         with st.form(
-            f"recurring_charge_form_{_rec_sel_id if _rec_editing else 'new'}", clear_on_submit=not _rec_editing
+            f"recurring_charge_form_{_rec_sel_id if _rec_editing else 'new'}",
+            clear_on_submit=not _rec_editing,
         ):
             rcf1, rcf2 = st.columns(2)
             rc_note = rcf1.text_input('Note (e.g. "Demat AMC")', value=_rdef_note)
@@ -2356,13 +2538,17 @@ def page_ledger():
             )
             rcf3, rcf4, rcf5 = st.columns(3)
             rc_interval_label = rcf3.selectbox(
-                "Repeats", list(_interval_labels.values()), index=list(_interval_labels.keys()).index(_rdef_interval)
+                "Repeats",
+                list(_interval_labels.values()),
+                index=list(_interval_labels.keys()).index(_rdef_interval),
             )
             rc_due = rcf4.date_input("Next due date", value=_rdef_due)
             rc_active = rcf5.checkbox("Active", value=_rdef_active)
             if _rec_editing:
                 rfb1, rfb2 = st.columns(2)
-                rc_submitted = rfb1.form_submit_button("Save changes", type="primary", use_container_width=True)
+                rc_submitted = rfb1.form_submit_button(
+                    "Save changes", type="primary", use_container_width=True
+                )
                 rc_delete_clicked = rfb2.form_submit_button(
                     "Delete", key="admin_recurring_delete_btn", use_container_width=True
                 )
@@ -2388,7 +2574,10 @@ def page_ledger():
                 st.rerun()
             else:
                 state_db.add_recurring_charge(
-                    rc_note.strip(), float(rc_amount), _interval_months[rc_interval_label], rc_due.isoformat()
+                    rc_note.strip(),
+                    float(rc_amount),
+                    _interval_months[rc_interval_label],
+                    rc_due.isoformat(),
                 )
                 st.success("Added.")
                 st.rerun()
@@ -2406,9 +2595,11 @@ def page_ledger():
             st.caption("No recurring charges defined yet.")
         else:
             with st.container(key="admin_recurring_rows"):
-                _rh1, rh2, rh3, rh4, rh5 = st.columns([0.4, 2.0, 1.2, 1.2, 1.2])
+                rh1, rh2, rh3, rh4, rh5 = st.columns([0.4, 2.0, 1.2, 1.2, 1.2])
                 rh2.markdown('<span class="ov-manual-th">Note</span>', unsafe_allow_html=True)
-                rh3.markdown('<span class="ov-manual-th r">Amount (₹)</span>', unsafe_allow_html=True)
+                rh3.markdown(
+                    '<span class="ov-manual-th r">Amount (₹)</span>', unsafe_allow_html=True
+                )
                 rh4.markdown('<span class="ov-manual-th">Repeats</span>', unsafe_allow_html=True)
                 rh5.markdown('<span class="ov-manual-th">Next due</span>', unsafe_allow_html=True)
                 for _, r in _recurring.iterrows():
@@ -2420,10 +2611,14 @@ def page_ledger():
                             key=f"admin_recurring_radio_{rid}",
                             help="Select to edit/delete",
                         ):
-                            st.session_state["_admin_recurring_sel_id"] = None if rid == _rec_sel_id else rid
+                            st.session_state["_admin_recurring_sel_id"] = (
+                                None if rid == _rec_sel_id else rid
+                            )
                             st.rerun()
                     _note_disp = html_lib.escape(r["note"]) + ("" if r["active"] else " (inactive)")
-                    rrc2.markdown(f'<span class="ov-manual-cell">{_note_disp}</span>', unsafe_allow_html=True)
+                    rrc2.markdown(
+                        f'<span class="ov-manual-cell">{_note_disp}</span>', unsafe_allow_html=True
+                    )
                     rrc3.markdown(
                         f'<span class="ov-manual-cell r ov-sym">{-abs(float(r["amount"])):,.2f}</span>',
                         unsafe_allow_html=True,
@@ -2433,7 +2628,10 @@ def page_ledger():
                         f"{_interval_labels.get(int(r['interval_months']), f'{int(r["interval_months"])}mo')}</span>",
                         unsafe_allow_html=True,
                     )
-                    rrc5.markdown(f'<span class="ov-manual-cell">{r["next_due_date"]}</span>', unsafe_allow_html=True)
+                    rrc5.markdown(
+                        f'<span class="ov-manual-cell">{r["next_due_date"]}</span>',
+                        unsafe_allow_html=True,
+                    )
 
 
 # ---------------------------------------------------------------------------
@@ -2448,7 +2646,9 @@ def page_admin():
         unsafe_allow_html=True,
     )
 
-    if state_db.is_using_default_dashboard_password(config.DASHBOARD_USERNAME, config.DASHBOARD_PASSWORD):
+    if state_db.is_using_default_dashboard_password(
+        config.DASHBOARD_USERNAME, config.DASHBOARD_PASSWORD
+    ):
         st.markdown(
             '<div class="ov-alert">⚠️ Using the default Admin/Admin login — '
             'this app places real orders. Change it in "Change dashboard '
@@ -2482,7 +2682,10 @@ def page_admin():
         # these checkboxes could update live from inside one -- toggling
         # either would visibly do nothing until "Save strategy settings"
         # was already clicked once. Out here, both react instantly.
-        st.markdown('<p class="ov-muted">Trade management — stop mechanism (choose one)</p>', unsafe_allow_html=True)
+        st.markdown(
+            '<p class="ov-muted">Trade management — stop mechanism (choose one)</p>',
+            unsafe_allow_html=True,
+        )
         stop_c1, stop_c2 = st.columns(2)
 
         def _on_toggle_admin_trailing():
@@ -2653,7 +2856,11 @@ def page_admin():
                 step=1,
             )
             skip_recent_days = c8.number_input(
-                "Skip most recent (days)", min_value=0, max_value=30, value=int(cfg["skip_recent_days"]), step=1
+                "Skip most recent (days)",
+                min_value=0,
+                max_value=30,
+                value=int(cfg["skip_recent_days"]),
+                step=1,
             )
             c9, c10, c11 = st.columns(3)
             near_high_threshold = c9.number_input(
@@ -2664,11 +2871,16 @@ def page_admin():
                 step=1.0,
                 help="Price must be at least this % of its 52-week high to qualify.",
             )
-            ema_fast = c10.number_input("EMA (fast)", min_value=5, max_value=100, value=int(cfg["ema_fast"]), step=1)
-            ema_slow = c11.number_input("EMA (slow)", min_value=50, max_value=400, value=int(cfg["ema_slow"]), step=1)
+            ema_fast = c10.number_input(
+                "EMA (fast)", min_value=5, max_value=100, value=int(cfg["ema_fast"]), step=1
+            )
+            ema_slow = c11.number_input(
+                "EMA (slow)", min_value=50, max_value=400, value=int(cfg["ema_slow"]), step=1
+            )
 
             st.markdown(
-                '<p class="ov-muted">Momentum score weights (fixed, not configurable)</p>', unsafe_allow_html=True
+                '<p class="ov-muted">Momentum score weights (fixed, not configurable)</p>',
+                unsafe_allow_html=True,
             )
             st.caption(
                 "Score = **0.40** × 6-month relative strength + **0.25** × "
@@ -2685,8 +2897,12 @@ def page_admin():
 
             st.markdown('<p class="ov-muted">RSI</p>', unsafe_allow_html=True)
             c12, c13 = st.columns(2)
-            rsi_min = c12.number_input("RSI min", min_value=0, max_value=100, value=int(cfg["rsi_min"]), step=1)
-            rsi_max = c13.number_input("RSI max", min_value=0, max_value=100, value=int(cfg["rsi_max"]), step=1)
+            rsi_min = c12.number_input(
+                "RSI min", min_value=0, max_value=100, value=int(cfg["rsi_min"]), step=1
+            )
+            rsi_max = c13.number_input(
+                "RSI max", min_value=0, max_value=100, value=int(cfg["rsi_max"]), step=1
+            )
             c13b, c13c = st.columns([1, 1])
             rsi_exit_gate_enabled = c13b.checkbox(
                 "Separate exit RSI ceiling",
@@ -2725,7 +2941,8 @@ def page_admin():
             )
 
             st.markdown(
-                '<p class="ov-muted">Fundamental gate &amp; sector bonus (opt-in features)</p>', unsafe_allow_html=True
+                '<p class="ov-muted">Fundamental gate &amp; sector bonus (opt-in features)</p>',
+                unsafe_allow_html=True,
             )
             fundamental_gate_enabled = st.checkbox(
                 "Filter candidates on fundamental score (Live Rebalance + Screener)",
@@ -2773,10 +2990,16 @@ def page_admin():
                 "See README's Sector relative-strength section.",
             )
             history_days = c18.number_input(
-                "Candle history fetched (days)", min_value=300, max_value=3000, value=int(cfg["history_days"]), step=100
+                "Candle history fetched (days)",
+                min_value=300,
+                max_value=3000,
+                value=int(cfg["history_days"]),
+                step=100,
             )
 
-            with st.expander("⚠️ Advanced / experimental (verify in Backtest first)", expanded=False):
+            with st.expander(
+                "⚠️ Advanced / experimental (verify in Backtest first)", expanded=False
+            ):
                 ew_c1, ew_c2 = st.columns([1, 1])
                 advanced_equal_weight_sizing = ew_c1.checkbox(
                     "Equal-weight allocator",
@@ -2827,7 +3050,11 @@ def page_admin():
                     "Backtest before relying on it live.",
                 )
                 top_n_sectors = sd_c2.number_input(
-                    "Top N sectors", min_value=1, max_value=10, value=int(cfg.get("top_n_sectors", 3)), step=1
+                    "Top N sectors",
+                    min_value=1,
+                    max_value=10,
+                    value=int(cfg.get("top_n_sectors", 3)),
+                    step=1,
                 )
                 max_positions_per_sector = sd_c3.number_input(
                     "Max positions / sector",
@@ -2962,9 +3189,9 @@ def page_admin():
             # a new field is added to the form without adding its key here
             # (or vice versa), this trips instead of the two silently
             # drifting apart.
-            assert set(updates.keys()) == set(config.ADMIN_EDITABLE_KEYS), set(updates.keys()) ^ set(
-                config.ADMIN_EDITABLE_KEYS
-            )
+            assert set(updates.keys()) == set(config.ADMIN_EDITABLE_KEYS), set(
+                updates.keys()
+            ) ^ set(config.ADMIN_EDITABLE_KEYS)
             state_db.update_strategy_config(updates)
             config.STRATEGY.update(updates)  # live for this process -- no restart needed
             st.success("Strategy settings saved — in effect immediately.")
@@ -3033,7 +3260,9 @@ def page_admin():
                 disabled=_paper_cap_row is not None,
                 help=(
                     "Already seeded at ₹{:,.0f} the first time paper mode ran -- "
-                    "editing this field no longer has any effect.".format(_paper_cap_row["starting_capital"])
+                    "editing this field no longer has any effect.".format(
+                        _paper_cap_row["starting_capital"]
+                    )
                     if _paper_cap_row
                     else "Same idea as the live field, for the paper track "
                     "(intraday_capital_state, mode='paper') -- only takes "
@@ -3150,7 +3379,11 @@ def page_admin():
     )
     with st.container(border=True, key="ov-card-admin-skip"):
         _skipped_df = state_db.get_skipped_symbols_df()
-        skipped_reasons = _skipped_df.set_index("symbol")["reason"] if not _skipped_df.empty else pd.Series(dtype=str)
+        skipped_reasons = (
+            _skipped_df.set_index("symbol")["reason"]
+            if not _skipped_df.empty
+            else pd.Series(dtype=str)
+        )
         all_syms_for_skip = sorted(set(config.UNIVERSE_RAW) | set(skipped_reasons.index))
 
         st.markdown('<p class="ov-muted">Skip / un-skip a symbol</p>', unsafe_allow_html=True)
@@ -3158,7 +3391,9 @@ def page_admin():
         skip_checked = skip_sym in skipped_reasons.index
         with st.form(f"admin_skip_form_{skip_sym}"):
             skip_toggle = st.checkbox("Skip this symbol", value=skip_checked)
-            skip_reason = st.text_input("Reason (optional)", value=skipped_reasons.get(skip_sym, ""))
+            skip_reason = st.text_input(
+                "Reason (optional)", value=skipped_reasons.get(skip_sym, "")
+            )
             skip_save_clicked = st.form_submit_button("Save", type="primary")
         if skip_save_clicked:
             if skip_toggle:
@@ -3216,7 +3451,10 @@ def page_admin():
             'style="background:var(--ov-amber);"></span>🔑 Change dashboard password</p>',
             unsafe_allow_html=True,
         )
-        st.caption("Stored as a salted hash in state.db — the password itself is never saved anywhere, not even here.")
+        st.caption(
+            "Stored as a salted hash in state.db — the password "
+            "itself is never saved anywhere, not even here."
+        )
         with st.form("change_password_form", clear_on_submit=True):
             new_user = st.text_input("Username", value=config.DASHBOARD_USERNAME)
             new_pw = st.text_input("New password", type="password")
@@ -3229,7 +3467,9 @@ def page_admin():
                 st.error("Passwords don't match.")
             else:
                 state_db.update_dashboard_password(new_user, new_pw)
-                st.success("Credentials updated — use the new username/password next time you sign in.")
+                st.success(
+                    "Credentials updated — use the new username/password next time you sign in."
+                )
 
     with col_api, st.container(border=True, key="ov-card-admin-kite"):
         _kite_tip = html_lib.escape(
@@ -3246,9 +3486,14 @@ def page_admin():
             unsafe_allow_html=True,
         )
         masked_key = (
-            config.KITE_API_KEY[:4] + "…" + config.KITE_API_KEY[-4:] if len(config.KITE_API_KEY) > 8 else "(not set)"
+            config.KITE_API_KEY[:4] + "…" + config.KITE_API_KEY[-4:]
+            if len(config.KITE_API_KEY) > 8
+            else "(not set)"
         )
-        st.caption(f"Current API key: `{masked_key}` · stored in state.db, only needed after regenerating keys.")
+        st.caption(
+            f"Current API key: `{masked_key}` · stored in state.db, "
+            "only needed after regenerating keys."
+        )
         with st.form("kite_api_settings_form", clear_on_submit=True):
             new_api_key = st.text_input("New API key (blank = keep current)")
             new_api_secret = st.text_input("New API secret (blank = keep current)", type="password")
@@ -3260,7 +3505,10 @@ def page_admin():
                 state_db.update_kite_api_credentials(
                     new_api_key or config.KITE_API_KEY, new_api_secret or config.KITE_API_SECRET
                 )
-                st.success("Kite API credentials updated — restart the dashboard for this process to pick them up.")
+                st.success(
+                    "Kite API credentials updated — restart the "
+                    "dashboard for this process to pick them up."
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -3332,7 +3580,9 @@ def page_screener():
         if not job["done"]:
             frac, stage = job["progress"]
             st.progress(
-                frac, text=f"{stage} — started {job['started_at']:%H:%M:%S}, keeps running even if you switch tabs"
+                frac,
+                text=f"{stage} — started {job['started_at']:%H:%M:%S}, "
+                "keeps running even if you switch tabs",
             )
             return
         if job["error"]:
@@ -3351,7 +3601,11 @@ def page_screener():
         return
 
     t: pd.DataFrame = st.session_state["screen"]
-    cached_note = " 📁 (from cache — click Run screen to refresh)" if st.session_state.get("screen_is_cached") else ""
+    cached_note = (
+        " 📁 (from cache — click Run screen to refresh)"
+        if st.session_state.get("screen_is_cached")
+        else ""
+    )
     st.caption(f"Last run: {st.session_state['screen_time']:%d %b %Y %H:%M}{cached_note}")
 
     candidates = t[t["all_gates"]].copy()  # already sorted by score, descending
@@ -3394,7 +3648,9 @@ def page_screener():
     # reads better with thousands separators than 2 decimals -- a single
     # global "{:.2f}" format spec would crash on the first and look wrong
     # on the other two.
-    num_fmt = {c: "{:.2f}" for c in show_cols if c not in ("fundamental_rubric", "rank", "avg_volume_3m")}
+    num_fmt = {
+        c: "{:.2f}" for c in show_cols if c not in ("fundamental_rubric", "rank", "avg_volume_3m")
+    }
     if "avg_volume_3m" in show_cols:
         num_fmt["avg_volume_3m"] = "{:,.0f}"
 
@@ -3424,7 +3680,9 @@ def page_screener():
                 columns=["rank", "symbol"] + [c for c in show_cols if c != "rank"],
                 sym_cols=["symbol"],
                 num_fmt={**num_fmt, "rank": "{:.0f}"},
-                badges={"rank": lambda v: "ov-badge-green" if v <= keep_zone_size else "ov-badge-red"},
+                badges={
+                    "rank": lambda v: "ov-badge-green" if v <= keep_zone_size else "ov-badge-red"
+                },
             ),
             unsafe_allow_html=True,
         )
@@ -3448,7 +3706,8 @@ def page_screener():
         }
         full_page = _ov_page_slice(full_display, key="screen_full_universe")
         st.markdown(
-            _ov_table_html(full_page, sym_cols=["symbol"], num_fmt=num_fmt, badges=_bool_badges), unsafe_allow_html=True
+            _ov_table_html(full_page, sym_cols=["symbol"], num_fmt=num_fmt, badges=_bool_badges),
+            unsafe_allow_html=True,
         )
         _ov_pagination_controls(full_display, key="screen_full_universe")
 
@@ -3466,21 +3725,34 @@ def page_screener():
                 fig = go.Figure()
                 fig.add_trace(
                     go.Candlestick(
-                        x=df.index, open=df["open"], high=df["high"], low=df["low"], close=df["close"], name=sym
+                        x=df.index,
+                        open=df["open"],
+                        high=df["high"],
+                        low=df["low"],
+                        close=df["close"],
+                        name=sym,
                     )
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=df.index, y=indicators.ema(df["close"], cfg["ema_fast"]), name="EMA50", line={"width": 1}
+                        x=df.index,
+                        y=indicators.ema(df["close"], cfg["ema_fast"]),
+                        name="EMA50",
+                        line={"width": 1},
                     )
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=df.index, y=indicators.ema(df["close"], cfg["ema_slow"]), name="EMA200", line={"width": 1}
+                        x=df.index,
+                        y=indicators.ema(df["close"], cfg["ema_slow"]),
+                        name="EMA200",
+                        line={"width": 1},
                     )
                 )
                 fig.update_layout(
-                    height=500, xaxis_rangeslider_visible=False, margin={"l": 10, "r": 10, "t": 30, "b": 10}
+                    height=500,
+                    xaxis_rangeslider_visible=False,
+                    margin={"l": 10, "r": 10, "t": 30, "b": 10},
                 )
                 st.plotly_chart(fig, width="stretch")
 
@@ -3496,10 +3768,15 @@ def page_screener():
         if st.button("Fetch current sector rankings"):
             with st.spinner("Fetching sector membership + index history..."):
                 days = config.STRATEGY["history_days"]
-                _membership, sector_candles = su.sector_membership_and_candles(config.UNIVERSE, days=days)
+                membership, sector_candles = su.sector_membership_and_candles(
+                    config.UNIVERSE, days=days
+                )
                 bench_sec = kite_client.benchmark_candles(days)
                 rank = su.sector_rs_asof(
-                    sector_candles, bench_sec, dt.date.today(), config.STRATEGY["sector_rs_lookback_days"]
+                    sector_candles,
+                    bench_sec,
+                    dt.date.today(),
+                    config.STRATEGY["sector_rs_lookback_days"],
                 )
             st.session_state["sector_rank"] = rank
             st.session_state["sector_rank_time"] = dt.datetime.now()
@@ -3567,7 +3844,8 @@ def page_live_rebalance():
             fundamentals=fundamentals,
             job_type="rebalance_scan",
             summarize_fn=lambda r: (
-                f"{len(r['buys'])} buys, {len(r['sells'])} sells, {len(r['stop_updates'])} stop updates"
+                f"{len(r['buys'])} buys, {len(r['sells'])} sells, "
+                f"{len(r['stop_updates'])} stop updates"
             ),
         )
         st.rerun()
@@ -3601,7 +3879,12 @@ def page_live_rebalance():
                 '<span class="ov-chip ov-chip-amber">⚠ Auto-execute ON</span>',
                 unsafe_allow_html=True,
             )
-            if st.button("Run today's scan", type="primary", disabled=rebalance_running, key="lr_run_scan_autoexec"):
+            if st.button(
+                "Run today's scan",
+                type="primary",
+                disabled=rebalance_running,
+                key="lr_run_scan_autoexec",
+            ):
                 _run_scan_now()
     else:
         _hdr_l, _hdr_r = st.columns([5, 2])
@@ -3614,7 +3897,12 @@ def page_live_rebalance():
                 unsafe_allow_html=True,
             )
         with _hdr_r:
-            if st.button("Run today's scan", type="primary", disabled=rebalance_running, key="lr_run_scan_hdr"):
+            if st.button(
+                "Run today's scan",
+                type="primary",
+                disabled=rebalance_running,
+                key="lr_run_scan_hdr",
+            ):
                 _run_scan_now()
 
     if "rebalance_proposal" not in st.session_state:
@@ -3623,11 +3911,15 @@ def page_live_rebalance():
             # holdings is never persisted (see state_db.get_last_rebalance_run
             # -- it's a live snapshot, not historical), so always re-fetch it
             # fresh here regardless of when the underlying proposal ran.
-            last_run["holdings"] = lr.get_live_holdings().reset_index().rename(columns={"tradingsymbol": "symbol"})
+            last_run["holdings"] = (
+                lr.get_live_holdings().reset_index().rename(columns={"tradingsymbol": "symbol"})
+            )
             st.session_state["rebalance_proposal"] = _with_day_item_status(last_run)
 
     if rebalance_running:
-        st.info(f"⏳ Scan running since {rebalance_job['started_at']:%H:%M:%S} — safe to switch tabs.")
+        st.info(
+            f"⏳ Scan running since {rebalance_job['started_at']:%H:%M:%S} — safe to switch tabs."
+        )
 
     @st.fragment(run_every="1s" if rebalance_running else None)
     def _rebalance_job_status():
@@ -3637,7 +3929,9 @@ def page_live_rebalance():
         if not job["done"]:
             frac, stage = job["progress"]
             st.progress(
-                frac, text=f"{stage} — started {job['started_at']:%H:%M:%S}, keeps running even if you switch tabs"
+                frac,
+                text=f"{stage} — started {job['started_at']:%H:%M:%S}, "
+                "keeps running even if you switch tabs",
             )
             return
         if job["error"]:
@@ -3708,7 +4002,9 @@ def page_live_rebalance():
     _pending_buys = _pending(result["buys"])
     st.markdown(
         '<div class="ov-grid-metrics">'
-        + _ov_metric_html("Current holdings", str(len(result["holdings"])), "CNC positions", "", "blue")
+        + _ov_metric_html(
+            "Current holdings", str(len(result["holdings"])), "CNC positions", "", "blue"
+        )
         + _ov_metric_html(
             "Proposed sells",
             str(len(_pending_sells)),
@@ -3724,7 +4020,11 @@ def page_live_rebalance():
             "green",
         )
         + _ov_metric_html(
-            "Open slots after sells", str(result["open_slots"]), f"of {_real_max_positions} max", "", "purple"
+            "Open slots after sells",
+            str(result["open_slots"]),
+            f"of {_real_max_positions} max",
+            "",
+            "purple",
         )
         + _ov_metric_html("Target / slot", f"₹{_real_target:,.0f}", "Equal weight", "", "teal")
         + _ov_metric_html("Cash pool", f"₹{_cash_pool:,.0f}", "incl. sell proceeds", "", "amber")
@@ -3739,7 +4039,9 @@ def page_live_rebalance():
     # longer relevant to anything still actionable, so skip it entirely
     # rather than show a stale "buys below may be partial" next to an
     # empty buys table.
-    still_actionable = not _pending_buys.empty or not _pending(result.get("top_ups", pd.DataFrame())).empty
+    still_actionable = (
+        not _pending_buys.empty or not _pending(result.get("top_ups", pd.DataFrame())).empty
+    )
     if still_actionable and result.get("cash_shortfall") is not None:
         target = result.get("target_per_slot") or 0
         pool = result.get("cash_pool") or 0
@@ -3795,16 +4097,29 @@ def page_live_rebalance():
                 _sells_display["ltp"] = _sells_display["symbol"].map(_ltp_map)
             except Exception:
                 _sells_display["ltp"] = pd.NA
-            _sells_display["pnl"] = (_sells_display["ltp"] - _sells_display["avg_price"]) * _sells_display["qty"]
+            _sells_display["pnl"] = (
+                _sells_display["ltp"] - _sells_display["avg_price"]
+            ) * _sells_display["qty"]
             # Rows can now come from several runs today (see
             # _with_day_item_status) -- show which run each came from so
             # two rows for the same symbol (e.g. re-proposed after an
             # earlier one expired) aren't just confusing duplicates.
             if "run_time" in _sells_display.columns:
-                _sells_display["run_time"] = pd.to_datetime(_sells_display["run_time"]).dt.strftime("%d %b %H:%M")
+                _sells_display["run_time"] = pd.to_datetime(_sells_display["run_time"]).dt.strftime(
+                    "%d %b %H:%M"
+                )
             _sells_cols = [
                 c
-                for c in ["run_time", "symbol", "qty", "avg_price", "ltp", "pnl", "reason", "status"]
+                for c in [
+                    "run_time",
+                    "symbol",
+                    "qty",
+                    "avg_price",
+                    "ltp",
+                    "pnl",
+                    "reason",
+                    "status",
+                ]
                 if c in _sells_display.columns
             ]
             st.markdown(
@@ -3813,7 +4128,12 @@ def page_live_rebalance():
                     columns=_sells_cols,
                     sym_cols=["symbol"],
                     pnl_cols=["pnl"],
-                    num_fmt={"qty": "{:.0f}", "avg_price": "₹{:.2f}", "ltp": "₹{:.2f}", "pnl": "₹{:+,.0f}"},
+                    num_fmt={
+                        "qty": "{:.0f}",
+                        "avg_price": "₹{:.2f}",
+                        "ltp": "₹{:.2f}",
+                        "pnl": "₹{:+,.0f}",
+                    },
                     badges={
                         "status": {
                             "proposed": "ov-badge-amber",
@@ -3829,7 +4149,8 @@ def page_live_rebalance():
             if not _sells_actionable.empty:
                 _sells_status = _sells_actionable.set_index("symbol")["status"]
                 selected_sells = st.multiselect(
-                    "Select which to execute — error rows are offered for a manual retry but never auto-selected",
+                    "Select which to execute — error rows are offered for a "
+                    "manual retry but never auto-selected",
                     options=_sells_actionable["symbol"].tolist(),
                     default=_pending_sells["symbol"].tolist(),
                     format_func=lambda s: f"{s} ({_sells_status.get(s)})",
@@ -3837,7 +4158,8 @@ def page_live_rebalance():
                 )
                 st.caption(f"{len(selected_sells)} of {len(_sells_actionable)} selected")
                 confirm_sell = st.checkbox(
-                    "I confirm I want to execute the SELECTED sells at market", key="confirm_sell_all"
+                    "I confirm I want to execute the SELECTED sells at market",
+                    key="confirm_sell_all",
                 )
                 if st.button(
                     "Execute selected sells",
@@ -3845,7 +4167,9 @@ def page_live_rebalance():
                     use_container_width=True,
                     key="lr_execute_sells",
                 ):
-                    _to_execute = _sells_actionable[_sells_actionable["symbol"].isin(selected_sells)]
+                    _to_execute = _sells_actionable[
+                        _sells_actionable["symbol"].isin(selected_sells)
+                    ]
                     log, succeeded, failed = lr.execute_sells(_to_execute)
                     st.session_state["sell_exec_log"] = log
                     if succeeded:
@@ -3858,7 +4182,9 @@ def page_live_rebalance():
                         result["open_slots"] = result.get("open_slots", 0) + len(succeeded)
                         state_db.mark_rebalance_sells_executed(result.get("run_id"), succeeded)
                         state_db.mark_rebalance_sells_failed(result.get("run_id"), failed)
-                        state_db.set_rebalance_open_slots(result.get("run_id"), result["open_slots"])
+                        state_db.set_rebalance_open_slots(
+                            result.get("run_id"), result["open_slots"]
+                        )
                         # Re-read from state_db (already the source of truth after
                         # the marks above) rather than hand-patching this dict --
                         # keeps every already-resolved row visible with its real
@@ -3900,7 +4226,9 @@ def page_live_rebalance():
             _buys_display = result["buys"].copy()
             _buys_display["amount"] = _buys_display["qty"] * _buys_display["price"]
             if "run_time" in _buys_display.columns:
-                _buys_display["run_time"] = pd.to_datetime(_buys_display["run_time"]).dt.strftime("%d %b %H:%M")
+                _buys_display["run_time"] = pd.to_datetime(_buys_display["run_time"]).dt.strftime(
+                    "%d %b %H:%M"
+                )
             _buys_cols = [
                 c
                 for c in [
@@ -3951,14 +4279,17 @@ def page_live_rebalance():
             if not _buys_actionable.empty:
                 _buys_status = _buys_actionable.set_index("symbol")["status"]
                 selected_buys = st.multiselect(
-                    "Select which to execute — error rows are offered for a manual retry but never auto-selected",
+                    "Select which to execute — error rows are offered for a "
+                    "manual retry but never auto-selected",
                     options=_buys_actionable["symbol"].tolist(),
                     default=_pending_buys["symbol"].tolist(),
                     format_func=lambda s: f"{s} ({_buys_status.get(s)})",
                     key="lr_buys_select",
                 )
                 st.caption(f"{len(selected_buys)} of {len(_buys_actionable)} selected")
-                place_gtt = st.checkbox("Also place a GTT stop-loss for each buy", value=True, key="rebal_gtt")
+                place_gtt = st.checkbox(
+                    "Also place a GTT stop-loss for each buy", value=True, key="rebal_gtt"
+                )
                 confirm_buy = st.checkbox(
                     "I confirm I want to execute the SELECTED buys at market", key="confirm_buy_all"
                 )
@@ -3972,7 +4303,9 @@ def page_live_rebalance():
                     # Redeem just enough of the cash-sweep instrument first
                     # if these buys need more than what's free as real
                     # cash. No-ops when cash_sweep_enabled is off.
-                    lr.ensure_cash_for_buys(float((_to_execute["qty"] * _to_execute["price"]).sum()))
+                    lr.ensure_cash_for_buys(
+                        float((_to_execute["qty"] * _to_execute["price"]).sum())
+                    )
                     log, succeeded, failed = lr.execute_buys(_to_execute, place_gtt=place_gtt)
                     st.session_state["buy_exec_log"] = log
                     resolved = succeeded + list(failed)
@@ -3980,7 +4313,9 @@ def page_live_rebalance():
                         result["open_slots"] = max(result.get("open_slots", 0) - len(succeeded), 0)
                         state_db.mark_rebalance_buys_executed(result.get("run_id"), succeeded)
                         state_db.mark_rebalance_buys_failed(result.get("run_id"), failed)
-                        state_db.set_rebalance_open_slots(result.get("run_id"), result["open_slots"])
+                        state_db.set_rebalance_open_slots(
+                            result.get("run_id"), result["open_slots"]
+                        )
                         st.session_state["rebalance_proposal"] = _with_day_item_status(result)
                     st.rerun()
             else:
@@ -3992,94 +4327,113 @@ def page_live_rebalance():
     stop_updates = result.get("stop_updates", pd.DataFrame())
     _pending_topups = _pending(top_ups)
     col_topups, col_stops = st.columns(2)
-    with col_topups, st.container(border=True, key="ov-card-lr-topups"):
-        st.markdown(
-            '<p class="ov-card-title" style="border-bottom:0px solid var(--ov-border);">'
-            '<span class="ov-dot" style="background:var(--ov-blue);">'
-            f'</span>Proposed top-ups <span class="ov-badge ov-badge-gray">{len(_pending_topups)}</span></p>',
-            unsafe_allow_html=True,
-        )
-        if st.session_state.get("topup_exec_log"):
-            st.success("Top-up(s) executed — status below reflects the result.")
-            for line in st.session_state["topup_exec_log"]:
-                st.write(line)
-            del st.session_state["topup_exec_log"]
-        if not top_ups.empty:
-            st.caption(
-                "Additional shares for positions you already hold that are below "
-                "their equal-weight target, funded by cash left over after the "
-                "buys above — the position's existing stop-loss carries over "
-                "unchanged, only its GTT quantity gets updated to cover the new "
-                "total."
-            )
-            _topups_display = top_ups.copy()
-            _topups_display["amount"] = _topups_display["extra_qty"] * _topups_display["price"]
-            if "run_time" in _topups_display.columns:
-                _topups_display["run_time"] = pd.to_datetime(_topups_display["run_time"]).dt.strftime("%d %b %H:%M")
-            _topups_cols = [
-                c
-                for c in ["run_time", "symbol", "extra_qty", "price", "amount", "gtt_trigger_id", "status"]
-                if c in _topups_display.columns
-            ]
+    with col_topups:
+        with st.container(border=True, key="ov-card-lr-topups"):
             st.markdown(
-                _ov_table_html(
-                    _topups_display,
-                    columns=_topups_cols,
-                    sym_cols=["symbol"],
-                    num_fmt={"extra_qty": "{:.0f}", "price": "₹{:.2f}", "amount": "₹{:,.0f}"},
-                    badges={
-                        "status": {
-                            "proposed": "ov-badge-amber",
-                            "executed": "ov-badge-green",
-                            "error": "ov-badge-red",
-                            "expired": "ov-badge-gray",
-                        }
-                    },
-                ),
+                '<p class="ov-card-title" style="border-bottom:0px solid var(--ov-border);">'
+                '<span class="ov-dot" style="background:var(--ov-blue);">'
+                f'</span>Proposed top-ups <span class="ov-badge ov-badge-gray">{len(_pending_topups)}</span></p>',
                 unsafe_allow_html=True,
             )
-            st.markdown(
-                f'<div class="ov-row"><span class="ov-card-meta">Total amount</span>'
-                f'<span class="ov-sym">₹{_topups_display["amount"].sum():,.0f}</span></div>',
-                unsafe_allow_html=True,
-            )
-            _topups_actionable = _actionable(top_ups)
-            if not _topups_actionable.empty:
-                _topups_status = _topups_actionable.set_index("symbol")["status"]
-                selected_topups = st.multiselect(
-                    "Select which to execute — error rows are offered for a manual retry but never auto-selected",
-                    options=_topups_actionable["symbol"].tolist(),
-                    default=_pending_topups["symbol"].tolist(),
-                    format_func=lambda s: f"{s} ({_topups_status.get(s)})",
-                    key="lr_topups_select",
+            if st.session_state.get("topup_exec_log"):
+                st.success("Top-up(s) executed — status below reflects the result.")
+                for line in st.session_state["topup_exec_log"]:
+                    st.write(line)
+                del st.session_state["topup_exec_log"]
+            if not top_ups.empty:
+                st.caption(
+                    "Additional shares for positions you already hold that are below "
+                    "their equal-weight target, funded by cash left over after the "
+                    "buys above — the position's existing stop-loss carries over "
+                    "unchanged, only its GTT quantity gets updated to cover the new "
+                    "total."
                 )
-                st.caption(f"{len(selected_topups)} of {len(_topups_actionable)} selected")
-                confirm_topup = st.checkbox(
-                    "I confirm I want to execute the SELECTED top-ups at market", key="confirm_topup_all"
+                _topups_display = top_ups.copy()
+                _topups_display["amount"] = _topups_display["extra_qty"] * _topups_display["price"]
+                if "run_time" in _topups_display.columns:
+                    _topups_display["run_time"] = pd.to_datetime(
+                        _topups_display["run_time"]
+                    ).dt.strftime("%d %b %H:%M")
+                _topups_cols = [
+                    c
+                    for c in [
+                        "run_time",
+                        "symbol",
+                        "extra_qty",
+                        "price",
+                        "amount",
+                        "gtt_trigger_id",
+                        "status",
+                    ]
+                    if c in _topups_display.columns
+                ]
+                st.markdown(
+                    _ov_table_html(
+                        _topups_display,
+                        columns=_topups_cols,
+                        sym_cols=["symbol"],
+                        num_fmt={"extra_qty": "{:.0f}", "price": "₹{:.2f}", "amount": "₹{:,.0f}"},
+                        badges={
+                            "status": {
+                                "proposed": "ov-badge-amber",
+                                "executed": "ov-badge-green",
+                                "error": "ov-badge-red",
+                                "expired": "ov-badge-gray",
+                            }
+                        },
+                    ),
+                    unsafe_allow_html=True,
                 )
-                if st.button(
-                    "Execute selected top-ups",
-                    disabled=not confirm_topup or not selected_topups or rebalance_running,
-                    use_container_width=True,
-                    key="lr_execute_topups",
-                ):
-                    _to_execute = _topups_actionable[_topups_actionable["symbol"].isin(selected_topups)]
-                    # Redeem just enough of the cash-sweep instrument
-                    # first if these top-ups need more than what's free
-                    # as real cash. No-ops when cash_sweep_enabled is off.
-                    lr.ensure_cash_for_buys(float((_to_execute["extra_qty"] * _to_execute["price"]).sum()))
-                    log, succeeded, failed = lr.execute_top_ups(_to_execute)
-                    st.session_state["topup_exec_log"] = log
-                    resolved = succeeded + list(failed)
-                    if resolved:
-                        state_db.mark_rebalance_top_ups_executed(result.get("run_id"), succeeded)
-                        state_db.mark_rebalance_top_ups_failed(result.get("run_id"), failed)
-                        st.session_state["rebalance_proposal"] = _with_day_item_status(result)
-                    st.rerun()
+                st.markdown(
+                    f'<div class="ov-row"><span class="ov-card-meta">Total amount</span>'
+                    f'<span class="ov-sym">₹{_topups_display["amount"].sum():,.0f}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                _topups_actionable = _actionable(top_ups)
+                if not _topups_actionable.empty:
+                    _topups_status = _topups_actionable.set_index("symbol")["status"]
+                    selected_topups = st.multiselect(
+                        "Select which to execute — error rows are offered for a "
+                        "manual retry but never auto-selected",
+                        options=_topups_actionable["symbol"].tolist(),
+                        default=_pending_topups["symbol"].tolist(),
+                        format_func=lambda s: f"{s} ({_topups_status.get(s)})",
+                        key="lr_topups_select",
+                    )
+                    st.caption(f"{len(selected_topups)} of {len(_topups_actionable)} selected")
+                    confirm_topup = st.checkbox(
+                        "I confirm I want to execute the SELECTED top-ups at market",
+                        key="confirm_topup_all",
+                    )
+                    if st.button(
+                        "Execute selected top-ups",
+                        disabled=not confirm_topup or not selected_topups or rebalance_running,
+                        use_container_width=True,
+                        key="lr_execute_topups",
+                    ):
+                        _to_execute = _topups_actionable[
+                            _topups_actionable["symbol"].isin(selected_topups)
+                        ]
+                        # Redeem just enough of the cash-sweep instrument
+                        # first if these top-ups need more than what's free
+                        # as real cash. No-ops when cash_sweep_enabled is off.
+                        lr.ensure_cash_for_buys(
+                            float((_to_execute["extra_qty"] * _to_execute["price"]).sum())
+                        )
+                        log, succeeded, failed = lr.execute_top_ups(_to_execute)
+                        st.session_state["topup_exec_log"] = log
+                        resolved = succeeded + list(failed)
+                        if resolved:
+                            state_db.mark_rebalance_top_ups_executed(
+                                result.get("run_id"), succeeded
+                            )
+                            state_db.mark_rebalance_top_ups_failed(result.get("run_id"), failed)
+                            st.session_state["rebalance_proposal"] = _with_day_item_status(result)
+                        st.rerun()
+                else:
+                    st.caption("All resolved — nothing left to execute here.")
             else:
-                st.caption("All resolved — nothing left to execute here.")
-        else:
-            st.caption("No under-target holdings, or no cash left over to top up with.")
+                st.caption("No under-target holdings, or no cash left over to top up with.")
 
     with col_stops, st.container(border=True, key="ov-card-lr-stops"):
         st.markdown(
@@ -4096,16 +4450,28 @@ def page_live_rebalance():
             del st.session_state["stopupdate_exec_log"]
         _pending_stops = _pending(stop_updates)
         if not stop_updates.empty:
-            st.caption("Ratchets auto-apply; only ones that couldn't (no active GTT / Kite error) land here.")
+            st.caption(
+                "Ratchets auto-apply; only ones that couldn't (no active "
+                "GTT / Kite error) land here."
+            )
             _stops_display = stop_updates.copy()
             _stops_display["gtt_status"] = _stops_display["gtt_trigger_id"].apply(
                 lambda v: "none active" if pd.isna(v) else "active"
             )
             if "run_time" in _stops_display.columns:
-                _stops_display["run_time"] = pd.to_datetime(_stops_display["run_time"]).dt.strftime("%d %b %H:%M")
+                _stops_display["run_time"] = pd.to_datetime(_stops_display["run_time"]).dt.strftime(
+                    "%d %b %H:%M"
+                )
             _stops_cols = [
                 c
-                for c in ["run_time", "symbol", "current_stop", "recommended_stop", "gtt_status", "status"]
+                for c in [
+                    "run_time",
+                    "symbol",
+                    "current_stop",
+                    "recommended_stop",
+                    "gtt_status",
+                    "status",
+                ]
                 if c in _stops_display.columns
             ]
             st.markdown(
@@ -4115,7 +4481,10 @@ def page_live_rebalance():
                     sym_cols=["symbol"],
                     num_fmt={"current_stop": "₹{:.2f}", "recommended_stop": "₹{:.2f}"},
                     badges={
-                        "gtt_status": {"active": "ov-badge-green", "none active": "ov-badge-red"},
+                        "gtt_status": {
+                            "active": "ov-badge-green",
+                            "none active": "ov-badge-red",
+                        },
                         "status": {
                             "proposed": "ov-badge-amber",
                             "executed": "ov-badge-green",
@@ -4130,7 +4499,8 @@ def page_live_rebalance():
             if not _stops_actionable.empty:
                 _stops_status = _stops_actionable.set_index("symbol")["status"]
                 selected_stops = st.multiselect(
-                    "Select which to apply — error rows are offered for a manual retry but never auto-selected",
+                    "Select which to apply — error rows are offered for a "
+                    "manual retry but never auto-selected",
                     options=_stops_actionable["symbol"].tolist(),
                     default=_pending_stops["symbol"].tolist(),
                     format_func=lambda s: f"{s} ({_stops_status.get(s)})",
@@ -4138,7 +4508,8 @@ def page_live_rebalance():
                 )
                 st.caption(f"{len(selected_stops)} of {len(_stops_actionable)} selected")
                 confirm_stops = st.checkbox(
-                    "I confirm I want to raise the SELECTED GTT stop-losses", key="confirm_stop_updates"
+                    "I confirm I want to raise the SELECTED GTT stop-losses",
+                    key="confirm_stop_updates",
                 )
                 if st.button(
                     "Apply selected stop updates",
@@ -4153,20 +4524,27 @@ def page_live_rebalance():
                     for _, r in _to_apply.iterrows():
                         if pd.isna(r["gtt_trigger_id"]):
                             log.append(
-                                f"⚠️ {r['symbol']}: no active GTT to update — place one manually first (Trade tab)."
+                                f"⚠️ {r['symbol']}: no active GTT to update — "
+                                "place one manually first (Trade tab)."
                             )
                             failed[r["symbol"]] = "No active GTT to update"
                             continue
                         try:
                             ltp = kite_client.get_ltp([r["symbol"]])[r["symbol"]]
                             kite_client.modify_gtt_trigger(
-                                int(r["gtt_trigger_id"]), r["symbol"], int(r["qty"]), r["recommended_stop"], ltp
+                                int(r["gtt_trigger_id"]),
+                                r["symbol"],
+                                int(r["qty"]),
+                                r["recommended_stop"],
+                                ltp,
                             )
                             # Only now does the recommended stop become the applied
                             # (real, broker-side) stop -- see apply_stop_update()'s
                             # docstring for why this must never happen earlier.
                             state_db.apply_stop_update(r["symbol"])
-                            log.append(f"✅ {r['symbol']}: stop raised to ₹{r['recommended_stop']:.2f}")
+                            log.append(
+                                f"✅ {r['symbol']}: stop raised to ₹{r['recommended_stop']:.2f}"
+                            )
                             succeeded.append(r["symbol"])
                         except Exception as e:
                             log.append(f"❌ {r['symbol']}: FAILED — {e}")
@@ -4174,7 +4552,9 @@ def page_live_rebalance():
                     st.session_state["stopupdate_exec_log"] = log
                     resolved = succeeded + list(failed)
                     if resolved:
-                        state_db.mark_rebalance_stop_updates_executed(result.get("run_id"), succeeded)
+                        state_db.mark_rebalance_stop_updates_executed(
+                            result.get("run_id"), succeeded
+                        )
                         state_db.mark_rebalance_stop_updates_failed(result.get("run_id"), failed)
                         st.session_state["rebalance_proposal"] = _with_day_item_status(result)
                     st.rerun()
@@ -4204,11 +4584,19 @@ def page_live_rebalance():
         wc1, wc2 = st.columns(2)
         with wc1:
             what_if_slots = st.slider(
-                "Max positions", min_value=1, max_value=25, value=_real_max_positions, key="whatif_slots"
+                "Max positions",
+                min_value=1,
+                max_value=25,
+                value=_real_max_positions,
+                key="whatif_slots",
             )
         with wc2:
             what_if_cash = st.number_input(
-                "Available cash (₹)", min_value=0.0, value=float(available_cash), step=1000.0, key="whatif_cash"
+                "Available cash (₹)",
+                min_value=0.0,
+                value=float(available_cash),
+                step=1000.0,
+                key="whatif_cash",
             )
 
         what_if_total_equity = what_if_cash + _held_value
@@ -4321,11 +4709,17 @@ def page_positions_trade():
                     with cac2:
                         cb1, cb2 = st.columns(2)
                         if cb1.button(
-                            "Confirm", key=f"corp_confirm_{_f['id']}", type="primary", use_container_width=True
+                            "Confirm",
+                            key=f"corp_confirm_{_f['id']}",
+                            type="primary",
+                            use_container_width=True,
                         ):
                             _result = lr.apply_corporate_action_adjustment(int(_f["id"]))
                             if _result.get("gtt") and "FAILED" in str(_result["gtt"]):
-                                st.warning(f"Position/trade records fixed, but the GTT push failed: {_result['gtt']}")
+                                st.warning(
+                                    f"Position/trade records fixed, but the GTT "
+                                    f"push failed: {_result['gtt']}"
+                                )
                             else:
                                 st.success(f"{_f['symbol']} adjusted.")
                             st.rerun()
@@ -4333,7 +4727,8 @@ def page_positions_trade():
                             "Dismiss",
                             key=f"corp_dismiss_{_f['id']}",
                             use_container_width=True,
-                            help="Use this if it wasn't actually a split -- e.g. you bought more shares manually.",
+                            help="Use this if it wasn't actually a split -- "
+                            "e.g. you bought more shares manually.",
                         ):
                             state_db.resolve_corporate_action_flag(int(_f["id"]), "dismissed")
                             st.rerun()
@@ -4359,7 +4754,11 @@ def page_positions_trade():
     def _live_holdings():
         _sweep_sym = cfg.get("cash_sweep_symbol", "LIQUIDCASE")
         _all_hold = kite_client.get_holdings()
-        _cash_row = _all_hold[_all_hold["tradingsymbol"] == _sweep_sym] if not _all_hold.empty else _all_hold
+        _cash_row = (
+            _all_hold[_all_hold["tradingsymbol"] == _sweep_sym]
+            if not _all_hold.empty
+            else _all_hold
+        )
 
         with st.container(border=True, key="ov-card-pt-holdings"):
             st.markdown(
@@ -4368,12 +4767,18 @@ def page_positions_trade():
                 'style="background:var(--ov-purple);"></span>Holdings (CNC)</p>',
                 unsafe_allow_html=True,
             )
-            live_hold = _all_hold[_all_hold["tradingsymbol"] != _sweep_sym] if not _all_hold.empty else _all_hold
+            live_hold = (
+                _all_hold[_all_hold["tradingsymbol"] != _sweep_sym]
+                if not _all_hold.empty
+                else _all_hold
+            )
             if live_hold.empty:
                 st.caption("No holdings.")
             else:
                 live_hold = live_hold.copy()
-                live_hold["pnl_pct"] = ((live_hold["last_price"] / live_hold["average_price"]) - 1) * 100
+                live_hold["pnl_pct"] = (
+                    (live_hold["last_price"] / live_hold["average_price"]) - 1
+                ) * 100
                 live_hold["invested_capital"] = live_hold["quantity"] * live_hold["average_price"]
                 live_hold["current_capital"] = live_hold["quantity"] * live_hold["last_price"]
                 st.markdown(
@@ -4401,7 +4806,9 @@ def page_positions_trade():
                             "pnl": "{:+,.0f}",
                             "pnl_pct": "{:+.2f}%",
                         },
-                        arrow_cols={"current_capital": ("current_capital", "invested_capital", True)},
+                        arrow_cols={
+                            "current_capital": ("current_capital", "invested_capital", True)
+                        },
                     ),
                     unsafe_allow_html=True,
                 )
@@ -4497,14 +4904,27 @@ def page_positions_trade():
                             "product": r["product"],
                         }
                 display = orders[
-                    ["order_timestamp", "tradingsymbol", "transaction_type", "quantity", "average_price", "status"]
+                    [
+                        "order_timestamp",
+                        "tradingsymbol",
+                        "transaction_type",
+                        "quantity",
+                        "average_price",
+                        "status",
+                    ]
                 ].copy()
                 display["current_qty"] = display["tradingsymbol"].map(
                     lambda s: pos_by_symbol.get(s, {}).get("current_qty")
                 )
-                display["ltp"] = display["tradingsymbol"].map(lambda s: pos_by_symbol.get(s, {}).get("ltp"))
-                display["pnl"] = display["tradingsymbol"].map(lambda s: pos_by_symbol.get(s, {}).get("pnl"))
-                display["product"] = display["tradingsymbol"].map(lambda s: pos_by_symbol.get(s, {}).get("product"))
+                display["ltp"] = display["tradingsymbol"].map(
+                    lambda s: pos_by_symbol.get(s, {}).get("ltp")
+                )
+                display["pnl"] = display["tradingsymbol"].map(
+                    lambda s: pos_by_symbol.get(s, {}).get("pnl")
+                )
+                display["product"] = display["tradingsymbol"].map(
+                    lambda s: pos_by_symbol.get(s, {}).get("product")
+                )
                 st.markdown(
                     _ov_table_html(
                         display,
@@ -4517,13 +4937,17 @@ def page_positions_trade():
                             "ltp": "₹{:.2f}",
                         },
                         badges={
-                            "transaction_type": lambda v: "ov-badge-green" if v == "BUY" else "ov-badge-red",
+                            "transaction_type": lambda v: (
+                                "ov-badge-green" if v == "BUY" else "ov-badge-red"
+                            ),
                             "status": _ov_order_status_cls,
                         },
                     ),
                     unsafe_allow_html=True,
                 )
-                total_pnl = live_pos[live_pos["quantity"] != 0]["pnl"].sum() if not live_pos.empty else 0.0
+                total_pnl = (
+                    live_pos[live_pos["quantity"] != 0]["pnl"].sum() if not live_pos.empty else 0.0
+                )
                 _pnl_cls = "ov-pos" if total_pnl >= 0 else "ov-neg"
                 st.markdown(
                     f'<div class="ov-row"><span class="ov-card-meta">Total position P&amp;L</span>'
@@ -4634,11 +5058,15 @@ def page_positions_trade():
 
         if not unprotected_syms:
             st.markdown(
-                '<div class="ov-alert ov-alert-success">✓ Every current position/holding has an active GTT.</div>',
+                '<div class="ov-alert ov-alert-success">✓ Every current '
+                "position/holding has an active GTT.</div>",
                 unsafe_allow_html=True,
             )
         else:
-            st.warning(f"{len(unprotected_syms)} unprotected: {', '.join(unprotected_syms)} — place a stop-loss below.")
+            st.warning(
+                f"{len(unprotected_syms)} unprotected: "
+                f"{', '.join(unprotected_syms)} — place a stop-loss below."
+            )
             sl_symbol = st.selectbox("Symbol", unprotected_syms, key="manual_sl_symbol")
 
             sl_qty, sl_avg_price = 0, 0.0
@@ -4686,7 +5114,9 @@ def page_positions_trade():
                 except Exception as e:
                     st.error(f"GTT placement failed: {e}")
                 else:
-                    state_db.upsert_manual_position(sl_symbol, sl_avg_price, sl_qty, sl_stop, gtt_id)
+                    state_db.upsert_manual_position(
+                        sl_symbol, sl_avg_price, sl_qty, sl_stop, gtt_id
+                    )
                     st.success(f"GTT stop-loss placed: trigger {gtt_id} at ₹{sl_stop:,.1f}")
                     st.rerun()
 
@@ -4705,7 +5135,9 @@ def page_positions_trade():
         col1, col2, col3 = st.columns(3)
         with col1:
             symbol = st.selectbox("Symbol", symbol_choices, key="trade_symbol")
-            side = st.segmented_control("Side", ["BUY", "SELL"], default="BUY", key="trade_side", required=True)
+            side = st.segmented_control(
+                "Side", ["BUY", "SELL"], default="BUY", key="trade_side", required=True
+            )
 
         held_qty, _held_avg_price = 0, 0.0
         if not pos.empty and symbol in pos["tradingsymbol"].values:
@@ -4718,7 +5150,9 @@ def page_positions_trade():
         square_off_mode = False
         if side == "SELL" and held_qty > 0:
             square_off_mode = st.checkbox(
-                f"Square off entire position ({held_qty} shares at market)", value=True, key="trade_square_off"
+                f"Square off entire position ({held_qty} shares at market)",
+                value=True,
+                key="trade_square_off",
             )
 
         with col2:
@@ -4783,7 +5217,9 @@ def page_positions_trade():
 
         place_gtt = False
         if side == "BUY" and not square_off_mode:
-            place_gtt = st.checkbox("Also place GTT stop-loss at the ATR stop", value=True, key="trade_place_gtt")
+            place_gtt = st.checkbox(
+                "Also place GTT stop-loss at the ATR stop", value=True, key="trade_place_gtt"
+            )
 
         confirm = st.checkbox(
             f"I confirm I want to close my entire {symbol} position at market"
@@ -4798,8 +5234,10 @@ def page_positions_trade():
         else:
             est_value = qty * ltp
             _preview_bold = f"{side} {qty} × {symbol}"
-            _preview_rest = f" ≈ ₹{est_value:,.0f} ({order_type}{f' @ ₹{limit_price}' if limit_price else ''})" + (
-                f" + GTT SL at ₹{stop:,.1f}" if place_gtt else ""
+            _preview_rest = (
+                f" ≈ ₹{est_value:,.0f} "
+                f"({order_type}{f' @ ₹{limit_price}' if limit_price else ''})"
+                + (f" + GTT SL at ₹{stop:,.1f}" if place_gtt else "")
             )
         _order_title_ph.markdown(
             '<p class="ov-card-title"><span class="ov-dot" '
@@ -4839,7 +5277,10 @@ def page_positions_trade():
                             kite_client.delete_gtt(int(gtt_id))
                             st.success(f"GTT {gtt_id} deleted")
                         except Exception as e:
-                            st.warning(f"⚠️ GTT delete failed: {e} — remove it manually in Kite or re-check here.")
+                            st.warning(
+                                f"⚠️ GTT delete failed: {e} — remove it "
+                                "manually in Kite or re-check here."
+                            )
                 except Exception as e:
                     st.error(f"Order failed: {e}")
             else:
@@ -4849,7 +5290,9 @@ def page_positions_trade():
                     # No-ops when cash_sweep_enabled is off.
                     lr.ensure_cash_for_buys(float(qty) * float(limit_price or ltp))
                 try:
-                    oid = kite_client.place_order(symbol, qty, side, order_type=order_type, price=limit_price)
+                    oid = kite_client.place_order(
+                        symbol, qty, side, order_type=order_type, price=limit_price
+                    )
                 except Exception as e:
                     st.error(f"Order failed: {e}")
                 else:
@@ -4863,7 +5306,9 @@ def page_positions_trade():
                         if place_gtt:
                             try:
                                 gtt_id = kite_client.place_gtt_stoploss(symbol, qty, stop, ltp)
-                                st.success(f"GTT stop-loss placed: trigger {gtt_id} at ₹{stop:,.1f}")
+                                st.success(
+                                    f"GTT stop-loss placed: trigger {gtt_id} at ₹{stop:,.1f}"
+                                )
                             except Exception as e:
                                 st.warning(
                                     f"⚠️ Buy succeeded but GTT stop-loss FAILED: {e} "
@@ -4872,7 +5317,9 @@ def page_positions_trade():
                                 )
                         # Recorded even when the GTT failed (gtt_id=None), same
                         # reasoning as the Live Rebalance buy flow.
-                        position_id = state_db.record_new_position(symbol, float(ltp), int(qty), float(stop), gtt_id)
+                        position_id = state_db.record_new_position(
+                            symbol, float(ltp), int(qty), float(stop), gtt_id
+                        )
                         # No screener row here (this is a manually-picked symbol, not
                         # a candidate from the scan) -- entry snapshot is just
                         # price/qty/stop, same as record_new_position itself gets.
@@ -4881,12 +5328,16 @@ def page_positions_trade():
                             float(ltp),
                             int(qty),
                             float(stop),
-                            snapshot={"entry_reason": "Manually placed order (Trade tab), not from the automated scan"},
+                            snapshot={
+                                "entry_reason": "Manually placed order (Trade tab), "
+                                "not from the automated scan"
+                            },
                             position_id=position_id,
                         )
 
         st.markdown(
-            f'<div class="ov-alert ov-alert-info">ℹ️ Order preview: <b>{_preview_bold}</b>{_preview_rest}</div>',
+            '<div class="ov-alert ov-alert-info">ℹ️ Order preview: '
+            f"<b>{_preview_bold}</b>{_preview_rest}</div>",
             unsafe_allow_html=True,
         )
 
@@ -4948,9 +5399,13 @@ def _run_backtest_job(
     # otherwise.
     sector_candles = None
     sector_membership = None
-    if run_cfg.get("sector_bonus_weight", 0.0) > 0 or run_cfg.get("sector_diversification_enabled", False):
+    if run_cfg.get("sector_bonus_weight", 0.0) > 0 or run_cfg.get(
+        "sector_diversification_enabled", False
+    ):
         report("Fetching sector index data...", 0.42)
-        sector_membership, sector_candles = su.sector_membership_and_candles(config.UNIVERSE, days=days, verbose=False)
+        sector_membership, sector_candles = su.sector_membership_and_candles(
+            config.UNIVERSE, days=days, verbose=False
+        )
 
     # Only fetched when the weekly/monthly confirmation gate OR the
     # overhead-resistance tilt is on -- both need far more history than
@@ -4960,7 +5415,10 @@ def _run_backtest_job(
     # incrementally (see bt.load_long_history_cached's docstring) so this
     # is only slow the very first time, not on every run.
     long_candles = None
-    if run_cfg.get("weekly_monthly_gate_enabled", False) or run_cfg.get("resistance_zone_weight", 0.0) > 0:
+    if (
+        run_cfg.get("weekly_monthly_gate_enabled", False)
+        or run_cfg.get("resistance_zone_weight", 0.0) > 0
+    ):
         long_candles = bt.load_long_history_cached(
             config.UNIVERSE, end_date=end_date, progress_cb=lambda s, f: report(s, 0.44 + f * 0.05)
         )
@@ -4991,7 +5449,13 @@ def _run_backtest_job(
         "rebalance_cadence": rebalance_cadence_v,
         "use_fundamentals": use_fundamentals,
     }
-    result = {"result": res, "bench": bench_bt, "run_time": run_time, "cfg": run_cfg, "run_meta": run_meta}
+    result = {
+        "result": res,
+        "bench": bench_bt,
+        "run_time": run_time,
+        "cfg": run_cfg,
+        "run_meta": run_meta,
+    }
     pd.to_pickle(result, BACKTEST_CACHE)
     return result
 
@@ -5066,7 +5530,9 @@ def page_backtest():
     _run_backtest_clicked = _bt_hdr_r2.button(
         "Run backtest", type="primary", key="bt_run_hdr", disabled=backtest_running
     )
-    _stop_backtest_clicked = _bt_hdr_r3.button("⏹️ Stop backtest", key="bt_stop_hdr", disabled=not backtest_running)
+    _stop_backtest_clicked = _bt_hdr_r3.button(
+        "⏹️ Stop backtest", key="bt_stop_hdr", disabled=not backtest_running
+    )
     if _stop_backtest_clicked:
         cancel_background_job("backtest_run")
         st.toast("Stopping backtest — this can take a few seconds to take effect.", icon="⏹️")
@@ -5083,7 +5549,9 @@ def page_backtest():
     _bt_run_time_hdr = st.session_state.get("bt_run_time")
     if _bt_run_time_hdr is not None:
         _bt_cached_note_hdr = (
-            " 📁 (from cache — click 'Run backtest' to refresh)" if st.session_state.get("bt_is_cached") else ""
+            " 📁 (from cache — click 'Run backtest' to refresh)"
+            if st.session_state.get("bt_is_cached")
+            else ""
         )
         _bt_run_meta = f"Last run: {_bt_run_time_hdr:%d %b %Y %H:%M}{_bt_cached_note_hdr}"
     else:
@@ -5141,7 +5609,9 @@ def page_backtest():
                 # being unmounted, so a later remount re-seeds from your
                 # last real choice instead of silently reverting.
                 if "bt_custom_start_date_saved" not in st.session_state:
-                    st.session_state["bt_custom_start_date_saved"] = dt.date.today() - dt.timedelta(days=3 * 365)
+                    st.session_state["bt_custom_start_date_saved"] = dt.date.today() - dt.timedelta(
+                        days=3 * 365
+                    )
                 if "bt_custom_end_date_saved" not in st.session_state:
                     st.session_state["bt_custom_end_date_saved"] = dt.date.today()
                 start_date = rc2a.date_input(
@@ -5164,7 +5634,10 @@ def page_backtest():
             years = None
         with rc3:
             bt_capital = st.number_input(
-                "Starting capital (₹)", value=_bt_val("bt_capital", 1_000_000.0), step=100000.0, disabled=_bt_locked
+                "Starting capital (₹)",
+                value=_bt_val("bt_capital", 1_000_000.0),
+                step=100000.0,
+                disabled=_bt_locked,
             )
         with rc4:
             bt_max_positions = st.number_input(
@@ -5199,7 +5672,8 @@ def page_backtest():
 
         def _ov_muted(text):
             st.markdown(
-                f'<p class="ov-muted" style="margin:10px 0 2px;text-transform:none;">{text}</p>', unsafe_allow_html=True
+                f'<p class="ov-muted" style="margin:10px 0 2px;text-transform:none;">{text}</p>',
+                unsafe_allow_html=True,
             )
 
         _ov_muted("Trade management")
@@ -5228,7 +5702,9 @@ def page_backtest():
                     "Median length",
                     min_value=5,
                     max_value=100,
-                    value=_bt_val("mad_stop_med_len", int(config.STRATEGY.get("mad_stop_med_len", 21))),
+                    value=_bt_val(
+                        "mad_stop_med_len", int(config.STRATEGY.get("mad_stop_med_len", 21))
+                    ),
                     step=1,
                     disabled=_bt_locked,
                     help="Rolling window for the trail's median center line.",
@@ -5238,7 +5714,9 @@ def page_backtest():
                     "MAD length",
                     min_value=5,
                     max_value=100,
-                    value=_bt_val("mad_stop_mad_len", int(config.STRATEGY.get("mad_stop_mad_len", 21))),
+                    value=_bt_val(
+                        "mad_stop_mad_len", int(config.STRATEGY.get("mad_stop_mad_len", 21))
+                    ),
                     step=1,
                     disabled=_bt_locked,
                     help="Rolling window for the median-absolute-deviation band width.",
@@ -5248,7 +5726,10 @@ def page_backtest():
                     "Deviation factor",
                     min_value=0.5,
                     max_value=5.0,
-                    value=_bt_val("mad_stop_dev_factor", float(config.STRATEGY.get("mad_stop_dev_factor", 2.0))),
+                    value=_bt_val(
+                        "mad_stop_dev_factor",
+                        float(config.STRATEGY.get("mad_stop_dev_factor", 2.0)),
+                    ),
                     step=0.1,
                     disabled=_bt_locked,
                     help="MAD band half-width multiplier -- wider band = looser stop.",
@@ -5259,7 +5740,8 @@ def page_backtest():
                     min_value=0.5,
                     max_value=5.0,
                     value=_bt_val(
-                        "mad_stop_atr_floor_mult", float(config.STRATEGY.get("mad_stop_atr_floor_mult", 2.0))
+                        "mad_stop_atr_floor_mult",
+                        float(config.STRATEGY.get("mad_stop_atr_floor_mult", 2.0)),
                     ),
                     step=0.1,
                     disabled=_bt_locked,
@@ -5287,7 +5769,9 @@ def page_backtest():
             with ts1:
                 use_trailing = st.checkbox(
                     "Trailing stop",
-                    value=_bt_val("trailing_stop_enabled", bool(config.STRATEGY["trailing_stop_enabled"])),
+                    value=_bt_val(
+                        "trailing_stop_enabled", bool(config.STRATEGY["trailing_stop_enabled"])
+                    ),
                     key="bt_use_trailing",
                     disabled=_bt_locked,
                     help="LIVE default is ON. Ratchets each position's stop up to "
@@ -5299,7 +5783,9 @@ def page_backtest():
                     "ATR multiple",
                     min_value=0.5,
                     max_value=10.0,
-                    value=_bt_val("trailing_atr_multiple", float(config.STRATEGY["trailing_atr_multiple"])),
+                    value=_bt_val(
+                        "trailing_atr_multiple", float(config.STRATEGY["trailing_atr_multiple"])
+                    ),
                     step=0.25,
                     disabled=(not use_trailing) or _bt_locked,
                     help="A 5-year sweep found an inverted-U peaking at 4.0x (the "
@@ -5319,7 +5805,9 @@ def page_backtest():
             rebalance_cadence_v = st.segmented_control(
                 "Rebalance cadence",
                 ["daily", "weekly", "monthly"],
-                default=_bt_val("rebalance_cadence", config.STRATEGY.get("rebalance_cadence", "daily")),
+                default=_bt_val(
+                    "rebalance_cadence", config.STRATEGY.get("rebalance_cadence", "daily")
+                ),
                 key="bt_rebalance_cadence",
                 disabled=_bt_locked,
                 help="All three mirror the LIVE Admin setting exactly -- "
@@ -5344,7 +5832,8 @@ def page_backtest():
                 step=0.01,
                 format="%.2f",
                 disabled=_bt_locked,
-                help="Momentum names trade 45-80 in this system's regime; below this is not yet in an uptrend.",
+                help="Momentum names trade 45-80 in this system's regime; below "
+                "this is not yet in an uptrend.",
             )
         with ti2:
             rsi_max_v = st.number_input(
@@ -5384,7 +5873,9 @@ def page_backtest():
                 "Momentum lookback — short (days)",
                 min_value=5,
                 max_value=252,
-                value=_bt_val("mom_lookback_days_short", int(config.STRATEGY["mom_lookback_days_short"])),
+                value=_bt_val(
+                    "mom_lookback_days_short", int(config.STRATEGY["mom_lookback_days_short"])
+                ),
                 step=1,
                 disabled=_bt_locked,
             )
@@ -5393,7 +5884,9 @@ def page_backtest():
                 "Momentum lookback — long (days)",
                 min_value=5,
                 max_value=504,
-                value=_bt_val("mom_lookback_days_long", int(config.STRATEGY["mom_lookback_days_long"])),
+                value=_bt_val(
+                    "mom_lookback_days_long", int(config.STRATEGY["mom_lookback_days_long"])
+                ),
                 step=1,
                 disabled=_bt_locked,
             )
@@ -5421,7 +5914,10 @@ def page_backtest():
             use_rsi_exit_gate = st.checkbox(
                 "Separate exit RSI ceiling",
                 key="bt_use_rsi_exit_gate",
-                value=_bt_val("rsi_exit_gate_enabled", bool(config.STRATEGY.get("rsi_exit_gate_enabled", False))),
+                value=_bt_val(
+                    "rsi_exit_gate_enabled",
+                    bool(config.STRATEGY.get("rsi_exit_gate_enabled", False)),
+                ),
                 disabled=_bt_locked,
                 help="OFF by default and NOT the live behavior. When on, a "
                 "held position whose only failing gate is the entry-band "
@@ -5438,7 +5934,10 @@ def page_backtest():
                 "Exit RSI ceiling",
                 min_value=0.0,
                 max_value=100.0,
-                value=_bt_val("rsi_exit_max", float(config.STRATEGY.get("rsi_exit_max", config.STRATEGY["rsi_max"]))),
+                value=_bt_val(
+                    "rsi_exit_max",
+                    float(config.STRATEGY.get("rsi_exit_max", config.STRATEGY["rsi_max"])),
+                ),
                 step=1.0,
                 format="%.2f",
                 disabled=(not use_rsi_exit_gate) or _bt_locked,
@@ -5449,7 +5948,8 @@ def page_backtest():
                 "Weekly/monthly EMA trend gate",
                 key="bt_use_wm_rsi_gate",
                 value=_bt_val(
-                    "weekly_monthly_gate_enabled", bool(config.STRATEGY.get("weekly_monthly_gate_enabled", False))
+                    "weekly_monthly_gate_enabled",
+                    bool(config.STRATEGY.get("weekly_monthly_gate_enabled", False)),
                 ),
                 disabled=_bt_locked,
                 help="OFF by default and NOT the live behavior. Extra entry "
@@ -5483,7 +5983,8 @@ def page_backtest():
                 use_equal_weight = st.checkbox(
                     "Equal-weight allocator",
                     value=_bt_val(
-                        "advanced_equal_weight_sizing", bool(config.STRATEGY["advanced_equal_weight_sizing"])
+                        "advanced_equal_weight_sizing",
+                        bool(config.STRATEGY["advanced_equal_weight_sizing"]),
                     ),
                     key="bt_use_equal_weight",
                     disabled=_bt_locked,
@@ -5498,7 +5999,10 @@ def page_backtest():
                     "Tolerance",
                     min_value=0.0,
                     max_value=1.0,
-                    value=_bt_val("equal_weight_tolerance_pct", float(config.STRATEGY["equal_weight_tolerance_pct"])),
+                    value=_bt_val(
+                        "equal_weight_tolerance_pct",
+                        float(config.STRATEGY["equal_weight_tolerance_pct"]),
+                    ),
                     step=0.01,
                     format="%.2f",
                     disabled=(not use_equal_weight) or _bt_locked,
@@ -5511,7 +6015,8 @@ def page_backtest():
                 "Capital-weighted sizing (uncheck for risk-based)",
                 key="bt_use_capital_equal_weight",
                 value=_bt_val(
-                    "capital_equal_weight_sizing", bool(config.STRATEGY.get("capital_equal_weight_sizing", True))
+                    "capital_equal_weight_sizing",
+                    bool(config.STRATEGY.get("capital_equal_weight_sizing", True)),
                 ),
                 disabled=_bt_locked,
                 help="ON by default, matches live. Sizes each position off "
@@ -5527,7 +6032,9 @@ def page_backtest():
         with sc2:
             use_fundamentals = st.checkbox(
                 "Fundamental gate",
-                value=_bt_val("fundamental_gate_enabled", bool(config.STRATEGY["fundamental_gate_enabled"])),
+                value=_bt_val(
+                    "fundamental_gate_enabled", bool(config.STRATEGY["fundamental_gate_enabled"])
+                ),
                 key="bt_use_fundamentals",
                 disabled=_bt_locked,
                 help="This is the LIVE default (config.STRATEGY['fundamental_gate_"
@@ -5544,7 +6051,9 @@ def page_backtest():
                 "Fundamental bonus weight",
                 min_value=0.0,
                 max_value=3.0,
-                value=_bt_val("fundamental_bonus_weight", float(config.STRATEGY["fundamental_bonus_weight"])),
+                value=_bt_val(
+                    "fundamental_bonus_weight", float(config.STRATEGY["fundamental_bonus_weight"])
+                ),
                 step=0.1,
                 disabled=(not use_fundamentals) or _bt_locked,
                 help="Tilts ranking toward higher-quality gate-passers (on top "
@@ -5560,7 +6069,9 @@ def page_backtest():
                 "Min fundamental score",
                 min_value=0.0,
                 max_value=100.0,
-                value=_bt_val("min_fundamental_score", float(config.STRATEGY["min_fundamental_score"])),
+                value=_bt_val(
+                    "min_fundamental_score", float(config.STRATEGY["min_fundamental_score"])
+                ),
                 step=1.0,
                 disabled=_bt_locked,
                 help="NOT independently A/B-tuned -- config.py calls 50 (the "
@@ -5579,7 +6090,8 @@ def page_backtest():
                 "52-week-high proximity (%)",
                 min_value=50.0,
                 max_value=100.0,
-                value=_bt_val("near_high_threshold", float(config.STRATEGY["near_high_threshold"])) * 100,
+                value=_bt_val("near_high_threshold", float(config.STRATEGY["near_high_threshold"]))
+                * 100,
                 step=1.0,
                 disabled=_bt_locked,
                 help="Price must be at least this % of its 52-week high to qualify.",
@@ -5603,7 +6115,8 @@ def page_backtest():
                 "Sector diversification cap",
                 key="bt_use_sector_diversification",
                 value=_bt_val(
-                    "sector_diversification_enabled", bool(config.STRATEGY.get("sector_diversification_enabled", False))
+                    "sector_diversification_enabled",
+                    bool(config.STRATEGY.get("sector_diversification_enabled", False)),
                 ),
                 disabled=_bt_locked,
                 help="OFF by default and NOT the live behavior. Unlike the bonus "
@@ -5637,7 +6150,10 @@ def page_backtest():
                 "Max positions / sector",
                 min_value=1,
                 max_value=10,
-                value=_bt_val("max_positions_per_sector", int(config.STRATEGY.get("max_positions_per_sector", 3))),
+                value=_bt_val(
+                    "max_positions_per_sector",
+                    int(config.STRATEGY.get("max_positions_per_sector", 3)),
+                ),
                 step=1,
                 disabled=(not use_sector_diversification) or _bt_locked,
             )
@@ -5645,7 +6161,8 @@ def page_backtest():
             "Use composite sector score (RS + 52w-high + breadth) instead of RS alone",
             key="bt_use_sector_composite",
             value=_bt_val(
-                "sector_composite_score_enabled", bool(config.STRATEGY.get("sector_composite_score_enabled", False))
+                "sector_composite_score_enabled",
+                bool(config.STRATEGY.get("sector_composite_score_enabled", False)),
             ),
             disabled=(not use_sector_diversification) or _bt_locked,
             help="Only affects which sectors count as 'top N' above -- OFF "
@@ -5665,7 +6182,9 @@ def page_backtest():
             "Resistance zone weight",
             min_value=0.0,
             max_value=1.0,
-            value=_bt_val("resistance_zone_weight", float(config.STRATEGY.get("resistance_zone_weight", 0.0))),
+            value=_bt_val(
+                "resistance_zone_weight", float(config.STRATEGY.get("resistance_zone_weight", 0.0))
+            ),
             step=0.05,
             disabled=_bt_locked,
             help="0 = off. Tilts ranking toward stocks with more clean room "
@@ -5684,7 +6203,10 @@ def page_backtest():
             use_regime_filter = st.checkbox(
                 "Market regime filter",
                 key="bt_use_regime_filter",
-                value=_bt_val("regime_filter_enabled", bool(config.STRATEGY.get("regime_filter_enabled", False))),
+                value=_bt_val(
+                    "regime_filter_enabled",
+                    bool(config.STRATEGY.get("regime_filter_enabled", False)),
+                ),
                 disabled=_bt_locked,
                 help="OFF by default. When NIFTY 50's own close is below its "
                 "200 EMA, caps how many NEW positions may open to "
@@ -5708,7 +6230,8 @@ def page_backtest():
                 min_value=0.1,
                 max_value=1.0,
                 value=_bt_val(
-                    "regime_position_multiplier", float(config.STRATEGY.get("regime_position_multiplier", 0.5))
+                    "regime_position_multiplier",
+                    float(config.STRATEGY.get("regime_position_multiplier", 0.5)),
                 ),
                 step=0.05,
                 disabled=(not use_regime_filter) or _bt_locked,
@@ -5725,7 +6248,9 @@ def page_backtest():
                 "Entry confirmation (consecutive rebalance events)",
                 min_value=0,
                 max_value=10,
-                value=_bt_val("entry_confirm_days", int(config.STRATEGY.get("entry_confirm_days", 0) or 0)),
+                value=_bt_val(
+                    "entry_confirm_days", int(config.STRATEGY.get("entry_confirm_days", 0) or 0)
+                ),
                 step=1,
                 key="bt_entry_confirm_days",
                 disabled=_bt_locked,
@@ -5774,7 +6299,9 @@ def page_backtest():
             )
             bar.empty()
             os.makedirs("cache", exist_ok=True)
-            pd.to_pickle({"history": history, "run_time": dt.datetime.now()}, FUNDAMENTALS_HISTORY_CACHE)
+            pd.to_pickle(
+                {"history": history, "run_time": dt.datetime.now()}, FUNDAMENTALS_HISTORY_CACHE
+            )
             st.rerun()
 
     run_disabled = range_mode == "Custom dates" and start_date >= end_date
@@ -5865,7 +6392,8 @@ def page_backtest():
             job_type="backtest_run",
             meta=bt_meta,
             summarize_fn=lambda r: (
-                f"CAGR {r['result']['metrics'].get('CAGR %', '?')}%, Sharpe {r['result']['metrics'].get('Sharpe', '?')}"
+                f"CAGR {r['result']['metrics'].get('CAGR %', '?')}%, "
+                f"Sharpe {r['result']['metrics'].get('Sharpe', '?')}"
             ),
         )
         st.rerun()
@@ -5953,7 +6481,8 @@ def page_backtest():
     with st.expander("⚙️ Parameters used for this run", expanded=False):
         if not _bt_cfg:
             st.caption(
-                "This result was cached before parameter tracking was added — re-run the backtest to record its config."
+                "This result was cached before parameter tracking was "
+                "added — re-run the backtest to record its config."
             )
         else:
             if _bt_meta.get("range_mode") == "Custom dates":
@@ -5980,7 +6509,8 @@ def page_backtest():
             i2.metric("EMA fast/slow", f"{_bt_cfg.get('ema_fast')}/{_bt_cfg.get('ema_slow')}")
             i3.metric(
                 "Momentum lookback",
-                f"{_bt_cfg.get('mom_lookback_days_short')}/{_bt_cfg.get('mom_lookback_days_long')}d",
+                f"{_bt_cfg.get('mom_lookback_days_short')}/"
+                f"{_bt_cfg.get('mom_lookback_days_long')}d",
             )
             i4.metric("Skip most recent (days)", _bt_cfg.get("skip_recent_days"))
             _rsi_exit = "ON" if _bt_cfg.get("rsi_exit_gate_enabled") else "OFF"
@@ -5991,13 +6521,17 @@ def page_backtest():
             st.caption("Scanner param")
             s1, s2, s3, s4 = st.columns(4)
             _ew = "ON" if _bt_cfg.get("advanced_equal_weight_sizing") else "OFF"
-            s1.metric("Equal-weight allocator", f"{_ew} (tol {_bt_cfg.get('equal_weight_tolerance_pct')})")
+            s1.metric(
+                "Equal-weight allocator", f"{_ew} (tol {_bt_cfg.get('equal_weight_tolerance_pct')})"
+            )
             _fg = "ON" if _bt_cfg.get("fundamental_gate_enabled") else "OFF"
             s2.metric("Fundamental gate", _fg)
             s3.metric("Fundamental bonus weight", _bt_cfg.get("fundamental_bonus_weight"))
             s4.metric("Min fundamental score", _bt_cfg.get("min_fundamental_score"))
             s5, s6, s7, s8 = st.columns(4)
-            s5.metric("52w-high proximity (%)", f"{_bt_cfg.get('near_high_threshold', 0) * 100:.0f}")
+            s5.metric(
+                "52w-high proximity (%)", f"{_bt_cfg.get('near_high_threshold', 0) * 100:.0f}"
+            )
             s6.metric("Sector bonus weight", _bt_cfg.get("sector_bonus_weight"))
             _sd = "ON" if _bt_cfg.get("sector_diversification_enabled") else "OFF"
             _sc = "composite" if _bt_cfg.get("sector_composite_score_enabled") else "RS-only"
@@ -6027,7 +6561,9 @@ def page_backtest():
 
     if _bt_cfg:
         with st.expander("🚀 Apply this run's config to live", expanded=False):
-            _live_diff = _strategy_config_diff(config.STRATEGY, _bt_cfg, config.BACKTEST_TUNABLE_KEYS)
+            _live_diff = _strategy_config_diff(
+                config.STRATEGY, _bt_cfg, config.BACKTEST_TUNABLE_KEYS
+            )
             if not _live_diff:
                 st.info("Live config already matches this run's settings — nothing to apply.")
             else:
@@ -6038,7 +6574,8 @@ def page_backtest():
                     "Live Rebalance tab to actually run/execute one."
                 )
                 _diff_rows = [
-                    {"Parameter": k, "Live now": str(old), "Would become": str(new)} for k, old, new in _live_diff
+                    {"Parameter": k, "Live now": str(old), "Would become": str(new)}
+                    for k, old, new in _live_diff
                 ]
                 st.dataframe(pd.DataFrame(_diff_rows), hide_index=True, use_container_width=True)
                 _confirm_apply_live = st.checkbox(
@@ -6047,7 +6584,10 @@ def page_backtest():
                     key="bt_confirm_apply_live",
                 )
                 if st.button(
-                    "🚀 Apply to live", type="primary", disabled=not _confirm_apply_live, key="bt_apply_live_btn"
+                    "🚀 Apply to live",
+                    type="primary",
+                    disabled=not _confirm_apply_live,
+                    key="bt_apply_live_btn",
                 ):
                     _live_updates = {k: new for k, old, new in _live_diff}
                     state_db.update_strategy_config(_live_updates)
@@ -6074,7 +6614,10 @@ def page_backtest():
                         res, bench_bt, _bt_cfg or {}, _bt_meta or {}, _bt_run_time_hdr
                     )
                     st.session_state["bt_pdf_run_time"] = _bt_run_time_hdr
-            if st.session_state.get("bt_pdf_run_time") == _bt_run_time_hdr and "bt_pdf_bytes" in st.session_state:
+            if (
+                st.session_state.get("bt_pdf_run_time") == _bt_run_time_hdr
+                and "bt_pdf_bytes" in st.session_state
+            ):
                 st.download_button(
                     "⬇️ Download PDF",
                     st.session_state["bt_pdf_bytes"],
@@ -6145,9 +6688,19 @@ def page_backtest():
             "",
             "coral",
         )
-        + _ov_metric_html("Win rate", f"{_m.get('Win rate %', '—')}%", f"{_m.get('Trades', '—')} trades", "", "purple")
-        + _ov_metric_html("Profit factor", f"{_m.get('Profit factor', '—')}", "gross win/loss", "", "teal")
-        + _ov_metric_html("Open at end", str(len(res["open_positions"])), "not force-sold", "", "amber")
+        + _ov_metric_html(
+            "Win rate",
+            f"{_m.get('Win rate %', '—')}%",
+            f"{_m.get('Trades', '—')} trades",
+            "",
+            "purple",
+        )
+        + _ov_metric_html(
+            "Profit factor", f"{_m.get('Profit factor', '—')}", "gross win/loss", "", "teal"
+        )
+        + _ov_metric_html(
+            "Open at end", str(len(res["open_positions"])), "not force-sold", "", "amber"
+        )
         + "</div>",
         unsafe_allow_html=True,
     )
@@ -6231,7 +6784,9 @@ def page_backtest():
         st.plotly_chart(bar_fig, width="stretch")
 
     if not res["open_positions"].empty:
-        with st.expander(f"Open positions at period end ({len(res['open_positions'])})", expanded=True):
+        with st.expander(
+            f"Open positions at period end ({len(res['open_positions'])})", expanded=True
+        ):
             st.caption(
                 "Still held when the backtest's date range ran out — "
                 "not force-sold. Unrealized P&L is marked to the last "
@@ -6244,7 +6799,12 @@ def page_backtest():
                     op.sort_values("unrealized_pnl", ascending=False),
                     sym_cols=["symbol"],
                     pnl_cols=["unrealized_pnl", "unrealized_ret_pct"],
-                    num_fmt={"entry_price": "₹{:.2f}", "current_price": "₹{:.2f}", "stop": "₹{:.2f}", "qty": "{:.0f}"},
+                    num_fmt={
+                        "entry_price": "₹{:.2f}",
+                        "current_price": "₹{:.2f}",
+                        "stop": "₹{:.2f}",
+                        "qty": "{:.0f}",
+                    },
                 ),
                 unsafe_allow_html=True,
             )
@@ -6261,7 +6821,11 @@ def page_backtest():
             _dp_dates = pd.to_datetime(_daily_pos["date"]).dt.date
             _dp_min, _dp_max = _dp_dates.min(), _dp_dates.max()
             query_date = st.date_input(
-                "Date", value=_dp_max, min_value=_dp_min, max_value=_dp_max, key="bt_daily_pos_query_date"
+                "Date",
+                value=_dp_max,
+                min_value=_dp_min,
+                max_value=_dp_max,
+                key="bt_daily_pos_query_date",
             )
             day_rows = _daily_pos[_dp_dates == query_date]
             if day_rows.empty:
@@ -6305,11 +6869,17 @@ def page_backtest():
 
             f1, f2, f3 = st.columns(3)
             with f1:
-                sym_filter = st.multiselect("Symbol", sorted(tr["symbol"].unique()), key="tr_sym_filter")
+                sym_filter = st.multiselect(
+                    "Symbol", sorted(tr["symbol"].unique()), key="tr_sym_filter"
+                )
             with f2:
-                reason_filter = st.multiselect("Exit reason", sorted(tr["reason"].unique()), key="tr_reason_filter")
+                reason_filter = st.multiselect(
+                    "Exit reason", sorted(tr["reason"].unique()), key="tr_reason_filter"
+                )
             with f3:
-                outcome_filter = st.selectbox("Outcome", ["All", "Wins only", "Losses only"], key="tr_outcome_filter")
+                outcome_filter = st.selectbox(
+                    "Outcome", ["All", "Wins only", "Losses only"], key="tr_outcome_filter"
+                )
 
             filtered = tr
             if sym_filter:
@@ -6330,13 +6900,489 @@ def page_backtest():
                     sym_cols=["symbol"],
                     pnl_cols=["pnl", "ret_pct"],
                     num_fmt={"entry_price": "₹{:.2f}", "exit_price": "₹{:.2f}"},
-                    badges={"reason": lambda v: "ov-badge-red" if v == "stop_hit" else "ov-badge-gray"},
+                    badges={
+                        "reason": lambda v: "ov-badge-red" if v == "stop_hit" else "ov-badge-gray"
+                    },
                 ),
                 unsafe_allow_html=True,
             )
             _ov_pagination_controls(filtered_sorted, key="bt_closed", page_size=20)
             st.download_button(
-                "Download trades CSV (filtered view)", filtered.to_csv(index=False), "backtest_trades.csv"
+                "Download trades CSV (filtered view)",
+                filtered.to_csv(index=False),
+                "backtest_trades.csv",
+            )
+
+
+# ---------------------------------------------------------------------------
+# Page: Intraday Backtest
+# ---------------------------------------------------------------------------
+
+
+def _run_intraday_backtest_job(start_date, end_date, capital, progress_cb=None):
+    result = ibt.run_backtest(start_date, end_date, capital, progress_cb=progress_cb)
+    run_time = dt.datetime.now()
+    os.makedirs("cache", exist_ok=True)
+    run_meta = {"start_date": start_date, "end_date": end_date, "capital": capital}
+    cached = {"result": result, "run_time": run_time, "run_meta": run_meta}
+    pd.to_pickle(cached, INTRADAY_BACKTEST_CACHE)
+    return cached
+
+
+def page_intraday_backtest():
+    backtest_job = get_background_job("intraday_backtest_run")
+    backtest_running = backtest_job is not None and not backtest_job["done"]
+
+    # Same session-survival pattern as page_backtest()'s own _bt_val --
+    # this run can take several minutes (one Kite historical-data call
+    # per F&O/NIFTY50 symbol), long enough to outlive a browser tab, so
+    # the form reads back what was ACTUALLY submitted from the job's
+    # own meta rather than reverting to a fresh default while locked.
+    _ibt_snapshot = (backtest_job.get("meta") or {}) if backtest_job else {}
+    _ibt_locked = backtest_running and bool(_ibt_snapshot)
+
+    def _ibt_val(key, default):
+        return _ibt_snapshot.get(key, default) if _ibt_locked else default
+
+    _ibt_tip = html_lib.escape(
+        "Replays the CURRENTLY DEPLOYED DaysLowVolumnBreakout rule set "
+        "(day bias, candidate selection, overnight-gap filter, sector "
+        "confirmation gate, signal detection incl. the EMA50 trend and "
+        "fair-value-gap filters, CHRONO slot-filling, position sizing, "
+        "and the full breakeven/EMA10-trail exit management) against "
+        "real recent Kite 5-minute candles -- NOT a reproduction of the "
+        "v5.4 spec's published 5-year numbers (those come from the "
+        "strategy project's own local disk cache of 5-min history; "
+        "Kite's historical API caps a single 5-minute request at 100 "
+        "days and there's no cheap way to backfill years across the "
+        "whole F&O universe from live Kite calls). Keep the date range "
+        "short (weeks, not years) -- a wide range re-fetches 5-min "
+        "history for ~200+ symbols and can take several minutes."
+    )
+    st.markdown(
+        '<div class="ov-header" style="margin-bottom:0;">'
+        '<div><span class="ov-h1">🧪 Intraday Backtest</span> '
+        '<span class="ov-sub">DaysLowVolumnBreakout, real recent Kite data</span>'
+        f'<span class="ov-info-icon" title="{_ibt_tip}">ℹ️</span></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if "ibt_result" not in st.session_state and os.path.exists(INTRADAY_BACKTEST_CACHE):
+        _cached_ibt = pd.read_pickle(INTRADAY_BACKTEST_CACHE)
+        st.session_state["ibt_result"] = _cached_ibt["result"]
+        st.session_state["ibt_run_time"] = _cached_ibt["run_time"]
+        st.session_state["ibt_run_meta"] = _cached_ibt.get("run_meta")
+        st.session_state["ibt_is_cached"] = True
+
+    _ibt_run_time_hdr = st.session_state.get("ibt_run_time")
+    if _ibt_run_time_hdr is not None:
+        _ibt_cached_note = (
+            " 📁 (from cache — click 'Run backtest' to refresh)"
+            if st.session_state.get("ibt_is_cached")
+            else ""
+        )
+        _ibt_run_meta_txt = f"Last run: {_ibt_run_time_hdr:%d %b %Y %H:%M}{_ibt_cached_note}"
+    else:
+        _ibt_run_meta_txt = "Not run yet"
+
+    with st.container(border=True, key="ov-card-ibt-config"):
+        st.markdown(
+            '<p class="ov-card-title"><span class="ov-dot" '
+            'style="background:var(--ov-blue);"></span>Run configuration'
+            f'<span class="ov-card-meta" style="font-weight:400;margin-left:auto;">'
+            f"{_ibt_run_meta_txt}</span></p>",
+            unsafe_allow_html=True,
+        )
+
+        if "ibt_start_date_saved" not in st.session_state:
+            st.session_state["ibt_start_date_saved"] = dt.date.today() - dt.timedelta(days=30)
+        if "ibt_end_date_saved" not in st.session_state:
+            st.session_state["ibt_end_date_saved"] = dt.date.today() - dt.timedelta(days=1)
+
+        rc1, rc2, rc3, rc4 = st.columns([1.1, 1.1, 1.1, 1.3])
+        with rc1:
+            start_date = st.date_input(
+                "Start date",
+                value=_ibt_val("start_date", st.session_state["ibt_start_date_saved"]),
+                max_value=dt.date.today(),
+                key="ibt_start_date",
+                disabled=_ibt_locked,
+            )
+        with rc2:
+            end_date = st.date_input(
+                "End date",
+                value=_ibt_val("end_date", st.session_state["ibt_end_date_saved"]),
+                max_value=dt.date.today(),
+                key="ibt_end_date",
+                disabled=_ibt_locked,
+            )
+        if not _ibt_locked:
+            st.session_state["ibt_start_date_saved"] = start_date
+            st.session_state["ibt_end_date_saved"] = end_date
+        with rc3:
+            ibt_capital = st.number_input(
+                "Starting capital (₹)",
+                value=_ibt_val(
+                    "capital", float(config.STRATEGY.get("intraday_paper_capital", 1_000_000.0))
+                ),
+                step=50000.0,
+                disabled=_ibt_locked,
+            )
+        with rc4:
+            _span_days = (end_date - start_date).days + 1 if (end_date and start_date) else 0
+            _span_warn = _span_days > 180
+            _span_color = "var(--ov-red-d)" if _span_warn else "var(--ov-muted)"
+            st.markdown(
+                f'<p class="ov-card-meta" style="margin-top:28px;color:{_span_color};">'
+                f"{_span_days} calendar day(s) selected"
+                f"{' — this will be slow and rate-limit-heavy' if _span_warn else ''}"
+                "</p>",
+                unsafe_allow_html=True,
+            )
+
+        _ibt_hdr_spacer, _ibt_hdr_r1, _ibt_hdr_r2 = st.columns([3, 1.2, 1.2])
+        _run_clicked = _ibt_hdr_r1.button(
+            "Run backtest", type="primary", key="ibt_run_btn", disabled=backtest_running
+        )
+        _stop_clicked = _ibt_hdr_r2.button(
+            "⏹️ Stop backtest", key="ibt_stop_btn", disabled=not backtest_running
+        )
+        if _stop_clicked:
+            cancel_background_job("intraday_backtest_run")
+            st.toast("Stopping backtest — this can take a few seconds to take effect.", icon="⏹️")
+
+        if _run_clicked:
+            if not (start_date and end_date and start_date <= end_date):
+                st.warning("Pick a valid start/end date range first.")
+            else:
+                ibt_meta = {"start_date": start_date, "end_date": end_date, "capital": ibt_capital}
+                start_background_job(
+                    "intraday_backtest_run",
+                    _run_intraday_backtest_job,
+                    start_date,
+                    end_date,
+                    ibt_capital,
+                    job_type="intraday_backtest_run",
+                    meta=ibt_meta,
+                    summarize_fn=lambda r: (
+                        f"{r['result']['trades']['position_id'].nunique() if not r['result']['trades'].empty else 0} "
+                        f"position(s), capital {r['result']['capital_start']:,.0f} -> "
+                        f"{r['result']['capital_end']:,.0f}"
+                    ),
+                )
+                st.rerun()
+
+    if backtest_running:
+        st.info(
+            f"⏳ Backtest running since {backtest_job['started_at']:%H:%M:%S} "
+            "— safe to switch tabs or close the browser, it keeps running "
+            "server-side; come back to this page any time to see progress."
+        )
+
+    @st.fragment(run_every="1s" if backtest_running else None)
+    def _ibt_job_status():
+        job = get_background_job("intraday_backtest_run")
+        if job is None:
+            return
+        if not job["done"]:
+            frac, stage = job["progress"]
+            st.progress(frac, text=f"{stage} — started {job['started_at']:%H:%M:%S}")
+            return
+        if job.get("cancelled"):
+            st.warning("⏹️ Backtest stopped.")
+        elif job["error"]:
+            st.error(f"Backtest failed: {job['error']}")
+        else:
+            cached_ibt = job["result"]
+            st.session_state["ibt_result"] = cached_ibt["result"]
+            st.session_state["ibt_run_time"] = cached_ibt["run_time"]
+            st.session_state["ibt_run_meta"] = cached_ibt.get("run_meta")
+            st.session_state["ibt_is_cached"] = False
+        for _k in ("ibt_start_date", "ibt_end_date"):
+            st.session_state.pop(_k, None)
+        clear_background_job("intraday_backtest_run")
+        st.rerun()
+
+    _ibt_job_status()
+
+    if "ibt_result" not in st.session_state:
+        st.info(
+            "Click **Run backtest** to simulate the current intraday rule set on real Kite data."
+        )
+        return
+
+    res = st.session_state["ibt_result"]
+    trades = res["trades"]
+    daily = res["daily"]
+    candidates = res["candidates"]
+    skipped = res["skipped_days"]
+
+    _ibt_run_meta = st.session_state.get("ibt_run_meta") or {}
+    with st.expander("⚙️ Parameters used for this run", expanded=False):
+        if not _ibt_run_meta:
+            st.caption(
+                "This result was cached before parameter tracking was "
+                "added — re-run the backtest to record its inputs."
+            )
+        else:
+            st.caption("Run inputs")
+            ip1, ip2, ip3 = st.columns(3)
+            ip1.metric(
+                "Date range", f"{_ibt_run_meta.get('start_date')} → {_ibt_run_meta.get('end_date')}"
+            )
+            ip2.metric("Starting capital", f"₹{_ibt_run_meta.get('capital', 0):,.0f}")
+            ip3.metric("Ending capital", f"₹{res.get('capital_end', 0):,.0f}")
+
+        st.caption(
+            "Strategy rule set (fixed -- not tunable here; this is the "
+            "currently DEPLOYED rule set, same as the live engine)"
+        )
+        sp1, sp2, sp3, sp4 = st.columns(4)
+        sp1.metric(
+            "Day-bias ratio (L/S)",
+            f">{istrat.BIAS_RATIO_LONG_MIN} / <{istrat.BIAS_RATIO_SHORT_MAX}",
+        )
+        sp2.metric(
+            "Sector gate ratio (L/S)",
+            f">{istrat.SECTOR_GATE_RATIO_LONG_MIN} / <{istrat.SECTOR_GATE_RATIO_SHORT_MAX}",
+        )
+        sp3.metric("Candidate pool", f"Top {istrat.TOP_N_CANDIDATES}")
+        sp4.metric("Overnight gap filter", f"±{istrat.GAP_FILTER_PCT}%")
+        sp5, sp6, sp7, sp8 = st.columns(4)
+        sp5.metric("Signal window", f"{istrat.SIGNAL_WINDOW_START}–{istrat.SIGNAL_WINDOW_END}")
+        sp6.metric("New-signal cutoff", str(istrat.NEW_SIGNAL_CUTOFF))
+        sp7.metric("Breakout window", f"{istrat.BREAKOUT_WINDOW} candle(s)")
+        sp8.metric("Squareoff", istrat.SQUAREOFF_TIME)
+        sp9, sp10, sp11, sp12 = st.columns(4)
+        sp9.metric("Signal vol tolerance", f"{istrat.VOL_THRESHOLD_PCT:.0%}")
+        sp10.metric("ATR buffer / period", f"{istrat.ATR_PCT_BUFFER:.0%} / {istrat.ATR_PERIOD}")
+        sp11.metric("EMA span (invalidation)", istrat.EMA_SPAN)
+        sp12.metric("Trail EMA span", istrat.TRAIL_EMA_SLOW)
+        sp13, sp14, sp15, sp16 = st.columns(4)
+        sp13.metric("Reward : risk", f"1 : {istrat.REWARD_RISK}")
+        sp14.metric("Max trades/day", istrat.MAX_TRADES_PER_DAY)
+        sp15.metric("Leverage", f"{istrat.LEVERAGE}×")
+        sp16.metric("Risk per trade", f"{istrat.MAX_RISK_PCT_PER_TRADE:.1%}")
+
+    if daily.empty:
+        st.warning(
+            "No trading day in this range produced a sector-gate-confirmed signal "
+            "— see 'Skipped days' and 'Daily candidates' below for why."
+        )
+    else:
+        with st.container(border=True, key="ov-card-ibt-equity"):
+            eq_fig = go.Figure()
+            eq_fig.add_trace(
+                go.Scatter(
+                    x=pd.to_datetime(daily["date"]),
+                    y=daily["capital"],
+                    name="Capital",
+                    mode="lines+markers",
+                    line={"color": "#16a34a", "width": 2},
+                    hovertemplate="₹%{y:,.0f}<extra>Capital</extra>",
+                )
+            )
+            eq_fig.update_layout(
+                title={"text": "Intraday backtest — capital over time", "x": 0, "xanchor": "left"},
+                height=380,
+                margin={"l": 10, "r": 10, "t": 60, "b": 10},
+                hovermode="x unified",
+                yaxis={"title": "Capital (₹)"},
+                showlegend=False,
+            )
+            st.plotly_chart(eq_fig, width="stretch")
+
+    _total_ret = (
+        (res["capital_end"] / res["capital_start"] - 1) * 100 if res["capital_start"] else 0.0
+    )
+    _n_positions = trades["position_id"].nunique() if not trades.empty else 0
+    _win_positions = _loss_positions = 0
+    if not trades.empty:
+        _pos_pnl = trades.groupby("position_id")["net_pnl"].sum()
+        _win_positions = int((_pos_pnl > 0).sum())
+        _loss_positions = int((_pos_pnl <= 0).sum())
+    _win_rate = (_win_positions / _n_positions * 100) if _n_positions else None
+    _gross_profit = trades.loc[trades["net_pnl"] > 0, "net_pnl"].sum() if not trades.empty else 0.0
+    _gross_loss = -trades.loc[trades["net_pnl"] <= 0, "net_pnl"].sum() if not trades.empty else 0.0
+    _profit_factor = (
+        (_gross_profit / _gross_loss)
+        if _gross_loss > 0
+        else (float("inf") if _gross_profit > 0 else None)
+    )
+    _pf_text = (
+        "∞"
+        if _profit_factor == float("inf")
+        else f"{_profit_factor:.2f}"
+        if _profit_factor is not None
+        else "—"
+    )
+
+    st.markdown(
+        '<div class="ov-grid-metrics">'
+        + _ov_metric_html(
+            "Final capital",
+            f"₹{res['capital_end']:,.0f}",
+            f"{_total_ret:+.1f}% total",
+            "ov-pos" if _total_ret >= 0 else "ov-neg",
+            "green",
+        )
+        + _ov_metric_html(
+            "Positions", str(_n_positions), f"{len(daily)} trading day(s) with a signal", "", "blue"
+        )
+        + _ov_metric_html(
+            "Win rate",
+            f"{_win_rate:.1f}%" if _win_rate is not None else "—",
+            f"{_win_positions}W / {_loss_positions}L",
+            "",
+            "purple",
+        )
+        + _ov_metric_html("Profit factor", _pf_text, "gross win/loss (by leg)", "", "teal")
+        + _ov_metric_html(
+            "Days skipped", str(len(skipped)), "no day bias / no candidates", "", "amber"
+        )
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not candidates.empty:
+        with st.expander(f"Daily candidates ({len(candidates)})", expanded=False):
+            cf1, cf2, cf3 = st.columns(3)
+            with cf1:
+                cand_sym_filter = st.multiselect(
+                    "Symbol", sorted(candidates["symbol"].unique()), key="ibt_cand_sym_filter"
+                )
+            with cf2:
+                cand_dir_filter = st.multiselect(
+                    "Direction", sorted(candidates["direction"].unique()), key="ibt_cand_dir_filter"
+                )
+            with cf3:
+                cand_dates = pd.to_datetime(candidates["date"]).dt.date
+                cand_date_range = st.date_input(
+                    "Date range",
+                    value=(cand_dates.min(), cand_dates.max()),
+                    min_value=cand_dates.min(),
+                    max_value=cand_dates.max(),
+                    key="ibt_cand_date_filter",
+                )
+
+            cand_filtered = candidates
+            if cand_sym_filter:
+                cand_filtered = cand_filtered[cand_filtered["symbol"].isin(cand_sym_filter)]
+            if cand_dir_filter:
+                cand_filtered = cand_filtered[cand_filtered["direction"].isin(cand_dir_filter)]
+            if isinstance(cand_date_range, tuple) and len(cand_date_range) == 2:
+                _cd_lo, _cd_hi = cand_date_range
+                _cd_all = pd.to_datetime(cand_filtered["date"]).dt.date
+                cand_filtered = cand_filtered[(_cd_all >= _cd_lo) & (_cd_all <= _cd_hi)]
+
+            st.caption(f"Showing {len(cand_filtered)} of {len(candidates)} candidate(s)")
+            cand_sorted = cand_filtered.sort_values(["date", "rank"], ascending=[False, True])
+            cand_page = _ov_page_slice(cand_sorted, key="ibt_candidates", page_size=25)
+            st.markdown(
+                _ov_table_html(
+                    cand_page,
+                    sym_cols=["symbol"],
+                    num_fmt={
+                        "ret_first15_pct": "{:+.2f}",
+                        "gap_pct": "{:+.2f}",
+                        "nifty_ratio": "{:.2f}",
+                        "sector_ratio": "{:.2f}",
+                    },
+                    badges={"sector_gate_pass": {True: "ov-badge-green", False: "ov-badge-red"}},
+                ),
+                unsafe_allow_html=True,
+            )
+            _ov_pagination_controls(cand_sorted, key="ibt_candidates", page_size=25)
+            st.download_button(
+                "Download candidates CSV (filtered view)",
+                cand_filtered.to_csv(index=False),
+                "intraday_backtest_candidates.csv",
+            )
+
+    if not skipped.empty:
+        with st.expander(f"Skipped days ({len(skipped)})", expanded=False):
+            st.caption(
+                "Days the NIFTY 50 first-15m ratio didn't clear the LONG/SHORT "
+                "day-bias threshold, no F&O candidate survived the overnight-gap "
+                "filter, no candidate ever triggered an entry, or every triggered "
+                "signal lost the sector-confirmation gate."
+            )
+            skip_reason_filter = st.multiselect(
+                "Reason", sorted(skipped["reason"].unique()), key="ibt_skip_reason_filter"
+            )
+            skip_filtered = skipped
+            if skip_reason_filter:
+                skip_filtered = skip_filtered[skip_filtered["reason"].isin(skip_reason_filter)]
+
+            st.caption(f"Showing {len(skip_filtered)} of {len(skipped)} day(s)")
+            skip_sorted = skip_filtered.sort_values("date", ascending=False)
+            skip_page = _ov_page_slice(skip_sorted, key="ibt_skipped", page_size=25)
+            st.markdown(
+                _ov_table_html(skip_page, num_fmt={"nifty_ratio": "{:.2f}"}), unsafe_allow_html=True
+            )
+            _ov_pagination_controls(skip_sorted, key="ibt_skipped", page_size=25)
+
+    if not trades.empty:
+        with st.container(border=True, key="ov-card-ibt-trades"):
+            st.markdown(
+                '<p class="ov-card-title"><span class="ov-dot" '
+                'style="background:var(--ov-coral);"></span>Simulated trades</p>',
+                unsafe_allow_html=True,
+            )
+            tf1, tf2, tf3 = st.columns(3)
+            with tf1:
+                sym_filter = st.multiselect(
+                    "Symbol", sorted(trades["symbol"].unique()), key="ibt_sym_filter"
+                )
+            with tf2:
+                reason_filter = st.multiselect(
+                    "Exit reason", sorted(trades["reason"].unique()), key="ibt_reason_filter"
+                )
+            with tf3:
+                outcome_filter = st.selectbox(
+                    "Outcome", ["All", "Wins only", "Losses only"], key="ibt_outcome_filter"
+                )
+
+            filtered = trades
+            if sym_filter:
+                filtered = filtered[filtered["symbol"].isin(sym_filter)]
+            if reason_filter:
+                filtered = filtered[filtered["reason"].isin(reason_filter)]
+            if outcome_filter == "Wins only":
+                filtered = filtered[filtered["net_pnl"] > 0]
+            elif outcome_filter == "Losses only":
+                filtered = filtered[filtered["net_pnl"] <= 0]
+
+            st.caption(f"Showing {len(filtered)} of {len(trades)} leg(s)")
+            filtered_sorted = filtered.sort_values(["date", "entry_time"], ascending=[False, False])
+            filtered_page = _ov_page_slice(filtered_sorted, key="ibt_trades", page_size=20)
+            st.markdown(
+                _ov_table_html(
+                    filtered_page,
+                    sym_cols=["symbol"],
+                    pnl_cols=["gross_pnl", "cost", "net_pnl"],
+                    num_fmt={
+                        "entry_price": "₹{:.2f}",
+                        "stop_price": "₹{:.2f}",
+                        "exit_price": "₹{:.2f}",
+                    },
+                    badges={
+                        "reason": lambda v: (
+                            "ov-badge-red"
+                            if v in ("stop", "entry_candle_close")
+                            else "ov-badge-green"
+                            if v in ("target", "ema10_trail_exit")
+                            else "ov-badge-gray"
+                        )
+                    },
+                ),
+                unsafe_allow_html=True,
+            )
+            _ov_pagination_controls(filtered_sorted, key="ibt_trades", page_size=20)
+            st.download_button(
+                "Download trades CSV (filtered view)",
+                filtered.to_csv(index=False),
+                "intraday_backtest_trades.csv",
             )
 
 
@@ -6387,7 +7433,9 @@ def page_fundamentals():
         _run_value_scan_clicked = st.button("Run value score scan", type="primary")
 
     _existing_scores = st.session_state.get("value_scores")
-    _rubrics_present = sorted(_existing_scores["rubric"].dropna().unique()) if _existing_scores is not None else []
+    _rubrics_present = (
+        sorted(_existing_scores["rubric"].dropna().unique()) if _existing_scores is not None else []
+    )
 
     with st.container(border=True, key="ov-card-fund-filters"):
         v1, v2, v3, v4 = st.columns(4)
@@ -6405,7 +7453,8 @@ def page_fundamentals():
             n_years_v = st.slider("Years of annual history", 2, 5, 3, key="value_scan_years")
         with v3:
             st.markdown(
-                '<p style="font-size:11px;font-weight:500;color:var(--ov-text-muted);margin:0 0 4px;">PEG input</p>',
+                '<p style="font-size:11px;font-weight:500;color:var(--ov-text-muted);'
+                'margin:0 0 4px;">PEG input</p>',
                 unsafe_allow_html=True,
             )
             use_price = st.checkbox(
@@ -6417,7 +7466,7 @@ def page_fundamentals():
         with v4:
             sector = st.selectbox(
                 "Filter by sector",
-                ["All", *_rubrics_present],
+                ["All"] + _rubrics_present,
                 key="fund_sector_filter",
                 help="Each sector uses a different rubric with different metrics — "
                 "filtering keeps the table to the columns that actually apply.",
@@ -6451,8 +7500,23 @@ def page_fundamentals():
     # averages and sub-scores, which explain HOW a score was computed, not
     # WHAT to decide on (see the "Score breakdown" expander for that).
     RUBRIC_HEADLINE_COLS = {
-        "general": ["roe", "debt_to_equity", "current_ratio", "revenue_cagr_pct", "fcf_yoy_pct", "peg"],
-        "banking": ["roe", "roa", "nim_proxy_pct", "gross_npa_pct", "net_npa_pct", "advances_yoy_pct", "pat_yoy_pct"],
+        "general": [
+            "roe",
+            "debt_to_equity",
+            "current_ratio",
+            "revenue_cagr_pct",
+            "fcf_yoy_pct",
+            "peg",
+        ],
+        "banking": [
+            "roe",
+            "roa",
+            "nim_proxy_pct",
+            "gross_npa_pct",
+            "net_npa_pct",
+            "advances_yoy_pct",
+            "pat_yoy_pct",
+        ],
         "nbfc": ["roe", "roa", "debt_to_equity", "loan_yoy_pct", "pat_yoy_pct"],
         "general_insurance": [
             "roe",
@@ -6512,7 +7576,11 @@ def page_fundamentals():
     shown["_incomplete"] = shown["missing_pillars"].apply(bool)
     shown = shown.sort_values(["_incomplete", "total_score"], ascending=[True, False])
 
-    show_cols = ["total_score", "pillar_coverage", "rubric", *numeric_cols, "fiscal_year_end", "quarterly_as_of"]
+    show_cols = (
+        ["total_score", "pillar_coverage", "rubric"]
+        + numeric_cols
+        + ["fiscal_year_end", "quarterly_as_of"]
+    )
     show_cols = [c for c in show_cols if c in shown.columns]
 
     with st.container(border=True, key="ov-card-fund-ranked"):
@@ -6544,7 +7612,7 @@ def page_fundamentals():
                     ok, total = (int(x) for x in v.split("/"))
                 except ValueError:
                     return "ov-badge-gray"
-                return "ov-badge-gray" if total in (0, ok) else "ov-badge-amber"
+                return "ov-badge-gray" if total == 0 or ok == total else "ov-badge-amber"
             return "ov-badge-gray"
 
         shown_display = shown[show_cols].copy()
@@ -6577,52 +7645,61 @@ def page_fundamentals():
         return "ov-badge-green" if n >= 4 else "ov-badge-amber" if n >= 2 else "ov-badge-red"
 
     col_score, col_buckets = st.columns(2)
-    with col_score, st.container(border=True, key="ov-card-fund-breakdown"):
-        bd1, bd2, bd3 = st.columns([1.9, 1.6, 2.5])
-        with bd1:
-            st.markdown(
-                '<p class="ov-card-title" style="margin-bottom:0;border-bottom:0px solid var(--ov-border);">'
-                '<span class="ov-dot" style="background:var(--ov-purple);"></span>'
-                "Score breakdown</p>",
-                unsafe_allow_html=True,
-            )
-        with bd2:
-            sym_choice = st.selectbox(
-                "Symbol", list(shown.index), key="value_score_detail_sym", label_visibility="collapsed"
-            )
-        if sym_choice:
-            row = shown.loc[sym_choice]
-            with bd3:
-                _qtr_bit = f" · +Q {row['quarterly_as_of']}" if pd.notna(row.get("quarterly_as_of")) else ""
+    with col_score:
+        with st.container(border=True, key="ov-card-fund-breakdown"):
+            bd1, bd2, bd3 = st.columns([1.9, 1.6, 2.5])
+            with bd1:
                 st.markdown(
-                    f'<p class="ov-card-meta" style="text-align:right;margin:6px 0 0;'
-                    f'font-size:10px;font-weight:700;color:var(--ov-purple-d);">'
-                    f"{row.get('rubric')} rubric · score {row.get('total_score')} · "
-                    f"FY {row.get('fiscal_year_end', '—')}{_qtr_bit}</p>",
+                    '<p class="ov-card-title" style="margin-bottom:0;border-bottom:0px solid var(--ov-border);">'
+                    '<span class="ov-dot" style="background:var(--ov-purple);"></span>'
+                    "Score breakdown</p>",
                     unsafe_allow_html=True,
                 )
-            st.markdown(
-                '<p class="ov-muted" style="margin-top:10px;font-size:10px;">Pillar scores (0-5)</p>',
-                unsafe_allow_html=True,
-            )
-            pillar_scores = row.get("pillar_scores") or {}
-            _pillar_rows = []
-            for k, v in pillar_scores.items():
-                _pct = min(100.0, max(0.0, float(v) / 5 * 100))
-                _color = "#1d9e75" if v >= 4 else "#ef9f27" if v >= 2 else "#e24b4a"
-                _pillar_rows.append(
-                    '<div class="ov-sector-row"><div class="ov-sector-head">'
-                    f"<span>{html_lib.escape(k.replace('_', ' ').title())}</span>"
-                    f'<span class="ov-sym">{v:.1f}</span></div>'
-                    f'<div class="ov-sector-bar"><div class="ov-sector-fill" '
-                    f'style="width:{_pct:.1f}%;background:{_color};"></div></div></div>'
+            with bd2:
+                sym_choice = st.selectbox(
+                    "Symbol",
+                    list(shown.index),
+                    key="value_score_detail_sym",
+                    label_visibility="collapsed",
                 )
-            st.markdown("".join(_pillar_rows), unsafe_allow_html=True)
-            if row.get("missing_pillars"):
+            if sym_choice:
+                row = shown.loc[sym_choice]
+                with bd3:
+                    _qtr_bit = (
+                        f" · +Q {row['quarterly_as_of']}"
+                        if pd.notna(row.get("quarterly_as_of"))
+                        else ""
+                    )
+                    st.markdown(
+                        f'<p class="ov-card-meta" style="text-align:right;margin:6px 0 0;'
+                        f'font-size:10px;font-weight:700;color:var(--ov-purple-d);">'
+                        f"{row.get('rubric')} rubric · score {row.get('total_score')} · "
+                        f"FY {row.get('fiscal_year_end', '—')}{_qtr_bit}</p>",
+                        unsafe_allow_html=True,
+                    )
                 st.markdown(
-                    f'<div class="ov-alert">Excluded from total (no data): {", ".join(row["missing_pillars"])}</div>',
+                    '<p class="ov-muted" style="margin-top:10px;font-size:10px;">Pillar scores (0-5)</p>',
                     unsafe_allow_html=True,
                 )
+                pillar_scores = row.get("pillar_scores") or {}
+                _pillar_rows = []
+                for k, v in pillar_scores.items():
+                    _pct = min(100.0, max(0.0, float(v) / 5 * 100))
+                    _color = "#1d9e75" if v >= 4 else "#ef9f27" if v >= 2 else "#e24b4a"
+                    _pillar_rows.append(
+                        '<div class="ov-sector-row"><div class="ov-sector-head">'
+                        f"<span>{html_lib.escape(k.replace('_', ' ').title())}</span>"
+                        f'<span class="ov-sym">{v:.1f}</span></div>'
+                        f'<div class="ov-sector-bar"><div class="ov-sector-fill" '
+                        f'style="width:{_pct:.1f}%;background:{_color};"></div></div></div>'
+                    )
+                st.markdown("".join(_pillar_rows), unsafe_allow_html=True)
+                if row.get("missing_pillars"):
+                    st.markdown(
+                        '<div class="ov-alert">Excluded from total (no data): '
+                        f"{', '.join(row['missing_pillars'])}</div>",
+                        unsafe_allow_html=True,
+                    )
 
     with col_buckets, st.container(border=True, key="ov-card-fund-buckets"):
         st.markdown(
@@ -6633,8 +7710,15 @@ def page_fundamentals():
         )
         if sym_choice:
             sub_scores = row.get("sub_scores") or {}
-            sub_df = pd.DataFrame([{"Metric": k.replace("_", " ").title(), "Bucket": v} for k, v in sub_scores.items()])
-            st.markdown(_ov_table_html(sub_df, badges={"Bucket": _bucket_badge}), unsafe_allow_html=True)
+            sub_df = pd.DataFrame(
+                [
+                    {"Metric": k.replace("_", " ").title(), "Bucket": v}
+                    for k, v in sub_scores.items()
+                ]
+            )
+            st.markdown(
+                _ov_table_html(sub_df, badges={"Bucket": _bucket_badge}), unsafe_allow_html=True
+            )
 
     incomplete = shown[shown["missing_pillars"].apply(bool)]
     with st.expander(f"Rows with incomplete data ({len(incomplete)})"):
@@ -6647,9 +7731,10 @@ def page_fundamentals():
             "rubric yet."
         )
         st.markdown(
-            f'<span class="ov-info-icon" title="{_incomplete_tip}">ℹ️ Why rows land here</span>', unsafe_allow_html=True
+            f'<span class="ov-info-icon" title="{_incomplete_tip}">ℹ️ Why rows land here</span>',
+            unsafe_allow_html=True,
         )
-        inc_cols = [*show_cols, "missing_pillars"]
+        inc_cols = show_cols + ["missing_pillars"]
         inc_display = incomplete[inc_cols].copy()
         inc_display.insert(0, "symbol", inc_display.index)
         inc_display["missing_pillars"] = inc_display["missing_pillars"].apply(
@@ -6662,13 +7747,21 @@ def page_fundamentals():
 # Page: Job Log
 # ---------------------------------------------------------------------------
 
-JOB_TYPES = ["rebalance_scan", "gap_check", "fundamentals_refresh", "screen_run", "backtest_run"]
+JOB_TYPES = [
+    "rebalance_scan",
+    "gap_check",
+    "fundamentals_refresh",
+    "screen_run",
+    "backtest_run",
+    "intraday_backtest_run",
+]
 
 # Mirrors deploy/vps/systemd/*.timer's OnCalendar schedules -- kept in sync
 # by hand, not read from systemd itself (this dashboard process has no
 # visibility into the VPS's timer state). weekdays: 0=Mon..6=Sun.
-# screen_run/backtest_run have no entry -- both are manual-only buttons
-# (Screener's "Run screen", Backtest's "Run backtest"), never scheduled.
+# screen_run/backtest_run/intraday_backtest_run have no entry -- all three
+# are manual-only buttons (Screener's "Run screen", Backtest's "Run
+# backtest", Intraday Backtest's "Run backtest"), never scheduled.
 _JOB_SCHEDULES = {
     "rebalance_scan": ([0, 1, 2, 3, 4], 14, 45),
     "gap_check": ([0, 1, 2, 3, 4], 9, 16),
@@ -6697,7 +7790,9 @@ def _next_scheduled_run(job_type: str, now: dt.datetime | None = None) -> dt.dat
             and not nse_holidays.is_trading_holiday(candidate.date())
         ):
             return candidate
-        candidate = (candidate + dt.timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+        candidate = (candidate + dt.timedelta(days=1)).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
+        )
     return None
 
 
@@ -6762,16 +7857,21 @@ def page_job_log():
     st.divider()
     with st.container(border=True, key="ov-card-joblog-history"):
         st.markdown(
-            '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-blue);"></span>History</p>',
+            '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-blue);">'
+            "</span>History</p>",
             unsafe_allow_html=True,
         )
         f1, f2, f3 = st.columns(3)
         with f1:
             type_filter = st.multiselect("Job type", JOB_TYPES, key="jl_type_filter")
         with f2:
-            status_filter = st.multiselect("Status", ["success", "failed", "running"], key="jl_status_filter")
+            status_filter = st.multiselect(
+                "Status", ["success", "failed", "running"], key="jl_status_filter"
+            )
         with f3:
-            since_date = st.date_input("Since", value=dt.date.today() - dt.timedelta(days=30), key="jl_since")
+            since_date = st.date_input(
+                "Since", value=dt.date.today() - dt.timedelta(days=30), key="jl_since"
+            )
 
         runs = state_db.get_job_runs(since=since_date.isoformat(), limit=1000)
         if type_filter:
@@ -6809,7 +7909,11 @@ def page_job_log():
                 _display_page,
                 num_fmt={"duration_sec": "{:.1f}s"},
                 badges={
-                    "status": {"success": "ov-badge-green", "failed": "ov-badge-red", "running": "ov-badge-amber"},
+                    "status": {
+                        "success": "ov-badge-green",
+                        "failed": "ov-badge-red",
+                        "running": "ov-badge-amber",
+                    },
                     "trigger_type": {"scheduled": "ov-badge-blue", "manual": "ov-badge-purple"},
                 },
             ),
@@ -6850,7 +7954,9 @@ def page_rebalance_history():
     with st.container(border=True, key="ov-card-rh-history"):
         f1, f2, f3, f4 = st.columns(4)
         with f1:
-            action_filter = st.multiselect("Action", ["sell", "buy", "top_up", "stop_update"], key="rh_action_filter")
+            action_filter = st.multiselect(
+                "Action", ["sell", "buy", "top_up", "stop_update"], key="rh_action_filter"
+            )
         with f2:
             status_filter = st.multiselect(
                 "Status", ["proposed", "executed", "error", "expired"], key="rh_status_filter"
@@ -6858,7 +7964,9 @@ def page_rebalance_history():
         with f3:
             symbol_filter = st.text_input("Symbol (exact)", key="rh_symbol_filter")
         with f4:
-            since_date = st.date_input("Since", value=dt.date.today() - dt.timedelta(days=30), key="rh_since")
+            since_date = st.date_input(
+                "Since", value=dt.date.today() - dt.timedelta(days=30), key="rh_since"
+            )
 
         hist = state_db.get_rebalance_history(
             status=status_filter or None,
@@ -6949,6 +8057,10 @@ _EXIT_TYPE_BADGES = {
 _INTRADAY_EVENT_BADGES = {
     "signal_formed": "ov-badge-amber",
     "expired": "ov-badge-gray",
+    # re_signaled: kept for historical rows recorded before v5.4 §5l
+    # removed the re-signal mechanism entirely (2026-09-28) -- no new
+    # signal will ever get this status again, but old ones must still
+    # render correctly. Same treatment as ema5_trail_exit just below.
     "re_signaled": "ov-badge-amber",
     "invalidated": "ov-badge-gray",
     "triggered": "ov-badge-green",
@@ -6999,7 +8111,9 @@ def _ensure_subscribed(ticker: live_ticker.LiveTicker, symbols: list[str]) -> No
         if sym in ticker.token_by_symbol:
             continue
         try:
-            tok = kite_client.instrument_map().get(sym) or kite_client.index_instrument_map().get(sym)
+            tok = kite_client.instrument_map().get(sym) or kite_client.index_instrument_map().get(
+                sym
+            )
         except Exception:
             tok = None
         if tok is not None:
@@ -7010,7 +8124,9 @@ def _ensure_subscribed(ticker: live_ticker.LiveTicker, symbols: list[str]) -> No
         ticker.start(timeout=8.0)
 
 
-def _live_price_and_change(ticker: live_ticker.LiveTicker, symbol: str) -> tuple[float | None, float | None]:
+def _live_price_and_change(
+    ticker: live_ticker.LiveTicker, symbol: str
+) -> tuple[float | None, float | None]:
     """Prefers a fresh live tick; falls back to a one-off REST quote if
     the feed hasn't produced a tick for this symbol yet (e.g. right
     after subscribing, or a stale/reconnecting feed) -- so a quiet patch
@@ -7128,7 +8244,9 @@ def _build_intraday_candle_figure(
             [ema21_today[ema21_today.index != live_ts], pd.Series([_live_ema], index=[live_ts])]
         ).sort_index()
 
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03)
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.03
+    )
     fig.add_trace(
         go.Candlestick(
             x=plot_df.index,
@@ -7146,16 +8264,29 @@ def _build_intraday_candle_figure(
         col=1,
     )
     fig.add_trace(
-        go.Scatter(x=plot_df.index, y=ema21_today, mode="lines", name="EMA21", line={"color": "#7b3294", "width": 1.5}),
+        go.Scatter(
+            x=plot_df.index,
+            y=ema21_today,
+            mode="lines",
+            name="EMA21",
+            line={"color": "#7b3294", "width": 1.5},
+        ),
         row=1,
         col=1,
     )
     if "volume" in plot_df.columns:
         vol_colors = [
-            _CHART_UP if c >= o else _CHART_DOWN for o, c in zip(plot_df["open"], plot_df["close"], strict=False)
+            _CHART_UP if c >= o else _CHART_DOWN
+            for o, c in zip(plot_df["open"], plot_df["close"], strict=False)
         ]
         fig.add_trace(
-            go.Bar(x=plot_df.index, y=plot_df["volume"], marker_color=vol_colors, opacity=0.6, name="Volume"),
+            go.Bar(
+                x=plot_df.index,
+                y=plot_df["volume"],
+                marker_color=vol_colors,
+                opacity=0.6,
+                name="Volume",
+            ),
             row=2,
             col=1,
         )
@@ -7185,9 +8316,29 @@ def _build_intraday_candle_figure(
         # dotted reference lines at the real price level, since those
         # ARE prices the position is still exposed to for the rest of
         # the day, unlike entry which is a one-time past event.
+        #
+        # pos["entry_time"] is NOT always a 5-min-grid timestamp: a
+        # tick-driven trigger (check_tick_entry()/check_tick_trigger() in
+        # intraday_engine.py -- the fast path that fires the instant a
+        # live tick crosses the trigger level, rather than waiting for
+        # that candle to close) stamps it with the real wall-clock
+        # moment, e.g. 09:37:42, not 09:35:00 -- plotting the arrow at
+        # that exact x lands it visually BETWEEN the 09:35 and 09:40
+        # candles instead of on the one it actually belongs to (confirmed
+        # live 2026-10-05, NYKAA). The candle it belongs to is always the
+        # one whose open-time label is <= entry_time and > entry_time -
+        # 5min -- i.e. floor entry_time to the 5-min grid -- entirely a
+        # display fix for this chart's own x-coordinate, never touching
+        # the stored entry_time/entry_price themselves (still shown
+        # correctly via the hover/annotation values) or anything in the
+        # live trading/order path.
         _is_long = direction == istrat.LONG
+        _entry_ts = pd.Timestamp(pos["entry_time"])
+        _entry_candle_ts = _entry_ts.replace(second=0, microsecond=0) - pd.Timedelta(
+            minutes=_entry_ts.minute % 5
+        )
         fig.add_annotation(
-            x=pd.Timestamp(pos["entry_time"]),
+            x=_entry_candle_ts,
             y=float(pos["entry_price"]),
             xref="x",
             yref="y",
@@ -7367,7 +8518,9 @@ def page_intraday_dashboard():
         _ov_metric_html(
             "Today's P&L",
             f"₹{today_pnl:+,.2f}" if legs_today is not None else "—",
-            f"{len(legs_today)} leg(s) closed today" if not legs_today.empty else "nothing closed yet",
+            f"{len(legs_today)} leg(s) closed today"
+            if not legs_today.empty
+            else "nothing closed yet",
             value_cls=("ov-pos" if today_pnl >= 0 else "ov-neg"),
         ),
         _ov_metric_html(
@@ -7419,7 +8572,8 @@ def page_intraday_dashboard():
         col_nifty, col_bias = st.columns(2)
         with col_nifty, st.container(border=True, key="ov-card-intraday-nifty"):
             st.markdown(
-                '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-blue);"></span>NIFTY 50</p>',
+                '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-blue);">'
+                "</span>NIFTY 50</p>",
                 unsafe_allow_html=True,
             )
             nifty_price, nifty_chg = _live_price_and_change(ticker, "NIFTY 50")
@@ -7430,7 +8584,9 @@ def page_intraday_dashboard():
             c1, c2 = st.columns(2)
             if nifty_price is not None:
                 c1.metric(
-                    "Current price", f"₹{nifty_price:,.2f}", f"{nifty_chg:+.2f}%" if nifty_chg is not None else None
+                    "Current price",
+                    f"₹{nifty_price:,.2f}",
+                    f"{nifty_chg:+.2f}%" if nifty_chg is not None else None,
                 )
             else:
                 c1.metric("Current price", "—")
@@ -7449,38 +8605,48 @@ def page_intraday_dashboard():
             else:
                 c2.metric("NSE live A/D (whole day)", "—")
 
-        with col_bias, st.container(border=True, key="ov-card-intraday-bias"):
-            st.markdown(
-                '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-purple);">'
-                "</span>Today's day-bias (locked at 09:30)</p>",
-                unsafe_allow_html=True,
-            )
-            if day is None:
-                st.info("No selection recorded yet today -- the engine runs this once, at 09:30.")
-            elif day["day_bias"] is None:
-                _adv, _dec = day.get("advancers"), day.get("decliners")
-                _ad_text = f" ({int(_adv)} / {int(_dec)})" if pd.notna(_adv) and pd.notna(_dec) else ""
-                st.warning(
-                    f"⚠️ No trade today -- NIFTY 50 first-15-min ratio was "
-                    f"{day['nifty_ratio']:.2f}{_ad_text} (needs >{istrat.BIAS_RATIO_LONG_MIN} "
-                    f"for LONG or <{istrat.BIAS_RATIO_SHORT_MAX} for SHORT)."
-                )
-            else:
-                bias_tone = "green" if day["day_bias"] == "LONG" else "red"
-                bias_cls = "ov-pos" if day["day_bias"] == "LONG" else "ov-neg"
-                _bias_box = _ov_metric_html("Day bias", day["day_bias"], tone=bias_tone, value_cls=bias_cls)
-                _ratio_box = _ov_metric_html("Ratio", f"{day['nifty_ratio']:.2f}")
-                # Same advancers/decliners format as the NSE live A/D box
-                # on the NIFTY 50 card to the left, so the two can be
-                # diffed at a glance -- these measure different windows
-                # (frozen at 09:30 vs continuously updating), so they're
-                # expected to differ, not a sign either one is wrong.
-                _adv, _dec = day.get("advancers"), day.get("decliners")
-                _ad_val = f"{int(_adv)} / {int(_dec)}" if pd.notna(_adv) and pd.notna(_dec) else "—"
-                _code_ad_box = _ov_metric_html("Code A/D (first-15m, @09:30)", _ad_val)
+        with col_bias:
+            with st.container(border=True, key="ov-card-intraday-bias"):
                 st.markdown(
-                    f'<div class="ov-grid-metrics">{_bias_box}{_ratio_box}{_code_ad_box}</div>', unsafe_allow_html=True
+                    '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-purple);">'
+                    "</span>Today's day-bias (locked at 09:30)</p>",
+                    unsafe_allow_html=True,
                 )
+                if day is None:
+                    st.info(
+                        "No selection recorded yet today -- the engine runs this once, at 09:30."
+                    )
+                elif day["day_bias"] is None:
+                    _adv, _dec = day.get("advancers"), day.get("decliners")
+                    _ad_text = (
+                        f" ({int(_adv)} / {int(_dec)})" if pd.notna(_adv) and pd.notna(_dec) else ""
+                    )
+                    st.warning(
+                        f"⚠️ No trade today -- NIFTY 50 first-15-min ratio was "
+                        f"{day['nifty_ratio']:.2f}{_ad_text} (needs >{istrat.BIAS_RATIO_LONG_MIN} "
+                        f"for LONG or <{istrat.BIAS_RATIO_SHORT_MAX} for SHORT)."
+                    )
+                else:
+                    bias_tone = "green" if day["day_bias"] == "LONG" else "red"
+                    bias_cls = "ov-pos" if day["day_bias"] == "LONG" else "ov-neg"
+                    _bias_box = _ov_metric_html(
+                        "Day bias", day["day_bias"], tone=bias_tone, value_cls=bias_cls
+                    )
+                    _ratio_box = _ov_metric_html("Ratio", f"{day['nifty_ratio']:.2f}")
+                    # Same advancers/decliners format as the NSE live A/D box
+                    # on the NIFTY 50 card to the left, so the two can be
+                    # diffed at a glance -- these measure different windows
+                    # (frozen at 09:30 vs continuously updating), so they're
+                    # expected to differ, not a sign either one is wrong.
+                    _adv, _dec = day.get("advancers"), day.get("decliners")
+                    _ad_val = (
+                        f"{int(_adv)} / {int(_dec)}" if pd.notna(_adv) and pd.notna(_dec) else "—"
+                    )
+                    _code_ad_box = _ov_metric_html("Code A/D (first-15m, @09:30)", _ad_val)
+                    st.markdown(
+                        f'<div class="ov-grid-metrics">{_bias_box}{_ratio_box}{_code_ad_box}</div>',
+                        unsafe_allow_html=True,
+                    )
 
         # --- Today's candidates (v5.4: top-5 pool + gap filter, 2 trade slots) ---
         st.markdown(
@@ -7498,7 +8664,9 @@ def page_intraday_dashboard():
             # trade (first to confirm, in rank order on ties); this counts
             # real positions opened today, not just candidates evaluated.
             _today_positions = idb.get_positions(date=today, mode=_mode)
-            _slots_filled = int(_today_positions["symbol"].nunique()) if not _today_positions.empty else 0
+            _slots_filled = (
+                int(_today_positions["symbol"].nunique()) if not _today_positions.empty else 0
+            )
             _slots_cls = "ov-pos" if _slots_filled < istrat.MAX_TRADES_PER_DAY else "ov-neg"
             st.markdown(
                 f'<p class="ov-card-meta">Trade slots: '
@@ -7528,10 +8696,12 @@ def page_intraday_dashboard():
                 state, detail = "No signal yet", ""
                 if _p is not None:
                     state = "Position open"
+                    _capital_used = _p["entry_price"] * _p["qty"]
                     detail = (
                         f"Entry ₹{_p['entry_price']:.2f} / Stop ₹{_p['stop_price']:.2f} / "
                         f"Target ₹{_p['target_price']:.2f} / Qty "
-                        f"{int(_p['qty_remaining'])}/{int(_p['qty'])}"
+                        f"{int(_p['qty_remaining'])}/{int(_p['qty'])} / "
+                        f"Capital used ₹{_capital_used:,.2f}"
                     )
                     # v5.2 EMA-trail: once the 1:2R target is touched the
                     # first-half booking is deferred and trailed -- surface
@@ -7607,7 +8777,10 @@ def page_intraday_dashboard():
                     elif c.get("status") == "day_slots_filled":
                         state, detail = "Slots filled", "Other candidates confirmed first"
                     elif dt.datetime.now().time() > istrat.NEW_SIGNAL_CUTOFF:
-                        state, detail = "No signal formed", f"Search closed {istrat.NEW_SIGNAL_CUTOFF:%H:%M}"
+                        state, detail = (
+                            "No signal formed",
+                            f"Search closed {istrat.NEW_SIGNAL_CUTOFF:%H:%M}",
+                        )
 
                 _sgp = c.get("sector_gate_pass")
                 _sr = c.get("sector_ratio")
@@ -7734,9 +8907,13 @@ def page_intraday_dashboard():
 
         def _render_one_chart(sym: str) -> None:
             with st.container(border=True, key=f"ov-card-intraday-chart-{sym}"):
-                st.markdown(f'<p class="ov-card-title">{html_lib.escape(sym)}</p>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<p class="ov-card-title">{html_lib.escape(sym)}</p>', unsafe_allow_html=True
+                )
                 _sel_sig = idb.get_active_signal(today, sym)
-                _sel_pos_df = _open_now[_open_now["symbol"] == sym] if not _open_now.empty else _open_now
+                _sel_pos_df = (
+                    _open_now[_open_now["symbol"] == sym] if not _open_now.empty else _open_now
+                )
                 _sel_pos = _sel_pos_df.iloc[0].to_dict() if not _sel_pos_df.empty else None
 
                 # Live, tick-by-tick current (still-forming) candle -- Kite's
@@ -7748,7 +8925,9 @@ def page_intraday_dashboard():
                 # window starts.
                 _ltp, _ = _live_price_and_change(_ticker, sym)
                 _now = dt.datetime.now()
-                _cur_boundary = _now.replace(second=0, microsecond=0) - dt.timedelta(minutes=_now.minute % 5)
+                _cur_boundary = _now.replace(second=0, microsecond=0) - dt.timedelta(
+                    minutes=_now.minute % 5
+                )
                 _live_key = f"_intraday_live_candle_{sym}_{today}"
                 _live_state = st.session_state.get(_live_key)
                 _live_candle = None
@@ -7824,7 +9003,11 @@ def page_intraday_dashboard():
             _watch_default = st.session_state.get("intraday_watch_symbol")
             _watch_idx = _watch_syms.index(_watch_default) if _watch_default in _watch_syms else 0
             _watch_sel = st.selectbox(
-                "Chart", _watch_syms, index=_watch_idx, key="intraday_watch_symbol", label_visibility="collapsed"
+                "Chart",
+                _watch_syms,
+                index=_watch_idx,
+                key="intraday_watch_symbol",
+                label_visibility="collapsed",
             )
             _render_one_chart(_watch_sel)
         elif not _open_syms:
@@ -7861,15 +9044,24 @@ def page_intraday_dashboard():
                         unsafe_allow_html=True,
                     )
                 if not _open_now.empty:
-                    st.markdown('<p class="ov-card-meta">Open position(s), live</p>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<p class="ov-card-meta">Open position(s), live</p>', unsafe_allow_html=True
+                    )
                     _ensure_subscribed(_ticker, list(_open_now["symbol"]))
                     _open_rows = []
                     for _, _p in _open_now.iterrows():
                         _p_ltp, _ = _live_price_and_change(_ticker, _p["symbol"])
                         _p_dir_sign = 1.0 if _p["direction"] == istrat.LONG else -1.0
                         if _p_ltp is not None:
-                            _p_chg_pct = (_p_ltp - _p["entry_price"]) / _p["entry_price"] * 100.0 * _p_dir_sign
-                            _p_upnl = (_p_ltp - _p["entry_price"]) * _p["qty_remaining"] * _p_dir_sign
+                            _p_chg_pct = (
+                                (_p_ltp - _p["entry_price"])
+                                / _p["entry_price"]
+                                * 100.0
+                                * _p_dir_sign
+                            )
+                            _p_upnl = (
+                                (_p_ltp - _p["entry_price"]) * _p["qty_remaining"] * _p_dir_sign
+                            )
                         else:
                             _p_chg_pct, _p_upnl = float("nan"), float("nan")
                         _open_rows.append(
@@ -7887,7 +9079,15 @@ def page_intraday_dashboard():
                     st.markdown(
                         _ov_table_html(
                             _open_df,
-                            columns=["symbol", "direction", "entry_price", "ltp", "chg_pct", "qty_remaining", "upnl"],
+                            columns=[
+                                "symbol",
+                                "direction",
+                                "entry_price",
+                                "ltp",
+                                "chg_pct",
+                                "qty_remaining",
+                                "upnl",
+                            ],
                             sym_cols=["symbol"],
                             pnl_cols=["chg_pct", "upnl"],
                             num_fmt={
@@ -7897,7 +9097,9 @@ def page_intraday_dashboard():
                                 "qty_remaining": "{:.0f}",
                                 "upnl": "₹{:+,.2f}",
                             },
-                            badges={"direction": {"LONG": "ov-badge-green", "SHORT": "ov-badge-red"}},
+                            badges={
+                                "direction": {"LONG": "ov-badge-green", "SHORT": "ov-badge-red"}
+                            },
                             na_rep="—",
                         ),
                         unsafe_allow_html=True,
@@ -7918,8 +9120,9 @@ def page_intraday_dashboard():
     events = []
     # "active" has no event badge of its own -- falls back to
     # "signal_formed" (a signal record simply exists, still being
-    # watched). Every other status (expired / re_signaled / triggered /
-    # invalidated) is shown as itself.
+    # watched). Every other status (expired / triggered / invalidated,
+    # plus re_signaled on rows from before v5.4 §5l removed that
+    # mechanism, 2026-09-28) is shown as itself.
     _sig_status_to_event = {
         "expired": "expired",
         "re_signaled": "re_signaled",
@@ -7942,6 +9145,7 @@ def page_intraday_dashboard():
                 "symbol": p["symbol"],
                 "event": "triggered",
                 "detail": f"{p['direction']} qty {int(p['qty'])} @ ₹{p['entry_price']:.2f} "
+                f"(₹{p['entry_price'] * p['qty']:,.2f} used) "
                 f"-- stop ₹{p['stop_price']:.2f}, target ₹{p['target_price']:.2f}",
             }
         )
@@ -7970,6 +9174,265 @@ def page_intraday_dashboard():
 
 
 # ---------------------------------------------------------------------------
+# Page: Intraday Logs -- per-candidate, per-day "why did/didn't this
+# qualify" record.
+# ---------------------------------------------------------------------------
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _diagnose_candidate(symbol: str, date_str: str, direction: str) -> dict | None:
+    """Reconstructs istrat.diagnose_day()'s candle-by-candle trace for one
+    symbol/day, fetching the same inputs intraday_engine.py's own tracker
+    construction does (see run_live()) -- EMA21/ATR14/EMA50 continuous
+    series, the day's 09:15 candle, the 09:20+09:25 one-sided-gate
+    reference range, and the §5n fair-value-gap zone (also from the
+    09:15+09:25 candles). Uses _INTRADAY_CHART_WARMUP_DAYS (45), not the live engine's
+    full EMA_WARMUP_DAYS=120 -- same display-only tradeoff already made
+    for the chart above (EMA21 is well-converged well before 45 days),
+    traded for responsiveness here since this can run once per candidate
+    per page view. Cached 60s so flipping between candidates/re-viewing
+    the same date doesn't refetch Kite every rerun.
+
+    Returns None if the candle data couldn't be fetched (e.g. a genuine
+    API hiccup) -- the caller shows a plain "couldn't reconstruct" note
+    rather than a wrong/empty trace."""
+    try:
+        hist = kite_client.fetch_intraday_candles(
+            symbol, days=_INTRADAY_CHART_WARMUP_DAYS, interval="5minute"
+        )
+        ema21_series = istrat.ema21(hist["close"])
+        atr14_series = istrat.atr14(hist)
+        # v5.4 §5m -- must match intraday_engine.py's own tracker
+        # construction (same strat.ema_n(hist["close"], 50) call) so this
+        # reconstruction's verdict reflects the SAME rule the live engine
+        # actually traded under -- an un-filtered reconstruction would
+        # claim some invalidated/no-signal days should have formed a
+        # signal when the real §5m-aware engine correctly blocked it.
+        ema50_series = istrat.ema_n(hist["close"], 50)
+        date = pd.Timestamp(date_str).date()
+        today_so_far = hist[hist.index.normalize() == pd.Timestamp(date)]
+        if today_so_far.empty:
+            return None
+        fc = today_so_far.iloc[0]
+        c20 = today_so_far.loc[
+            today_so_far.index == pd.Timestamp(date) + pd.Timedelta(hours=9, minutes=20)
+        ]
+        c25 = today_so_far.loc[
+            today_so_far.index == pd.Timestamp(date) + pd.Timedelta(hours=9, minutes=25)
+        ]
+        if c20.empty or c25.empty:
+            sig_range_low, sig_range_high = None, None
+        else:
+            sig_range_low = min(float(c20.iloc[0]["low"]), float(c25.iloc[0]["low"]))
+            sig_range_high = max(float(c20.iloc[0]["high"]), float(c25.iloc[0]["high"]))
+        # v5.4 §5n -- same fair-value-gap zone intraday_engine.py's own
+        # tracker construction computes, from the SAME 09:15/09:25
+        # candles already fetched above.
+        if c25.empty:
+            fvg_lo, fvg_hi = None, None
+        else:
+            fvg_lo, fvg_hi = istrat.fair_value_gap(
+                float(fc["high"]),
+                float(fc["low"]),
+                float(c25.iloc[0]["high"]),
+                float(c25.iloc[0]["low"]),
+            )
+        return istrat.diagnose_day(
+            today_so_far,
+            direction,
+            ema21_series,
+            atr14_series,
+            float(fc["low"]),
+            float(fc["high"]),
+            sig_range_low,
+            sig_range_high,
+            ema50_series=ema50_series,
+            fvg_lo=fvg_lo,
+            fvg_hi=fvg_hi,
+        )
+    except Exception as e:
+        print(f"[_diagnose_candidate] {symbol}/{date_str}: {e}", flush=True)
+        return None
+
+
+def page_intraday_logs():
+    _tip = html_lib.escape(
+        "Per-candidate, per-day record of why each symbol did or didn't "
+        "qualify for a signal/entry. The status badge and its detail for "
+        "'traded' and 'sector_gate_failed' rows is always the REAL outcome "
+        "the live engine recorded at the time -- ground truth, never "
+        "reconstructed. For 'watching' (no signal ever formed) and "
+        "'invalidated' rows, which don't have a persisted reason of their "
+        "own, the one-line verdict shown is RECONSTRUCTED after the fact "
+        "from historical candle data, replaying the exact same rules the "
+        "live engine used -- nothing is persisted to the DB for this, "
+        "recomputed fresh each time you view the page. Rare caveat: the "
+        "data provider can settle a very recent candle's own values "
+        "a very recent candle's own values (closing price, volume) "
+        "slightly differently than what the live engine saw in real "
+        "time -- for a value that sat right at a pass/fail threshold, "
+        "this reconstruction can occasionally show a different verdict "
+        "than what actually happened live. Everything else here matches."
+    )
+    st.markdown(
+        '<div class="ov-header"><div><span class="ov-h1">🧾 Intraday Logs</span>'
+        f'<span class="ov-info-icon" title="{_tip}">ℹ️</span></div></div>',
+        unsafe_allow_html=True,
+    )
+
+    picked_date = st.date_input("Date", value=dt.date.today(), key="intraday_logs_date")
+    date_str = picked_date.isoformat()
+
+    day = idb.get_day(date_str)
+    if day is None:
+        st.info(
+            f"No scan recorded for {date_str} -- a non-trading day, or the engine "
+            "hasn't run for it (yet, or at all)."
+        )
+        return
+
+    st.markdown(
+        '<div class="ov-grid-metrics">'
+        + _ov_metric_html(
+            "Day bias",
+            day["day_bias"] or "No trade",
+            f"NIFTY ratio {day['nifty_ratio']:.2f}",
+            "",
+            "blue",
+        )
+        + _ov_metric_html(
+            "NIFTY 50 breadth",
+            f"{day['advancers']} / {day['decliners']}",
+            "advancers / decliners",
+            "",
+            "teal",
+        )
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not day["day_bias"]:
+        st.info(
+            "Day bias was None (ratio gate skipped the day entirely) -- no candidates, "
+            "no trades possible."
+        )
+        return
+
+    candidates = idb.get_candidates(date_str)
+    if candidates.empty:
+        st.info("No candidates recorded for this date.")
+        return
+
+    direction = istrat.LONG if day["day_bias"] == "LONG" else istrat.SHORT
+    signals = idb.get_signals(date_str)
+    positions = idb.get_positions(date=date_str)
+    legs = idb.get_legs(date=date_str)
+
+    _status_badge = {
+        "watching": "ov-badge-amber",
+        "invalidated": "ov-badge-gray",
+        "sector_gate_failed": "ov-badge-red",
+        "day_slots_filled": "ov-badge-gray",
+        "traded": "ov-badge-green",
+    }
+
+    for _, c in candidates.iterrows():
+        sym = c["symbol"]
+        sym_signals = signals[signals["symbol"] == sym] if not signals.empty else signals
+        sym_positions = positions[positions["symbol"] == sym] if not positions.empty else positions
+        sym_legs = (
+            legs[legs["symbol"] == sym]
+            if not legs.empty and "symbol" in legs.columns
+            else pd.DataFrame()
+        )
+        # intraday_daily_selection's own status column is never actually
+        # written as "traded" (mark_candidate_status()'s real call sites
+        # are only invalidated/sector_gate_failed/day_slots_filled -- a
+        # candidate that opens a real position just stays "watching"
+        # there forever). A real position record is the actual ground
+        # truth for "did this trade", independent of that column's text.
+        status = "traded" if not sym_positions.empty else c["status"]
+
+        # Ground-truth detail for the statuses the real records already
+        # fully explain -- never reconstructed.
+        detail = None
+        if status == "traded":
+            p = sym_positions.iloc[0]
+            leg_bits = (
+                [
+                    f"{l['leg_type']} {int(l['qty'])}@₹{l['exit_price']:.2f} ({l['net_pnl']:+,.2f})"
+                    for _, l in sym_legs.sort_values("exit_time").iterrows()
+                ]
+                if not sym_legs.empty
+                else []
+            )
+            detail = (
+                f"{p['direction']} qty {int(p['qty'])} @ ₹{p['entry_price']:.2f} "
+                f"(₹{p['entry_price'] * p['qty']:,.2f} used; "
+                f"signal {pd.Timestamp(p['signal_time']):%H:%M}, "
+                f"entry {pd.Timestamp(p['entry_time']):%H:%M}) — "
+                + (" · ".join(leg_bits) if leg_bits else "still open")
+            )
+        elif status == "sector_gate_failed":
+            ratio_txt = f"{c['sector_ratio']:.2f}" if pd.notna(c["sector_ratio"]) else "no data"
+            detail = (
+                f"{c['sector'] or 'unresolved sector'}, ratio {ratio_txt} "
+                f"didn't confirm {direction} (needs ≥2.0 for LONG / ≤0.5 for SHORT)"
+            )
+        elif status == "day_slots_filled":
+            detail = (
+                f"Breakout triggered, but MAX_TRADES_PER_DAY ({istrat.MAX_TRADES_PER_DAY}) "
+                "was already used by other candidates ranked ahead of this one that day."
+            )
+
+        with st.container(border=True, key=f"ov-card-ilog-{sym}"):
+            h1, h2 = st.columns([3, 5])
+            with h1:
+                st.markdown(
+                    f'<p class="ov-card-title" style="border-bottom:0;margin-bottom:4px;">'
+                    f'<span class="ov-sym">#{int(c["rank"])} {sym}</span> '
+                    f'<span class="ov-badge {_status_badge.get(status, "ov-badge-gray")}">{status}</span>'
+                    f"</p>",
+                    unsafe_allow_html=True,
+                )
+            with h2:
+                if detail:
+                    st.caption(detail)
+
+            if detail is not None:
+                if not sym_signals.empty:
+                    with st.expander(f"Signal history ({len(sym_signals)}) — real recorded events"):
+                        st.markdown(
+                            _ov_table_html(
+                                sym_signals,
+                                sym_cols=["symbol"],
+                                num_fmt={
+                                    "signal_high": "₹{:.2f}",
+                                    "signal_low": "₹{:.2f}",
+                                    "signal_atr": "{:.2f}",
+                                },
+                                badges={"status": _INTRADAY_EVENT_BADGES},
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                continue
+
+            # status is 'watching' (no signal ever formed, still open as of
+            # the selected date) or 'invalidated' with no reason of its own
+            # persisted anywhere -- reconstruct from historical candles.
+            # End-of-day summary only (diag["trace"]'s full candle-by-candle
+            # detail is still computed internally to derive this verdict,
+            # but deliberately not rendered -- nothing here is persisted to
+            # the DB either way, this is purely keeping the page itself
+            # uncluttered).
+            diag = _diagnose_candidate(sym, date_str, direction)
+            if diag is None:
+                st.caption("Couldn't fetch candle data to reconstruct this one right now.")
+                continue
+            st.markdown(f"**Reconstructed verdict:** {diag['outcome']['detail']}")
+
+
+# ---------------------------------------------------------------------------
 # Page: Intraday Tradebook
 # ---------------------------------------------------------------------------
 
@@ -7990,7 +9453,9 @@ def page_intraday_tradebook():
     with f1:
         mode_filter = st.selectbox("Mode", ["paper", "live"], key="intraday_tb_mode")
     with f2:
-        since = st.date_input("Since", value=dt.date.today() - dt.timedelta(days=30), key="intraday_tb_since")
+        since = st.date_input(
+            "Since", value=dt.date.today() - dt.timedelta(days=30), key="intraday_tb_since"
+        )
 
     positions = idb.get_positions(mode=mode_filter)
     if not positions.empty:
@@ -8008,7 +9473,12 @@ def page_intraday_tradebook():
     metrics = [
         _ov_metric_html("Positions", str(len(positions)), f"{len(closed)} closed"),
         _ov_metric_html("Legs", str(len(legs_all)), "target + stop/squareoff exits"),
-        _ov_metric_html("Net P&L", f"₹{total_pnl:+,.2f}", None, value_cls=("ov-pos" if total_pnl >= 0 else "ov-neg")),
+        _ov_metric_html(
+            "Net P&L",
+            f"₹{total_pnl:+,.2f}",
+            None,
+            value_cls=("ov-pos" if total_pnl >= 0 else "ov-neg"),
+        ),
         _ov_metric_html("Win rate (legs)", f"{win_rate:.0f}%" if pd.notna(win_rate) else "—", None),
     ]
     st.markdown(f'<div class="ov-grid-metrics">{"".join(metrics)}</div>', unsafe_allow_html=True)
@@ -8016,7 +9486,9 @@ def page_intraday_tradebook():
 
     display = (
         legs_all.merge(
-            positions[["id", "signal_time"]].rename(columns={"id": "position_id"}), on="position_id", how="left"
+            positions[["id", "signal_time"]].rename(columns={"id": "position_id"}),
+            on="position_id",
+            how="left",
         )
         if not legs_all.empty
         else legs_all
@@ -8025,12 +9497,19 @@ def page_intraday_tradebook():
         st.info("No legs recorded in this window.")
         return
     display = display.sort_values("exit_time", ascending=False)
+    # Capital used is a POSITION-level fact (entry_price x the position's
+    # FULL original qty, not this leg's own partial-fill qty) -- same
+    # value repeats across a position's legs, consistent with
+    # entry_price/entry_time/direction already being repeated per leg.
+    if "position_qty" in display.columns:
+        display["capital_used"] = display["entry_price"] * display["position_qty"]
     show_cols = [
         "date",
         "symbol",
         "direction",
         "entry_time",
         "entry_price",
+        "capital_used",
         "leg_type",
         "qty",
         "exit_time",
@@ -8050,6 +9529,7 @@ def page_intraday_tradebook():
             num_fmt={
                 "entry_price": "₹{:,.2f}",
                 "exit_price": "₹{:,.2f}",
+                "capital_used": "₹{:,.2f}",
                 "gross_pnl": "₹{:+,.2f}",
                 "costs": "₹{:,.2f}",
                 "qty": "{:.0f}",
@@ -8110,7 +9590,9 @@ def page_tradebook():
             )
             + _ov_metric_html(
                 "Avg holding days",
-                f"{closed['holding_days'].mean():.0f}" if closed["holding_days"].notna().any() else "—",
+                f"{closed['holding_days'].mean():.0f}"
+                if closed["holding_days"].notna().any()
+                else "—",
                 "closed trades",
                 "",
                 "blue",
@@ -8139,14 +9621,18 @@ def page_tradebook():
     with st.container(border=True, key="ov-card-tb-history"):
         f1, f2, f3, f4 = st.columns(4)
         with f1:
-            sym_filter = st.multiselect("Symbol", sorted(trades["symbol"].unique()), key="tb_sym_filter")
+            sym_filter = st.multiselect(
+                "Symbol", sorted(trades["symbol"].unique()), key="tb_sym_filter"
+            )
         with f2:
             status_filter = st.multiselect("Status", ["open", "closed"], key="tb_status_filter")
         with f3:
             reason_types = sorted(trades["exit_reason"].dropna().map(_exit_type_label).unique())
             reason_filter = st.multiselect("Exit type", reason_types, key="tb_reason_filter")
         with f4:
-            since_date = st.date_input("Entered since", value=dt.date.today() - dt.timedelta(days=365), key="tb_since")
+            since_date = st.date_input(
+                "Entered since", value=dt.date.today() - dt.timedelta(days=365), key="tb_since"
+            )
 
         filtered = trades[trades["entry_date"] >= since_date.isoformat()]
         if sym_filter:
@@ -8157,6 +9643,35 @@ def page_tradebook():
             filtered = filtered[filtered["exit_reason"].map(_exit_type_label).isin(reason_filter)]
 
         st.caption(f"Showing {len(filtered)} of {len(trades)} trades")
+
+        # Open rows carry no realized_pnl/realized_ret_pct (only ever set
+        # on exit) and no holding_days either (only computed at close) --
+        # fill in the OPEN equivalents from real current data:
+        # merged_holdings() is the same live Kite positions+holdings merge
+        # the Overview page's own unrealized P&L already reads, so this
+        # matches what you'd see there rather than being a separate
+        # approximation. Closed rows are untouched.
+        filtered = filtered.copy()
+        filtered["unrealized_pnl"] = float("nan")
+        filtered["unrealized_ret_pct"] = float("nan")
+        _open_mask = filtered["status"] == "open"
+        if _open_mask.any():
+            _live = merged_holdings()
+            _live_by_sym = _live.set_index("symbol") if not _live.empty else _live
+            for idx in filtered[_open_mask].index:
+                sym = filtered.at[idx, "symbol"]
+                if not _live.empty and sym in _live_by_sym.index:
+                    lrow = _live_by_sym.loc[sym]
+                    cost = float(lrow["avg_price"]) * float(lrow["qty"])
+                    filtered.at[idx, "unrealized_pnl"] = float(lrow["pnl"])
+                    filtered.at[idx, "unrealized_ret_pct"] = (
+                        float(lrow["pnl"]) / cost * 100 if cost else float("nan")
+                    )
+            filtered.loc[_open_mask, "holding_days"] = (
+                pd.Timestamp(dt.date.today())
+                - pd.to_datetime(filtered.loc[_open_mask, "entry_date"])
+            ).dt.days
+
         _priority_cols = [
             "symbol",
             "entry_date",
@@ -8169,20 +9684,31 @@ def page_tradebook():
             "exit_price",
             "realized_pnl",
             "realized_ret_pct",
+            "unrealized_pnl",
+            "unrealized_ret_pct",
             "holding_days",
         ]
         display_df = filtered.copy()
         if "exit_reason" in display_df.columns:
             display_df["exit_type"] = display_df["exit_reason"].map(_exit_type_label)
         _remaining_cols = [
-            c for c in display_df.columns if c not in ("id", "position_id", "status") and c not in _priority_cols
+            c
+            for c in display_df.columns
+            if c not in ("id", "position_id", "status") and c not in _priority_cols
         ]
-        display_cols = ["status"] + [c for c in _priority_cols if c in display_df.columns] + _remaining_cols
+        display_cols = (
+            ["status"] + [c for c in _priority_cols if c in display_df.columns] + _remaining_cols
+        )
         st.markdown(
             _ov_table_html(
                 display_df[display_cols],
                 sym_cols=["symbol"],
-                pnl_cols=["realized_pnl", "realized_ret_pct"],
+                pnl_cols=[
+                    "realized_pnl",
+                    "realized_ret_pct",
+                    "unrealized_pnl",
+                    "unrealized_ret_pct",
+                ],
                 num_fmt={
                     "entry_price": "₹{:.2f}",
                     "exit_price": "₹{:.2f}",
@@ -8201,12 +9727,15 @@ def page_tradebook():
             ),
             unsafe_allow_html=True,
         )
-        st.download_button("Download tradebook CSV (filtered view)", filtered.to_csv(index=False), "tradebook.csv")
+        st.download_button(
+            "Download tradebook CSV (filtered view)", filtered.to_csv(index=False), "tradebook.csv"
+        )
 
     st.divider()
     with st.container(border=True, key="ov-card-tb-chart"):
         st.markdown(
-            '<p class="ov-card-title"><span class="ov-dot" style="background:var(--ov-purple);"></span>Trade chart</p>',
+            '<p class="ov-card-title"><span class="ov-dot" '
+            'style="background:var(--ov-purple);"></span>Trade chart</p>',
             unsafe_allow_html=True,
         )
         st.caption(
@@ -8236,7 +9765,11 @@ def page_tradebook():
             if not _chart_syms:
                 st.info(
                     "No open trades match the filters above."
-                    + ("" if _include_closed else " Check 'Include closed trades' above to browse closed ones.")
+                    + (
+                        ""
+                        if _include_closed
+                        else " Check 'Include closed trades' above to browse closed ones."
+                    )
                 )
                 st.stop()
             _sym_sel = st.selectbox("Symbol", _chart_syms, key="tb_chart_sym")
@@ -8245,7 +9778,9 @@ def page_tradebook():
             _first_entry = pd.Timestamp(_sym_trades["entry_date"].iloc[0])
             _any_open = (_sym_trades["status"] == "open").any()
             _last_relevant = (
-                pd.Timestamp(dt.date.today()) if _any_open else pd.Timestamp(_sym_trades["exit_date"].max())
+                pd.Timestamp(dt.date.today())
+                if _any_open
+                else pd.Timestamp(_sym_trades["exit_date"].max())
             )
             _fetch_end = _last_relevant.date()
 
@@ -8272,9 +9807,9 @@ def page_tradebook():
             # price, not whatever it was at the day's first fetch.
             if _df is not None and not _df.empty and _fetch_end == dt.date.today():
                 _now = dt.datetime.now()
-                _market_open = nse_holidays.is_trading_day(_now.date()) and dt.time(9, 15) <= _now.time() <= dt.time(
-                    15, 30
-                )
+                _market_open = nse_holidays.is_trading_day(_now.date()) and dt.time(
+                    9, 15
+                ) <= _now.time() <= dt.time(15, 30)
                 if _market_open:
                     try:
                         _ltp = kite_client.get_ltp([_sym_sel]).get(_sym_sel)
@@ -8288,7 +9823,13 @@ def page_tradebook():
                             _df.loc[_today_ts, "low"] = min(_df.loc[_today_ts, "low"], _ltp)
                             _df.loc[_today_ts, "close"] = _ltp
                         else:
-                            _df.loc[_today_ts] = {"open": _ltp, "high": _ltp, "low": _ltp, "close": _ltp, "volume": 0}
+                            _df.loc[_today_ts] = {
+                                "open": _ltp,
+                                "high": _ltp,
+                                "low": _ltp,
+                                "close": _ltp,
+                                "volume": 0,
+                            }
                             _df = _df.sort_index()
 
             if _df is None or _df.empty:
@@ -8338,7 +9879,9 @@ def page_tradebook():
                     _entry_date = pd.Timestamp(_tr["entry_date"])
                     _is_open = _tr["status"] == "open"
                     _exit_date = (
-                        pd.Timestamp(_tr["exit_date"]) if not _is_open and pd.notna(_tr.get("exit_date")) else None
+                        pd.Timestamp(_tr["exit_date"])
+                        if not _is_open and pd.notna(_tr.get("exit_date"))
+                        else None
                     )
 
                     _real_history = None
@@ -8353,7 +9896,11 @@ def page_tradebook():
                                 _real_history = _rh[["applied"]]
 
                     _overlay = trade_chart.build_trade_overlay(
-                        _df, _cfg_atr_only, _entry_date, float(_tr["entry_price"]), exit_date=_exit_date
+                        _df,
+                        _cfg_atr_only,
+                        _entry_date,
+                        float(_tr["entry_price"]),
+                        exit_date=_exit_date,
                     )
                     _trade_list.append(
                         {
@@ -8372,14 +9919,17 @@ def page_tradebook():
 
                 _n = len(_trade_list)
                 st.markdown(
-                    f"**{_sym_sel}** — {_n} trade{'s' if _n != 1 else ''} since {_first_entry.date()}"
+                    f"**{_sym_sel}** — {_n} trade{'s' if _n != 1 else ''} "
+                    f"since {_first_entry.date()}"
                     if _n > 1
                     else f"**{_sym_sel}** — entry {_first_entry.date()}"
                 )
                 fig = trade_chart.build_symbol_figure(
                     _sym_sel, _df, _trade_list, chart_start=_range_start, chart_end=_range_end
                 )
-                st.plotly_chart(fig, width="stretch", config={"displayModeBar": True, "scrollZoom": True})
+                st.plotly_chart(
+                    fig, width="stretch", config={"displayModeBar": True, "scrollZoom": True}
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -8479,7 +10029,10 @@ def _guide_flow(steps: list[tuple[str, str]]) -> str:
     for i, (label, sub) in enumerate(steps):
         if i:
             parts.append('<span class="guide-flow-arrow">➜</span>')
-        parts.append(f'<div class="guide-flow-step">{html_lib.escape(label)}<span>{html_lib.escape(sub)}</span></div>')
+        parts.append(
+            f'<div class="guide-flow-step">{html_lib.escape(label)}'
+            f"<span>{html_lib.escape(sub)}</span></div>"
+        )
     parts.append("</div>")
     return "".join(parts)
 
@@ -8496,7 +10049,8 @@ def page_guide():
     )
     sizing_mode = (
         "Equal-weight (advanced allocator)"
-        if cfg.get("capital_equal_weight_sizing", False) and cfg.get("advanced_equal_weight_sizing", True)
+        if cfg.get("capital_equal_weight_sizing", False)
+        and cfg.get("advanced_equal_weight_sizing", True)
         else "Equal-weight (simple)"
         if cfg.get("capital_equal_weight_sizing", False)
         else "Risk-based (% of capital)"
@@ -8510,12 +10064,12 @@ def page_guide():
         "automatically, and rebalances on a schedule you control. Everything below reflects "
         "the exact logic actually running right now, pulled live from your current settings.</p>"
         '<div class="guide-stats">'
-        f'<div class="guide-stat"><b>{len(config.UNIVERSE)}</b>stocks in universe</div>'
-        f'<div class="guide-stat"><b>{cfg.get("max_positions", 10)}</b>max positions</div>'
-        f'<div class="guide-stat"><b>{cfg.get("rebalance_cadence", "daily").title()}</b>rebalance cadence</div>'
-        f'<div class="guide-stat"><b>{stop_mode}</b>stop mechanism</div>'
-        f'<div class="guide-stat"><b>{sizing_mode}</b>position sizing</div>'
-        "</div></div>",
+        + f'<div class="guide-stat"><b>{len(config.UNIVERSE)}</b>stocks in universe</div>'
+        + f'<div class="guide-stat"><b>{cfg.get("max_positions", 10)}</b>max positions</div>'
+        + f'<div class="guide-stat"><b>{cfg.get("rebalance_cadence", "daily").title()}</b>rebalance cadence</div>'
+        + f'<div class="guide-stat"><b>{stop_mode}</b>stop mechanism</div>'
+        + f'<div class="guide-stat"><b>{sizing_mode}</b>position sizing</div>'
+        + "</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -8620,19 +10174,18 @@ def page_guide():
     )
     st.markdown(
         '<div class="guide-weights">'
-        '<div class="guide-weight-row"><div class="guide-weight-label">6-month relative strength</div>'
+        + '<div class="guide-weight-row"><div class="guide-weight-label">6-month relative strength</div>'
         '<div class="guide-weight-bar-bg"><div class="guide-weight-bar" style="width:40%;background:var(--ov-blue);"></div></div>'
         '<div class="guide-weight-pct">40%</div></div>'
-        '<div class="guide-weight-row"><div class="guide-weight-label">3-month relative strength</div>'
+        + '<div class="guide-weight-row"><div class="guide-weight-label">3-month relative strength</div>'
         '<div class="guide-weight-bar-bg"><div class="guide-weight-bar" style="width:25%;background:var(--ov-teal);"></div></div>'
         '<div class="guide-weight-pct">25%</div></div>'
-        '<div class="guide-weight-row"><div class="guide-weight-label">52-week-high proximity</div>'
+        + '<div class="guide-weight-row"><div class="guide-weight-label">52-week-high proximity</div>'
         '<div class="guide-weight-bar-bg"><div class="guide-weight-bar" style="width:20%;background:var(--ov-purple);"></div></div>'
         '<div class="guide-weight-pct">20%</div></div>'
-        '<div class="guide-weight-row"><div class="guide-weight-label">Volume expansion</div>'
+        + '<div class="guide-weight-row"><div class="guide-weight-label">Volume expansion</div>'
         '<div class="guide-weight-bar-bg"><div class="guide-weight-bar" style="width:15%;background:var(--ov-amber);"></div></div>'
-        '<div class="guide-weight-pct">15%</div></div>'
-        "</div>",
+        '<div class="guide-weight-pct">15%</div></div>' + "</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -8646,7 +10199,7 @@ def page_guide():
         '<p style="font-size:12.5px;color:var(--ov-text-muted);">Optional add-on tilts (each off unless '
         "you've enabled it in Admin) nudge the same score up or down without ever excluding a stock on "
         "their own: a <b>fundamental-quality tilt</b> ("
-        f"{cfg.get('fundamental_bonus_weight', 0.5)} × Z-score of fundamental value score), a "
+        + f"{cfg.get('fundamental_bonus_weight', 0.5)} × Z-score of fundamental value score), a "
         f"<b>sector-strength tilt</b> ({cfg.get('sector_bonus_weight', 0.0)} × Z-score of the stock's "
         "sector's own relative strength vs NIFTY), and a <b>resistance-clearance tilt</b> "
         f"({cfg.get('resistance_zone_weight', 0.0)} × Z-score of room-to-run before the next chart "
@@ -8848,7 +10401,11 @@ def page_guide():
         "otherwise silently leave the stop-loss GTT pointing at stale numbers. Deliberately "
         "<b>confirm-first, never automatic</b>: the same mismatch could also mean shares were bought "
         "manually outside the app, which isn't a split at all."
-        + (f"<br><b>{_pending_corp_actions_n} pending review right now.</b>" if _pending_corp_actions_n else "")
+        + (
+            f"<br><b>{_pending_corp_actions_n} pending review right now.</b>"
+            if _pending_corp_actions_n
+            else ""
+        )
         + "</p></div>"
         "</div></div>",
         unsafe_allow_html=True,
@@ -8880,7 +10437,11 @@ def page_guide():
         "real DP charge applies there, since that IS a sell. It's never counted as one of your momentum "
         'positions, and its value is folded into "Cash" everywhere on the Overview page so nothing looks '
         "like it went missing."
-        + (f"<br><b>Currently parked: {_sweep_qty} units, ₹{_sweep_value:,.0f}</b>" if _sweep_qty else "")
+        + (
+            f"<br><b>Currently parked: {_sweep_qty} units, ₹{_sweep_value:,.0f}</b>"
+            if _sweep_qty
+            else ""
+        )
         + "</p></div>"
         '<div class="guide-card"><h4>DP charges</h4>'
         f"<p>Your depository charges ₹{cfg.get('dp_charge_per_scrip', 15.34):.2f} per stock, per day you "
@@ -8921,15 +10482,31 @@ def page_guide():
             "Live Rebalance",
             "Today's proposed sells/buys/top-ups/stop-updates — review and execute, or watch auto-execute run.",
         ),
-        ("💼", "Positions & Trade", "Your real, live broker holdings and intraday positions, plus manual order entry."),
-        ("🔍", "Screener", "The full ranked universe — every gate, every score, browsable and chartable on demand."),
+        (
+            "💼",
+            "Positions & Trade",
+            "Your real, live broker holdings and intraday positions, plus manual order entry.",
+        ),
+        (
+            "🔍",
+            "Screener",
+            "The full ranked universe — every gate, every score, browsable and chartable on demand.",
+        ),
         (
             "📊",
             "Fundamentals",
             "The XBRL-based value-score scan across the universe, with the rubric behind every number.",
         ),
-        ("⚙️", "Admin", "Every strategy setting in one form — stop mechanism, sizing, gates, automation toggles."),
-        ("💰", "Ledger", "Deposits/withdrawals for accurate XIRR, plus DP charges and recurring costs."),
+        (
+            "⚙️",
+            "Admin",
+            "Every strategy setting in one form — stop mechanism, sizing, gates, automation toggles.",
+        ),
+        (
+            "💰",
+            "Ledger",
+            "Deposits/withdrawals for accurate XIRR, plus DP charges and recurring costs.",
+        ),
         (
             "📒",
             "Positional Tradebook",
@@ -8940,9 +10517,21 @@ def page_guide():
             "Intraday Tradebook",
             "Every intraday position's target/stop/squareoff legs, with realized P&L and cost breakdown.",
         ),
-        ("🗂️", "Job Log", "Status and history of every scheduled and manual job — did today's scan actually run?"),
-        ("📜", "Rebalance History", "The full audit trail of every sell/buy/top-up/stop-update ever proposed."),
-        ("🧪", "Backtest", "Run the exact same engine against history to test a change before trusting it live."),
+        (
+            "🗂️",
+            "Job Log",
+            "Status and history of every scheduled and manual job — did today's scan actually run?",
+        ),
+        (
+            "📜",
+            "Rebalance History",
+            "The full audit trail of every sell/buy/top-up/stop-update ever proposed.",
+        ),
+        (
+            "🧪",
+            "Backtest",
+            "Run the exact same engine against history to test a change before trusting it live.",
+        ),
     ]
     st.markdown(
         '<div class="guide-pages-grid">'
@@ -8979,8 +10568,12 @@ page_rebalance_history_p = st.Page(page_rebalance_history, title="Rebalance Hist
 page_ledger_p = st.Page(page_ledger, title="Ledger", icon="💰")
 page_admin_p = st.Page(page_admin, title="Admin", icon="⚙️")
 page_guide_p = st.Page(page_guide, title="Guide", icon="📘")
-page_intraday_dashboard_p = st.Page(page_intraday_dashboard, title="Intraday Dashboard", icon="⚡", default=True)
+page_intraday_dashboard_p = st.Page(
+    page_intraday_dashboard, title="Intraday Dashboard", icon="⚡", default=True
+)
 page_intraday_tradebook_p = st.Page(page_intraday_tradebook, title="Intraday Tradebook", icon="📒")
+page_intraday_logs_p = st.Page(page_intraday_logs, title="Intraday Logs", icon="🧾")
+page_intraday_backtest_p = st.Page(page_intraday_backtest, title="Intraday Backtest", icon="🧪")
 
 # Injected before the sidebar (not per-page) so every page -- not just
 # Overview, where this design system started -- gets the same compact
@@ -9012,11 +10605,13 @@ with st.sidebar:
     st.markdown('<p class="ov-side-label">Audit Trail</p>', unsafe_allow_html=True)
     st.page_link(page_tradebook_p)
     st.page_link(page_intraday_tradebook_p)
+    st.page_link(page_intraday_logs_p)
     st.page_link(page_job_log_p)
     st.page_link(page_rebalance_history_p)
 
     st.markdown('<p class="ov-side-label">Testing</p>', unsafe_allow_html=True)
     st.page_link(page_backtest_p)
+    st.page_link(page_intraday_backtest_p)
 
     # Streamlit gives the current page's link no stable DOM marker (just an
     # unstable emotion class with a faint default tint), so CSS alone can't
@@ -9082,19 +10677,28 @@ skipped_note = f" ({n_skipped} skipped)" if n_skipped else ""
 _last_run = state_db.get_last_rebalance_run()
 _n_pending = 0
 if _last_run is not None:
-    _n_pending = len(_last_run["sells"]) + len(_last_run["buys"]) + len(_last_run.get("stop_updates", pd.DataFrame()))
+    _n_pending = (
+        len(_last_run["sells"])
+        + len(_last_run["buys"])
+        + len(_last_run.get("stop_updates", pd.DataFrame()))
+    )
 _pending_chip = (
     f'<span class="ov-chip ov-chip-danger">🔴 {_n_pending} action(s) pending</span>'
     if _n_pending
     else '<span class="ov-chip ov-chip-success">✅ No actions pending</span>'
 )
-_scan_chip_g = f"📅 Last scan {_last_run['run_time']:%d %b %H:%M}" if _last_run is not None else "📅 No scan run yet"
+_scan_chip_g = (
+    f"📅 Last scan {_last_run['run_time']:%d %b %H:%M}"
+    if _last_run is not None
+    else "📅 No scan run yet"
+)
 _open_slots = len(state_db.get_open_positions())
 _logo_uri = _sidebar_logo_data_uri()
 _logo_html = (
     f'<img src="{_logo_uri}" class="ov-topbar-logo" alt="KK Trading System">'
     if _logo_uri
-    else '<div class="ov-brand">🚀 KK Trading System <span class="ov-sub">Calendar-entry momentum</span></div>'
+    else '<div class="ov-brand">🚀 KK Trading System '
+    '<span class="ov-sub">Calendar-entry momentum</span></div>'
 )
 # Splitting logo/chips/sync across st.columns() kept fighting the flex
 # ratios (logo overlapping chips, chips wrapping early depending on
@@ -9157,6 +10761,8 @@ nav = st.navigation(
         page_guide_p,
         page_intraday_dashboard_p,
         page_intraday_tradebook_p,
+        page_intraday_logs_p,
+        page_intraday_backtest_p,
     ],
     position="hidden",
 )

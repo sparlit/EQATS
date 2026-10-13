@@ -37,8 +37,7 @@ v2 — Major upgrade:
 
 
 import math
-import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from datetime import date as Date
 from pathlib import Path
@@ -47,8 +46,6 @@ import numpy as np
 import pandas as pd
 
 from indian_quant.features.delivery import (
-    HORIZON_DAYS,
-    HORIZON_STOP,
     SIGNAL_NAMES,
     add_features,
     cluster_entry_mask,
@@ -194,7 +191,12 @@ def _prepare_tables(frames: list[pd.DataFrame], config: StrategyConfig):
         raw_mask = signal_mask(table.reset_index(), config.signal, z_min=config.z_min)
         if config.use_tech_filters:
             raw_mask = signal_mask_with_filters(
-                table.reset_index(), config.signal, rsi_min=30, rsi_max=70, require_macd=True, require_ma=True
+                table.reset_index(),
+                config.signal,
+                rsi_min=30,
+                rsi_max=70,
+                require_macd=True,
+                require_ma=True,
             )
         if config.cluster_entries:
             raw_mask = cluster_entry_mask(pd.Series(raw_mask.values))
@@ -208,8 +210,7 @@ def _prepare_tables(frames: list[pd.DataFrame], config: StrategyConfig):
 
 def run_portfolio(frames: list[pd.DataFrame], config: StrategyConfig) -> BacktestResult:
     if config.signal not in SIGNAL_NAMES:
-        msg = f"unknown signal: {config.signal}"
-        raise KeyError(msg)
+        raise KeyError(f"unknown signal: {config.signal}")
 
     tables, fires = _prepare_tables(frames, config)
     all_dates = sorted({d for t in tables.values() for d in t.index})
@@ -325,7 +326,7 @@ def run_portfolio(frames: list[pd.DataFrame], config: StrategyConfig) -> Backtes
         equity_curve.append((day, cash + market_value))
 
         # ---------- process pending entries from previous bar (next-bar execution)
-        for entry in pending_entries:
+        for entry in list(pending_entries):
             if len(open_pos) >= config.max_positions:
                 break
             sym = entry["sym"]
@@ -372,15 +373,22 @@ def run_portfolio(frames: list[pd.DataFrame], config: StrategyConfig) -> Backtes
             if float(row.get("turnover", 0)) < config.min_turnover:
                 continue
             z = row.get("deliv_z")
-            if config.signal.startswith("dz_"):
-                if pd.isna(z):
-                    continue
+            if config.signal.startswith("dz_") and pd.isna(z):
+                continue
 
             if config.use_conviction:
                 score = conviction_score(row)
                 candidates.append((score, sym, close, config.hold_days, config.stop_pct))
             else:
-                candidates.append((float(z) if not pd.isna(z) else 0.0, sym, close, config.hold_days, config.stop_pct))
+                candidates.append(
+                    (
+                        float(z) if not pd.isna(z) else 0.0,
+                        sym,
+                        close,
+                        config.hold_days,
+                        config.stop_pct,
+                    )
+                )
 
         candidates.sort(key=lambda c: (-c[0], c[1]))
         for score, sym, signal_close, hold_d, stop in candidates:
@@ -421,7 +429,9 @@ def run_portfolio(frames: list[pd.DataFrame], config: StrategyConfig) -> Backtes
                 for s, v in open_pos.items()
             }
             constraints = PortfolioConstraints(
-                max_sector=config.sector_limit, max_total=config.max_positions, max_sector_pct=config.max_sector_pct
+                max_sector=config.sector_limit,
+                max_total=config.max_positions,
+                max_sector_pct=config.max_sector_pct,
             )
             allowed, _reason = can_enter(sym, sector, str(day), constraint_pos, constraints)
             if not allowed:
@@ -446,7 +456,11 @@ def run_portfolio(frames: list[pd.DataFrame], config: StrategyConfig) -> Backtes
     for sym in list(open_pos):
         table = tables[sym]
         last_day = table.index.max()
-        last_px = float(table.loc[last_day, "close"]) if last_day is not None else open_pos[sym]["entry_px"]
+        last_px = (
+            float(table.loc[last_day, "close"])
+            if last_day is not None
+            else open_pos[sym]["entry_px"]
+        )
         close_position(sym, last_day or date.today(), last_px, "DATA_END")
 
     summary = summarize(trades, equity_curve)
@@ -572,7 +586,9 @@ def summarize(trades: list[Trade], equity_curve: list[tuple[Date, float]]) -> di
     for t in closed:
         if t.mfe > 0:
             exit_efficiencies.append(t.net_bps / t.mfe if t.mfe else 0)
-    avg_exit_efficiency = sum(exit_efficiencies) / len(exit_efficiencies) if exit_efficiencies else 0
+    avg_exit_efficiency = (
+        sum(exit_efficiencies) / len(exit_efficiencies) if exit_efficiencies else 0
+    )
 
     # Tail ratio (95th percentile gains / 5th percentile losses)
     if len(nets) >= 20:
@@ -618,7 +634,9 @@ def summarize(trades: list[Trade], equity_curve: list[tuple[Date, float]]) -> di
         "n_wins": len(wins),
         "n_losses": len(losses),
         "avg_days_winners": round(sum(t.days_held for t in wins) / len(wins), 1) if wins else 0,
-        "avg_days_losers": round(sum(t.days_held for t in losses) / len(losses), 1) if losses else 0,
+        "avg_days_losers": round(sum(t.days_held for t in losses) / len(losses), 1)
+        if losses
+        else 0,
     }
 
 
@@ -683,7 +701,10 @@ def monte_carlo_bootstrap(
         max_dd = float(np.max(dd)) * 100
 
         # Sharpe
-        sharpe = float(np.mean(sampled_pnls) / np.std(sampled_pnls) * np.sqrt(250)) if np.std(sampled_pnls) > 0 else 0
+        if np.std(sampled_pnls) > 0:
+            sharpe = float(np.mean(sampled_pnls) / np.std(sampled_pnls) * np.sqrt(250))
+        else:
+            sharpe = 0
 
         sim_results["total_pnl"].append(total)
         sim_results["max_drawdown"].append(max_dd)
@@ -703,7 +724,11 @@ def monte_carlo_bootstrap(
     ruin_prob = sum(1 for p in sim_results["total_pnl"] if p < 0) / n_simulations
 
     # Launch criteria
-    launch_ok = percentiles["total_pnl"]["p5"] > 0 and ruin_prob < 0.01 and percentiles["sharpe"]["p5"] > 0.5
+    launch_ok = (
+        percentiles["total_pnl"]["p5"] > 0
+        and ruin_prob < 0.01
+        and percentiles["sharpe"]["p5"] > 0.5
+    )
 
     return {
         "n_simulations": n_simulations,
@@ -818,10 +843,14 @@ def walk_forward_analysis(
     mid = len(valid) // 2
     first_half_bps = np.mean(bps_values[:mid]) if bps_values[:mid] else 0
     second_half_bps = np.mean(bps_values[mid:]) if bps_values[mid:] else 0
-    degradation_pct = (first_half_bps - second_half_bps) / abs(first_half_bps) * 100 if first_half_bps != 0 else 0
+    degradation_pct = (
+        (first_half_bps - second_half_bps) / abs(first_half_bps) * 100 if first_half_bps != 0 else 0
+    )
 
     # Stability: coefficient of variation
-    cv_bps = np.std(bps_values) / abs(np.mean(bps_values)) if np.mean(bps_values) != 0 else float("inf")
+    cv_bps = (
+        np.std(bps_values) / abs(np.mean(bps_values)) if np.mean(bps_values) != 0 else float("inf")
+    )
 
     return {
         "n_windows": len(valid),
@@ -848,18 +877,18 @@ def walk_forward_analysis(
 
 __all__ = [
     "BacktestResult",
-    "EnhancedConfig",
-    "IndianCosts",
     "StrategyConfig",
     "Trade",
-    "conviction_score",
-    "horizon_fit",
+    "IndianCosts",
     "load_frames",
-    "monte_carlo_bootstrap",
-    "run_enhanced_portfolio",
     "run_portfolio",
     "summarize",
+    "monte_carlo_bootstrap",
     "walk_forward_analysis",
+    "conviction_score",
+    "horizon_fit",
+    "run_enhanced_portfolio",
+    "EnhancedConfig",
 ]
 
 
@@ -931,7 +960,7 @@ def _load_enhanced_data(engine, config: EnhancedConfig) -> pd.DataFrame:
         AND deliv_z IS NOT NULL
     """)
     with engine.connect() as conn:
-        return pd.read_sql(
+        df = pd.read_sql(
             sql,
             conn,
             params={
@@ -939,6 +968,7 @@ def _load_enhanced_data(engine, config: EnhancedConfig) -> pd.DataFrame:
                 "price_max": config.price_max,
             },
         )
+    return df
 
 
 def _compute_composite_score(row: pd.Series, config: EnhancedConfig) -> float:
@@ -1023,7 +1053,6 @@ def run_enhanced_portfolio(
     Other factors are CONFIRMATION filters (not replacement scoring).
     Risk management is the key improvement: ATR stops, regime filter, dynamic sizing.
     """
-    import sqlalchemy as sa
 
     cost_bps = config.cost_bps
     half_cost = cost_bps / 2 / 10_000
@@ -1163,7 +1192,7 @@ def run_enhanced_portfolio(
         equity_curve.append((day, cash + market_value))
 
         # ── PROCESS PENDING ENTRIES (next-bar execution) ──
-        for entry in pending_entries:
+        for entry in list(pending_entries):
             if len(open_pos) >= config.max_positions:
                 break
             sym = entry["sym"]
@@ -1183,8 +1212,12 @@ def run_enhanced_portfolio(
                 )
                 for s, v in open_pos.items()
             }
-            constraints = PortfolioConstraints(max_sector=config.max_per_sector, max_total=config.max_positions)
-            allowed, _reason = can_enter(sym, entry["sector"], str(day), constraint_pos, constraints)
+            constraints = PortfolioConstraints(
+                max_sector=config.max_per_sector, max_total=config.max_positions
+            )
+            allowed, _reason = can_enter(
+                sym, entry["sector"], str(day), constraint_pos, constraints
+            )
             if not allowed:
                 continue
 
@@ -1279,7 +1312,9 @@ def run_enhanced_portfolio(
             if config.use_dynamic_sizing:
                 # z=2 -> min size, z=4+ -> max size
                 z_factor = min(max((z_score - 2.0) / 2.0, 0), 1.0)
-                position_pct = config.min_position_pct + z_factor * (config.max_position_pct - config.min_position_pct)
+                position_pct = config.min_position_pct + z_factor * (
+                    config.max_position_pct - config.min_position_pct
+                )
                 position_value = config.capital * position_pct
                 qty = max(1, int(position_value / signal_close))
             else:
@@ -1310,7 +1345,11 @@ def run_enhanced_portfolio(
     for sym in list(open_pos):
         table = tables[sym]
         last_day = table.index.max()
-        last_px = float(table.loc[last_day, "close"]) if last_day is not None else open_pos[sym]["entry_px"]
+        last_px = (
+            float(table.loc[last_day, "close"])
+            if last_day is not None
+            else open_pos[sym]["entry_px"]
+        )
         close_position(sym, last_day or date.today(), last_px, "DATA_END")
 
     summary = summarize(trades, equity_curve)

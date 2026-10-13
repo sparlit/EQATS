@@ -64,7 +64,9 @@ print(regime_labels["regime"].value_counts().to_string())
 merged = factors.join(regime_labels, how="left")
 merged = merged.dropna(subset=["regime"])
 
-print(f"\nMerged window   : {merged.index[0].date()} → {merged.index[-1].date()}  ({len(merged)} months)")
+print(
+    f"\nMerged window   : {merged.index[0].date()} → {merged.index[-1].date()}  ({len(merged)} months)"
+)
 
 
 # ── Compute stats per factor × regime ─────────────────────────────────────────

@@ -26,13 +26,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Authentication helpers: password hashing, session management."""
 
 
-from typing import TYPE_CHECKING
-
 import bcrypt
+from fastapi import Request
 from starlette.exceptions import HTTPException
-
-if TYPE_CHECKING:
-    from fastapi import Request
 
 
 def hash_password(plain: str) -> str:

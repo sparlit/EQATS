@@ -9,8 +9,9 @@ These validations prevent fail-open execution where invalid values
 could result in unintended orders being submitted to the broker.
 """
 from typing import Any
-import pytest
+
 from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+
 
 def test_gateway_rejects_invalid_order_type() -> None:
     """Test that invalid order_type values are rejected before FIX message construction."""
@@ -48,7 +49,6 @@ def test_gateway_rejects_non_finite_lot_size() -> None:
     """Test that non-finite lot_size values (inf, -inf, nan) are rejected."""
     gw = UniversalBrokerGateway(protocol='SIMULATOR', broker_config={})
     gw.connect()
-    import math
     non_finite_quantities = [float('inf'), float('-inf'), float('nan')]
     for invalid_qty in non_finite_quantities:
         result = gw.execute_order('EURUSD', 'BUY', invalid_qty, 1.08, 1.1)

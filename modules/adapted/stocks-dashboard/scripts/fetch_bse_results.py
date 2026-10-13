@@ -43,15 +43,13 @@ Run: python -X utf8 scripts/fetch_bse_results.py
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import datetime
 import json
 import os
 import re
 import sys
 import time
-
-import bse_headers as BH  # §181 BSE headers
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bse_fetch as B
@@ -83,9 +81,11 @@ MON = {
 # assume the current season: read the reporting period per filing, snapped to a quarter-end month, and
 # ANCHOR strictly on an "ended/ending" clause so a board-meeting date ("held on July 1, 2026") can't leak in.
 DAY_LAST = {3: 31, 6: 30, 9: 30, 12: 31}
-ENDED_RE = re.compile(r"end(?:ed|ing)\s+(?:on\s+)?(.{0,30}?\d{4})", re.IGNORECASE)
-DMY_RE = re.compile(r"(\d{1,2})(?:st|nd|rd|th)?[\s,]+([A-Za-z]{3,9})[,\s]+(\d{4})", re.IGNORECASE)  # 31st March 2026
-MDY_RE = re.compile(r"([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})", re.IGNORECASE)  # March 31, 2026
+ENDED_RE = re.compile(r"end(?:ed|ing)\s+(?:on\s+)?(.{0,30}?\d{4})", re.I)
+DMY_RE = re.compile(
+    r"(\d{1,2})(?:st|nd|rd|th)?[\s,]+([A-Za-z]{3,9})[,\s]+(\d{4})", re.I
+)  # 31st March 2026
+MDY_RE = re.compile(r"([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})", re.I)  # March 31, 2026
 NUM_RE = re.compile(r"(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})")  # 31.03.2026
 
 
@@ -166,7 +166,11 @@ def ticker_from_url(url, fallback):
     """BSE page URL '.../avenue-supermarts-ltd/dmart/540376/' -> 'DMART'."""
     parts = [p for p in str(url or "").rstrip("/").split("/") if p]
     for p in reversed(parts):
-        if p.isdigit() or "." in p or p in ("stock-share-price", "www.bseindia.com", "https:", "http:"):
+        if (
+            p.isdigit()
+            or "." in p
+            or p in ("stock-share-price", "www.bseindia.com", "https:", "http:")
+        ):
             continue
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9&\-]{1,18}", p):
             return p.upper().replace("-", "")
@@ -225,7 +229,7 @@ def scan_category(o, cat, F, T, label):
 RESULT_LANG = re.compile(
     r"(?:un-?audited|audited|financial|quarterly)\s+(?:financial\s+)?results?"
     r"|results?\s+for\s+the\s+(?:quarter|year|period|half)",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -284,7 +288,11 @@ def main():
     # (company name, filing DATE): the name part catches a dual-listed co reaching us under two tickers
     # on the same filing; the date part keeps a company's NEXT filing (a late March result, then June
     # three weeks later) — name alone dropped every second filing inside the 31-day window.
-    have_names = {(nname(r[1]), r[2][:10]) for r in feed.get("rows", []) if isinstance(r, list) and len(r) >= 3}
+    have_names = {
+        (nname(r[1]), r[2][:10])
+        for r in feed.get("rows", [])
+        if isinstance(r, list) and len(r) >= 3
+    }
     added = 0
     for r in bse_rows:
         try:
@@ -294,7 +302,9 @@ def main():
         dt = parse_dt(r.get("NEWS_DT") or r.get("DT_TM"))
         if not dt:
             continue
-        sym = rev.get(sc) or bse_resolve.bse_key(ticker_from_url(r.get("NSURL"), r.get("SLONGNAME")))
+        sym = rev.get(sc) or bse_resolve.bse_key(
+            ticker_from_url(r.get("NSURL"), r.get("SLONGNAME"))
+        )
         if (sym, dt[:10]) in have:
             continue  # already carried by the NSE feed
         # a dual-listed co can reach us under a DIFFERENT ticker than the NSE row (INDBNK vs
@@ -326,7 +336,10 @@ def main():
     # so anything in bse_fundamentals with an ann date in the window is a genuine declared result → add it.
     fadd = 0
     try:
-        univ = {str(r[0]): r for r in load(os.path.join(DOCS, "bse_universe.json"), {"rows": []})["rows"]}
+        univ = {
+            str(r[0]): r
+            for r in load(os.path.join(DOCS, "bse_universe.json"), {"rows": []})["rows"]
+        }
         fund = load(os.path.join(DOCS, "bse_fundamentals.json"), {"px": {}}).get("px", {})
         lo_i = int(lo.strftime("%Y%m%d"))
         for code, qs in fund.items():
@@ -347,16 +360,28 @@ def main():
                 have_names.add((nname(name), dt[:10]))
                 pat = rec.get("pat")
                 revv = rec.get("rev")
-                cap = "{} results: PAT ₹{} cr".format(qlabel(int(qe)), (f"{pat:.2f}") if pat is not None else "—")
+                cap = "{} results: PAT ₹{} cr".format(
+                    qlabel(int(qe)), (f"{pat:.2f}") if pat is not None else "—"
+                )
                 if revv is not None:
                     cap += f" · Revenue ₹{revv:.2f} cr"
                 file = f"https://www.bseindia.com/stock-share-price/x/x/{scrip}/"
                 feed.setdefault("rows", []).append(
-                    [tkr, BN.clean_scrip_name(re.sub(r"\s+", " ", str(name))), dt, int(qe), cap, file]
+                    [
+                        tkr,
+                        BN.clean_scrip_name(re.sub(r"\s+", " ", str(name))),
+                        dt,
+                        int(qe),
+                        cap,
+                        file,
+                    ]
                 )
                 fadd += 1
         if fadd:
-            print("results_feed.json: +%d BSE-only confirmed-result rows (from bse_fundamentals)" % fadd)
+            print(
+                "results_feed.json: +%d BSE-only confirmed-result rows (from bse_fundamentals)"
+                % fadd
+            )
     except Exception as ex:
         print("BSE fundamentals->feed inject skipped:", str(ex)[:80])
 
@@ -367,7 +392,9 @@ def main():
 
     # trim to window + sort newest-first
     lo_iso = lo.isoformat()
-    feed["rows"] = sorted((r for r in feed["rows"] if r[2][:10] >= lo_iso), key=lambda r: (r[2], r[0]), reverse=True)
+    feed["rows"] = sorted(
+        (r for r in feed["rows"] if r[2][:10] >= lo_iso), key=lambda r: (r[2], r[0]), reverse=True
+    )
     ist = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
     feed["updated"] = ist.strftime("%Y-%m-%d %H:%M IST")
     json.dump(feed, open(FEED, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
@@ -376,7 +403,10 @@ def main():
     # ---- 2. forthcoming results calendar ----
     try:
         fr = json.loads(
-            B.get(o, "https://api.bseindia.com/BseIndiaAPI/api/Corpforthresults/w?scripcode=&strCategory=Result")
+            B.get(
+                o,
+                "https://api.bseindia.com/BseIndiaAPI/api/Corpforthresults/w?scripcode=&strCategory=Result",
+            )
         )
     except Exception as ex:
         print("BSE forthcoming ERR:", ex)
@@ -384,7 +414,9 @@ def main():
     cal = load(CAL, None)
     if cal and isinstance(fr, list) and fr:
         chave = {(r[0], r[2]) for r in cal.get("rows", []) if isinstance(r, list) and len(r) >= 3}
-        cnames = {(nname(r[1]), r[2]) for r in cal.get("rows", []) if isinstance(r, list) and len(r) >= 3}
+        cnames = {
+            (nname(r[1]), r[2]) for r in cal.get("rows", []) if isinstance(r, list) and len(r) >= 3
+        }
         cadd = 0
         for r in fr:
             d = parse_cal_date(r.get("meeting_date"))
@@ -395,7 +427,8 @@ def main():
             except Exception:
                 sc = None
             sym = (sc and rev.get(sc)) or bse_resolve.bse_key(
-                str(r.get("short_name") or "").strip().upper() or ticker_from_url(r.get("URL"), r.get("Long_Name"))
+                str(r.get("short_name") or "").strip().upper()
+                or ticker_from_url(r.get("URL"), r.get("Long_Name"))
             )
             if (sym, d) in chave:
                 continue
@@ -404,7 +437,12 @@ def main():
             chave.add((sym, d))
             cnames.add((nname(r.get("Long_Name")), d))
             cal.setdefault("rows", []).append(
-                [sym, re.sub(r"\s+", " ", str(r.get("Long_Name") or sym)).strip(), d, "Financial Results"]
+                [
+                    sym,
+                    re.sub(r"\s+", " ", str(r.get("Long_Name") or sym)).strip(),
+                    d,
+                    "Financial Results",
+                ]
             )
             cadd += 1
         cal["rows"] = sorted(cal["rows"], key=lambda r: (r[2], r[0]))

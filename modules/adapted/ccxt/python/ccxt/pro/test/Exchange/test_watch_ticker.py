@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,10 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.test.exchange.base import (
-    test_shared_methods,
-    test_ticker,
-)
+from ccxt.test.exchange.base import test_ticker  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_watch_ticker(exchange, skipped_properties, symbol):
@@ -55,12 +55,18 @@ async def test_watch_ticker(exchange, skipped_properties, symbol):
             response = await exchange.watch_ticker(symbol)
         except Exception as e:
             if not test_shared_methods.is_temporary_failure(e):
-                raise
+                raise e
             success = False
         now = exchange.milliseconds()
         if (success) and (response is not None):
             assert exchange.is_dictionary(response), (
-                exchange.id + " " + method + " " + symbol + " must return a dictionary. " + exchange.json(response)
+                exchange.id
+                + " "
+                + method
+                + " "
+                + symbol
+                + " must return a dictionary. "
+                + exchange.json(response)
             )
             test_ticker(exchange, skipped_properties, method, response, symbol)
             if (now - start_time) > max_idle_time:

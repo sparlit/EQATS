@@ -45,7 +45,7 @@ print("CCXT Version:", ccxt.__version__)
 
 def table(values):
     first = values[0]
-    keys = list(first.keys()) if isinstance(first, dict) else range(len(first))
+    keys = list(first.keys()) if isinstance(first, dict) else range(0, len(first))
     widths = [max([len(str(v[k])) for v in values]) for k in keys]
     string = " | ".join(["{:<" + str(w) + "}" for w in widths])
     return "\n".join([string.format(*[str(v[k]) for k in keys]) for v in values])
@@ -67,6 +67,6 @@ try:
     # https://binance-docs.github.io/apidocs/futures/en/#continuous-contract-kline-candlestick-data
     ohlcvs = exchange.fapiPublic_get_continuousklines(params)
     print(table(list(ohlcvs)))
-    print(table([[exchange.iso8601(int(o[0])), *o[1:]] for o in ohlcvs]))
+    print(table([[exchange.iso8601(int(o[0]))] + o[1:] for o in ohlcvs]))
 except Exception as e:
     print(type(e).__name__, str(e))

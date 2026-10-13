@@ -42,9 +42,10 @@ import time
 import db
 import numpy as np
 import pandas as pd
+import setup_sim
 from setup import SetupDetector
 
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 HISTORY_DAYS = 5 * 365
 STEP = 5
 MIN_BARS = 280
@@ -80,7 +81,9 @@ def _ensure_cache(conn):
 
 def _get_cached(conn, sym, max_age_days=CACHE_TTL_DAYS):
     try:
-        row = conn.execute("SELECT computed_at, payload FROM research_cache WHERE symbol=?", (sym,)).fetchone()
+        row = conn.execute(
+            "SELECT computed_at, payload FROM research_cache WHERE symbol=?", (sym,)
+        ).fetchone()
     except Exception:
         return None
     if not row:
@@ -91,6 +94,11 @@ def _get_cached(conn, sym, max_age_days=CACHE_TTL_DAYS):
             return None
         payload = json.loads(row[1])
         if payload.get("cache_version") != CACHE_VERSION:
+            return None
+        latest_price_date = conn.execute(
+            "SELECT MAX(date) FROM prices_daily WHERE symbol=?", (sym,)
+        ).fetchone()[0]
+        if latest_price_date and payload.get("as_of") != latest_price_date:
             return None
         return payload
     except Exception:
@@ -257,7 +265,7 @@ def signature_match(live_features, k=30, sector_filter=None):
     pool_rows = []
     for r in rows:
         d = dict(zip(cols, r, strict=False))
-        vec, _mask = _to_vector(d)
+        vec, mask = _to_vector(d)
         pool_vecs.append(vec)
         pool_rows.append(d)
     X = np.vstack(pool_vecs)  # (n_pool, n_features)
@@ -339,84 +347,25 @@ def _sector_breakdown(matches):
 # Core simulation
 # ============================================================
 def _simulate_forward(df, signal_i, trigger, stop):
-    n = len(df)
-    h = df["High"].values
-    l = df["Low"].values
-    risk = trigger - stop
-    if risk <= 0:
-        return None
-    trig_bar = None
-    for j in range(signal_i + 1, min(signal_i + 4, n)):
-        if h[j] >= trigger:
-            trig_bar = j
-            break
-    if trig_bar is None:
-        return {
-            "triggered": False,
-            "outcome": "EXPIRED",
-            "mfe_r": 0.0,
-            "mae_r": 0.0,
-            "hit_1r": False,
-            "hit_2r": False,
-            "hit_3r": False,
-            "hit_4r": False,
-            "bars_to_1r": None,
-            "bars_to_2r": None,
-            "bars_to_3r": None,
-            "bars_to_4r": None,
-        }
-    end_bar = min(trig_bar + HOLD_BARS, n)
-    mfe = 0.0
-    mae = 0.0
-    hit_1r = hit_2r = hit_3r = hit_4r = False
-    b_1r = b_2r = b_3r = b_4r = None
-    outcome = "TIMEOUT"
-    for k in range(trig_bar, end_bar):
-        up_r = (h[k] - trigger) / risk
-        dn_r = (l[k] - trigger) / risk
-        mfe = max(mfe, up_r)
-        mae = min(mae, dn_r)
-        bars_since = k - trig_bar
-        if not hit_1r and up_r >= 1.0:
-            hit_1r = True
-            b_1r = bars_since
-        if not hit_2r and up_r >= 2.0:
-            hit_2r = True
-            b_2r = bars_since
-        if not hit_3r and up_r >= 3.0:
-            hit_3r = True
-            b_3r = bars_since
-        if not hit_4r and up_r >= 4.0:
-            hit_4r = True
-            b_4r = bars_since
-        if l[k] <= stop:
-            outcome = "LOSS"
-            break
-    if outcome != "LOSS" and not hit_1r:
-        outcome = "TIMEOUT"
-    return {
-        "triggered": True,
-        "outcome": outcome,
-        "mfe_r": round(float(mfe), 2),
-        "mae_r": round(float(mae), 2),
-        "hit_1r": hit_1r,
-        "hit_2r": hit_2r,
-        "hit_3r": hit_3r,
-        "hit_4r": hit_4r,
-        "bars_to_1r": b_1r,
-        "bars_to_2r": b_2r,
-        "bars_to_3r": b_3r,
-        "bars_to_4r": b_4r,
-    }
+    """Adapter over setup_sim.simulate_forward (B5, 2026-10-05).
+
+    The rule set was already identical to build_setup_pool._simulate; only the
+    return shape differed. The shared core keeps this superset shape.
+    """
+    return setup_sim.simulate_forward(df, signal_i, trigger, stop, hold_bars=HOLD_BARS)
 
 
 def _load_df(conn, sym, years=5):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date",
+        (sym,),
     ).fetchall()
-    if not rows or len(rows) < MIN_BARS:
+    if not rows:
         return None
-    df = pd.DataFrame(list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]).set_index("date")
+    df = pd.DataFrame(
+        list(rows), columns=["date", "Open", "High", "Low", "Close", "Volume"]
+    ).set_index("date")
     df.index = pd.to_datetime(df.index)
     cutoff = df.index[-1] - pd.Timedelta(days=365 * years)
     return df[df.index >= cutoff]
@@ -611,12 +560,12 @@ def analyze_symbol(sym, use_cache=True, include_signature=True):
     df = _load_df(conn, sym, years=5)
     if df is None:
         conn.close()
-        return {"symbol": sym, "error": "insufficient history"}
+        return {"symbol": sym, "error": "no price history"}
 
     current_setup = None
     live_features = None
-    st = SetupDetector.detect(df, sym)
-    if st.triggered:
+    st = SetupDetector.detect(df, sym) if len(df) >= MIN_BARS else None
+    if st and st.triggered:
         candle = _classify_mother_bar(df, len(df) - 1)
         feats = _features_at(df, len(df) - 1) or {}
         live_features = feats
@@ -640,7 +589,7 @@ def analyze_symbol(sym, use_cache=True, include_signature=True):
     high_52w = float(df["High"].tail(252).max())
     low_52w = float(df["Low"].tail(252).min())
 
-    setups = _historical_setups(df)
+    setups = _historical_setups(df) if len(df) >= MIN_BARS else []
     agg = _aggregate(setups)
     candle_stats = _candle_stats(setups)
     recent = sorted(setups, key=lambda s: s["signal_date"], reverse=True)[:5]
@@ -658,6 +607,22 @@ def analyze_symbol(sym, use_cache=True, include_signature=True):
     if row:
         sector = row[0]
 
+    close = df["Close"].astype(float)
+    latest_close = float(close.iloc[-1])
+    prev_close = float(close.iloc[-2]) if len(close) > 1 else None
+
+    def _ema(period):
+        if len(close) < period:
+            return None
+        return float(close.ewm(span=period, adjust=False).mean().iloc[-1])
+
+    def _change(period):
+        if len(close) <= period:
+            return None
+        return round((latest_close / float(close.iloc[-period - 1]) - 1) * 100, 2)
+
+    latest_volume = float(df["Volume"].iloc[-1])
+    avg_volume_20 = float(df["Volume"].tail(20).mean()) if len(df) >= 20 else None
     result = {
         "symbol": sym,
         "sector": sector,
@@ -674,7 +639,31 @@ def analyze_symbol(sym, use_cache=True, include_signature=True):
         "recent_setups": recent,
         "raw_setups": setups,
         "history_bars_tested": len(df),
-        "history_years": 5,
+        "history_sufficient": len(df) >= MIN_BARS,
+        "market_state": {
+            "as_of": str(df.index[-1].date()),
+            "close": latest_close,
+            "change_1d_pct": (
+                round((latest_close / prev_close - 1) * 100, 2)
+                if prev_close and prev_close > 0
+                else None
+            ),
+            "change_20d_pct": _change(20),
+            "change_60d_pct": _change(60),
+            "ema20": _ema(20),
+            "ema50": _ema(50),
+            "ema200": _ema(200),
+            "volume": latest_volume,
+            "avg_volume_20": avg_volume_20,
+            "volume_ratio_20": (
+                round(latest_volume / avg_volume_20, 2)
+                if avg_volume_20 and avg_volume_20 > 0
+                else None
+            ),
+            "bars_available": len(df),
+        },
+        "history_years": round(min(5.0, (df.index[-1] - df.index[0]).days / 365.25), 1),
+        "minimum_history_bars": MIN_BARS,
         "step": STEP,
     }
 
@@ -689,35 +678,83 @@ def analyze_symbol(sym, use_cache=True, include_signature=True):
 # ============================================================
 # Universe / sector (unchanged from v3)
 # ============================================================
-def _today_symbols(conn, trend_limit=50):
-    today = dt.date.today().isoformat()
-    rows = conn.execute("SELECT DISTINCT symbol, mode FROM swing_signals WHERE signal_date=?", (today,)).fetchall()
-    symbols = {r[0]: r[1] for r in rows}
+def _latest_scan_dates(conn):
+    dates = {}
+    for table, column, source in (
+        ("swing_signals", "signal_date", "swing"),
+        ("trend_candidates", "date", "trend"),
+    ):
+        try:
+            dates[source] = conn.execute(f"SELECT MAX({column}) FROM {table}").fetchone()[0]
+        except Exception:
+            dates[source] = None
     try:
-        trows = conn.execute(
-            "SELECT symbol FROM trend_candidates WHERE date=? ORDER BY score DESC LIMIT ?", (today, trend_limit)
-        ).fetchall()
-        for r in trows:
-            symbols.setdefault(r[0], "TREND")
+        dates["prices"] = conn.execute("SELECT MAX(date) FROM prices_daily").fetchone()[0]
     except Exception:
-        pass
+        dates["prices"] = None
+    return dates
+
+
+def _today_symbols(conn, trend_limit=50):
+    dates = _latest_scan_dates(conn)
+    rows = (
+        conn.execute(
+            "SELECT DISTINCT symbol, mode FROM swing_signals WHERE signal_date=?", (dates["swing"],)
+        ).fetchall()
+        if dates["swing"]
+        else []
+    )
+    symbols = {r[0]: r[1] for r in rows}
+    if dates["trend"]:
+        try:
+            trows = conn.execute(
+                "SELECT symbol FROM trend_candidates WHERE date=? ORDER BY score DESC LIMIT ?",
+                (dates["trend"], trend_limit),
+            ).fetchall()
+            for r in trows:
+                symbols.setdefault(r[0], "TREND")
+        except Exception:
+            pass
     return symbols
+
+
+def _source_status(dates):
+    scan_dates = [dates.get("swing"), dates.get("trend")]
+    scan_dates = [value for value in scan_dates if value]
+    latest_scan = max(scan_dates) if scan_dates else None
+    return {
+        "date": latest_scan,
+        "source_dates": {
+            "swing": dates.get("swing"),
+            "trend": dates.get("trend"),
+            "prices": dates.get("prices"),
+        },
+        "stale": bool(latest_scan and dates.get("prices") and latest_scan < dates["prices"]),
+    }
+
+
+def _latest_scan_symbols(conn, trend_limit=50):
+    symbols = _today_symbols(conn, trend_limit=trend_limit)
+    return symbols, _source_status(_latest_scan_dates(conn))
 
 
 def analyze_universe(today_only=True, max_symbols=200, compute_missing=False):
     conn = db.get_conn()
-    today = dt.date.today().isoformat()
-    symbols = _today_symbols(conn)
+    symbols, status = _latest_scan_symbols(conn)
     out = []
     for sym, src in list(symbols.items())[:max_symbols]:
         cached = _get_cached(conn, sym)
         if cached is None:
-            cached = analyze_symbol(sym, use_cache=True) if compute_missing else {"symbol": sym, "error": "not cached"}
+            if compute_missing:
+                cached = analyze_symbol(sym, use_cache=True)
+            else:
+                cached = {"symbol": sym, "error": "not cached"}
         h = cached.get("historical", {})
         out.append(
             {
                 "symbol": sym,
                 "source": src,
+                "analysis_error": cached.get("error"),
                 "sector": cached.get("sector"),
                 "latest_close": cached.get("latest_close"),
                 "pct_from_52w_high": cached.get("pct_from_52w_high"),
@@ -737,13 +774,13 @@ def analyze_universe(today_only=True, max_symbols=200, compute_missing=False):
             }
         )
     conn.close()
-    return {"date": today, "n_setups": len(out), "rows": out}
+    errors = sum(1 for row in out if row["analysis_error"])
+    return {**status, "n_setups": len(out), "n_errors": errors, "rows": out}
 
 
 def sector_aggregate(max_symbols=200):
     conn = db.get_conn()
-    today = dt.date.today().isoformat()
-    symbols = _today_symbols(conn)
+    symbols, status = _latest_scan_symbols(conn)
     buckets = {}
     missing = []
     for sym in list(symbols.keys())[:max_symbols]:
@@ -772,7 +809,7 @@ def sector_aggregate(max_symbols=200):
         )
     out.sort(key=lambda r: -(r["n_setups"] or 0))
     return {
-        "date": today,
+        **status,
         "n_sectors": len(out),
         "n_symbols_cached": sum(len(v) for v in buckets.values()),
         "n_symbols_missing": len(missing),
@@ -836,12 +873,18 @@ def _print_symbol(result):
         return
     print(f"  Sector: {result['sector']}")
     print(f"  As of: {result['as_of']}  close: {result['latest_close']}")
-    print(f"  {result['pct_from_52w_high']}% from 52w high  |  {result['pct_from_52w_low']}% from 52w low")
+    print(
+        f"  {result['pct_from_52w_high']}% from 52w high  |  "
+        f"{result['pct_from_52w_low']}% from 52w low"
+    )
     print()
     if result["current_setup"]:
         cs = result["current_setup"]
         print("  CURRENT SETUP:")
-        print(f"    signal {cs['signal_date']}  entry {cs['entry']}  stop {cs['stop']}  target3R {cs['target_3r']}")
+        print(
+            f"    signal {cs['signal_date']}  entry {cs['entry']}  "
+            f"stop {cs['stop']}  target3R {cs['target_3r']}"
+        )
         if cs.get("mother_type"):
             print(f"    mother bar: {cs['mother_type']}")
     else:
@@ -851,7 +894,9 @@ def _print_symbol(result):
     print(f"  HISTORICAL ({h['n_setups']} setups over 5y):")
     print(f"    triggered: {h['n_triggered']} (P={h['p_trigger']})")
     print(
-        f"    P(+1R): {h['p_1r_given_trigger']}  P(+2R): {h['p_2r_given_trigger']}  P(+3R): {h['p_3r_given_trigger']}"
+        f"    P(+1R): {h['p_1r_given_trigger']}  "
+        f"P(+2R): {h['p_2r_given_trigger']}  "
+        f"P(+3R): {h['p_3r_given_trigger']}"
     )
     print(f"    MFE R: p5={h['p5_mfe_r']}  p50={h['median_mfe_r']}  p95={h['p95_mfe_r']}")
     print(f"    MAE R: p5={h['p5_mae_r']}  p50={h['median_mae_r']}  p95={h['p95_mae_r']}")

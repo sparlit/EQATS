@@ -116,7 +116,11 @@ def main():
                 rec["delta"] = round(stored - sv, 2)
                 rec["pct"] = round(100 * (stored - sv) / abs(sv), 2) if sv else None
                 ok = abs(stored - sv) <= max(TOL_ABS, abs(sv) * TOL_REL)
-                rec["status"] = "MATCHES_SITE_ROW" if ok else ("BELOW_SITE_ROW" if stored < sv else "ABOVE_SITE_ROW")
+                rec["status"] = (
+                    "MATCHES_SITE_ROW"
+                    if ok
+                    else ("BELOW_SITE_ROW" if stored < sv else "ABOVE_SITE_ROW")
+                )
             tally[rec["status"]] += 1
             rows.append(rec)
 
@@ -141,7 +145,18 @@ def main():
     if a.csv:
         with open(a.csv, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
-            w.writerow(["sym", "qe", "basis", "status", "stored_now", "screener_now", "pct", "basis_copy_in_ledger"])
+            w.writerow(
+                [
+                    "sym",
+                    "qe",
+                    "basis",
+                    "status",
+                    "stored_now",
+                    "screener_now",
+                    "pct",
+                    "basis_copy_in_ledger",
+                ]
+            )
             for r in rows:
                 w.writerow(
                     [
@@ -162,7 +177,10 @@ def main():
     print("\nR1 SUSPECTS -- stored value BELOW Screener's current revenue row (%d):" % len(suspect))
     print("   %-12s %-9s %10s %10s %8s" % ("sym", "qe", "ours", "screener", "pct"))
     for r in suspect[:40]:
-        print("   %-12s %-9d %10s %10s %7.1f%%" % (r["sym"], r["qe"], r["stored_now"], r["screener_now"], r["pct"]))
+        print(
+            "   %-12s %-9d %10s %10s %7.1f%%"
+            % (r["sym"], r["qe"], r["stored_now"], r["screener_now"], r["pct"])
+        )
     print(f"\nwrote {a.out}")
 
 

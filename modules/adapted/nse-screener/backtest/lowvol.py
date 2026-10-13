@@ -25,15 +25,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
     python -m backtest.lowvol
 """
-import numpy as np
-import pandas as pd
-from backtest import features, monthly
 
-import config
+from backtest import features, monthly
 
 
 def run() -> None:
-    for label, start, end in (("IN-SAMPLE 2023-26", "2022-01-01", None), ("OUT-OF-SAMPLE 2017-22", None, "2022-12-31")):
+    for label, start, end in (
+        ("IN-SAMPLE 2023-26", "2022-01-01", None),
+        ("OUT-OF-SAMPLE 2017-22", None, "2022-12-31"),
+    ):
         print(f"\n=== {label} ===")
         p = features._panel(start, end)
         ctx = features._context(p)
@@ -59,8 +59,12 @@ def run() -> None:
         monthly.report("n_10", monthly.simulate(p, ctx, select_fn=lowvol_sel(n=10)))
         monthly.report("n_30", monthly.simulate(p, ctx, select_fn=lowvol_sel(n=30)))
         monthly.report("look_126", monthly.simulate(p, ctx, select_fn=lowvol_sel(lookback=126)))
-        monthly.report("floor_10cr", monthly.simulate(p, ctx, select_fn=lowvol_sel(), turnover_floor=1000))
-        monthly.report("with_regime", monthly.simulate(p, ctx, select_fn=lowvol_sel(), regime_filter=True))
+        monthly.report(
+            "floor_10cr", monthly.simulate(p, ctx, select_fn=lowvol_sel(), turnover_floor=1000)
+        )
+        monthly.report(
+            "with_regime", monthly.simulate(p, ctx, select_fn=lowvol_sel(), regime_filter=True)
+        )
 
 
 if __name__ == "__main__":

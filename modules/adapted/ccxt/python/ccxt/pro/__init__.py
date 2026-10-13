@@ -27,136 +27,135 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 # ----------------------------------------------------------------------------
 
-__version__ = "4.5.78"
+__version__ = "4.5.85"
 
 # ----------------------------------------------------------------------------
 
-from ccxt.async_support.base.exchange import Exchange
+from ccxt.async_support.base.exchange import Exchange  # noqa: F401
 
 # CCXT Pro exchanges (now this is mainly used for importing exchanges in WS tests)
 # DO_NOT_REMOVE__ERROR_IMPORTS_START
 from ccxt.base.errors import (
-    AccountNotEnabled,
-    AccountSuspended,
-    AddressPending,
-    ArgumentsRequired,
-    AuthenticationError,
-    BadRequest,
-    BadResponse,
-    BadSymbol,
-    BaseError,
-    CancelPending,
-    ChecksumError,
-    ContractUnavailable,
-    DDoSProtection,
-    DuplicateOrderId,
-    ExchangeClosedByUser,
-    ExchangeError,
-    ExchangeNotAvailable,
-    InsufficientFunds,
-    InvalidAddress,
-    InvalidNonce,
-    InvalidOrder,
-    InvalidProxySettings,
-    ManualInteractionNeeded,
-    MarginModeAlreadySet,
-    MarketClosed,
-    NetworkError,
-    NoChange,
-    NotSupported,
-    NullResponse,
-    OnMaintenance,
-    OperationFailed,
-    OperationRejected,
-    OrderImmediatelyFillable,
-    OrderNotCached,
-    OrderNotFillable,
-    OrderNotFound,
-    PermissionDenied,
-    RateLimitExceeded,
-    RequestTimeout,
-    RestrictedLocation,
-    UnsubscribeError,
-    error_hierarchy,
+    AccountNotEnabled,  # noqa: F401
+    AccountSuspended,  # noqa: F401
+    AddressPending,  # noqa: F401
+    ArgumentsRequired,  # noqa: F401
+    AuthenticationError,  # noqa: F401
+    BadRequest,  # noqa: F401
+    BadResponse,  # noqa: F401
+    BadSymbol,  # noqa: F401
+    BaseError,  # noqa: F401
+    CancelPending,  # noqa: F401
+    ChecksumError,  # noqa: F401
+    ContractUnavailable,  # noqa: F401
+    DDoSProtection,  # noqa: F401
+    DuplicateOrderId,  # noqa: F401
+    ExchangeClosedByUser,  # noqa: F401
+    ExchangeError,  # noqa: F401
+    ExchangeNotAvailable,  # noqa: F401
+    InsufficientFunds,  # noqa: F401
+    InvalidAddress,  # noqa: F401
+    InvalidNonce,  # noqa: F401
+    InvalidOrder,  # noqa: F401
+    InvalidProxySettings,  # noqa: F401
+    ManualInteractionNeeded,  # noqa: F401
+    MarginModeAlreadySet,  # noqa: F401
+    MarketClosed,  # noqa: F401
+    NetworkError,  # noqa: F401
+    NoChange,  # noqa: F401
+    NotSupported,  # noqa: F401
+    NullResponse,  # noqa: F401
+    OnMaintenance,  # noqa: F401
+    OperationFailed,  # noqa: F401
+    OperationRejected,  # noqa: F401
+    OrderImmediatelyFillable,  # noqa: F401
+    OrderNotCached,  # noqa: F401
+    OrderNotFillable,  # noqa: F401
+    OrderNotFound,  # noqa: F401
+    PermissionDenied,  # noqa: F401
+    RateLimitExceeded,  # noqa: F401
+    RequestTimeout,  # noqa: F401
+    RestrictedLocation,  # noqa: F401
+    UnsubscribeError,  # noqa: F401
+    error_hierarchy,  # noqa: F401
 )
 
 # DO_NOT_REMOVE__ERROR_IMPORTS_END
-from ccxt.pro.alpaca import alpaca
-from ccxt.pro.apex import apex
-from ccxt.pro.aster import aster
-from ccxt.pro.backpack import backpack
-from ccxt.pro.bequant import bequant
-from ccxt.pro.binance import binance
-from ccxt.pro.binancecoinm import binancecoinm
-from ccxt.pro.binanceus import binanceus
-from ccxt.pro.binanceusdm import binanceusdm
-from ccxt.pro.bingx import bingx
-from ccxt.pro.bitfinex import bitfinex
-from ccxt.pro.bitget import bitget
-from ccxt.pro.bithumb import bithumb
-from ccxt.pro.bitmex import bitmex
-from ccxt.pro.bitopro import bitopro
-from ccxt.pro.bitrue import bitrue
-from ccxt.pro.bitstamp import bitstamp
-from ccxt.pro.bittrade import bittrade
-from ccxt.pro.bitvavo import bitvavo
-from ccxt.pro.blockchaincom import blockchaincom
-from ccxt.pro.blofin import blofin
-from ccxt.pro.bullish import bullish
-from ccxt.pro.bybit import bybit
-from ccxt.pro.bybiteu import bybiteu
-from ccxt.pro.bydfi import bydfi
-from ccxt.pro.cex import cex
-from ccxt.pro.coinbase import coinbase
-from ccxt.pro.coinbaseexchange import coinbaseexchange
-from ccxt.pro.coinbaseinternational import coinbaseinternational
-from ccxt.pro.coincheck import coincheck
-from ccxt.pro.coinex import coinex
-from ccxt.pro.coinone import coinone
-from ccxt.pro.cryptocom import cryptocom
-from ccxt.pro.deepcoin import deepcoin
-from ccxt.pro.deribit import deribit
-from ccxt.pro.derive import derive
-from ccxt.pro.dydx import dydx
-from ccxt.pro.extended import extended
-from ccxt.pro.gate import gate
-from ccxt.pro.gateeu import gateeu
-from ccxt.pro.gemini import gemini
-from ccxt.pro.grvt import grvt
-from ccxt.pro.hashkey import hashkey
-from ccxt.pro.hitbtc import hitbtc
-from ccxt.pro.hollaex import hollaex
-from ccxt.pro.htx import htx
-from ccxt.pro.hyperliquid import hyperliquid
-from ccxt.pro.independentreserve import independentreserve
-from ccxt.pro.kraken import kraken
-from ccxt.pro.krakenfutures import krakenfutures
-from ccxt.pro.kucoin import kucoin
-from ccxt.pro.kucoinfutures import kucoinfutures
-from ccxt.pro.lbank import lbank
-from ccxt.pro.lighter import lighter
-from ccxt.pro.luno import luno
-from ccxt.pro.mexc import mexc
-from ccxt.pro.modetrade import modetrade
-from ccxt.pro.mudrex import mudrex
-from ccxt.pro.myokx import myokx
-from ccxt.pro.nado import nado
-from ccxt.pro.ndax import ndax
-from ccxt.pro.okx import okx
-from ccxt.pro.okxus import okxus
-from ccxt.pro.onetrading import onetrading
-from ccxt.pro.p2b import p2b
-from ccxt.pro.pacifica import pacifica
-from ccxt.pro.paradex import paradex
-from ccxt.pro.phemex import phemex
-from ccxt.pro.poloniex import poloniex
-from ccxt.pro.toobit import toobit
-from ccxt.pro.upbit import upbit
-from ccxt.pro.weex import weex
-from ccxt.pro.whitebit import whitebit
-from ccxt.pro.woo import woo
-from ccxt.pro.woofipro import woofipro
-from ccxt.pro.xt import xt
+from ccxt.pro.alpaca import alpaca  # noqa: F401
+from ccxt.pro.apex import apex  # noqa: F401
+from ccxt.pro.aster import aster  # noqa: F401
+from ccxt.pro.backpack import backpack  # noqa: F401
+from ccxt.pro.bequant import bequant  # noqa: F401
+from ccxt.pro.binance import binance  # noqa: F401
+from ccxt.pro.binancecoinm import binancecoinm  # noqa: F401
+from ccxt.pro.binanceus import binanceus  # noqa: F401
+from ccxt.pro.binanceusdm import binanceusdm  # noqa: F401
+from ccxt.pro.bingx import bingx  # noqa: F401
+from ccxt.pro.bitfinex import bitfinex  # noqa: F401
+from ccxt.pro.bitget import bitget  # noqa: F401
+from ccxt.pro.bithumb import bithumb  # noqa: F401
+from ccxt.pro.bitopro import bitopro  # noqa: F401
+from ccxt.pro.bitrue import bitrue  # noqa: F401
+from ccxt.pro.bitstamp import bitstamp  # noqa: F401
+from ccxt.pro.bittrade import bittrade  # noqa: F401
+from ccxt.pro.bitvavo import bitvavo  # noqa: F401
+from ccxt.pro.blockchaincom import blockchaincom  # noqa: F401
+from ccxt.pro.blofin import blofin  # noqa: F401
+from ccxt.pro.bullish import bullish  # noqa: F401
+from ccxt.pro.bybit import bybit  # noqa: F401
+from ccxt.pro.bybiteu import bybiteu  # noqa: F401
+from ccxt.pro.bybitid import bybitid  # noqa: F401
+from ccxt.pro.bydfi import bydfi  # noqa: F401
+from ccxt.pro.cex import cex  # noqa: F401
+from ccxt.pro.coinbase import coinbase  # noqa: F401
+from ccxt.pro.coinbaseexchange import coinbaseexchange  # noqa: F401
+from ccxt.pro.coinbaseinternational import coinbaseinternational  # noqa: F401
+from ccxt.pro.coincheck import coincheck  # noqa: F401
+from ccxt.pro.coinone import coinone  # noqa: F401
+from ccxt.pro.cryptocom import cryptocom  # noqa: F401
+from ccxt.pro.deepcoin import deepcoin  # noqa: F401
+from ccxt.pro.deribit import deribit  # noqa: F401
+from ccxt.pro.derive import derive  # noqa: F401
+from ccxt.pro.dydx import dydx  # noqa: F401
+from ccxt.pro.extended import extended  # noqa: F401
+from ccxt.pro.gate import gate  # noqa: F401
+from ccxt.pro.gateeu import gateeu  # noqa: F401
+from ccxt.pro.gemini import gemini  # noqa: F401
+from ccxt.pro.grvt import grvt  # noqa: F401
+from ccxt.pro.hashkey import hashkey  # noqa: F401
+from ccxt.pro.hitbtc import hitbtc  # noqa: F401
+from ccxt.pro.hollaex import hollaex  # noqa: F401
+from ccxt.pro.htx import htx  # noqa: F401
+from ccxt.pro.hyperliquid import hyperliquid  # noqa: F401
+from ccxt.pro.independentreserve import independentreserve  # noqa: F401
+from ccxt.pro.kraken import kraken  # noqa: F401
+from ccxt.pro.krakenfutures import krakenfutures  # noqa: F401
+from ccxt.pro.kucoin import kucoin  # noqa: F401
+from ccxt.pro.kucoinfutures import kucoinfutures  # noqa: F401
+from ccxt.pro.lbank import lbank  # noqa: F401
+from ccxt.pro.lighter import lighter  # noqa: F401
+from ccxt.pro.luno import luno  # noqa: F401
+from ccxt.pro.mexc import mexc  # noqa: F401
+from ccxt.pro.modetrade import modetrade  # noqa: F401
+from ccxt.pro.mudrex import mudrex  # noqa: F401
+from ccxt.pro.myokx import myokx  # noqa: F401
+from ccxt.pro.nado import nado  # noqa: F401
+from ccxt.pro.ndax import ndax  # noqa: F401
+from ccxt.pro.okx import okx  # noqa: F401
+from ccxt.pro.okxus import okxus  # noqa: F401
+from ccxt.pro.onetrading import onetrading  # noqa: F401
+from ccxt.pro.p2b import p2b  # noqa: F401
+from ccxt.pro.pacifica import pacifica  # noqa: F401
+from ccxt.pro.paradex import paradex  # noqa: F401
+from ccxt.pro.phemex import phemex  # noqa: F401
+from ccxt.pro.poloniex import poloniex  # noqa: F401
+from ccxt.pro.toobit import toobit  # noqa: F401
+from ccxt.pro.upbit import upbit  # noqa: F401
+from ccxt.pro.weex import weex  # noqa: F401
+from ccxt.pro.whitebit import whitebit  # noqa: F401
+from ccxt.pro.woo import woo  # noqa: F401
+from ccxt.pro.woofipro import woofipro  # noqa: F401
+from ccxt.pro.xt import xt  # noqa: F401
 
 exchanges = [
     "alpaca",
@@ -172,7 +171,6 @@ exchanges = [
     "bitfinex",
     "bitget",
     "bithumb",
-    "bitmex",
     "bitopro",
     "bitrue",
     "bitstamp",
@@ -183,13 +181,13 @@ exchanges = [
     "bullish",
     "bybit",
     "bybiteu",
+    "bybitid",
     "bydfi",
     "cex",
     "coinbase",
     "coinbaseexchange",
     "coinbaseinternational",
     "coincheck",
-    "coinex",
     "coinone",
     "cryptocom",
     "deepcoin",

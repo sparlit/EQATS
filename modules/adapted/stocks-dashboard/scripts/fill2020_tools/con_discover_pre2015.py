@@ -102,7 +102,9 @@ def aliases(sym):
     except Exception:
         pass
     try:
-        for row in csv.reader(open(os.path.join(SCRIPTS, "symchg.csv"), encoding="utf8", errors="replace")):
+        for row in csv.reader(
+            open(os.path.join(SCRIPTS, "symchg.csv"), encoding="utf8", errors="replace")
+        ):
             if len(row) >= 3 and row[1].strip() and row[2].strip():
                 edges.setdefault(row[2].strip().upper(), set()).add(row[1].strip().upper())
     except Exception:
@@ -128,12 +130,16 @@ def fresh_session():
 
 
 def fetch_list(sess, sym, period):
-    u = "https://www.nseindia.com/api/corporates-financial-results?index=equities&symbol={}&period={}".format(
-        urllib.parse.quote(sym, safe=""), period
+    u = (
+        "https://www.nseindia.com/api/corporates-financial-results?index=equities"
+        "&symbol={}&period={}".format(urllib.parse.quote(sym, safe=""), period)
     )
     r = sess.get(
         u,
-        headers={"Referer": "https://www.nseindia.com/companies-listing/corporate-filings-financial-results"},
+        headers={
+            "Referer": "https://www.nseindia.com/companies-listing/"
+            "corporate-filings-financial-results"
+        },
         timeout=45,
     )
     if r.status_code != 200:
@@ -241,7 +247,9 @@ def run_nse(targets, todo):
             with contextlib.suppress(Exception):
                 sess = fresh_session()
             if consec_err >= 10:
-                print("!! 10 consecutive failures -- NSE lockdown? aborting (resumable).", flush=True)
+                print(
+                    "!! 10 consecutive failures -- NSE lockdown? aborting (resumable).", flush=True
+                )
                 inv[sym] = rec
                 break
         inv[sym] = rec
@@ -250,13 +258,24 @@ def run_nse(targets, todo):
             hits = sum(len(v["con_qtr"]) for v in inv.values())
             print(
                 "  [%d/%d] %s rows=%d con_total=%d first_con=%s | con-qtr hits in scope so far: %d"
-                % (i + 1, len(todo), sym, rec["rows"], rec["con_rows_total"], rec["first_con_toDate"], hits),
+                % (
+                    i + 1,
+                    len(todo),
+                    sym,
+                    rec["rows"],
+                    rec["con_rows_total"],
+                    rec["first_con_toDate"],
+                    hits,
+                ),
                 flush=True,
             )
     json.dump(inv, open(OUT_NSE, "w"), indent=0, sort_keys=True)
     hits = sum(len(v["con_qtr"]) for v in inv.values())
     errs = sum(1 for v in inv.values() if v.get("err"))
-    print("NSE DONE: %d symbols, %d gap cells with a con quarterly row, %d errors" % (len(inv), hits, errs))
+    print(
+        "NSE DONE: %d symbols, %d gap cells with a con quarterly row, %d errors"
+        % (len(inv), hits, errs)
+    )
 
 
 # ------------------------------------------------------------------ MC route
@@ -284,7 +303,11 @@ def run_mc(targets, todo):
                 # IDENTITY ANCHOR (§81e): MC's STANDALONE series must reproduce our stored std PAT
                 # over the gap quarters, or MC is not talking about this company/vintage and its
                 # consolidated verdict counts for nothing. Journalled as hits/tries, not a boolean.
-                ours = {r[0]: r[1] for r in fund.get(targets[sym].get("key", sym), []) if r[1] is not None}
+                ours = {
+                    r[0]: r[1]
+                    for r in fund.get(targets[sym].get("key", sym), [])
+                    if r[1] is not None
+                }
                 tries = hits = 0
                 for qe in gaps:
                     sv = (std.get(qe) or {}).get("pat_total")
@@ -321,7 +344,9 @@ def run_mc(targets, todo):
         inv[sym] = rec
         if (i + 1) % 10 == 0 or i + 1 == len(todo):
             json.dump(inv, open(OUT_MC, "w"), indent=0, sort_keys=True)
-            d = sum(1 for v in inv.values() for c in v["cells"].values() if c.get("state") == "differs")
+            d = sum(
+                1 for v in inv.values() for c in v["cells"].values() if c.get("state") == "differs"
+            )
             print(
                 "  [%d/%d] %s con_n=%s oldest=%s | differs-cells so far: %d"
                 % (i + 1, len(todo), sym, rec.get("con_n"), rec.get("con_oldest"), d),
@@ -355,7 +380,10 @@ def main():
     todo = [s for s in sorted(targets) if s not in inv and (not only or s in only)]
     if limit:
         todo = todo[:limit]
-    print("%s discovery: %d symbols to sweep (%d already done)" % (route, len(todo), len(inv)), flush=True)
+    print(
+        "%s discovery: %d symbols to sweep (%d already done)" % (route, len(todo), len(inv)),
+        flush=True,
+    )
     (run_nse if route == "nse" else run_mc)(targets, todo)
 
 

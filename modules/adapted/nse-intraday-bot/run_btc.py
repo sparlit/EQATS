@@ -120,7 +120,11 @@ def scan_btc_once() -> dict | None:
         fg = get_fear_greed()
         cme = get_cme_gap()
 
-        print(f"[BTC] Price=${data['price']:,.0f}  Funding={funding['rate_pct']}%  F&G={fg['value']} ({fg['label']})")
+        print(
+            f"[BTC] Price=${data['price']:,.0f}  "
+            f"Funding={funding['rate_pct']}%  "
+            f"F&G={fg['value']} ({fg['label']})"
+        )
 
         sig = score_btc(
             df_weekly=data["df_weekly"],
@@ -148,12 +152,15 @@ def scan_btc_once() -> dict | None:
                 f"entry=${ent:,} T2=${t2:,}"
             )
             return sig
-        if sig and isinstance(sig, dict) and sig.get("score", 0) > 0:
+        elif sig and isinstance(sig, dict) and sig.get("score", 0) > 0:
             print(f"[BTC] Signal found but score {sig.get('score', 0)}/150 < threshold {THRESHOLD}")
-        elif kz_pts == 0:
-            print(f"[BTC] Blocked — not in a kill zone (current: {kz})")
         else:
-            print("[BTC] Blocked — BOS/CHOCH on 4H, Order Block, or Liquidity Sweep not confirmed")
+            if kz_pts == 0:
+                print(f"[BTC] Blocked — not in a kill zone (current: {kz})")
+            else:
+                print(
+                    "[BTC] Blocked — BOS/CHOCH on 4H, Order Block, or Liquidity Sweep not confirmed"
+                )
     except Exception as e:
         print(f"[BTC] Scan error: {e}")
     return None

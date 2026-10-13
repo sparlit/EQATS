@@ -234,7 +234,10 @@ if __name__ == "__main__":
     sel = json.load(open(os.path.join(SP, "declined67.json")))
     con = {k[:-4] for k in sel if sel[k]["fix"]["basis"] == "con"}
     missing, extra = con - set(V), set(V) - con
-    print("cells %d  verdicts %d  missing %s  extra %s" % (len(con), len(V), sorted(missing), sorted(extra)))
+    print(
+        "cells %d  verdicts %d  missing %s  extra %s"
+        % (len(con), len(V), sorted(missing), sorted(extra))
+    )
     from collections import Counter
 
     print(Counter(t for t, _ in V.values()))

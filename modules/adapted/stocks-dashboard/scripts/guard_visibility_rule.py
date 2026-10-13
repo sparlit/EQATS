@@ -44,7 +44,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 errs = []
 MON = {
-    m: i + 1 for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"])
+    m: i + 1
+    for i, m in enumerate(
+        ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    )
 }
 
 
@@ -107,7 +110,9 @@ run(
     ],
 )
 
-wf = open(os.path.join(ROOT, ".github", "workflows", "refresh-fundamentals.yml"), encoding="utf-8").read()
+wf = open(
+    os.path.join(ROOT, ".github", "workflows", "refresh-fundamentals.yml"), encoding="utf-8"
+).read()
 if re.search(
     r"(?m)^\s*python3\s+scripts/gate_1530\.py", wf
 ):  # an EXECUTED line; comments may name it, ungate_1530 is the mirror
@@ -118,7 +123,9 @@ if "ungate_1530.py --apply" not in wf or "build_gate_events.py --calendar --unga
     )
 bf = open(os.path.join(HERE, "backfill_ann_dates_bse.py"), encoding="utf-8").read()
 if "plus(ann, 4)" in bf:
-    errs.append("backfill_ann_dates_bse.py still carries the +4-day gate buffer on override entries")
+    errs.append(
+        "backfill_ann_dates_bse.py still carries the +4-day gate buffer on override entries"
+    )
 
 if errs:
     for e in errs:

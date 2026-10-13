@@ -35,7 +35,7 @@ import json
 import os
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -63,16 +63,14 @@ def _column(frame: pd.DataFrame, *names: str) -> str:
         key = name.strip().upper().replace(" ", "_")
         if key in normalized:
             return normalized[key]
-    msg = f"none of the required columns found: {names}"
-    raise ValueError(msg)
+    raise ValueError(f"none of the required columns found: {names}")
 
 
 def _download_table(url: str, dataset: str, timeout: int = 30) -> tuple[pd.DataFrame, Path]:
     response = requests.get(url, headers=HEADERS, timeout=timeout)
     response.raise_for_status()
     if len(response.content) < 100:
-        msg = f"{dataset} response is unexpectedly small"
-        raise ValueError(msg)
+        raise ValueError(f"{dataset} response is unexpectedly small")
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     digest = hashlib.sha256(response.content).hexdigest()[:12]
     content_type = response.headers.get("content-type", "").lower()
@@ -85,7 +83,11 @@ def _download_table(url: str, dataset: str, timeout: int = 30) -> tuple[pd.DataF
     path = RAW_ROOT / dataset / f"{stamp}_{digest}{suffix}"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(response.content)
-    frame = pd.read_excel(io.BytesIO(response.content)) if excel else pd.read_csv(io.BytesIO(response.content))
+    frame = (
+        pd.read_excel(io.BytesIO(response.content))
+        if excel
+        else pd.read_csv(io.BytesIO(response.content))
+    )
     return frame, path
 
 
@@ -119,21 +121,38 @@ def ingest_equity_master(conn: sqlite3.Connection, frame: pd.DataFrame) -> int:
     symbols = [row[0] for row in rows]
     if symbols:
         placeholders = ",".join("?" for _ in symbols)
-        conn.execute(f"UPDATE symbol_master_v2 SET active=0 WHERE symbol NOT IN ({placeholders})", symbols)
+        conn.execute(
+            f"UPDATE symbol_master_v2 SET active=0 WHERE symbol NOT IN ({placeholders})", symbols
+        )
     return len(rows)
 
 
 def ingest_market_caps(conn: sqlite3.Connection, frame: pd.DataFrame, available_date: str) -> int:
     symbol = _column(frame, "SYMBOL", "SECURITY SYMBOL")
     cap = _column(frame, "MARKET CAP (RS. CR)", "MARKET_CAP_CR", "MARKET CAPITALISATION (CR.)")
-    as_of = next((c for c in frame.columns if str(c).strip().upper().replace(" ", "_") in {"AS_OF_DATE", "DATE"}), None)
+    as_of = next(
+        (
+            c
+            for c in frame.columns
+            if str(c).strip().upper().replace(" ", "_") in {"AS_OF_DATE", "DATE"}
+        ),
+        None,
+    )
     rows = []
     for _, item in frame.iterrows():
         value = pd.to_numeric(item[cap], errors="coerce")
         if pd.isna(value) or float(value) <= 0:
             continue
         period = str(item[as_of]) if as_of else available_date
-        rows.append((str(item[symbol]).strip().upper(), period, available_date, float(value), "NSE_DIRECT_MARKET_CAP"))
+        rows.append(
+            (
+                str(item[symbol]).strip().upper(),
+                period,
+                available_date,
+                float(value),
+                "NSE_DIRECT_MARKET_CAP",
+            )
+        )
     conn.executemany(
         """INSERT INTO market_cap_snapshots_v3
       (symbol,as_of_date,available_date,market_cap_cr,source) VALUES (?,?,?,?,?)
@@ -147,7 +166,9 @@ def ingest_market_caps(conn: sqlite3.Connection, frame: pd.DataFrame, available_
 def calculate_caps_from_shares(conn: sqlite3.Connection, trade_date: str) -> int:
     price_table = (
         "daily_prices_v2"
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'").fetchone()
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'"
+        ).fetchone()
         else "daily_prices"
     )
     date_col = "trade_date" if price_table == "daily_prices_v2" else "date"
@@ -188,7 +209,9 @@ def rebuild_caps_from_shares(
     """Build retained-session caps using only shares known by each close date."""
     price_table = (
         "daily_prices_v2"
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'").fetchone()
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_prices_v2'"
+        ).fetchone()
         else "daily_prices"
     )
     date_col = "trade_date" if price_table == "daily_prices_v2" else "date"
@@ -230,7 +253,10 @@ def rebuild_caps_from_shares(
 
 
 def ingest_surveillance(conn: sqlite3.Connection, trade_date: str) -> int:
-    folder, fmt = Path(day_folder(date.fromisoformat(trade_date))), date_vars(date.fromisoformat(trade_date))
+    folder, fmt = (
+        Path(day_folder(date.fromisoformat(trade_date))),
+        date_vars(date.fromisoformat(trade_date)),
+    )
     paths = [folder / f"REG_IND{fmt['DDMMYY']}.csv", folder / f"REG1_IND{fmt['DDMMYYYY']}.csv"]
     count = 0
     for path in paths:
@@ -242,7 +268,11 @@ def ingest_surveillance(conn: sqlite3.Connection, trade_date: str) -> int:
         except ValueError:
             continue
         reason_col = next(
-            (c for c in frame.columns if any(k in str(c).upper() for k in ("REASON", "INDICATOR", "SURVEILLANCE"))),
+            (
+                c
+                for c in frame.columns
+                if any(k in str(c).upper() for k in ("REASON", "INDICATOR", "SURVEILLANCE"))
+            ),
             None,
         )
         rows = [
@@ -286,7 +316,9 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
     V2Database(db_path).ensure_v3_schema()
     health: list[DatasetHealth] = []
     try:
-        frame, raw = _download_table(os.getenv("NSE_EQUITY_MASTER_URL", EQUITY_MASTER_URL), "equity_master")
+        frame, raw = _download_table(
+            os.getenv("NSE_EQUITY_MASTER_URL", EQUITY_MASTER_URL), "equity_master"
+        )
         with sqlite3.connect(db_path) as conn:
             rows = ingest_equity_master(conn, frame)
         health.append(DatasetHealth("equity_master", "FRESH", rows, str(raw)))
@@ -302,7 +334,9 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
         except Exception as exc:
             health.append(DatasetHealth("market_cap", "REUSED_LAST_VALID", error=str(exc)))
     else:
-        health.append(DatasetHealth("market_cap", "NOT_CONFIGURED", error="NSE_MARKET_CAP_URL is not set"))
+        health.append(
+            DatasetHealth("market_cap", "NOT_CONFIGURED", error="NSE_MARKET_CAP_URL is not set")
+        )
     # Incremental shareholding collection has its own Git-backed filing history.
     # A listing failure intentionally leaves the restored normalized snapshot intact.
     try:
@@ -313,7 +347,10 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
             as_of=date.fromisoformat(trade_date),
             days=int(os.getenv("NSE_SHAREHOLDING_WINDOW_DAYS", "7")),
             csv_fallback=Path(
-                os.getenv("NSE_SHAREHOLDING_CSV_FALLBACK", "manual_import/raw/nse_shareholding_20260401_20260817.csv")
+                os.getenv(
+                    "NSE_SHAREHOLDING_CSV_FALLBACK",
+                    "manual_import/raw/nse_shareholding_20260401_20260817.csv",
+                )
             ),
         )
         health.append(
@@ -321,7 +358,8 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
                 "shareholding",
                 shareholding.status,
                 shareholding.normalized,
-                error=shareholding.error or (f"rejected={shareholding.rejected}" if shareholding.rejected else ""),
+                error=shareholding.error
+                or (f"rejected={shareholding.rejected}" if shareholding.rejected else ""),
             )
         )
     except Exception as exc:
@@ -330,9 +368,15 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
         from nse_corporate_actions_collector import collect as collect_actions
 
         actions = collect_actions(
-            db_path, date.fromisoformat(trade_date), days=int(os.getenv("NSE_CORPORATE_ACTION_WINDOW_DAYS", "7"))
+            db_path,
+            date.fromisoformat(trade_date),
+            days=int(os.getenv("NSE_CORPORATE_ACTION_WINDOW_DAYS", "7")),
         )
-        health.append(DatasetHealth("corporate_actions", actions.status, actions.normalized, error=actions.error))
+        health.append(
+            DatasetHealth(
+                "corporate_actions", actions.status, actions.normalized, error=actions.error
+            )
+        )
     except Exception as exc:
         health.append(DatasetHealth("corporate_actions", "REUSED_LAST_VALID", error=str(exc)))
     with sqlite3.connect(db_path) as conn:
@@ -348,9 +392,15 @@ def run_collection(db_path: str, trade_date: str, market_cap_url: str | None = N
         )
     health.extend(
         [
-            DatasetHealth("calculated_market_cap", "FRESH" if calculated else "NO_SHARES_AVAILABLE", calculated),
+            DatasetHealth(
+                "calculated_market_cap",
+                "FRESH" if calculated else "NO_SHARES_AVAILABLE",
+                calculated,
+            ),
             DatasetHealth("surveillance", "FRESH" if restricted else "NO_FILE", restricted),
-            DatasetHealth("current_market_cap", "FRESH" if current else "NO_VALID_SNAPSHOT", current),
+            DatasetHealth(
+                "current_market_cap", "FRESH" if current else "NO_VALID_SNAPSHOT", current
+            ),
         ]
     )
     payload = {

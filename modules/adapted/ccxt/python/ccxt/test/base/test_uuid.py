@@ -35,7 +35,7 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 def test_uuid():
@@ -61,7 +61,10 @@ def test_uuid():
     assert id16a is not None, "uuid16 1 must return a value"
     assert id16b is not None, "uuid16 2 must return a value"
     assert id16a != id16b, (
-        "uuid16() must return unique values on each call, returned id16a: " + id16a + ", id16b: " + id16b
+        "uuid16() must return unique values on each call, returned id16a: "
+        + id16a
+        + ", id16b: "
+        + id16b
     )
     assert str(id16a) == id16a, "uuid16() must return a string, returned id16a: " + id16a
     assert str(id16b) == id16b, "uuid16() must return a string, returned id16b: " + id16b

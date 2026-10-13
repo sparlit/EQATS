@@ -30,7 +30,7 @@ Keeping these in one place avoids circular imports between service modules
 and lets server.py import cleanly without depending on any service.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from typing_extensions import TypedDict
 

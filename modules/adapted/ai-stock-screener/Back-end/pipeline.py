@@ -23,8 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 # pipeline.py
 import json
-import os
-from typing import Any, Dict, List, TypedDict
+from typing import Any, TypedDict
 
 from data_screener import fetch_and_screen_stocks
 from google import genai
@@ -85,7 +84,10 @@ def llm_synthesis_node(state: MarketState) -> dict[str, Any]:
                     response_schema={
                         "type": "OBJECT",
                         "properties": {
-                            "score": {"type": "INTEGER", "description": "0 to 100 confidence score"},
+                            "score": {
+                                "type": "INTEGER",
+                                "description": "0 to 100 confidence score",
+                            },
                             "conviction": {"type": "STRING", "enum": ["High", "Medium", "Low"]},
                             "thesis": {"type": "STRING", "description": "1-2 sentence core reason"},
                         },
@@ -140,7 +142,10 @@ def llm_synthesis_node(state: MarketState) -> dict[str, Any]:
                     response_schema={
                         "type": "OBJECT",
                         "properties": {
-                            "score": {"type": "INTEGER", "description": "0 to 100 confidence score"},
+                            "score": {
+                                "type": "INTEGER",
+                                "description": "0 to 100 confidence score",
+                            },
                             "conviction": {"type": "STRING", "enum": ["High", "Medium", "Low"]},
                             "thesis": {"type": "STRING", "description": "1-2 sentence core reason"},
                         },
@@ -187,4 +192,6 @@ def run_analysis_for_category(category: str = "nifty_50"):
     app = build_pipeline()
 
     # Inject the initial state into the graph and start the run
-    return app.invoke({"category": category, "universe": universe, "technical_screened": [], "final_picks": []})
+    return app.invoke(
+        {"category": category, "universe": universe, "technical_screened": [], "final_picks": []}
+    )

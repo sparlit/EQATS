@@ -34,7 +34,7 @@ Data: Finance Ministry press releases (public, free, monthly)
 """
 
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.gst")
 
@@ -138,7 +138,9 @@ def correlate_gst_to_stocks(sector: str | None = None) -> dict:
     prev = RECENT_GST_DATA[1] if len(RECENT_GST_DATA) > 1 else {}
 
     mom_pct = (
-        round((latest.get("total_cr", 0) - prev.get("total_cr", 1)) / prev.get("total_cr", 1) * 100, 1)
+        round(
+            (latest.get("total_cr", 0) - prev.get("total_cr", 1)) / prev.get("total_cr", 1) * 100, 1
+        )
         if prev.get("total_cr")
         else None
     )
@@ -175,7 +177,9 @@ def correlate_gst_to_stocks(sector: str | None = None) -> dict:
 
         if overall_bias in ("bullish", "neutral-bullish"):
             outlook = "positive"
-            action = f"Watch {', '.join(stocks[:3])} — GST-driven demand uptick expected in {lag} months"
+            action = (
+                f"Watch {', '.join(stocks[:3])} — GST-driven demand uptick expected in {lag} months"
+            )
         elif overall_bias == "neutral":
             outlook = "neutral"
             action = f"Hold {', '.join(stocks[:3])} — GST growth sufficient but not exceptional"

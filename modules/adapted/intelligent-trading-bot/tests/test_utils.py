@@ -22,7 +22,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import numpy.testing as npt
-import pytest
 from common.gen_signals import *
 from common.utils import *
 from common.utils import add_area_ratio
@@ -46,6 +45,8 @@ def test_decimal():
     assert (
         round_down_str(to_sell, 6) == "0.011854"
     )  # We need to round but so smaller value (otherwise exception with not enough funds)
+
+    pass
 
 
 def test_signal_generation():
@@ -151,6 +152,8 @@ def test_depth_density():
 
     bins = discretize("ask", depth=depth, bin_size=2.0, start=0.0)
 
+    pass
+
 
 def test_area_ratio():
     price = [10, 20, 30, 20, 10, 20, 30]
@@ -166,6 +169,8 @@ def test_area_ratio():
     assert df[df.columns[1]].iloc[0] == 1  # all elements greater than this one
     assert df[df.columns[1]].iloc[1] == 0  # 1 is less and 1 is greater than this one
 
+    pass
+
 
 def test_linear_trends():
     price = [10, 20, 40, 40, 30, 10]
@@ -179,3 +184,5 @@ def test_linear_trends():
 
     add_linear_trends(df, is_future=False, column_name="price", windows=6)
     npt.assert_almost_equal(df["price_trend_6"].values, np.array([0, 10, 15, 11, 6, 0.857143]))
+
+    pass

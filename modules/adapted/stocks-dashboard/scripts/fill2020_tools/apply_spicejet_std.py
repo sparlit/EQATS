@@ -81,26 +81,20 @@ CELLS = {
     20200630: (
         -593.41,
         20200915,
-        (
-            "own Q1 filing 15-Sep-2020; its comparatives match stored Mar-20 -807.08 and "
-            "Jun-19 +261.67 exactly; Q2 filing repeats it and 6M=sumQ reconciles"
-        ),
+        "own Q1 filing 15-Sep-2020; its comparatives match stored Mar-20 -807.08 and "
+        "Jun-19 +261.67 exactly; Q2 filing repeats it and 6M=sumQ reconciles",
     ),
     20200930: (
         -112.59,
         20201111,
-        (
-            "6M=sumQ exact (-593.409 + -112.594 = -706.003); same PDF's con owners row "
-            "reproduces stored con -105.61/-600.52/-461.22"
-        ),
+        "6M=sumQ exact (-593.409 + -112.594 = -706.003); same PDF's con owners row "
+        "reproduces stored con -105.61/-600.52/-461.22",
     ),
     20230930: (
         -431.54,
         20231212,
-        (
-            "PBT-tax=PAT in-column (-4,315.41, nil tax); same filing's con total -449.43 "
-            "matches stored con exactly, 6M column reconciles"
-        ),
+        "PBT-tax=PAT in-column (-4,315.41, nil tax); same filing's con total -449.43 "
+        "matches stored con exactly, 6M column reconciles",
     ),
 }
 

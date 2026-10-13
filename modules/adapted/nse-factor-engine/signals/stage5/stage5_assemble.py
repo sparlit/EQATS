@@ -82,7 +82,9 @@ if dropped_from_index:
     )
     print("  Treating as in_universe=False -- retained in output with NaN ranks.")
     merged_full["in_universe"] = merged_full["in_universe"].fillna(False).infer_objects(copy=False)
-    merged_full["passes_mktcap"] = merged_full["passes_mktcap"].fillna(False).infer_objects(copy=False)
+    merged_full["passes_mktcap"] = (
+        merged_full["passes_mktcap"].fillna(False).infer_objects(copy=False)
+    )
     merged_full["passes_adtv"] = merged_full["passes_adtv"].fillna(False).infer_objects(copy=False)
 
 n_full = len(merged_full)
@@ -108,7 +110,9 @@ expected_new_cols = (
     | {f"rank_fip_{m}" for m in FIP_RANK_METRICS}
 )
 assert new_cols == expected_new_cols, f"Unexpected new columns: {new_cols ^ expected_new_cols}"
-assert len(merged) == n_full, f"Row count changed: expected {n_full} (full set retained), got {len(merged)}"
+assert len(merged) == n_full, (
+    f"Row count changed: expected {n_full} (full set retained), got {len(merged)}"
+)
 assert set(merged["symbol"]) == set(signals["symbol"]), "Symbol set changed -- rows were dropped"
 
 n_excluded = (not merged["in_universe"]).sum()

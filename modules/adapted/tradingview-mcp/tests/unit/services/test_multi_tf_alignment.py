@@ -67,8 +67,7 @@ def test_failed_timeframe_does_not_shift_scores(monkeypatch):
 
     def fake_analysis(screener, interval, symbols):
         if interval == "1W":
-            msg = "upstream 500 for weekly"
-            raise RuntimeError(msg)
+            raise RuntimeError("upstream 500 for weekly")
         return {symbols[0]: SimpleNamespace(indicators=_bullish_indicators())}
 
     with patch.object(screener_service, "get_multiple_analysis", side_effect=fake_analysis):

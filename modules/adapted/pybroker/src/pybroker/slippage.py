@@ -35,7 +35,7 @@ from abc import ABC
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Literal, Optional, override
+from typing import TYPE_CHECKING, Literal, override
 
 import pandas as pd
 
@@ -203,11 +203,9 @@ class FixedSlippageModel(SlippageModel):
 
     def __init__(self, bps: float = 5):
         if bps < 0:
-            msg = "bps must be >= 0."
-            raise ValueError(msg)
+            raise ValueError("bps must be >= 0.")
         if bps >= _MAX_BPS:
-            msg = f"bps must be < {_MAX_BPS}, otherwise sell fill prices would be <= 0."
-            raise ValueError(msg)
+            raise ValueError(f"bps must be < {_MAX_BPS}, otherwise sell fill prices would be <= 0.")
         self._bps = bps
         if bps == 0:
             self._buy_multiplier = _DECIMAL_ONE
@@ -253,11 +251,9 @@ class VolatilitySlippageModel(SlippageModel):
 
     def __init__(self, atr_period: int = 14, scale: float = 0.1):
         if atr_period < 1:
-            msg = "atr_period must be >= 1."
-            raise ValueError(msg)
+            raise ValueError("atr_period must be >= 1.")
         if scale < 0:
-            msg = "scale must be >= 0."
-            raise ValueError(msg)
+            raise ValueError("scale must be >= 0.")
         self.atr_period = atr_period
         self.scale = scale
         self._scale = Decimal(str(scale))
@@ -353,11 +349,9 @@ class VolumeSlippageModel(SlippageModel):
         volume_limit: float | None = 0.025,
     ):
         if price_impact < 0:
-            msg = "price_impact must be >= 0."
-            raise ValueError(msg)
+            raise ValueError("price_impact must be >= 0.")
         if volume_limit is not None and volume_limit < 0:
-            msg = "volume_limit must be >= 0."
-            raise ValueError(msg)
+            raise ValueError("volume_limit must be >= 0.")
         self.price_impact = price_impact
         self.volume_limit = volume_limit
         self._cap_enabled = volume_limit is not None and volume_limit > 0
@@ -376,13 +370,15 @@ class VolumeSlippageModel(SlippageModel):
         if self.is_fill_noop:
             return
         data_source = getattr(strategy, "_data_source", None)
-        if isinstance(data_source, pd.DataFrame) and DataCol.VOLUME.value not in data_source.columns:
-            msg = (
+        if (
+            isinstance(data_source, pd.DataFrame)
+            and DataCol.VOLUME.value not in data_source.columns
+        ):
+            raise ValueError(
                 f"{type(self).__name__} requires a "
                 f"{DataCol.VOLUME.value!r} data column, which is missing from "
                 "the backtesting data."
             )
-            raise ValueError(msg)
 
     def _warn_missing_volume(self, symbol: str):
         if symbol in self._warned_symbols:

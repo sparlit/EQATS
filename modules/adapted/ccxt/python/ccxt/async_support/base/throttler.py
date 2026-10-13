@@ -66,7 +66,8 @@ class Throttler:
                 elapsed = now - last_timestamp
                 last_timestamp = now
                 self.config["tokens"] = min(
-                    self.config["tokens"] + elapsed * self.config["refillRate"], self.config["capacity"]
+                    self.config["tokens"] + elapsed * self.config["refillRate"],
+                    self.config["capacity"],
                 )
 
     async def rolling_window_loop(self):

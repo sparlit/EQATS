@@ -134,7 +134,13 @@ def compute_candidates(session):
 
     # psycopg2 returns numeric/AVG() results as Decimal - coerce to float upfront
     # so the rest of the script can do normal arithmetic on these rows.
-    float_fields = ("open_eq_high_pct", "avg_fade_pct", "avg_daily_turnover", "avg_daily_volume", "prev_close")
+    float_fields = (
+        "open_eq_high_pct",
+        "avg_fade_pct",
+        "avg_daily_turnover",
+        "avg_daily_volume",
+        "prev_close",
+    )
     out = []
     for r in rows:
         d = dict(r._mapping)
@@ -164,7 +170,9 @@ def main():
             and r.avg_daily_turnover >= MIN_DAILY_TURNOVER
             and r.symbol in mis_allowed
         ]
-        print(f"Eligible after avg_fade>0, turnover>=₹{MIN_DAILY_TURNOVER:,.0f}, and MIS-allowed: {len(eligible)}")
+        print(
+            f"Eligible after avg_fade>0, turnover>=₹{MIN_DAILY_TURNOVER:,.0f}, and MIS-allowed: {len(eligible)}"
+        )
 
         eligible.sort(key=lambda r: (r.open_eq_high_pct / 100) * r.avg_fade_pct, reverse=True)
         top = eligible[:TOP_N]
@@ -195,7 +203,9 @@ def main():
             )
             sys.exit(1)
 
-        session.execute(text("DELETE FROM etf_live_strategy_picks WHERE trade_date = :d"), {"d": trade_date})
+        session.execute(
+            text("DELETE FROM etf_live_strategy_picks WHERE trade_date = :d"), {"d": trade_date}
+        )
 
         for rank, r in enumerate(top, start=1):
             fade_score = (r.open_eq_high_pct / 100) * r.avg_fade_pct

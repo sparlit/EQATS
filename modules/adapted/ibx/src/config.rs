@@ -18,6 +18,47 @@ pub fn farm_host_override() -> Option<String> {
 }
 pub const AUTH_PORT: u16 = 4001;
 
+/// The auth connection runs on TLS, the reference's setting `[Logon]
+/// UseSSL` of its jts.ini (ibx#423). `IBX_USE_SSL=false` (or `0`) gives the
+/// reference's mode without it: a plain socket on the port before the TLS
+/// port (4000) and the key exchange on the auth connection. The default is
+/// the setting of the reference's install this was read from
+/// (`UseSSL=true`).
+pub fn use_ssl() -> bool {
+    use_ssl_setting(std::env::var("IBX_USE_SSL").ok().as_deref())
+}
+
+/// [`use_ssl`] of a setting value: false only for `false` (any case) or
+/// `0`.
+pub fn use_ssl_setting(value: Option<&str>) -> bool {
+    !matches!(value.map(str::trim), Some(v) if v.eq_ignore_ascii_case("false") || v == "0")
+}
+
+/// The reference's setting `[Communication] TestSecureConnect` of its jts.ini
+/// (`jsetting.J.o()`, read once per process by `crypt.d.a(int, boolean)`):
+/// on, the key exchange also accepts the test certificates (ibx#276).
+/// `IBX_TEST_SECURE_CONNECT=true` (or `1`) turns it on; off by default, as
+/// the reference's.
+pub fn test_secure_connect() -> bool {
+    static SETTING: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *SETTING.get_or_init(|| bypass_setting(std::env::var("IBX_TEST_SECURE_CONNECT").ok().as_deref()))
+}
+
+/// The reference's API precaution "Bypass Redirect Order warning for Stock
+/// API Orders" (`ApiSettings.n()`, `m_bypassRedirectWarning`, false by
+/// default): off, a stock order directed to an exchange other than SMART
+/// is discarded with 10311 (10329 for OVERNIGHT and IBEOS), ibx#486.
+/// `IBX_BYPASS_REDIRECT_ORDER_WARNING=true` (or `1`) turns the bypass on.
+pub fn bypass_redirect_order_warning() -> bool {
+    bypass_setting(std::env::var("IBX_BYPASS_REDIRECT_ORDER_WARNING").ok().as_deref())
+}
+
+/// An API precaution bypass of a setting value: on only for `true` (any
+/// case) or `1`, off by default as the reference's.
+pub fn bypass_setting(value: Option<&str>) -> bool {
+    matches!(value.map(str::trim), Some(v) if v.eq_ignore_ascii_case("true") || v == "1")
+}
+
 /// Heartbeat intervals (seconds).
 pub const CCP_HEARTBEAT: u64 = 10;
 pub const FARM_HEARTBEAT: u64 = 30;
@@ -155,6 +196,36 @@ pub enum IbExpiry {
 /// the gateway's implied-timezone behavior is deprecated, so callers should
 /// pass an explicit zone or UTC.
 pub fn parse_ib_expiry(input: &str) -> Result<Option<IbExpiry>, String> {
+    Ok(parse_ib_expiry_zoned(input)?.map(|(expiry, _)| expiry))
+}
+
+/// The legacy US zone names, the way the server names a contract's zone
+/// (`US/Eastern`), with the zone each one stands for. Some systems ship
+/// them only in an optional package, so they are resolved here (ibx#335).
+const LEGACY_ZONES: &[(&str, &str)] = &[
+    ("US/Alaska", "America/Anchorage"),
+    ("US/Aleutian", "America/Adak"),
+    ("US/Arizona", "America/Phoenix"),
+    ("US/Central", "America/Chicago"),
+    ("US/East-Indiana", "America/Indiana/Indianapolis"),
+    ("US/Eastern", "America/New_York"),
+    ("US/Hawaii", "Pacific/Honolulu"),
+    ("US/Indiana-Starke", "America/Indiana/Knox"),
+    ("US/Michigan", "America/Detroit"),
+    ("US/Mountain", "America/Denver"),
+    ("US/Pacific", "America/Los_Angeles"),
+    ("US/Samoa", "Pacific/Pago_Pago"),
+];
+
+/// The zone a name stands for: a legacy US name gives its current zone,
+/// any other name is itself.
+pub fn canonical_zone(name: &str) -> &str {
+    LEGACY_ZONES.iter().find(|(legacy, _)| *legacy == name).map_or(name, |(_, zone)| zone)
+}
+
+/// `parse_ib_expiry`, with the zone name of the input as written (`None`
+/// when the input names no zone).
+pub fn parse_ib_expiry_zoned(input: &str) -> Result<Option<(IbExpiry, Option<&str>)>, String> {
     let s = input.trim();
     if s.is_empty() {
         return Ok(None);
@@ -174,7 +245,7 @@ pub fn parse_ib_expiry(input: &str) -> Result<Option<IbExpiry>, String> {
     // Strip the date, then an optional `-` or whitespace separator before the time.
     let rest = s[8..].strip_prefix('-').unwrap_or(&s[8..]).trim();
     if rest.is_empty() {
-        return Ok(Some(IbExpiry::DateOnly(ymd)));
+        return Ok(Some((IbExpiry::DateOnly(ymd), None)));
     }
 
     // Split the time token from an optional trailing timezone token.
@@ -211,9 +282,9 @@ pub fn parse_ib_expiry(input: &str) -> Result<Option<IbExpiry>, String> {
         }
     };
     let zoned = dt
-        .in_tz(zone)
+        .in_tz(canonical_zone(zone))
         .map_err(|e| format!("expiry '{}': unknown timezone '{}': {}", input, zone, e))?;
-    Ok(Some(IbExpiry::Instant(zoned.timestamp().as_second())))
+    Ok(Some((IbExpiry::Instant(zoned.timestamp().as_second()), tz)))
 }
 
 /// Parse an API date-time (`YYYYMMDD HH:MM:SS [zone]` or
@@ -294,11 +365,54 @@ mod expiry_tests {
         assert_eq!(unix_to_ib_utc_dash(secs), "20260620-22:00:00");
     }
 
+    // ibx#335: the legacy US names resolve without the system's legacy
+    // zone data, to the zone each one stands for.
+    #[test]
+    fn legacy_us_zones_are_their_current_zones() {
+        for (legacy, zone) in LEGACY_ZONES {
+            assert_eq!(canonical_zone(legacy), *zone);
+            assert_eq!(instant(&format!("20260120 18:00:00 {legacy}")),
+                instant(&format!("20260120 18:00:00 {zone}")), "{legacy}");
+        }
+        assert_eq!(canonical_zone("Europe/Paris"), "Europe/Paris");
+        // The zone is given as written, for the zone rule of an order.
+        assert_eq!(parse_ib_expiry_zoned("20260620 18:00:00 US/Eastern").unwrap().unwrap().1, Some("US/Eastern"));
+        assert_eq!(parse_ib_expiry_zoned("20260620-18:00:00").unwrap().unwrap().1, None);
+    }
+
     #[test]
     fn rejects_bad_input() {
         assert!(parse_ib_expiry("2026").is_err());
         assert!(parse_ib_expiry("20260620 18:00").is_err()); // needs seconds
         assert!(parse_ib_expiry("20261320").is_err()); // month 13
         assert!(parse_ib_expiry("20260620 18:00:00 Mars/Olympus").is_err());
+    }
+}
+
+#[cfg(test)]
+mod use_ssl_tests {
+    // ibx#423: the TLS setting of the auth connection: on unless set to
+    // false or 0, as this machine's gateway runs with UseSSL=true.
+    #[test]
+    fn use_ssl_setting_values() {
+        assert!(super::use_ssl_setting(None));
+        assert!(super::use_ssl_setting(Some("true")));
+        assert!(super::use_ssl_setting(Some("1")));
+        assert!(!super::use_ssl_setting(Some("false")));
+        assert!(!super::use_ssl_setting(Some(" FALSE ")));
+        assert!(!super::use_ssl_setting(Some("0")));
+    }
+}
+
+#[cfg(test)]
+mod precaution_tests {
+    // ibx#486: an API precaution bypass is off unless set to true or 1.
+    #[test]
+    fn bypass_settings_are_off_by_default() {
+        assert!(!super::bypass_setting(None));
+        assert!(!super::bypass_setting(Some("false")));
+        assert!(!super::bypass_setting(Some("")));
+        assert!(super::bypass_setting(Some("TRUE")));
+        assert!(super::bypass_setting(Some(" 1 ")));
     }
 }

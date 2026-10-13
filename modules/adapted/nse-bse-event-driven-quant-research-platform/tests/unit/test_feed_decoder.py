@@ -94,8 +94,7 @@ class TestProtoFeedDecoder:
         assert r["ltp"] == 1321.5
         assert r["close_prev"] == 1305.0
         assert r["volume_traded_today"] == 10_180_567
-        assert r["bid_price"] == 1321.45
-        assert r["ask_qty"] == 50
+        assert r["bid_price"] == 1321.45 and r["ask_qty"] == 50
         assert r["ohlc_1d"]["high"] == 1328.6
 
     def test_ltpc_mode(self):
@@ -107,8 +106,7 @@ class TestProtoFeedDecoder:
     def test_first_level_with_greeks(self):
         r = self.decoder.decode(make_greeks_frame())[0]
         assert r["feed_kind"] == "firstLevelWithGreeks"
-        assert r["delta"] == 0.42
-        assert r["gamma"] == 0.0014
+        assert r["delta"] == 0.42 and r["gamma"] == 0.0014
         assert r["ask_price"] == 141.45
 
     def test_market_info_emitted_when_enabled(self):
@@ -117,8 +115,7 @@ class TestProtoFeedDecoder:
         resp.marketInfo.segmentStatus["CM"] = pb2.NORMAL_OPEN
         recs = decoder.decode(resp.SerializeToString())
         info = [r for r in recs if r.get("feed_type") == "market_info"]
-        assert info
-        assert info[0]["market_info"]["CM"] == "NORMAL_OPEN"
+        assert info and info[0]["market_info"]["CM"] == "NORMAL_OPEN"
 
     def test_empty_frame_yields_nothing(self):
         assert self.decoder.decode(pb2.FeedResponse().SerializeToString()) == []

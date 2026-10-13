@@ -70,6 +70,6 @@ def last_scan_at() -> datetime | None:
         except Exception as e:
             # A health endpoint that 500s is useless in exactly the situation
             # it exists to report on. Stay unloaded so the next call retries.
-            logger.exception("health_read_failed", error=str(e))
+            logger.error("health_read_failed", error=str(e))
             return None
     return _last_scan

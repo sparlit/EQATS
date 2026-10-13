@@ -152,13 +152,19 @@ def stock_detail(symbol: str):
         quote = _cached(symbol, "quote", 15, lambda: scraper.get_quote(symbol))
     except Exception:
         quote = {}
-    return {"quote": quote, "news": _cached_news(symbol), "reports": db.list_items_for_symbol(symbol)}
+    return {
+        "quote": quote,
+        "news": _cached_news(symbol),
+        "reports": db.list_items_for_symbol(symbol),
+    }
 
 
 @router.get("/api/stocks/{symbol}/financials")
 def stock_financials(symbol: str):
     symbol = symbol.upper()
-    statements = _cached(symbol, "financials", 60 * 24, lambda: scraper.get_financial_statements(symbol))
+    statements = _cached(
+        symbol, "financials", 60 * 24, lambda: scraper.get_financial_statements(symbol)
+    )
     if statements is None:
         raise HTTPException(status_code=404, detail=f"No financial statements found for '{symbol}'")
     return statements
@@ -179,9 +185,16 @@ def stock_screener(symbol: str):
 @router.get("/api/stocks/{symbol}/chart")
 def stock_chart(symbol: str, range: str = "1mo"):
     if range not in scraper.CHART_RANGES:
-        raise HTTPException(status_code=400, detail=f"range must be one of {list(scraper.CHART_RANGES)}")
+        raise HTTPException(
+            status_code=400, detail=f"range must be one of {list(scraper.CHART_RANGES)}"
+        )
     symbol = symbol.upper()
     from_db = prices.chart_from_history(symbol, range)
-    if from_db is not None:
-        return from_db
-    return _cached(symbol, f"chart:{range}", 15, lambda: scraper.get_chart(symbol, range))
+    chart = (
+        from_db
+        if from_db is not None
+        else _cached(symbol, f"chart:{range}", 15, lambda: scraper.get_chart(symbol, range))
+    )
+    # Both sources can be a session or more behind (see prices.top_up_daily); its own short cache so
+    # a chart flipping through a scan doesn't ask moneycontrol on every view.
+    return _cached(symbol, f"chart-topup:{range}", 5, lambda: prices.top_up_daily(symbol, chart))

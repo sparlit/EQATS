@@ -103,10 +103,10 @@ def fetch(sym, con=False, ttl=86400):
     return None
 
 
-_SECTION = re.compile(r'id="(quarters|profit-loss)"(.*?)</table>', re.DOTALL)
-_ROW = re.compile(r"<tr[^>]*>(.*?)</tr>", re.DOTALL)
-_TH = re.compile(r'<th[^>]*data-date-key="([\d-]+)"', re.DOTALL)
-_TD = re.compile(r'<td[^>]*?(?:data-date-key="([\d-]+)")?[^>]*>(.*?)</td>', re.DOTALL)
+_SECTION = re.compile(r'id="(quarters|profit-loss)"(.*?)</table>', re.S)
+_ROW = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
+_TH = re.compile(r'<th[^>]*data-date-key="([\d-]+)"', re.S)
+_TD = re.compile(r'<td[^>]*?(?:data-date-key="([\d-]+)")?[^>]*>(.*?)</td>', re.S)
 _TAG = re.compile(r"<[^>]+>")
 
 
@@ -116,7 +116,7 @@ def _txt(s):
 
 def _num(s):
     s = _txt(s).replace(",", "").replace("%", "").strip()
-    if not s or s == "-":
+    if not s or s in ("-",):
         return None
     neg = s.startswith("-") or (s.startswith("(") and s.endswith(")"))
     s = s.strip("()-").strip()
@@ -142,7 +142,7 @@ def _table(html, sect):
     cols = _TH.findall(body)
     out = {c: {} for c in cols}
     for rm in _ROW.finditer(body):
-        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", rm.group(1), re.DOTALL)
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", rm.group(1), re.S)
         if len(cells) < 2:
             continue
         label = _txt(cells[0]).rstrip("+").strip()
@@ -209,4 +209,9 @@ if __name__ == "__main__":
             max(a, default="-"),
         )
     )
-    print(json.dumps({k: {kk: q[k][kk] for kk in ("Sales", "Net Profit") if kk in q[k]} for k in sorted(q)}, indent=1))
+    print(
+        json.dumps(
+            {k: {kk: q[k][kk] for kk in ("Sales", "Net Profit") if kk in q[k]} for k in sorted(q)},
+            indent=1,
+        )
+    )

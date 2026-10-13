@@ -24,7 +24,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import logging
 from datetime import datetime
 
-from bs4 import BeautifulSoup
 from scrapy import Spider
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ class AfxScraperSpider(Spider):
             return None
 
         cleaned = " ".join(text_list).strip()
-        return cleaned or None
+        return cleaned if cleaned else None
 
     @staticmethod
     def _clean_price(price_list):

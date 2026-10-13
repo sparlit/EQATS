@@ -27,7 +27,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Daily classification coverage and exception audit.
 
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -71,8 +71,7 @@ def clean_series(series: pd.Series) -> pd.Series:
 
 def main() -> None:
     if not MASTER_FILE.exists():
-        msg = f"Missing classified master file: {MASTER_FILE}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Missing classified master file: {MASTER_FILE}")
 
     data = pd.read_parquet(MASTER_FILE).copy()
     for column in REQUIRED_COLUMNS:
@@ -84,9 +83,13 @@ def main() -> None:
             data[column] = clean_series(data[column])
     data["listing_date"] = pd.to_datetime(data["listing_date"], errors="coerce")
 
-    complete_hierarchy = data["sector"].ne("") & data["industry"].ne("") & data["basic_industry"].ne("")
+    complete_hierarchy = (
+        data["sector"].ne("") & data["industry"].ne("") & data["basic_industry"].ne("")
+    )
     data["hierarchy_complete"] = complete_hierarchy
-    data["classification_coverage"] = data[["sector", "industry", "basic_industry"]].ne("").sum(axis=1)
+    data["classification_coverage"] = (
+        data[["sector", "industry", "basic_industry"]].ne("").sum(axis=1)
+    )
 
     generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     total = len(data)
@@ -104,23 +107,45 @@ def main() -> None:
     coverage_summary = pd.DataFrame(
         [
             {"report_type": "coverage", "metric": "total_records", "value": total},
-            {"report_type": "coverage", "metric": "complete_hierarchy_records", "value": complete_count},
-            {"report_type": "coverage", "metric": "incomplete_hierarchy_records", "value": incomplete_count},
-            {"report_type": "coverage", "metric": "complete_hierarchy_percent", "value": round(coverage_percent, 1)},
+            {
+                "report_type": "coverage",
+                "metric": "complete_hierarchy_records",
+                "value": complete_count,
+            },
+            {
+                "report_type": "coverage",
+                "metric": "incomplete_hierarchy_records",
+                "value": incomplete_count,
+            },
+            {
+                "report_type": "coverage",
+                "metric": "complete_hierarchy_percent",
+                "value": round(coverage_percent, 1),
+            },
         ]
     )
 
     status_summary["metric"] = ""
     status_summary["value"] = ""
-    output_columns = ["report_type", "classification_status", "classification_source", "stock_count", "metric", "value"]
+    output_columns = [
+        "report_type",
+        "classification_status",
+        "classification_source",
+        "stock_count",
+        "metric",
+        "value",
+    ]
     for frame in [status_summary, coverage_summary]:
         for column in output_columns:
             if column not in frame.columns:
                 frame[column] = ""
-    summary = pd.concat([coverage_summary[output_columns], status_summary[output_columns]], ignore_index=True)
+    summary = pd.concat(
+        [coverage_summary[output_columns], status_summary[output_columns]], ignore_index=True
+    )
     summary.insert(0, "generated_at_utc", generated_at)
     summary = summary.sort_values(
-        ["report_type", "classification_status", "classification_source", "metric"], na_position="last"
+        ["report_type", "classification_status", "classification_source", "metric"],
+        na_position="last",
     )
     SUMMARY_FILE.parent.mkdir(parents=True, exist_ok=True)
     summary.to_csv(SUMMARY_FILE, index=False)
@@ -161,7 +186,9 @@ def main() -> None:
 
     print("========== CLASSIFICATION AUDIT COMPLETE ==========")
     print(f"Total master records: {total:,}")
-    print(f"Complete Sector/Industry/Basic Industry mappings: {complete_count:,} ({coverage_percent:.1f}%)")
+    print(
+        f"Complete Sector/Industry/Basic Industry mappings: {complete_count:,} ({coverage_percent:.1f}%)"
+    )
     print(f"Incomplete/retryable records: {incomplete_count:,}")
     print(f"Summary CSV: {SUMMARY_FILE}")
     print(f"Review CSV: {REVIEW_FILE}")

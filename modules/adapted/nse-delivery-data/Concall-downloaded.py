@@ -135,7 +135,7 @@ def save_transcript(company: str, date_str: str, headline: str, pdf_bytes: bytes
         log.info(f"  ✅  Saved → {fpath}  ({len(text):,} chars)")
         return True
     except Exception as e:
-        log.exception(f"  ❌  Save failed: {e}")
+        log.error(f"  ❌  Save failed: {e}")
         return False
 
 
@@ -175,7 +175,11 @@ with sync_playwright() as pw:
     # ── Step 1: Open BSE and let it load cookies / JS ──────────────────────
     log.info("🌐  Opening BSE India …")
     try:
-        page.goto("https://www.bseindia.com/corporates/ann.html", wait_until="networkidle", timeout=PAGE_TIMEOUT)
+        page.goto(
+            "https://www.bseindia.com/corporates/ann.html",
+            wait_until="networkidle",
+            timeout=PAGE_TIMEOUT,
+        )
         page.wait_for_timeout(3000)
     except PlaywrightTimeout:
         log.warning("Page load timed-out – trying anyway")
@@ -277,7 +281,13 @@ with sync_playwright() as pw:
                 )
 
                 # ── Date ────────────────────────────────────────────────────
-                date_raw = row.get("NEWS_DT") or row.get("dt") or row.get("DATE") or row.get("ANN_DATE") or ""
+                date_raw = (
+                    row.get("NEWS_DT")
+                    or row.get("dt")
+                    or row.get("DATE")
+                    or row.get("ANN_DATE")
+                    or ""
+                )
                 date_str = date_raw[:10].replace("/", "-")
 
                 # ── PDF attachment URL ───────────────────────────────────────
@@ -318,7 +328,7 @@ with sync_playwright() as pw:
             except Exception:
                 pass
         except Exception as e:
-            log.exception(f"  ❌  Batch error: {e}")
+            log.error(f"  ❌  Batch error: {e}")
 
         # ── Save resume point ─────────────────────────────────────────────
         Path(RESUME_FILE).write_text(batch_end.strftime("%Y-%m-%d"))

@@ -129,7 +129,9 @@ def main():
         for s, q in revop.items()
         if any(r[0] and r[1] is not None and r[0] > 0 and mat(r[1], r[0]) for r in q.values())
     }
-    pat_diff = {s for s, rows in fmap.items() if any(len(r) > 3 and mat(r[3], r[1]) for r in rows.values())}
+    pat_diff = {
+        s for s, rows in fmap.items() if any(len(r) > 3 and mat(r[3], r[1]) for r in rows.values())
+    }
 
     total_held = 0
     for name in REV_LEDGERS + PAT_LEDGERS:
@@ -194,7 +196,9 @@ def main():
                     )
                     held += 1
                 else:
-                    v["fallback_check"] = "no stored twin; MC's own con and std differ here — genuine"
+                    v["fallback_check"] = (
+                        "no stored twin; MC's own con and std differ here — genuine"
+                    )
                 continue
             # ★ SOURCE-INTERNAL FIRST (2026-08-11). Whatever our own standalone says, the question
             # is whether MC's consolidated table is a copy of MC's OWN standalone table. Fetch the
@@ -251,9 +255,17 @@ def main():
                 # stronger at 40 stored quarters than at 2 (their RAJESHEXPO point: a company can
                 # do both, and a bare boolean loses that).
                 n_same = (
-                    sum(1 for r in fmap.get(sym, {}).values() if len(r) > 3 and r[1] is not None and r[3] is not None)
+                    sum(
+                        1
+                        for r in fmap.get(sym, {}).values()
+                        if len(r) > 3 and r[1] is not None and r[3] is not None
+                    )
                     if is_pat
-                    else sum(1 for r in (revop.get(sym) or {}).values() if r[0] is not None and r[1] is not None)
+                    else sum(
+                        1
+                        for r in (revop.get(sym) or {}).values()
+                        if r[0] is not None and r[1] is not None
+                    )
                 )
                 v["fallback_check"] = (
                     "equals our standalone, but this company never shows con != std "
@@ -262,7 +274,10 @@ def main():
                 )
                 kept += 1
         total_held += held
-        print("%-28s HELD %4d  |  kept %4d  |  LIVE-but-unresolved (review) %4d" % (name, held, kept, review))
+        print(
+            "%-28s HELD %4d  |  kept %4d  |  LIVE-but-unresolved (review) %4d"
+            % (name, held, kept, review)
+        )
         if write:
             json.dump(led, open(p, "w"), indent=1, sort_keys=True)
     print("\ntotal held across ledgers: %d" % total_held)

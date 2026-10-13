@@ -50,7 +50,10 @@ def _session():
 
         s = requests.Session()
         s.headers.update(
-            {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "Accept-Encoding": "gzip, deflate"}
+            {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+                "Accept-Encoding": "gzip, deflate",
+            }
         )
         _SESS = s
     return _SESS

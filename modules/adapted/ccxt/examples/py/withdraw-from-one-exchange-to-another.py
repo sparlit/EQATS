@@ -66,3 +66,5 @@ print("-----------------------------------------------------------")
 withdrawal = kucoin.withdraw(code, amount, deposit["address"], deposit["tag"], params)
 
 print("-----------------------------------------------------------")
+
+pprint(withdrawal)

@@ -51,7 +51,7 @@ from src.strategies.adaptive_rotation import AdaptiveRotationEngine
 from src.strategies.adaptive_rotation.data_preprocessor import DataPreprocessor
 
 
-def run_single_date(config_path: str, as_of_date: str, data_dir: str | None = None):
+def run_single_date(config_path: str, as_of_date: str, data_dir: str = None):
     """
     Run strategy for a single date
 
@@ -119,7 +119,7 @@ def run_backtest(
     config_path: str,
     start_date: str,
     end_date: str,
-    data_dir: str | None = None,
+    data_dir: str = None,
     freq: str = "W-FRI",
     daily_fast_track: bool = True,
 ):
@@ -161,7 +161,9 @@ def run_backtest(
     if daily_fast_track:
         # Get all trading days for daily monitoring (Fast Risk-Off + Stop-Loss)
         daily_dates = preprocessor.daily_data["^GSPC"].index
-        daily_dates = daily_dates[(daily_dates >= pd.Timestamp(start_date)) & (daily_dates <= pd.Timestamp(end_date))]
+        daily_dates = daily_dates[
+            (daily_dates >= pd.Timestamp(start_date)) & (daily_dates <= pd.Timestamp(end_date))
+        ]
         print("\n3. Running backtest with Daily Monitoring:")
         print(f"   - Weekly rebalance points: {len(weekly_dates)}")
         print(f"   - Daily monitoring: {len(daily_dates)} days")
@@ -203,15 +205,25 @@ def run_backtest(
 
             # Priority 2: Fast Risk-Off (only if not weekly)
             elif daily_fast_track:
-                from src.strategies.adaptive_rotation.market_regime import check_fast_risk_off_trigger
-
-                should_trigger_fast, signals = check_fast_risk_off_trigger(
-                    daily_prices.get("^GSPC"), daily_prices.get("QQQ"), daily_prices.get("^VIX"), date, config
+                from src.strategies.adaptive_rotation.market_regime import (
+                    check_fast_risk_off_trigger,
                 )
 
-                if should_trigger_fast and (fast_track_active_until is None or date > fast_track_active_until):
+                should_trigger_fast, signals = check_fast_risk_off_trigger(
+                    daily_prices.get("^GSPC"),
+                    daily_prices.get("QQQ"),
+                    daily_prices.get("^VIX"),
+                    date,
+                    config,
+                )
+
+                if should_trigger_fast and (
+                    fast_track_active_until is None or date > fast_track_active_until
+                ):
                     decision_type = "fast_track_trigger"
-                    fast_track_active_until = date + pd.Timedelta(days=config.fast_risk_off.behavior.duration_days)
+                    fast_track_active_until = date + pd.Timedelta(
+                        days=config.fast_risk_off.behavior.duration_days
+                    )
                     trigger_reasons.append(
                         f"fast_risk_off(Price={signals['price_shock']},Vol={signals['volatility_shock']})"
                     )
@@ -222,7 +234,11 @@ def run_backtest(
                     )
 
             # Priority 3: Stop-Loss (only if not weekly and no fast track)
-            if decision_type not in {"weekly", "fast_track_trigger"} and current_positions:
+            if (
+                decision_type != "weekly"
+                and decision_type != "fast_track_trigger"
+                and current_positions
+            ):
                 # Get current prices for all positions
                 current_prices = {}
                 for symbol in current_positions:
@@ -233,14 +249,20 @@ def run_backtest(
                             current_prices[symbol] = float(symbol_prices.iloc[-1])
 
                 # Check stops
-                risk_result = engine.risk_manager.check_stops(current_positions, current_prices, date)
+                risk_result = engine.risk_manager.check_stops(
+                    current_positions, current_prices, date
+                )
 
                 if len(risk_result.triggered_stops) > 0:
                     decision_type = "stop_loss_trigger"
-                    trigger_reasons.append(f"stop_loss({len(risk_result.triggered_stops)}_positions)")
+                    trigger_reasons.append(
+                        f"stop_loss({len(risk_result.triggered_stops)}_positions)"
+                    )
 
                     stopped_symbols = [s.symbol for s in risk_result.triggered_stops]
-                    print(f"   [STOP-LOSS TRIGGERED] {date.strftime('%Y-%m-%d')}: {', '.join(stopped_symbols)}")
+                    print(
+                        f"   [STOP-LOSS TRIGGERED] {date.strftime('%Y-%m-%d')}: {', '.join(stopped_symbols)}"
+                    )
 
                     # Update positions after stops
                     current_positions = risk_result.updated_positions
@@ -253,7 +275,10 @@ def run_backtest(
                 # === WEEKLY REBALANCE: Full Strategy Execution ===
                 # Complete Group Selection + Asset Ranking + Portfolio Construction
                 weights, audit_log = engine.run(
-                    price_data=price_data, as_of_date=date, current_positions=current_positions, mode="backtest"
+                    price_data=price_data,
+                    as_of_date=date,
+                    current_positions=current_positions,
+                    mode="backtest",
                 )
 
                 # Update current positions based on new weights
@@ -307,7 +332,9 @@ def run_backtest(
                         current_positions[symbol].update_peak(current_price, date)
 
                 # Log as adjustment, not full rebalance
-                print(f"   [FAST TRACK ADJUSTMENT] Would reduce exposure to {target_invested:.1%} (event logged)")
+                print(
+                    f"   [FAST TRACK ADJUSTMENT] Would reduce exposure to {target_invested:.1%} (event logged)"
+                )
                 fast_track_adjustment_count += 1
 
                 # Note: No audit log generated (this is not a full strategy decision)
@@ -324,7 +351,8 @@ def run_backtest(
                 # Log stop-loss exits with cooldown info
                 cooldown_days = config.cooldown.after_stop_days
                 print(
-                    f"   [STOP-LOSS ADJUSTMENT] Exited {len(stopped_symbols)} positions: {', '.join(stopped_symbols)}"
+                    f"   [STOP-LOSS ADJUSTMENT] Exited {len(stopped_symbols)} positions: "
+                    f"{', '.join(stopped_symbols)}"
                 )
                 print(f"      Cooldown activated: {cooldown_days} days (blocks re-entry)")
                 stop_loss_adjustment_count += 1
@@ -339,7 +367,9 @@ def run_backtest(
                 # Update position peaks for next day's stop-loss check
                 if current_positions:
                     for symbol in list(current_positions.keys()):
-                        daily_symbol_data = preprocessor.get_daily_data_as_of(date, symbols=[symbol])
+                        daily_symbol_data = preprocessor.get_daily_data_as_of(
+                            date, symbols=[symbol]
+                        )
                         if symbol in daily_symbol_data:
                             symbol_prices = daily_symbol_data[symbol]
                             if len(symbol_prices) > 0:
@@ -356,7 +386,7 @@ def run_backtest(
                 )
 
         except Exception as e:
-            print(f"   Warning: {date.strftime('%Y-%m-%d')} failed - {e!s}")
+            print(f"   Warning: {date.strftime('%Y-%m-%d')} failed - {str(e)}")
             continue
 
     # 4. Summarize results
@@ -437,7 +467,11 @@ def run_backtest(
 
         # 6. Performance analysis & equity curve
         _generate_performance_report(
-            weights_detail_df, start_date, end_date, data_dir or str(config.paths.data_root), weights_dir
+            weights_detail_df,
+            start_date,
+            end_date,
+            data_dir or str(config.paths.data_root),
+            weights_dir,
         )
 
     return results
@@ -484,7 +518,9 @@ def _generate_performance_report(weights_df, start_date, end_date, data_dir, out
                     period_return += w * (p1_s.iloc[-1] / p0_s.iloc[-1] - 1)
         portfolio_values.append(portfolio_values[-1] * (1 + period_return))
 
-    equity = pd.DataFrame({"date": pd.to_datetime(dates), "portfolio": portfolio_values}).set_index("date")
+    equity = pd.DataFrame({"date": pd.to_datetime(dates), "portfolio": portfolio_values}).set_index(
+        "date"
+    )
 
     # Benchmarks
     for bench in ["SPY", "QQQ"]:
@@ -564,15 +600,17 @@ def _generate_performance_report(weights_df, start_date, end_date, data_dir, out
 
     # Plot
     try:
-        import matplotlib as mpl
+        import matplotlib
 
-        mpl.use("Agg")
+        matplotlib.use("Agg")
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 9), height_ratios=[3, 1], sharex=True)
         fig.suptitle(
-            f"Adaptive Rotation Strategy \u2014 Backtest ({start_date} to {end_date})", fontsize=15, fontweight="bold"
+            f"Adaptive Rotation Strategy \u2014 Backtest ({start_date} to {end_date})",
+            fontsize=15,
+            fontweight="bold",
         )
 
         ax1.plot(
@@ -615,7 +653,8 @@ def _generate_performance_report(weights_df, start_date, end_date, data_dir, out
         plt.xticks(rotation=45)
 
         stats_text = (
-            f"Ann. Return: {ann_ret:.1%}  |  Sharpe: {sharpe:.2f}  |  Max DD: {max_dd:.1%}  |  Calmar: {calmar:.2f}"
+            f"Ann. Return: {ann_ret:.1%}  |  Sharpe: {sharpe:.2f}  |  "
+            f"Max DD: {max_dd:.1%}  |  Calmar: {calmar:.2f}"
         )
         fig.text(
             0.5,
@@ -666,7 +705,10 @@ Examples:
     )
 
     parser.add_argument(
-        "--data-dir", type=str, default=None, help="Data directory path (default: use path from config file)"
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Data directory path (default: use path from config file)",
     )
 
     # Single run mode
@@ -680,11 +722,16 @@ Examples:
     parser.add_argument("--end", type=str, help="Backtest end date (format: YYYY-MM-DD)")
 
     parser.add_argument(
-        "--freq", type=str, default="W-FRI", help="Rebalance frequency (default: W-FRI for weekly on Friday)"
+        "--freq",
+        type=str,
+        default="W-FRI",
+        help="Rebalance frequency (default: W-FRI for weekly on Friday)",
     )
 
     parser.add_argument(
-        "--no-daily-fast-track", action="store_true", help="Disable daily Fast Risk-Off monitoring (default: enabled)"
+        "--no-daily-fast-track",
+        action="store_true",
+        help="Disable daily Fast Risk-Off monitoring (default: enabled)",
     )
 
     args = parser.parse_args()
@@ -712,7 +759,7 @@ Examples:
             parser.error("Please specify either --date or --backtest mode")
 
     except Exception as e:
-        print(f"\nError: {e!s}", file=sys.stderr)
+        print(f"\nError: {str(e)}", file=sys.stderr)
         import traceback
 
         traceback.print_exc()

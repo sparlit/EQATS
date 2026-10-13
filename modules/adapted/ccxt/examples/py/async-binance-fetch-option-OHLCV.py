@@ -53,7 +53,7 @@ async def main():
     since = 1592317127349
     limit = 10
     try:
-        await exchange.fetch_OHLCV(symbol, timeframe, since, limit)
+        response = await exchange.fetch_OHLCV(symbol, timeframe, since, limit)
         # Implicit API:
         # response = await exchange.eapiPublicGetKlines({
         #     'symbol': market_id,
@@ -61,6 +61,7 @@ async def main():
         #     # 'startTime': since,  # optional
         #     # 'limit': limit,  # optional
         # })
+        pprint(response)
     except Exception as e:
         print("fetch_OHLCV() failed")
         print(e)

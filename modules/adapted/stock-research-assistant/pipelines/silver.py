@@ -98,7 +98,9 @@ def news_articles():
     return (
         raw.withColumn(
             "_rn",
-            F.row_number().over(Window.partitionBy("article_id").orderBy(F.col("_ingested_at").desc())),
+            F.row_number().over(
+                Window.partitionBy("article_id").orderBy(F.col("_ingested_at").desc())
+            ),
         )
         .filter("_rn = 1")
         .drop("_rn")

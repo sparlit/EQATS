@@ -142,7 +142,8 @@ def main():
             continue
         dedup.append((sym, ex))
     print(
-        "feed events: %d (%d after dedupe); logged-only scheme/cap-reduction: %d" % (len(ev), len(dedup), len(logged))
+        "feed events: %d (%d after dedupe); logged-only scheme/cap-reduction: %d"
+        % (len(ev), len(dedup), len(logged))
     )
     for s, e, t in logged:
         print("  LOGGED (not adjusted): %s %d  %s" % (s, e, t))
@@ -152,7 +153,10 @@ def main():
         key_sym = rename.get(sym, sym)  # our merged series key = current name
         if (key_sym, ex) in led or (sym, ex) in led:
             continue
-        if any(od(ex) - 3 <= od(x) <= od(ex) + 3 for x in CA_OFF.get(sym, set()) | CA_OFF.get(key_sym, set())):
+        if any(
+            od(ex) - 3 <= od(x) <= od(ex) + 3
+            for x in CA_OFF.get(sym, set()) | CA_OFF.get(key_sym, set())
+        ):
             print(
                 "  SKIP %s %d: official split/bonus within +-3d — open-gap would double-count; resolve by hand"
                 % (sym, ex)
@@ -161,7 +165,9 @@ def main():
         # resolve the actual ex TRADING day: first day on/after the feed ex-date with a bhavcopy row.
         # The feed reports the CURRENT symbol, but the bhavcopy that day used the name that traded
         # THEN (TMPV's 2025-10-14 ex-date bhavcopy row is TATAMOTORS) — try old names too.
-        cands = {sym, key_sym, rename.get(sym, sym)} | {o for o, n in rename.items() if n in (sym, key_sym)}
+        cands = {sym, key_sym, rename.get(sym, sym)} | {
+            o for o, n in rename.items() if n in (sym, key_sym)
+        }
         row = None
         used = None
         d = datetime.date(ex // 10000, ex // 100 % 100, ex % 100)
@@ -178,7 +184,9 @@ def main():
         if not row:
             print("  SKIP %s %d: no bhavcopy row on the ex trading day" % (sym, ex))
             continue
-        if (key_sym, used) in led:  # a hand-verified row (DATA_RUNBOOK §170) already owns this bar — never overwrite it
+        if (
+            (key_sym, used) in led
+        ):  # a hand-verified row (DATA_RUNBOOK §170) already owns this bar — never overwrite it
             continue
         close, prev, opn = row[1], row[2], row[6]
         if not prev or not opn:
@@ -198,7 +206,15 @@ def main():
         added += 1
         print(
             "  + %s ex %d  factor=%.4f (open %.2f / prev %.2f)  raw_drop=%.4f%s"
-            % (key_sym, used, factor, opn, prev, raw_drop, "" if key_sym == sym else f"  [feed sym {sym}]")
+            % (
+                key_sym,
+                used,
+                factor,
+                opn,
+                prev,
+                raw_drop,
+                "" if key_sym == sym else f"  [feed sym {sym}]",
+            )
         )
 
     # §170d (user, 2026-09-26): a spin-off NSE files only as "Scheme of Arrangement" (no demerger/spin-off wording) is never
@@ -208,7 +224,8 @@ def main():
     # company's shares, adds the row by hand. Warns only — never adjusts anything.
     try:
         _n5 = sorted(
-            (json.load(open(os.path.join(HERE, "indices_history.json"))) or {}).get("Nifty 500") or [],
+            (json.load(open(os.path.join(HERE, "indices_history.json"))) or {}).get("Nifty 500")
+            or [],
             key=lambda s: s.get("effectiveDate", ""),
         )
     except Exception as e:

@@ -38,10 +38,8 @@ Tool executor dispatches the call and returns a JSON-serialisable result.
 
 
 import traceback
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from collections.abc import Callable
+from typing import Any
 
 # ── Tool registry ─────────────────────────────────────────────
 
@@ -192,7 +190,9 @@ class ToolRegistry:
         # Run safe tools in parallel
         if safe:
             with ThreadPoolExecutor(max_workers=len(safe)) as pool:
-                futures = {pool.submit(self.execute, tc["name"], tc["input"]): tc["id"] for tc in safe}
+                futures = {
+                    pool.submit(self.execute, tc["name"], tc["input"]): tc["id"] for tc in safe
+                }
                 for future in as_completed(futures):
                     tool_id = futures[future]
                     try:
@@ -264,7 +264,8 @@ def _run_signal_ensemble(symbol: str, days: int = 250) -> dict:
         "hurst": sig.hurst,
         "adx": sig.adx,
         "breakdown": {
-            name: {"signal": v.signal, "label": v.label, "detail": v.detail} for name, v in sig.breakdown.items()
+            name: {"signal": v.signal, "label": v.label, "detail": v.detail}
+            for name, v in sig.breakdown.items()
         },
     }
 
@@ -329,7 +330,7 @@ def build_registry() -> ToolRegistry:
             },
             "required": ["instruments"],
         },
-        fn=get_quote,
+        fn=lambda instruments: get_quote(instruments),
     )
 
     reg.register(
@@ -340,7 +341,7 @@ def build_registry() -> ToolRegistry:
             "Also includes GIFT NIFTY pre-market indicator when available."
         ),
         parameters={"type": "object", "properties": {}, "required": []},
-        fn=get_market_snapshot,
+        fn=lambda: get_market_snapshot(),
     )
 
     from market.gift_nifty import get_gift_nifty
@@ -377,7 +378,7 @@ def build_registry() -> ToolRegistry:
         name="get_sector_snapshot",
         description="Get performance of all major NSE sector indices (IT, Pharma, Auto, FMCG, etc.).",
         parameters={"type": "object", "properties": {}, "required": []},
-        fn=get_sector_snapshot,
+        fn=lambda: get_sector_snapshot(),
     )
 
     reg.register(
@@ -406,7 +407,8 @@ def build_registry() -> ToolRegistry:
     reg.register(
         name="get_pcr",
         description=(
-            "Get the Put-Call Ratio (by OI) for an underlying. PCR > 1.2 = bearish sentiment; PCR < 0.8 = bullish."
+            "Get the Put-Call Ratio (by OI) for an underlying. "
+            "PCR > 1.2 = bearish sentiment; PCR < 0.8 = bullish."
         ),
         parameters={
             "type": "object",
@@ -481,7 +483,7 @@ def build_registry() -> ToolRegistry:
             },
             "required": ["symbol"],
         },
-        fn=fund_analyse,
+        fn=lambda symbol: fund_analyse(symbol),
     )
 
     reg.register(
@@ -501,7 +503,7 @@ def build_registry() -> ToolRegistry:
             },
             "required": ["symbol"],
         },
-        fn=score_fundamentals,
+        fn=lambda symbol: score_fundamentals(symbol),
     )
 
     reg.register(
@@ -544,7 +546,9 @@ def build_registry() -> ToolRegistry:
             },
             "required": ["spot", "strike", "expiry", "option_type", "ltp"],
         },
-        fn=compute_greeks,
+        fn=lambda spot, strike, expiry, option_type, ltp: compute_greeks(
+            spot, strike, expiry, option_type, ltp
+        ),
     )
 
     reg.register(
@@ -732,10 +736,11 @@ def build_registry() -> ToolRegistry:
     reg.register(
         name="get_market_breadth",
         description=(
-            "Get advance/decline ratio for NSE (NIFTY 500 universe). A/D > 2 = broad rally; A/D < 0.5 = broad decline."
+            "Get advance/decline ratio for NSE (NIFTY 500 universe). "
+            "A/D > 2 = broad rally; A/D < 0.5 = broad decline."
         ),
         parameters={"type": "object", "properties": {}, "required": []},
-        fn=get_market_breadth,
+        fn=lambda: get_market_breadth(),
     )
 
     reg.register(
@@ -777,14 +782,17 @@ def build_registry() -> ToolRegistry:
         },
         fn=lambda symbol, condition, threshold, exchange="NSE": {
             "status": "created",
-            "alert": alert_manager.add_price_alert(symbol, condition, threshold, exchange).describe(),
+            "alert": alert_manager.add_price_alert(
+                symbol, condition, threshold, exchange
+            ).describe(),
         },
     )
 
     reg.register(
         name="set_technical_alert",
         description=(
-            "Set a technical indicator alert. E.g. alert when RELIANCE RSI goes above 70, or INFY RSI below 30."
+            "Set a technical indicator alert. "
+            "E.g. alert when RELIANCE RSI goes above 70, or INFY RSI below 30."
         ),
         parameters={
             "type": "object",
@@ -799,7 +807,9 @@ def build_registry() -> ToolRegistry:
         },
         fn=lambda symbol, indicator, condition, threshold, exchange="NSE": {
             "status": "created",
-            "alert": alert_manager.add_technical_alert(symbol, indicator, condition, threshold, exchange).describe(),
+            "alert": alert_manager.add_technical_alert(
+                symbol, indicator, condition, threshold, exchange
+            ).describe(),
         },
     )
 
@@ -930,7 +940,7 @@ def build_registry() -> ToolRegistry:
             },
             "required": ["symbol"],
         },
-        fn=get_pre_earnings_iv,
+        fn=lambda symbol: get_pre_earnings_iv(symbol),
     )
 
     reg.register(
@@ -1222,7 +1232,9 @@ def build_registry() -> ToolRegistry:
     def _get_shareholding(symbol: str) -> dict:
         from analysis.fundamental import _fetch_nse_shareholding
 
-        return _fetch_nse_shareholding(symbol) or {"error": "Shareholding data unavailable for this symbol"}
+        return _fetch_nse_shareholding(symbol) or {
+            "error": "Shareholding data unavailable for this symbol"
+        }
 
     reg.register(
         name="get_shareholding_pattern",
@@ -1281,7 +1293,9 @@ def build_registry() -> ToolRegistry:
             "properties": {"underlying": {"type": "string"}},
             "required": ["underlying"],
         },
-        fn=lambda underlying: __import__("market.oi_profile", fromlist=["get_oi_profile"]).get_oi_profile(underlying),
+        fn=lambda underlying: __import__(
+            "market.oi_profile", fromlist=["get_oi_profile"]
+        ).get_oi_profile(underlying),
     )
 
     reg.register(
@@ -1292,7 +1306,9 @@ def build_registry() -> ToolRegistry:
             "properties": {"underlying": {"type": "string"}},
             "required": ["underlying"],
         },
-        fn=lambda underlying: __import__("analysis.gex", fromlist=["get_gex_analysis"]).get_gex_analysis(underlying),
+        fn=lambda underlying: __import__(
+            "analysis.gex", fromlist=["get_gex_analysis"]
+        ).get_gex_analysis(underlying),
     )
 
     reg.register(
@@ -1300,9 +1316,13 @@ def build_registry() -> ToolRegistry:
         description="Scan F&O stocks for: high IV rank (sell premium), unusual OI buildup, heavy put writing. Returns actionable setups.",
         parameters={
             "type": "object",
-            "properties": {"quick": {"type": "boolean", "description": "Quick scan (NIFTY+BANKNIFTY only)"}},
+            "properties": {
+                "quick": {"type": "boolean", "description": "Quick scan (NIFTY+BANKNIFTY only)"}
+            },
         },
-        fn=lambda quick=True: __import__("market.options_scanner", fromlist=["scan_options"]).scan_options(quick=quick),
+        fn=lambda quick=True: __import__(
+            "market.options_scanner", fromlist=["scan_options"]
+        ).scan_options(quick=quick),
     )
 
     reg.register(
@@ -1310,15 +1330,22 @@ def build_registry() -> ToolRegistry:
         description="Get recent bulk and block deals from NSE — large institutional/promoter buy/sell transactions.",
         parameters={
             "type": "object",
-            "properties": {"symbol": {"type": "string", "description": "Filter by symbol (optional)"}},
+            "properties": {
+                "symbol": {"type": "string", "description": "Filter by symbol (optional)"}
+            },
         },
         fn=lambda symbol=None: {
             "block": [
-                d.__dict__ for d in __import__("market.bulk_deals", fromlist=["get_block_deals"]).get_block_deals()
+                d.__dict__
+                for d in __import__(
+                    "market.bulk_deals", fromlist=["get_block_deals"]
+                ).get_block_deals()
             ],
             "bulk": [
                 d.__dict__
-                for d in __import__("market.bulk_deals", fromlist=["get_bulk_deals"]).get_bulk_deals(symbol=symbol)
+                for d in __import__(
+                    "market.bulk_deals", fromlist=["get_bulk_deals"]
+                ).get_bulk_deals(symbol=symbol)
             ],
         },
     )

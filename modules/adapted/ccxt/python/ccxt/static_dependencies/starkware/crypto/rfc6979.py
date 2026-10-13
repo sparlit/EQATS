@@ -138,7 +138,8 @@ def generate_k(order, secexp, hash_func, data, retry_gen=0, extra_entropy=b""):
         if secret >= 1 and secret < order:
             if retry_gen <= 0:
                 return secret
-            retry_gen -= 1
+            else:
+                retry_gen -= 1
 
         k = hmac.new(k, v + b"\x00", hash_func).digest()
         v = hmac.new(k, v, hash_func).digest()

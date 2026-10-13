@@ -78,9 +78,9 @@ except ImportError:
 # fix : https://github.com/aio-libs/aiodns/issues/86
 import sys
 
-from base.tests_init import base_tests_init
+from base.tests_init import base_tests_init  # noqa: F401
 
-from ccxt.pro.test.base.tests_init import test_base_init_ws
+from ccxt.pro.test.base.tests_init import test_base_init_ws  # noqa: F401
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -161,7 +161,7 @@ else:
                     error = getattr(client, "error", None)
                     _warn(
                         "[TEST_WARNING] TIMEOUT_CAUSE"
-                        " verdict="
+                        + " verdict="
                         + classify_client(client, now)
                         + " url="
                         + str(getattr(client, "url", "?"))
@@ -181,7 +181,11 @@ else:
                         + fired_at
                     )
             except BaseException as watchdog_error:
-                _warn("[TEST_WARNING] TIMEOUT_CAUSE watchdog_error=" + repr(watchdog_error)[:200] + fired_at)
+                _warn(
+                    "[TEST_WARNING] TIMEOUT_CAUSE watchdog_error="
+                    + repr(watchdog_error)[:200]
+                    + fired_at
+                )
 
     async def main():
         if _import_watchdog is not None:
@@ -204,7 +208,7 @@ else:
                 await base_tests_init()
                 print("base REST tests passed!")
             if not runAll:
-                sys.exit(0)
+                exit(0)
         await testMainClassAsync().init(argvExchange, argvSymbol, argvMethod)
 
     asyncio.run(main())

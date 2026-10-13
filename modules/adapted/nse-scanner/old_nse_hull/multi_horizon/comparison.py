@@ -26,7 +26,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 """Git-backed, idempotent shadow-versus-baseline comparison ledger."""
 
 import json
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TARGET_SESSIONS = 20
@@ -55,16 +55,28 @@ def summarize(path: str | Path) -> dict:
         "sessions_observed": count,
         "sessions_remaining": max(0, TARGET_SESSIONS - count),
         "validation_ready": count >= TARGET_SESSIONS,
-        "average_baseline_candidates": round(sum(len(row["baseline_symbols"]) for row in rows) / count, 2)
+        "average_baseline_candidates": round(
+            sum(len(row["baseline_symbols"]) for row in rows) / count, 2
+        )
         if count
         else 0,
-        "average_shadow_candidates": round(sum(len(row["shadow_symbols"]) for row in rows) / count, 2) if count else 0,
-        "average_overlap": round(sum(len(row["overlap_symbols"]) for row in rows) / count, 2) if count else 0,
-        "recent_sessions": [{"as_of_date": day, **data} for day, data in list(sessions.items())[-5:]],
+        "average_shadow_candidates": round(
+            sum(len(row["shadow_symbols"]) for row in rows) / count, 2
+        )
+        if count
+        else 0,
+        "average_overlap": round(sum(len(row["overlap_symbols"]) for row in rows) / count, 2)
+        if count
+        else 0,
+        "recent_sessions": [
+            {"as_of_date": day, **data} for day, data in list(sessions.items())[-5:]
+        ],
     }
 
 
-def update_summary(path: str | Path, as_of_date: str, baseline_symbols: list[str], shadow_rows: list[dict]) -> dict:
+def update_summary(
+    path: str | Path, as_of_date: str, baseline_symbols: list[str], shadow_rows: list[dict]
+) -> dict:
     """Persist one session and calculate the validation status.
 
     The file is committed by the existing scheduled workflow. This avoids
@@ -72,7 +84,9 @@ def update_summary(path: str | Path, as_of_date: str, baseline_symbols: list[str
     """
     target = Path(path)
     previous = (
-        json.loads(target.read_text(encoding="utf-8")) if target.exists() else {"schema_version": 1, "sessions": {}}
+        json.loads(target.read_text(encoding="utf-8"))
+        if target.exists()
+        else {"schema_version": 1, "sessions": {}}
     )
     sessions = previous.setdefault("sessions", {})
     shadow_symbols = sorted(str(row["symbol"]) for row in shadow_rows)
@@ -81,7 +95,9 @@ def update_summary(path: str | Path, as_of_date: str, baseline_symbols: list[str
         "baseline_symbols": baseline,
         "shadow_symbols": shadow_symbols,
         "overlap_symbols": sorted(set(baseline) & set(shadow_symbols)),
-        "newly_qualified": sum(row.get("lifecycle_status") == "NEWLY_QUALIFIED" for row in shadow_rows),
+        "newly_qualified": sum(
+            row.get("lifecycle_status") == "NEWLY_QUALIFIED" for row in shadow_rows
+        ),
         "upgraded": sum(row.get("lifecycle_status") == "UPGRADED" for row in shadow_rows),
     }
     ordered = dict(sorted(sessions.items())[-TARGET_SESSIONS:])

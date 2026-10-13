@@ -69,12 +69,12 @@ LEDGER = os.path.join(SCRIPTS, "gicre_rev_fills.json")
 
 NUM = re.compile(r"^\(?-?[\d,][\d, ]*\)?$")
 # corruption-tolerant row fragments (the OCR/text-layer mangles punctuation, not digits)
-R_PREM = re.compile(r"Premium\s*Earned", re.IGNORECASE)
-R_PHINV = re.compile(r"^\s*4\s+Income from investments", re.IGNORECASE)
-R_SHINV = re.compile(r"Income from investments$|^.b.\s*Income from investments", re.IGNORECASE)
-R_PROFIT_YR = re.compile(r"Profit for the", re.IGNORECASE)
-R_PAT = re.compile(r"Profit\s*I?\s*.?loss.?\s*after tax", re.IGNORECASE)
-R_ASSOC = re.compile(r"Share of Profit in Associate", re.IGNORECASE)
+R_PREM = re.compile(r"Premium\s*Earned", re.I)
+R_PHINV = re.compile(r"^\s*4\s+Income from investments", re.I)
+R_SHINV = re.compile(r"Income from investments$|^.b.\s*Income from investments", re.I)
+R_PROFIT_YR = re.compile(r"Profit for the", re.I)
+R_PAT = re.compile(r"Profit\s*I?\s*.?loss.?\s*after tax", re.I)
+R_ASSOC = re.compile(r"Share of Profit in Associate", re.I)
 DATEHDR = re.compile(r"\((\d{2})/(\d{2})/(\d{4})\)")
 
 
@@ -174,11 +174,19 @@ def main():
     apply_it = "--apply" in sys.argv
     revop = json.load(open(REVOP))
     fund = {int(r[0]): (r[1], r[3]) for r in json.load(open(FUND))["GICRE"] if len(r) > 3}
-    fam = [v[1] / v[0] for v in revop["GICRE"].values() if v[0] is not None and v[1] is not None and v[0]]
+    fam = [
+        v[1] / v[0]
+        for v in revop["GICRE"].values()
+        if v[0] is not None and v[1] is not None and v[0]
+    ]
     lo, hi = (min(fam) * 0.99, max(fam) * 1.01) if fam else (0.9, 1.2)
 
     qes = sorted(
-        {int(q) for q, v in revop["GICRE"].items() if (v[1] is None or v[0] is None) and 20200101 <= int(q) <= 20261231}
+        {
+            int(q)
+            for q, v in revop["GICRE"].items()
+            if (v[1] is None or v[0] is None) and 20200101 <= int(q) <= 20261231
+        }
     )
     if only_qe:
         qes = [only_qe]
@@ -227,7 +235,7 @@ def main():
             print("  %d  SKIP no readable statement page (%d packs)" % (qe, len(packs)))
             continue
         stored_std, _stored_con = revop["GICRE"][str(qe)][0], revop["GICRE"][str(qe)][1]
-        _s_pat, c_pat = fund.get(qe, (None, None))
+        s_pat, c_pat = fund.get(qe, (None, None))
         v = dict(best)
         v["stored_std"], v["stored_con_pat"] = stored_std, c_pat
         # G2 A5 control

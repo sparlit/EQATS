@@ -4,14 +4,16 @@ Sweeps every module, function, strategy, method, loop branch, API connector,
 Rust bridge function, trade memory reflection protocol, and edge case without exception.
 """
 from typing import Any
-import database
-import indicators
-import event_bus
+
 import brain_agents_orchestrator
+import database
+import event_bus
+import indicators
 import institutional_integrations.enterprise_gateway as enterprise_gw
 import institutional_integrations.machine_learning as ml_eng
 import institutional_integrations.rust_bridge as rust_br
 import institutional_integrations.trade_memory_protocol as trade_mem
+
 
 class TestExhaustiveV83eCoverage:
 

@@ -1,7 +1,5 @@
 //! Order placement, cancellation, execution replay, and algo parsing.
 
-use std::sync::atomic::Ordering;
-
 use crate::api::types::ExecutionFilter;
 use crate::api::wrapper::Wrapper;
 use crate::client_core::{ClientCore, ModifyPlan};
@@ -14,6 +12,7 @@ impl EClient {
 
     /// Place an order. Matches `placeOrder` in C++.
     pub fn place_order(&self, order_id: i64, contract: &Contract, order: &Order) -> Result<(), String> {
+        if !ClientCore::ids_fit("place_order", &[order_id, contract.con_id]) { return Ok(()); }
         // The reference's other names for an order type, under ibx's name
         // for every check and for the tracked order (ibx#469).
         let order = &*ClientCore::with_canonical_order_type(order);
@@ -21,30 +20,69 @@ impl EClient {
         ClientCore::validate_order(order)?;
         ClientCore::validate_order_contract(&contract.sec_type)?;
 
-        let oid = if order_id > 0 {
-            order_id as u64
-        } else {
-            self.next_order_id.fetch_add(1, Ordering::Relaxed)
-        };
+        // The id as given: the reference refuses 0 with 10149 below.
+        let oid = order_id;
 
+        // Warnings the reference sends while it reads the order (ibx#416).
+        for (code, message) in ClientCore::implied_zone_warnings(order) {
+            self.shared.orders.push_order_error(oid, code, message);
+        }
         // Refused before sending, like the reference: error() only.
-        if let Some((code, message)) = ClientCore::refusal_before_sending(order)
-            .or_else(|| self.core.refusal_for_order_id(oid, order))
-        {
+        let contract_zone = self.shared.reference.time_zone_id(contract.con_id);
+        let account_pending = ClientCore::order_account_pending(order, &self.shared.reference, &self.account_id);
+        // The algo check's warnings come before its refusal (ibx#263).
+        let mut algo_warnings = Vec::new();
+        let refusal = ClientCore::refusal_before_sending_for(order, &contract.exchange, account_pending)
+            .or_else(|| ClientCore::algo_definition_refusal(order, &contract.exchange, &self.shared.reference, &mut algo_warnings))
+            .or_else(|| ClientCore::account_config_refusal(
+                order, self.shared.reference.account_features().as_deref(), &self.account_id))
+            .or_else(|| ClientCore::good_till_date_refusal(order, contract_zone.as_deref()))
+            .or_else(|| ClientCore::condition_time_zone_refusal(order, contract_zone.as_deref()))
+            .or_else(|| ClientCore::price_refusal(order))
+            .or_else(|| ClientCore::order_id_refusal(oid))
+            .or_else(|| self.core.refusal_for_order_id(oid, order, &self.shared));
+        for (code, message) in algo_warnings {
+            self.shared.orders.push_order_error(oid, code, message);
+        }
+        if let Some((code, message)) = refusal {
             self.shared.orders.push_order_error(oid, code, message);
             return Ok(());
         }
+        // A combo (BAG) order, read and checked as the reference reads it
+        // (ibx#470).
+        let combo = match ClientCore::combo_order(contract, order, &self.shared.reference, &self.account_id) {
+            Ok(combo) => combo,
+            Err((code, message)) => {
+                self.shared.orders.push_order_error(oid, code, message);
+                return Ok(());
+            }
+        };
+        // The condition times as the reference sends them (ibx#416); the
+        // order is tracked as the caller placed it.
+        let sent = ClientCore::with_condition_times(order);
 
-        let instrument = self.core.find_or_register_instrument(
-            &self.control_tx,
-            contract.con_id, &contract.symbol, &contract.exchange, &contract.sec_type,
+        // A smart combo goes out on its currency's smart combo conId.
+        let con_id = combo.as_ref().map(|c| c.smart_con_id).filter(|&c| c > 0).unwrap_or(contract.con_id);
+        let instrument = self.core.order_instrument(
+            &self.control_tx, oid, order.what_if,
+            con_id, &contract.symbol, &contract.exchange, &contract.sec_type, &contract.currency,
         )?;
-        self.core.note_currency(&self.control_tx, contract.con_id, &contract.currency);
+        self.core.note_currency(&self.control_tx, con_id, &contract.currency);
 
         // If orderId is already tracked, this is a modification: replace it
-        // with the full wanted state (ibx#247).
-        let cmd = if let Some(working_type) = self.core.tracked_order_type(oid) {
-            match ClientCore::build_modify_request(order, oid, &working_type)? {
+        // with the full wanted state (ibx#247). A what-if never modifies:
+        // it previews a new order (ibx#462).
+        let working = if order.what_if { None } else { self.core.tracked_order(oid) };
+        if working.is_some() {
+            let refusal = self.core.tracked_contract(oid)
+                .and_then(|placed| ClientCore::combo_modify_refusal(contract, &placed));
+            if let Some((code, message)) = refusal {
+                self.shared.orders.push_order_error(oid, code, message);
+                return Ok(());
+            }
+        }
+        let cmd = if let Some(working) = working {
+            match ClientCore::build_modify_request(&sent, oid, &working)? {
                 ModifyPlan::Send(cmd) => cmd,
                 ModifyPlan::Refused { code, message } => {
                     // Refused before sending, like the reference: the caller
@@ -53,19 +91,26 @@ impl EClient {
                     return Ok(());
                 }
             }
+        } else if let Some(combo) = combo {
+            ClientCore::build_combo_order_request(&sent, oid, instrument, combo)?
         } else {
-            ClientCore::build_order_request(order, oid, instrument)?
+            ClientCore::build_order_request(&sent, oid, instrument)?
         };
         self.send(cmd)?;
         self.core.cache_contract(contract.con_id, contract.clone());
-        self.core.track_order(oid, contract.clone(), order.clone(), instrument);
+        if order.what_if {
+            self.core.track_what_if(oid, contract.clone(), order.clone());
+        } else {
+            self.core.track_order(oid, contract.clone(), order.clone(), instrument);
+        }
         Ok(())
     }
 
     /// Cancel an order. Matches `cancelOrder` in C++.
     pub fn cancel_order(&self, order_id: i64, _manual_order_cancel_time: &str) -> Result<(), String> {
+        if !ClientCore::ids_fit("cancel_order", &[order_id]) { return Ok(()); }
         self.send(ControlCommand::Order(OrderRequest::Cancel {
-            order_id: order_id as u64,
+            order_id,
         }))
     }
 
@@ -88,45 +133,75 @@ impl EClient {
             .find(|(_, tracked)| tracked.order.perm_id == perm_id)
             .map(|(oid, _)| oid)
             .ok_or_else(|| format!("cancel_order_by_perm_id: permId {} not found in open orders", perm_id))?;
-        self.cancel_order(order_id as i64, "")
+        self.cancel_order(order_id, "")
     }
 
-    /// Cancel all orders. Matches `reqGlobalCancel` in C++.
+    /// Cancel all orders. Matches `reqGlobalCancel` in C++: every order of
+    /// the account the session knows, those of other clients and of
+    /// earlier sessions too, as the reference cancels them.
     pub fn req_global_cancel(&self) -> Result<(), String> {
-        // Use global instrument count (not just locally-tracked ones)
-        let count = self.shared.market.instrument_count();
-        for instrument in 0..count {
-            self.send(ControlCommand::Order(OrderRequest::CancelAll { instrument }))?;
-        }
-        Ok(())
+        self.send(ControlCommand::Order(OrderRequest::GlobalCancel))
     }
 
-    /// Request next valid order ID. Matches `reqIds` in C++.
+    /// Request next valid order ID. Matches `reqIds` in C++: the highest
+    /// order id this client used + 1, as the reference computes it per
+    /// client id (1 when none), a 32-bit id. The ids of the client's earlier
+    /// sessions count as far as the server's replays of the logon show them
+    /// (orders with the client's id); right after the connect the answer
+    /// waits for the order replay of the logon. Nothing is reserved.
     pub fn req_ids(&self, wrapper: &mut impl Wrapper) {
-        let next_id = self.next_order_id.load(Ordering::Relaxed) as i64;
-        wrapper.next_valid_id(next_id);
+        ClientCore::wait_order_replay(&self.shared);
+        wrapper.next_valid_id(self.core.next_valid_id(&self.shared));
     }
 
-    /// Get the next order ID (local counter).
+    /// The next order id for a new order: the next valid id (see
+    /// [`req_ids`](EClient::req_ids)), or above the ids this method gave
+    /// before. Each call reserves the id it gives.
     pub fn next_order_id(&self) -> i64 {
-        self.next_order_id.fetch_add(1, Ordering::Relaxed) as i64
+        ClientCore::wait_order_replay(&self.shared);
+        self.core.take_order_id(&self.shared)
     }
 
     // ── Open Orders ──
 
     /// Request open orders for this client. Matches `reqOpenOrders` in C++.
+    ///
+    /// Before the order replay of the logon has ended, and while the auth
+    /// link is lost, the request is answered only after the order replay,
+    /// from `process_msgs` (ibx#251).
     pub fn req_open_orders(&self, wrapper: &mut impl Wrapper) {
-        self.req_all_open_orders(wrapper);
+        if self.core.hold_open_orders(crate::client_core::OpenOrdersRequest::Open, &self.shared) {
+            return;
+        }
+        self.answer_open_orders(wrapper, crate::client_core::OpenOrdersRequest::Open);
     }
 
     /// Request all open orders. Matches `reqAllOpenOrders` in C++.
+    ///
+    /// Held like [`req_open_orders`](Self::req_open_orders) until the order
+    /// replay (ibx#251).
     pub fn req_all_open_orders(&self, wrapper: &mut impl Wrapper) {
-        for (order_id, tracked) in self.core.collect_open_orders(&self.shared) {
+        if self.core.hold_open_orders(crate::client_core::OpenOrdersRequest::All, &self.shared) {
+            return;
+        }
+        self.answer_open_orders(wrapper, crate::client_core::OpenOrdersRequest::All);
+    }
+
+    /// The open orders, each with its status, then the end of the list
+    /// (`jextend.dL.b(pe, int, String, String, String)@41-46`: OPEN_ORDER
+    /// then ORDER_STATUS).
+    pub(crate) fn answer_open_orders(&self, wrapper: &mut impl Wrapper, request: crate::client_core::OpenOrdersRequest) {
+        for (order_id, tracked, client_id) in self.core.open_orders_listing(&self.shared, request) {
             let state = crate::api::types::OrderState {
-                status: tracked.status,
+                status: tracked.status.clone(),
                 ..Default::default()
             };
-            wrapper.open_order(order_id as i64, &tracked.contract, &tracked.order, &state);
+            wrapper.open_order(order_id, &tracked.contract, &tracked.order, &state);
+            let why_held = self.core.why_held(&tracked.status, &tracked.order.order_type, tracked.order.parent_id);
+            wrapper.order_status(
+                order_id, &tracked.status, tracked.filled, tracked.remaining, 0.0,
+                tracked.order.perm_id, tracked.order.parent_id, tracked.last_fill_price, client_id, &why_held, 0.0,
+            );
         }
         wrapper.open_order_end();
     }
@@ -147,10 +222,13 @@ impl EClient {
                 } else {
                     info.contract
                 };
-                wrapper.completed_order(&contract, &info.order, &state);
+                // The order as the reference shows it (its unset values).
+                let mut order = info.order;
+                crate::client_core::reported_unset_values(&mut order);
+                wrapper.completed_order(&contract, &order, &state);
             } else {
                 let contract = Contract::default();
-                let api_order = Order { order_id: order.order_id as i64, ..Default::default() };
+                let api_order = Order { order_id: order.order_id, ..Default::default() };
                 let state = crate::api::types::OrderState {
                     status: status_str.into(),
                     ..Default::default()
@@ -175,14 +253,15 @@ impl EClient {
     /// Replays stored executions (optionally filtered), firing `exec_details` +
     /// `commission_and_fees_report` for each, then `exec_details_end`.
     pub fn req_executions(&self, req_id: i64, filter: &ExecutionFilter, wrapper: &mut impl Wrapper) {
-        let indices = self.core.filter_executions(filter);
-        let execs = self.core.executions.lock().unwrap();
-        for i in indices {
-            let se = &execs[i];
+        if !crate::client_core::ClientCore::ids_fit("req_executions", &[req_id]) { return; }
+        // No lock is held during the callbacks (ibx#265). As the reference:
+        // every execution, then the commission reports, then the end.
+        let execs = self.core.matching_executions(filter);
+        for se in &execs {
             wrapper.exec_details(req_id, &se.contract, &se.execution);
-            if let Some(report) = &se.commission_and_fees {
-                wrapper.commission_and_fees_report(report);
-            }
+        }
+        for report in execs.iter().filter_map(|se| se.commission_and_fees.as_ref()) {
+            wrapper.commission_and_fees_report(report);
         }
         wrapper.exec_details_end(req_id);
     }

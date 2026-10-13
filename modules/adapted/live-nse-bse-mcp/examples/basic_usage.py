@@ -95,7 +95,9 @@ async def market_overview_example():
         if nse_active:
             data = json.loads(nse_active)
             for i, stock in enumerate(data[:5], 1):
-                print(f"   {i}. {stock['company']} - ₹{stock['price']} ({stock['percent_change']}%)")
+                print(
+                    f"   {i}. {stock['company']} - ₹{stock['price']} ({stock['percent_change']}%)"
+                )
 
         # Get BSE most active
         print("\n📈 BSE Most Active Stocks:")
@@ -103,7 +105,9 @@ async def market_overview_example():
         if bse_active:
             data = json.loads(bse_active)
             for i, stock in enumerate(data[:5], 1):
-                print(f"   {i}. {stock['company']} - ₹{stock['price']} ({stock['percent_change']}%)")
+                print(
+                    f"   {i}. {stock['company']} - ₹{stock['price']} ({stock['percent_change']}%)"
+                )
 
         # Get 52-week highs/lows
         print("\n🏔️ 52-Week High/Low Data:")

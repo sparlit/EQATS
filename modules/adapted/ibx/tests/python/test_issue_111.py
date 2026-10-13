@@ -102,7 +102,15 @@ class AccountDeepWrapper(EWrapper):
         self.account_values[key] = (value, currency)
 
     def update_portfolio(
-        self, contract, position, market_price, market_value, average_cost, unrealized_pnl, realized_pnl, account_name
+        self,
+        contract,
+        position,
+        market_price,
+        market_value,
+        average_cost,
+        unrealized_pnl,
+        realized_pnl,
+        account_name,
     ):
         with self.lock:
             self.portfolio.append(
@@ -188,7 +196,9 @@ class TestAccountDeep:
     def test_account_values_90_tags(self):
         """reqAccountUpdates returns 90+ account value tags."""
         self.client.req_account_updates(True, "")
-        assert self.wrapper.got_account_download_end.wait(timeout=30), "account_download_end not received"
+        assert self.wrapper.got_account_download_end.wait(timeout=30), (
+            "account_download_end not received"
+        )
         self.client.req_account_updates(False, "")
 
         tag_count = len(self.wrapper.account_values)
@@ -198,7 +208,13 @@ class TestAccountDeep:
         assert tag_count >= 15, f"Expected 15+ tags, got {tag_count}"
 
         # Verify critical tags
-        critical = ["NetLiquidation", "TotalCashValue", "BuyingPower", "EquityWithLoanValue", "Cushion"]
+        critical = [
+            "NetLiquidation",
+            "TotalCashValue",
+            "BuyingPower",
+            "EquityWithLoanValue",
+            "Cushion",
+        ]
         for key in critical:
             assert key in self.wrapper.account_values, f"Missing critical tag: {key}"
             val = self.wrapper.account_values[key][0]
@@ -227,7 +243,9 @@ class TestAccountDeep:
         pos_conids = {p["con_id"] for p in self.wrapper.positions if p["position"] != 0}
         port_conids = {p["con_id"] for p in self.wrapper.portfolio if p["position"] != 0}
         if pos_conids:
-            assert pos_conids == port_conids, f"Position/portfolio mismatch: pos={pos_conids} port={port_conids}"
+            assert pos_conids == port_conids, (
+                f"Position/portfolio mismatch: pos={pos_conids} port={port_conids}"
+            )
 
     def test_whole_account_pnl(self):
         """reqPnL returns daily, unrealized, and realized P&L."""

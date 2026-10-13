@@ -64,15 +64,13 @@ Run:
 import os as _o
 import sys as _s
 
-_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+_s.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))  # §181 BSE headers
 import argparse
 import datetime
 import json
 import os
 import sys
 import time
-
-import bse_headers as BH  # §181 BSE headers
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -104,7 +102,9 @@ def today_ist():
     """BSE refuses a window ending after today ('To Date cannot be greater than current Date.' — an
     EMPTY reply, which the rate-limit guard then read as a block): every recent quarter's window must be
     capped. IST, since BSE's calendar is India's and CI runners are UTC."""
-    return int((datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y%m%d"))
+    return int(
+        (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y%m%d")
+    )
 
 
 def qe_date(qe):
@@ -128,7 +128,9 @@ def scrip_map():
     # "no-scrip" — a missing IDENTITY, not a missing filing. bse_scrips_delisted.json carries those
     # codes, each gated on an EXACT ISIN match against BSE's all-status master. setdefault, so a
     # live answer always wins; guard_map below still has the final say (§76).
-    for sym, e in ((jload(os.path.join(HERE, "bse_scrips_delisted.json"), {}) or {}).get("scrips") or {}).items():
+    for sym, e in (
+        (jload(os.path.join(HERE, "bse_scrips_delisted.json"), {}) or {}).get("scrips") or {}
+    ).items():
         if e.get("bse_code"):
             m.setdefault(str(sym).upper(), str(e["bse_code"]))
     return BR.guard_map(m)
@@ -147,8 +149,18 @@ def targets(fund):
 
 def q_neighbors(qe):
     y, md = qe // 10000, qe % 10000
-    prv = {331: (y - 1) * 10000 + 1231, 630: y * 10000 + 331, 930: y * 10000 + 630, 1231: y * 10000 + 930}[md]
-    nxt = {331: y * 10000 + 630, 630: y * 10000 + 930, 930: y * 10000 + 1231, 1231: (y + 1) * 10000 + 331}[md]
+    prv = {
+        331: (y - 1) * 10000 + 1231,
+        630: y * 10000 + 331,
+        930: y * 10000 + 630,
+        1231: y * 10000 + 930,
+    }[md]
+    nxt = {
+        331: y * 10000 + 630,
+        630: y * 10000 + 930,
+        930: y * 10000 + 1231,
+        1231: (y + 1) * 10000 + 331,
+    }[md]
     return prv, nxt
 
 
@@ -203,7 +215,9 @@ def resolve(cands, qe, prev_ann=None, next_ann=None):
     ]
     if not ok:
         if stated:
-            return None, "other-period:{}".format(",".join(str(pq) for pq in sorted({p for _, p in stated})))
+            return None, "other-period:{}".format(
+                ",".join(str(pq) for pq in sorted({p for _, p in stated}))
+            )
         return None, ("ambiguous:%d-dates" % len(unstated)) if unstated else "outside-band"
     if len(ok) == 1:
         return ok[0], "seq" if (stated or next_ann) else "solo"
@@ -309,7 +323,9 @@ def apply_bse_ledger(ledger):
             c["ann"] = ann
             n += 1
     if n:
-        json.dump(data, open(BSEF, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+        json.dump(
+            data, open(BSEF, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":")
+        )
     print("applied %d cells -> %s" % (n, os.path.normpath(BSEF)))
     return n
 
@@ -325,16 +341,28 @@ def run_bse(args):
         (s, int(q))
         for s, qs in px.items()
         for q, c in qs.items()
-        if q.isdigit() and c.get("pat") is not None and not c.get("ann") and (not args.qe or int(q) == args.qe)
+        if q.isdigit()
+        and c.get("pat") is not None
+        and not c.get("ann")
+        and (not args.qe or int(q) == args.qe)
     )
     if args.only:
         only = {s.strip() for s in args.only.split(",")}
         todo = [t for t in todo if t[0] in only]
-    todo = [t for t in todo if "%s|%d" % t not in ledger and (args.retry_skips or "%s|%d" % t not in skips)]
+    todo = [
+        t
+        for t in todo
+        if "%s|%d" % t not in ledger and (args.retry_skips or "%s|%d" % t not in skips)
+    ]
     if args.limit:
         todo = todo[: args.limit]
     print("BSE targets: %d cells across %d scrips" % (len(todo), len({s for s, _ in todo})))
-    known = {(s, int(q)): c["ann"] for s, qs in px.items() for q, c in qs.items() if q.isdigit() and c.get("ann")}
+    known = {
+        (s, int(q)): c["ann"]
+        for s, qs in px.items()
+        for q, c in qs.items()
+        if q.isdigit() and c.get("ann")
+    }
     o = FI.bse_session()
     t0 = time.time()
     done = filled = 0
@@ -346,7 +374,9 @@ def run_bse(args):
             break
         key = "%s|%d" % (scrip, qe)
         try:
-            cands = FI.datebound(o, scrip, str(plus(qe, 1)), str(min(plus(qe, 240), today_ist())), with_headline=True)
+            cands = FI.datebound(
+                o, scrip, str(plus(qe, 1)), str(min(plus(qe, 240), today_ist())), with_headline=True
+            )
         except Exception as ex:
             print(f"  {key} fetch err: {str(ex)[:80]}")
             cands = []
@@ -360,7 +390,8 @@ def run_bse(args):
             for k in streak_keys:
                 skips.pop(k, None)
             print(
-                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst not recorded), rerun later"
+                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst "
+                "not recorded), rerun later"
             )
             break
         prv, nxt = q_neighbors(qe)
@@ -380,7 +411,10 @@ def run_bse(args):
         time.sleep(0.6)
     jsave(BLEDGER, ledger)
     jsave(BSKIPS, skips)
-    print("BSE fetched: %d cells, %d dates recovered, %d skipped-this-run" % (done, filled, done - filled))
+    print(
+        "BSE fetched: %d cells, %d dates recovered, %d skipped-this-run"
+        % (done, filled, done - filled)
+    )
     if filled:
         apply_bse_ledger(ledger)
 
@@ -454,7 +488,8 @@ def reconcile_recent(ledger, args):
             for k in streak_keys:
                 skips.pop(k, None)
             print(
-                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst not recorded), rerun later"
+                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst "
+                "not recorded), rerun later"
             )
             break
         prv, nxt = q_neighbors(qe)
@@ -462,7 +497,12 @@ def reconcile_recent(ledger, args):
         if (
             ann and ann > qe and (qe_date(stored) - qe_date(ann)).days > 4
         ):  # >4d: beyond the 15:30/weekend/holiday gate window (runbook 12) — smaller deltas are the GATED form of the same filing, not a lag
-            ledger["%s|%d" % (sym, qe)] = {"ann": ann, "src": "bse:recon:" + how, "override": True, "was": stored}
+            ledger["%s|%d" % (sym, qe)] = {
+                "ann": ann,
+                "src": "bse:recon:" + how,
+                "override": True,
+                "was": stored,
+            }
             corrected += 1
             print(
                 "  %-14s %d  stored=%d -> bse=%d (%s, %dd earlier)"
@@ -501,8 +541,14 @@ def main():
         "gate window), write an "
         "override ledger entry and apply. Stops the NSE-lag class regrowing.",
     )
-    ap.add_argument("--bse", action="store_true", help="BSE-only mode over docs/bse_fundamentals.json (runbook §192)")
-    ap.add_argument("--qe", type=int, default=0, help="--bse: only this quarter end (e.g. 20260331)")
+    ap.add_argument(
+        "--bse",
+        action="store_true",
+        help="BSE-only mode over docs/bse_fundamentals.json (runbook §192)",
+    )
+    ap.add_argument(
+        "--qe", type=int, default=0, help="--bse: only this quarter end (e.g. 20260331)"
+    )
     args = ap.parse_args()
     if args.bse:
         run_bse(args)
@@ -523,7 +569,11 @@ def main():
     if args.only:
         only = {s.strip().upper() for s in args.only.split(",")}
         todo = [t for t in todo if t[0] in only]
-    todo = [t for t in todo if "%s|%d" % t not in ledger and (args.retry_skips or "%s|%d" % t not in skips)]
+    todo = [
+        t
+        for t in todo
+        if "%s|%d" % t not in ledger and (args.retry_skips or "%s|%d" % t not in skips)
+    ]
     if args.limit:
         todo = todo[: args.limit]
     print("targets: %d rows across %d companies" % (len(todo), len({s for s, _ in todo})))
@@ -566,14 +616,17 @@ def main():
             for k in streak_keys:  # a burst of empties = rate-limit stub, not truth
                 skips.pop(k, None)
             print(
-                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst not recorded), rerun later"
+                "8 consecutive empty windows — BSE likely rate-limiting; aborting run (burst "
+                "not recorded), rerun later"
             )
             break
         prv, nxt = q_neighbors(qe)
         ann, how = resolve(cands, qe, known.get((sym, prv)), known.get((sym, nxt)))
         if ann:
             ledger[key] = {"ann": ann, "src": "bse:" + how}
-            known[(sym, qe)] = ann  # TODO is qe-ascending: a fill bounds the same co's later targets
+            known[(sym, qe)] = (
+                ann  # todo is qe-ascending: a fill bounds the same co's later targets
+            )
             filled += 1
             print("  %-14s %d -> %d (%s)" % (sym, qe, ann, how))
         elif cands or how == "no-candidates":
@@ -587,7 +640,9 @@ def main():
 
     jsave(LEDGER, ledger)
     jsave(SKIPS, skips)
-    print("fetched: %d rows, %d dates recovered, %d skipped-this-run" % (done, filled, done - filled))
+    print(
+        "fetched: %d rows, %d dates recovered, %d skipped-this-run" % (done, filled, done - filled)
+    )
     if filled:
         apply_ledger(ledger)
 

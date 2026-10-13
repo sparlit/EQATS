@@ -56,11 +56,14 @@ def check(name, cond):
 
 # 1. crash, no record (POLICYBZR 2026-09-24 real numbers) -> kept raw, parked
 U.UNCONFIRMED.clear()
-f = U.ingest_factor("2026-09-24", "POLICYBZR", 20260924, 20260923, 1886.3, 1207.2, 1697.7, None, None, "2026-09-25")
+f = U.ingest_factor(
+    "2026-09-24", "POLICYBZR", 20260924, 20260923, 1886.3, 1207.2, 1697.7, None, None, "2026-09-25"
+)
 check("crash w/o record kept raw", f == 1.0)
 check(
     "crash parked",
-    "20260924" in U.UNCONFIRMED.get("POLICYBZR", {}) and U.UNCONFIRMED["POLICYBZR"]["20260924"]["prev"] == 1886.3,
+    "20260924" in U.UNCONFIRMED.get("POLICYBZR", {})
+    and U.UNCONFIRMED["POLICYBZR"]["20260924"]["prev"] == 1886.3,
 )
 # 2. official split (CHAVDA 1:2 2026-09-24, prev 139.98 -> 70.3) -> official factor
 check(
@@ -71,7 +74,8 @@ check("official split not parked", "CHAVDA" not in U.UNCONFIRMED)
 # 3. official split on a violent day: close ratio off the band, open at basis -> official (§87c)
 check(
     "open-gate rescue",
-    U.ingest_factor("d", "JSTEST", 20080121, 20080118, 2393.99, 350.71, 493.5, 0.2, None, "x") == 0.2,
+    U.ingest_factor("d", "JSTEST", 20080121, 20080118, 2393.99, 350.71, 493.5, 0.2, None, "x")
+    == 0.2,
 )
 # 4. official record contradicted by close AND open -> kept raw + parked
 check(
@@ -82,7 +86,8 @@ check(
 # 5. demerger ex-date -> kept raw, not parked
 check(
     "demerger kept, not parked",
-    U.ingest_factor("d", "DEM", 20260430, 20260429, 773.0, 271.0, 280.0, None, {20260430}, "x") == 1.0
+    U.ingest_factor("d", "DEM", 20260430, 20260429, 773.0, 271.0, 280.0, None, {20260430}, "x")
+    == 1.0
     and "DEM" not in U.UNCONFIRMED,
 )
 # 6. ordinary day -> 1.0, not parked
@@ -135,7 +140,14 @@ U.LEGACY_FALSE_CA.pop()
 # 8. kept-raw move 90 days ago (outside the 28-day window), official record appears later -> applied
 U.UNCONFIRMED.clear()
 U.UNCONFIRMED["LATE"] = {
-    "20260601": {"prev_d": 20260529, "prev": 200.0, "close": 101.0, "open": 100.0, "ratio": 0.505, "seen": "2026-06-01"}
+    "20260601": {
+        "prev_d": 20260529,
+        "prev": 200.0,
+        "close": 101.0,
+        "open": 100.0,
+        "ratio": 0.505,
+        "seen": "2026-06-01",
+    }
 }
 data = {
     "LATE": {
@@ -156,16 +168,23 @@ check(
 h2 = U.self_heal(data, {"LATE": {20260601: 0.5}}, {}, 20260901, None)
 check("idempotent second pass", h2 == 0)
 # 10. pruning: LATE is reconciled (official applied) -> pruned; KEEP (no record) stays; CR (listed crash, 2 days off) pruned
-U.UNCONFIRMED["KEEP"] = {"20260701": {"prev_d": 20260630, "prev": 100.0, "close": 50.0, "ratio": 0.5}}
+U.UNCONFIRMED["KEEP"] = {
+    "20260701": {"prev_d": 20260630, "prev": 100.0, "close": 50.0, "ratio": 0.5}
+}
 U.UNCONFIRMED["CR"] = {"20260702": {"prev_d": 20260701, "prev": 100.0, "close": 60.0, "ratio": 0.6}}
 U.LEGACY_FALSE_CA.append(("CR", 20260704))
 n = U.prune_unconfirmed(data, {"LATE": {20260601: 0.5}}, {})
 check(
     "prune: reconciled + crash-listed removed, unverified kept",
-    n == 2 and "LATE" not in U.UNCONFIRMED and "CR" not in U.UNCONFIRMED and "KEEP" in U.UNCONFIRMED,
+    n == 2
+    and "LATE" not in U.UNCONFIRMED
+    and "CR" not in U.UNCONFIRMED
+    and "KEEP" in U.UNCONFIRMED,
 )
 # 11. official record present but NOT yet applied in the series -> stays parked
-U.UNCONFIRMED["PEND"] = {"20260601": {"prev_d": 20260529, "prev": 200.0, "close": 101.0, "ratio": 0.505}}
+U.UNCONFIRMED["PEND"] = {
+    "20260601": {"prev_d": 20260529, "prev": 200.0, "close": 101.0, "ratio": 0.505}
+}
 d2 = {"PEND": {"d": [20260529, 20260601], "c": [200.0, 101.0]}}
 U.prune_unconfirmed(d2, {"PEND": {20260601: 0.5}}, {})
 check("prune: official but unapplied stays parked", "PEND" in U.UNCONFIRMED)

@@ -21,7 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"
@@ -79,7 +78,11 @@ print(f"Symbols missing T-21  (skip-month anchor invalid): {df['T-21'].isna().su
 # --- spot-check: print window dates for 3 symbols ---
 sample = df[df["T-252"].notna()].head(3)
 print("\nSpot-check (3 symbols with full windows):")
-print(sample[["symbol", "n_rows", "T-252", "T-231", "T-126", "T-63", "T-21", "T_pos"]].to_string(index=False))
+print(
+    sample[["symbol", "n_rows", "T-252", "T-231", "T-126", "T-63", "T-21", "T_pos"]].to_string(
+        index=False
+    )
+)
 
 # --- also flag symbols where T-21 is None (can't compute any return) ---
 no_t21 = df[df["T-21"].isna()]["symbol"].tolist()

@@ -23,7 +23,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import numpy as np
 import pandas as pd
-from sklearn import cross_validation, preprocessing, svm
+from sklearn import cross_validation, preprocessing
 from sklearn.svm import SVR
 
 df = pd.read_csv("../equity.csv")

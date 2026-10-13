@@ -182,7 +182,8 @@ class Nse:
         elif len(self.symbol_list) == 0:
             self.get_symbol_list()
 
-        self.number_of_threads = min(self.number_of_threads, len(self.symbol_list))
+        if len(self.symbol_list) < self.number_of_threads:
+            self.number_of_threads = len(self.symbol_list)
 
         chunk_list = list(self.chunk_list(self.symbol_list, self.number_of_threads))
 

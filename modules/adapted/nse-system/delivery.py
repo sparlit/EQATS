@@ -44,8 +44,6 @@ import contextlib
 import csv
 import datetime as dt
 import io
-import json
-import os
 import sys
 import zipfile
 
@@ -57,7 +55,9 @@ except ImportError:
     requests = None
 
 NSE_BHAV_URL = "https://archives.nseindia.com/products/content/sec_bhavdata_full_{date}.csv"
-NSE_BHAV_URL_ALT = "https://archives.nseindia.com/content/historical/EQUITIES/cm/cm{date2}bhav.csv.zip"
+NSE_BHAV_URL_ALT = (
+    "https://archives.nseindia.com/content/historical/EQUITIES/cm/cm{date2}bhav.csv.zip"
+)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -79,8 +79,7 @@ def _ensure(conn):
 
 def _session():
     if requests is None:
-        msg = "requests not installed"
-        raise ImportError(msg)
+        raise ImportError("requests not installed")
     s = requests.Session()
     s.headers.update(HEADERS)
     with contextlib.suppress(Exception):
@@ -115,18 +114,32 @@ def _parse_csv(text):
             )
             deliv = int(
                 float(
-                    (r.get("DELIV_QTY") or r.get("DELIVERABLE_QTY") or r.get("DELVPRCNT") or r.get(" DELIV_QTY") or "0")
+                    (
+                        r.get("DELIV_QTY")
+                        or r.get("DELIVERABLE_QTY")
+                        or r.get("DELVPRCNT")
+                        or r.get(" DELIV_QTY")
+                        or "0"
+                    )
                     .strip()
                     .replace(",", "")
                 )
             )
             pct_raw = (
-                (r.get("DELIV_PER") or r.get("DLY_QT_TO_TRD_QT") or r.get("DELIV_PERC") or r.get(" DELIV_PER") or "")
+                (
+                    r.get("DELIV_PER")
+                    or r.get("DLY_QT_TO_TRD_QT")
+                    or r.get("DELIV_PERC")
+                    or r.get(" DELIV_PER")
+                    or ""
+                )
                 .strip()
                 .replace(",", "")
             )
             close_raw = (
-                (r.get("CLOSE_PRICE") or r.get("CLOSE") or r.get(" CLOSE_PRICE") or "0").strip().replace(",", "")
+                (r.get("CLOSE_PRICE") or r.get("CLOSE") or r.get(" CLOSE_PRICE") or "0")
+                .strip()
+                .replace(",", "")
             )
             close = float(close_raw) if close_raw else 0.0
         except (ValueError, TypeError):
@@ -197,7 +210,15 @@ def fetch(date_str=None):
     for r in rows:
         conn.execute(
             "INSERT OR REPLACE INTO delivery_daily VALUES (?,?,?,?,?,?,?)",
-            (date_str, r["symbol"], r["traded_qty"], r["deliverable_qty"], r["delivery_pct"], r["close"], now),
+            (
+                date_str,
+                r["symbol"],
+                r["traded_qty"],
+                r["deliverable_qty"],
+                r["delivery_pct"],
+                r["close"],
+                now,
+            ),
         )
         saved += 1
     conn.commit()
@@ -217,7 +238,9 @@ def backfill(n_days=30):
         ds = d.isoformat()
         conn = db.get_conn()
         _ensure(conn)
-        exists = conn.execute("SELECT COUNT(*) FROM delivery_daily WHERE date=?", (ds,)).fetchone()[0]
+        exists = conn.execute("SELECT COUNT(*) FROM delivery_daily WHERE date=?", (ds,)).fetchone()[
+            0
+        ]
         conn.close()
         if exists > 50:
             continue
@@ -294,11 +317,24 @@ def accumulation(n=30, min_days=5, min_avg_del=55.0):
     ).fetchall()
     conn.close()
     out = []
-    print(f"[DELIVERY] accumulation candidates (avg delivery >= {min_avg_del}% over {min_days} sessions):")
+    print(
+        f"[DELIVERY] accumulation candidates "
+        f"(avg delivery >= {min_avg_del}% over {min_days} sessions):"
+    )
     for sym, avg, days, tot, cl in rows:
-        print(f"   {sym:<14} avg {avg:5.1f}%  {days} sessions  total deliv {tot:>12,}  close ₹{cl:.2f}")
+        print(
+            f"   {sym:<14} avg {avg:5.1f}%  "
+            f"{days} sessions  total deliv {tot:>12,}  "
+            f"close ₹{cl:.2f}"
+        )
         out.append(
-            {"symbol": sym, "avg_delivery_pct": round(avg, 1), "sessions": days, "total_deliverable": tot, "close": cl}
+            {
+                "symbol": sym,
+                "avg_delivery_pct": round(avg, 1),
+                "sessions": days,
+                "total_deliverable": tot,
+                "close": cl,
+            }
         )
     return out
 
@@ -315,7 +351,14 @@ def for_symbol(symbol, limit=30):
     ).fetchall()
     conn.close()
     return [
-        {"date": r[0], "delivery_pct": r[1], "traded_qty": r[2], "deliverable_qty": r[3], "close": r[4]} for r in rows
+        {
+            "date": r[0],
+            "delivery_pct": r[1],
+            "traded_qty": r[2],
+            "deliverable_qty": r[3],
+            "close": r[4],
+        }
+        for r in rows
     ]
 
 
@@ -327,7 +370,9 @@ def delivery_score(symbol, conn=None, lookback=10):
         conn = db.get_conn()
     _ensure(conn)
     rows = conn.execute(
-        "SELECT delivery_pct FROM delivery_daily WHERE symbol=? AND delivery_pct > 0 ORDER BY date DESC LIMIT ?",
+        "SELECT delivery_pct FROM delivery_daily "
+        "WHERE symbol=? AND delivery_pct > 0 "
+        "ORDER BY date DESC LIMIT ?",
         (symbol.upper(), lookback),
     ).fetchall()
     if own:
@@ -356,7 +401,10 @@ if __name__ == "__main__":
     elif cmd == "symbol":
         sym = sys.argv[2].upper() if len(sys.argv) > 2 else "DIXON"
         for r in for_symbol(sym):
-            print(f"   {r['date']}  {r['delivery_pct']:5.1f}%  traded {r['traded_qty']:>10,}  close ₹{r['close']:.2f}")
+            print(
+                f"   {r['date']}  {r['delivery_pct']:5.1f}%  "
+                f"traded {r['traded_qty']:>10,}  close ₹{r['close']:.2f}"
+            )
     elif cmd == "score":
         sym = sys.argv[2].upper() if len(sys.argv) > 2 else "DIXON"
         print(f"{sym}: delivery_score = {delivery_score(sym)}")

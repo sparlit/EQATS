@@ -35,8 +35,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-import ccxt.async_support as ccxt
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+import ccxt.async_support as ccxt  # noqa: F402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 async def test_fetch_history_base():
@@ -44,6 +44,7 @@ async def test_fetch_history_base():
         {
             "id": "sampleexchange",
             "fetchHistoryCacheSize": 2,
+            "enableRateLimit": False,
         }
     )
     assert test_shared_methods.exchange_prop(exchange, "fetchHistoryCacheSize") == 2, (
@@ -54,17 +55,23 @@ async def test_fetch_history_base():
         await exchange.fetch2("sample1")
     except Exception:
         assert true_assertion  # just skip
-    assert len(exchange.get_fetch_cache()) == 1, "fetchHistoryCache should be an array with 1 element"
+    assert len(exchange.get_fetch_cache()) == 1, (
+        "fetchHistoryCache should be an array with 1 element"
+    )
     try:
         await exchange.fetch2("sample2")
     except Exception:
         assert true_assertion  # just skip
-    assert len(exchange.get_fetch_cache()) == 2, "fetchHistoryCache should be an array with 2 elements"
+    assert len(exchange.get_fetch_cache()) == 2, (
+        "fetchHistoryCache should be an array with 2 elements"
+    )
     try:
         await exchange.fetch2("sample3")
     except Exception:
         assert true_assertion  # just skip
-    assert len(exchange.get_fetch_cache()) == 2, "fetchHistoryCache should be an array with 2 elements"
+    assert len(exchange.get_fetch_cache()) == 2, (
+        "fetchHistoryCache should be an array with 2 elements"
+    )
     assert 1 + 1 < 3, "sample assertion"
 
 

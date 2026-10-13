@@ -65,7 +65,11 @@ def evaluate(rule, symbol):
 
     if rule.get("no_negative_events_days") is not None:
         since = (date.today() - timedelta(days=rule["no_negative_events_days"])).isoformat()
-        negative = [e for e in db.list_events(symbol=symbol, from_date=since) if e["sentiment_label"] == "negative"]
+        negative = [
+            e
+            for e in db.list_events(symbol=symbol, from_date=since)
+            if e["sentiment_label"] == "negative"
+        ]
         checks.append(
             {
                 "label": f"No negative-sentiment events in the last {rule['no_negative_events_days']} days",

@@ -64,15 +64,13 @@ class CorporateAction(BaseModel):
     @model_validator(mode="after")
     def _validate_action(self) -> CorporateAction:
         if self.action_type == CorporateActionType.DIVIDEND and self.amount is None:
-            msg = "DIVIDEND requires amount"
-            raise ValueError(msg)
+            raise ValueError("DIVIDEND requires amount")
         if (
             self.action_type in (CorporateActionType.SPLIT, CorporateActionType.BONUS)
             and self.ratio is None
             and not (self.old_value and self.new_value)
         ):
-            msg = f"{self.action_type} requires ratio or old_value/new_value"
-            raise ValueError(msg)
+            raise ValueError(f"{self.action_type} requires ratio or old_value/new_value")
         return self
 
     def adjustment_ratio(self) -> float:

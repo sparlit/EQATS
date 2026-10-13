@@ -21,10 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import random
-
-import requests
-from nsemine import live, nse
+from nsemine import live
 from nsemine.utilities import urls
 
 x = urls.get_nse_headers()

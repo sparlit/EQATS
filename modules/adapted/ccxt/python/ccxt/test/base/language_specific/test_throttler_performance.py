@@ -28,7 +28,7 @@ import sys
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(root)
 
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt  # noqa: F402
 
 
 async def test_throttler_performance_helper(exchange, num_requests):
@@ -41,7 +41,8 @@ async def test_throttler_performance_helper(exchange, num_requests):
     await asyncio.gather(*tasks)
 
     end_time = exchange.milliseconds()
-    return end_time - start_time
+    total_time = end_time - start_time
+    return total_time
 
 
 async def throttle_call(exchange, index, start_time):
@@ -57,7 +58,7 @@ async def throttle_call(exchange, index, start_time):
         return mock_result
     except Exception as e:
         print(f"Throttle call {index + 1} failed: {e}")
-        raise
+        raise e
 
 
 async def test_throttler():
@@ -102,7 +103,8 @@ async def test_throttler():
     rolling_window_0_time_string = str(round(rolling_window_0_time, 2))  # uses leakyBucket
 
     assert rolling_window_time <= 1000, (
-        "Rolling window throttler should happen immediately, but time was: " + rolling_window_time_string
+        "Rolling window throttler should happen immediately, but time was: "
+        + rolling_window_time_string
     )
     assert leaky_bucket_time >= 500, (
         "Leaky bucket throttler should take at least half a second for 20 requests, but time was: "
@@ -122,7 +124,9 @@ async def test_throttler():
         + "  │ ~3              │"
     )
     print(
-        "│ Leaky Bucket                              │ " + leaky_bucket_time_string.rjust(11) + "  │ ~950            │"
+        "│ Leaky Bucket                              │ "
+        + leaky_bucket_time_string.rjust(11)
+        + "  │ ~950            │"
     )
     print(
         "│ Leaky Bucket (rollingWindowSize === 0)    │ "

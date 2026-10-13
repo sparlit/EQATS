@@ -54,8 +54,12 @@ def _prices(sessions: int = 180) -> pd.DataFrame:
 
 def test_backtest_is_deterministic_and_point_in_time() -> None:
     prices = _prices()
-    first = run_point_in_time_backtest(prices, minimum_score=0, warmup_sessions=120, max_positions=2)
-    second = run_point_in_time_backtest(prices, minimum_score=0, warmup_sessions=120, max_positions=2)
+    first = run_point_in_time_backtest(
+        prices, minimum_score=0, warmup_sessions=120, max_positions=2
+    )
+    second = run_point_in_time_backtest(
+        prices, minimum_score=0, warmup_sessions=120, max_positions=2
+    )
     assert [(t.symbol, t.signal_date, t.realised_r) for t in first] == [
         (t.symbol, t.signal_date, t.realised_r) for t in second
     ]
@@ -81,7 +85,10 @@ def test_performance_report_uses_r_units() -> None:
         "score": 80.0,
         "exit_reason": "test",
     }
-    trades = [BacktestTrade(realised_r=1.0, **base), BacktestTrade(realised_r=-1.0, **{**base, "trade_id": "y"})]
+    trades = [
+        BacktestTrade(realised_r=1.0, **base),
+        BacktestTrade(realised_r=-1.0, **{**base, "trade_id": "y"}),
+    ]
     report = summarize_performance(trades)
     assert report.entered_trades == 2
     assert report.win_rate == 0.5

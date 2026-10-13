@@ -22,13 +22,17 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """Economic invariants and execution scenarios, not implementation snapshots."""
-import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from portfolio_accounting import build_snapshot, render_messages
-from portfolio_accounting.adapters import hull_snapshot, ladder_candidates, penny_candidates, v3_snapshot
+from portfolio_accounting.adapters import (
+    hull_snapshot,
+    ladder_candidates,
+    penny_candidates,
+    v3_snapshot,
+)
 from portfolio_accounting.ledger import LedgerConfig, advance
 
 
@@ -64,7 +68,15 @@ def candidate(symbol="ABC", **overrides):
 
 
 def bar(day, **overrides):
-    b = {"date": day, "open": 100, "high": 105, "low": 99, "close": 103, "prev_close": 100, "entry_allowed": True}
+    b = {
+        "date": day,
+        "open": 100,
+        "high": 105,
+        "low": 99,
+        "close": 103,
+        "prev_close": 100,
+        "entry_allowed": True,
+    }
     b.update(overrides)
     return {"ABC": b}
 
@@ -95,7 +107,8 @@ def test_closed_trade_and_missing_mark_review_remain_accounted():
 
 
 @pytest.mark.parametrize(
-    "change", [{"quantity": float("nan")}, {"remaining_quantity": 11}, {"fees": -1}, {"status": "PENDING"}]
+    "change",
+    [{"quantity": float("nan")}, {"remaining_quantity": 11}, {"fees": -1}, {"status": "PENDING"}],
 )
 def test_invalid_accounting_rejected(change):
     p = holding()
@@ -109,8 +122,7 @@ def test_native_adapters_preserve_economics_and_exclude_unfilled():
     raw.update(state="PARTIAL", remaining_quantity=4, realised_pnl=120, updated_date="2026-08-03")
     pending = {**raw, "trade_id": "P", "state": "READY"}
     s = v3_snapshot([raw, pending], "2026-08-03", 10000, {"T": "2026-08-01"})
-    assert s["realised_pnl"] == 120
-    assert s["unrealised_pnl"] == 40
+    assert s["realised_pnl"] == 120 and s["unrealised_pnl"] == 40
     assert s["positions"][0]["entry_date"] == "2026-08-01"
     assert s["pending_setups"] == 1
     raw["state"] = "CORPORATE_ACTION_REVIEW"
@@ -156,12 +168,13 @@ def test_signal_mapping_uses_only_actual_ready_and_shadow_levels():
 def test_next_session_entry_rerun_restart_and_stop_gap(tmp_path):
     path = tmp_path / "p.sqlite"
     first = advance(path, "Penny", "2026-08-03", bar("2026-08-03"), [candidate()])
-    assert first["open_positions"] == 0
-    assert first["pending_setups"] == 1
+    assert first["open_positions"] == 0 and first["pending_setups"] == 1
     second = advance(path, "Penny", "2026-08-04", bar("2026-08-04"), [])
     assert second["open_positions"] == 1
     assert second == advance(path, "Penny", "2026-08-04", bar("2026-08-04"), [])
-    closed = advance(path, "Penny", "2026-08-05", bar("2026-08-05", open=90, high=120, low=89, close=110), [])
+    closed = advance(
+        path, "Penny", "2026-08-05", bar("2026-08-05", open=90, high=120, low=89, close=110), []
+    )
     p = closed["positions"][0]
     assert p["exit_price"] == 90  # gap stop, not optimistic 95 or target 115
     assert p["realised_pnl"] == -10 * p["quantity"]
@@ -173,8 +186,7 @@ def test_same_bar_entry_stop_is_adverse_and_no_same_day_reentry(tmp_path):
     path = tmp_path / "p.sqlite"
     advance(path, "Penny", "2026-08-03", bar("2026-08-03"), [candidate()])
     s = advance(path, "Penny", "2026-08-04", bar("2026-08-04", low=94, high=120), [candidate()])
-    assert s["closed_positions"] == 1
-    assert s["pending_setups"] == 0
+    assert s["closed_positions"] == 1 and s["pending_setups"] == 0
     assert s["positions"][0]["exit_price"] == 95
 
 
@@ -186,23 +198,30 @@ def test_locks_stale_prices_and_entry_restrictions(tmp_path):
     s = advance(path, "Penny", "2026-08-05", bar("2026-08-05"), [])
     qty = s["positions"][0]["quantity"]
     s = advance(
-        path, "Penny", "2026-08-06", bar("2026-08-06", open=90, high=90, low=90, close=90, exit_blocked=True), []
+        path,
+        "Penny",
+        "2026-08-06",
+        bar("2026-08-06", open=90, high=90, low=90, close=90, exit_blocked=True),
+        [],
     )
-    assert s["open_positions"] == 1
-    assert s["unrealised_pnl"] == -10 * qty
+    assert s["open_positions"] == 1 and s["unrealised_pnl"] == -10 * qty
     s = advance(path, "Penny", "2026-08-07", {}, [])
-    assert s["positions"][0]["mark_date"] == "2026-08-06"
-    assert s["warnings"]
+    assert s["positions"][0]["mark_date"] == "2026-08-06" and s["warnings"]
 
 
 def test_cash_risk_and_fee_limits(tmp_path):
-    cfg = LedgerConfig(capital=1000, risk_fraction=0.5, max_position_fraction=1, max_total_risk_fraction=1, fee_bps=100)
+    cfg = LedgerConfig(
+        capital=1000,
+        risk_fraction=0.5,
+        max_position_fraction=1,
+        max_total_risk_fraction=1,
+        fee_bps=100,
+    )
     p = tmp_path / "p.sqlite"
     advance(p, "Penny", "2026-08-03", bar("2026-08-03"), [candidate()], config=cfg)
     s = advance(p, "Penny", "2026-08-04", bar("2026-08-04"), [], config=cfg)
     assert s["positions"][0]["quantity"] == 9
-    assert s["available_cash"] == 91
-    assert s["fees"] == 9
+    assert s["available_cash"] == 91 and s["fees"] == 9
     assert s["equity"] == 1018
 
 
@@ -222,7 +241,9 @@ def test_transaction_rollback_changed_inputs_and_concurrent_retry(tmp_path):
     with pytest.raises(ValueError):
         advance(p, "Penny", "2026-08-04", bar("2026-08-04"), [candidate("BAD", stop=120)])
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(lambda _: advance(p, "Penny", "2026-08-04", bar("2026-08-04"), []), range(2)))
+        results = list(
+            pool.map(lambda _: advance(p, "Penny", "2026-08-04", bar("2026-08-04"), []), range(2))
+        )
     assert results[0] == results[1]
     assert results[0]["open_positions"] == 1
     with pytest.raises(ValueError, match="inputs changed"):
@@ -241,8 +262,7 @@ def test_common_messages_paginate_and_escape():
         rows.append(p)
     s = build_snapshot("Hull", "2026-08-03", 100000, rows)
     pages = render_messages(s)
-    assert len(pages) > 1
-    assert all(len(p) <= 3400 for p in pages)
+    assert len(pages) > 1 and all(len(p) <= 3400 for p in pages)
     assert "A&amp;B&lt;1&gt;" in "".join(pages)
     assert "Available cash" in pages[0]
 
@@ -282,8 +302,7 @@ def test_hull_opt_in_retry_does_not_manage_entry_bar_twice(tmp_path):
     first = run_daily(db, state_path=state, config=PineConfig(cash_accounting=True))
     before = state.read_bytes()
     second = run_daily(db, state_path=state, config=PineConfig(cash_accounting=True))
-    assert first["created"]
-    assert not second["created"]
+    assert first["created"] and not second["created"]
     assert state.read_bytes() == before
 
 
@@ -300,8 +319,7 @@ def test_v3_opt_in_retry_does_not_resell_partial_quantity(tmp_path):
     first = process_portfolio_day(store, "2026-08-04", bars, skip_processed_session=True)
     before = store.all_positions()[0]
     second = process_portfolio_day(store, "2026-08-04", bars, skip_processed_session=True)
-    assert first
-    assert not second
+    assert first and not second
     assert store.all_positions()[0] == before
 
 

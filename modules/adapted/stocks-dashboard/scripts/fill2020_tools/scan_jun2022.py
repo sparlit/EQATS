@@ -42,7 +42,9 @@ END_RE = re.compile(r"(?:DateOfEndOfReportingPeriod|xbrli:endDate)[^>]*>([\d-]+)
 REV_RE = re.compile(r"(RevenueFromOperations|IncomeFromOperations|Income\b|InterestEarned)")
 
 with open(f"{SC}/jun2022_missing.json", encoding="utf-8") as f:
-    TARGETS = set(json.load(f)["missS"]) | set(json.load(open(f"{SC}/jun2022_missing.json", encoding="utf-8"))["missC"])
+    TARGETS = set(json.load(f)["missS"]) | set(
+        json.load(open(f"{SC}/jun2022_missing.json", encoding="utf-8"))["missC"]
+    )
 
 
 def scan(fn):

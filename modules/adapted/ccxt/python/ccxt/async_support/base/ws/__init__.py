@@ -24,36 +24,36 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # -*- coding: utf-8 -*-
 
 from ccxt import (
-    AccountSuspended,
-    AddressPending,
-    ArgumentsRequired,
-    AuthenticationError,
-    BadRequest,
-    BadResponse,
-    BaseError,
-    CancelPending,
-    DDoSProtection,
-    DuplicateOrderId,
-    ExchangeError,
-    ExchangeNotAvailable,
-    InsufficientFunds,
-    InvalidAddress,
-    InvalidNonce,
-    InvalidOrder,
-    NetworkError,
-    NotSupported,
-    NullResponse,
-    OnMaintenance,
-    OrderImmediatelyFillable,
-    OrderNotCached,
-    OrderNotFillable,
-    OrderNotFound,
-    PermissionDenied,
-    RateLimitExceeded,
-    RequestTimeout,
+    AccountSuspended,  # noqa: F401
+    AddressPending,  # noqa: F401
+    ArgumentsRequired,  # noqa: F401
+    AuthenticationError,  # noqa: F401
+    BadRequest,  # noqa: F401
+    BadResponse,  # noqa: F401
+    BaseError,  # noqa: F401
+    CancelPending,  # noqa: F401
+    DDoSProtection,  # noqa: F401
+    DuplicateOrderId,  # noqa: F401
+    ExchangeError,  # noqa: F401
+    ExchangeNotAvailable,  # noqa: F401
+    InsufficientFunds,  # noqa: F401
+    InvalidAddress,  # noqa: F401
+    InvalidNonce,  # noqa: F401
+    InvalidOrder,  # noqa: F401
+    NetworkError,  # noqa: F401
+    NotSupported,  # noqa: F401
+    NullResponse,  # noqa: F401
+    OnMaintenance,  # noqa: F401
+    OrderImmediatelyFillable,  # noqa: F401
+    OrderNotCached,  # noqa: F401
+    OrderNotFillable,  # noqa: F401
+    OrderNotFound,  # noqa: F401
+    PermissionDenied,  # noqa: F401
+    RateLimitExceeded,  # noqa: F401
+    RequestTimeout,  # noqa: F401
 )
 
 # -----------------------------------------------------------------------------
 from ccxt.base import decimal_to_precision, errors
 
-__all__ = decimal_to_precision.__all__ + errors.__all__
+__all__ = decimal_to_precision.__all__ + errors.__all__  # noqa: F405

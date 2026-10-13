@@ -83,7 +83,11 @@ def main():
         "adjacent-quarter match, a component sum). Use only when the packet "
         "genuinely proved its method per cell; it is recorded per cell either way.",
     )
-    ap.add_argument("--merge", action="store_true", help="merge into an existing staged file instead of replacing it")
+    ap.add_argument(
+        "--merge",
+        action="store_true",
+        help="merge into an existing staged file instead of replacing it",
+    )
     a = ap.parse_args()
 
     revop = json.load(open(os.path.join(TREE, "docs/sf_revop.json"), encoding="utf-8"))
@@ -100,7 +104,11 @@ def main():
             recs.append(r)
 
     # control gate — which symbols proved their method on a known-good quarter?
-    confirmed = {str(r.get("symbol") or r.get("sym", "")).upper() for r in recs if r.get("verdict") == "OURS_CONFIRMED"}
+    confirmed = {
+        str(r.get("symbol") or r.get("sym", "")).upper()
+        for r in recs
+        if r.get("verdict") == "OURS_CONFIRMED"
+    }
 
     cells, dropped = {}, []
     for r in recs:
@@ -184,7 +192,9 @@ def main():
     bysym = collections.Counter(k.split("|")[0] for k in cells)
     print("STAGED %d cell(s) across %d symbol(s): %s" % (len(cells), len(bysym), dict(bysym)))
     for k, v in sorted(cells.items()):
-        print("   %-26s %12s -> %-12s (%s)" % (k, v["was"], v["value"], str(v.get("confidence"))[:18]))
+        print(
+            "   %-26s %12s -> %-12s (%s)" % (k, v["was"], v["value"], str(v.get("confidence"))[:18])
+        )
     print("symbols with a passing control: %s" % (", ".join(sorted(confirmed)) or "NONE"))
     print("DROPPED %d:" % len(dropped))
     for d in dropped:

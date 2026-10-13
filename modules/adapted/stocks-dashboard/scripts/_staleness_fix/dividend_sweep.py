@@ -55,9 +55,9 @@ LOG = os.path.join(HERE, "dividend_sweep.log")
 AMT = re.compile(
     r"(?:dividend|div\.?)\s*(?:of|@|:)?\s*(?:rs\.?|rupees|inr|₹)\s*([0-9]+(?:\.[0-9]+)?)"
     r"|(?:rs\.?|₹)\s*([0-9]+(?:\.[0-9]+)?)\s*(?:/-|per\s+(?:equity\s+)?share)",
-    re.IGNORECASE,
+    re.I,
 )
-DIVY = re.compile(r"dividend", re.IGNORECASE)
+DIVY = re.compile(r"dividend", re.I)
 
 
 def log(msg):
@@ -105,7 +105,9 @@ def main():
             entry["error"] = "no-scripcode"
         else:
             d1 = str(e0)
-            d2 = (datetime.date(e1 // 10000, e1 // 100 % 100, e1 % 100) + datetime.timedelta(days=5)).strftime("%Y%m%d")
+            d2 = (
+                datetime.date(e1 // 10000, e1 // 100 % 100, e1 % 100) + datetime.timedelta(days=5)
+            ).strftime("%Y%m%d")
             try:
                 u = (
                     "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?"

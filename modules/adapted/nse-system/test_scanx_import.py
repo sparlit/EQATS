@@ -60,19 +60,19 @@ class ScanXImportTests(unittest.TestCase):
         snapshot = _snapshot_values(self._item(row), "2026-09-26", sentinel_fields)
         flags = set(json.loads(snapshot["data_quality_flags"]))
 
-        assert sentinel_fields == {"Payout Ratio", "Change in promoter holding"}
-        assert snapshot["payout_ratio"] is None
-        assert snapshot["promoter_holding_change"] is None
-        assert snapshot["roe_avg_3y"] == 14.2
-        assert snapshot["roe_growth_5y"] is None
-        assert snapshot["quarter_sales_yoy_growth"] is None
-        assert snapshot["free_cash_flow"] == 1234.5
-        assert "out_of_range:roe_growth_5y" in flags
-        assert "out_of_range:quarter_sales_yoy_growth" in flags
-        assert "unavailable_sentinel:payout_ratio" in flags
-        assert json.loads(snapshot["raw_json"]) == row
-        assert snapshot["financial_period_end"] is None
-        assert snapshot["published_at"] is None
+        self.assertEqual(sentinel_fields, {"Payout Ratio", "Change in promoter holding"})
+        self.assertIsNone(snapshot["payout_ratio"])
+        self.assertIsNone(snapshot["promoter_holding_change"])
+        self.assertEqual(snapshot["roe_avg_3y"], 14.2)
+        self.assertIsNone(snapshot["roe_growth_5y"])
+        self.assertIsNone(snapshot["quarter_sales_yoy_growth"])
+        self.assertEqual(snapshot["free_cash_flow"], 1234.5)
+        self.assertIn("out_of_range:roe_growth_5y", flags)
+        self.assertIn("out_of_range:quarter_sales_yoy_growth", flags)
+        self.assertIn("unavailable_sentinel:payout_ratio", flags)
+        self.assertEqual(json.loads(snapshot["raw_json"]), row)
+        self.assertIsNone(snapshot["financial_period_end"])
+        self.assertIsNone(snapshot["published_at"])
 
     def test_import_migrates_snapshots_without_mutating_fundamentals(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -138,31 +138,41 @@ class ScanXImportTests(unittest.TestCase):
             _apply(database, [snapshot], source_file, master_file)
 
             conn = sqlite3.connect(database)
-            assert conn.execute("SELECT pe, uploaded_at FROM fundamentals WHERE symbol='EXAMPLE'").fetchone() == (
-                12.5,
-                "legacy",
-            )
-            assert (
+            self.assertEqual(
                 conn.execute(
-                    "SELECT count(*) FROM scanx_fundamentals_snapshots WHERE as_of_date='2026-09-26'"
-                ).fetchone()[0]
-                == 1
+                    "SELECT pe, uploaded_at FROM fundamentals WHERE symbol='EXAMPLE'"
+                ).fetchone(),
+                (12.5, "legacy"),
             )
-            assert conn.execute(
-                "SELECT free_cash_flow, roe_avg_3y FROM scanx_fundamentals_snapshots WHERE as_of_date='2026-09-26'"
-            ).fetchone() == (600.0, 14.2)
-            columns = {row[1] for row in conn.execute("PRAGMA table_info(scanx_fundamentals_snapshots)")}
-            assert "financial_period_end" in columns
-            assert "data_quality_flags" in columns
-            assert "source_sha256" in columns
+            self.assertEqual(
+                conn.execute(
+                    "SELECT count(*) FROM scanx_fundamentals_snapshots "
+                    "WHERE as_of_date='2026-09-26'"
+                ).fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT free_cash_flow, roe_avg_3y "
+                    "FROM scanx_fundamentals_snapshots "
+                    "WHERE as_of_date='2026-09-26'"
+                ).fetchone(),
+                (600.0, 14.2),
+            )
+            columns = {
+                row[1] for row in conn.execute("PRAGMA table_info(scanx_fundamentals_snapshots)")
+            }
+            self.assertIn("financial_period_end", columns)
+            self.assertIn("data_quality_flags", columns)
+            self.assertIn("source_sha256", columns)
             provenance = conn.execute(
                 "SELECT source_sha256,security_master_sha256,"
                 "source_modified_at FROM scanx_fundamentals_snapshots "
                 "WHERE as_of_date='2026-09-26'"
             ).fetchone()
-            assert re.search(r"^[0-9a-f]{64}$", provenance[0])
-            assert re.search(r"^[0-9a-f]{64}$", provenance[1])
-            assert provenance[2] is not None
+            self.assertRegex(provenance[0], r"^[0-9a-f]{64}$")
+            self.assertRegex(provenance[1], r"^[0-9a-f]{64}$")
+            self.assertIsNotNone(provenance[2])
             conn.close()
 
 

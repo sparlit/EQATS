@@ -82,14 +82,12 @@ class NseBseMcpClient:
     def _parse_response_body(text: str) -> dict[str, Any]:
         stripped = text.strip()
         if not stripped:
-            msg = "empty MCP response body"
-            raise McpError(msg)
+            raise McpError("empty MCP response body")
         if stripped.startswith("data:") or "\ndata:" in stripped or "event:" in stripped:
             for line in reversed(stripped.splitlines()):
                 if line.startswith("data:"):
                     return json.loads(line.removeprefix("data:").strip())
-            msg = f"no data frame in SSE response: {stripped[:200]}"
-            raise McpError(msg)
+            raise McpError(f"no data frame in SSE response: {stripped[:200]}")
         return json.loads(stripped)
 
     def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -109,15 +107,13 @@ class NseBseMcpClient:
                     return {}
                 body = self._parse_response_body(resp.text)
                 if "error" in body:
-                    msg = f"MCP error: {body['error']}"
-                    raise McpError(msg)
+                    raise McpError(f"MCP error: {body['error']}")
                 return body
             except (httpx.HTTPError, json.JSONDecodeError) as exc:
                 last_error = exc
                 if attempt == self.max_retries:
                     break
-        msg = f"MCP request failed after {self.max_retries} attempts: {last_error}"
-        raise McpError(msg)
+        raise McpError(f"MCP request failed after {self.max_retries} attempts: {last_error}")
 
     def initialize(self) -> dict[str, Any]:
         body = self._post(
@@ -160,8 +156,7 @@ class NseBseMcpClient:
         if result.get("isError"):
             content = result.get("content", [])
             detail = content[0].get("text") if content else "unknown error"
-            msg = f"tool {name} failed: {detail}"
-            raise McpError(msg)
+            raise McpError(f"tool {name} failed: {detail}")
         structured = result.get("structuredContent")
         if structured is not None:
             return structured

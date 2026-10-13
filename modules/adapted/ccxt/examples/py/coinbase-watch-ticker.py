@@ -49,10 +49,10 @@ async def main():
                     ticker["bid"],
                     ticker["ask"],
                 )
-            except Exception:
+            except Exception as e:
                 # stop
                 await exchange.close()
-                raise
+                raise e
                 # or retry
                 # pass
     else:

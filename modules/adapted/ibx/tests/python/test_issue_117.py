@@ -111,7 +111,9 @@ class Wrapper(EWrapper):
     def open_order(self, order_id, contract, order, order_state):
         with self.lock:
             status = (
-                order_state.get("status", "") if isinstance(order_state, dict) else getattr(order_state, "status", "")
+                order_state.get("status", "")
+                if isinstance(order_state, dict)
+                else getattr(order_state, "status", "")
             )
             self.open_orders.append(
                 (

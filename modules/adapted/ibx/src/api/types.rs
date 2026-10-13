@@ -6,28 +6,48 @@
 use crate::types::*;
 
 pub const PRICE_SCALE_F: f64 = PRICE_SCALE as f64;
+
+/// An API price (a double) as a fixed-point price: rounded half to even at
+/// the eighth decimal, as the reference's price formatter rounds the
+/// double it writes (`jutils.dO.F`, `#0.00######`, Java's HALF_EVEN). A
+/// cast truncated, so 0.29 went out as 0.28999999 (ibx#263).
+#[inline]
+pub fn price_from_f64(v: f64) -> crate::types::Price {
+    (v * PRICE_SCALE_F).round_ties_even() as crate::types::Price
+}
 /// Fixed-point quantities (fills, positions) to decimal shares.
 pub const QTY_SCALE_F: f64 = QTY_SCALE as f64;
 
 // ── ComboLeg ──
 
 /// ibapi-compatible ComboLeg for combination orders.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ComboLeg {
     pub con_id: i64,
     pub ratio: i32,
     pub action: String,
     pub exchange: String,
+    /// 0 same as the order, 1 open, 2 close, 3 unknown.
     pub open_close: i32,
-    pub shorting_policy: i32,
+    pub short_sale_slot: i32,
     pub designated_location: String,
+    /// -1 when no exempt code, as the official API's default.
     pub exempt_code: i32,
+}
+
+impl Default for ComboLeg {
+    fn default() -> Self {
+        Self {
+            con_id: 0, ratio: 0, action: String::new(), exchange: String::new(), open_close: 0,
+            short_sale_slot: 0, designated_location: String::new(), exempt_code: -1,
+        }
+    }
 }
 
 // ── DeltaNeutralContract ──
 
 /// ibapi-compatible DeltaNeutralContract for delta-neutral orders.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct DeltaNeutralContract {
     pub con_id: i64,
     pub delta: f64,
@@ -36,8 +56,11 @@ pub struct DeltaNeutralContract {
 
 // ── Contract ──
 
-/// ibapi-compatible Contract. Matches C++ `Contract` struct fields.
-#[derive(Clone, Debug, Default)]
+/// ibapi-compatible Contract. Matches C++ `Contract` struct fields. Its
+/// defaults are the official API's: no security type, exchange or currency
+/// (empty), which the requests and orders that need them refuse as the
+/// reference does.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Contract {
     pub con_id: i64,
     pub symbol: String,
@@ -45,6 +68,8 @@ pub struct Contract {
     pub exchange: String,
     pub currency: String,
     pub last_trade_date_or_contract_month: String,
+    /// 0 when unset, as the C++ API's default; the maximum double (the
+    /// Python API's unset value) is read as unset too.
     pub strike: f64,
     pub right: String,
     pub multiplier: String,
@@ -223,28 +248,31 @@ pub struct Order {
     pub what_if_type: i32,
 }
 
+/// The official API's defaults (ibapi 10.46 `Order()`): an unset double is
+/// `f64::MAX`, an unset int `i32::MAX`, an unset quantity (the API's
+/// Decimal) `f64::MAX`, empty texts.
 impl Default for Order {
     fn default() -> Self {
         Self {
             order_id: 0,
             action: String::new(),
-            total_quantity: 0.0,
+            total_quantity: f64::MAX,
             order_type: String::new(),
-            lmt_price: 0.0,
-            aux_price: 0.0,
-            tif: "DAY".into(),
+            lmt_price: f64::MAX,
+            aux_price: f64::MAX,
+            tif: String::new(),
             outside_rth: false,
             display_size: 0,
-            min_qty: 0,
+            min_qty: i32::MAX,
             hidden: false,
             good_after_time: String::new(),
             good_till_date: String::new(),
             oca_group: String::new(),
-            trailing_percent: 0.0,
+            trailing_percent: f64::MAX,
             algo_strategy: String::new(),
             algo_params: Vec::new(),
             what_if: false,
-            cash_qty: 0.0,
+            cash_qty: f64::MAX,
             parent_id: 0,
             transmit: true,
             discretionary_amt: 0.0,
@@ -252,9 +280,9 @@ impl Default for Order {
             all_or_none: false,
             trigger_method: 0,
             adjusted_order_type: String::new(),
-            trigger_price: 0.0,
-            adjusted_stop_price: 0.0,
-            adjusted_stop_limit_price: 0.0,
+            trigger_price: f64::MAX,
+            adjusted_stop_price: f64::MAX,
+            adjusted_stop_limit_price: f64::MAX,
             conditions: Vec::new(),
             conditions_ignore_rth: false,
             conditions_cancel_order: false,
@@ -294,14 +322,14 @@ impl Default for Order {
             delta_neutral_short_sale_slot: 0,
             designated_location: String::new(),
             discretionary_up_to_limit_price: false,
-            dont_use_auto_price_for_hedge: true,
+            dont_use_auto_price_for_hedge: false,
             duration: i32::MAX,
             exempt_code: -1,
             ext_operator: String::new(),
             fa_group: String::new(),
             fa_method: String::new(),
             fa_percentage: String::new(),
-            filled_quantity: 0.0,
+            filled_quantity: f64::MAX,
             hedge_param: String::new(),
             hedge_type: String::new(),
             ignore_open_auction: false,
@@ -345,7 +373,7 @@ impl Default for Order {
             reference_change_amount: 0.0,
             reference_contract_id: 0,
             reference_exchange_id: String::new(),
-            reference_price_type: 0,
+            reference_price_type: i32::MAX,
             route_marketable_to_bbo: false,
             rule80a: String::new(),
             scale_auto_reset: false,
@@ -376,22 +404,26 @@ impl Default for Order {
             stock_ref_price: f64::MAX,
             submitter: String::new(),
             trail_stop_price: f64::MAX,
-            use_price_mgmt_algo: 0,
+            // Unset, as the API (ibx#492).
+            use_price_mgmt_algo: i32::MAX,
             volatility: f64::MAX,
-            volatility_type: 0,
+            volatility_type: i32::MAX,
             what_if_type: i32::MAX,
         }
     }
 }
 
 impl Order {
-    /// Parse the action string to Side.
+    /// Parse the action string to Side: the reference's names, case
+    /// ignored (`jfix.eU.a(String, boolean)`; SSHRT is its short form of
+    /// SSHORT). An action the reference does not know is refused by it
+    /// with 321 (`ClientCore::refusal_before_sending`).
     pub fn side(&self) -> Result<Side, String> {
         match self.action.to_uppercase().as_str() {
-            "BUY" | "B" => Ok(Side::Buy),
-            "SELL" | "S" => Ok(Side::Sell),
-            "SSHORT" | "SS" => Ok(Side::ShortSell),
-            _ => Err(format!("Invalid action '{}': use BUY or SELL", self.action)),
+            "BUY" => Ok(Side::Buy),
+            "SELL" => Ok(Side::Sell),
+            "SSHORT" | "SSHRT" => Ok(Side::ShortSell),
+            _ => Err(format!("Invalid action '{}': use BUY, SELL or SSHORT", self.action)),
         }
     }
 
@@ -407,16 +439,20 @@ impl Order {
             // (ibx#467).
             "DTC" => crate::types::TIF_DTC,
             "AUC" => b'8',
+            // The overnight values keep their own codes; both go out as
+            // DAY (ibx#467).
+            "OVERNIGHT" => b'j',
+            "OVERNIGHT + DAY" => b'b',
             _ => b'0', // DAY
         }
     }
 
     /// Build OrderAttrs from Order fields.
     pub fn attrs(&self) -> OrderAttrs {
-        // Parse the good-till expiry string into either a UTC instant (tag 126)
-        // or a calendar date (tag 432). On a parse error, log and drop the
-        // expiry — the order then surfaces a visible gateway rejection rather
-        // than silently carrying a wrong expiry.
+        // Parse the good-till expiry string into either a UTC instant or a
+        // calendar date. An expiry that does not parse is refused with 343
+        // before the order is built (ibx#335), so the drop below is not
+        // reached from place_order.
         let (good_till, good_till_date_ymd) =
             match crate::config::parse_ib_expiry(&self.good_till_date) {
                 Ok(None) => (0, 0),
@@ -430,7 +466,8 @@ impl Order {
         OrderAttrs {
             order_ref: self.order_ref.clone(),
             display_size: self.display_size.max(0) as u32,
-            min_qty: self.min_qty.max(0) as u32,
+            // Unset (`i32::MAX`) is no minimum quantity.
+            min_qty: if self.min_qty == i32::MAX { 0 } else { self.min_qty.max(0) as u32 },
             hidden: self.hidden,
             outside_rth: self.outside_rth,
             // A goodAfterTime that is not a date and time is refused before
@@ -447,20 +484,21 @@ impl Order {
             } else {
                 String::new()
             },
-            parent_id: self.parent_id.max(0) as u64,
-            discretionary_amt: (self.discretionary_amt * PRICE_SCALE_F) as Price,
+            parent_id: self.parent_id.max(0),
+            discretionary_amt: price_from_f64(self.discretionary_amt),
             sweep_to_fill: self.sweep_to_fill,
             all_or_none: self.all_or_none,
             // Valid trigger-method codes only (ibx#223): the raw `as u8`
             // cast wrapped the gateway's -1 (Unknown) to 255, and
-            // out-of-range codes went to the wire verbatim. Anything
-            // unrecognized coerces to 0 (default = not emitted), matching
-            // the gateway's unknown->default handling.
+            // out-of-range codes went to the wire verbatim. The reference
+            // refuses an unknown code before sending (321, ibx#263); here
+            // it coerces to 0, the default.
             trigger_method: match self.trigger_method {
                 0..=4 | 7 | 8 => self.trigger_method as u8,
                 _ => 0,
             },
-            cash_qty: (self.cash_qty * PRICE_SCALE_F) as Price,
+            // Unset (`f64::MAX`) is no cash quantity.
+            cash_qty: if self.cash_qty == f64::MAX { 0 } else { price_from_f64(self.cash_qty) },
             conditions: self.conditions.clone(),
             conditions_cancel_order: self.conditions_cancel_order,
             conditions_ignore_rth: self.conditions_ignore_rth,
@@ -470,7 +508,28 @@ impl Order {
                 1..=4 => self.oca_type as u8,
                 _ => 0,
             },
+            customer_account: self.customer_account.clone(),
+            professional_customer: self.professional_customer,
+            reference_exchange: self.reference_exchange_id.clone(),
+            include_overnight: self.include_overnight,
+            clearing_intent: self.clearing_intent.clone(),
+            short_sale: ShortSale {
+                slot: self.short_sale_slot,
+                location: self.designated_location.clone(),
+                exempt_code: self.exempt_code,
+            },
+            use_price_mgmt_algo: self.price_mgmt_algo(),
+            // Set where a new order is built (ibx#263).
+            algo: None,
+            // Set where a combo order is built, from its contract (ibx#470).
+            combo: None,
         }
+    }
+
+    /// The usePriceMgmtAlgo value: None when unset (`i32::MAX`, the API's
+    /// unset value), else whether it is non-zero (ibx#492).
+    pub fn price_mgmt_algo(&self) -> Option<bool> {
+        (self.use_price_mgmt_algo != i32::MAX).then_some(self.use_price_mgmt_algo != 0)
     }
 
     /// Check if the order has any extended attributes set.
@@ -478,31 +537,100 @@ impl Order {
         // An orderRef rides the extended encoders, which send it (ibx#466).
         !self.order_ref.is_empty()
             || self.display_size > 0
-            || self.min_qty > 0
+            || (self.min_qty > 0 && self.min_qty != i32::MAX)
             || self.hidden
             || self.outside_rth
             || !self.good_after_time.is_empty()
             || !self.good_till_date.is_empty()
+            || !self.customer_account.is_empty()
+            || self.professional_customer
             || !self.oca_group.is_empty()
             || self.parent_id > 0
             || self.discretionary_amt > 0.0
             || self.sweep_to_fill
             || self.all_or_none
             || self.trigger_method > 0
-            || self.cash_qty > 0.0
+            || (self.cash_qty > 0.0 && self.cash_qty != f64::MAX)
             // An order whose only extra is conditions went down a path that
             // sends none, and was routed at once (ibx#325).
             || !self.conditions.is_empty()
+            // includeOvernight rides the attributes (ibx#467).
+            || self.include_overnight
+            // The clearing intent and the short-sale instructions reach the
+            // side check and the short-sale fields (ibx#417).
+            || !self.clearing_intent.is_empty()
+            || self.short_sale_slot != 0
+            || !self.designated_location.is_empty()
+            || self.exempt_code != -1
+            // A usePriceMgmtAlgo the caller set (ibx#492).
+            || self.use_price_mgmt_algo != i32::MAX
     }
 }
 
 // ── TagValue ──
 
 /// ibapi-compatible TagValue for algo parameters.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TagValue {
     pub tag: String,
     pub value: String,
+}
+
+// ── ScannerSubscription ──
+
+/// ibapi-compatible scanner subscription (ibx#456). Unset values are the
+/// ibapi ones: `-1` rows, `f64::MAX` / `i32::MAX` numbers, empty texts.
+#[derive(Clone, Debug)]
+pub struct ScannerSubscription {
+    pub number_of_rows: i32,
+    pub instrument: String,
+    pub location_code: String,
+    pub scan_code: String,
+    pub above_price: f64,
+    pub below_price: f64,
+    pub above_volume: i32,
+    pub market_cap_above: f64,
+    pub market_cap_below: f64,
+    pub moody_rating_above: String,
+    pub moody_rating_below: String,
+    pub sp_rating_above: String,
+    pub sp_rating_below: String,
+    pub maturity_date_above: String,
+    pub maturity_date_below: String,
+    pub coupon_rate_above: f64,
+    pub coupon_rate_below: f64,
+    pub exclude_convertible: bool,
+    pub average_option_volume_above: i32,
+    pub scanner_setting_pairs: String,
+    pub stock_type_filter: String,
+}
+
+impl Default for ScannerSubscription {
+    fn default() -> Self {
+        Self {
+            number_of_rows: -1,
+            instrument: String::new(),
+            location_code: String::new(),
+            scan_code: String::new(),
+            above_price: f64::MAX,
+            below_price: f64::MAX,
+            above_volume: i32::MAX,
+            market_cap_above: f64::MAX,
+            market_cap_below: f64::MAX,
+            moody_rating_above: String::new(),
+            moody_rating_below: String::new(),
+            sp_rating_above: String::new(),
+            sp_rating_below: String::new(),
+            maturity_date_above: String::new(),
+            maturity_date_below: String::new(),
+            coupon_rate_above: f64::MAX,
+            coupon_rate_below: f64::MAX,
+            exclude_convertible: false,
+            average_option_volume_above: i32::MAX,
+            scanner_setting_pairs: String::new(),
+            stock_type_filter: String::new(),
+        }
+    }
 }
 
 // ── OrderState ──
@@ -520,8 +648,10 @@ pub struct OrderAllocation {
     pub is_monetary: bool,
 }
 
-/// ibapi-compatible OrderState (used in openOrder callback).
-#[derive(Clone, Debug, Default)]
+/// ibapi-compatible OrderState (used in openOrder callback). Unset numbers
+/// are `f64::MAX`, as the official API's and as the reference's openOrder
+/// reports them.
+#[derive(Clone, Debug)]
 pub struct OrderState {
     pub status: String,
     pub init_margin_before: String,
@@ -554,6 +684,43 @@ pub struct OrderState {
     pub suggested_size: String,
     pub reject_reason: String,
     pub order_allocations: Vec<OrderAllocation>,
+}
+
+impl Default for OrderState {
+    fn default() -> Self {
+        Self {
+            status: String::new(),
+            init_margin_before: String::new(),
+            maint_margin_before: String::new(),
+            equity_with_loan_before: String::new(),
+            init_margin_change: String::new(),
+            maint_margin_change: String::new(),
+            equity_with_loan_change: String::new(),
+            init_margin_after: String::new(),
+            maint_margin_after: String::new(),
+            equity_with_loan_after: String::new(),
+            commission_and_fees: f64::MAX,
+            min_commission_and_fees: f64::MAX,
+            max_commission_and_fees: f64::MAX,
+            commission_and_fees_currency: String::new(),
+            warning_text: String::new(),
+            completed_time: String::new(),
+            completed_status: String::new(),
+            margin_currency: String::new(),
+            init_margin_before_outside_rth: f64::MAX,
+            maint_margin_before_outside_rth: f64::MAX,
+            equity_with_loan_before_outside_rth: f64::MAX,
+            init_margin_change_outside_rth: f64::MAX,
+            maint_margin_change_outside_rth: f64::MAX,
+            equity_with_loan_change_outside_rth: f64::MAX,
+            init_margin_after_outside_rth: f64::MAX,
+            maint_margin_after_outside_rth: f64::MAX,
+            equity_with_loan_after_outside_rth: f64::MAX,
+            suggested_size: String::new(),
+            reject_reason: String::new(),
+            order_allocations: Vec::new(),
+        }
+    }
 }
 
 // ── Execution ──
@@ -623,7 +790,7 @@ pub struct TickAttrib {
 // ── TickAttribLast ──
 
 /// ibapi-compatible TickAttribLast for tick_by_tick_all_last callback.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickAttribLast {
     pub past_limit: bool,
     pub unreported: bool,
@@ -632,7 +799,7 @@ pub struct TickAttribLast {
 // ── TickAttribBidAsk ──
 
 /// ibapi-compatible TickAttribBidAsk for tick_by_tick_bid_ask callback.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickAttribBidAsk {
     pub bid_past_low: bool,
     pub ask_past_high: bool,
@@ -676,56 +843,325 @@ impl Default for BarData {
 
 // ── ContractDetails ──
 
-/// ibapi-compatible ContractDetails.
+/// ibapi-compatible IneligibilityReason of a contract (ibx#436).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct IneligibilityReason {
+    pub id: String,
+    pub description: String,
+}
+
+/// ibapi-compatible ContractDetails, with the fields of a contract row and
+/// of a bond row (ibx#436). Unset decimals are `f64::MAX`.
 ///
-/// `trading_hours` / `liquid_hours` carry semicolon-delimited UTC session strings
-/// (`"YYYYMMDD:HHMM-YYYYMMDD:HHMM;..."`) when populated. Consumers should convert
-/// to local time using `time_zone_id` for display.
-#[derive(Clone, Debug, Default)]
+/// `trading_hours` / `liquid_hours` are in the zone `time_zone_id`, from
+/// the current day on (`"YYYYMMDD:HHMM-YYYYMMDD:HHMM;YYYYMMDD:CLOSED;..."`).
+#[derive(Clone, Debug)]
 pub struct ContractDetails {
     pub contract: Contract,
     pub market_name: String,
     pub min_tick: f64,
     pub order_types: String,
     pub valid_exchanges: String,
+    pub price_magnifier: i32,
+    pub under_con_id: i32,
     pub long_name: String,
-    pub last_trade_date: String,
-    pub multiplier: String,
-    pub trading_hours: Option<String>,
-    pub liquid_hours: Option<String>,
-    pub time_zone_id: Option<String>,
+    pub contract_month: String,
+    pub industry: String,
+    pub category: String,
+    pub subcategory: String,
+    pub time_zone_id: String,
+    pub trading_hours: String,
+    pub liquid_hours: String,
+    pub ev_rule: String,
+    pub ev_multiplier: f64,
+    pub agg_group: i32,
+    pub under_symbol: String,
+    pub under_sec_type: String,
+    pub market_rule_ids: String,
+    pub sec_id_list: Vec<TagValue>,
+    pub real_expiration_date: String,
+    pub last_trade_time: String,
+    pub stock_type: String,
+    pub min_size: f64,
+    pub size_increment: f64,
+    pub suggested_size_increment: f64,
+    pub min_algo_size: f64,
+    pub last_price_precision: f64,
+    pub last_size_precision: f64,
+    // Bond values
+    pub cusip: String,
+    pub ratings: String,
+    pub desc_append: String,
+    pub bond_type: String,
+    pub coupon_type: String,
+    pub callable: bool,
+    pub putable: bool,
+    pub coupon: f64,
+    pub convertible: bool,
+    pub maturity: String,
+    pub issue_date: String,
+    pub next_option_date: String,
+    pub next_option_type: String,
+    pub next_option_partial: bool,
+    pub notes: String,
+    // Fund values
+    pub fund_name: String,
+    pub fund_family: String,
+    pub fund_type: String,
+    pub fund_front_load: String,
+    pub fund_back_load: String,
+    pub fund_back_load_time_interval: String,
+    pub fund_management_fee: String,
+    pub fund_closed: bool,
+    pub fund_closed_for_new_investors: bool,
+    pub fund_closed_for_new_money: bool,
+    pub fund_notify_amount: String,
+    pub fund_minimum_initial_purchase: String,
+    pub fund_subsequent_minimum_purchase: String,
+    pub fund_blue_sky_states: String,
+    pub fund_blue_sky_territories: String,
+    /// The API value of the policy (`N`, `Y`), empty when none.
+    pub fund_distribution_policy_indicator: String,
+    /// The API value of the asset type (`000`, `001`, ...), empty when none.
+    pub fund_asset_type: String,
+    pub ineligibility_reason_list: Vec<IneligibilityReason>,
+    pub event_contract1: String,
+    pub event_contract_description1: String,
+    pub event_contract_description2: String,
+}
+
+impl Default for ContractDetails {
+    fn default() -> Self {
+        Self {
+            contract: Contract::default(),
+            market_name: String::new(),
+            min_tick: 0.0,
+            order_types: String::new(),
+            valid_exchanges: String::new(),
+            price_magnifier: 0,
+            under_con_id: 0,
+            long_name: String::new(),
+            contract_month: String::new(),
+            industry: String::new(),
+            category: String::new(),
+            subcategory: String::new(),
+            time_zone_id: String::new(),
+            trading_hours: String::new(),
+            liquid_hours: String::new(),
+            ev_rule: String::new(),
+            ev_multiplier: 0.0,
+            agg_group: 0,
+            under_symbol: String::new(),
+            under_sec_type: String::new(),
+            market_rule_ids: String::new(),
+            sec_id_list: Vec::new(),
+            real_expiration_date: String::new(),
+            last_trade_time: String::new(),
+            stock_type: String::new(),
+            min_size: f64::MAX,
+            size_increment: f64::MAX,
+            suggested_size_increment: f64::MAX,
+            min_algo_size: f64::MAX,
+            last_price_precision: f64::MAX,
+            last_size_precision: f64::MAX,
+            cusip: String::new(),
+            ratings: String::new(),
+            desc_append: String::new(),
+            bond_type: String::new(),
+            coupon_type: String::new(),
+            callable: false,
+            putable: false,
+            coupon: 0.0,
+            convertible: false,
+            maturity: String::new(),
+            issue_date: String::new(),
+            next_option_date: String::new(),
+            next_option_type: String::new(),
+            next_option_partial: false,
+            notes: String::new(),
+            fund_name: String::new(),
+            fund_family: String::new(),
+            fund_type: String::new(),
+            fund_front_load: String::new(),
+            fund_back_load: String::new(),
+            fund_back_load_time_interval: String::new(),
+            fund_management_fee: String::new(),
+            fund_closed: false,
+            fund_closed_for_new_investors: false,
+            fund_closed_for_new_money: false,
+            fund_notify_amount: String::new(),
+            fund_minimum_initial_purchase: String::new(),
+            fund_subsequent_minimum_purchase: String::new(),
+            fund_blue_sky_states: String::new(),
+            fund_blue_sky_territories: String::new(),
+            fund_distribution_policy_indicator: String::new(),
+            fund_asset_type: String::new(),
+            ineligibility_reason_list: Vec::new(),
+            event_contract1: String::new(),
+            event_contract_description1: String::new(),
+            event_contract_description2: String::new(),
+        }
+    }
+}
+
+/// Minimum size, size increment and suggested size increment of a row
+/// (`jextend.dL.a/b/c(dy, o)`): from the size set of the record's market
+/// rule; for a contract with fractional sizes (a rule increment below 1,
+/// or detail 8193) the fractional increment (the rule's when below 1,
+/// else detail 8175, else 1/10000) is the minimum and the increment.
+fn size_fields(def: &crate::control::contracts::ContractDefinition, fund: bool) -> (f64, f64, f64) {
+    let min_of = |f: fn(&crate::control::contracts::PriceIncrement) -> f64| {
+        def.size_increments.iter().map(f).fold(None, |m: Option<f64>, v| Some(m.map_or(v, |m| m.min(v))))
+    };
+    let (Some(min_low), Some(min_inc)) = (min_of(|p| p.low_edge), min_of(|p| p.increment)) else {
+        return (f64::MAX, f64::MAX, f64::MAX);
+    };
+    let fractional_rule = min_inc < 1.0;
+    if !fund && (fractional_rule || def.fractional) {
+        let size = if fractional_rule { min_inc } else { def.fraction_size.unwrap_or(0.0001) };
+        return (size, size, min_inc);
+    }
+    (min_low, min_inc, min_inc)
+}
+
+/// EV rule text of a row (`feature.evrule.h.b(h)`): `name:value`.
+fn ev_rule_text(raw: &str) -> String {
+    if raw.is_empty() {
+        return String::new();
+    }
+    match raw.split_once(':') {
+        Some((name, value)) => format!("{}:{}", name, value.split(':').next().unwrap_or("")),
+        None => format!("{}:", raw),
+    }
 }
 
 impl ContractDetails {
+    /// The API row of a definition, as the reference fills it (ibx#436,
+    /// `jextend.protobuf.outgoing.a.a(dy, o, lh.D, String, boolean)` and the
+    /// client's decoding). A bond row without the BONDAPI feature has most
+    /// bond texts empty and its short description as `desc_append`.
     pub fn from_definition(def: &crate::control::contracts::ContractDefinition) -> Self {
+        let bond = def.is_bond();
+        let sec_type = def.api_sec_type();
+        let shown = |s: &str| if !bond || def.bond_api { s.to_string() } else { String::new() };
+        // Last trade date and time: from the schedule, else the date alone.
+        let (expiry, expiry_time) = def.schedule_expiry.clone()
+            .unwrap_or_else(|| (def.last_trade_date.clone(), String::new()));
+        let multiplier = if def.multiplier_text.is_empty() {
+            String::new()
+        } else {
+            def.multiplier_text.trim().parse::<f64>().map(|m| format!("{}", m)).unwrap_or_default()
+        };
         let c = Contract {
-            con_id: def.con_id as i64,
-            symbol: def.symbol.clone(),
-            sec_type: def.sec_type.to_api_str().to_string(),
+            con_id: def.con_id,
+            symbol: shown(&def.symbol),
+            sec_type: sec_type.clone(),
             exchange: def.exchange.clone(),
             primary_exchange: def.primary_exchange.clone(),
-            currency: def.currency.clone(),
+            currency: shown(&def.currency),
             local_symbol: def.local_symbol.clone(),
             trading_class: def.trading_class.clone(),
-            last_trade_date_or_contract_month: def.last_trade_date.clone(),
+            // A bond's date is its maturity (the client's decoding).
+            last_trade_date_or_contract_month: if bond { String::new() } else { expiry.clone() },
+            last_trade_date: shown(&def.last_trade_date),
             strike: def.strike,
-            multiplier: if def.multiplier != 1.0 { format!("{}", def.multiplier) } else { String::new() },
+            right: match def.right {
+                Some(crate::control::contracts::OptionRight::Call) => "C".to_string(),
+                Some(crate::control::contracts::OptionRight::Put) => "P".to_string(),
+                None => String::new(),
+            },
+            multiplier,
             ..Default::default()
         };
-        Self {
-            contract: c,
-            // Parsed from the reply all along but thrown away (ibx#230).
-            market_name: def.market_name.clone(),
-            min_tick: def.min_tick,
-            order_types: def.order_types.join(","),
-            valid_exchanges: def.valid_exchanges.join(","),
-            long_name: def.long_name.clone(),
-            last_trade_date: def.last_trade_date.clone(),
-            multiplier: if def.multiplier != 1.0 { format!("{}", def.multiplier) } else { String::new() },
-            trading_hours: def.trading_hours.clone(),
-            liquid_hours: def.liquid_hours.clone(),
-            time_zone_id: def.time_zone_id.clone(),
+        let mut sec_id_list = Vec::new();
+        if !def.isin.is_empty() {
+            sec_id_list.push(TagValue { tag: "ISIN".into(), value: def.isin.clone() });
         }
+        // The CUSIP when it is not an internal id (`jsecdef.cm.ak()`).
+        if !def.cusip.is_empty() && !def.cusip.starts_with("IBCID") {
+            sec_id_list.push(TagValue { tag: "CUSIP".into(), value: def.cusip.clone() });
+        }
+        let fund = sec_type == "FUND";
+        let (min_size, size_increment, suggested_size_increment) = size_fields(def, fund);
+        let mut d = Self {
+            contract: c,
+            market_name: shown(&def.market_name),
+            min_tick: def.min_tick,
+            // Each order type without its flags (`jibtypes.i.aK()`).
+            order_types: def.order_types.iter()
+                .map(|t| t.split('/').next().unwrap_or(""))
+                .collect::<Vec<_>>()
+                .join(","),
+            valid_exchanges: def.valid_exchanges.join(","),
+            price_magnifier: def.price_magnifier,
+            under_con_id: if def.under_con_id > 0 && def.under_con_id < i32::MAX as i64 { def.under_con_id as i32 } else { 0 },
+            long_name: shown(&def.long_name),
+            contract_month: def.contract_month.clone(),
+            industry: def.industry.clone(),
+            category: def.category.clone(),
+            subcategory: def.subcategory.clone(),
+            time_zone_id: def.time_zone_id.clone().unwrap_or_default(),
+            trading_hours: def.trading_hours.clone().unwrap_or_default(),
+            liquid_hours: def.liquid_hours.clone().unwrap_or_default(),
+            ev_rule: if def.ev_api { ev_rule_text(&def.ev_rule) } else { String::new() },
+            agg_group: def.agg_group.filter(|g| *g != -1 && *g != i32::MAX).unwrap_or(0),
+            under_symbol: def.under_symbol.clone(),
+            under_sec_type: def.under_sec_type.clone(),
+            market_rule_ids: def.market_rule_ids.clone(),
+            sec_id_list,
+            real_expiration_date: def.real_expiration_date.clone(),
+            last_trade_time: if bond && !def.bond_api { String::new() } else { expiry_time },
+            stock_type: def.stock_type.clone(),
+            min_size,
+            size_increment,
+            suggested_size_increment,
+            ineligibility_reason_list: def.ineligibility.iter()
+                .map(|(id, description)| IneligibilityReason { id: id.clone(), description: description.clone() })
+                .collect(),
+            ..Default::default()
+        };
+        if fund {
+            let f = &def.fund;
+            d.fund_name = f.name.clone();
+            d.fund_family = f.family.clone();
+            d.fund_type = f.fund_type.clone();
+            d.fund_front_load = f.front_load.clone();
+            d.fund_back_load = f.back_load.clone();
+            d.fund_back_load_time_interval = f.back_load_time_interval.clone();
+            d.fund_management_fee = f.management_fee.clone();
+            d.fund_closed = f.closed;
+            d.fund_closed_for_new_investors = f.closed_for_new_investors;
+            d.fund_closed_for_new_money = f.closed_for_new_money;
+            d.fund_notify_amount = f.notify_amount.clone();
+            d.fund_minimum_initial_purchase = f.minimum_initial_purchase.clone();
+            d.fund_subsequent_minimum_purchase = f.subsequent_minimum_purchase.clone();
+            d.fund_blue_sky_states = f.blue_sky_states.clone();
+            d.fund_blue_sky_territories = f.blue_sky_territories.clone();
+            d.fund_distribution_policy_indicator = f.distribution_policy_indicator.clone();
+            d.fund_asset_type = f.asset_type.clone();
+        }
+        if bond {
+            let b = &def.bond;
+            let api = def.bond_api;
+            // The request symbol when it reads as a CUSIP, else the local
+            // symbol (`jextend.dK.a(dy, String)`; the CUSIP feature of the
+            // account is not known here).
+            d.cusip = if def.lookup_cusip.is_empty() { def.local_symbol.clone() } else { def.lookup_cusip.clone() };
+            d.maturity = if api { expiry } else { String::new() };
+            d.issue_date = shown(&b.issue_date);
+            d.bond_type = shown(&b.bond_type);
+            d.coupon = if api { b.coupon.trim().parse().unwrap_or(0.0) } else { 0.0 };
+            d.coupon_type = shown(&b.coupon_type);
+            d.convertible = api && b.convertible;
+            d.callable = api && b.callable;
+            d.putable = api && b.putable;
+            d.desc_append = if api { b.desc_append.clone() } else { b.short_description.clone() };
+            d.next_option_date = shown(&b.next_option_date);
+            d.next_option_type = shown(&b.next_option_type);
+            d.next_option_partial = api && b.next_option_partial;
+            d.notes = shown(&b.notes);
+        }
+        d
     }
 }
 
@@ -740,6 +1176,8 @@ pub struct ContractDescription {
     pub currency: String,
     pub primary_exchange: String,
     pub derivative_sec_types: Vec<String>,
+    pub description: String,
+    pub issuer_id: String,
 }
 
 // ── PriceIncrement (for market rules) ──
@@ -778,17 +1216,36 @@ mod tests {
 
     // ── Order ──
 
+    // The official API's defaults (ibapi 10.46 `Order()`): unset values,
+    // empty texts.
     #[test]
     fn order_default_values() {
         let o = Order::default();
         assert_eq!(o.order_id, 0);
         assert_eq!(o.action, "");
-        assert_eq!(o.total_quantity, 0.0);
+        assert_eq!(o.total_quantity, f64::MAX);
+        assert_eq!(o.filled_quantity, f64::MAX);
         assert_eq!(o.order_type, "");
-        assert_eq!(o.tif, "DAY");
+        assert_eq!((o.lmt_price, o.aux_price, o.trailing_percent, o.cash_qty), (f64::MAX, f64::MAX, f64::MAX, f64::MAX));
+        assert_eq!((o.trigger_price, o.adjusted_stop_price, o.adjusted_stop_limit_price), (f64::MAX, f64::MAX, f64::MAX));
+        assert_eq!((o.min_qty, o.volatility_type, o.reference_price_type), (i32::MAX, i32::MAX, i32::MAX));
+        assert_eq!(o.tif, "");
         assert!(o.transmit);
         assert!(!o.what_if);
         assert!(!o.outside_rth);
+        assert!(!o.dont_use_auto_price_for_hedge);
+    }
+
+    // Unset values are no attribute: no minimum quantity, no cash quantity.
+    #[test]
+    fn unset_values_are_no_attribute() {
+        let o = Order::default();
+        assert!(!o.has_extended_attrs());
+        let a = o.attrs();
+        assert_eq!((a.min_qty, a.cash_qty), (0, 0));
+        let o = Order { min_qty: 100, cash_qty: 500.0, ..Default::default() };
+        assert!(o.has_extended_attrs());
+        assert_eq!((o.attrs().min_qty, o.attrs().cash_qty), (100, 500 * PRICE_SCALE));
     }
 
     #[test]
@@ -800,10 +1257,30 @@ mod tests {
         assert_eq!(o.side().unwrap(), Side::Sell);
         o.action = "SSHORT".into();
         assert_eq!(o.side().unwrap(), Side::ShortSell);
+        // The reference's names only, case ignored (ibx#485): no B or S.
+        o.action = "sshrt".into();
+        assert_eq!(o.side().unwrap(), Side::ShortSell);
         o.action = "B".into();
-        assert_eq!(o.side().unwrap(), Side::Buy);
+        assert!(o.side().is_err());
         o.action = "S".into();
-        assert_eq!(o.side().unwrap(), Side::Sell);
+        assert!(o.side().is_err());
+    }
+
+    // ibx#417: the clearing intent and the short-sale instructions reach
+    // the engine, through the extended path.
+    #[test]
+    fn short_sale_instructions_reach_the_attributes() {
+        let plain = Order { action: "SSHORT".into(), ..Default::default() };
+        assert!(!plain.has_extended_attrs());
+        assert_eq!(plain.attrs().short_sale, ShortSale::default());
+        let o = Order {
+            action: "SSHORT".into(), clearing_intent: "Away".into(), short_sale_slot: 2,
+            designated_location: "XYZ".into(), exempt_code: 3, ..Default::default()
+        };
+        assert!(o.has_extended_attrs());
+        let a = o.attrs();
+        assert_eq!(a.clearing_intent, "Away");
+        assert_eq!(a.short_sale, ShortSale { slot: 2, location: "XYZ".into(), exempt_code: 3 });
     }
 
     #[test]
@@ -857,6 +1334,20 @@ mod tests {
         assert!(o3.has_extended_attrs());
     }
 
+    // ibx#492: usePriceMgmtAlgo is unset by default, as the API; a value
+    // the caller sets rides the attributes.
+    #[test]
+    fn price_management_value_is_unset_by_default() {
+        let o = Order::default();
+        assert_eq!(o.use_price_mgmt_algo, i32::MAX);
+        assert_eq!(o.attrs().use_price_mgmt_algo, None);
+        for (v, want) in [(0, Some(false)), (1, Some(true))] {
+            let o = Order { use_price_mgmt_algo: v, ..Default::default() };
+            assert!(o.has_extended_attrs());
+            assert_eq!(o.attrs().use_price_mgmt_algo, want);
+        }
+    }
+
     #[test]
     fn order_attrs_conversion() {
         let mut o = Order::default();
@@ -892,11 +1383,15 @@ mod tests {
 
     // ── OrderState ──
 
+    // Unset numbers are the maximum double, as the official API's and the
+    // reference's openOrder.
     #[test]
     fn order_state_default() {
         let os = OrderState::default();
         assert_eq!(os.status, "");
-        assert_eq!(os.commission_and_fees, 0.0);
+        assert_eq!(os.commission_and_fees, f64::MAX);
+        assert_eq!((os.min_commission_and_fees, os.max_commission_and_fees), (f64::MAX, f64::MAX));
+        assert_eq!(os.init_margin_before_outside_rth, f64::MAX);
     }
 
     // ── Execution ──
@@ -938,6 +1433,20 @@ mod tests {
         assert_eq!(cd.min_tick, 0.0);
     }
 
+    // ibx#263: an API price becomes the fixed-point price the reference's
+    // formatter writes: rounded at the eighth decimal, half to even, not
+    // truncated (0.29 was 0.28999999).
+    #[test]
+    fn price_from_f64_rounds_half_to_even() {
+        assert_eq!(price_from_f64(0.29), 29_000_000);
+        assert_eq!(price_from_f64(1.13), 113_000_000);
+        assert_eq!(price_from_f64(-0.1), -10_000_000);
+        assert_eq!(price_from_f64(0.001953125), 195_312);
+        assert_eq!(price_from_f64(0.000000001), 0);
+        let bad = (0..100_000).filter(|c| price_from_f64(*c as f64 / 100.0) != *c as i64 * 1_000_000).count();
+        assert_eq!(bad, 0);
+    }
+
     // ibx#223: the raw cast wrapped -1 to 255 and forwarded out-of-range
     // trigger codes to the wire verbatim.
     #[test]
@@ -969,6 +1478,127 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(ContractDetails::from_definition(&def).contract.sec_type, "");
+    }
+
+    // ── ibx#436: the API row of a definition ──
+
+    fn bond_definition() -> crate::control::contracts::ContractDefinition {
+        use crate::control::contracts::*;
+        ContractDefinition {
+            con_id: 29105555,
+            symbol: "IBM".into(),
+            sec_type: SecurityType::Bond,
+            wire_sec_type: "BOND".into(),
+            exchange: "SMART".into(),
+            currency: "USD".into(),
+            local_symbol: "IBCID29105555".into(),
+            market_name: "IBM".into(),
+            long_name: "International Business Machines Corp".into(),
+            last_trade_date: "20451030".into(),
+            cusip: "459200AN1".into(),
+            isin: "US459200AN17".into(),
+            bond: BondFields {
+                notes: "Notes".into(), desc_append: "Append".into(), short_description: "IBM 7 10/30/45".into(),
+                bond_type: "Bonds".into(), coupon_type: "FIXED".into(), callable: true, putable: true, convertible: true,
+                next_option_partial: true, next_option_date: "20270801".into(), next_option_type: "P".into(),
+                ratings: "A3".into(), coupon: "7".into(), issue_date: "19951030".into(),
+            },
+            schedule_expiry: Some(("20451030".into(), String::new())),
+            ..Default::default()
+        }
+    }
+
+    // Without BONDAPI (the paper logon): most bond texts empty, the short
+    // description as descAppend, the local symbol as CUSIP, ISIN and CUSIP
+    // in the id list (captured 02/10/2026).
+    #[test]
+    fn bond_row_without_the_bond_feature() {
+        let d = ContractDetails::from_definition(&bond_definition());
+        assert_eq!((d.contract.symbol.as_str(), d.contract.currency.as_str(), d.market_name.as_str(), d.long_name.as_str()), ("", "", "", ""));
+        assert_eq!((d.contract.last_trade_date_or_contract_month.as_str(), d.contract.last_trade_date.as_str(), d.maturity.as_str()), ("", "", ""));
+        assert_eq!((d.cusip.as_str(), d.desc_append.as_str()), ("IBCID29105555", "IBM 7 10/30/45"));
+        assert_eq!((d.bond_type.as_str(), d.coupon_type.as_str(), d.notes.as_str(), d.issue_date.as_str()), ("", "", "", ""));
+        assert_eq!((d.callable, d.putable, d.convertible, d.next_option_partial, d.coupon), (false, false, false, false, 0.0));
+        assert_eq!(d.ratings, "");
+        assert_eq!(d.sec_id_list, vec![
+            TagValue { tag: "ISIN".into(), value: "US459200AN17".into() },
+            TagValue { tag: "CUSIP".into(), value: "459200AN1".into() },
+        ]);
+    }
+
+    // With BONDAPI: the bond fields, the maturity, the description append.
+    #[test]
+    fn bond_row_with_the_bond_feature() {
+        let mut def = bond_definition();
+        def.bond_api = true;
+        def.lookup_cusip = "459200AN1".into();
+        let d = ContractDetails::from_definition(&def);
+        assert_eq!((d.contract.symbol.as_str(), d.contract.currency.as_str(), d.long_name.as_str()), ("IBM", "USD", "International Business Machines Corp"));
+        assert_eq!((d.maturity.as_str(), d.contract.last_trade_date_or_contract_month.as_str(), d.contract.last_trade_date.as_str()), ("20451030", "", "20451030"));
+        assert_eq!((d.cusip.as_str(), d.desc_append.as_str()), ("459200AN1", "Append"));
+        assert_eq!((d.bond_type.as_str(), d.coupon_type.as_str(), d.notes.as_str(), d.issue_date.as_str()), ("Bonds", "FIXED", "Notes", "19951030"));
+        assert_eq!((d.callable, d.putable, d.convertible, d.next_option_partial, d.coupon), (true, true, true, true, 7.0));
+        assert_eq!((d.next_option_date.as_str(), d.next_option_type.as_str()), ("20270801", "P"));
+        // An internal id is not a CUSIP of the id list.
+        def.cusip = "IBCID29105555".into();
+        assert_eq!(ContractDetails::from_definition(&def).sec_id_list.len(), 1);
+    }
+
+    // Sizes from the record's rule; a fractional contract has the
+    // fractional increment as minimum and increment (captured AAPL:
+    // 0.0001, 0.0001, 40).
+    #[test]
+    fn size_fields_of_a_row() {
+        use crate::control::contracts::{ContractDefinition, PriceIncrement};
+        let set = |v: &[(f64, f64)]| v.iter().map(|&(low_edge, increment)| PriceIncrement { low_edge, increment }).collect::<Vec<_>>();
+        let mut def = ContractDefinition { wire_sec_type: "STK".into(), size_increments: set(&[(40.0, 40.0)]), fractional: true, ..Default::default() };
+        let d = ContractDetails::from_definition(&def);
+        assert_eq!((d.min_size, d.size_increment, d.suggested_size_increment), (0.0001, 0.0001, 40.0));
+        def.fraction_size = Some(0.01);
+        assert_eq!(ContractDetails::from_definition(&def).min_size, 0.01);
+        def.fractional = false;
+        let d = ContractDetails::from_definition(&def);
+        assert_eq!((d.min_size, d.size_increment, d.suggested_size_increment), (40.0, 40.0, 40.0));
+        def.size_increments = set(&[(0.0, 0.5), (10.0, 1.0)]);
+        let d = ContractDetails::from_definition(&def);
+        assert_eq!((d.min_size, d.size_increment, d.suggested_size_increment), (0.5, 0.5, 0.5));
+        def.size_increments.clear();
+        assert_eq!(ContractDetails::from_definition(&def).min_size, f64::MAX);
+        assert_eq!(ContractDetails::default().min_algo_size, f64::MAX);
+    }
+
+    // Order types without their flags, the multiplier as received, the
+    // right as C or P, the last trade time of the schedule, the fund
+    // fields only for a fund, the EV rule only with EVAPI.
+    #[test]
+    fn texts_of_a_row() {
+        use crate::control::contracts::{ContractDefinition, FundFields, OptionRight};
+        let def = ContractDefinition {
+            wire_sec_type: "OPT".into(),
+            order_types: vec!["ACTIVETIM/1".into(), "AD/5".into(), "LMT/3".into()],
+            multiplier_text: "100".into(),
+            multiplier: 100.0,
+            right: Some(OptionRight::Put),
+            last_trade_date: "20261005".into(),
+            schedule_expiry: Some(("20261005".into(), "16:00:00".into())),
+            ev_rule: "factor:0.5".into(),
+            fund: FundFields { name: "Name".into(), ..Default::default() },
+            agg_group: Some(2),
+            under_con_id: 265598,
+            price_magnifier: 1,
+            ..Default::default()
+        };
+        let d = ContractDetails::from_definition(&def);
+        assert_eq!(d.order_types, "ACTIVETIM,AD,LMT");
+        assert_eq!((d.contract.multiplier.as_str(), d.contract.right.as_str()), ("100", "P"));
+        assert_eq!((d.contract.last_trade_date_or_contract_month.as_str(), d.last_trade_time.as_str()), ("20261005", "16:00:00"));
+        assert_eq!((d.agg_group, d.under_con_id, d.price_magnifier), (2, 265598, 1));
+        assert_eq!((d.fund_name.as_str(), d.ev_rule.as_str()), ("", ""));
+        let fund = ContractDefinition { wire_sec_type: "FUND".into(), ev_api: true, ..def.clone() };
+        let d = ContractDetails::from_definition(&fund);
+        assert_eq!((d.fund_name.as_str(), d.ev_rule.as_str()), ("Name", "factor:0.5"));
+        let no_multiplier = ContractDefinition { multiplier_text: String::new(), ..def };
+        assert_eq!(ContractDetails::from_definition(&no_multiplier).contract.multiplier, "");
     }
 
     // ── ContractDescription ──

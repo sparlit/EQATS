@@ -142,11 +142,15 @@ class TestGEX:
         from analysis.gex import compute_gex_at_strike
 
         # Call side: positive GEX (dealers long gamma from selling calls to retail)
-        gex_ce = compute_gex_at_strike(oi=100000, gamma=0.001, spot=22500, lot_size=25, is_call=True)
+        gex_ce = compute_gex_at_strike(
+            oi=100000, gamma=0.001, spot=22500, lot_size=25, is_call=True
+        )
         assert gex_ce > 0
 
         # Put side: negative GEX (dealers short gamma from selling puts)
-        gex_pe = compute_gex_at_strike(oi=100000, gamma=0.001, spot=22500, lot_size=25, is_call=False)
+        gex_pe = compute_gex_at_strike(
+            oi=100000, gamma=0.001, spot=22500, lot_size=25, is_call=False
+        )
         assert gex_pe < 0
 
     def test_find_gex_flip_point(self):

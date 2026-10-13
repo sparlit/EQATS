@@ -21,13 +21,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
-from bs4 import BeautifulSoup
 from helpers.investing import *
 
-from .nse_data import NSEData, requests
+from .nse_data import NSEData
 
 In = Investing()
 NSE = NSEData()
@@ -42,7 +40,7 @@ class IntraDay:
     def whole_number_strategy(
         self,
         nifty: int = 50,
-        filter_by: list | None = None,
+        filter_by: list = None,
         min_val: int = 100,
         max_val: int = 5000,
         return_list=False,
@@ -71,7 +69,9 @@ class IntraDay:
         if filter_by:
             df = df[df["symbol"].isin(filter_by)]
 
-        df["Equal"] = df.apply(lambda row: bool(row["open"] == row["dayHigh"] or row["open"] == row["dayLow"]), axis=1)
+        df["Equal"] = df.apply(
+            lambda row: bool(row["open"] == row["dayHigh"] or row["open"] == row["dayLow"]), axis=1
+        )
         df = df.loc[df["Equal"], :]
 
         if include_whole:
@@ -81,7 +81,9 @@ class IntraDay:
         for index in df.index:
             open_ = df.loc[index, "open"]
 
-            if min_val < open_ < max_val:  # if open is Greater than Max or less than Minimum value then don't consider
+            if (
+                min_val < open_ < max_val
+            ):  # if open is Greater than Max or less than Minimum value then don't consider
                 high = df.loc[index, "dayHigh"]
                 low = df.loc[index, "dayLow"]
                 df.loc[index, "lastPrice"]
@@ -89,7 +91,9 @@ class IntraDay:
                 stock = In.open_downloaded_stock(name)
                 atr = round(In.get_ATR(stock), 2)
 
-                minus = low - open_ if open_ == high else high - open_  # current change that has already been done
+                minus = (
+                    low - open_ if open_ == high else high - open_
+                )  # current change that has already been done
                 minus = abs(round(minus, 2))
 
                 change_perc = str(round((minus / open_) * 100, 2)) + "%"
@@ -124,8 +128,13 @@ class IntraDay:
         """
         df = In.open_downloaded_stock(name)
 
-        min_range = int(df.loc[0, "HIGH"] - df.loc[0, "LOW"])  # Assume the smallest range is for current day
-        return all(int(df.loc[index, "HIGH"] - df.loc[index, "LOW"]) > min_range for index in df.index[1:range_])
+        min_range = int(
+            df.loc[0, "HIGH"] - df.loc[0, "LOW"]
+        )  # Assume the smallest range is for current day
+        for index in df.index[1:range_]:
+            if (int(df.loc[index, "HIGH"] - df.loc[index, "LOW"])) <= min_range:
+                return False
+        return True
 
     def common_from_diff_strategy(self, index: int = 50):
         """
@@ -145,7 +154,7 @@ class IntraDay:
 
     def prob_by_percent_change(
         self,
-        symbol: list | None = None,
+        symbol: list = None,
         index: int = 200,
         time_period: int = 60,
         change_percent: float = 0.1,
@@ -165,15 +174,19 @@ class IntraDay:
         """
         assert not (symbol and index), "Provide either 'symbol' or 'index'; not both"
         res = {}
-        data = symbol or In.data[f"nifty_{index}"]
+        data = symbol if symbol else In.data[f"nifty_{index}"]
         for name in data:
             df = In.open_downloaded_stock(name)
             high = 0
             low = 0
             for index in df.index[:time_period]:
-                if abs(df.loc[index, "OPEN"] - df.loc[index, "HIGH"]) >= df.loc[index, "OPEN"] * (change_percent / 10):
+                if abs(df.loc[index, "OPEN"] - df.loc[index, "HIGH"]) >= df.loc[index, "OPEN"] * (
+                    change_percent / 10
+                ):
                     high += 1
-                if abs(df.loc[index, "OPEN"] - df.loc[index, "LOW"]) >= df.loc[index, "OPEN"] * (change_percent / 10):
+                if abs(df.loc[index, "OPEN"] - df.loc[index, "LOW"]) >= df.loc[index, "OPEN"] * (
+                    change_percent / 10
+                ):
                     low += 1
             res[name] = {
                 "Long Probability": round(high / time_period, 2),
@@ -205,7 +218,12 @@ class IntraDay:
 
         df["remaining move %"] = df.apply(
             lambda row: round(
-                (max(abs(row["open"] - row["dayHigh"]), abs(row["open"] - row["dayLow"])) - row["ATR"]) / row["ATR"], 2
+                (
+                    max(abs(row["open"] - row["dayHigh"]), abs(row["open"] - row["dayLow"]))
+                    - row["ATR"]
+                )
+                / row["ATR"],
+                2,
             ),
             axis=1,
         )
@@ -273,7 +291,9 @@ class IntradayStockSelection:
     Read more at: https://www.kotaksecurities.com/ksweb/intraday-trading/how-to-choose-stocks-for-intraday-trading
     """
 
-    def move_range_std(self, stocks: [str, list], time_period: int, return_df: bool = True) -> tuple:
+    def move_range_std(
+        self, stocks: [str, list], time_period: int, return_df: bool = True
+    ) -> tuple:
         """
         Stocks Attributes like Average Move % per day, Range, Standard Deviation (Volatility)
         args:
@@ -306,7 +326,9 @@ class IntradayStockSelection:
                 cp.append(
                     abs(df.loc[index, "CLOSE"] - df.loc[index, "OPEN"]) / df.loc[index, "OPEN"]
                 )  # df.loc[index-1,'CLOSE']) # Gives Day's Move. Less Diff -> More Dojis
-                rng.append(abs(df.loc[index, "HIGH"] - df.loc[index, "LOW"]) / df.loc[index, "OPEN"])  # mitigate gaps
+                rng.append(
+                    abs(df.loc[index, "HIGH"] - df.loc[index, "LOW"]) / df.loc[index, "OPEN"]
+                )  # mitigate gaps
                 rng_abs.append(abs(df.loc[index, "HIGH"] - df.loc[index, "LOW"]))
 
             mov[name] = np.median(cp)
@@ -318,15 +340,26 @@ class IntradayStockSelection:
             df = pd.DataFrame([mov, ranges, ranges_abs, devs]).T
 
             df.rename(
-                columns={0: "Move % (wrt OPEN)", 1: "Range % (wrt OPEN)", 2: "Range (in Rupees)", 3: "STD (in Rupees)"},
+                columns={
+                    0: "Move % (wrt OPEN)",
+                    1: "Range % (wrt OPEN)",
+                    2: "Range (in Rupees)",
+                    3: "STD (in Rupees)",
+                },
                 inplace=True,
             )
             df["Move % (wrt OPEN)"] = df["Move % (wrt OPEN)"].apply(lambda x: round(x * 100, 1))
             df["Range % (wrt OPEN)"] = df["Range % (wrt OPEN)"].apply(lambda x: round(x * 100, 1))
-            df.sort_values(by=["Move % (wrt OPEN)", "Range % (wrt OPEN)"], ascending=[0, 0], inplace=True)
+            df.sort_values(
+                by=["Move % (wrt OPEN)", "Range % (wrt OPEN)"], ascending=[0, 0], inplace=True
+            )
 
-            df["ATR (14 Days)"] = df.index.map(lambda x: round(In.get_ATR(In.open_downloaded_stock(x)), 2))
-            df["LTP (CLOSE in Rupees)"] = df.index.map(lambda x: round(In.open_downloaded_stock(x).loc[0, "CLOSE"], 2))
+            df["ATR (14 Days)"] = df.index.map(
+                lambda x: round(In.get_ATR(In.open_downloaded_stock(x)), 2)
+            )
+            df["LTP (CLOSE in Rupees)"] = df.index.map(
+                lambda x: round(In.open_downloaded_stock(x).loc[0, "CLOSE"], 2)
+            )
             return df
 
         return (mov, ranges, devs)

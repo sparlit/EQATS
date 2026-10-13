@@ -80,7 +80,11 @@ class PortfolioStateWithCosts:
         current_holdings = set(self.holdings.keys())
         new_top25 = set(top25)
 
-        valid_top25 = {s for s in new_top25 if pd.notna(close_prices.get(s, np.nan)) and close_prices.get(s, 0) > 0}
+        valid_top25 = {
+            s
+            for s in new_top25
+            if pd.notna(close_prices.get(s, np.nan)) and close_prices.get(s, 0) > 0
+        }
 
         exits = current_holdings - valid_top25
         entries = valid_top25 - current_holdings
@@ -180,7 +184,9 @@ class PortfolioStateWithCosts:
         cash_pool_after = available_cash - cash_deployed
 
         market_value_post = sum(
-            self.holdings[s] * close_prices[s] for s in self.holdings if pd.notna(close_prices.get(s, np.nan))
+            self.holdings[s] * close_prices[s]
+            for s in self.holdings
+            if pd.notna(close_prices.get(s, np.nan))
         )
         portfolio_value_post = market_value_post + cash_pool_after
 

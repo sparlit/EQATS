@@ -30,7 +30,6 @@ import os
 import sys
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 # 设置中文字体
@@ -68,7 +67,15 @@ def plot_benchmark_results():
 
     # 1. TPS 折线图
     ax1 = axes[0, 0]
-    ax1.plot(df["Orders"], df["TPS"], marker="o", linewidth=2.5, markersize=10, color=colors["tps"], label="TPS")
+    ax1.plot(
+        df["Orders"],
+        df["TPS"],
+        marker="o",
+        linewidth=2.5,
+        markersize=10,
+        color=colors["tps"],
+        label="TPS",
+    )
     ax1.set_xlabel("订单数量", fontsize=13, fontweight="bold")
     ax1.set_ylabel("TPS (订单/秒)", fontsize=13, fontweight="bold")
     ax1.set_title("吞吐量 (Transactions Per Second)", fontsize=14, fontweight="bold")
@@ -79,11 +86,26 @@ def plot_benchmark_results():
     # 添加数值标签
     for i, (x, y) in enumerate(zip(df["Orders"], df["TPS"], strict=False)):
         if i % 2 == 0:  # 只标注部分点
-            ax1.annotate(f"{y:.0f}", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=9)
+            ax1.annotate(
+                f"{y:.0f}",
+                (x, y),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=9,
+            )
 
     # 2. QPS 折线图
     ax2 = axes[0, 1]
-    ax2.plot(df["Orders"], df["QPS"], marker="s", linewidth=2.5, markersize=10, color=colors["qps"], label="QPS")
+    ax2.plot(
+        df["Orders"],
+        df["QPS"],
+        marker="s",
+        linewidth=2.5,
+        markersize=10,
+        color=colors["qps"],
+        label="QPS",
+    )
     ax2.set_xlabel("订单数量", fontsize=13, fontweight="bold")
     ax2.set_ylabel("QPS (成交/秒)", fontsize=13, fontweight="bold")
     ax2.set_title("成交速率 (Queries Per Second)", fontsize=14, fontweight="bold")
@@ -94,7 +116,14 @@ def plot_benchmark_results():
     # 添加数值标签
     for i, (x, y) in enumerate(zip(df["Orders"], df["QPS"], strict=False)):
         if i % 2 == 0:
-            ax2.annotate(f"{y:.0f}", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=9)
+            ax2.annotate(
+                f"{y:.0f}",
+                (x, y),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=9,
+            )
 
     # 3. 内存使用折线图
     ax3 = axes[1, 0]
@@ -117,7 +146,14 @@ def plot_benchmark_results():
     # 添加数值标签
     for i, (x, y) in enumerate(zip(df["Orders"], df["Memory_MB"], strict=False)):
         if i % 2 == 0:
-            ax3.annotate(f"{y:.1f}MB", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=9)
+            ax3.annotate(
+                f"{y:.1f}MB",
+                (x, y),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=9,
+            )
 
     # 4. 延迟折线图
     ax4 = axes[1, 1]
@@ -140,7 +176,14 @@ def plot_benchmark_results():
     # 添加数值标签
     for i, (x, y) in enumerate(zip(df["Orders"], df["Duration_MS"], strict=False)):
         if i % 2 == 0:
-            ax4.annotate(f"{y:.1f}ms", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=9)
+            ax4.annotate(
+                f"{y:.1f}ms",
+                (x, y),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha="center",
+                fontsize=9,
+            )
 
     # 调整布局
     plt.tight_layout(rect=[0, 0, 1, 0.98])

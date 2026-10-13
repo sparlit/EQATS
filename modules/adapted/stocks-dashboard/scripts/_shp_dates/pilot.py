@@ -72,11 +72,16 @@ def main():
         conv = [
             q[0]
             for q in rows
-            if isinstance(q, list) and len(q) > 3 and q[0] >= 20160101 and SD.is_convention(q[0], q[3])
+            if isinstance(q, list)
+            and len(q) > 3
+            and q[0] >= 20160101
+            and SD.is_convention(q[0], q[3])
         ]
         if conv:
             targets[sym] = sorted(conv)
-    syms = [s for s in sorted(targets, key=lambda s: -len(targets[s])) if (s in by_id or s in master)][:n_syms]
+    syms = [
+        s for s in sorted(targets, key=lambda s: -len(targets[s])) if (s in by_id or s in master)
+    ][:n_syms]
     print(f"target population: {len(targets)} symbols; pilot takes {len(syms)}")
 
     cal = SD.tdays()
@@ -95,7 +100,10 @@ def main():
             stats["fetch_fail"] += 1
             continue
         with open(RAW, "a") as f:
-            f.write(json.dumps({"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":")) + "\n")
+            f.write(
+                json.dumps({"sym": sym, "scripcode": sc, "table": table}, separators=(",", ":"))
+                + "\n"
+            )
         resolved = SD.resolve_rows(table)
 
         # --- calibration against stored REAL dates (post-2016, non-convention) ---
@@ -118,11 +126,15 @@ def main():
             elif got < sub:
                 calib["pipeline_earlier"] += 1
                 if len(earlier_examples) < 8:
-                    earlier_examples.append((sym, qe, "stored", sub, "pipeline", got, r["src"], r["ts"]))
+                    earlier_examples.append(
+                        (sym, qe, "stored", sub, "pipeline", got, r["src"], r["ts"])
+                    )
             else:
                 calib["pipeline_later"] += 1
                 if len(later_examples) < 8:
-                    later_examples.append((sym, qe, "stored", sub, "pipeline", got, r["src"], r["ts"]))
+                    later_examples.append(
+                        (sym, qe, "stored", sub, "pipeline", got, r["src"], r["ts"])
+                    )
 
         # --- the recoverable cells (post-2016 convention) ---
         fixes = []
@@ -139,7 +151,16 @@ def main():
             if got == stored:
                 stats["target_noop"] += 1
                 continue
-            fixes.append({"qe": qe, "old": stored, "new": got, "gated": gated, "src": r["src"], "ts": r["ts"]})
+            fixes.append(
+                {
+                    "qe": qe,
+                    "old": stored,
+                    "new": got,
+                    "gated": gated,
+                    "src": r["src"],
+                    "ts": r["ts"],
+                }
+            )
             stats["target_fix"] += 1
         results[sym] = {"scripcode": sc, "fixes": fixes}
         if i % 6 == 0:

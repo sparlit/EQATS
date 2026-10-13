@@ -29,9 +29,8 @@ Given stocks and Strategies, it gives you trading signals with a voice and popup
 4. Alert user using TTS voice and show a popup regarding stock name and the strategy of choice
 """
 
-import threading
 from datetime import datetime, timedelta
-from logging import error, exception
+from logging import error
 from time import sleep
 
 from gtts import gTTS
@@ -44,7 +43,13 @@ class Alerts:
         """ """
 
     def create_intraday_alerts(
-        self, stocks: list, strategies: dict, interval: int, broker, silent: bool = False, show_popup: bool = False
+        self,
+        stocks: list,
+        strategies: dict,
+        interval: int,
+        broker,
+        silent: bool = False,
+        show_popup: bool = False,
     ):
         """
         Create alerts based on a list of stocks and dictonary of strategies. Apply each strategy to each stock and find if any signal is there
@@ -72,25 +77,33 @@ class Alerts:
                         ):  # recent one will be the newest formed live candle formed
                             result[name] = strategy
 
-                self.raise_alert(result)  # We need a thread because if this task takes too long, the data
+                self.raise_alert(
+                    result
+                )  # We need a thread because if this task takes too long, the data
                 retry = 0
                 sleep(
                     (
-                        (df.iloc[0, 0].replace(tzinfo=None) + timedelta(minutes=interval, seconds=2)) - datetime.now()
+                        (
+                            df.iloc[0, 0].replace(tzinfo=None)
+                            + timedelta(minutes=interval, seconds=2)
+                        )
+                        - datetime.now()
                     ).total_seconds()
                 )
 
             except Exception as e:
-                exception(f"Error Occured: {e} Retrying for next {interval} minutes candle")
+                error(f"Error Occured: {e} Retrying for next {interval} minutes candle")
                 retry += 1
 
                 if retry > 3:
-                    exception(
+                    error(
                         "Maximum retries reached. Probable causes can be Logout from broker or Network issues. Exiting program"
                     )
                     break
 
-    def raise_alert(self, results: dict, silent: bool = False, show_popup: bool = False):  # another background thread
+    def raise_alert(
+        self, results: dict, silent: bool = False, show_popup: bool = False
+    ):  # another background thread
         """
         Raise the alert in form of Text to speech voice or an HTML alert box
         args:

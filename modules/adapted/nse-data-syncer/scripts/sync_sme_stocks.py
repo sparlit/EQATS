@@ -91,8 +91,7 @@ def generate_access_token() -> str:
     resp.raise_for_status()
     data = resp.json()
     if "accessToken" not in data:
-        msg = f"Dhan token generation failed: {data.get('message', data)}"
-        raise RuntimeError(msg)
+        raise RuntimeError(f"Dhan token generation failed: {data.get('message', data)}")
     return data["accessToken"]
 
 
@@ -112,7 +111,9 @@ def load_sme_universe() -> pd.DataFrame:
     """Download Dhan's instrument master and filter to NSE SME-board equities.
     Returns columns: security_id, symbol, name, isin, series."""
     df = pd.read_csv(DHAN_SCRIP_MASTER_URL, low_memory=False)
-    sme = df[(df["EXCH_ID"] == "NSE") & (df["SEGMENT"] == "E") & (df["SERIES"].isin(SME_SERIES))].copy()
+    sme = df[
+        (df["EXCH_ID"] == "NSE") & (df["SEGMENT"] == "E") & (df["SERIES"].isin(SME_SERIES))
+    ].copy()
     sme = sme.rename(
         columns={
             "SECURITY_ID": "security_id",
@@ -164,11 +165,10 @@ def fetch_dhan_history(
         if resp.status_code != 200:
             print(f"    HTTP {resp.status_code}: {resp.text[:300]}")
             if _is_invalid_token(resp):
-                msg = (
+                raise RuntimeError(
                     "Dhan access token invalid/expired mid-run (DH-906) - aborting "
                     "instead of silently failing every remaining request."
                 )
-                raise RuntimeError(msg)
             return pd.DataFrame()
         data = resp.json()
         if not data.get("timestamp"):
@@ -176,7 +176,9 @@ def fetch_dhan_history(
 
         df = pd.DataFrame(
             {
-                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True).tz_convert("Asia/Kolkata").date,
+                "date": pd.to_datetime(data["timestamp"], unit="s", utc=True)
+                .tz_convert("Asia/Kolkata")
+                .date,
                 "open": data.get("open"),
                 "high": data.get("high"),
                 "low": data.get("low"),
@@ -185,14 +187,17 @@ def fetch_dhan_history(
             }
         )
         df["date"] = pd.to_datetime(df["date"])
-        return df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        df = df.drop_duplicates(subset="date", keep="last").reset_index(drop=True)
+        return df
 
     print("    Giving up after repeated rate-limit errors")
     return pd.DataFrame()
 
 
 def upsert_sme_stock(session, symbol, name, isin, security_id, series) -> int:
-    row = session.execute(text("SELECT id FROM sme_stocks WHERE symbol = :s"), {"s": symbol}).fetchone()
+    row = session.execute(
+        text("SELECT id FROM sme_stocks WHERE symbol = :s"), {"s": symbol}
+    ).fetchone()
     if row:
         session.execute(
             text("""
@@ -217,7 +222,8 @@ def upsert_sme_stock(session, symbol, name, isin, security_id, series) -> int:
 
 def sync_prices(session, sme_stock_id: int, security_id: int, access_token: str) -> int:
     last_date = session.execute(
-        text("SELECT MAX(date) FROM sme_daily_prices WHERE sme_stock_id = :id"), {"id": sme_stock_id}
+        text("SELECT MAX(date) FROM sme_daily_prices WHERE sme_stock_id = :id"),
+        {"id": sme_stock_id},
     ).scalar()
 
     if last_date:
@@ -352,7 +358,9 @@ def main():
     try:
         total_rows = 0
         for i, row in enumerate(universe.itertuples(index=False), start=1):
-            sme_stock_id = upsert_sme_stock(session, row.symbol, row.name, row.isin, int(row.security_id), row.series)
+            sme_stock_id = upsert_sme_stock(
+                session, row.symbol, row.name, row.isin, int(row.security_id), row.series
+            )
             n = sync_prices(session, sme_stock_id, int(row.security_id), access_token)
             total_rows += n
             if n:

@@ -63,7 +63,6 @@ WINDOW (added for the 2015→2020 era campaign, PLAN_N500_COVERAGE_2015_2020.md)
 """
 import argparse
 import collections
-import gzip
 import json
 import os
 import re
@@ -79,7 +78,8 @@ UNIVERSE = "nifty-500"
 
 
 def load_payload():
-    return json.load(open(os.path.join(DOCS, "coverage", f"{UNIVERSE}.json")))
+    U = json.load(open(os.path.join(DOCS, "coverage", f"{UNIVERSE}.json")))
+    return U
 
 
 def payload_missing(U):
@@ -111,13 +111,15 @@ def revop_evidence():
     """symbol -> {field -> (n_quarters, n_with_value)} straight from sf_revop."""
     REVOP = json.load(open(os.path.join(DOCS, "sf_revop.json")))
     src = open(os.path.join(DOCS, "backtest-engine.js")).read()
-    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.DOTALL)
+    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.S)
     alias = json.loads(re.sub(r"(\w+)\s*:", r'"\1":', m.group(1)).replace("'", '"')) if m else {}
     slot = {"rev": (1, 0), "op": (3, 2), "ebit": (8, 7)}
 
     def present(cell, f):
         ci, si = slot[f]
-        return (len(cell) > ci and cell[ci] is not None) or (len(cell) > si and cell[si] is not None)
+        return (len(cell) > ci and cell[ci] is not None) or (
+            len(cell) > si and cell[si] is not None
+        )
 
     def stats(sym, f):
         rmap = REVOP.get(sym) or REVOP.get(alias.get(sym, ""), None)
@@ -301,7 +303,9 @@ def main():
     ap.add_argument("cmd", nargs="?", default="build", choices=["build"])
     ap.add_argument("--explain", default=os.path.join(SCRIPTS, "n500_cov_explain.json"))
     ap.add_argument("--out", default=os.path.join(SCRIPTS, "n500_cov_queue.json"))
-    ap.add_argument("--from", dest="frm", default=FROM, help="first payload date counted (YYYY-MM-DD)")
+    ap.add_argument(
+        "--from", dest="frm", default=FROM, help="first payload date counted (YYYY-MM-DD)"
+    )
     ap.add_argument("--to", dest="to", default=TO, help="last payload date counted (YYYY-MM-DD)")
     ap.add_argument("--campaign", default=CAMPAIGN)
     ap.add_argument("--check", action="store_true", help="re-assert parity of the existing queue")
@@ -323,16 +327,24 @@ def main():
         # payload (dataEnd 08-14) -> profitTTM read 525 vs 524 and the run said FAIL.
         if q.get("payload_updated") != U["updated"]:
             print("BAKE SKEW — not a parity failure.")
-            print(f"  queue was built against : {q.get('payload_updated')}  (dataEnd {q.get('payload_dataEnd')})")
+            print(
+                f"  queue was built against : {q.get('payload_updated')}  (dataEnd {q.get('payload_dataEnd')})"
+            )
             print(f"  payload on disk is      : {U['updated']}  (dataEnd {U['dataEnd']})")
             print("  Re-bake and rebuild the queue before trusting a parity result:")
-            print("    node --max-old-space-size=12288 scripts/build_coverage_matrix.js --bin auto \\")
+            print(
+                "    node --max-old-space-size=12288 scripts/build_coverage_matrix.js --bin auto \\"
+            )
             print(
                 f"         --out docs/coverage --explain nifty-500 --explain-from {FROM}"
                 + (f" --explain-to {TO}" if TO < "9999-12-31" else "")
             )
-            print(f"    python3 scripts/n500_cov_cells.py build --from {FROM} --to {TO} --out {a.out}")
-            print(f"  (stored parity at build time: {'PASS' if q.get('parity', {}).get('ok') else 'FAIL'})")
+            print(
+                f"    python3 scripts/n500_cov_cells.py build --from {FROM} --to {TO} --out {a.out}"
+            )
+            print(
+                f"  (stored parity at build time: {'PASS' if q.get('parity', {}).get('ok') else 'FAIL'})"
+            )
             return 2
         r = check_parity(q["rows"], _pm := payload_missing(U), verbose=True)
         return 0 if r["ok"] else 1

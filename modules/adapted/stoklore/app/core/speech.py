@@ -51,7 +51,11 @@ def _pipeline():
     import torch
     from transformers import pipeline
 
-    device = "mps" if torch.backends.mps.is_available() else ("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = (
+        "mps"
+        if torch.backends.mps.is_available()
+        else ("cuda:0" if torch.cuda.is_available() else "cpu")
+    )
     return pipeline("automatic-speech-recognition", model=MODEL_ID, device=device)
 
 
@@ -72,20 +76,16 @@ def read_wav(data):
             )
             raw = wav.readframes(frames)
     except wave.Error as e:
-        msg = f"not a WAV file: {e}"
-        raise ValueError(msg) from e
+        raise ValueError(f"not a WAV file: {e}") from e
     if width != 2:
-        msg = "expected 16-bit PCM WAV"
-        raise ValueError(msg)
+        raise ValueError("expected 16-bit PCM WAV")
     if rate != SAMPLE_RATE:
-        msg = f"expected {SAMPLE_RATE}Hz audio, got {rate}Hz"
-        raise ValueError(msg)
+        raise ValueError(f"expected {SAMPLE_RATE}Hz audio, got {rate}Hz")
     audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
     if channels > 1:  # the recorder sends mono, but a downmix is two lines and saves a 422
         audio = audio.reshape(-1, channels).mean(axis=1)
     if len(audio) > MAX_SECONDS * SAMPLE_RATE:
-        msg = f"recording is longer than {MAX_SECONDS}s"
-        raise ValueError(msg)
+        raise ValueError(f"recording is longer than {MAX_SECONDS}s")
     return audio
 
 

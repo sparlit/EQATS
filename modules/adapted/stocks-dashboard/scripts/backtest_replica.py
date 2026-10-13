@@ -85,8 +85,10 @@ def hl52(s, t):
         c = x["c"][k]
         ph = c * (1000 + x["hb"][k]) / 1000 if x["hb"] else c
         pl = c * (1000 - x["lb"][k]) / 1000 if x["lb"] else c
-        hi = max(hi, ph)
-        low = min(low, pl)
+        if ph > hi:
+            hi = ph
+        if pl < low:
+            low = pl
     return (hi, low) if hi > 0 else None
 
 
@@ -120,7 +122,11 @@ def profitAt(s, di):
 
 
 def membersAsOf(dstr):
-    best = max((h for h in HIST if h["effectiveDate"] <= dstr), key=lambda h: h["effectiveDate"], default=None)
+    best = max(
+        (h for h in HIST if h["effectiveDate"] <= dstr),
+        key=lambda h: h["effectiveDate"],
+        default=None,
+    )
     return set(best["symbols"]) if best else set()
 
 
@@ -166,7 +172,11 @@ cap = 100000.0
 traj = []
 for md in months:
     t = od(int(md.replace("-", "")))
-    rows = [r for r in factors(t) if r["d52"] <= 10 and r["d52low"] >= 100 and (r["py"] is not None and r["py"] > 0)]
+    rows = [
+        r
+        for r in factors(t)
+        if r["d52"] <= 10 and r["d52low"] >= 100 and (r["py"] is not None and r["py"] > 0)
+    ]
     rows.sort(key=lambda r: -r["py"])
     target = rows[:N]
     tset = {r["s"] for r in target}
@@ -207,4 +217,7 @@ print()
 print("LATEST holdings:", traj[-1][3], "| cash%%:", traj[-1][2])
 import collections
 
-print("holding-count distribution across all rebalances:", dict(collections.Counter(n for _, n, _, _ in traj)))
+print(
+    "holding-count distribution across all rebalances:",
+    dict(collections.Counter(n for _, n, _, _ in traj)),
+)

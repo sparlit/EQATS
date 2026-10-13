@@ -25,16 +25,10 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 """Apply completed daily bars to all persistent V2 positions."""
 
+from collections.abc import Mapping
 
-from typing import TYPE_CHECKING
-
-from .lifecycle import Position
 from .lifecycle_processor import ProcessedEvent, process_daily_bar
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-
-    from .portfolio_store import PortfolioStore
+from .portfolio_store import PortfolioStore
 
 
 def process_portfolio_day(

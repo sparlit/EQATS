@@ -159,16 +159,23 @@ def official_factor(subj):
     # Anchored on the split keyword itself so a bare "X to Y" elsewhere in the subject
     # (a dividend clause) can never be read as a face-value change.
     if not m:
-        m = re.search(r"spl[t]?[\s\-.]*(?:r[se]\.?\s*)?([\d.]+)\s*/?-?\s*to\s*(?:r[se]\.?\s*)?([\d.]+)", sx)
+        m = re.search(
+            r"spl[t]?[\s\-.]*(?:r[se]\.?\s*)?([\d.]+)\s*/?-?\s*to\s*(?:r[se]\.?\s*)?([\d.]+)", sx
+        )
     # ...and a THIRD spelling of the keyword: "Spl" (23 events 2005-2010 — UNITECH 2006-06-23
     # "Fv Spl-Rs10tors2/Bon-12:1", VEDL/RAMCOCEM/ENGINERSIN/STLTECH...). Accept it ONLY in the
     # face-value sense — "spl" adjacent to an Rs amount — never the SPECIAL-DIVIDEND sense
     # ("Spl Dividend @120%", "Div Fin-30% + Spl-50%"), which is 77 of the 100 "spl" subjects.
-    spl_fv = bool(re.search(r"spl[\s\-.]*(?:r[se]\.?\s*)?[\d.]+\s*/?-?\s*to", sx)) and not re.search(
-        r"spl[\s\-.]*div", sx
-    )
+    spl_fv = bool(
+        re.search(r"spl[\s\-.]*(?:r[se]\.?\s*)?[\d.]+\s*/?-?\s*to", sx)
+    ) and not re.search(r"spl[\s\-.]*div", sx)
     if m and (
-        "split" in s or "splt" in s or spl_fv or "sub-division" in s or "sub division" in s or "subdivision" in s
+        "split" in s
+        or "splt" in s
+        or spl_fv
+        or "sub-division" in s
+        or "sub division" in s
+        or "subdivision" in s
     ):
         x, y = float(m.group(1)), float(m.group(2))
         if x and 0 < y < x:
@@ -197,7 +204,9 @@ def fetch():
     # `index=equities` never returns an SM/ST symbol's split or bonus. The bin ingests the SME
     # series since DATA_RUNBOOK §145, so ask both; a failed SME year falls through to inference
     # for those names exactly as a failed main-board year does.
-    for yr, board in [(y, b) for y in range(2016, datetime.date.today().year + 1) for b in ("equities", "sme")]:
+    for yr, board in [
+        (y, b) for y in range(2016, datetime.date.today().year + 1) for b in ("equities", "sme")
+    ]:
         url = (
             "https://www.nseindia.com/api/corporates-corporateActions?index=%s"
             "&from_date=01-01-%d&to_date=31-12-%d" % (board, yr, yr)
@@ -220,7 +229,9 @@ def fetch():
             # combined parser was built for), and small bonuses like 1:26 (0.963, INFINITE
             # 2017-11-01) fell off the top. Real combined events go as low as 1/23 x 1/10.
             if f and 0.002 < f < 0.98:
-                dd = cmap.setdefault(r.get("symbol"), {})  # combine same-day actions (e.g. BAJFINANCE
+                dd = cmap.setdefault(
+                    r.get("symbol"), {}
+                )  # combine same-day actions (e.g. BAJFINANCE
                 dd[int(ex)] = round(dd.get(int(ex), 1.0) * f, 6)
                 n += 1  # 1:2 split x 4:1 bonus = 0.10
             elif is_demerger(subj):

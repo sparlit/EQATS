@@ -55,8 +55,7 @@ def main() -> int:
 
         report = json.loads((ROOT / "output/old_nse_hull_daily.json").read_text(encoding="utf-8"))
         if report.get("strategy_profile") != "LADDER_DAILY_20260922":
-            msg = "Final Ladder profile has not produced a daily report yet"
-            raise ValueError(msg)
+            raise ValueError("Final Ladder profile has not produced a daily report yet")
         message = period_message(report, args.period)
         print(message)
         return 2 if args.send_telegram and not send_period(message, args.period).sent else 0

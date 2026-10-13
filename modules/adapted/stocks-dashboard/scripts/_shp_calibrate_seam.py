@@ -92,7 +92,13 @@ d2f = [r[2] for r in rows]
 oth = [abs(r[3]) for r in rows]
 print(
     "\nn=%d | seam if OTHER->DII: median %.3f mean %.3f | if OTHER->FII: median %.3f mean %.3f"
-    % (len(rows), statistics.median(d2d), statistics.fmean(d2d), statistics.median(d2f), statistics.fmean(d2f))
+    % (
+        len(rows),
+        statistics.median(d2d),
+        statistics.fmean(d2d),
+        statistics.median(d2f),
+        statistics.fmean(d2f),
+    )
 )
 print(
     f"'other institutions' size: median {statistics.median(oth):.3f} pp, p90 {sorted(oth)[int(len(oth) * 0.9)]:.3f}, max {max(oth):.3f}"

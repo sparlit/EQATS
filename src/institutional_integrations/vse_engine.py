@@ -222,7 +222,7 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
         return self.demat.get_portfolio_summary()
 
     def get_history(
-        self, symbol: str, timeframe: str = "1d", limit: int = 100
+        self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
     ) -> list[dict[str, Any]]:
         return []
 
@@ -291,7 +291,7 @@ class VSEBrokerAdapter(SEBIBrokerAdapter):
         return True
 
     def close_order(
-        self, ticket: str, symbol: str = "", exchange: str = "NSE"
+        self, ticket: str, symbol: str = "", exchange: str = "NSE", product: str = "CNC"
     ) -> SEBIOrderResponse:
         return SEBIOrderResponse(
             success=True,

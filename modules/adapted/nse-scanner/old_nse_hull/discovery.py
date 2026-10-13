@@ -27,12 +27,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import sqlite3
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pandas as pd
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -46,7 +43,9 @@ class DiscoveryResult:
 def load_market_data(db_path: str | Path, as_of: str | None = None) -> pd.DataFrame:
     """Read common price snapshots only; do not import V2/V3 code or state."""
     with sqlite3.connect(db_path) as conn:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         table = "daily_prices_v2" if "daily_prices_v2" in tables else "daily_prices"
         date_col = "trade_date" if table == "daily_prices_v2" else "date"
         query = f"SELECT * FROM {table}" + (f" WHERE {date_col}<=?" if as_of else "")
@@ -85,7 +84,9 @@ def discover(prices: pd.DataFrame, top_n: int = 25) -> DiscoveryResult:
         prior_high = float(close.shift(1).tail(20).max())
         volume_base = float(volume.shift(1).tail(20).median())
         volume_ratio = float(volume.tail(5).mean() / volume_base) if volume_base > 0 else 0.0
-        range20 = float((close.tail(20).max() - close.tail(20).min()) / max(close.tail(20).min(), 0.01))
+        range20 = float(
+            (close.tail(20).max() - close.tail(20).min()) / max(close.tail(20).min(), 0.01)
+        )
         higher_low = bool(close.tail(10).min() >= close.iloc[-20:-10].min())
         near_breakout = bool(close.iloc[-1] >= prior_high * 0.97)
         ema_reclaim = bool(close.iloc[-1] >= ema20.iloc[-1] and ema20.iloc[-1] >= ema20.iloc[-4])
@@ -93,7 +94,9 @@ def discover(prices: pd.DataFrame, top_n: int = 25) -> DiscoveryResult:
         high = pd.to_numeric(data.get("high", close), errors="coerce")
         low = pd.to_numeric(data.get("low", close), errors="coerce")
         prior_close = close.shift(1)
-        true_range = pd.concat([high - low, (high - prior_close).abs(), (low - prior_close).abs()], axis=1).max(axis=1)
+        true_range = pd.concat(
+            [high - low, (high - prior_close).abs(), (low - prior_close).abs()], axis=1
+        ).max(axis=1)
         atr14 = float(true_range.tail(14).mean()) if true_range.notna().any() else 0.0
         signals = {
             "price_accelerating": ret5 > prior5 or ret10 > prior10,
@@ -139,6 +142,10 @@ def discover(prices: pd.DataFrame, top_n: int = 25) -> DiscoveryResult:
         + result["trend_transition"].clip(upper=2) / 2 * 15
         + result["breakout_proximity"] * 10
     ).round(2)
-    result = result.sort_values(["discovery_score", "symbol"], ascending=[False, True]).reset_index(drop=True)
+    result = result.sort_values(["discovery_score", "symbol"], ascending=[False, True]).reset_index(
+        drop=True
+    )
     result["discovery_rank"] = result.index + 1
-    return DiscoveryResult(str(result["as_of_date"].iloc[0]), len(result), result.head(top_n), rejected)
+    return DiscoveryResult(
+        str(result["as_of_date"].iloc[0]), len(result), result.head(top_n), rejected
+    )

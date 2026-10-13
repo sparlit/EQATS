@@ -23,13 +23,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import pandas as pd
 from defs.config import config
 
-if TYPE_CHECKING:
-    from .cli import PlotCommand
+from .cli import PlotCommand
 
 
 def _relative_strength(close: pd.Series, index_close: pd.Series) -> pd.Series:
@@ -79,7 +78,7 @@ def get_levels(
         if is_far_from_level(level_val, levels, threshold):
             levels.append((idx, level_val))
 
-    last_dt = cast("pd.Timestamp", df.index[-1])
+    last_dt = cast(pd.Timestamp, df.index[-1])
 
     alines: list[tuple[tuple[pd.Timestamp, float], tuple[pd.Timestamp, float]]] = []
     for dt, price in levels:
@@ -130,11 +129,11 @@ def get_levels_v2(
 
     max_min = max_min.loc[~max_min.index.duplicated()]
 
-    last_dt = cast("pd.Timestamp", df.index[-1])
+    last_dt = cast(pd.Timestamp, df.index[-1])
 
     for i, lv in max_min.items():
-        ts = cast("pd.Timestamp", i)
-        lv = cast("float", lv)
+        ts = cast(pd.Timestamp, i)
+        lv = cast(float, lv)
 
         touch_count = max_min.loc[(max_min - lv).abs() < mean_candle_size].count()
 
@@ -275,4 +274,5 @@ class IndicatorPipeline:
 
         if self.cmd.snr == "v1":
             return get_levels(df, mean_candle_size)
-        return get_levels_v2(df, mean_candle_size)
+        else:
+            return get_levels_v2(df, mean_candle_size)

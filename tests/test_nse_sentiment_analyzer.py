@@ -3,7 +3,8 @@ Unit & Integration Tests for NSE Sentiment Analyzer (AshayK003/nse-sentiment-ana
 """
 
 from datetime import datetime
-from institutional_integrations.nse_sentiment_analyzer import NSESentimentAnalyzer, MAGIC_NUMBER
+
+from institutional_integrations.nse_sentiment_analyzer import MAGIC_NUMBER, NSESentimentAnalyzer
 from institutional_integrations.sebi_broker_adapter import IndianBrokerPluginRegistry
 
 

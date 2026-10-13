@@ -159,12 +159,13 @@ class IndexedOrderBookSide(OrderBookSide):
                     keys[index] = index_price
                     self[index] = delta
                     return
-                # remove old price level
-                old_index = bisect_left(keys, old_price)
-                while self[old_index][2] != order_id:
-                    old_index += 1
-                del keys[old_index]
-                del self[old_index]
+                else:
+                    # remove old price level
+                    old_index = bisect_left(keys, old_price)
+                    while self[old_index][2] != order_id:
+                        old_index += 1
+                    del keys[old_index]
+                    del self[old_index]
             # insert new price level
             hashmap[order_id] = index_price
             index = bisect_left(keys, index_price)
@@ -196,24 +197,24 @@ class IndexedOrderBookSide(OrderBookSide):
 
 
 class Asks(OrderBookSide):
-    side = False
+    side = False  # noqa
 
 
 class Bids(OrderBookSide):
-    side = True
+    side = True  # noqa
 
 
 class CountedAsks(CountedOrderBookSide):
-    side = False
+    side = False  # noqa
 
 
 class CountedBids(CountedOrderBookSide):
-    side = True
+    side = True  # noqa
 
 
 class IndexedAsks(IndexedOrderBookSide):
-    side = False
+    side = False  # noqa
 
 
 class IndexedBids(IndexedOrderBookSide):
-    side = True
+    side = True  # noqa

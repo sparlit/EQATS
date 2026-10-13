@@ -31,7 +31,6 @@ import io
 import time
 import zipfile
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import requests
@@ -59,11 +58,17 @@ def fetch_one(tag: str) -> pd.DataFrame | None:
         print(f"{tag}: HTTP {r.status_code} — skipped", flush=True)
         return None
     z = zipfile.ZipFile(io.BytesIO(r.content))
-    sub = pd.read_csv(z.open("sub.txt"), sep="\t", dtype=str, usecols=["adsh", "cik", "form", "period", "filed"])
+    sub = pd.read_csv(
+        z.open("sub.txt"), sep="\t", dtype=str, usecols=["adsh", "cik", "form", "period", "filed"]
+    )
     sub = sub[sub["form"].isin(["10-Q", "10-K"])]
     keep = []
     for chunk in pd.read_csv(
-        z.open("num.txt"), sep="\t", dtype=str, usecols=["adsh", "tag", "ddate", "qtrs", "value"], chunksize=1_000_000
+        z.open("num.txt"),
+        sep="\t",
+        dtype=str,
+        usecols=["adsh", "tag", "ddate", "qtrs", "value"],
+        chunksize=1_000_000,
     ):
         c = chunk[chunk["tag"].isin(TAGS) & chunk["qtrs"].isin(["1", "4"])]
         if len(c):

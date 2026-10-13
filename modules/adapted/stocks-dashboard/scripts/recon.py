@@ -104,7 +104,8 @@ def main():
                 if processed % 50 == 0 or processed == len(targets):
                     flush()
                     print(
-                        "  ...%d/%d  symbols_filled=%d  quarters_filled=%d" % (processed, len(targets), touched, filled)
+                        "  ...%d/%d  symbols_filled=%d  quarters_filled=%d"
+                        % (processed, len(targets), touched, filled)
                     )
     flush()
     print("DONE. filled %d quarters across %d symbols." % (filled, touched))

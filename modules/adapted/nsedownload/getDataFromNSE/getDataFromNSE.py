@@ -22,16 +22,12 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import contextlib
-import csv
 import datetime
 import os
-import time
 
-import bs4
 import numpy as np
 import pandas as pd
 import requests
-import timedelta
 from bs4 import BeautifulSoup
 
 
@@ -359,9 +355,9 @@ class data:
             "NIFTY Growth Sectors 15",
         ]
 
-        if indextype in {"Historical", "historical"}:
+        if indextype == "Historical" or indextype == "historical":
             first = "https://www.nseindia.com/products/dynaContent/equities/indices/historicalindices.jsp"
-        elif indextype in {"TRI", "tri"}:
+        elif indextype == "TRI" or indextype == "tri":
             first = "https://www.nseindia.com/products/dynaContent/equities/indices/total_returnindices.jsp"
             values = valuesTRI
             arr = arrTRI
@@ -382,8 +378,7 @@ class data:
             # except (TypeError):
             # 	pass
             if x > y:
-                msg = "Starting date is greater than end date."
-                raise ValueError(msg)
+                raise ValueError("Starting date is greater than end date.")
 
             flag = 0
             for i in xrange(len(arr)):
@@ -393,8 +388,7 @@ class data:
                     flag = 1
 
             if flag == 0:
-                msg = "Check Index name."
-                raise ValueError(msg)
+                raise ValueError("Check Index name.")
 
             # if(flag==0):
             # 	print("ERROR check Index name.")
@@ -410,7 +404,15 @@ class data:
                         fromdate = x.strftime("%d-%m-%Y")
                         # print(fromdate)
                         todate = y.strftime("%d-%m-%Y")
-                        url = first + "?indexType=" + (indexName) + "&fromDate=" + fromdate + "&toDate=" + todate
+                        url = (
+                            first
+                            + "?indexType="
+                            + (indexName)
+                            + "&fromDate="
+                            + fromdate
+                            + "&toDate="
+                            + todate
+                        )
 
                         response = requests.get(url, timeout=240)
                         page_content = BeautifulSoup(response.content, "html.parser")
@@ -422,7 +424,7 @@ class data:
                             f.write(a)
 
                         df = pd.read_csv("data.csv")
-                        df = df.set_index("Date")
+                        df.set_index("Date", inplace=True)
                         df = df[::-1]
                         result = pd.concat([result, df])
                         break
@@ -437,7 +439,15 @@ class data:
                         fromdate = (y - datetime.timedelta(days=364)).strftime("%d-%m-%Y")
                         inter = y - datetime.timedelta(days=364)
                         # print(todate)
-                        url = first + "?indexType=" + (indexName) + "&fromDate=" + fromdate + "&toDate=" + todate
+                        url = (
+                            first
+                            + "?indexType="
+                            + (indexName)
+                            + "&fromDate="
+                            + fromdate
+                            + "&toDate="
+                            + todate
+                        )
 
                         response = requests.get(url, timeout=240)
                         page_content = BeautifulSoup(response.content, "html.parser")
@@ -449,7 +459,7 @@ class data:
                             f.write(a)
 
                         df = pd.read_csv("data.csv")
-                        df = df.set_index("Date")
+                        df.set_index("Date", inplace=True)
                         df = df[::-1]
                         result = pd.concat([result, df])
                         y = inter - datetime.timedelta(days=1)
@@ -457,10 +467,12 @@ class data:
                     except AttributeError:
                         break
 
-        elif full_data in {"Yes", "yes"}:
+        elif full_data == "Yes" or full_data == "yes":
             try:
                 raise IndexError.IndexError.verifyIndex(indexName, values)
             except TypeError:
+                pass
+
                 # for i in xrange(len(arr)):
                 # 	if(arr[i]==indexName or values[i]==indexName):
                 # 		indexName = values[i]
@@ -480,7 +492,15 @@ class data:
                         todate = x.strftime("%d-%m-%Y")
                         fromdate = y.strftime("%d-%m-%Y")
 
-                        url = first + "?indexType=" + (indexName) + "&fromDate=" + fromdate + "&toDate=" + todate
+                        url = (
+                            first
+                            + "?indexType="
+                            + (indexName)
+                            + "&fromDate="
+                            + fromdate
+                            + "&toDate="
+                            + todate
+                        )
 
                         response = requests.get(url, timeout=240)
                         page_content = BeautifulSoup(response.content, "html.parser")
@@ -492,7 +512,7 @@ class data:
                             f.write(a)
 
                         df = pd.read_csv("data.csv")
-                        df = df.set_index("Date")
+                        df.set_index("Date", inplace=True)
                         df = df[::-1]
                         result = pd.concat([result, df])
 
@@ -2205,15 +2225,13 @@ class data:
             y = datetime.datetime.strptime(end_date, "%d-%m-%Y")
 
             if x > y:
-                msg = "Starting date is greater than end date."
-                raise ValueError(msg)
+                raise ValueError("Starting date is greater than end date.")
             # try:
             # 	raise IndexError.IndexError.verifyIndex(stockSymbol,values)
             # except (TypeError):
             # 	pass
             if stockSymbol not in values:
-                msg = "Check the Stock symbol."
-                raise ValueError(msg)
+                raise ValueError("Check the Stock symbol.")
 
             result = pd.DataFrame()
             while True:
@@ -2247,7 +2265,7 @@ class data:
                             f.write(a)
 
                         df = pd.read_csv("data.csv")
-                        df = df.set_index("Date")
+                        df.set_index("Date", inplace=True)
                         df = df[::-1]
                         result = pd.concat([result, df])
                         break
@@ -2287,7 +2305,7 @@ class data:
                             f.write(a)
 
                         df = pd.read_csv("data.csv")
-                        df = df.set_index("Date")
+                        df.set_index("Date", inplace=True)
                         df = df[::-1]
                         result = pd.concat([result, df])
                         y = inter - datetime.timedelta(days=1)
@@ -2295,14 +2313,13 @@ class data:
                     except AttributeError:
                         break
 
-        elif full_data in {"Yes", "yes"}:
+        elif full_data == "Yes" or full_data == "yes":
             # print("YES")
             x = datetime.datetime.now()
             y = datetime.datetime.now() - datetime.timedelta(days=364)
 
             if stockSymbol not in values:
-                msg = "Check the Stock symbol."
-                raise ValueError(msg)
+                raise ValueError("Check the Stock symbol.")
             result = pd.DataFrame()
             while True:
                 try:
@@ -2331,7 +2348,7 @@ class data:
                         f.write(a)
 
                     df = pd.read_csv("data.csv")
-                    df = df.set_index("Date")
+                    df.set_index("Date", inplace=True)
                     df = df[::-1]
                     result = pd.concat([result, df])
 
@@ -2414,11 +2431,11 @@ class data:
         # df["5 Year Returns"] = ( df["Close Price"]/df["Close Price"].shift(1826) ) -1
 
         ar = np.where(df["1 Day Returns"] == 0)
-        df = df.drop(df.index[ar])
+        df.drop(df.index[ar], inplace=True)
 
         df["Date"] = pd.to_datetime(df["Date"]).dt.date
         df.index = df["Date"]
-        df = df.drop(columns="Date")
+        df.drop(columns="Date", inplace=True)
         if link is None:
             df.to_excel(f"{self.indexName}.xls")
         else:
@@ -2495,11 +2512,11 @@ class data:
         # df["5 Year Returns"] = ( df["Close Price"]/df["Close Price"].shift(1826) ) -1
 
         ar = np.where(df["1 Day Returns"] == 0)
-        df = df.drop(df.index[ar])
+        df.drop(df.index[ar], inplace=True)
 
         df["Date"] = pd.to_datetime(df["Date"]).dt.date
         df.index = df["Date"]
-        df = df.drop(columns="Date")
+        df.drop(columns="Date", inplace=True)
         if link is None:
             df.to_excel(f"{self.stockSymbol}.xls")
         else:

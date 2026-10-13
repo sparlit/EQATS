@@ -78,13 +78,17 @@ def dispatch_next_cycle():
         sys.exit(1)
 
     if current < total:
-        print(f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade...")
+        print(
+            f"[+] Progress Matrix Index: ({current} / {total}). Triggering subsequent pipeline cascade..."
+        )
 
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         repo = os.environ.get("GITHUB_REPOSITORY")
 
         if not token or not repo:
-            print("[-] Environment variables missing (GITHUB_TOKEN or GITHUB_REPOSITORY). Skipping REST trigger.")
+            print(
+                "[-] Environment variables missing (GITHUB_TOKEN or GITHUB_REPOSITORY). Skipping REST trigger."
+            )
             return
 
         workflows = [

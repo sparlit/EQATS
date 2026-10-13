@@ -37,7 +37,7 @@ Environment variables
 """
 
 import os
-from typing import TYPE_CHECKING
+from collections.abc import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
@@ -46,9 +46,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import Session, sessionmaker
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Generator
 
 # ── Async engine (API Lambda) ──────────────────────────────────────────────────
 

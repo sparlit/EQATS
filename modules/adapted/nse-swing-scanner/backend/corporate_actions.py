@@ -34,7 +34,6 @@ The exact NSE API path changes; we try a few known candidates.
 """
 
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional
 
 from cache import read_cache, write_cache
 from nse_client import nse_get_json
@@ -112,7 +111,9 @@ def _has_excluded_action_within(actions: list[dict], days: int) -> bool:
     return False
 
 
-def fetch_corporate_actions(symbol: str, *, lookahead_days: int = CORPORATE_ACTION_LOOKAHEAD_DAYS) -> dict:
+def fetch_corporate_actions(
+    symbol: str, *, lookahead_days: int = CORPORATE_ACTION_LOOKAHEAD_DAYS
+) -> dict:
     """
     Returns a source_status dict for one symbol.
     """

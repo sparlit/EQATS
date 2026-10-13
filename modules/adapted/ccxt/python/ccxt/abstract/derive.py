@@ -39,20 +39,49 @@ class ImplicitAPI:
     public_post_deregister_session_key = publicPostDeregisterSessionKey = Entry[_Dict](
         "deregister_session_key", "public", "POST", {"cost": 1}
     )
+    public_post_get_wallets_from_session_key = publicPostGetWalletsFromSessionKey = Entry[_Dict](
+        "get_wallets_from_session_key", "public", "POST", {"cost": 1}
+    )
     public_post_login = publicPostLogin = Entry[_Dict]("login", "public", "POST", {"cost": 1})
-    public_post_statistics = publicPostStatistics = Entry[_Dict]("statistics", "public", "POST", {"cost": 1})
+    public_post_statistics = publicPostStatistics = Entry[_Dict](
+        "statistics", "public", "POST", {"cost": 1}
+    )
+    public_post_all_statistics = publicPostAllStatistics = Entry[_Dict](
+        "all_statistics", "public", "POST", {"cost": 1}
+    )
+    public_post_user_statistics = publicPostUserStatistics = Entry[_Dict](
+        "user_statistics", "public", "POST", {"cost": 1}
+    )
+    public_post_all_user_statistics = publicPostAllUserStatistics = Entry[_Dict](
+        "all_user_statistics", "public", "POST", {"cost": 1}
+    )
     public_post_get_all_currencies = publicPostGetAllCurrencies = Entry[_Dict](
         "get_all_currencies", "public", "POST", {"cost": 1}
     )
-    public_post_get_currency = publicPostGetCurrency = Entry[_Dict]("get_currency", "public", "POST", {"cost": 1})
-    public_post_get_instrument = publicPostGetInstrument = Entry[_Dict]("get_instrument", "public", "POST", {"cost": 1})
+    public_post_get_currency = publicPostGetCurrency = Entry[_Dict](
+        "get_currency", "public", "POST", {"cost": 1}
+    )
+    public_post_get_asset = publicPostGetAsset = Entry[_Dict](
+        "get_asset", "public", "POST", {"cost": 1}
+    )
+    public_post_get_assets = publicPostGetAssets = Entry[_Dict](
+        "get_assets", "public", "POST", {"cost": 1}
+    )
+    public_post_get_instrument = publicPostGetInstrument = Entry[_Dict](
+        "get_instrument", "public", "POST", {"cost": 1}
+    )
     public_post_get_all_instruments = publicPostGetAllInstruments = Entry[_Dict](
         "get_all_instruments", "public", "POST", {"cost": 1}
     )
     public_post_get_instruments = publicPostGetInstruments = Entry[_Dict](
         "get_instruments", "public", "POST", {"cost": 1}
     )
-    public_post_get_ticker = publicPostGetTicker = Entry[_Dict]("get_ticker", "public", "POST", {"cost": 1})
+    public_post_get_ticker = publicPostGetTicker = Entry[_Dict](
+        "get_ticker", "public", "POST", {"cost": 1}
+    )
+    public_post_get_tickers = publicPostGetTickers = Entry[_Dict](
+        "get_tickers", "public", "POST", {"cost": 1}
+    )
     public_post_get_latest_signed_feeds = publicPostGetLatestSignedFeeds = Entry[_Dict](
         "get_latest_signed_feeds", "public", "POST", {"cost": 1}
     )
@@ -64,6 +93,12 @@ class ImplicitAPI:
     )
     public_post_get_spot_feed_history_candles = publicPostGetSpotFeedHistoryCandles = Entry[_Dict](
         "get_spot_feed_history_candles", "public", "POST", {"cost": 1}
+    )
+    public_post_get_index_chart_data = publicPostGetIndexChartData = Entry[_Dict](
+        "get_index_chart_data", "public", "POST", {"cost": 1}
+    )
+    public_post_get_tradingview_chart_data = publicPostGetTradingviewChartData = Entry[_Dict](
+        "get_tradingview_chart_data", "public", "POST", {"cost": 1}
     )
     public_post_get_funding_rate_history = publicPostGetFundingRateHistory = Entry[_Dict](
         "get_funding_rate_history", "public", "POST", {"cost": 1}
@@ -80,32 +115,51 @@ class ImplicitAPI:
     public_post_get_interest_rate_history = publicPostGetInterestRateHistory = Entry[_Dict](
         "get_interest_rate_history", "public", "POST", {"cost": 1}
     )
+    public_post_get_perp_impact_twap = publicPostGetPerpImpactTwap = Entry[_Dict](
+        "get_perp_impact_twap", "public", "POST", {"cost": 1}
+    )
     public_post_get_transaction = publicPostGetTransaction = Entry[_Dict](
         "get_transaction", "public", "POST", {"cost": 1}
     )
-    public_post_get_margin = publicPostGetMargin = Entry[_Dict]("get_margin", "public", "POST", {"cost": 1})
-    public_post_margin_watch = publicPostMarginWatch = Entry[_Dict]("margin_watch", "public", "POST", {"cost": 1})
+    public_post_get_margin = publicPostGetMargin = Entry[_Dict](
+        "get_margin", "public", "POST", {"cost": 1}
+    )
+    public_post_margin_watch = publicPostMarginWatch = Entry[_Dict](
+        "margin_watch", "public", "POST", {"cost": 1}
+    )
+    public_post_order_quote = publicPostOrderQuote = Entry[_Dict](
+        "order_quote", "public", "POST", {"cost": 1}
+    )
     public_post_validate_invite_code = publicPostValidateInviteCode = Entry[_Dict](
         "validate_invite_code", "public", "POST", {"cost": 1}
     )
-    public_post_get_points = publicPostGetPoints = Entry[_Dict]("get_points", "public", "POST", {"cost": 1})
-    public_post_get_all_points = publicPostGetAllPoints = Entry[_Dict]("get_all_points", "public", "POST", {"cost": 1})
+    public_post_get_points = publicPostGetPoints = Entry[_Dict](
+        "get_points", "public", "POST", {"cost": 1}
+    )
+    public_post_get_all_points = publicPostGetAllPoints = Entry[_Dict](
+        "get_all_points", "public", "POST", {"cost": 1}
+    )
     public_post_get_points_leaderboard = publicPostGetPointsLeaderboard = Entry[_Dict](
         "get_points_leaderboard", "public", "POST", {"cost": 1}
     )
     public_post_get_descendant_tree = publicPostGetDescendantTree = Entry[_Dict](
         "get_descendant_tree", "public", "POST", {"cost": 1}
     )
-    public_post_get_tree_roots = publicPostGetTreeRoots = Entry[_Dict]("get_tree_roots", "public", "POST", {"cost": 1})
+    public_post_get_tree_roots = publicPostGetTreeRoots = Entry[_Dict](
+        "get_tree_roots", "public", "POST", {"cost": 1}
+    )
     public_post_get_swell_percent_points = publicPostGetSwellPercentPoints = Entry[_Dict](
         "get_swell_percent_points", "public", "POST", {"cost": 1}
+    )
+    public_post_get_stdrv_snapshots = publicPostGetStdrvSnapshots = Entry[_Dict](
+        "get_stdrv_snapshots", "public", "POST", {"cost": 1}
     )
     public_post_get_vault_assets = publicPostGetVaultAssets = Entry[_Dict](
         "get_vault_assets", "public", "POST", {"cost": 1}
     )
-    public_post_get_etherfi_effective_balances = publicPostGetEtherfiEffectiveBalances = Entry[_Dict](
-        "get_etherfi_effective_balances", "public", "POST", {"cost": 1}
-    )
+    public_post_get_etherfi_effective_balances = publicPostGetEtherfiEffectiveBalances = Entry[
+        _Dict
+    ]("get_etherfi_effective_balances", "public", "POST", {"cost": 1})
     public_post_get_kelp_effective_balances = publicPostGetKelpEffectiveBalances = Entry[_Dict](
         "get_kelp_effective_balances", "public", "POST", {"cost": 1}
     )
@@ -124,14 +178,27 @@ class ImplicitAPI:
     public_post_get_vault_balances = publicPostGetVaultBalances = Entry[_Dict](
         "get_vault_balances", "public", "POST", {"cost": 1}
     )
+    public_post_get_vault_pools = publicPostGetVaultPools = Entry[_Dict](
+        "get_vault_pools", "public", "POST", {"cost": 1}
+    )
+    public_post_get_vault_rates = publicPostGetVaultRates = Entry[_Dict](
+        "get_vault_rates", "public", "POST", {"cost": 1}
+    )
     public_post_estimate_integrator_points = publicPostEstimateIntegratorPoints = Entry[_Dict](
         "estimate_integrator_points", "public", "POST", {"cost": 1}
     )
     public_post_create_subaccount_debug = publicPostCreateSubaccountDebug = Entry[_Dict](
         "create_subaccount_debug", "public", "POST", {"cost": 1}
     )
-    public_post_deposit_debug = publicPostDepositDebug = Entry[_Dict]("deposit_debug", "public", "POST", {"cost": 1})
-    public_post_withdraw_debug = publicPostWithdrawDebug = Entry[_Dict]("withdraw_debug", "public", "POST", {"cost": 1})
+    public_post_create_account_with_secret = publicPostCreateAccountWithSecret = Entry[_Dict](
+        "create_account_with_secret", "public", "POST", {"cost": 1}
+    )
+    public_post_deposit_debug = publicPostDepositDebug = Entry[_Dict](
+        "deposit_debug", "public", "POST", {"cost": 1}
+    )
+    public_post_withdraw_debug = publicPostWithdrawDebug = Entry[_Dict](
+        "withdraw_debug", "public", "POST", {"cost": 1}
+    )
     public_post_send_quote_debug = publicPostSendQuoteDebug = Entry[_Dict](
         "send_quote_debug", "public", "POST", {"cost": 1}
     )
@@ -144,7 +211,15 @@ class ImplicitAPI:
     public_post_register_invite = publicPostRegisterInvite = Entry[_Dict](
         "register_invite", "public", "POST", {"cost": 1}
     )
-    public_post_get_time = publicPostGetTime = Entry[_Dict]("get_time", "public", "POST", {"cost": 1})
+    public_post_get_all_referral_codes = publicPostGetAllReferralCodes = Entry[_Dict](
+        "get_all_referral_codes", "public", "POST", {"cost": 1}
+    )
+    public_post_get_referral_performance = publicPostGetReferralPerformance = Entry[_Dict](
+        "get_referral_performance", "public", "POST", {"cost": 1}
+    )
+    public_post_get_time = publicPostGetTime = Entry[_Dict](
+        "get_time", "public", "POST", {"cost": 1}
+    )
     public_post_get_live_incidents = publicPostGetLiveIncidents = Entry[_Dict](
         "get_live_incidents", "public", "POST", {"cost": 1}
     )
@@ -154,7 +229,15 @@ class ImplicitAPI:
     public_post_get_maker_program_scores = publicPostGetMakerProgramScores = Entry[_Dict](
         "get_maker_program_scores", "public", "POST", {"cost": 1}
     )
-    private_post_get_account = privatePostGetAccount = Entry[_Dict]("get_account", "private", "POST", {"cost": 1})
+    public_post_get_detailed_maker_snapshot_history = publicPostGetDetailedMakerSnapshotHistory = (
+        Entry[_Dict]("get_detailed_maker_snapshot_history", "public", "POST", {"cost": 1})
+    )
+    public_post_getratelimits = publicPostGetRateLimits = Entry[_Dict](
+        "getRateLimits", "public", "POST", {"cost": 1}
+    )
+    private_post_get_account = privatePostGetAccount = Entry[_Dict](
+        "get_account", "private", "POST", {"cost": 1}
+    )
     private_post_create_subaccount = privatePostCreateSubaccount = Entry[_Dict](
         "create_subaccount", "private", "POST", {"cost": 1}
     )
@@ -173,11 +256,18 @@ class ImplicitAPI:
     private_post_get_notificationsv = privatePostGetNotificationsv = Entry[_Dict](
         "get_notificationsv", "private", "POST", {"cost": 1}
     )
+    private_post_get_notifications = privatePostGetNotifications = Entry[_Dict](
+        "get_notifications", "private", "POST", {"cost": 1}
+    )
     private_post_update_notifications = privatePostUpdateNotifications = Entry[_Dict](
         "update_notifications", "private", "POST", {"cost": 1}
     )
-    private_post_deposit = privatePostDeposit = Entry[_Dict]("deposit", "private", "POST", {"cost": 1})
-    private_post_withdraw = privatePostWithdraw = Entry[_Dict]("withdraw", "private", "POST", {"cost": 1})
+    private_post_deposit = privatePostDeposit = Entry[_Dict](
+        "deposit", "private", "POST", {"cost": 1}
+    )
+    private_post_withdraw = privatePostWithdraw = Entry[_Dict](
+        "withdraw", "private", "POST", {"cost": 1}
+    )
     private_post_transfer_erc20 = privatePostTransferErc20 = Entry[_Dict](
         "transfer_erc20", "private", "POST", {"cost": 1}
     )
@@ -188,12 +278,26 @@ class ImplicitAPI:
         "transfer_positions", "private", "POST", {"cost": 1}
     )
     private_post_order = privatePostOrder = Entry[_Dict]("order", "private", "POST", {"cost": 1})
-    private_post_replace = privatePostReplace = Entry[_Dict]("replace", "private", "POST", {"cost": 1})
-    private_post_order_debug = privatePostOrderDebug = Entry[_Dict]("order_debug", "private", "POST", {"cost": 1})
-    private_post_get_order = privatePostGetOrder = Entry[_Dict]("get_order", "private", "POST", {"cost": 1})
-    private_post_get_orders = privatePostGetOrders = Entry[_Dict]("get_orders", "private", "POST", {"cost": 1})
+    private_post_replace = privatePostReplace = Entry[_Dict](
+        "replace", "private", "POST", {"cost": 1}
+    )
+    private_post_order_debug = privatePostOrderDebug = Entry[_Dict](
+        "order_debug", "private", "POST", {"cost": 1}
+    )
+    private_post_get_order = privatePostGetOrder = Entry[_Dict](
+        "get_order", "private", "POST", {"cost": 1}
+    )
+    private_post_get_orders = privatePostGetOrders = Entry[_Dict](
+        "get_orders", "private", "POST", {"cost": 1}
+    )
     private_post_get_open_orders = privatePostGetOpenOrders = Entry[_Dict](
         "get_open_orders", "private", "POST", {"cost": 1}
+    )
+    private_post_get_trigger_orders = privatePostGetTriggerOrders = Entry[_Dict](
+        "get_trigger_orders", "private", "POST", {"cost": 1}
+    )
+    private_post_get_algo_orders = privatePostGetAlgoOrders = Entry[_Dict](
+        "get_algo_orders", "private", "POST", {"cost": 1}
     )
     private_post_cancel = privatePostCancel = Entry[_Dict]("cancel", "private", "POST", {"cost": 1})
     private_post_cancel_by_label = privatePostCancelByLabel = Entry[_Dict](
@@ -205,9 +309,20 @@ class ImplicitAPI:
     private_post_cancel_by_instrument = privatePostCancelByInstrument = Entry[_Dict](
         "cancel_by_instrument", "private", "POST", {"cost": 1}
     )
-    private_post_cancel_all = privatePostCancelAll = Entry[_Dict]("cancel_all", "private", "POST", {"cost": 1})
+    private_post_cancel_all = privatePostCancelAll = Entry[_Dict](
+        "cancel_all", "private", "POST", {"cost": 1}
+    )
     private_post_cancel_trigger_order = privatePostCancelTriggerOrder = Entry[_Dict](
         "cancel_trigger_order", "private", "POST", {"cost": 1}
+    )
+    private_post_cancel_algo_order = privatePostCancelAlgoOrder = Entry[_Dict](
+        "cancel_algo_order", "private", "POST", {"cost": 1}
+    )
+    private_post_cancel_all_algo_orders = privatePostCancelAllAlgoOrders = Entry[_Dict](
+        "cancel_all_algo_orders", "private", "POST", {"cost": 1}
+    )
+    private_post_cancel_all_trigger_orders = privatePostCancelAllTriggerOrders = Entry[_Dict](
+        "cancel_all_trigger_orders", "private", "POST", {"cost": 1}
     )
     private_post_get_order_history = privatePostGetOrderHistory = Entry[_Dict](
         "get_order_history", "private", "POST", {"cost": 1}
@@ -221,38 +336,66 @@ class ImplicitAPI:
     private_post_get_withdrawal_history = privatePostGetWithdrawalHistory = Entry[_Dict](
         "get_withdrawal_history", "private", "POST", {"cost": 1}
     )
-    private_post_send_rfq = privatePostSendRfq = Entry[_Dict]("send_rfq", "private", "POST", {"cost": 1})
-    private_post_cancel_rfq = privatePostCancelRfq = Entry[_Dict]("cancel_rfq", "private", "POST", {"cost": 1})
+    private_post_send_rfq = privatePostSendRfq = Entry[_Dict](
+        "send_rfq", "private", "POST", {"cost": 1}
+    )
+    private_post_cancel_rfq = privatePostCancelRfq = Entry[_Dict](
+        "cancel_rfq", "private", "POST", {"cost": 1}
+    )
     private_post_cancel_batch_rfqs = privatePostCancelBatchRfqs = Entry[_Dict](
         "cancel_batch_rfqs", "private", "POST", {"cost": 1}
     )
-    private_post_get_rfqs = privatePostGetRfqs = Entry[_Dict]("get_rfqs", "private", "POST", {"cost": 1})
-    private_post_poll_rfqs = privatePostPollRfqs = Entry[_Dict]("poll_rfqs", "private", "POST", {"cost": 1})
-    private_post_send_quote = privatePostSendQuote = Entry[_Dict]("send_quote", "private", "POST", {"cost": 1})
-    private_post_cancel_quote = privatePostCancelQuote = Entry[_Dict]("cancel_quote", "private", "POST", {"cost": 1})
+    private_post_get_rfqs = privatePostGetRfqs = Entry[_Dict](
+        "get_rfqs", "private", "POST", {"cost": 1}
+    )
+    private_post_poll_rfqs = privatePostPollRfqs = Entry[_Dict](
+        "poll_rfqs", "private", "POST", {"cost": 1}
+    )
+    private_post_send_quote = privatePostSendQuote = Entry[_Dict](
+        "send_quote", "private", "POST", {"cost": 1}
+    )
+    private_post_cancel_quote = privatePostCancelQuote = Entry[_Dict](
+        "cancel_quote", "private", "POST", {"cost": 1}
+    )
     private_post_cancel_batch_quotes = privatePostCancelBatchQuotes = Entry[_Dict](
         "cancel_batch_quotes", "private", "POST", {"cost": 1}
     )
-    private_post_get_quotes = privatePostGetQuotes = Entry[_Dict]("get_quotes", "private", "POST", {"cost": 1})
-    private_post_poll_quotes = privatePostPollQuotes = Entry[_Dict]("poll_quotes", "private", "POST", {"cost": 1})
-    private_post_execute_quote = privatePostExecuteQuote = Entry[_Dict]("execute_quote", "private", "POST", {"cost": 1})
+    private_post_get_quotes = privatePostGetQuotes = Entry[_Dict](
+        "get_quotes", "private", "POST", {"cost": 1}
+    )
+    private_post_poll_quotes = privatePostPollQuotes = Entry[_Dict](
+        "poll_quotes", "private", "POST", {"cost": 1}
+    )
+    private_post_execute_quote = privatePostExecuteQuote = Entry[_Dict](
+        "execute_quote", "private", "POST", {"cost": 1}
+    )
+    private_post_order_quote = privatePostOrderQuote = Entry[_Dict](
+        "order_quote", "private", "POST", {"cost": 1}
+    )
+    private_post_replace_quote = privatePostReplaceQuote = Entry[_Dict](
+        "replace_quote", "private", "POST", {"cost": 1}
+    )
     private_post_rfq_get_best_quote = privatePostRfqGetBestQuote = Entry[_Dict](
         "rfq_get_best_quote", "private", "POST", {"cost": 1}
     )
-    private_post_get_margin = privatePostGetMargin = Entry[_Dict]("get_margin", "private", "POST", {"cost": 1})
+    private_post_get_margin = privatePostGetMargin = Entry[_Dict](
+        "get_margin", "private", "POST", {"cost": 1}
+    )
     private_post_get_collaterals = privatePostGetCollaterals = Entry[_Dict](
         "get_collaterals", "private", "POST", {"cost": 1}
     )
-    private_post_get_positions = privatePostGetPositions = Entry[_Dict]("get_positions", "private", "POST", {"cost": 1})
-    private_post_get_option_settlement_history = privatePostGetOptionSettlementHistory = Entry[_Dict](
-        "get_option_settlement_history", "private", "POST", {"cost": 1}
+    private_post_get_positions = privatePostGetPositions = Entry[_Dict](
+        "get_positions", "private", "POST", {"cost": 1}
     )
+    private_post_get_option_settlement_history = privatePostGetOptionSettlementHistory = Entry[
+        _Dict
+    ]("get_option_settlement_history", "private", "POST", {"cost": 1})
     private_post_get_subaccount_value_history = privatePostGetSubaccountValueHistory = Entry[_Dict](
         "get_subaccount_value_history", "private", "POST", {"cost": 1}
     )
-    private_post_expired_and_cancelled_history = privatePostExpiredAndCancelledHistory = Entry[_Dict](
-        "expired_and_cancelled_history", "private", "POST", {"cost": 1}
-    )
+    private_post_expired_and_cancelled_history = privatePostExpiredAndCancelledHistory = Entry[
+        _Dict
+    ]("expired_and_cancelled_history", "private", "POST", {"cost": 1})
     private_post_get_funding_history = privatePostGetFundingHistory = Entry[_Dict](
         "get_funding_history", "private", "POST", {"cost": 1}
     )
@@ -265,13 +408,20 @@ class ImplicitAPI:
     private_post_get_liquidation_history = privatePostGetLiquidationHistory = Entry[_Dict](
         "get_liquidation_history", "private", "POST", {"cost": 1}
     )
-    private_post_liquidate = privatePostLiquidate = Entry[_Dict]("liquidate", "private", "POST", {"cost": 1})
+    private_post_liquidate = privatePostLiquidate = Entry[_Dict](
+        "liquidate", "private", "POST", {"cost": 1}
+    )
     private_post_get_liquidator_history = privatePostGetLiquidatorHistory = Entry[_Dict](
         "get_liquidator_history", "private", "POST", {"cost": 1}
     )
-    private_post_session_keys = privatePostSessionKeys = Entry[_Dict]("session_keys", "private", "POST", {"cost": 1})
+    private_post_session_keys = privatePostSessionKeys = Entry[_Dict](
+        "session_keys", "private", "POST", {"cost": 1}
+    )
     private_post_edit_session_key = privatePostEditSessionKey = Entry[_Dict](
         "edit_session_key", "private", "POST", {"cost": 1}
+    )
+    private_post_change_session_key_label = privatePostChangeSessionKeyLabel = Entry[_Dict](
+        "change_session_key_label", "private", "POST", {"cost": 1}
     )
     private_post_register_scoped_session_key = privatePostRegisterScopedSessionKey = Entry[_Dict](
         "register_scoped_session_key", "private", "POST", {"cost": 1}
@@ -282,7 +432,9 @@ class ImplicitAPI:
     private_post_set_mmp_config = privatePostSetMmpConfig = Entry[_Dict](
         "set_mmp_config", "private", "POST", {"cost": 1}
     )
-    private_post_reset_mmp = privatePostResetMmp = Entry[_Dict]("reset_mmp", "private", "POST", {"cost": 1})
+    private_post_reset_mmp = privatePostResetMmp = Entry[_Dict](
+        "reset_mmp", "private", "POST", {"cost": 1}
+    )
     private_post_set_cancel_on_disconnect = privatePostSetCancelOnDisconnect = Entry[_Dict](
         "set_cancel_on_disconnect", "private", "POST", {"cost": 1}
     )
@@ -291,4 +443,16 @@ class ImplicitAPI:
     )
     private_post_register_invite = privatePostRegisterInvite = Entry[_Dict](
         "register_invite", "private", "POST", {"cost": 1}
+    )
+    private_post_get_contact_info = privatePostGetContactInfo = Entry[_Dict](
+        "get_contact_info", "private", "POST", {"cost": 1}
+    )
+    private_post_create_contact_info = privatePostCreateContactInfo = Entry[_Dict](
+        "create_contact_info", "private", "POST", {"cost": 1}
+    )
+    private_post_update_contact_info = privatePostUpdateContactInfo = Entry[_Dict](
+        "update_contact_info", "private", "POST", {"cost": 1}
+    )
+    private_post_delete_contact_info = privatePostDeleteContactInfo = Entry[_Dict](
+        "delete_contact_info", "private", "POST", {"cost": 1}
     )

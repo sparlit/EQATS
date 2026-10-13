@@ -931,7 +931,8 @@ class LagPrepBottlenecks:
         self._pooled_arrays = base_arrays
         self._pooled_dates = dates
         self._history_dates = {
-            sym: df.loc[df["symbol"] == sym, "date"].to_numpy(dtype="datetime64[ns]") for sym in self._symbols
+            sym: df.loc[df["symbol"] == sym, "date"].to_numpy(dtype="datetime64[ns]")
+            for sym in self._symbols
         }
         self._lag_cache = {}
         self._history_dates_out: dict[str, np.ndarray] = {}
@@ -959,7 +960,7 @@ class LagPrepBottlenecks:
             self._history_dates_out,
         )
         model_input = model_input_from_arrays(
-            (*self._columns, "symbol"),
+            self._columns + ("symbol",),
             self._pooled_arrays,
             self._pooled_dates,
         )
@@ -1529,7 +1530,9 @@ class ModelTrainParallel:
             between_time=None,
             days=None,
         )
-        self._model_syms = [ModelSymbol("bench_ridge", sym) for sym in sorted(df["symbol"].unique().tolist())]
+        self._model_syms = [
+            ModelSymbol("bench_ridge", sym) for sym in sorted(df["symbol"].unique().tolist())
+        ]
         model("bench_ridge", _train_bench_ridge)
         self._saved_parallel = pybroker.get_parallel_config()
         pybroker.set_parallel(n_jobs=4)

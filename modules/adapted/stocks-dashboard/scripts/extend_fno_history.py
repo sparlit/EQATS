@@ -62,7 +62,17 @@ def fno_stocks_on(yyyymmdd):
     """Distinct stock-F&O underlyings trading on a date, from the UDiFF derivatives bhavcopy."""
     url = f"https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{yyyymmdd}_F_0000.csv.zip"
     r = subprocess.run(
-        ["curl", "-sL", "-A", UA, "-H", "Referer: https://www.nseindia.com/", "--max-time", "45", url],
+        [
+            "curl",
+            "-sL",
+            "-A",
+            UA,
+            "-H",
+            "Referer: https://www.nseindia.com/",
+            "--max-time",
+            "45",
+            url,
+        ],
         capture_output=True,
         timeout=70,
     )
@@ -99,7 +109,11 @@ def fno_stocks_on(yyyymmdd):
 # Explicit dates = backfill mode. No args = cron mode: snapshot the LATEST available trading day
 # (try today back 7 days; first valid bhavcopy wins).
 LATEST = not sys.argv[1:]
-targets = sys.argv[1:] or [(datetime.date.today() - datetime.timedelta(days=i)).strftime("%Y%m%d") for i in range(7)]
+targets = (
+    sys.argv[1:]
+    if sys.argv[1:]
+    else [(datetime.date.today() - datetime.timedelta(days=i)).strftime("%Y%m%d") for i in range(7)]
+)
 hist = json.loads(HIST.read_text())
 existing = {s["effectiveDate"] for s in hist}
 hist.sort(key=lambda s: s["effectiveDate"])
@@ -135,8 +149,13 @@ print("fno_history.json snapshots:", len(hist), "| appended:", added)
 # patch stock_data.bin in place (preserve everything else; just swap fnoHistory). Unchanged ->
 # leave the file untouched, and write with mtime=0 — same reasons as build_membership_v2.py (§103a).
 D = json.loads(gzip.decompress(BIN.read_bytes()))
-if json.dumps(D.get("fnoHistory"), separators=(",", ":")) == json.dumps(hist, separators=(",", ":")):
-    print("docs/stock_data.bin fnoHistory unchanged — not rewritten (latest", hist[-1]["effectiveDate"] + ")")
+if json.dumps(D.get("fnoHistory"), separators=(",", ":")) == json.dumps(
+    hist, separators=(",", ":")
+):
+    print(
+        "docs/stock_data.bin fnoHistory unchanged — not rewritten (latest",
+        hist[-1]["effectiveDate"] + ")",
+    )
 else:
     D["fnoHistory"] = hist
     BIN.write_bytes(gzip.compress(json.dumps(D, separators=(",", ":")).encode(), 6, mtime=0))

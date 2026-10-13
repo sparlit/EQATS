@@ -30,6 +30,7 @@ Stored in institutional(symbol,date,accum,delivery_pct).
 import datetime as dt
 
 import db
+import universe_helper as U
 
 
 def _ensure(conn):
@@ -44,7 +45,8 @@ def accumulation_score(symbol, conn=None):
         conn = db.get_conn()
         own = True
     rows = conn.execute(
-        "SELECT close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 21", (symbol,)
+        "SELECT close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT 21",
+        (symbol,),
     ).fetchall()
     if own:
         conn.close()
@@ -53,7 +55,7 @@ def accumulation_score(symbol, conn=None):
     rows = list(reversed(rows))
     up = dn = 0.0
     for i in range(1, len(rows)):
-        pc, _pv = rows[i - 1]
+        pc, pv = rows[i - 1]
         c, v = rows[i]
         if c > pc:
             up += v
@@ -72,7 +74,10 @@ def fetch_delivery_nse(symbol):
 
         d = dt.date.today()
         for fmt in ("%d%m%Y",):
-            url = f"https://archives.nseindia.com/products/content/sec_bhavdata_full_{d.strftime(fmt)}.csv"
+            url = (
+                "https://archives.nseindia.com/products/content/"
+                f"sec_bhavdata_full_{d.strftime(fmt)}.csv"
+            )
             r = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
             if r.status_code != 200:
                 continue
@@ -94,13 +99,7 @@ def fetch_delivery_nse(symbol):
 def refresh(limit=300, use_nse=False):
     conn = db.get_conn()
     _ensure(conn)
-    syms = [
-        r[0]
-        for r in conn.execute(
-            "SELECT symbol FROM universe_broad WHERE mcap_cr BETWEEN 1000 AND 8000 ORDER BY mcap_cr DESC LIMIT ?",
-            (limit,),
-        )
-    ]
+    syms = U.band_universe(conn, limit)
     today = dt.date.today().isoformat()
     n = 0
     for sym in syms:

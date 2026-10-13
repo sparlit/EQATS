@@ -101,7 +101,9 @@ def _apply_g6_gate(df):
         print(f"Weinstein-only gate: {len(df)} -> {len(out)} pass ({len(df) - len(out)} dropped)")
         return out
     return df[
-        (df["weinstein_stage2"]) & (~df["lottery_class"].isin(G6_EXCLUDED_LOTTERY)) & (df["rs_excess_ret_mkt"] > 0)
+        (df["weinstein_stage2"])
+        & (~df["lottery_class"].isin(G6_EXCLUDED_LOTTERY))
+        & (df["rs_excess_ret_mkt"] > 0)
     ].copy()
 
 
@@ -124,7 +126,9 @@ def compute_mr_scores(signals_df):
         print(f"ADTV filter (p10=Rs{adtv_p10:.2f}Cr): {before} -> {len(df)}")
 
     # Drop rows missing any scoring input
-    bad = df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    bad = (
+        df["vol_252"].isna() | (df["vol_252"] == 0) | df["ret_12m1m"].isna() | df["ret_6m1m"].isna()
+    )
     df = df[~bad].copy()
 
     if len(df) < 10:
@@ -138,7 +142,9 @@ def compute_mr_scores(signals_df):
 
     df["weighted_z"] = 0.5 * df["z_12"] + 0.5 * df["z_6"]
 
-    df["norm_momentum_score"] = df["weighted_z"].apply(lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz))
+    df["norm_momentum_score"] = df["weighted_z"].apply(
+        lambda wz: 1 + wz if wz >= 0 else 1.0 / (1.0 - wz)
+    )
 
     df["mr_rank"] = df["norm_momentum_score"].rank(method="min", ascending=False).astype("Int64")
 
@@ -170,7 +176,9 @@ def reconstitute(ranked_df, current_holdings):
     forced_out |= unscored_holdings  # unscored holdings also exit
 
     # Top FORCED_IN_N non-holders
-    non_holders_ranked = ranked_df[~ranked_df["symbol"].isin(scoreable_holdings)].sort_values("mr_rank")
+    non_holders_ranked = ranked_df[~ranked_df["symbol"].isin(scoreable_holdings)].sort_values(
+        "mr_rank"
+    )
     forced_in = set(non_holders_ranked.head(FORCED_IN_N)["symbol"])
 
     # Edge case: retained + forced_in > PORTFOLIO_N
@@ -228,7 +236,10 @@ prices = pd.read_parquet(PRICES_PATH)
 print(f"  shape      : {prices.shape}")
 print(f"  date range : {prices['date'].min().date()} -> {prices['date'].max().date()}")
 
-open_by_date = {pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict() for date, grp in prices.groupby("date")}
+open_by_date = {
+    pd.Timestamp(date): grp.set_index("symbol")["open"].to_dict()
+    for date, grp in prices.groupby("date")
+}
 all_trading_days = sorted(open_by_date.keys())
 print(f"  trading days indexed: {len(all_trading_days)}")
 del prices
@@ -257,7 +268,9 @@ print("Building Friday-signal -> Monday-open week pairs ...")
 fri_files = sorted(
     f
     for f in os.listdir(FRI_SIG_DIR)
-    if f.startswith("signals_") and f.endswith(".parquet") and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
+    if f.startswith("signals_")
+    and f.endswith(".parquet")
+    and os.path.isfile(os.path.join(FRI_SIG_DIR, f))
 )
 
 mon_pairs = []

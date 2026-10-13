@@ -22,14 +22,13 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
+from database.models import Indicies, Script, User
 from flask import Response
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restful import Resource
 from mongoengine.errors import DoesNotExist
-
-from database.models import Indicies, Script, User
 
 
 def date_handler(obj):
@@ -49,26 +48,53 @@ class History(Resource):
             if exchange == "nse":
                 if "nseHist" in script and len(script.nseHist) > 0:
                     response = {"name": script.name, "hist": script.nseHist}
-                    return Response(json.dumps(response, default=date_handler), mimetype="application/json", status=200)
+                    return Response(
+                        json.dumps(response, default=date_handler),
+                        mimetype="application/json",
+                        status=200,
+                    )
                 return {"type": "warning", "warning": script.name + " is not traded on NSE."}, 200
             if exchange == "bse":
                 if "bseHist" in script and len(script.bseHist) > 0:
                     response = {"name": script.name, "hist": script.bseHist}
-                    return Response(json.dumps(response, default=date_handler), mimetype="application/json", status=200)
+                    return Response(
+                        json.dumps(response, default=date_handler),
+                        mimetype="application/json",
+                        status=200,
+                    )
                 return {"type": "warning", "warning": script.name + " is not traded on BSE."}, 200
             if exchange is None:
                 if "nseHist" in script and len(script.nseHist) > 0:
                     response = {"name": script.name, "hist": script.nseHist}
-                    return Response(json.dumps(response, default=date_handler), mimetype="application/json", status=200)
+                    return Response(
+                        json.dumps(response, default=date_handler),
+                        mimetype="application/json",
+                        status=200,
+                    )
                 if "bseHist" in script and len(script.bseHist) > 0:
                     response = {"name": script.name, "hist": script.bseHist}
-                    return Response(json.dumps(response, default=date_handler), mimetype="application/json", status=200)
-                return {"type": "warning", "warning": script.name + " is not traded in last 90 days."}, 200
+                    return Response(
+                        json.dumps(response, default=date_handler),
+                        mimetype="application/json",
+                        status=200,
+                    )
+                return {
+                    "type": "warning",
+                    "warning": script.name + " is not traded in last 90 days.",
+                }, 200
         except DoesNotExist:
             try:
                 indicies = Indicies.objects.get(stkexchg__iexact=code)
-                response = {"stkexchg": indicies.stkexchg, "name": indicies.stkexchg, "hist": indicies.history}
-                return Response(json.dumps(response, default=date_handler), mimetype="application/json", status=200)
+                response = {
+                    "stkexchg": indicies.stkexchg,
+                    "name": indicies.stkexchg,
+                    "hist": indicies.history,
+                }
+                return Response(
+                    json.dumps(response, default=date_handler),
+                    mimetype="application/json",
+                    status=200,
+                )
             except DoesNotExist:
                 return {"type": "error", "error": "Object not Found."}, 200
         except Exception as e:

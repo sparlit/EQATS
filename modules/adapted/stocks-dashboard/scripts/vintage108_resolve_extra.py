@@ -59,9 +59,9 @@ OUT = os.path.join(HERE, "_vintage108_scrips_extra.json")
 def main():
     scan = json.load(open(os.path.join(HERE, "_vintage108_scan.json"), encoding="utf-8"))
     want = sorted(scan.get("no_scrip", {}))
-    meta = json.loads(gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())).get(
-        "meta", {}
-    )
+    meta = json.loads(
+        gzip.decompress(open(os.path.join(ROOT, "docs", "sf_stock_data.bin"), "rb").read())
+    ).get("meta", {})
     master = json.load(open(os.path.join(HERE, "_bse_master_all.json"), encoding="utf-8"))
 
     by_isin, by_prefix = defaultdict(list), defaultdict(list)

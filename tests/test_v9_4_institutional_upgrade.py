@@ -2,10 +2,8 @@
 EQATS Version 9.4 Institutional Upgrade Verification Suite
 Verifies version assertions, ScalperBrain v9.4 attributes, and space padding distance validation.
 """
-from typing import Any
-import pytest
-import brain
 from brain import ScalperBrain
+
 
 def test_v9_4_version_assertions() -> None:
     scalper = ScalperBrain()

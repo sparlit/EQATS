@@ -54,9 +54,12 @@ rename_map = load("scripts/_rename_map.json")
 snaps = sorted(idx_hist["Nifty 500"], key=lambda s: s["effectiveDate"])
 
 fund = {
-    s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3} for s, rows in load("docs/sf_fundamentals.json").items()
+    s: {int(r[0]): (r[1], r[3]) for r in rows if len(r) > 3}
+    for s, rows in load("docs/sf_fundamentals.json").items()
 }
-revop = {s: {int(q): (v[0], v[1]) for q, v in d.items()} for s, d in load("docs/sf_revop.json").items()}
+revop = {
+    s: {int(q): (v[0], v[1]) for q, v in d.items()} for s, d in load("docs/sf_revop.json").items()
+}
 
 
 def resolve(sym, target):
@@ -237,7 +240,14 @@ print("quarter    members |  rev std  rev con |  pat std  pat con")
 for r in rows:
     print(
         "%8d %8d | %8d %8d | %8d %8d"
-        % (r["qe"], r["members"], r["rev_std_empty"], r["rev_con_empty"], r["pat_std_empty"], r["pat_con_empty"])
+        % (
+            r["qe"],
+            r["members"],
+            r["rev_std_empty"],
+            r["rev_con_empty"],
+            r["pat_std_empty"],
+            r["pat_con_empty"],
+        )
     )
 
 start, now = sum(BASELINE.values()), sum(tot.values())
@@ -245,11 +255,17 @@ print("\nCAMPAIGN WINDOW %d..20260331 (Jun-2026 excluded, still filing)" % WINDO
 print("%-7s %7s %7s %7s" % ("field", "start", "now", "closed"))
 for k in ("revS", "revC", "patS", "patC"):
     print("%-7s %7d %7d %7d" % (k, BASELINE[k], tot[k], BASELINE[k] - tot[k]))
-print("%-7s %7d %7d %7d  (%.0f%% closed)" % ("TOTAL", start, now, start - now, 100.0 * (start - now) / start))
+print(
+    "%-7s %7d %7d %7d  (%.0f%% closed)"
+    % ("TOTAL", start, now, start - now, 100.0 * (start - now) / start)
+)
 na_p = sum(r["pat_con_na"] for r in rows if WINDOW_START <= r["qe"] <= 20260331)
 na_r = sum(r["rev_con_na"] for r in rows if WINDOW_START <= r["qe"] <= 20260331)
 if na_p or na_r:
-    print("\nNOT APPLICABLE (company stopped filing consolidated - nothing to fill):  patC %d, revC %d" % (na_p, na_r))
+    print(
+        "\nNOT APPLICABLE (company stopped filing consolidated - nothing to fill):"
+        "  patC %d, revC %d" % (na_p, na_r)
+    )
     print("  These are excluded from the gap counts above. Ledger: scripts/no_con_filing.json")
 
 if "--json" in sys.argv:

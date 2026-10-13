@@ -71,7 +71,9 @@ SECTORS: dict[str, list[str]] = {
 }
 
 # Reverse map: symbol → sector (derived from SECTORS above)
-SYMBOL_SECTOR: dict[str, str] = {sym: sector for sector, symbols in SECTORS.items() for sym in symbols}
+SYMBOL_SECTOR: dict[str, str] = {
+    sym: sector for sector, symbols in SECTORS.items() for sym in symbols
+}
 
 # Scoring weights for daily stock ranking (Phase 2)
 # Must sum to 1.0

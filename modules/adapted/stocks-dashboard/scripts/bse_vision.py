@@ -46,7 +46,6 @@ import concurrent.futures
 import contextlib
 import gzip
 import http.cookiejar
-import io
 import json
 import os
 import re
@@ -75,8 +74,7 @@ def watchdog(fn, secs, *a):
     except concurrent.futures.TimeoutError:
         _WEX[0].shutdown(wait=False)
         _WEX[0] = None  # drop the stuck thread, fresh executor next call
-        msg = "watchdog"
-        raise TimeoutError(msg)
+        raise TimeoutError("watchdog")
 
 
 UA = BH.UA  # honest BSE identity (§181) -- no browser impersonation
@@ -123,14 +121,19 @@ PAT = [
 def session():
     o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     with contextlib.suppress(Exception):
-        o.open(urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30).read()
+        o.open(
+            urllib.request.Request("https://www.bseindia.com/", headers=BH.HEADERS), timeout=30
+        ).read()
     return o
 
 
 def get(o, u, b=False):
     r = o.open(
         urllib.request.Request(
-            u, headers=BH.HEADERS if BH.is_bse(u) else {"User-Agent": _UA_OTHER, "Referer": "https://www.bseindia.com/"}
+            u,
+            headers=BH.HEADERS
+            if BH.is_bse(u)
+            else {"User-Agent": _UA_OTHER, "Referer": "https://www.bseindia.com/"},
         ),
         timeout=60,
     )
@@ -172,7 +175,8 @@ def filings(o, code, pages=12, since="20230101"):
     for pg in range(1, pages + 1):
         u = (
             "https://api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w?pageno=%d&strCat=-1"
-            "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=20261231&strType=C" % (pg, since, code)
+            "&strPrevDate=%s&strScrip=%d&strSearch=P&strToDate=20261231&strType=C"
+            % (pg, since, code)
         )
         try:
             rows = json.loads(get(o, u)).get("Table", [])
@@ -216,7 +220,10 @@ def locate(pdf, expect):
         res, _ = OCR(pm.tobytes("png"))
         if not res:
             continue
-        boxes = [{"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4} for b, t, sc in res]
+        boxes = [
+            {"t": t, "x": sum(p[0] for p in b) / 4, "y": sum(p[1] for p in b) / 4}
+            for b, t, sc in res
+        ]
         flat = " ".join(b["t"] for b in boxes).lower()
         flatns = flat.replace(" ", "")
         if expect in flatns:
@@ -231,13 +238,17 @@ def locate(pdf, expect):
                 for c in [
                     b
                     for b in boxes
-                    if re.search(pat, b["t"], re.IGNORECASE)
-                    and not re.search(r"before tax|comprehensive|exceptional|operating", b["t"], re.IGNORECASE)
+                    if re.search(pat, b["t"], re.I)
+                    and not re.search(
+                        r"before tax|comprehensive|exceptional|operating", b["t"], re.I
+                    )
                 ]:
                     rownums = [
                         b
                         for b in boxes
-                        if abs(b["y"] - c["y"]) < 14 and b["x"] > c["x"] + 5 and ISNUM.match(b["t"].strip())
+                        if abs(b["y"] - c["y"]) < 14
+                        and b["x"] > c["x"] + 5
+                        and ISNUM.match(b["t"].strip())
                     ]
                     if len(rownums) >= 3:  # real table row, not prose
                         qe = qe_from(flat)
@@ -246,7 +257,9 @@ def locate(pdf, expect):
                             ry = c["y"] / pm.height * H
                             clip = fitz.Rect(pg.rect.x0, ry - H * 0.045, pg.rect.x1, ry + H * 0.028)
                             pix = pg.get_pixmap(dpi=300, clip=clip)
-                            img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)
+                            img = np.frombuffer(pix.samples, np.uint8).reshape(
+                                pix.height, pix.width, pix.n
+                            )
                             img = (
                                 cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                                 if pix.n == 3
@@ -313,10 +326,16 @@ def main():
         crops = [
             f
             for f in os.listdir(VP)
-            if f.startswith(sym + "_") and f.endswith(".png") and "batch" not in f and "salv" not in f
+            if f.startswith(sym + "_")
+            and f.endswith(".png")
+            and "batch" not in f
+            and "salv" not in f
         ]
         if len(crops) >= nq or len(recorded.get(sym, [])) >= nq:
-            print("%s: already done (%d crops / %d recorded) — skip" % (sym, len(crops), len(recorded.get(sym, []))))
+            print(
+                "%s: already done (%d crops / %d recorded) — skip"
+                % (sym, len(crops), len(recorded.get(sym, [])))
+            )
             continue
         try:
             o = session()
@@ -325,7 +344,11 @@ def main():
             print(f"{sym}: filings failed {str(e)[:40]}")
             continue
         print("%s: %d result filings found" % (sym, len(fl)))
-        seen = {int(re.search(r"_(\d+)\.png$", f).group(1)) for f in crops if re.search(r"_(\d+)\.png$", f)}
+        seen = {
+            int(re.search(r"_(\d+)\.png$", f).group(1))
+            for f in crops
+            if re.search(r"_(\d+)\.png$", f)
+        }
         done = len(seen)
         for ann, att in fl:
             if done >= nq:

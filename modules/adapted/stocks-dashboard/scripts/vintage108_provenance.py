@@ -66,9 +66,12 @@ import build_fundamentals as BF  # noqa: E402
 VRF = os.path.join(HERE, "vision_rev_fills.json")
 OUT = os.path.join(HERE, "_vintage108_prov.json")
 QS = (20150630, 20150930, 20151231, 20160331, 20160630, 20160930, 20161231, 20170331)
-SEQ = re.compile(r"financial_res_[A-Za-z0-9&._-]+_(\d+)\.html", re.IGNORECASE)
+SEQ = re.compile(r"financial_res_[A-Za-z0-9&._-]+_(\d+)\.html", re.I)
 MON = {
-    m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1)
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], 1
+    )
 }
 
 
@@ -131,9 +134,16 @@ def main():
         if not rows:
             rec["verdict"] = "src-not-in-list"
         else:
-            ordered = sorted(rows, key=lambda r: (dt(r.get("filingDate")) or 0, str(r.get("seqNumber") or "")))
+            ordered = sorted(
+                rows, key=lambda r: (dt(r.get("filingDate")) or 0, str(r.get("seqNumber") or ""))
+            )
             rec["rows"] = [
-                {"seq": r.get("seqNumber"), "filed": dt(r.get("filingDate")), "indAs": r.get("indAs")} for r in ordered
+                {
+                    "seq": r.get("seqNumber"),
+                    "filed": dt(r.get("filingDate")),
+                    "indAs": r.get("indAs"),
+                }
+                for r in ordered
             ]
             seqs = [str(r.get("seqNumber")) for r in ordered]
             if len(ordered) == 1:

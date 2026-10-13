@@ -66,7 +66,13 @@ if isinstance(raw, dict) and "steps" in raw:
     ]
 else:
     items = [
-        {"sym": r["sym"], "ymd": r["ymd"], "applied": r["applied"], "quant": False, "turnover": r.get("turnover")}
+        {
+            "sym": r["sym"],
+            "ymd": r["ymd"],
+            "applied": r["applied"],
+            "quant": False,
+            "turnover": r.get("turnover"),
+        }
         for r in raw
     ]
 D = json.loads(gzip.decompress(open(BIN, "rb").read()))
@@ -91,7 +97,9 @@ def is_etf(sym):
     nm = (meta.get(sym, {}) or {}).get("name", "")
     return bool(
         re.search(
-            r"ETF|BeES|Bees|Exchange Traded|\bGold\b|\bSilver\b|Liquid|Nifty|Sensex|Bharat Bond|GILT", nm, re.IGNORECASE
+            r"ETF|BeES|Bees|Exchange Traded|\bGold\b|\bSilver\b|Liquid|Nifty|Sensex|Bharat Bond|GILT",
+            nm,
+            re.I,
         )
     ) or bool(re.search(r"ETF|BEES|SLVR|GOLD|SILVER|LIQUID|IETF|BOND", sym))
 
@@ -127,7 +135,11 @@ def window_med(names, d0, lo, hi):
     return median(vals) if len(vals) >= 2 else None
 
 
-cand = [it for it in items if it["ymd"] >= 20020102 and not it.get("quant") and abs(it["applied"] - 1) > 0.03]
+cand = [
+    it
+    for it in items
+    if it["ymd"] >= 20020102 and not it.get("quant") and abs(it["applied"] - 1) > 0.03
+]
 skip_stub = skip_etf = 0
 out = []
 t = 0
@@ -139,7 +151,7 @@ for it in cand:
     if is_etf(sym):
         skip_etf += 1
         continue
-    names = [sym, *sorted(alias_of.get(sym, ()))]
+    names = [sym] + sorted(alias_of.get(sym, ()))
     d0 = datetime.date(ymd // 10000, ymd // 100 % 100, ymd % 100)
     pre = window_med(names, d0, -18, -4)
     post = window_med(names, d0, 4, 18)
@@ -172,12 +184,24 @@ for it in cand:
 
 byv = Counter(r["verdict"] for r in out)
 json.dump(out, open(OUT, "w"), indent=1)
-print("candidates %d | skipped orphan/stub %d, etf %d | judged %d" % (len(cand), skip_stub, skip_etf, len(out)))
+print(
+    "candidates %d | skipped orphan/stub %d, etf %d | judged %d"
+    % (len(cand), skip_stub, skip_etf, len(out))
+)
 print("=== verdicts ===", dict(byv))
 ph = sorted([r for r in out if r["verdict"] == "PHANTOM"], key=lambda r: -(r["turnover"] or 0))
 print("\nCONFIRMED PHANTOM (live equity, level unchanged across event): %d" % len(ph))
 for r in ph:
     print(
         "  %-11s %d applied=%.3f %s level_step=%s pre=%s post=%s  %s"
-        % (r["sym"], r["ymd"], r["applied"], r["dir"], r["level_step"], r["pre"], r["post"], r["name"][:24])
+        % (
+            r["sym"],
+            r["ymd"],
+            r["applied"],
+            r["dir"],
+            r["level_step"],
+            r["pre"],
+            r["post"],
+            r["name"][:24],
+        )
     )

@@ -226,7 +226,8 @@ def main():
             created_syms.add(sym)
         if arr is None:
             skipped.append(
-                f"{key}: symbol absent from sf_fundamentals (pass --new-symbols only for VERIFIED-real symbols)"
+                f"{key}: symbol absent from sf_fundamentals (pass --new-symbols only for "
+                "VERIFIED-real symbols)"
             )
             continue
         i, ai = SLOT[field], ANN_SLOT[field]
@@ -259,7 +260,9 @@ def main():
             if floor_from == "NO-TAPE":
                 no_tape.append("%s %d" % (sym, qe))
             elif floor_from == "SEAM":
-                seamed.append("%s %d: floor SKIPPED (declared tape seam), qe+45d = %d" % (sym, qe, ann))
+                seamed.append(
+                    "%s %d: floor SKIPPED (declared tape seam), qe+45d = %d" % (sym, qe, ann)
+                )
             elif floor_from:
                 floored.append("%s %d: %d -> %d (first bar)" % (sym, qe, floor_from, ann))
         filled += 1
@@ -285,7 +288,9 @@ def main():
                 "precision": ch.get("precision"),
                 "src": p.get("src")
                 or (
-                    "{} quarterly-results API (runbook §81)".format(SITE_NAME.get(ch["site"], ch["site"]))
+                    "{} quarterly-results API (runbook §81)".format(
+                        SITE_NAME.get(ch["site"], ch["site"])
+                    )
                     if ch.get("site")
                     else "unnamed source (proposal carried no src)"
                 ),
@@ -330,7 +335,9 @@ def main():
                     "proposal, so this entry records what the applier could verify and no "
                     "more -- re-derive it from the run that decided the cell if you need it."
                     % (
-                        "with an FY-identity check (A5/E2-family)" if p.get("fy_check") else "UNNAMED",
+                        "with an FY-identity check (A5/E2-family)"
+                        if p.get("fy_check")
+                        else "UNNAMED",
                         field,
                         ch["anchors"],
                         ch["worst_anchor"],
@@ -394,7 +401,8 @@ def main():
                     "ann_basis": ANN_BASIS,
                     "ann_floor": (
                         "qe+45d was %d and PRECEDED the first traded bar %d -- re-floored "
-                        "%s, the cell was written before the floor existed (§99)" % (was, fb, a.stamp)
+                        "%s, the cell was written before the floor existed (§99)"
+                        % (was, fb, a.stamp)
                     ),
                 }
             )
@@ -421,7 +429,10 @@ def main():
     if created_syms:
         # printed ALWAYS, never summarised away: creating a symbol key is the one write here that
         # a typo cannot be walked back from, so the claim "these are verified real" must be visible.
-        print("  ⚠️ SYMBOL KEYS CREATED (--new-symbols): %d — %s" % (len(created_syms), ", ".join(sorted(created_syms))))
+        print(
+            "  ⚠️ SYMBOL KEYS CREATED (--new-symbols): %d — %s"
+            % (len(created_syms), ", ".join(sorted(created_syms)))
+        )
     for s in floored:
         print(f"      {s}")
     if no_tape:
@@ -435,7 +446,10 @@ def main():
         for s in repaired:
             print(f"      {s}")
         if out_of_scope:
-            print("  ⚠️ FOUND BUT NOT REPAIRED (out of --repair-syms), reported per §58d: %d" % len(out_of_scope))
+            print(
+                "  ⚠️ FOUND BUT NOT REPAIRED (out of --repair-syms), reported per §58d: %d"
+                % len(out_of_scope)
+            )
             for s in out_of_scope:
                 print(f"      {s}")
     for s in skipped[:30]:

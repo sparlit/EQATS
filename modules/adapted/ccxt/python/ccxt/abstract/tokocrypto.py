@@ -31,10 +31,15 @@ class ImplicitAPI:
     binance_get_ping = binanceGetPing = Entry[_Dict]("ping", "binance", "GET", {"cost": 1})
     binance_get_time = binanceGetTime = Entry[_Dict]("time", "binance", "GET", {"cost": 1})
     binance_get_depth = binanceGetDepth = Entry[_Dict](
-        "depth", "binance", "GET", {"cost": 1, "byLimit": [[100, 1], [500, 5], [1000, 10], [5000, 50]]}
+        "depth",
+        "binance",
+        "GET",
+        {"cost": 1, "byLimit": [[100, 1], [500, 5], [1000, 10], [5000, 50]]},
     )
     binance_get_trades = binanceGetTrades = Entry[_List]("trades", "binance", "GET", {"cost": 1})
-    binance_get_aggtrades = binanceGetAggTrades = Entry[_List]("aggTrades", "binance", "GET", {"cost": 1})
+    binance_get_aggtrades = binanceGetAggTrades = Entry[_List](
+        "aggTrades", "binance", "GET", {"cost": 1}
+    )
     binance_get_historicaltrades = binanceGetHistoricalTrades = Entry[_List](
         "historicalTrades", "binance", "GET", {"cost": 5}
     )
@@ -48,7 +53,12 @@ class ImplicitAPI:
     binance_get_ticker_bookticker = binanceGetTickerBookTicker = Entry[_List](
         "ticker/bookTicker", "binance", "GET", {"cost": 1, "noSymbol": 2}
     )
-    binance_get_exchangeinfo = binanceGetExchangeInfo = Entry[_Dict]("exchangeInfo", "binance", "GET", {"cost": 10})
+    binance_get_exchangeinfo = binanceGetExchangeInfo = Entry[_Dict](
+        "exchangeInfo", "binance", "GET", {"cost": 10}
+    )
+    binance_get_executionrules = binanceGetExecutionRules = Entry[_Dict](
+        "executionRules", "binance", "GET", {"cost": 2, "noSymbol": 40}
+    )
     binance_put_userdatastream = binancePutUserDataStream = Entry[_Dict](
         "userDataStream", "binance", "PUT", {"cost": 1}
     )
@@ -79,7 +89,9 @@ class ImplicitAPI:
     private_get_open_v1_orders_detail = privateGetOpenV1OrdersDetail = Entry[_Dict](
         "open/v1/orders/detail", "private", "GET", {"cost": 1}
     )
-    private_get_open_v1_orders = privateGetOpenV1Orders = Entry[_Dict]("open/v1/orders", "private", "GET", {"cost": 1})
+    private_get_open_v1_orders = privateGetOpenV1Orders = Entry[_Dict](
+        "open/v1/orders", "private", "GET", {"cost": 1}
+    )
     private_get_open_v1_account_spot = privateGetOpenV1AccountSpot = Entry[_Dict](
         "open/v1/account/spot", "private", "GET", {"cost": 1}
     )
@@ -112,4 +124,7 @@ class ImplicitAPI:
     )
     private_post_open_v1_user_data_stream = privatePostOpenV1UserDataStream = Entry[_Dict](
         "open/v1/user-data-stream", "private", "POST", {"cost": 1}
+    )
+    private_post_open_v1_user_listen_token = privatePostOpenV1UserListenToken = Entry[_Dict](
+        "open/v1/user-listen-token", "private", "POST", {"cost": 1}
     )

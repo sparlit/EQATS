@@ -39,8 +39,6 @@ from pathlib import Path
 import pandas as pd
 from backtest import features
 
-import config
-
 PAPER = Path(__file__).resolve().parent.parent / "paper"
 LOG = PAPER / "log.csv"
 STATUS = PAPER / "status.json"
@@ -55,10 +53,16 @@ def _log_garp(t, close) -> None:
         from backtest.garp29 import MCAP_PRIMARY, build_picks
 
         picks = build_picks(MCAP_PRIMARY).get(pd.Timestamp(t.date()), [])
-        if GARP.exists() and str(t.date()) in {l.split(",")[0] for l in GARP.read_text().strip().split("\n")[1:]}:
+        if GARP.exists() and str(t.date()) in {
+            l.split(",")[0] for l in GARP.read_text().strip().split("\n")[1:]
+        }:
             return
         hold = (
-            ";".join(f"{s}@{close.loc[t, s]:.2f}" for s in picks if s in close.columns and pd.notna(close.loc[t, s]))
+            ";".join(
+                f"{s}@{close.loc[t, s]:.2f}"
+                for s in picks
+                if s in close.columns and pd.notna(close.loc[t, s])
+            )
             or "NONE"
         )
         pd.DataFrame([{"asof": t.date(), "garp_sleeve": hold}]).to_csv(
@@ -74,11 +78,21 @@ def _push(msg: str) -> None:
     root = PAPER.parent
     try:
         subprocess.run(["git", "add", "paper"], cwd=root, check=True, capture_output=True)
-        dirty = subprocess.run(["git", "status", "--porcelain", "paper"], cwd=root, capture_output=True, text=True)
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "paper"], cwd=root, capture_output=True, text=True
+        )
         if not dirty.stdout.strip():
             return
-        subprocess.run(["git", "commit", "-q", "-m", msg], cwd=root, check=True, capture_output=True)
-        subprocess.run(["git", "push", "-q", "origin", "main"], cwd=root, check=True, capture_output=True, timeout=120)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", msg], cwd=root, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "push", "-q", "origin", "main"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
         print("→ published to repo (site will reflect it)")
     except Exception as e:  # offline is fine; next run carries it
         print(f"→ publish skipped ({type(e).__name__})")
@@ -94,9 +108,12 @@ def build_status(
                 "updated": str(pd.Timestamp.now().date()),
                 "asof": str(t.date()),
                 "regime": "ON" if regime_on else "OFF",
-                "stance": stance or (f"{n_holdings} stocks held" if regime_on else "100% cash — circuit-breaker open"),
+                "stance": stance
+                or (
+                    f"{n_holdings} stocks held" if regime_on else "100% cash — circuit-breaker open"
+                ),
                 "lowvol_names": n_lowvol,
-                "entries": len(log),
+                "entries": int(len(log)),
                 "nifty_start": float(log["niftybees"].iloc[0]) if len(log) else None,
                 "nifty_now": bench_now,
             },
@@ -135,7 +152,9 @@ def snapshot(asof: str | None = None) -> None:
     low20 = vol[okv].dropna().nsmallest(20)
     lowvol = ";".join(f"{s}@{close.loc[t, s]:.2f}" for s in low20.index)
 
-    if LOG.exists() and str(t.date()) in {l.split(",")[0] for l in LOG.read_text().strip().split("\n")[1:]}:
+    if LOG.exists() and str(t.date()) in {
+        l.split(",")[0] for l in LOG.read_text().strip().split("\n")[1:]
+    }:
         print(f"entry for {t.date()} already logged — nothing to do")
         return
 
@@ -200,8 +219,7 @@ def refresh_status() -> None:
 
 def report() -> None:
     if not LOG.exists():
-        msg = "No log yet. Run without --report first."
-        raise SystemExit(msg)
+        raise SystemExit("No log yet. Run without --report first.")
     log = pd.read_csv(LOG, parse_dates=["asof"])
     p = features._panel(str(log["asof"].iloc[0].date()), None)
     close = p["close"]

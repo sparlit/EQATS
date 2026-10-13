@@ -93,7 +93,8 @@ class DNC(snt.RNNCore):
     def _clip_if_enabled(self, x):
         if self._clip_value > 0:
             return tf.clip_by_value(x, -self._clip_value, self._clip_value)
-        return x
+        else:
+            return x
 
     def _build(self, inputs, prev_state):
         """Connects the DNC core into the graph.
@@ -119,7 +120,9 @@ class DNC(snt.RNNCore):
         batch_flatten = snt.BatchFlatten()
         controller_input = tf.concat([batch_flatten(inputs), batch_flatten(prev_access_output)], 1)
 
-        controller_output, controller_state = self._controller(controller_input, prev_controller_state)
+        controller_output, controller_state = self._controller(
+            controller_input, prev_controller_state
+        )
 
         controller_output = self._clip_if_enabled(controller_output)
         controller_state = snt.nest.map(self._clip_if_enabled, controller_state)
@@ -127,18 +130,22 @@ class DNC(snt.RNNCore):
         access_output, access_state = self._access(controller_output, prev_access_state)
 
         output = tf.concat([controller_output, batch_flatten(access_output)], 1)
-        output = snt.Linear(output_size=self._output_size.as_list()[0], name="output_linear")(output)
+        output = snt.Linear(output_size=self._output_size.as_list()[0], name="output_linear")(
+            output
+        )
         output = self._clip_if_enabled(output)
 
         return output, DNCState(
-            access_output=access_output, access_state=access_state, controller_state=controller_state
+            access_output=access_output,
+            access_state=access_state,
+            controller_state=controller_state,
         )
 
     def initial_state(self, batch_size, dtype=tf.float32):
         return DNCState(
             controller_state=self._controller.initial_state(batch_size, dtype),
             access_state=self._access.initial_state(batch_size, dtype),
-            access_output=tf.zeros([batch_size, *self._access.output_size.as_list()], dtype),
+            access_output=tf.zeros([batch_size] + self._access.output_size.as_list(), dtype),
         )
 
     @property

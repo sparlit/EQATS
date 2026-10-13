@@ -49,7 +49,9 @@ def _topic_id(kind: str) -> int | None:
         "monthly": ("LADDER_REVIEW_TOPIC_ID",),
         "system": ("LADDER_SYSTEM_TOPIC_ID",),
     }
-    value = next((os.getenv(name, "").strip() for name in names[kind] if os.getenv(name, "").strip()), "")
+    value = next(
+        (os.getenv(name, "").strip() for name in names[kind] if os.getenv(name, "").strip()), ""
+    )
     try:
         topic_id = int(value)
     except ValueError:
@@ -76,13 +78,17 @@ def send_message(message: str, kind: str, timeout: int = 20) -> DeliveryResult:
     if kind != "system":
         payload["reply_markup"] = dashboard_keyboard("ladder")
     try:
-        response = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout)
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout
+        )
         if getattr(response, "status_code", 200) == 400:
             # A malformed entity should not suppress an otherwise readable
             # validation card. Retry once as plain text in the same topic.
             payload.pop("parse_mode", None)
             payload["text"] = html.unescape(re.sub(r"<[^>]+>", "", message))
-            response = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout)
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage", json=payload, timeout=timeout
+            )
         response.raise_for_status()
     except requests.RequestException as exc:
         status = getattr(getattr(exc, "response", None), "status_code", None)

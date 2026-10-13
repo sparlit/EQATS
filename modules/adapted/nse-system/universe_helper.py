@@ -52,14 +52,34 @@ def _clean(symbols):
 
 
 def band_universe(conn, limit=1000):
-    """Smallcap/midcap band, mcap descending."""
-    rows = conn.execute(
-        "SELECT symbol FROM universe_broad "
-        "WHERE mcap_cr BETWEEN ? AND ? "
-        "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
-        "ORDER BY mcap_cr DESC LIMIT ?",
-        (BAND_MIN, BAND_MAX, limit),
-    ).fetchall()
+    """Smallcap/midcap band (BAND_MIN..BAND_MAX cr), alphabetical.
+
+    `limit` selects the **highest market-cap** rows first, then the result is
+    returned alphabetically. Pass ``limit=None`` for the whole band.
+
+    Callers must pass the same limit their old inline SQL used — the ORDER BY
+    differs (this returns A-Z, the old SQL returned mcap descending), but the
+    selected SET is identical for any given limit. Verified 2026-10-05 against
+    all 17 former inline copies: equal-as-set for limits 300/400/1000/1500 and
+    for unbounded (855 symbols in the local DB).
+    """
+    if limit is None:
+        sql = (
+            "SELECT symbol FROM universe_broad "
+            "WHERE mcap_cr BETWEEN ? AND ? "
+            "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
+            "ORDER BY mcap_cr DESC"
+        )
+        params = (BAND_MIN, BAND_MAX)
+    else:
+        sql = (
+            "SELECT symbol FROM universe_broad "
+            "WHERE mcap_cr BETWEEN ? AND ? "
+            "AND symbol NOT LIKE '%$%' AND symbol NOT LIKE '% %' "
+            "ORDER BY mcap_cr DESC LIMIT ?"
+        )
+        params = (BAND_MIN, BAND_MAX, int(limit))
+    rows = conn.execute(sql, params).fetchall()
     return sorted(_clean(r[0] for r in rows))
 
 

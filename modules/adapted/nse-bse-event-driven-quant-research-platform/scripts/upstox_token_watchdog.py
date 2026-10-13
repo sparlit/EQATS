@@ -41,7 +41,6 @@ import contextlib
 import json
 import logging
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -114,13 +113,14 @@ def refresh_token() -> bool:
         if result.returncode == 0:
             log.info("Token refresh SUCCESS")
             return True
-        log.error("Token refresh FAILED (exit %d): %s", result.returncode, result.stderr[-300:])
-        return False
+        else:
+            log.error("Token refresh FAILED (exit %d): %s", result.returncode, result.stderr[-300:])
+            return False
     except subprocess.TimeoutExpired:
-        log.exception("Token refresh TIMEOUT (180s)")
+        log.error("Token refresh TIMEOUT (180s)")
         return False
     except Exception as e:
-        log.exception("Token refresh error: %s", e)
+        log.error("Token refresh error: %s", e)
         return False
 
 
@@ -132,7 +132,9 @@ def main() -> int:
         default=THRESHOLD_MINUTES,
         help=f"Refresh if less than N minutes remaining (default: {THRESHOLD_MINUTES})",
     )
-    parser.add_argument("--force", action="store_true", help="Force refresh regardless of remaining time")
+    parser.add_argument(
+        "--force", action="store_true", help="Force refresh regardless of remaining time"
+    )
     args = parser.parse_args()
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)

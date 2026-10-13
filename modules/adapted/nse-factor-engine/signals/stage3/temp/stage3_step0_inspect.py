@@ -27,7 +27,6 @@ Inspect prices.parquet and momentum_core_signals_26062026.parquet
 before any metric math.
 """
 
-import numpy as np
 import pandas as pd
 
 BASE = "/home/ec2-user/nse-factor-engine"
@@ -136,8 +135,12 @@ in_signals_not_prices = signal_syms - price_syms
 
 print(f"Symbols in prices          : {len(price_syms)}")
 print(f"Symbols in signals         : {len(signal_syms)}")
-print(f"In prices, not in signals  : {len(in_prices_not_signals)} — {in_prices_not_signals or 'none'}")
-print(f"In signals, not in prices  : {len(in_signals_not_prices)} — {in_signals_not_prices or 'none'}")
+print(
+    f"In prices, not in signals  : {len(in_prices_not_signals)} — {in_prices_not_signals if in_prices_not_signals else 'none'}"
+)
+print(
+    f"In signals, not in prices  : {len(in_signals_not_prices)} — {in_signals_not_prices if in_signals_not_prices else 'none'}"
+)
 
 # ── Formation window availability check ──────────────────────────────────────
 print("\n" + "=" * 60)
@@ -148,13 +151,15 @@ symbol_dates = prices.groupby("symbol")["date"].apply(set)
 
 has_T21 = []
 has_T252 = []
-for dates in symbol_dates.values():
+for _sym, dates in symbol_dates.items():
     has_T21.append(T_21 in dates)
     has_T252.append(T_252 in dates)
 
 print(f"Symbols with data at T-21  : {sum(has_T21)}")
 print(f"Symbols with data at T-252 : {sum(has_T252)}")
-print(f"Symbols with BOTH          : {sum(a and b for a, b in zip(has_T21, has_T252, strict=False))}")
+print(
+    f"Symbols with BOTH          : {sum(a and b for a, b in zip(has_T21, has_T252, strict=False))}"
+)
 
 print("\n" + "=" * 60)
 print("STEP 0 COMPLETE")

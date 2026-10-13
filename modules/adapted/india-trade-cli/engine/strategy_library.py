@@ -1021,15 +1021,17 @@ class StrategyLibrary:
         """Filter by category (case-insensitive). Raises ValueError for unknown categories."""
         cat = category.lower()
         if cat not in CATEGORIES:
-            msg = f"Unknown category '{category}'. Valid categories: {', '.join(CATEGORIES)}"
-            raise ValueError(msg)
+            raise ValueError(
+                f"Unknown category '{category}'. Valid categories: {', '.join(CATEGORIES)}"
+            )
         return [t for t in self.list_all() if t.category == cat]
 
     def get(self, id: str) -> StrategyTemplate:
         """Exact-match lookup by id. Raises KeyError if not found."""
         if id not in self._templates:
-            msg = f"Strategy '{id}' not found. Run 'strategy library' to see all available strategies."
-            raise KeyError(msg)
+            raise KeyError(
+                f"Strategy '{id}' not found. Run 'strategy library' to see all available strategies."
+            )
         return self._templates[id]
 
     def search(self, query: str) -> list[StrategyTemplate]:
@@ -1205,7 +1207,9 @@ def apply_template(
     unit = lot_size * lots  # total contracts in one lot-set
 
     # Step 2: compute P&L metrics by capital_type
-    capital_needed, max_profit, max_loss, breakeven = _compute_pnl(template, resolved, spot, atm_strike, unit)
+    capital_needed, max_profit, max_loss, breakeven = _compute_pnl(
+        template, resolved, spot, atm_strike, unit
+    )
 
     # Step 3: build payoff chart (options legs only)
     pf = None
@@ -1265,8 +1269,12 @@ def _compute_pnl(
     Returns approximate values for complex multi-expiry structures.
     """
     # Helpers
-    buy_prems = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type != "STOCK"]
-    sell_prems = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type != "STOCK"]
+    buy_prems = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type != "STOCK"
+    ]
+    sell_prems = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type != "STOCK"
+    ]
     stock_legs = [(leg, s, p) for leg, s, p in resolved if leg.option_type == "STOCK"]
 
     total_buy = sum(p * leg.lots_multiplier for leg, _, p in buy_prems)
@@ -1305,10 +1313,18 @@ def _pnl_debit(
     max_loss = -capital
 
     legs_list = resolved
-    buy_ce = [(leg, s, p) for leg, s, p in legs_list if leg.action == "BUY" and leg.option_type == "CE"]
-    buy_pe = [(leg, s, p) for leg, s, p in legs_list if leg.action == "BUY" and leg.option_type == "PE"]
-    sell_ce = [(leg, s, p) for leg, s, p in legs_list if leg.action == "SELL" and leg.option_type == "CE"]
-    sell_pe = [(leg, s, p) for leg, s, p in legs_list if leg.action == "SELL" and leg.option_type == "PE"]
+    buy_ce = [
+        (leg, s, p) for leg, s, p in legs_list if leg.action == "BUY" and leg.option_type == "CE"
+    ]
+    buy_pe = [
+        (leg, s, p) for leg, s, p in legs_list if leg.action == "BUY" and leg.option_type == "PE"
+    ]
+    sell_ce = [
+        (leg, s, p) for leg, s, p in legs_list if leg.action == "SELL" and leg.option_type == "CE"
+    ]
+    sell_pe = [
+        (leg, s, p) for leg, s, p in legs_list if leg.action == "SELL" and leg.option_type == "PE"
+    ]
 
     has_ce = bool(buy_ce)
     has_pe = bool(buy_pe)
@@ -1376,10 +1392,18 @@ def _pnl_credit(
     spot: float,
 ) -> tuple[float, float, float, list[float]]:
     """P&L for credit strategies (spreads, iron condor, jade lizard, ratio backspreads)."""
-    sell_ce = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"]
-    buy_ce = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "CE"]
-    sell_pe = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "PE"]
-    buy_pe = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"]
+    sell_ce = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"
+    ]
+    buy_ce = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "CE"
+    ]
+    sell_pe = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "PE"
+    ]
+    buy_pe = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"
+    ]
 
     is_iron = bool(sell_ce and buy_ce and sell_pe and buy_pe)
     is_call_spread = bool(sell_ce and buy_ce and not sell_pe and not buy_pe)
@@ -1462,10 +1486,18 @@ def _pnl_margin(
     spot: float,
 ) -> tuple[float, float, float, list[float]]:
     """P&L for naked sells (short straddle, short strangle, synthetic long/short)."""
-    sell_ce = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"]
-    buy_ce = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "CE"]
-    sell_pe = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "PE"]
-    buy_pe = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"]
+    sell_ce = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"
+    ]
+    buy_ce = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "CE"
+    ]
+    sell_pe = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "PE"
+    ]
+    buy_pe = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"
+    ]
 
     # Margin approximation: ~15% of notional per short leg
     short_count = len(sell_ce) + len(sell_pe)
@@ -1505,11 +1537,17 @@ def _pnl_stock(
     spot: float,
 ) -> tuple[float, float, float, list[float]]:
     """P&L for strategies involving a stock position (covered call, collar, etc.)."""
-    sell_ce = [(leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"]
-    buy_pe = [(leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"]
+    sell_ce = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "SELL" and leg.option_type == "CE"
+    ]
+    buy_pe = [
+        (leg, s, p) for leg, s, p in resolved if leg.action == "BUY" and leg.option_type == "PE"
+    ]
 
     stock_cost = spot * unit
-    option_net = net_credit  # positive = net credit (covered call), negative = net debit (protective put)
+    option_net = (
+        net_credit  # positive = net credit (covered call), negative = net debit (protective put)
+    )
 
     # Capital = stock purchase minus any net credit from options
     capital = max(stock_cost - option_net * unit, stock_cost * 0.5)

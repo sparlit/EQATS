@@ -105,7 +105,7 @@ SECOND_READER = {
 def main():
     REVOP = json.load(open(os.path.join(DOCS, "sf_revop.json")))
     src = open(os.path.join(DOCS, "backtest-engine.js")).read()
-    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.DOTALL)
+    m = re.search(r"FUND_ALIAS\s*=\s*(\{.*?\})\s*;", src, re.S)
     alias = json.loads(re.sub(r"(\w+)\s*:", r'"\1":', m.group(1)).replace("'", '"')) if m else {}
 
     def rmap(s):
@@ -114,7 +114,9 @@ def main():
     def ebit_n(s):
         d = rmap(s)
         return len(d), sum(
-            1 for c in d.values() if (len(c) > 8 and c[8] is not None) or (len(c) > 7 and c[7] is not None)
+            1
+            for c in d.values()
+            if (len(c) > 8 and c[8] is not None) or (len(c) > 7 and c[7] is not None)
         )
 
     entries, warn = {}, []
@@ -133,7 +135,9 @@ def main():
             'banking format — "Financing Profit"/"Financing Margin %" in place of '
             '"Operating Profit"/"OPM %"; no EBIT row in either layout',
             "reader_2": SECOND_READER.get(
-                s, f"NOT YET SECOND-READ — MoneyControl rate-limited {TODAY} after the first name; Phase 2 to complete"
+                s,
+                "NOT YET SECOND-READ — MoneyControl rate-limited "
+                f"{TODAY} after the first name; Phase 2 to complete",
             ),
             "our_data": f"sf_revop: ebit null in all {nq} quarters (corroboration only — never "
             "the basis for the verdict)",

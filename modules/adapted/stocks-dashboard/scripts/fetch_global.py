@@ -109,7 +109,11 @@ def fetch_yahoo(sym):
     """Ordered [(date, close)] daily history (~2y) for a Yahoo symbol."""
     now = int(time.time())
     p1 = now - 800 * 86400  # ~2.2 years back
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/" + sym + "?period1=%d&period2=%d&interval=1d" % (p1, now)
+    url = (
+        "https://query1.finance.yahoo.com/v8/finance/chart/"
+        + sym
+        + "?period1=%d&period2=%d&interval=1d" % (p1, now)
+    )
     j = json.loads(B._get(url, headers={"User-Agent": UA}, timeout=30))
     res = j["chart"]["result"][0]
     closes = res["indicators"]["quote"][0]["close"]
@@ -226,7 +230,9 @@ def main():
         nifty_series = fetch_yahoo("^NSEI")
         nifty_ret = returns_map(nifty_series)
     except Exception as e:
-        print(f"WARN nifty returns unavailable ({str(e)[:60]}) — corr will be null", file=sys.stderr)
+        print(
+            f"WARN nifty returns unavailable ({str(e)[:60]}) — corr will be null", file=sys.stderr
+        )
 
     rows = []
     for inst in INSTRUMENTS:

@@ -23,8 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-from dataclasses import dataclass
-
 from src.portfolio_review.providers.base import LLMProvider, ProviderError, ProviderResponse
 from src.portfolio_review.review_runner import run_review
 
@@ -52,8 +50,7 @@ class FailingProvider(LLMProvider):
     model = "test"
 
     def generate_review(self, prompt: str) -> ProviderResponse:
-        msg = "temporary provider failure"
-        raise ProviderError(msg)
+        raise ProviderError("temporary provider failure")
 
 
 class SuccessfulProvider(LLMProvider):

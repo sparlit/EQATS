@@ -1,0 +1,665 @@
+//! The market records every reader maps into: bars, quotes and trades, each valid by construction.
+
+use chrono::{DateTime, TimeDelta, Timelike, Utc};
+
+use super::{DollarVolume, Price, Shares, Symbol, TradeCount};
+use crate::common::time::SessionDate;
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::Display,
+    strum::EnumString,
+    strum::IntoStaticStr,
+    strum::EnumIter,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum BarInterval {
+    OneMinute,
+    FiveMinute,
+    OneDay,
+}
+
+impl BarInterval {
+    /// When a bar stamped `timestamp` ends: an intraday bar is stamped at its start and a daily bar at its close.
+    pub fn ends(self, timestamp: DateTime<Utc>) -> DateTime<Utc> {
+        match self {
+            Self::OneMinute => timestamp + TimeDelta::minutes(1),
+            Self::FiveMinute => timestamp + TimeDelta::minutes(5),
+            Self::OneDay => timestamp,
+        }
+    }
+
+    /// The timestamp of the bar `instant` falls in: an intraday bar's start, or for a daily bar its session's close.
+    pub fn bucket(self, instant: DateTime<Utc>) -> DateTime<Utc> {
+        let minute = instant
+            .with_second(0)
+            .and_then(|instant| instant.with_nanosecond(0))
+            .expect("zero seconds and nanoseconds exist in every minute");
+        match self {
+            Self::OneMinute => minute,
+            Self::FiveMinute => minute - TimeDelta::minutes(i64::from(minute.minute() % 5)),
+            Self::OneDay => SessionDate::at(instant).regular_close(),
+        }
+    }
+}
+
+/// Open, high, low and close, with the open and close inside `[low, high]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BarPrices {
+    open: Price,
+    high: Price,
+    low: Price,
+    close: Price,
+}
+
+/// Why a set of bar prices was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum BarPricesRefusal {
+    #[error("open {open} and close {close} do not lie within low {low} and high {high}")]
+    OutsideRange {
+        open: Price,
+        high: Price,
+        low: Price,
+        close: Price,
+    },
+}
+
+impl BarPrices {
+    pub fn new(
+        open: Price,
+        high: Price,
+        low: Price,
+        close: Price,
+    ) -> Result<Self, BarPricesRefusal> {
+        let range = low..=high;
+        if range.contains(&open) && range.contains(&close) {
+            Ok(Self {
+                open,
+                high,
+                low,
+                close,
+            })
+        } else {
+            Err(BarPricesRefusal::OutsideRange {
+                open,
+                high,
+                low,
+                close,
+            })
+        }
+    }
+
+    pub fn open(&self) -> Price {
+        self.open
+    }
+
+    pub fn high(&self) -> Price {
+        self.high
+    }
+
+    pub fn low(&self) -> Price {
+        self.low
+    }
+
+    pub fn close(&self) -> Price {
+        self.close
+    }
+}
+
+/// A bar stamped at its period's open, or for a daily bar at the 16:00 Eastern close of its session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bar {
+    symbol: Symbol,
+    interval: BarInterval,
+    timestamp: DateTime<Utc>,
+    prices: BarPrices,
+    volume: Shares,
+    /// `None` when the vendor did not report it.
+    trade_count: Option<TradeCount>,
+    /// `None` when the vendor did not report an average to derive it from.
+    dollar_volume: Option<DollarVolume>,
+}
+
+/// Why a bar was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum BarRefusal {
+    #[error("{timestamp} does not end a {interval} bar")]
+    Misaligned {
+        interval: BarInterval,
+        timestamp: DateTime<Utc>,
+    },
+}
+
+impl Bar {
+    /// A bar whose timestamp sits on its interval's grid.
+    pub fn new(
+        symbol: Symbol,
+        interval: BarInterval,
+        timestamp: DateTime<Utc>,
+        prices: BarPrices,
+        volume: Shares,
+        trade_count: Option<TradeCount>,
+        dollar_volume: Option<DollarVolume>,
+    ) -> Result<Self, BarRefusal> {
+        if interval.bucket(timestamp) != timestamp {
+            return Err(BarRefusal::Misaligned {
+                interval,
+                timestamp,
+            });
+        }
+        Ok(Self {
+            symbol,
+            interval,
+            timestamp,
+            prices,
+            volume,
+            trade_count,
+            dollar_volume,
+        })
+    }
+
+    pub fn symbol(&self) -> &Symbol {
+        &self.symbol
+    }
+
+    pub fn interval(&self) -> BarInterval {
+        self.interval
+    }
+
+    pub fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    /// The instant the bar's period ends: an intraday bar is stamped at its start and a daily bar at its close.
+    pub fn ends(&self) -> DateTime<Utc> {
+        self.interval.ends(self.timestamp)
+    }
+
+    /// This bar with every price set to `price` and its dollar volume to match, keeping the series, instant, volume
+    /// and trade count: the input a replay control runs on, where no price moves.
+    pub fn at_price(&self, price: Price) -> Self {
+        Self {
+            prices: BarPrices {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+            },
+            dollar_volume: self
+                .dollar_volume
+                .map(|_| DollarVolume::of(price, self.volume)),
+            ..self.clone()
+        }
+    }
+
+    pub fn prices(&self) -> BarPrices {
+        self.prices
+    }
+
+    pub fn volume(&self) -> Shares {
+        self.volume
+    }
+
+    pub fn trade_count(&self) -> Option<TradeCount> {
+        self.trade_count
+    }
+
+    pub fn dollar_volume(&self) -> Option<DollarVolume> {
+        self.dollar_volume
+    }
+
+    /// In dollars, for presentation; `None` when unreported or when nothing traded.
+    pub fn volume_weighted_average_price(&self) -> Option<f64> {
+        self.dollar_volume?.average_over(self.volume)
+    }
+}
+
+/// Bars to write or read as one partition, at least one, since a partition written empty would mark its session
+/// held with nothing in it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BarPartition(Vec<Bar>);
+
+/// Why bars were refused as a partition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum BarPartitionRefusal {
+    #[error("a partition holds no bars")]
+    Empty,
+}
+
+impl TryFrom<Vec<Bar>> for BarPartition {
+    type Error = BarPartitionRefusal;
+
+    fn try_from(bars: Vec<Bar>) -> Result<Self, Self::Error> {
+        match bars.is_empty() {
+            true => Err(BarPartitionRefusal::Empty),
+            false => Ok(Self(bars)),
+        }
+    }
+}
+
+impl BarPartition {
+    pub fn bars(&self) -> &[Bar] {
+        &self.0
+    }
+
+    pub fn into_bars(self) -> Vec<Bar> {
+        self.0
+    }
+}
+
+/// A top-of-book quote in shares; a locked book is a quote, a crossed one is not.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Quote {
+    symbol: Symbol,
+    timestamp: DateTime<Utc>,
+    bid: Price,
+    ask: Price,
+    bid_size: Shares,
+    ask_size: Shares,
+}
+
+/// Why a quote was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum QuoteRefusal {
+    #[error("the bid {bid} is above the ask {ask}")]
+    Crossed { bid: Price, ask: Price },
+}
+
+impl Quote {
+    pub fn new(
+        symbol: Symbol,
+        timestamp: DateTime<Utc>,
+        bid: Price,
+        ask: Price,
+        bid_size: Shares,
+        ask_size: Shares,
+    ) -> Result<Self, QuoteRefusal> {
+        if bid > ask {
+            return Err(QuoteRefusal::Crossed { bid, ask });
+        }
+        Ok(Self {
+            symbol,
+            timestamp,
+            bid,
+            ask,
+            bid_size,
+            ask_size,
+        })
+    }
+
+    pub fn symbol(&self) -> &Symbol {
+        &self.symbol
+    }
+
+    pub fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    pub fn bid(&self) -> Price {
+        self.bid
+    }
+
+    pub fn ask(&self) -> Price {
+        self.ask
+    }
+
+    pub fn bid_size(&self) -> Shares {
+        self.bid_size
+    }
+
+    pub fn ask_size(&self) -> Shares {
+        self.ask_size
+    }
+}
+
+/// One print.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Trade {
+    symbol: Symbol,
+    timestamp: DateTime<Utc>,
+    price: Price,
+    size: Shares,
+}
+
+/// Why a trade was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum TradeRefusal {
+    #[error("a trade at {price} for no shares")]
+    NoShares { price: Price },
+}
+
+impl Trade {
+    pub fn new(
+        symbol: Symbol,
+        timestamp: DateTime<Utc>,
+        price: Price,
+        size: Shares,
+    ) -> Result<Self, TradeRefusal> {
+        if size.is_zero() {
+            return Err(TradeRefusal::NoShares { price });
+        }
+        Ok(Self {
+            symbol,
+            timestamp,
+            price,
+            size,
+        })
+    }
+
+    pub fn symbol(&self) -> &Symbol {
+        &self.symbol
+    }
+
+    pub fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    pub fn price(&self) -> Price {
+        self.price
+    }
+
+    pub fn size(&self) -> Shares {
+        self.size
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+    use strum::IntoEnumIterator;
+
+    use super::*;
+
+    fn price(dollars: f64) -> Price {
+        Price::from_dollars(dollars).unwrap()
+    }
+
+    fn instant(text: &str) -> DateTime<Utc> {
+        text.parse().unwrap()
+    }
+
+    fn prices() -> BarPrices {
+        BarPrices::new(price(10.0), price(11.0), price(9.0), price(10.5)).unwrap()
+    }
+
+    fn bar(interval: BarInterval, timestamp: &str) -> Result<Bar, BarRefusal> {
+        Bar::new(
+            Symbol::new("AAPL").unwrap(),
+            interval,
+            instant(timestamp),
+            prices(),
+            Shares::whole(100).unwrap(),
+            None,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_bar_interval_names_round_trip() {
+        let names: Vec<&str> = BarInterval::iter().map(Into::into).collect();
+        assert_eq!(names, ["one_minute", "five_minute", "one_day"]);
+        for interval in BarInterval::iter() {
+            assert_eq!(interval.to_string().parse(), Ok(interval));
+            let json = serde_json::to_string(&interval).unwrap();
+            assert_eq!(json, format!("\"{interval}\""));
+            assert_eq!(
+                serde_json::from_str::<BarInterval>(&json).unwrap(),
+                interval
+            );
+        }
+    }
+
+    #[test]
+    fn test_an_open_or_close_outside_the_range_is_refused() {
+        assert_eq!(
+            BarPrices::new(price(12.0), price(11.0), price(9.0), price(10.0)),
+            Err(BarPricesRefusal::OutsideRange {
+                open: price(12.0),
+                high: price(11.0),
+                low: price(9.0),
+                close: price(10.0),
+            })
+        );
+        assert!(BarPrices::new(price(9.0), price(9.0), price(9.0), price(9.0)).is_ok());
+        assert!(BarPrices::new(price(10.0), price(11.0), price(9.0), price(8.0)).is_err());
+    }
+
+    #[test]
+    fn test_a_bar_sits_on_its_interval_grid() {
+        assert!(bar(BarInterval::OneMinute, "2026-07-31T14:31:00Z").is_ok());
+        assert!(bar(BarInterval::FiveMinute, "2026-07-31T14:35:00Z").is_ok());
+        // 16:00 Eastern is 20:00 UTC in summer and 21:00 UTC in winter.
+        assert!(bar(BarInterval::OneDay, "2026-07-31T20:00:00Z").is_ok());
+        assert!(bar(BarInterval::OneDay, "2026-01-14T21:00:00Z").is_ok());
+        for (interval, timestamp) in [
+            (BarInterval::OneMinute, "2026-07-31T14:31:30Z"),
+            (BarInterval::FiveMinute, "2026-07-31T14:31:00Z"),
+            (BarInterval::OneDay, "2026-01-14T20:00:00Z"),
+            (BarInterval::OneDay, "2026-07-31T04:00:00Z"),
+        ] {
+            assert_eq!(
+                bar(interval, timestamp),
+                Err(BarRefusal::Misaligned {
+                    interval,
+                    timestamp: instant(timestamp)
+                }),
+                "{interval} {timestamp}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_a_bar_ends_after_its_period_and_a_daily_bar_at_its_stamp() {
+        for (interval, timestamp, ends) in [
+            (
+                BarInterval::OneMinute,
+                "2026-07-31T14:31:00Z",
+                "2026-07-31T14:32:00Z",
+            ),
+            (
+                BarInterval::FiveMinute,
+                "2026-07-31T14:35:00Z",
+                "2026-07-31T14:40:00Z",
+            ),
+            (
+                BarInterval::OneDay,
+                "2026-07-31T20:00:00Z",
+                "2026-07-31T20:00:00Z",
+            ),
+        ] {
+            assert_eq!(
+                bar(interval, timestamp).unwrap().ends(),
+                instant(ends),
+                "{interval}"
+            );
+        }
+    }
+
+    /// Repricing keeps everything but the prices, and repricing twice is repricing once to the last price.
+    #[test]
+    fn test_a_repriced_bar_keeps_its_series_and_volume() {
+        let original = Bar::new(
+            Symbol::new("AAPL").unwrap(),
+            BarInterval::OneMinute,
+            instant("2026-07-31T14:31:00Z"),
+            prices(),
+            Shares::whole(100).unwrap(),
+            Some(TradeCount::new(7)),
+            Some(DollarVolume::of(price(10.0), Shares::whole(100).unwrap())),
+        )
+        .unwrap();
+        let repriced = original.at_price(price(2.0));
+        assert_eq!(
+            repriced.prices(),
+            BarPrices::new(price(2.0), price(2.0), price(2.0), price(2.0)).unwrap()
+        );
+        assert_eq!(repriced.volume_weighted_average_price(), Some(2.0));
+        assert_eq!(
+            (
+                repriced.symbol(),
+                repriced.interval(),
+                repriced.timestamp(),
+                repriced.volume(),
+                repriced.trade_count()
+            ),
+            (
+                original.symbol(),
+                original.interval(),
+                original.timestamp(),
+                original.volume(),
+                original.trade_count()
+            )
+        );
+        assert_eq!(original.at_price(price(5.0)).at_price(price(2.0)), repriced);
+        assert_eq!(
+            bar(BarInterval::OneMinute, "2026-07-31T14:31:00Z")
+                .unwrap()
+                .at_price(price(2.0))
+                .dollar_volume(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_a_bar_derives_its_average_from_its_dollar_volume() {
+        let volume = Shares::whole(200).unwrap();
+        let bar = Bar::new(
+            Symbol::new("AAPL").unwrap(),
+            BarInterval::OneMinute,
+            instant("2026-07-31T14:31:00Z"),
+            prices(),
+            volume,
+            Some(TradeCount::new(3)),
+            Some(DollarVolume::of(price(10.25), volume)),
+        )
+        .unwrap();
+        assert_eq!(bar.volume_weighted_average_price(), Some(10.25));
+        assert_eq!(bar.trade_count(), Some(TradeCount::new(3)));
+        let quiet = Bar::new(
+            Symbol::new("AAPL").unwrap(),
+            BarInterval::OneMinute,
+            instant("2026-07-31T14:31:00Z"),
+            prices(),
+            Shares::default(),
+            Some(TradeCount::new(0)),
+            Some(DollarVolume::default()),
+        )
+        .unwrap();
+        assert_eq!(quiet.volume_weighted_average_price(), None);
+    }
+
+    #[test]
+    fn test_a_crossed_quote_is_refused_and_a_locked_one_is_not() {
+        let quote = |bid: f64, ask: f64| {
+            Quote::new(
+                Symbol::new("AAPL").unwrap(),
+                instant("2026-07-31T14:31:00Z"),
+                price(bid),
+                price(ask),
+                Shares::whole(100).unwrap(),
+                Shares::whole(200).unwrap(),
+            )
+        };
+        assert_eq!(
+            quote(10.01, 10.0),
+            Err(QuoteRefusal::Crossed {
+                bid: price(10.01),
+                ask: price(10.0)
+            })
+        );
+        let locked = quote(10.0, 10.0).unwrap();
+        assert_eq!(
+            (locked.bid_size(), locked.ask_size()),
+            (Shares::whole(100).unwrap(), Shares::whole(200).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_a_trade_of_no_shares_is_refused() {
+        let trade = |size: u64| {
+            Trade::new(
+                Symbol::new("AAPL").unwrap(),
+                instant("2026-07-31T14:31:00Z"),
+                price(10.0),
+                Shares::whole(size).unwrap(),
+            )
+        };
+        assert_eq!(trade(0), Err(TradeRefusal::NoShares { price: price(10.0) }));
+        assert_eq!(trade(1).unwrap().size(), Shares::whole(1).unwrap());
+    }
+
+    #[test]
+    fn test_an_empty_partition_is_refused() {
+        assert_eq!(
+            BarPartition::try_from(Vec::new()),
+            Err(BarPartitionRefusal::Empty)
+        );
+    }
+
+    proptest! {
+        /// An instant's bucket is its own bucket, and an intraday bar stamped there is the one that holds the instant.
+        #[test]
+        fn property_a_bucket_holds_its_instant(
+            nanoseconds in 0..(2 * 86_400_000_000_000i64),
+            interval in prop::sample::select(vec![BarInterval::OneMinute, BarInterval::FiveMinute, BarInterval::OneDay]),
+        ) {
+            let at = instant("2026-07-31T00:00:00Z") + TimeDelta::nanoseconds(nanoseconds);
+            let bucket = interval.bucket(at);
+            prop_assert_eq!(interval.bucket(bucket), bucket);
+            match interval {
+                BarInterval::OneMinute | BarInterval::FiveMinute => {
+                    prop_assert!(bucket <= at && at < interval.ends(bucket));
+                }
+                BarInterval::OneDay => prop_assert_eq!(SessionDate::at(bucket), SessionDate::at(at)),
+            }
+        }
+
+        /// Repricing twice is repricing once to the second price, and repricing keeps all but the prices.
+        #[test]
+        fn property_repricing_composes_to_the_last_price(
+            minute in 0..390i64,
+            interval in prop::sample::select(vec![BarInterval::OneMinute, BarInterval::FiveMinute]),
+            ticks in prop::collection::vec(1..10_000_000_000i64, 4),
+            volume in 0..1_000_000_000u64,
+            trade_count in prop::option::of(0..10_000u64),
+            reported in prop::bool::ANY,
+            first in 1..10_000_000_000i64,
+            second in 1..10_000_000_000i64,
+        ) {
+            let price = |units: i64| Price::from_ticks(units).unwrap();
+            let low = *ticks.iter().min().unwrap();
+            let high = *ticks.iter().max().unwrap();
+            let open = instant("2026-07-31T13:30:00Z") + TimeDelta::minutes(minute - minute % 5);
+            let volume = Shares::from_units(volume);
+            let bar = Bar::new(
+                Symbol::new("AAPL").unwrap(),
+                interval,
+                open,
+                BarPrices::new(price(ticks[0]), price(high), price(low), price(ticks[1])).unwrap(),
+                volume,
+                trade_count.map(TradeCount::new),
+                reported.then(|| DollarVolume::of(price(ticks[2]), volume)),
+            )
+            .unwrap();
+            let repriced = bar.at_price(price(second));
+            prop_assert_eq!(bar.at_price(price(first)).at_price(price(second)), repriced.clone());
+            let flat = price(second);
+            prop_assert_eq!(repriced.prices(), BarPrices::new(flat, flat, flat, flat).unwrap());
+            prop_assert_eq!(repriced.dollar_volume(), reported.then(|| DollarVolume::of(flat, volume)));
+            prop_assert_eq!(
+                (repriced.symbol(), repriced.interval(), repriced.timestamp(), repriced.volume(), repriced.trade_count()),
+                (bar.symbol(), bar.interval(), bar.timestamp(), bar.volume(), bar.trade_count())
+            );
+        }
+    }
+}

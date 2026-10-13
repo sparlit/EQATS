@@ -78,7 +78,9 @@ class TestBuildTraderContext:
         from brokers.base import UserProfile
 
         mock_broker = MagicMock()
-        mock_broker.get_profile.return_value = UserProfile(user_id="U1", name="Test", email="t@t.com", broker="FYERS")
+        mock_broker.get_profile.return_value = UserProfile(
+            user_id="U1", name="Test", email="t@t.com", broker="FYERS"
+        )
         with patch("agent.harness._get_connected_broker", return_value=mock_broker):
             ctx = _build_trader_context()
         assert "FYERS" in ctx

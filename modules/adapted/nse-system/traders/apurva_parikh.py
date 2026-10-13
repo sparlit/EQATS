@@ -51,7 +51,6 @@ import db
 import numpy as np
 import pandas as pd
 from log_utils import get_logger
-from universe_helper import band_universe
 
 log = get_logger("trader.apurva_parikh")
 
@@ -228,7 +227,9 @@ def _fundamentals_map(conn):
 def _sector_map(conn):
     out = {}
     try:
-        for sym, sec in conn.execute("SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"):
+        for sym, sec in conn.execute(
+            "SELECT symbol, sector FROM stocks WHERE sector IS NOT NULL AND sector!=''"
+        ):
             out[sym] = sec
     except Exception:
         pass
@@ -254,7 +255,8 @@ def _sector_median_pe(pe_by_symbol, sector_by_symbol):
 
 def _load_df(conn, sym, limit=400):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
         (sym, limit),
     ).fetchall()
     if not rows or len(rows) < MIN_BARS:
@@ -366,9 +368,8 @@ def _evaluate_symbol(sym, f, df, sector_pe_median, nifty_pe_ok):
     # ---- Secret 10 partial: PE >= 0 and PE <= sector median ----
     if pe is None or pe <= 0:
         return None
-    if sector_pe_median is not None:
-        if pe > PE_VS_SECTOR_MAX * sector_pe_median:
-            return None
+    if sector_pe_median is not None and pe > PE_VS_SECTOR_MAX * sector_pe_median:
+        return None
 
     # ---- Secret 10 partial: Nifty PE gate (skip if unavailable) ----
     if not nifty_pe_ok:
@@ -432,12 +433,14 @@ def _evaluate_symbol(sym, f, df, sector_pe_median, nifty_pe_ok):
 # ----------------------------------------------------------------
 # Universe scan
 # ----------------------------------------------------------------
-def scan(conn=None, limit=800):
+def scan(conn=None, limit=800, symbols=None):
     own = conn is None
     if own:
         conn = db.get_conn()
 
-    syms = band_universe(conn, limit=limit)
+    from traders.base import select_scan_symbols
+
+    syms = select_scan_symbols(conn, limit, symbols)
     log.info(f"Parikh scan: {len(syms)} symbols in universe")
 
     fund_map = _fundamentals_map(conn)
@@ -482,7 +485,9 @@ def scan(conn=None, limit=800):
 
         _try_emit(
             signals,
-            lambda sym=sym, f=f, df=df, sec_pe=sec_pe, npo=nifty_pe_ok: _evaluate_symbol(sym, f, df, sec_pe, npo),
+            lambda sym=sym, f=f, df=df, sec_pe=sec_pe, npo=nifty_pe_ok: _evaluate_symbol(
+                sym, f, df, sec_pe, npo
+            ),
         )
 
         if i % 100 == 0:

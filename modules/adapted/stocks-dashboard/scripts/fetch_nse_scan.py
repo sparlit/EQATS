@@ -55,13 +55,14 @@ MON = {
     "dec": 12,
 }
 GOOD = re.compile(
-    r"financial result|integrated filing|outcome of board|statement of (un)?audited|audited financial", re.IGNORECASE
+    r"financial result|integrated filing|outcome of board|statement of (un)?audited|audited financial",
+    re.I,
 )
 BAD = re.compile(
     r"newspaper|analyst|investor (presentation|meet)|intimation of|transcript|press release|earnings call|trading window|record date|presentation",
-    re.IGNORECASE,
+    re.I,
 )
-CONS = re.compile(r"consolidat", re.IGNORECASE)
+CONS = re.compile(r"consolidat", re.I)
 
 
 def parse_an(dt):
@@ -101,7 +102,6 @@ def main():
                 import time as _t
 
                 _t.sleep(3)
-        return None
 
     sget("https://www.nseindia.com/")
     got = 0
@@ -149,7 +149,11 @@ def main():
                 continue
             if r.content[:4] == b"%PDF":
                 open(os.path.join(VPDF, "%s_%d_nse.pdf" % (sym, qe)), "wb").write(r.content)
-                print("GOT %-11s %d  score=%.1f %dKB  %s" % (sym, qe, score, len(r.content) // 1024, dt), flush=True)
+                print(
+                    "GOT %-11s %d  score=%.1f %dKB  %s"
+                    % (sym, qe, score, len(r.content) // 1024, dt),
+                    flush=True,
+                )
                 log[key] = "got"
                 got += 1
                 saved = True

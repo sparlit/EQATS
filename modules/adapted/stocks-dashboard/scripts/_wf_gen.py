@@ -111,14 +111,17 @@ Return ONLY anchor-verified results. Everything you could not verify goes in ski
 def mk(symlist):
     syms_disp = ", ".join(symlist)
     syms_py = "[" + ",".join(f"'{s}'" for s in symlist) + "]"
-    return PROMPT_TMPL.replace("__SYMS__", syms_disp).replace("__SYMS_PY__", syms_py)
+    p = PROMPT_TMPL.replace("__SYMS__", syms_disp).replace("__SYMS_PY__", syms_py)
+    return p
 
 
 agents_js = []
 for _i, binsyms in enumerate(chunk):
     label = "+".join(binsyms)[:40]
     prompt = mk(binsyms)
-    agents_js.append(f"  ()=>agent({json.dumps(prompt)},{{label:{json.dumps(label)},phase:'Backfill',schema:SCH}}),")
+    agents_js.append(
+        f"  ()=>agent({json.dumps(prompt)},{{label:{json.dumps(label)},phase:'Backfill',schema:SCH}}),"
+    )
 
 JS = """export const meta = {
   name: 'hist-fund-backfill-c%d',

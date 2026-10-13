@@ -5,38 +5,89 @@ use pyo3::prelude::*;
 use super::EClient;
 use super::super::contract::{Contract, NewsProviderPy, SmartComponentPy, SoftDollarTierPy};
 
-#[pymethods]
 impl EClient {
-    // ── Options Calculations (stubs) ──
-
-    #[pyo3(signature = (req_id, contract, option_price, under_price, implied_vol_options=Vec::new()))]
-    fn calculate_implied_volatility(
-        &self, req_id: i64, contract: &Contract, option_price: f64,
-        under_price: f64, implied_vol_options: Vec<Py<PyAny>>,
+    /// The smart_components callback, or the error of the request.
+    pub(crate) fn deliver_smart_components(
+        &self,
+        py: Python<'_>,
+        req_id: i64,
+        answer: crate::client_core::SmartComponentsAnswer,
     ) -> PyResult<()> {
-        let _ = (req_id, contract, option_price, under_price, implied_vol_options);
-        log::warn!("calculate_implied_volatility: not yet implemented in engine");
+        let sc = match answer {
+            Ok(sc) => sc,
+            Err((code, msg)) => {
+                self.wrapper.call_method1(py, "error", (req_id, code, msg.as_str(), ""))?;
+                return Ok(());
+            }
+        };
+        let map = pyo3::types::PyDict::new(py);
+        for c in sc.iter() {
+            let obj = SmartComponentPy {
+                bit_number: c.bit_number,
+                exchange: c.exchange.clone(),
+                exchange_letter: c.exchange_letter.clone(),
+            };
+            map.set_item(c.bit_number, Py::new(py, obj)?)?;
+        }
+        self.wrapper.call_method1(py, "smart_components", (req_id, map.as_any()))?;
         Ok(())
     }
 
+    fn calculate_option(
+        &self, py: Python<'_>, req_id: i64, contract: &Contract,
+        kind: crate::control::optcalc::CalcKind, under_price: f64,
+    ) -> PyResult<()> {
+        if let Some(r) = self.not_connected(req_id) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("calculate_option", &[req_id, contract.con_id]) { return Ok(()); }
+        let shared = self.shared_state()?;
+        let api = contract.to_api();
+        let price = matches!(kind, crate::control::optcalc::CalcKind::Price { .. });
+        let features = shared.reference.account_features();
+        if let Some((code, text)) = crate::client_core::ClientCore::option_calc_refusal(&api, price, features.as_deref()) {
+            shared.orders.push_order_error(req_id, code, text);
+            return Ok(());
+        }
+        let tx = self.tx()?;
+        let request = crate::types::ControlCommand::CalcOption { req_id, con_id: contract.con_id, kind, under_price };
+        super::send_cmd(py, &tx, crate::client_core::ClientCore::resolve_first(req_id, &api, request))?;
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl EClient {
+    // ── Options Calculations ──
+
+    /// Implied volatility of an option price, computed locally by the
+    /// option model as the reference (ibx#442). The options are not used.
+    #[pyo3(signature = (req_id, contract, option_price, under_price, implied_vol_options=Vec::new()))]
+    fn calculate_implied_volatility(
+        &self, py: Python<'_>, req_id: i64, contract: &Contract, option_price: f64,
+        under_price: f64, implied_vol_options: Vec<Py<PyAny>>,
+    ) -> PyResult<()> {
+        let _ = implied_vol_options;
+        self.calculate_option(py, req_id, contract, crate::control::optcalc::CalcKind::ImpliedVol { option_price }, under_price)
+    }
+
+    /// Price and greeks of an option at a volatility, computed locally by
+    /// the option model as the reference (ibx#442). The options are not used.
     #[pyo3(signature = (req_id, contract, volatility, under_price, opt_prc_options=Vec::new()))]
     fn calculate_option_price(
-        &self, req_id: i64, contract: &Contract, volatility: f64,
+        &self, py: Python<'_>, req_id: i64, contract: &Contract, volatility: f64,
         under_price: f64, opt_prc_options: Vec<Py<PyAny>>,
     ) -> PyResult<()> {
-        let _ = (req_id, contract, volatility, under_price, opt_prc_options);
-        log::warn!("calculate_option_price: not yet implemented in engine");
-        Ok(())
+        let _ = opt_prc_options;
+        self.calculate_option(py, req_id, contract, crate::control::optcalc::CalcKind::Price { volatility }, under_price)
     }
 
     fn cancel_calculate_implied_volatility(&self, req_id: i64) -> PyResult<()> {
-        if let Some(r) = self.not_connected(req_id as i64) { return r; }
+        if let Some(r) = self.not_connected(req_id) { return r; }
         let _ = req_id;
         Ok(())
     }
 
     fn cancel_calculate_option_price(&self, req_id: i64) -> PyResult<()> {
-        if let Some(r) = self.not_connected(req_id as i64) { return r; }
+        if let Some(r) = self.not_connected(req_id) { return r; }
         let _ = req_id;
         Ok(())
     }
@@ -51,29 +102,13 @@ impl EClient {
         Ok(())
     }
 
-    // ── Option Chain Parameters (stub) ──
-
-    #[pyo3(signature = (req_id, underlying_symbol, fut_fop_exchange="", underlying_sec_type="STK", underlying_con_id=0))]
-    fn req_sec_def_opt_params(
-        &self,
-        req_id: i64,
-        underlying_symbol: &str,
-        fut_fop_exchange: &str,
-        underlying_sec_type: &str,
-        underlying_con_id: i64,
-    ) -> PyResult<()> {
-        let _ = (req_id, underlying_symbol, fut_fop_exchange, underlying_sec_type, underlying_con_id);
-        log::warn!("req_sec_def_opt_params: not yet implemented in engine");
-        Ok(())
-    }
 
     // ── News Bulletins ──
 
     #[pyo3(signature = (all_msgs=true))]
     fn req_news_bulletins(&self, all_msgs: bool) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
-        let _ = all_msgs;
-        self.core.subscribe_bulletins();
+        self.core.subscribe_bulletins(all_msgs);
         Ok(())
     }
 
@@ -87,26 +122,39 @@ impl EClient {
 
     fn req_current_time(&self, py: Python<'_>) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
+        // The local clock plus the offset to the server clock of the
+        // logon, as the reference (ibx#421).
+        let now = self.shared_state()?.reference.server_time_secs();
         self.wrapper.call_method1(py, "current_time", (now,))?;
         Ok(())
     }
 
     // ── FA (Financial Advisor) ──
 
-    fn request_fa(&self, _fa_data_type: i32) -> PyResult<()> {
+    fn request_fa(&self, py: Python<'_>, _fa_data_type: i32) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        // Not an FA session: error 321 as the reference (ibx#481).
+        if !self.shared_state()?.reference.fa_session() {
+            let (id, code, text) = crate::client_core::REQUEST_FA_NOT_FA;
+            self.wrapper.call_method1(py, "error", (id, code, text, ""))?;
+            return Ok(());
+        }
         log::warn!("request_fa: not yet implemented — needs FIX capture");
         Ok(())
     }
 
     #[pyo3(signature = (req_id, fa_data_type, cxml))]
-    fn replace_fa(&self, req_id: i64, fa_data_type: i32, cxml: &str) -> PyResult<()> {
-        if let Some(r) = self.not_connected(req_id as i64) { return r; }
-        let _ = (req_id, fa_data_type, cxml);
+    fn replace_fa(&self, py: Python<'_>, req_id: i64, fa_data_type: i32, cxml: &str) -> PyResult<()> {
+        if let Some(r) = self.not_connected(req_id) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("replace_fa", &[req_id]) { return Ok(()); }
+        // Not an FA session: error 321 for the request as the reference
+        // (ibx#481).
+        if !self.shared_state()?.reference.fa_session() {
+            let (code, text) = crate::client_core::REPLACE_FA_NOT_FA;
+            self.wrapper.call_method1(py, "error", (req_id, code, text, ""))?;
+            return Ok(());
+        }
+        let _ = (fa_data_type, cxml);
         log::warn!("replace_fa: not yet implemented — needs FIX capture");
         Ok(())
     }
@@ -115,6 +163,7 @@ impl EClient {
 
     fn query_display_groups(&self, py: Python<'_>, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("query_display_groups", &[req_id]) { return Ok(()); }
         self.wrapper.call_method1(py, "display_group_list", (req_id, ""))?;
         Ok(())
     }
@@ -139,22 +188,17 @@ impl EClient {
 
     // ── Smart Components ──
 
+    /// As the reference (ibx#441): the exchange map of the BBO exchange that
+    /// market data made known; an unknown one gives error 321; a map not
+    /// come yet is answered by the message loop, within 2 s.
     fn req_smart_components(&self, py: Python<'_>, req_id: i64, bbo_exchange: &str) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
-        let _ = bbo_exchange;
+        if !crate::client_core::ClientCore::ids_fit("req_smart_components", &[req_id]) { return Ok(()); }
         let shared = self.shared_state()?;
-        let sc = shared.reference.smart_components();
-        let map = pyo3::types::PyDict::new(py);
-        for c in sc.iter() {
-            let obj = SmartComponentPy {
-                bit_number: c.bit_number,
-                exchange: c.exchange.clone(),
-                exchange_letter: c.exchange_letter.clone(),
-            };
-            map.set_item(c.bit_number, Py::new(py, obj)?)?;
+        match self.core.req_smart_components(req_id, bbo_exchange, &shared) {
+            Some(answer) => self.deliver_smart_components(py, req_id, answer),
+            None => Ok(()),
         }
-        self.wrapper.call_method1(py, "smart_components", (req_id, map.as_any()))?;
-        Ok(())
     }
 
     // ── News Providers ──
@@ -177,6 +221,7 @@ impl EClient {
 
     fn req_soft_dollar_tiers(&self, py: Python<'_>, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_soft_dollar_tiers", &[req_id]) { return Ok(()); }
         let shared = self.shared_state()?;
         let tiers = shared.reference.soft_dollar_tiers();
         let mut objs: Vec<Py<SoftDollarTierPy>> = Vec::with_capacity(tiers.len());
@@ -230,6 +275,7 @@ impl EClient {
 
     fn req_user_info(&self, py: Python<'_>, req_id: i64) -> PyResult<()> {
         if let Some(r) = self.not_connected(-1) { return r; }
+        if !crate::client_core::ClientCore::ids_fit("req_user_info", &[req_id]) { return Ok(()); }
         let shared = self.shared_state()?;
         let id = shared.reference.white_branding_id();
         self.wrapper.call_method1(py, "user_info", (req_id, id))?;

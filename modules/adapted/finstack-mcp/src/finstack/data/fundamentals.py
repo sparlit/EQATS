@@ -77,7 +77,7 @@ def get_income_statement(symbol: str, quarterly: bool = False) -> dict:
     net income, EPS, EBITDA, and more.
     """
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
 
         if quarterly:
             stmt = ticker.quarterly_income_stmt
@@ -116,7 +116,7 @@ def get_income_statement(symbol: str, quarterly: bool = False) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching income statement for {symbol}: {e}")
+        logger.error(f"Error fetching income statement for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -131,7 +131,7 @@ def get_balance_sheet(symbol: str, quarterly: bool = False) -> dict:
     Returns: total assets, total liabilities, equity, cash, debt, etc.
     """
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
 
         if quarterly:
             stmt = ticker.quarterly_balance_sheet
@@ -164,7 +164,7 @@ def get_balance_sheet(symbol: str, quarterly: bool = False) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching balance sheet for {symbol}: {e}")
+        logger.error(f"Error fetching balance sheet for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -179,7 +179,7 @@ def get_cash_flow(symbol: str, quarterly: bool = False) -> dict:
     Returns: operating, investing, financing cash flows, free cash flow, capex.
     """
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
 
         if quarterly:
             stmt = ticker.quarterly_cashflow
@@ -212,7 +212,7 @@ def get_cash_flow(symbol: str, quarterly: bool = False) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching cash flow for {symbol}: {e}")
+        logger.error(f"Error fetching cash flow for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -228,7 +228,7 @@ def get_key_ratios(symbol: str) -> dict:
     profit margins, revenue growth, etc.
     """
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
         info = ticker.info
 
         if not info or info.get("regularMarketPrice") is None:
@@ -294,7 +294,7 @@ def get_key_ratios(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching ratios for {symbol}: {e}")
+        logger.error(f"Error fetching ratios for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -305,7 +305,7 @@ def get_key_ratios(symbol: str) -> dict:
 def get_company_profile(symbol: str) -> dict:
     """Get company overview — sector, industry, employees, description, officers."""
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
         info = ticker.info
 
         if not info or info.get("regularMarketPrice") is None:
@@ -332,7 +332,7 @@ def get_company_profile(symbol: str) -> dict:
         return clean_nan(result)
 
     except Exception as e:
-        logger.exception(f"Error fetching profile for {symbol}: {e}")
+        logger.error(f"Error fetching profile for {symbol}: {e}")
         return {"error": True, "message": str(e)}
 
 
@@ -343,7 +343,7 @@ def get_company_profile(symbol: str) -> dict:
 def get_dividend_history(symbol: str) -> dict:
     """Get historical dividend payments."""
     try:
-        ticker, _resolved = _get_ticker(symbol)
+        ticker, resolved = _get_ticker(symbol)
         dividends = ticker.dividends
 
         if dividends is None or dividends.empty:
@@ -383,5 +383,5 @@ def get_dividend_history(symbol: str) -> dict:
         )
 
     except Exception as e:
-        logger.exception(f"Error fetching dividends for {symbol}: {e}")
+        logger.error(f"Error fetching dividends for {symbol}: {e}")
         return {"error": True, "message": str(e)}

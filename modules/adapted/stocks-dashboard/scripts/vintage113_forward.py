@@ -110,7 +110,10 @@ def fit_layout(rows, scale, q0, qe, con):
                 anc = [
                     (q, round(con[q], 2), i)
                     for i, q in enumerate(lay)
-                    if not isinstance(q, tuple) and q != qe and q in con and near(v[i] * scale, con[q])
+                    if not isinstance(q, tuple)
+                    and q != qe
+                    and q in con
+                    and near(v[i] * scale, con[q])
                 ]
                 if len(anc) >= 2 and (best is None or len(anc) > len(best[1])):
                     best = (lay, anc, lab[:60])
@@ -189,11 +192,21 @@ def main():
                 if not orows:
                     continue
                 numeric = [r for r in rows if len(r[2]) >= 3]
-                for sc_nm, sc in [(unm, dict(SCALES)[unm])] if unm in dict(SCALES) else list(SCALES):
+                for sc_nm, sc in (
+                    [(unm, dict(SCALES)[unm])] if unm in dict(SCALES) else list(SCALES)
+                ):
                     got = read_owners(numeric, orows, sc, q0, qe, con)
                     if got:
                         for g in got:
-                            g.update({"doc": fn, "win": m["win"], "ann": m["ann"], "page": p, "unit": sc_nm})
+                            g.update(
+                                {
+                                    "doc": fn,
+                                    "win": m["win"],
+                                    "ann": m["ann"],
+                                    "page": p,
+                                    "unit": sc_nm,
+                                }
+                            )
                             found.append(g)
                         break
         vals = sorted({round(h["value"], 2) for h in found})
@@ -226,7 +239,17 @@ def main():
         t = "".join(sorted({h["tier"] for h in x["reads"]}))
         print(
             "%-11s %-9s %-3s live=%-10s was=%-9s fixed=%-9s -> filing %-10s [%s] %s"
-            % (x["sym"], x["qe"], x["pri"], x["live"], x["was"], x["fixed"], x["distinct_values"], t, x["verdict"])
+            % (
+                x["sym"],
+                x["qe"],
+                x["pri"],
+                x["live"],
+                x["was"],
+                x["fixed"],
+                x["distinct_values"],
+                t,
+                x["verdict"],
+            )
         )
 
 

@@ -37,11 +37,43 @@ OUT_FILE = os.path.join(DATA_DIR, "validation_results.parquet")
 
 FACTORS = [
     ("MOM", "mom_returns.parquet", "mom_return", "2014-01", "2023-05", "2023-06", "2026-05"),
-    ("LOWVOL", "lowvol_returns.parquet", "lowvol_return", "2014-01", "2023-05", "2023-06", "2026-05"),
+    (
+        "LOWVOL",
+        "lowvol_returns.parquet",
+        "lowvol_return",
+        "2014-01",
+        "2023-05",
+        "2023-06",
+        "2026-05",
+    ),
     ("BAB", "bab_returns.parquet", "bab_return", "2016-01", "2023-05", "2023-06", "2026-05"),
-    ("RMW_ROE", "rmw_roe_returns.parquet", "rmw_roe_return", "2018-07", "2023-05", "2023-06", "2026-05"),
-    ("RMW_OP_ROE", "rmw_op_roe_returns.parquet", "rmw_op_roe_return", "2018-07", "2023-05", "2023-06", "2026-05"),
-    ("QUALITY", "quality_returns.parquet", "quality_return", "2020-07", "2024-05", "2024-06", "2026-05"),
+    (
+        "RMW_ROE",
+        "rmw_roe_returns.parquet",
+        "rmw_roe_return",
+        "2018-07",
+        "2023-05",
+        "2023-06",
+        "2026-05",
+    ),
+    (
+        "RMW_OP_ROE",
+        "rmw_op_roe_returns.parquet",
+        "rmw_op_roe_return",
+        "2018-07",
+        "2023-05",
+        "2023-06",
+        "2026-05",
+    ),
+    (
+        "QUALITY",
+        "quality_returns.parquet",
+        "quality_return",
+        "2020-07",
+        "2024-05",
+        "2024-06",
+        "2026-05",
+    ),
     ("VALUE", "value_returns.parquet", "value_return", "2018-07", "2023-05", "2023-06", "2026-05"),
     ("SIZE", "size_returns.parquet", "size_return", "2018-07", "2023-05", "2023-06", "2026-05"),
 ]
@@ -84,8 +116,16 @@ for name, fname, col, is_start, is_end, oos_start, oos_end in FACTORS:
     df = pd.read_parquet(fpath)
     df.index = pd.to_datetime(df.index).to_period("M")
 
-    r_is = df.loc[(df.index >= pd.Period(is_start, "M")) & (df.index <= pd.Period(is_end, "M")), col].dropna().values
-    r_oos = df.loc[(df.index >= pd.Period(oos_start, "M")) & (df.index <= pd.Period(oos_end, "M")), col].dropna().values
+    r_is = (
+        df.loc[(df.index >= pd.Period(is_start, "M")) & (df.index <= pd.Period(is_end, "M")), col]
+        .dropna()
+        .values
+    )
+    r_oos = (
+        df.loc[(df.index >= pd.Period(oos_start, "M")) & (df.index <= pd.Period(oos_end, "M")), col]
+        .dropna()
+        .values
+    )
 
     print(f"  IS  : {is_start} → {is_end}  ({len(r_is)} months)")
     print(f"  OOS : {oos_start} → {oos_end}  ({len(r_oos)} months)")
@@ -104,8 +144,12 @@ for name, fname, col, is_start, is_end, oos_start, oos_end in FACTORS:
         degrade_pct = (is_sharpe - oos_sharpe) / is_sharpe * 100
         pass3 = oos_sharpe >= OOS_RETAIN_MIN * is_sharpe
 
-    print(f"\n  Test 1  NW t-stat        : {t1:+.3f}  (> {NW_TSTAT_MIN})  →  {'PASS ✓' if pass1 else 'FAIL ✗'}")
-    print(f"  Test 2  Bootstrap Sharpe : {boot_med:+.3f}  (> {BOOT_SHARPE_MIN})  →  {'PASS ✓' if pass2 else 'FAIL ✗'}")
+    print(
+        f"\n  Test 1  NW t-stat        : {t1:+.3f}  (> {NW_TSTAT_MIN})  →  {'PASS ✓' if pass1 else 'FAIL ✗'}"
+    )
+    print(
+        f"  Test 2  Bootstrap Sharpe : {boot_med:+.3f}  (> {BOOT_SHARPE_MIN})  →  {'PASS ✓' if pass2 else 'FAIL ✗'}"
+    )
     print(
         f"  Test 3  IS Sharpe        : {is_sharpe:+.3f}  |  OOS Sharpe : {oos_sharpe:+.3f}  |  Degradation : {f'{degrade_pct:+.1f}%' if not np.isnan(degrade_pct) else 'n/a'}  →  {'PASS ✓' if pass3 else 'FAIL ✗'}"
     )

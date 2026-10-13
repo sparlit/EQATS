@@ -36,17 +36,28 @@ Data: NSE corporate announcements (public, free)
 import json
 import logging
 import urllib.request
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger("finstack.agm")
 
-NSE_ANNOUNCE_URL = "https://www.nseindia.com/api/corporate-announcements?index=equities&symbol={symbol}"
+NSE_ANNOUNCE_URL = (
+    "https://www.nseindia.com/api/corporate-announcements?index=equities&symbol={symbol}"
+)
 
 # Unusual resolution patterns to flag
 UNUSUAL_PATTERNS = [
     (
         "large_debt",
-        ["issue of debentures", "raise debt", "borrow", "ncd", "ecb", "line of credit", "term loan", "bonds"],
+        [
+            "issue of debentures",
+            "raise debt",
+            "borrow",
+            "ncd",
+            "ecb",
+            "line of credit",
+            "term loan",
+            "bonds",
+        ],
         "Large debt issuance — check debt/equity ratio post-issuance",
     ),
     (
@@ -62,7 +73,13 @@ UNUSUAL_PATTERNS = [
     ),
     (
         "related_party",
-        ["related party transaction", "rpt", "inter-corporate loan", "transaction with promoter", "subsidiary loan"],
+        [
+            "related party transaction",
+            "rpt",
+            "inter-corporate loan",
+            "transaction with promoter",
+            "subsidiary loan",
+        ],
         "Related party transaction — check terms vs market rate (promoter benefit risk)",
     ),
     (
@@ -179,7 +196,13 @@ def get_agm_brief(symbol: str) -> dict:
     all_flags = []
 
     for ann in announcements:
-        desc = (ann.get("description") or ann.get("subject") or ann.get("desc") or ann.get("headline") or "").lower()
+        desc = (
+            ann.get("description")
+            or ann.get("subject")
+            or ann.get("desc")
+            or ann.get("headline")
+            or ""
+        ).lower()
 
         is_meeting = any(kw in desc for kw in meeting_keywords)
 

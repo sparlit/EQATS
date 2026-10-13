@@ -21,9 +21,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import re
-
-
 class HeadlineSimulator:
     def __init__(self):
         # Bullish keywords & intensifiers

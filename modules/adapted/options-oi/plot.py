@@ -28,7 +28,6 @@ import tkinter as tk
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
 
 filename = "option_chain.json"
 atm = 0
@@ -97,8 +96,8 @@ def plot_open_interest_data(spot, strikes, expiry_list, expiry, index, container
         else:
             print("fail")
 
-    atm_oi_yval = max(*call_oi, *put_oi)
-    atm_change_oi_yval = max(*call_change_oi, *put_change_oi)
+    atm_oi_yval = max(max(call_oi), max(put_oi))
+    atm_change_oi_yval = max(max(call_change_oi), max(put_change_oi))
 
     # Contract values calculation in million
     calls = round(lot_size * sum(call_oi) / 1000000, 2)
@@ -201,3 +200,5 @@ def plot_open_interest_data(spot, strikes, expiry_list, expiry, index, container
 
     # function to show the plot
     # plt.show()
+
+    return

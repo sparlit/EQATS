@@ -2,9 +2,11 @@
 Unit tests for Jesse Metrics & Quant Strategy Suite.
 Verifies JesseMetricsEngine and JesseQuantStrategyLibrary.
 """
-from typing import Any
-import pytest
-from institutional_integrations.jesse_metrics_and_quant_suite import JesseMetricsEngine, JesseQuantStrategyLibrary
+from institutional_integrations.jesse_metrics_and_quant_suite import (
+    JesseMetricsEngine,
+    JesseQuantStrategyLibrary,
+)
+
 
 def test_jesse_metrics_engine() -> None:
     engine = JesseMetricsEngine()

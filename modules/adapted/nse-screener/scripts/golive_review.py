@@ -91,7 +91,9 @@ def gate2(log, p, ctx):
             fails.append(f"{t.date()} regime does not reproduce")
         if row["regime"] == "ON" and diff("momentum", logged_names(row["holdings"]), mom):
             fails.append(f"{t.date()} momentum names drifted")
-        if "@" in str(row["lowvol_sleeve"]) and diff("lowvol", logged_names(row["lowvol_sleeve"]), low):
+        if "@" in str(row["lowvol_sleeve"]) and diff(
+            "lowvol", logged_names(row["lowvol_sleeve"]), low
+        ):
             fails.append(f"{t.date()} lowvol names drifted")
 
     def next_open(t):
@@ -186,7 +188,9 @@ def main():
         g3 = f"DEFERRED ({n}/{MIN_OVERLAP} overlapping invested days)"
         combo = False
     else:
-        g3 = f"corr={corr:.2f} over {n} days → " + ("combo CONFIRMED" if corr < CORR_MAX else "combo DEAD")
+        g3 = f"corr={corr:.2f} over {n} days → " + (
+            "combo CONFIRMED" if corr < CORR_MAX else "combo DEAD"
+        )
         combo = corr < CORR_MAX
     print(f"GATE 3 combo:       {g3}")
 

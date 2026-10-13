@@ -33,7 +33,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import itertools
 from datetime import date
 
 from app.core import shareholding as sh
@@ -120,8 +119,7 @@ assert sh.classify(filing(26.89), filing(26.9))["verdict"] == "no_change"
 # --- which filings earn an XBRL fetch --------------------------------------------------------------
 quarter_end = date(2026, 6, 30)
 mid_quarter = date(2026, 8, 12)
-assert sh.is_off_cycle(mid_quarter)
-assert not sh.is_off_cycle(quarter_end)
+assert sh.is_off_cycle(mid_quarter) and not sh.is_off_cycle(quarter_end)
 
 url = "https://nsearchives.nseindia.com/x.xml"
 big = {"period_date": quarter_end, "promoter_pct": 30.53, "xbrl_url": url}
@@ -139,14 +137,18 @@ today = date(2026, 8, 25)
 year = sh.windows(1, today)
 assert year[0][1] == today, "newest window first - an interrupted seed keeps the useful end"
 assert all((b - a).days <= sh.WINDOW_DAYS for a, b in year), "the endpoint refuses wide ranges"
-assert year[-1][0] >= today.replace(year=2025, month=8, day=25), "never reaches past the asked range"
+assert year[-1][0] >= today.replace(year=2025, month=8, day=25), (
+    "never reaches past the asked range"
+)
 assert len(sh.windows(5, today)) > len(year)
-assert len(sh.windows(99, today)) == len(sh.windows(sh.MAX_SEED_YEARS, today)), "capped, not refused"
+assert len(sh.windows(99, today)) == len(sh.windows(sh.MAX_SEED_YEARS, today)), (
+    "capped, not refused"
+)
 assert len(sh.windows(0, today)) == len(sh.windows(1, today)), "and floored at one year"
 
 # Windows tile without gaps: a filing landing between two of them would never be collected. They
 # run newest-first, so each window ends the day before the previous one starts.
-for newer, older in itertools.pairwise(year):
+for newer, older in zip(year[:-1], year[1:], strict=False):
     assert (newer[0] - older[1]).days == 1, (newer, older)
 
 # An explicit span (what the page's range picker sends) tiles the same way, and reads an inverted
@@ -155,7 +157,7 @@ span = sh.windows_between(date(2026, 1, 1), today)
 assert span[0][1] == today and span[-1][0] == date(2026, 1, 1), span
 assert sh.windows_between(today, date(2026, 1, 1)) == span, "from/to swapped is still that range"
 assert sh.windows_between(today, today) == [(today, today)], "a single day is one window, not none"
-for newer, older in itertools.pairwise(span):
+for newer, older in zip(span[:-1], span[1:], strict=False):
     assert (newer[0] - older[1]).days == 1, (newer, older)
 
 # --- master row parsing ---------------------------------------------------------------------------
@@ -175,10 +177,8 @@ row = {
 }
 parsed = sh.parse_master_row(row)
 assert parsed["symbol"] == "AJOONI", "symbols are keys elsewhere in the app - trimmed and upper"
-assert parsed["period_date"] == mid_quarter
-assert parsed["submission_date"] == date(2026, 8, 22)
-assert parsed["promoter_pct"] == 30.53
-assert parsed["dr_pct"] is None
+assert parsed["period_date"] == mid_quarter and parsed["submission_date"] == date(2026, 8, 22)
+assert parsed["promoter_pct"] == 30.53 and parsed["dr_pct"] is None
 assert parsed["is_revision"] is False
 assert sh.parse_master_row({**row, "revisedData": "Revised"})["is_revision"] is True
 
@@ -234,9 +234,12 @@ assert slow_pace["gradual"] is True, slow_pace
 assert fast_pace["gradual"] is False, "one filing carried 97% of the move"
 assert sh.pace([], 4)["total_pp"] is None
 assert (
-    sh.pace(sh.series_changes([row("FLAT", date(2026, 3, 31), 15.0), row("FLAT", date(2026, 6, 30), 15.1)]), 4)[
-        "gradual"
-    ]
+    sh.pace(
+        sh.series_changes(
+            [row("FLAT", date(2026, 3, 31), 15.0), row("FLAT", date(2026, 6, 30), 15.1)]
+        ),
+        4,
+    )["gradual"]
     is None
 )
 
@@ -260,7 +263,9 @@ detailed = [
     },
 ]
 screener = sh.screener_rows(
-    detailed + gradual + [row("QUIET", date(2026, 3, 31), 50.0), row("QUIET", date(2026, 6, 30), 50.0)]
+    detailed
+    + gradual
+    + [row("QUIET", date(2026, 3, 31), 50.0), row("QUIET", date(2026, 6, 30), 50.0)]
 )
 by_symbol = {r["symbol"]: r for r in screener}
 assert screener[0]["symbol"] == "ISSUE", "the biggest move is read first"
@@ -300,12 +305,22 @@ sortable = [
         "window": {"total_pp": None},
     },
 ]
-assert [r["symbol"] for r in sh.sort_rows(sortable)] == ["AAA", "BBB", "CCC"], "biggest move, sign ignored"
-assert [r["symbol"] for r in sh.sort_rows(sortable, "delta", "asc")] == ["AAA", "BBB", "CCC"], "signed: the sell first"
+assert [r["symbol"] for r in sh.sort_rows(sortable)] == ["AAA", "BBB", "CCC"], (
+    "biggest move, sign ignored"
+)
+assert [r["symbol"] for r in sh.sort_rows(sortable, "delta", "asc")] == ["AAA", "BBB", "CCC"], (
+    "signed: the sell first"
+)
 assert [r["symbol"] for r in sh.sort_rows(sortable, "delta", "desc")] == ["BBB", "AAA", "CCC"]
-assert [r["symbol"] for r in sh.sort_rows(sortable, "promoter", "asc")] == ["AAA", "BBB", "CCC"], "unknown% stays last"
+assert [r["symbol"] for r in sh.sort_rows(sortable, "promoter", "asc")] == ["AAA", "BBB", "CCC"], (
+    "unknown% stays last"
+)
 assert [r["symbol"] for r in sh.sort_rows(sortable, "promoter", "desc")] == ["BBB", "AAA", "CCC"]
 assert [r["symbol"] for r in sh.sort_rows(sortable, "symbol", "asc")] == ["AAA", "BBB", "CCC"]
-assert [r["symbol"] for r in sh.sort_rows(sortable, "nonsense")] == ["AAA", "BBB", "CCC"], "bad key falls back"
+assert [r["symbol"] for r in sh.sort_rows(sortable, "nonsense")] == ["AAA", "BBB", "CCC"], (
+    "bad key falls back"
+)
 
-print("ok - shareholding: AJOONI mechanism split, verdicts, detail gating, windows, master parsing, screener, sorting")
+print(
+    "ok - shareholding: AJOONI mechanism split, verdicts, detail gating, windows, master parsing, screener, sorting"
+)

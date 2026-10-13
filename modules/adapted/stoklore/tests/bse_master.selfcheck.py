@@ -51,8 +51,7 @@ assert row["symbol"] == "ABB", "the trading symbol, not the numeric code - it's 
 assert row["bse_code"] == "500002", "and the code is kept, because BSE's own APIs take only that"
 assert row["isin"] == "INE117A01022", "the ISIN is what merges this onto its NSE twin"
 assert row["exchange"] == "BSE"
-assert row["board"] == "MAIN"
-assert row["face_value"] == 2.0
+assert row["board"] == "MAIN" and row["face_value"] == 2.0
 # Issuer_Name over Scrip_Name: the legal name is the spelling NSE's CSVs use, so a merged row
 # doesn't flip between "ABB India Ltd" and "ABB India Limited" on every import.
 assert row["name"] == "ABB India Limited"

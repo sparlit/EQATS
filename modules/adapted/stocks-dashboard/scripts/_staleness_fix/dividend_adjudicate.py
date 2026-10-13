@@ -37,7 +37,6 @@ Run: .venv python3 dividend_adjudicate.py   (needs NSE bhavcopy access via build
 import datetime
 import json
 import os
-import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -52,7 +51,9 @@ RES = os.path.join(HERE, "dividend_sweep_results.json")
 def main():
     res = json.load(open(RES))
     try:
-        led = {(x[0], int(x[1])) for x in json.load(open(os.path.join(SCRIPTS, "demerger_adj.json")))}
+        led = {
+            (x[0], int(x[1])) for x in json.load(open(os.path.join(SCRIPTS, "demerger_adj.json")))
+        }
     except Exception:
         led = set()
     jar = None
@@ -65,7 +66,7 @@ def main():
     print(f"candidate windows: {len(cands)}")
     proposals, rejected = [], []
     for key, v in cands:
-        sym, _e0, _e1 = key.split("|")
+        sym, e0, e1 = key.split("|")
         for c in v["candidates"]:
             amt = c["amt"]
             nd = (c["news_dt"] or "")[:10]
@@ -102,7 +103,9 @@ def main():
             _, exd, prev, opn, close = best
             true_pct = amt / prev * 100
             if true_pct < 2.0:
-                rejected.append((sym, nd, amt, f"era materiality {true_pct:.2f}% < 2% (prev {prev})"))
+                rejected.append(
+                    (sym, nd, amt, f"era materiality {true_pct:.2f}% < 2% (prev {prev})")
+                )
                 continue
             if (sym, exd) in led:
                 rejected.append((sym, nd, amt, f"already ledgered at {exd}"))
@@ -110,7 +113,9 @@ def main():
             factor = round((prev - amt) / prev, 4)
             raw = round(close / prev, 4)
             proposals.append([sym, exd, factor, raw, amt, round(true_pct, 2)])
-            print(f'PROPOSE ["{sym}", {exd}, {factor}, {raw}]  # Rs{amt} = {true_pct:.2f}% of era prev {prev}')
+            print(
+                f'PROPOSE ["{sym}", {exd}, {factor}, {raw}]  # Rs{amt} = {true_pct:.2f}% of era prev {prev}'
+            )
     print()
     for r in rejected:
         print("reject:", r)

@@ -74,7 +74,9 @@ class TestBrokerPrimaryOverwrite:
 
         import brokers.session as sess
 
-        assert sess._primary_key == "broker_a", "Second register_broker() should NOT overwrite primary"
+        assert sess._primary_key == "broker_a", (
+            "Second register_broker() should NOT overwrite primary"
+        )
         assert "broker_b" in sess._brokers
 
     def test_explicit_primary_true_does_overwrite(self):
@@ -222,7 +224,9 @@ class TestFIIDIISorting:
         total_fii = sum(r.fii_net for r in result)
 
         # Today should not equal the cumulative (500 != 500 + -600 = -100)
-        assert today_fii != total_fii, f"Today FII ({today_fii}) should not equal 5-day total ({total_fii})"
+        assert today_fii != total_fii, (
+            f"Today FII ({today_fii}) should not equal 5-day total ({total_fii})"
+        )
 
 
 # ── Bug #116: IV solver for deep ITM ──────────────────────────

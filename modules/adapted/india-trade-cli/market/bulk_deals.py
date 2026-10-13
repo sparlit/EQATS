@@ -45,7 +45,6 @@ Usage:
 import io
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -432,7 +431,9 @@ def print_deals(symbol: str | None = None, days: int = 5) -> None:
 
     for d in all_deals:
         action_color = "green" if d.deal_type == "BUY" else "red"
-        entity_color = {"FII": "yellow", "MF": "cyan", "DII": "blue", "PROMOTER": "green"}.get(d.entity_type, "dim")
+        entity_color = {"FII": "yellow", "MF": "cyan", "DII": "blue", "PROMOTER": "green"}.get(
+            d.entity_type, "dim"
+        )
         table.add_row(
             d.date[:12],
             d.deal_class,

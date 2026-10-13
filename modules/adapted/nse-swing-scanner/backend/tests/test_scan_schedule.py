@@ -56,33 +56,36 @@ class TestWindowsConfig(unittest.TestCase):
             text = f.read()
         found = re.findall(r'^\s+- cron:\s*"(\d+ \d+ \* \* 1-5)"', text, flags=re.MULTILINE)
         expected = [f"{m} {h} * * 1-5" for h, m in SCAN_WINDOWS_UTC]
-        assert found == expected
+        self.assertEqual(found, expected)
 
     def test_scheduled_cron_string(self):
-        assert scan_schedule.scheduled_cron_string([(3, 30), (10, 30)]) == "30 3 * * 1-5, 30 10 * * 1-5"
+        self.assertEqual(
+            scan_schedule.scheduled_cron_string([(3, 30), (10, 30)]),
+            "30 3 * * 1-5, 30 10 * * 1-5",
+        )
 
 
 class TestAttributeWindow(unittest.TestCase):
     def test_on_time_scan_attributed_to_its_window(self):
         label, drift = scan_schedule.attribute_window(dt(2026, 9, 1, 3, 35))
-        assert label == "03:30"
-        assert drift == 5
+        self.assertEqual(label, "03:30")
+        self.assertEqual(drift, 5)
 
     def test_evening_scan_attributed_to_evening_window(self):
         label, drift = scan_schedule.attribute_window(dt(2026, 9, 1, 10, 41))
-        assert label == "10:30"
-        assert drift == 11
+        self.assertEqual(label, "10:30")
+        self.assertEqual(drift, 11)
 
     def test_before_first_window_uses_yesterday_last_window(self):
         # 00:15 UTC is closest to yesterday's 10:30 window, not today's 03:30.
         label, drift = scan_schedule.attribute_window(dt(2026, 9, 2, 0, 15))
-        assert label == "10:30"
-        assert drift == 24 * 60 - (10 * 60 + 30) + 15
+        self.assertEqual(label, "10:30")
+        self.assertEqual(drift, (24 * 60) - (10 * 60 + 30) + 15)
 
     def test_slightly_after_midnight_not_attributed_to_today_morning(self):
         # 00:05 UTC: today's 03:30 is in the future; must pick yesterday 10:30.
         label, _ = scan_schedule.attribute_window(dt(2026, 9, 2, 0, 5))
-        assert label == "10:30"
+        self.assertEqual(label, "10:30")
 
     def test_no_past_window_returns_none(self):
         # Monday 00:00 sharp with windows later that day: yesterday was Sunday
@@ -90,27 +93,27 @@ class TestAttributeWindow(unittest.TestCase):
         # candidate is still in the past, so attribution exists — assert the
         # invariant holds (never crashes, drift non-negative or None).
         label, drift = scan_schedule.attribute_window(dt(2026, 8, 31, 0, 0))
-        assert label is None or drift >= 0
+        self.assertTrue(label is None or drift >= 0)
 
 
 class TestNextScheduledWindow(unittest.TestCase):
     def test_before_window_returns_today_window(self):
         nxt = scan_schedule.next_scheduled_window(dt(2026, 9, 1, 3, 0))
-        assert nxt == dt(2026, 9, 1, 3, 30)
+        self.assertEqual(nxt, dt(2026, 9, 1, 3, 30))
 
     def test_after_last_window_returns_next_weekday(self):
         # Tue 2026-09-01 after 10:30 -> Wed 03:30.
         nxt = scan_schedule.next_scheduled_window(dt(2026, 9, 1, 11, 0))
-        assert nxt == dt(2026, 9, 2, 3, 30)
+        self.assertEqual(nxt, dt(2026, 9, 2, 3, 30))
 
     def test_friday_evening_skips_weekend(self):
         # Fri 2026-09-04 12:00 -> Mon 2026-09-07 03:30.
         nxt = scan_schedule.next_scheduled_window(dt(2026, 9, 4, 12, 0))
-        assert nxt == dt(2026, 9, 7, 3, 30)
+        self.assertEqual(nxt, dt(2026, 9, 7, 3, 30))
 
     def test_saturday_returns_monday(self):
         nxt = scan_schedule.next_scheduled_window(dt(2026, 9, 5, 9, 0))
-        assert nxt == dt(2026, 9, 7, 3, 30)
+        self.assertEqual(nxt, dt(2026, 9, 7, 3, 30))
 
 
 if __name__ == "__main__":

@@ -54,7 +54,11 @@ def compute(window: pd.DataFrame, meta: pd.DataFrame) -> pd.DataFrame:
 
     # Equal-weighted industry cumulative return (self included, same as leading_industry.py)
     industry_cum_ret = (
-        win.groupby(["industry", "date"])["log_ret"].mean().groupby("industry").sum().rename("industry_cum_ret")
+        win.groupby(["industry", "date"])["log_ret"]
+        .mean()
+        .groupby("industry")
+        .sum()
+        .rename("industry_cum_ret")
     )
 
     sym_industry = meta.set_index("symbol")["industry"]

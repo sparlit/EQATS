@@ -67,12 +67,15 @@ def prior_col(pdf, pages):
             if field in out:
                 continue
             for label, nums in rows:
-                if re.search(rx, label, re.IGNORECASE) and len(nums) >= 2 and nums[1] is not None:
+                if re.search(rx, label, re.I) and len(nums) >= 2 and nums[1] is not None:
                     out[field] = nums[1]
                     break
         if "assets" not in out:
             for label, nums in rows:
-                if re.search(r"total[\s\-–:.]{0,6}equity\s+and\s+liabilit", label, re.IGNORECASE) and len(nums) >= 2:
+                if (
+                    re.search(r"total[\s\-–:.]{0,6}equity\s+and\s+liabilit", label, re.I)
+                    and len(nums) >= 2
+                ):
                     out["assets"] = nums[1]
                     break
     doc.close()
@@ -87,7 +90,9 @@ _X = None
 def xbrl_ref(sym, b):
     global _X
     if _X is None:
-        _X = json.loads(gzip.decompress(open(os.path.join(HERE, "xbrl_extra.json.gz"), "rb").read()))
+        _X = json.loads(
+            gzip.decompress(open(os.path.join(HERE, "xbrl_extra.json.gz"), "rb").read())
+        )
     for fy in ("20230331", "20240331", "20250331", "20260331"):
         c = _X.get(sym, {}).get(fy, {}).get(b)
         if isinstance(c, dict) and c.get("assets"):
@@ -146,11 +151,17 @@ def main():
                     continue
                 unit = F.detect_unit(
                     "\n".join(
-                        __import__("fitz").open(stream=pdf, filetype="pdf")[p].get_text() for p in F._as_list(loc[1])
+                        __import__("fitz").open(stream=pdf, filetype="pdf")[p].get_text()
+                        for p in F._as_list(loc[1])
                     )
                 )
                 ks = [unit] if unit else [1.0, 10.0, 100.0, 1e4, 1e7]
-                ks = [k for k in ks if c.get("assets") and abs(raw["assets"] / k - c["assets"]) / c["assets"] <= 0.10]
+                ks = [
+                    k
+                    for k in ks
+                    if c.get("assets")
+                    and abs(raw["assets"] / k - c["assets"]) / c["assets"] <= 0.10
+                ]
                 if not ks:
                     if not unit:
                         verdict = "unknown"
@@ -158,7 +169,10 @@ def main():
                     got = {kk: v / unit for kk, v in raw.items()}
                     verdict = (
                         "disagree"
-                        if (misread(c.get("assets"), got.get("assets")) or misread(c.get("ppe"), got.get("ppe")))
+                        if (
+                            misread(c.get("assets"), got.get("assets"))
+                            or misread(c.get("ppe"), got.get("ppe"))
+                        )
                         else "grey"
                     )
                     break
@@ -175,8 +189,12 @@ def main():
                     verdict = "unknown"  # assets agree but PP&E (the field that matters) unchecked
                 elif da <= 0.02 and (dp is None or dp <= 0.02):
                     verdict = "agree"
-                elif misread(c.get("assets"), got.get("assets")) or misread(c.get("ppe"), got.get("ppe")):
-                    verdict = "disagree"  # a power-of-ten / >20x gap is a MISREAD, never a restatement
+                elif misread(c.get("assets"), got.get("assets")) or misread(
+                    c.get("ppe"), got.get("ppe")
+                ):
+                    verdict = (
+                        "disagree"  # a power-of-ten / >20x gap is a MISREAD, never a restatement
+                    )
                 else:
                     verdict = "grey"  # moderate gap: a restated comparative (merger, reclass,
                     # ROU convention) is legitimate — the as-filed value is the
@@ -200,12 +218,18 @@ def main():
                     # the symbol's own XBRL-held year: the side within 3x of it is the plausible one.
                     r = xbrl_ref(sym, c["b"])
                     st_ok = near(c.get("assets"), r and r.get("assets")) and (
-                        c.get("ppe") is None or not (r or {}).get("ppe") or near(c.get("ppe"), r["ppe"])
+                        c.get("ppe") is None
+                        or not (r or {}).get("ppe")
+                        or near(c.get("ppe"), r["ppe"])
                     )
                     cp_ok = (
                         got is not None
                         and near(got.get("assets"), r and r.get("assets"))
-                        and (got.get("ppe") is None or not (r or {}).get("ppe") or near(got.get("ppe"), r["ppe"]))
+                        and (
+                            got.get("ppe") is None
+                            or not (r or {}).get("ppe")
+                            or near(got.get("ppe"), r["ppe"])
+                        )
                     )
                     if st_ok and not cp_ok:
                         verdict = "keep-cmp-misread"

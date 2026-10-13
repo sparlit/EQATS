@@ -22,15 +22,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """
-Backtesting module for RakshaQuant.
+Backtesting (plan M11): the paper engine itself replayed over daily bars
+(:mod:`src.backtesting.session`, :mod:`src.backtesting.bars`) and the edge statistics and gate
+(:mod:`src.backtesting.edge`).
 """
-
-from .engine import BacktestEngine, BacktestResult
-from .strategies import MeanReversionStrategy, MomentumStrategy
-
-__all__ = [
-    "BacktestEngine",
-    "BacktestResult",
-    "MeanReversionStrategy",
-    "MomentumStrategy",
-]

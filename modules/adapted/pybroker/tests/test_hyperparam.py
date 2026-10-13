@@ -84,7 +84,7 @@ def test_float_lattice_matches_optuna_snapping():
 
 
 @pytest.mark.parametrize(
-    ("low", "high", "step"),
+    "low, high, step",
     [
         (0.0, 1.0, 0.25),
         (0.0, 10.0, 2.5),
@@ -117,7 +117,7 @@ def test_float_lattice_matches_optuna_distribution(low, high, step):
 
 
 @pytest.mark.parametrize(
-    ("low", "high", "step"),
+    "low, high, step",
     [(0.0, 1.0, 0.3), (0.0, 9.7, 1.0), (0.05, 1.0, 0.25), (5, 50, 7)],
 )
 def test_rejects_step_misaligned_with_bounds(low, high, step):

@@ -26,12 +26,12 @@ import sys
 import jax
 import jax.numpy as jnp
 import jax_cfd.base as cfd
+import jax_cfd.base.grids as grids
+import jax_cfd.spectral as spectral
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import xarray
-from jax_cfd import spectral
-from jax_cfd.base import grids
 
 
 def KolmogorovFlow2D(viscosity, grid, smooth):
@@ -43,9 +43,13 @@ def KolmogorovFlow2D(viscosity, grid, smooth):
     offsets = ((0, 0), (0, 0))
 
     def forcing_fn(grid):
-        return cfd.forcings.kolmogorov_forcing(grid, k=forcing_mode, scale=forcing_amplitude, offsets=offsets)
+        return cfd.forcings.kolmogorov_forcing(
+            grid, k=forcing_mode, scale=forcing_amplitude, offsets=offsets
+        )
 
-    return spectral.equations.NavierStokes2D(viscosity, grid, drag=0.0, smooth=smooth, forcing_fn=forcing_fn)
+    return spectral.equations.NavierStokes2D(
+        viscosity, grid, drag=0.0, smooth=smooth, forcing_fn=forcing_fn
+    )
 
 
 def simulation_run(
@@ -65,9 +69,13 @@ def simulation_run(
     inner_steps = int(int(final_time / dt) / outer_steps)
 
     # **use predefined settings for Kolmogorov flow**
-    step_fn = spectral.time_stepping.crank_nicolson_rk4(KolmogorovFlow2D(viscosity, grid, smooth=smooth), dt)
+    step_fn = spectral.time_stepping.crank_nicolson_rk4(
+        KolmogorovFlow2D(viscosity, grid, smooth=smooth), dt
+    )
 
-    trajectory_fn = cfd.funcutils.trajectory(cfd.funcutils.repeated(step_fn, inner_steps), outer_steps)
+    trajectory_fn = cfd.funcutils.trajectory(
+        cfd.funcutils.repeated(step_fn, inner_steps), outer_steps
+    )
 
     # create an initial velocity field and compute the fft of the vorticity.
     # the spectral code assumes an fft'd vorticity for an initial state
@@ -97,11 +105,17 @@ def simulation_run(
 
     if grid_coarse is not None:
         # downsample the velocity in Fourier
-        uhat_coarse = jax.vmap(cfd.resize.downsample_spectral, in_axes=(None, None, 0))(None, grid_coarse, uhat)
+        uhat_coarse = jax.vmap(cfd.resize.downsample_spectral, in_axes=(None, None, 0))(
+            None, grid_coarse, uhat
+        )
 
-        vhat_coarse = jax.vmap(cfd.resize.downsample_spectral, in_axes=(None, None, 0))(None, grid_coarse, vhat)
+        vhat_coarse = jax.vmap(cfd.resize.downsample_spectral, in_axes=(None, None, 0))(
+            None, grid_coarse, vhat
+        )
 
-        spatial_coord_coarse = jnp.arange(grid_coarse.shape[0]) * 2 * jnp.pi / grid_coarse.shape[0]  # same for x and y
+        spatial_coord_coarse = (
+            jnp.arange(grid_coarse.shape[0]) * 2 * jnp.pi / grid_coarse.shape[0]
+        )  # same for x and y
         coords_coarse = {
             "time": dt * jnp.arange(outer_steps) * inner_steps,
             "x": spatial_coord_coarse,
@@ -114,7 +128,9 @@ def simulation_run(
             jnp.fft.irfftn(vhat_coarse, axes=(1, 2)), dims=["time", "x", "y"], coords=coords_coarse
         )
         np.savez_compressed(
-            folder_name + "/results_coarse.npz", u_coarse=u_coarse.to_numpy(), v_coarse=v_coarse.to_numpy()
+            folder_name + "/results_coarse.npz",
+            u_coarse=u_coarse.to_numpy(),
+            v_coarse=v_coarse.to_numpy(),
         )
 
     spatial_coord = jnp.arange(grid.shape[0]) * 2 * jnp.pi / grid.shape[0]  # same for x and y
@@ -134,12 +150,17 @@ def simulation_run(
             lambda v_init, uu, vv: tuple(
                 grids.GridVariable(grids.GridArray(vel, offset, grid), bc)
                 for vel, offset, bc in zip(
-                    [uu, vv], [v_init[0].offset, v_init[1].offset], [v_init[0].bc, v_init[1].bc], strict=False
+                    [uu, vv],
+                    [v_init[0].offset, v_init[1].offset],
+                    [v_init[0].bc, v_init[1].bc],
+                    strict=False,
                 )
             ),
             in_axes=(None, 0, 0),
         )(v0, u.data, v.data)
-        divergence_values = jax.vmap(lambda vel: jnp.mean(cfd.finite_differences.divergence(vel).data))(velocities)
+        divergence_values = jax.vmap(
+            lambda vel: jnp.mean(cfd.finite_differences.divergence(vel).data)
+        )(velocities)
 
         print("Average divergence for fine vel:", jnp.mean(divergence_values))
 
@@ -147,12 +168,17 @@ def simulation_run(
             lambda v_init, uu, vv: tuple(
                 grids.GridVariable(grids.GridArray(vel, offset, grid), bc)
                 for vel, offset, bc in zip(
-                    [uu, vv], [v_init[0].offset, v_init[1].offset], [v_init[0].bc, v_init[1].bc], strict=False
+                    [uu, vv],
+                    [v_init[0].offset, v_init[1].offset],
+                    [v_init[0].bc, v_init[1].bc],
+                    strict=False,
                 )
             ),
             in_axes=(None, 0, 0),
         )(v0, u_coarse.data, v_coarse.data)
-        divergence_values = jax.vmap(lambda vel: jnp.mean(cfd.finite_differences.divergence(vel).data))(velocities)
+        divergence_values = jax.vmap(
+            lambda vel: jnp.mean(cfd.finite_differences.divergence(vel).data)
+        )(velocities)
 
         print("Average divergence for coarse vel:", jnp.mean(divergence_values))
 
@@ -169,18 +195,20 @@ def simulation_run(
             "y": spatial_coord,
         }
 
-        xarray.DataArray(u.data[0:-1:plotting_interval], dims=["time", "x", "y"], coords=coords).plot.contourf(
-            col="time", col_wrap=5, cmap=sns.cm.icefire, robust=True, levels=100
-        )
+        xarray.DataArray(
+            u.data[0:-1:plotting_interval], dims=["time", "x", "y"], coords=coords
+        ).plot.contourf(col="time", col_wrap=5, cmap=sns.cm.icefire, robust=True, levels=100)
         plt.savefig(folder_name + "/velocity_x_fine", dpi=400)
 
-        xarray.DataArray(v.data[0:-1:plotting_interval], dims=["time", "x", "y"], coords=coords).plot.contourf(
-            col="time", col_wrap=5, cmap=sns.cm.icefire, robust=True, levels=100
-        )
+        xarray.DataArray(
+            v.data[0:-1:plotting_interval], dims=["time", "x", "y"], coords=coords
+        ).plot.contourf(col="time", col_wrap=5, cmap=sns.cm.icefire, robust=True, levels=100)
         plt.savefig(folder_name + "/velocity_y_fine", dpi=400)
 
         xarray.DataArray(
-            jnp.fft.irfftn(trajectory, axes=(1, 2))[0:-1:plotting_interval], dims=["time", "x", "y"], coords=coords
+            jnp.fft.irfftn(trajectory, axes=(1, 2))[0:-1:plotting_interval],
+            dims=["time", "x", "y"],
+            coords=coords,
         ).plot.contourf(col="time", col_wrap=5, cmap=sns.cm.icefire, robust=True, levels=100)
         plt.savefig(folder_name + "/vorticity_fine", dpi=400)
 

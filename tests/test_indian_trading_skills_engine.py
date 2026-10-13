@@ -5,7 +5,6 @@ Verifies IndianTradingSkillsEngine VWAP bands calculation, EMA crossover setup,
 0.05 INR tick rounding, and microkernel plugin registry lookup.
 """
 
-from typing import Any
 
 from institutional_integrations.indian_trading_skills_engine import (
     MAGIC_NUMBER_INDIAN_TRADING_SKILLS,
@@ -14,7 +13,6 @@ from institutional_integrations.indian_trading_skills_engine import (
 )
 from institutional_integrations.sebi_broker_adapter import (
     IndianBrokerPluginRegistry,
-    SEBIOrderRequest,
     UnifiedIndianBrokerClientAdapter,
     generate_indian_market_history_bars,
 )

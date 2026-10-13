@@ -33,7 +33,9 @@ def _response(status: int, description: str = "") -> Mock:
     response.status_code = status
     response.text = description
     response.json.return_value = (
-        {"ok": True, "result": {}} if status < 400 else {"ok": False, "error_code": status, "description": description}
+        {"ok": True, "result": {}}
+        if status < 400
+        else {"ok": False, "error_code": status, "description": description}
     )
     return response
 
@@ -78,7 +80,9 @@ def test_scheduled_delivery_adds_url_only_dashboard_keyboard(monkeypatch):
     monkeypatch.setenv("V3_TELEGRAM_CHAT_ID", "-100123")
     post = Mock(return_value=_response(200))
     monkeypatch.setattr("v2.telegram_delivery.requests.post", post)
-    message = "ALL ACTIONABLE CANDIDATES\n" + "\n".join(f"{index}. STOCK{index}" for index in range(1, 61))
+    message = "ALL ACTIONABLE CANDIDATES\n" + "\n".join(
+        f"{index}. STOCK{index}" for index in range(1, 61)
+    )
 
     result = send_messages([message], enabled=True)
 

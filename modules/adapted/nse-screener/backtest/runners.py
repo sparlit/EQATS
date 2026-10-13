@@ -29,12 +29,9 @@ declared variants verbatim.
 """
 import sys
 
-import pandas as pd
 from backtest import features, monthly, v7
 from ingest import vix
 from ingest.sectors import sector_map
-
-import config
 
 WINDOWS = (("IS 2023-26", "2022-01-01", None), ("OOS 2017-22", None, "2022-12-31"))
 
@@ -52,7 +49,9 @@ def v41():  # PROTOCOL_V4.1: vol-scaling + FIP
         monthly.report("v4-regime", monthly.simulate(p, ctx, regime_filter=True))
         monthly.report("v4.1-vol", monthly.simulate(p, ctx, regime_filter=True, vol_target=0.15))
         monthly.report("v4.1-fip", monthly.simulate(p, ctx, regime_filter=True, fip_pool=40))
-        monthly.report("v4.1-full", monthly.simulate(p, ctx, regime_filter=True, vol_target=0.15, fip_pool=40))
+        monthly.report(
+            "v4.1-full", monthly.simulate(p, ctx, regime_filter=True, vol_target=0.15, fip_pool=40)
+        )
 
     _each(run)
 
@@ -75,7 +74,9 @@ def v14():  # PROTOCOL_V14: VIX regimes
         monthly.report("vix<30", monthly.simulate(p, ctx, regime_series=reg(dma & (v < 30))))
         monthly.report("vix_only<25", monthly.simulate(p, ctx, regime_series=reg(v < 25)))
         pct = v.rolling(756, min_periods=252).rank(pct=True)
-        monthly.report("vix_pctile<.8", monthly.simulate(p, ctx, regime_series=reg(dma & (pct < 0.8))))
+        monthly.report(
+            "vix_pctile<.8", monthly.simulate(p, ctx, regime_series=reg(dma & (pct < 0.8)))
+        )
 
     _each(run)
 
@@ -110,9 +111,13 @@ def v16():  # PROTOCOL_V16: residual momentum + 52w-high
         monthly.report("v4-regime", monthly.simulate(p, ctx, regime_filter=True))
         monthly.report("resmom20", monthly.simulate(p, ctx, regime_filter=True, select_fn=resmom()))
         monthly.report("52w-high", monthly.simulate(p, ctx, regime_filter=True, select_fn=high52()))
-        monthly.report("beta504", monthly.simulate(p, ctx, regime_filter=True, select_fn=resmom(bw=504)))
+        monthly.report(
+            "beta504", monthly.simulate(p, ctx, regime_filter=True, select_fn=resmom(bw=504))
+        )
         monthly.report("no_regime", monthly.simulate(p, ctx, select_fn=resmom()))
-        monthly.report("top30", monthly.simulate(p, ctx, regime_filter=True, select_fn=resmom(n=30)))
+        monthly.report(
+            "top30", monthly.simulate(p, ctx, regime_filter=True, select_fn=resmom(n=30))
+        )
 
     _each(run)
 
@@ -138,8 +143,12 @@ def v19():  # PROTOCOL_V19: sector momentum
         monthly.report("v4-regime", monthly.simulate(p, ctx, regime_filter=True))
         monthly.report("top3", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel()))
         monthly.report("top5", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel(top=5)))
-        monthly.report("sec126", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel(lb=126)))
-        monthly.report("top30stocks", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel(n=30)))
+        monthly.report(
+            "sec126", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel(lb=126))
+        )
+        monthly.report(
+            "top30stocks", monthly.simulate(p, ctx, regime_filter=True, select_fn=ssel(n=30))
+        )
         monthly.report("no_regime", monthly.simulate(p, ctx, select_fn=ssel()))
 
     _each(run)
@@ -179,7 +188,10 @@ def v201():  # PROTOCOL_V20.1: pledge-creation events
     prom = pit["personCategory"].str.contains("Promoter", na=False)
     crea = pit[prom & (pit["acqMode"] == "Pledge Creation")]
     revo = pit[prom & pit["acqMode"].str.contains("Revok", na=False)]
-    for label, lo, hi in (("IS 2023-26", "2023-01-01", "2027-01-01"), ("OOS 2018-22", "2018-01-01", "2023-01-01")):
+    for label, lo, hi in (
+        ("IS 2023-26", "2023-01-01", "2027-01-01"),
+        ("OOS 2018-22", "2018-01-01", "2023-01-01"),
+    ):
         print(f"=== {label} ===")
 
         def W(d):
@@ -226,4 +238,6 @@ def v24():  # PROTOCOL_V24: NSE-200 winner (hysteresis)
 
 
 if __name__ == "__main__":
-    {"v41": v41, "v14": v14, "v16": v16, "v19": v19, "v13q": v13q, "v201": v201, "v24": v24}[sys.argv[1]]()
+    {"v41": v41, "v14": v14, "v16": v16, "v19": v19, "v13q": v13q, "v201": v201, "v24": v24}[
+        sys.argv[1]
+    ]()

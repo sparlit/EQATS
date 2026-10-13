@@ -28,7 +28,7 @@ all-time), and sends a summary to Telegram. Run daily (see schedule below).
 """
 import json
 import sys
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 try:
     import MetaTrader5 as mt5
@@ -46,7 +46,9 @@ def _connect():
     path = c.get("path") or None
     if mt5.initialize(path=path) and mt5.account_info():
         return True
-    return mt5.initialize(path=path, login=int(c["login"]), password=c["password"], server=c["server"])
+    return mt5.initialize(
+        path=path, login=int(c["login"]), password=c["password"], server=c["server"]
+    )
 
 
 def _summarize(deals):

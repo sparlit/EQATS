@@ -88,7 +88,10 @@ def qlist(code, cachedir):
         return json.load(open(p))
     try:
         rows = json.loads(
-            get(f"https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w?scripcode={code}&qtrid=0.00&QryType=0")
+            get(
+                "https://api.bseindia.com/BseIndiaAPI/api/SHPQNewFormat/w"
+                f"?scripcode={code}&qtrid=0.00&QryType=0"
+            )
         ).get("Table", [])
     except Exception:
         rows = None
@@ -125,7 +128,10 @@ def main():
     print("DENOMINATOR — logged so a silent skip cannot pass as a check:")
     print("  symbols in store            : %d" % len(syms))
     print("  with a BSE scripcode        : %d  <- sweepable" % len(with_code))
-    print("  WITHOUT (NSE-only §22e +    : %d  <- STRUCTURALLY UNCHECKABLE by this route" % len(no_code))
+    print(
+        "  WITHOUT (NSE-only §22e +    : %d  <- STRUCTURALLY UNCHECKABLE by this route"
+        % len(no_code)
+    )
     print("    delisted-from-master)")
     if a.limit:
         with_code = with_code[: a.limit]
@@ -155,7 +161,7 @@ def main():
             qe = None
             for m, dd in MON.items():
                 if q.startswith(m):
-                    qe = f"{q.rsplit(maxsplit=1)[-1]}-{dd}"
+                    qe = f"{q.split()[-1]}-{dd}"
             if not qe or qe not in held:
                 continue
             sub = str(held[qe][5])
@@ -199,7 +205,10 @@ def main():
     def verify(item):
         sym, qe, r = item
         try:
-            body = get("https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + r["XbrlFile"].strip(), timeout=60)
+            body = get(
+                "https://www.bseindia.com/XBRLFILES/SHPXBRLDataXML/" + r["XbrlFile"].strip(),
+                timeout=60,
+            )
             if len(body) < 5000:
                 raise RuntimeError("blocked/stub %d bytes" % len(body))
             cell = F.parse_shp(body.decode("utf-8", "ignore"), qe)
@@ -244,17 +253,18 @@ def main():
         print("  %-24s %4d" % (k, v))
 
     with open(a.out, "w", encoding="utf-8") as f:
-        f.writelines(
-            json.dumps(rec, separators=(",", ":")) + "\n"
-            for rec in sorted(out, key=lambda r: (not r["diffs"], r["sym"], r["qe"]))
-        )
+        for rec in sorted(out, key=lambda r: (not r["diffs"], r["sym"], r["qe"])):
+            f.write(json.dumps(rec, separators=(",", ":")) + "\n")
     stale = [r for r in out if r["diffs"]]
     print("\n%d records -> %s" % (len(out), a.out))
     if stale:
         print("STALE STORED CELLS (%d) — our value predates the revision AND differs:" % len(stale))
         for r in stale[:20]:
             corro = ",".join(r["sites"].keys()) if r.get("sites") else "-"
-            print("   %-12s %s  rev=%s  %s  sites:%s" % (r["sym"], r["qe"], r["revised"][:10], r["diffs"], corro))
+            print(
+                "   %-12s %s  rev=%s  %s  sites:%s"
+                % (r["sym"], r["qe"], r["revised"][:10], r["diffs"], corro)
+            )
     print("\nDRY RUN — healing is a separate step through shp_cell_fix.json.")
 
 

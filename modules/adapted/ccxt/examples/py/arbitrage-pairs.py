@@ -101,7 +101,7 @@ if len(sys.argv) > 2:
         currentProxy = -1
         maxRetries = len(proxies)
 
-        for _numRetries in range(maxRetries):
+        for _numRetries in range(0, maxRetries):
             # try proxies in round-robin fashion
             currentProxy = (currentProxy + 1) % len(proxies)
 
@@ -139,7 +139,7 @@ if len(sys.argv) > 2:
     # print a table of arbitrable symbols
     table = []
     dump(green(" symbol          | " + "".join([f" {id:<15} | " for id in ids])))
-    dump(green("".join(["-----------------+-" for x in range(len(ids) + 1)])))
+    dump(green("".join(["-----------------+-" for x in range(0, len(ids) + 1)])))
 
     for symbol in arbitrableSymbols:
         string = f" {symbol:<15} | "

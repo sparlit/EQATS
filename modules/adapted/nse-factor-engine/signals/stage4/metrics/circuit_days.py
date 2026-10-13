@@ -84,7 +84,7 @@ def compute(
     prices: pd.DataFrame,
     T,
     all_dates: list,
-    band_map: dict | None = None,
+    band_map: dict = None,
 ) -> pd.DataFrame:
     """
     prices    : full prices.parquet (symbol, date, close, ...)
@@ -101,14 +101,24 @@ def compute(
     # (T_63, T] → exactly 63 daily returns
     T_63 = all_dates[-64]
 
-    window = prices[(prices["date"] > T_63) & (prices["date"] <= T)].copy().sort_values(["symbol", "date"])
+    window = (
+        prices[(prices["date"] > T_63) & (prices["date"] <= T)]
+        .copy()
+        .sort_values(["symbol", "date"])
+    )
     window["daily_ret"] = window.groupby("symbol")["close"].pct_change()
     window = window.dropna(subset=["daily_ret"])
 
     window["threshold"] = window["symbol"].map(lambda s: _band_threshold(s, band_map))
     window["hit"] = window["daily_ret"] <= -(window["threshold"] - 0.001)
 
-    result = window.groupby("symbol")["hit"].sum().astype(int).rename("lower_circuit_hits_63d").reset_index()
+    result = (
+        window.groupby("symbol")["hit"]
+        .sum()
+        .astype(int)
+        .rename("lower_circuit_hits_63d")
+        .reset_index()
+    )
 
     n_hits = (result["lower_circuit_hits_63d"] >= 1).sum()
     print(
@@ -137,6 +147,10 @@ if __name__ == "__main__":
     result = compute(px, T, all_dates, band_map=band_map)
 
     print(f"\nShape: {result.shape}")
-    print(f"\nDistribution:\n{result['lower_circuit_hits_63d'].value_counts().sort_index().head(15).to_string()}")
+    print(
+        f"\nDistribution:\n{result['lower_circuit_hits_63d'].value_counts().sort_index().head(15).to_string()}"
+    )
     print(f"\nCPPLUS:\n{result[result['symbol'].str.startswith('CPPLUS')].to_string(index=False)}")
-    print(f"\nTop 15:\n{result.sort_values('lower_circuit_hits_63d', ascending=False).head(15).to_string(index=False)}")
+    print(
+        f"\nTop 15:\n{result.sort_values('lower_circuit_hits_63d', ascending=False).head(15).to_string(index=False)}"
+    )

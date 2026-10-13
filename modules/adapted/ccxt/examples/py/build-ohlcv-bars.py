@@ -66,7 +66,7 @@ async def example_with_watch_trades():
         collected_trades = collected_trades + ws_trades
         generated_bars = exch.build_ohlcvc(collected_trades, timeframe, since, limit)
         # Note: first bar would be partially constructed bar and its 'open' & 'high' & 'low' prices (except 'close' price) would probably have different values compared to real bar on chart, because the first obtained trade timestamp might be somewhere in the middle of timeframe period, so the pre-period would be missing because we would not have trades data. To fix that, you can get older data with `fetchTrades` to fill up bars till start bar.
-        for i in range(len(generated_bars)):
+        for i in range(0, len(generated_bars)):
             bar = generated_bars[i]
             bar_timestamp = bar[0]
             collected_bars_length = len(collected_bars)
@@ -81,7 +81,9 @@ async def example_with_watch_trades():
                 # remove the trades from saved array, which were till last collected bar's open timestamp
                 collected_trades = exch.filter_by_since_limit(collected_trades, bar_timestamp)
         # Note: first bar would carry incomplete values, please read comment in "buildOHLCVCFromWatchTrades" method definition for further explanation
-        print("[WS] Constructed", len(collected_bars), "bars from", symbol, "trades: ", collected_bars)
+        print(
+            "[WS] Constructed", len(collected_bars), "bars from", symbol, "trades: ", collected_bars
+        )
 
     await exch.close()
 

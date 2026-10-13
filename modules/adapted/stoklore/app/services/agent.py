@@ -72,8 +72,9 @@ def _tool_get_price(symbol):
     if not quote or quote.get("price") is None:
         # A null price handed on reads as "didn't move" - the model answered NOTHING_TO_REPORT for a
         # watchlist it never saw. Failing names the real problem on the node instead.
-        msg = f"no live price for {symbol.upper()} - Yahoo and moneycontrol both came back empty"
-        raise ValueError(msg)
+        raise ValueError(
+            f"no live price for {symbol.upper()} - Yahoo and moneycontrol both came back empty"
+        )
     return {"symbol": symbol.upper(), **quote}
 
 
@@ -103,7 +104,7 @@ def _tool_ema_crossover(symbol, short=20, long=50):
     if latest is None or (date.today() - latest).days > EMA_STALE_DAYS:
         try:
             prices.sync_symbol(symbol)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - an upstream that won't answer is reported, not raised
             if latest is None:
                 return {
                     "symbol": symbol,
@@ -115,7 +116,8 @@ def _tool_ema_crossover(symbol, short=20, long=50):
         return {
             "symbol": symbol,
             "crossover": None,
-            "error": f"not enough price history for a {short}/{long} EMA - needs about {int(long) + 2} daily bars",
+            "error": f"not enough price history for a {short}/{long} EMA - needs about "
+            f"{int(long) + 2} daily bars",
         }
     return {"symbol": symbol, **signal}
 
@@ -145,7 +147,10 @@ def _tool_scrape_url(url):
 def _tool_list_chat_sessions():
     """Titles of past chat sessions (from the History dropdown) - answers 'what have I asked
     about before' questions, which the model otherwise has no way to see beyond this session."""
-    return [{"title": s["title"] or "Untitled", "date": s["created_at"].date().isoformat()} for s in db.list_sessions()]
+    return [
+        {"title": s["title"] or "Untitled", "date": s["created_at"].date().isoformat()}
+        for s in db.list_sessions()
+    ]
 
 
 def _tool_search_reports(query):
@@ -180,9 +185,13 @@ def _tool_web_search(query):
 def _tool_check_watch_rule(name, symbol=None):
     rule = db.get_watch_rule(name)
     if rule is None:
-        return f"no watch rule named '{name}' - the user needs to set one up in Settings > Watch rules"
+        return (
+            f"no watch rule named '{name}' - the user needs to set one up in Settings > Watch rules"
+        )
     if symbol:
-        return _format_rule_check(rule["name"], symbol.upper(), rules.evaluate(rule, symbol.upper()))
+        return _format_rule_check(
+            rule["name"], symbol.upper(), rules.evaluate(rule, symbol.upper())
+        )
     results = [{"symbol": s, **rules.evaluate(rule, s)} for s in db.watchlist_symbols()]
     return _format_rule_check_all(rule["name"], results)
 
@@ -196,7 +205,9 @@ def _tool_run_screen(url, max_pages=4):
     and the only sign was an empty alert - the failure mode this whole feature exists to avoid.
     """
     try:
-        return scraper.get_screen(url, max_pages=int(max_pages), session_cookie=db.get_screener_cookie())
+        return scraper.get_screen(
+            url, max_pages=int(max_pages), session_cookie=db.get_screener_cookie()
+        )
     except scraper.ScreenLoginRequired:
         raise
     except ValueError as e:
@@ -302,13 +313,19 @@ def _fn(name, description, properties=None, required=None):
         "function": {
             "name": name,
             "description": description,
-            "parameters": {"type": "object", "properties": properties or {}, "required": required or []},
+            "parameters": {
+                "type": "object",
+                "properties": properties or {},
+                "required": required or [],
+            },
         },
     }
 
 
 _SYMBOL_PROP = {"symbol": {"type": "string", "description": "NSE ticker symbol, e.g. TCS"}}
-_LIST_PROP = {"list_name": {"type": "string", "description": "watchlist name; omit for all watchlists"}}
+_LIST_PROP = {
+    "list_name": {"type": "string", "description": "watchlist name; omit for all watchlists"}
+}
 
 AGENT_TOOLS = [
     _fn("get_price", "Live price and day change % for an NSE stock", _SYMBOL_PROP, ["symbol"]),
@@ -351,7 +368,12 @@ AGENT_TOOLS = [
         "previously chatted about. This does NOT include this session's own messages, which "
         "are already in your conversation history above.",
     ),
-    _fn("search_reports", "Search stored AI research reports semantically", {"query": {"type": "string"}}, ["query"]),
+    _fn(
+        "search_reports",
+        "Search stored AI research reports semantically",
+        {"query": {"type": "string"}},
+        ["query"],
+    ),
     _fn(
         "scrape_stock",
         "Scrape news+financials for an NSE symbol and generate a fresh report. "
@@ -360,7 +382,9 @@ AGENT_TOOLS = [
         ["symbol"],
     ),
     _fn(
-        "scan_events", "Scan watchlisted stocks for news/price/volume/corporate-action events (background).", _LIST_PROP
+        "scan_events",
+        "Scan watchlisted stocks for news/price/volume/corporate-action events (background).",
+        _LIST_PROP,
     ),
     _fn("sync_prices", "Sync daily price history for watchlisted stocks (background).", _LIST_PROP),
     _fn(
@@ -375,7 +399,12 @@ AGENT_TOOLS = [
         "Records one real, dated event you found via web_search/scrape_stock "
         "research so it shows up on the Events page - only for events you've actually verified, "
         "never invented ones. Always pass the source url when you have one.",
-        {**_SYMBOL_PROP, "headline": {"type": "string"}, "detail": {"type": "string"}, "url": {"type": "string"}},
+        {
+            **_SYMBOL_PROP,
+            "headline": {"type": "string"},
+            "detail": {"type": "string"},
+            "url": {"type": "string"},
+        },
         ["symbol", "headline"],
     ),
     _fn(
@@ -387,7 +416,10 @@ AGENT_TOOLS = [
         "reports whether the user's own criteria currently hold.",
         {
             "name": {"type": "string", "description": "the watch rule's name"},
-            "symbol": {"type": "string", "description": "optional - omit to check the whole watchlist"},
+            "symbol": {
+                "type": "string",
+                "description": "optional - omit to check the whole watchlist",
+            },
         },
         ["name"],
     ),
@@ -418,7 +450,10 @@ AGENT_TOOLS = [
         "only reads what is in the text - it has no outside knowledge of companies.",
         {
             "text": {"type": "string", "description": "the text to classify"},
-            "question": {"type": "string", "description": "the question, referring to the input as `text`"},
+            "question": {
+                "type": "string",
+                "description": "the question, referring to the input as `text`",
+            },
             "type": {
                 "type": "string",
                 "enum": ["choice", "score", "noul"],

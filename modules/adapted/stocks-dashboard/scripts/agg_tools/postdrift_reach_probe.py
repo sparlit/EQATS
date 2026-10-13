@@ -74,7 +74,8 @@ def main():
     ranked = sorted(per_sym.items(), key=lambda kv: -sum(x["months"] for x in kv[1]))
     sample = ranked[:n]
     print(
-        "sampling %d of %d symbols blocked by a PRE-FRAME (2000Q4-2002Q3) quarter\n" % (len(sample), len(per_sym)),
+        "sampling %d of %d symbols blocked by a PRE-FRAME (2000Q4-2002Q3) quarter\n"
+        % (len(sample), len(per_sym)),
         flush=True,
     )
 
@@ -86,7 +87,7 @@ def main():
         for site in sites:
             try:
                 q, note = A.read(site, sym, False)  # standalone -- the only basis that era has
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 q, note = {}, f"{site}: EXC {e.__class__.__name__}"
             got = [qe for qe in need if qe in q]
             row["sites"][site] = {
@@ -104,7 +105,13 @@ def main():
         s0 = row["sites"][sites[0]]
         print(
             "%-14s need %-2d  got %-2d  span %-19s %s"
-            % (sym, len(need), len(s0["have"]), ("%d..%d" % tuple(s0["span"])) if s0["span"] else "-", s0["note"][:64]),
+            % (
+                sym,
+                len(need),
+                len(s0["have"]),
+                ("%d..%d" % tuple(s0["span"])) if s0["span"] else "-",
+                s0["note"][:64],
+            ),
             flush=True,
         )
 

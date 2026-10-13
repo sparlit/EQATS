@@ -60,11 +60,12 @@ class ObscuraBrowserClient(BaseBrowserClient):
         try:
             result = subprocess.run(["obscura", "--version"], capture_output=True, timeout=5)
             if result.returncode != 0:
-                msg = "obscura not found"
-                raise FileNotFoundError(msg)
+                raise FileNotFoundError("obscura not found")
         except FileNotFoundError:
-            msg = "Obscura not installed. Install from: https://github.com/h4ckf0r0day/obscura/releases"
-            raise RuntimeError(msg)
+            raise RuntimeError(
+                "Obscura not installed. Install from: "
+                "https://github.com/h4ckf0r0day/obscura/releases"
+            )
 
         # Launch CDP server for complex interactions
         cmd = ["obscura", "serve", "--port", str(OBSCURA_PORT)]
@@ -105,8 +106,13 @@ class ObscuraBrowserClient(BaseBrowserClient):
         return result.stdout.strip()
 
     async def get_text(self, selector: str | None = None) -> str:
-        js = f'document.querySelector("{selector}")?.innerText || ""' if selector else "document.body.innerText"
-        result = subprocess.run(["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30)
+        if selector:
+            js = f'document.querySelector("{selector}")?.innerText || ""'
+        else:
+            js = "document.body.innerText"
+        result = subprocess.run(
+            ["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30
+        )
         return result.stdout.strip()
 
     async def query_selector_all(self, selector: str) -> list[dict[str, Any]]:
@@ -118,21 +124,29 @@ class ObscuraBrowserClient(BaseBrowserClient):
             attributes: Object.fromEntries([...el.attributes].map(a => [a.name, a.value]))
         }})))
         """
-        result = subprocess.run(["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            ["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30
+        )
         try:
             return json.loads(result.stdout.strip())
         except json.JSONDecodeError:
             return []
 
     async def evaluate(self, js: str) -> Any:
-        result = subprocess.run(["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            ["obscura", "fetch", "--eval", js], capture_output=True, text=True, timeout=30
+        )
         return result.stdout.strip()
 
     async def screenshot(self, path: str | None = None) -> bytes | None:
         if path:
-            subprocess.run(["obscura", "fetch", "--screenshot", path], capture_output=True, timeout=30)
+            subprocess.run(
+                ["obscura", "fetch", "--screenshot", path], capture_output=True, timeout=30
+            )
             return None
-        result = subprocess.run(["obscura", "fetch", "--screenshot", "/dev/stdout"], capture_output=True, timeout=30)
+        result = subprocess.run(
+            ["obscura", "fetch", "--screenshot", "/dev/stdout"], capture_output=True, timeout=30
+        )
         return result.stdout
 
     async def intercept_requests(self, pattern: str = "*") -> list[dict]:

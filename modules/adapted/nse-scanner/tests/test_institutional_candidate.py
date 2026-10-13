@@ -23,8 +23,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import numpy as np
-import pandas as pd
 from v2.candidates import Candidate, focus_horizons, rank_candidates, watch_candidates
 from v2.horizon_scoring import HorizonScore
 

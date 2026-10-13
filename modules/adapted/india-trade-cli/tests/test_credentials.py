@@ -27,7 +27,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from config.credentials import (
     _KNOWN_KEYS,
     KNOWN_CREDENTIALS,

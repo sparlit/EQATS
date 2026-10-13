@@ -54,7 +54,6 @@ import datetime
 import json
 import os
 import re
-import sys
 
 MON = {
     m: i
@@ -115,15 +114,15 @@ R_MAIN = re.compile(
     r"\s+of\s+Rs\.?\s*(?P<val>[\d,]+(?:\.\d+)?)\s*(?P<unit>million|mn|mln|crores?|cr|lakhs?|lacs?|billion|bn)\b"
     r"(?P<rest>.{0,220}?)"
     r"(?P<period>quarter|three\s+months|half\s*year|six\s+months|nine\s+months|year|twelve\s+months|fifteen\s+months|eighteen\s+months)\s+(?:ended|ending|to)\s+(?P<pend>[^.;]{4,40}?\d{4})",
-    re.IGNORECASE | re.DOTALL,
+    re.I | re.S,
 )
 R_CMP = re.compile(
     r"as\s+(?:compared\s+(?:to|with)|against|vis-a-vis)\s+(?:a\s+|an\s+)?(?P<ckind>net\s+profit|net\s+loss|profit|loss)?\s*(?:of\s+)?Rs\.?\s*(?P<cval>[\d,]+(?:\.\d+)?)\s*(?P<cunit>million|mn|mln|crores?|cr|lakhs?|lacs?|billion|bn)?\b",
-    re.IGNORECASE | re.DOTALL,
+    re.I | re.S,
 )
 R_LASTYR = re.compile(
     r"(corresponding|same|previous|last)\s+(period|quarter)(\s+(of\s+)?(the\s+)?(previous|last)\s+(year|fiscal))?|(previous|last)\s+(year|fiscal)|year[- ]ago",
-    re.IGNORECASE,
+    re.I,
 )
 
 
@@ -155,8 +154,8 @@ def parse(text):
     )
     dm = R_DATE.search(m.group("pend"))
     out["period_end"] = _date(dm) if dm else None
-    out["consolidated"] = bool(re.search(r"consolidat", t, re.IGNORECASE))
-    out["standalone_word"] = bool(re.search(r"standalone|stand-alone|unconsolidated", t, re.IGNORECASE))
+    out["consolidated"] = bool(re.search(r"consolidat", t, re.I))
+    out["standalone_word"] = bool(re.search(r"standalone|stand-alone|unconsolidated", t, re.I))
     # comparative clause: bounded to the SAME sentence as the main result (a later sentence's "as compared to" is
     # the revenue comparative, which produced a 93.32-vs-5.97 phantom mismatch on BASF before this bound)
     sent_end = t.find(". ", m.end("pend"))
@@ -175,7 +174,7 @@ def parse(text):
         ck_period = re.search(
             r"\b(year|twelve\s+months|half\s*year|six\s+months|nine\s+months|fifteen\s+months|eighteen\s+months)\s+(ended|ending|to)\b",
             clause,
-            re.IGNORECASE,
+            re.I,
         )
         cd = R_DATE.search(clause)
         if ck_period:
@@ -200,7 +199,7 @@ def parse(text):
     ti = re.search(
         r"total\s+income\s+(?:has\s+)?(?:increased|decreased|declined|rose|fell|grew|went\s+(?:up|down)|stood)?.*?Rs\.?\s*(?P<a>[\d,]+(?:\.\d+)?)\s*(?P<au>million|mn|mln|crores?|cr|lakhs?|lacs?)\b.*?(?:to|at)\s+Rs\.?\s*(?P<b>[\d,]+(?:\.\d+)?)\s*(?P<bu>million|mn|mln|crores?|cr|lakhs?|lacs?)\b",
         t,
-        re.IGNORECASE | re.DOTALL,
+        re.I | re.S,
     )
     if ti:
         out["total_income_cr"] = round(
@@ -245,7 +244,9 @@ def stored_rev(sym, qe):
     return c[0] if c and c[0] is not None else None
 
 
-def close(a, b, tol=0.015):  # million->crore prints 2dp; allow 1 paisa + 1% of magnitude for rounding conventions
+def close(
+    a, b, tol=0.015
+):  # million->crore prints 2dp; allow 1 paisa + 1% of magnitude for rounding conventions
     return a is not None and b is not None and abs(a - b) <= max(tol, 0.01 * max(abs(a), abs(b)))
 
 
@@ -260,7 +261,7 @@ for f in files:
         if r.get("ATTACHMENTNAME"):
             n_att += 1
         txt = r.get("MORE") or r.get("HEADLINE") or ""
-        if not re.search(r"net\s+(profit|loss)|profit\s+after\s+tax|loss\s+after\s+tax", txt, re.IGNORECASE):
+        if not re.search(r"net\s+(profit|loss)|profit\s+after\s+tax|loss\s+after\s+tax", txt, re.I):
             continue
         p = parse(txt)
         if "pat_cr" not in p or p.get("pat_cr") is None:
@@ -277,7 +278,16 @@ for f in files:
                     "raw": p["raw"][:400],
                 }
             )
-print("cache files", len(files), "rows", n_rows, "with attachment", n_att, "result sentences parsed", len(rows))
+print(
+    "cache files",
+    len(files),
+    "rows",
+    n_rows,
+    "with attachment",
+    n_att,
+    "result sentences parsed",
+    len(rows),
+)
 # index own readings and comparative readings per (sym, period_end)
 own = collections.defaultdict(list)
 cmp_ = collections.defaultdict(list)
@@ -311,7 +321,12 @@ for (sym, qe), xs in cmp_.items():
         calc["match"] += 1
     else:
         calc["MISMATCH"] += 1
-print("CALIBRATION own-reading vs stored std:", dict(cal), " comparative-reading vs stored:", dict(calc))
+print(
+    "CALIBRATION own-reading vs stored std:",
+    dict(cal),
+    " comparative-reading vs stored:",
+    dict(calc),
+)
 for m in mism[:25]:
     print("   MISMATCH", m)
 # ---- residue proposals
@@ -339,7 +354,8 @@ for sym, qe in sorted(resid):
             if st is not None:
                 if close(x["cmp_pat_cr"], st):
                     locks.append(
-                        "L1 year-ago comparative %.2f == stored %s (%d)" % (x["cmp_pat_cr"], st, x["cmp_period_end"])
+                        "L1 year-ago comparative %.2f == stored %s (%d)"
+                        % (x["cmp_pat_cr"], st, x["cmp_period_end"])
                     )
                 else:
                     ref["L1 FAILS: own sentence year-ago comparative contradicts the store"] += 1
@@ -348,11 +364,15 @@ for sym, qe in sorted(resid):
         if x.get("total_income_cr") is not None:
             rv = stored_rev(sym, qe)
             if rv is not None and close(x["total_income_cr"], rv, 0.5):
-                locks.append("L3 total income {:.2f} == stored revS {:.2f}".format(x["total_income_cr"], rv))
+                locks.append(
+                    "L3 total income {:.2f} == stored revS {:.2f}".format(x["total_income_cr"], rv)
+                )
         if cs:
             if close(cs[0]["cmp_pat_cr"], v):
                 locks.append(
-                    "L2 own announcement {:.2f} == year-later comparative {:.2f}".format(v, cs[0]["cmp_pat_cr"])
+                    "L2 own announcement {:.2f} == year-later comparative {:.2f}".format(
+                        v, cs[0]["cmp_pat_cr"]
+                    )
                 )
             else:
                 notes.append(
@@ -371,13 +391,24 @@ for sym, qe in sorted(resid):
             detail.append((sym, qe, "cmp-dup", cvals))
             continue
         rv = stored_rev(sym, qe)
-        if c.get("total_income_prev_cr") is not None and rv is not None and close(c["total_income_prev_cr"], rv, 0.5):
+        if (
+            c.get("total_income_prev_cr") is not None
+            and rv is not None
+            and close(c["total_income_prev_cr"], rv, 0.5)
+        ):
             locks.append(
-                "L3c comparative total income {:.2f} == stored revS {:.2f}".format(c["total_income_prev_cr"], rv)
+                "L3c comparative total income {:.2f} == stored revS {:.2f}".format(
+                    c["total_income_prev_cr"], rv
+                )
             )
-        notes.append("read from the YEAR-LATER announcement comparative column (vintage = that later filing)")
+        notes.append(
+            "read from the YEAR-LATER announcement comparative column (vintage = that later filing)"
+        )
     if not locks:
-        ref["UNANCHORED (%s reading, nothing stored to lock against)" % ("own" if xs else "comparative-only")] += 1
+        ref[
+            "UNANCHORED (%s reading, nothing stored to lock against)"
+            % ("own" if xs else "comparative-only")
+        ] += 1
         continue
     src = xs[0] if xs else cs[0]
     props["%s|%d|patS" % (sym, qe)] = {
@@ -389,8 +420,13 @@ for sym, qe in sorted(resid):
             src["newsid"], src["news_dt"], src["code"], src["name"]
         ),
         "resolved_via": f"bse-announcement-index ({codes[sym][0]})",
-        "chosen": {"precision": "sentence-declared ({})".format(src["unit"]), "row": src.get("kind")},
-        "sites": {"bse_ann": "https://www.bseindia.com/corporates/ann.html?scrip={}".format(src["code"])},
+        "chosen": {
+            "precision": "sentence-declared ({})".format(src["unit"]),
+            "row": src.get("kind"),
+        },
+        "sites": {
+            "bse_ann": "https://www.bseindia.com/corporates/ann.html?scrip={}".format(src["code"])
+        },
         "evidence": (
             "BSE ANNOUNCEMENT INDEX (AnnSubCategoryGetData, strCat=-1) row {} dated {} for scrip {} ({}): the sentence DECLARES "
             "'{}' of Rs {} {} for the QUARTER ended {} (no 'consolidated' word; the era's filed result is standalone). Locks: {}. {} "
@@ -408,11 +444,15 @@ for sym, qe in sorted(resid):
             " ".join(notes),
             src["raw"][:300],
         ),
-        "ann": int(src["news_dt"].replace("-", "")) if src["news_dt"] and len(src["news_dt"]) == 10 else None,
+        "ann": int(src["news_dt"].replace("-", ""))
+        if src["news_dt"] and len(src["news_dt"]) == 10
+        else None,
         "ann_basis": (
             "REAL public date: BSE's own dissemination timestamp (NEWS_DT {}) of the result-summary announcement that carries this figure{}; floored at the first traded bar (§99)".format(
                 src["news_dt"],
-                "" if xs else " (the YEAR-LATER announcement, so the availability date is that later filing)",
+                ""
+                if xs
+                else " (the YEAR-LATER announcement, so the availability date is that later filing)",
             )
         ),
     }

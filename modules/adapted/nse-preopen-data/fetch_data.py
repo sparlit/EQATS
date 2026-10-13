@@ -24,10 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import csv
 import datetime
 import glob
-import json
 import os
 import re
-import sys
 import time
 import traceback
 
@@ -95,12 +93,19 @@ def should_download_url(url):
                                 file_date = datetime.datetime.strptime(date_part, "%d-%b-%Y").date()
                                 today = datetime.date.today()
                                 if file_date == today:
-                                    print(f"✅ File {filename} already has today's data ({last_update})")
+                                    print(
+                                        f"✅ File {filename} already has today's data ({last_update})"
+                                    )
                                     return False, "Today's data already exists"
-                                print(f"⚠️ File {filename} exists but has data from {file_date}, not today")
-                                return True, "File exists but has old data"
+                                else:
+                                    print(
+                                        f"⚠️ File {filename} exists but has data from {file_date}, not today"
+                                    )
+                                    return True, "File exists but has old data"
                             except:
-                                print(f"⚠️ Could not parse date from {last_update}, will re-download")
+                                print(
+                                    f"⚠️ Could not parse date from {last_update}, will re-download"
+                                )
                                 return True, "Could not verify date"
         except Exception as e:
             print(f"⚠️ Could not read existing file: {e}, will re-download")
@@ -255,7 +260,9 @@ def parse_and_save(json_data, url):
                                 file_date = datetime.datetime.strptime(date_part, "%d-%b-%Y").date()
                                 today = datetime.date.today()
                                 if file_date == today:
-                                    print(f"⏭️ File {base_file} already has today's data, skipping...")
+                                    print(
+                                        f"⏭️ File {base_file} already has today's data, skipping..."
+                                    )
                                     return []  # Return empty list to indicate no new data
                             except:
                                 pass

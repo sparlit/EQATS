@@ -105,11 +105,17 @@ def blast_radius(before, after, expect):
 
 def main():
     apply = "--apply" in sys.argv
-    pat = json.load(open(os.path.join(STAGED, "pat_defects_staged.json"), encoding="utf-8"))["GICRE"]
-    rev = json.load(open(os.path.join(STAGED, "rev_defects_staged.json"), encoding="utf-8"))["AADHARHFC"]
+    pat = json.load(open(os.path.join(STAGED, "pat_defects_staged.json"), encoding="utf-8"))[
+        "GICRE"
+    ]
+    rev = json.load(open(os.path.join(STAGED, "rev_defects_staged.json"), encoding="utf-8"))[
+        "AADHARHFC"
+    ]
     hdb_p = os.path.join(STAGED, "rev_defects_staged_HDBFS.json")
     hdb = json.load(open(hdb_p, encoding="utf-8"))["HDBFS"] if os.path.exists(hdb_p) else {}
-    con = json.load(open(os.path.join(STAGED, "con_copy_reads_staged.json"), encoding="utf-8"))["cells"]
+    con = json.load(open(os.path.join(STAGED, "con_copy_reads_staged.json"), encoding="utf-8"))[
+        "cells"
+    ]
     # optional third packet: further revS/revC corrections, and NULLs where a basis is not filed
     x_p = os.path.join(STAGED, "extra_rev_staged.json")
     extra = json.load(open(x_p, encoding="utf-8")).get("cells", {}) if os.path.exists(x_p) else {}
@@ -124,7 +130,9 @@ def main():
             continue
         rows = d.get("GICRE") or []
         for q, e in sorted(pat.items()):
-            hit = next((r for r in rows if isinstance(r, list) and len(r) >= 5 and r[0] == int(q)), None)
+            hit = next(
+                (r for r in rows if isinstance(r, list) and len(r) >= 5 and r[0] == int(q)), None
+            )
             if hit is None:
                 problems.append(f"{rel} GICRE {q}: no row")
                 continue
@@ -133,7 +141,11 @@ def main():
                 skipped.append(f"{rel} GICRE {q} already corrected")
                 continue
             if cur is None or abs(cur - e["stored_pat"]) > TOL:
-                problems.append("{} GICRE {}: GUARD FAILED (now {}, expected {})".format(rel, q, cur, e["stored_pat"]))
+                problems.append(
+                    "{} GICRE {}: GUARD FAILED (now {}, expected {})".format(
+                        rel, q, cur, e["stored_pat"]
+                    )
+                )
                 continue
             plan.append((rel, "GICRE", q, "npStd", cur, e["correct_pat"]))
 
@@ -146,7 +158,10 @@ def main():
         for sym, q, idx, guard, want, lbl in (
             [("AADHARHFC", q, 0, e["bad_rev"], e["correct_rev"], "revS") for q, e in rev.items()]
             + [("HDBFS", q, 0, e["bad_rev"], e["correct_rev"], "revS") for q, e in hdb.items()]
-            + [(k.split("|")[0], k.split("|")[1], 1, v["was"], v["value"], "revC") for k, v in con.items()]
+            + [
+                (k.split("|")[0], k.split("|")[1], 1, v["was"], v["value"], "revC")
+                for k, v in con.items()
+            ]
             + [
                 (
                     k.split("|")[0],
@@ -169,7 +184,9 @@ def main():
                     skipped.append(f"{rel} {sym} {q} {lbl} already null")
                     continue
                 if abs(cur - guard) > TOL:
-                    problems.append(f"{rel} {sym} {q} {lbl}: GUARD FAILED for NULL (now {cur}, expected {guard})")
+                    problems.append(
+                        f"{rel} {sym} {q} {lbl}: GUARD FAILED for NULL (now {cur}, expected {guard})"
+                    )
                     continue
                 plan.append((rel, sym, q, lbl, cur, None))
                 continue
@@ -177,7 +194,9 @@ def main():
                 skipped.append(f"{rel} {sym} {q} {lbl} already corrected")
                 continue
             if cur is None or abs(cur - guard) > TOL:
-                problems.append(f"{rel} {sym} {q} {lbl}: GUARD FAILED (now {cur}, expected {guard})")
+                problems.append(
+                    f"{rel} {sym} {q} {lbl}: GUARD FAILED (now {cur}, expected {guard})"
+                )
                 continue
             plan.append((rel, sym, q, lbl, cur, want))
 
@@ -185,7 +204,14 @@ def main():
     for rel, sym, q, fld, a_, b_ in plan:
         print(
             "   %-32s %-10s %s %-5s %12s -> %s"
-            % (os.path.basename(rel), sym, q, fld, a_, "NULL (basis not filed)" if b_ is None else b_)
+            % (
+                os.path.basename(rel),
+                sym,
+                q,
+                fld,
+                a_,
+                "NULL (basis not filed)" if b_ is None else b_,
+            )
         )
     if skipped:
         print("\nALREADY CORRECT (idempotent skip): %d" % len(skipped))

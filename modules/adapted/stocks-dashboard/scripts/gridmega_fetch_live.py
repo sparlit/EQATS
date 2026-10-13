@@ -67,10 +67,14 @@ def main():
     parts = []
     for i in range(M.get("deep", 0)):
         print("fetching sf_deep_%d.bin…" % (i + 1), flush=True)
-        parts.append(json.loads(gzip.decompress(get(SF + "sf_deep_%d.bin?v=%s" % (i + 1, M["end"])))))
+        parts.append(
+            json.loads(gzip.decompress(get(SF + "sf_deep_%d.bin?v=%s" % (i + 1, M["end"]))))
+        )
     for i in range(M.get("recent", 1)):
         print("fetching sf_recent_%d.bin…" % (i + 1), flush=True)
-        parts.append(json.loads(gzip.decompress(get(SF + "sf_recent_%d.bin?v=%s" % (i + 1, M["end"])))))
+        parts.append(
+            json.loads(gzip.decompress(get(SF + "sf_recent_%d.bin?v=%s" % (i + 1, M["end"]))))
+        )
 
     full = {k: v for k, v in parts[-1].items() if k not in ("data", "meta")}
     full["data"], full["meta"] = {}, {}
@@ -91,7 +95,9 @@ def main():
         sys.exit("rename sanity failed: ZOMATO present or ETERNAL missing in live sf-data")
 
     nbars = sum(len(o.get("d", [])) for o in full["data"].values())
-    print("merged: %d symbols, %d bars, end=%s" % (len(full["data"]), nbars, full["end"]), flush=True)
+    print(
+        "merged: %d symbols, %d bars, end=%s" % (len(full["data"]), nbars, full["end"]), flush=True
+    )
 
     with open(os.path.join(OUT, "p1_new.bin"), "wb") as f:
         f.write(gzip.compress(json.dumps(full, separators=(",", ":")).encode(), 6))

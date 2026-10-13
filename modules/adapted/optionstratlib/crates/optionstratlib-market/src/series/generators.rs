@@ -1,0 +1,777 @@
+use crate::error::ChainError;
+use crate::series::{OptionSeries, OptionSeriesBuildParams};
+use core::option::Option;
+use optionstratlib_core::model::Positive;
+use optionstratlib_simulation::simulation::steps::{Step, Xstep};
+use optionstratlib_simulation::simulation::{WalkParams, walk_steps_par};
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use std::sync::Mutex;
+
+#[cfg(test)]
+use optionstratlib_core::pos_or_panic;
+
+/// Creates a new `OptionSeries` from pre-derived build parameters, a new price,
+/// an optional volatility, and the aged series expirations.
+///
+/// # Parameters
+/// - `build_params`: Build parameters derived once from the initial `OptionSeries`.
+/// - `new_price`: A reference to a `Positive` value representing the new underlying price.
+/// - `volatility`: An optional `Positive` value representing the implied volatility to
+///   stamp on the rebuilt chains. If `None`, the volatility carried by `build_params`
+///   is kept.
+/// - `aged_series`: The series' days-to-expiration after subtracting the walk time
+///   elapsed since the initial step (already-expired entries removed), so the option
+///   series ages along the walk.
+///
+/// # Returns
+/// Returns a `Result` that, on success, contains the newly created `OptionSeries`.
+///
+/// # Errors
+/// This function can return an error if:
+/// - The `build_params` contain invalid or inconsistent data for creating the new series.
+/// - The `new_price` or optional `volatility`, if provided, result in an invalid computation.
+/// - Any other unexpected error occurs during the processing.
+///
+fn create_series_from_step(
+    build_params: &OptionSeriesBuildParams,
+    new_price: &Positive,
+    volatility: Option<Positive>,
+    aged_series: Vec<Positive>,
+) -> Result<OptionSeries, ChainError> {
+    let mut series_params = build_params.clone();
+    series_params.set_underlying_price(new_price);
+    if let Some(volatility) = volatility {
+        // `build_chain` rejects IV > 100% and IV == 0; simulated
+        // stochastic-vol paths can spike above 100% or touch the zero
+        // boundary (CIR truncation), so clamp into (0, 1] to keep the
+        // walk alive. The floor literal is compile-time positive, so the
+        // fallback branch is unreachable.
+        let min_walk_iv = Positive::new_decimal(dec!(0.0001)).unwrap_or(Positive::ONE);
+        let volatility = volatility.min(Positive::ONE).max(min_walk_iv);
+        series_params.set_implied_volatility(volatility);
+    }
+    series_params.set_series(aged_series);
+    let new_chain = OptionSeries::build_series(&series_params)?;
+    Ok(new_chain)
+}
+
+/// Generates a series of steps based on the given `WalkParams` and the specific type of walk
+/// defined within. This function supports various stochastic processes like Brownian motion,
+/// Geometric Brownian motion, mean-reverting processes, jump diffusion, GARCH, Heston, and
+/// others, as well as historical data-based simulations.
+///
+/// # Parameters
+///
+/// - `walk_params`: A reference to a `WalkParams<Positive, OptionSeries>` structure that defines the
+///   initialization parameters, type of walk, and the associated step generator (`walker`).
+///
+/// # Returns
+///
+/// Returns a `Vec<Step<Positive, OptionSeries>>` containing a series of steps generated based
+/// on the specified type of walk and its associated parameters. Each step combines both the
+/// progression in the x-axis and the calculated output (y-axis) using the mathematical rules
+/// of the given walk type.
+///
+/// # Contract (shared with [`crate::chains::generator_optionchain`] and
+/// [`optionstratlib_simulation::simulation::generator_positive`])
+///
+/// * The returned vector always starts with `walk_params.init_step`.
+/// * If the walker yields no values beyond the initial one (e.g. a size-1 walk),
+///   only the initial step is returned.
+/// * The walk is truncated when the x-step reaches expiration
+///   (`SimulationError::ExpirationReached`) or when every expiration in the series
+///   has passed; any other step-advance error is propagated.
+/// * The result is truncated to at most `walk_params.size` steps.
+/// * The series' days-to-expiration are aged by the walk time elapsed since the
+///   initial step (expired entries are dropped), so rebuilt series decay along
+///   the walk.
+///
+/// # Walk Types
+///
+/// Depending on the variant of the `walk_params.walk_type` field, the function performs different types
+/// of stochastic processes:
+///
+/// 1. `Brownian`: Simulates a basic Brownian motion with a given volatility.
+/// 2. `GeometricBrownian`: Calculates geometric Brownian motion.
+/// 3. `LogReturns`: Generates a process based on log-normal returns.
+/// 4. `MeanReverting`: Simulates a mean-reverting process.
+/// 5. `JumpDiffusion`: Implements Merton's Jump Diffusion.
+/// 6. `Garch`: Utilizes the GARCH (Generalized Autoregressive Conditional Heteroskedasticity) model.
+/// 7. `Heston`: Applies the Heston stochastic volatility model.
+/// 8. `Custom`: Allows for custom walk logic implemented through the user-defined walker.
+/// 9. `Historical`: Uses historical price data adjusted for log returns and implied volatility.
+///
+/// # Implementation Details
+///
+/// - Volatility is extracted or calculated for each walk type to guide the stochastic process.
+/// - For the `Historical` walk type, log returns are calculated from the given price data
+///   and annualized into the implied volatility stamped on the rebuilt series.
+///
+/// - The first walker value duplicates the initial step and is skipped to avoid
+///   duplication with the input initialization step (`init_step`).
+///
+/// - The x-coordinates (`x`) and y-coordinates (`y`, i.e., `OptionSeries`) are iteratively calculated
+///   and adjusted using the respective walk model.
+///
+/// # Errors
+///
+/// Returns [`ChainError::Generator`] (its source downcasts to `SimulationError`) if the
+/// random-walk generator returns an error — including
+/// `SimulationError::InsufficientHistoricalData` when a `Historical` walk has fewer
+/// prices than `walk_params.size` — and propagates errors from the
+/// volatility-estimation or chain-construction primitives. The returned vector is
+/// guaranteed to start with `walk_params.init_step`
+/// (matching the contract of [`crate::chains::generator_optionchain`]).
+pub fn generator_optionseries(
+    walk_params: &WalkParams<Positive, OptionSeries>,
+) -> Result<Vec<Step<Positive, OptionSeries>>, ChainError> {
+    // Derived lazily on the first rebuilt step so that walks that never
+    // rebuild (size <= 1) do not require a parameterizable initial series.
+    // Steps are independent once the context is derived, so the per-step
+    // series rebuilds (one chain per expiration!) run on the rayon pool.
+    let context: Mutex<Option<(OptionSeriesBuildParams, Positive)>> = Mutex::new(None);
+    // Capture only Sync data in the closure (the boxed walker inside
+    // WalkParams is not Sync).
+    let init_ystep = walk_params.ystep_ref();
+    let init_x = walk_params.init_step.x;
+    // A step reports its own `ChainError`; the driver's failures arrive
+    // through `From<SimulationError> for ChainError`.
+    let build_step = |new_price: &Positive,
+                      volatility: Option<Positive>,
+                      x_step: &Xstep<Positive>|
+     -> Result<Option<OptionSeries>, ChainError> {
+        let (build_params, initial_days_left) = {
+            let mut guard = context.lock().map_err(|_| {
+                ChainError::invalid_parameters("build_params", "params cache lock poisoned")
+            })?;
+            match &*guard {
+                Some(context) => context.clone(),
+                // Derive the build parameters once from the initial series;
+                // every step's series is anchored to the initial series'
+                // shape instead of feeding back params re-derived from the
+                // previous rebuilt series on each iteration.
+                None => {
+                    let build_params = init_ystep.value().to_build_params()?;
+                    let initial_days_left = init_x.days_left().map_err(ChainError::generator)?;
+                    *guard = Some((build_params.clone(), initial_days_left));
+                    (build_params, initial_days_left)
+                }
+            }
+        };
+        // Age the series' expirations by the walk time elapsed since the
+        // initial step, dropping the ones that have already expired, so the
+        // option series ages along the walk like the chain generator does.
+        // Checked subtraction throughout: day counts are financial time
+        // values, so overflow must surface as an error, never wrap.
+        let overflow = || {
+            ChainError::invalid_parameters(
+                "series",
+                "elapsed-days subtraction overflowed while aging the series",
+            )
+        };
+        let elapsed_days = initial_days_left
+            .to_dec()
+            .checked_sub(x_step.days_left().map_err(ChainError::generator)?.to_dec())
+            .ok_or_else(overflow)?
+            .max(Decimal::ZERO);
+        let aged_series: Vec<Positive> = build_params
+            .series()
+            .iter()
+            .filter(|days| days.to_dec() > elapsed_days)
+            .map(|days| {
+                let remaining = days
+                    .to_dec()
+                    .checked_sub(elapsed_days)
+                    .ok_or_else(overflow)?;
+                Positive::new_decimal(remaining).map_err(|e| {
+                    ChainError::invalid_parameters("series", &format!("failed to age series: {e}"))
+                })
+            })
+            .collect::<Result<Vec<Positive>, ChainError>>()?;
+        if aged_series.is_empty() {
+            // Every expiration in the series has passed: nothing left to
+            // simulate, end the walk here.
+            return Ok(None);
+        }
+        let y_step_series =
+            create_series_from_step(&build_params, new_price, volatility, aged_series)?;
+        Ok(Some(y_step_series))
+    };
+    walk_steps_par(walk_params, build_step)
+}
+
+#[cfg(test)]
+mod tests_generator_optionseries {
+    use super::*;
+    use optionstratlib_core::{assert_pos_relative_eq, spos};
+
+    use crate::chains::utils::OptionChainBuildParams;
+    use crate::chains::utils::OptionDataPriceParams;
+    use crate::series::{OptionSeries, OptionSeriesBuildParams};
+    use optionstratlib_core::model::ExpirationDate;
+    use optionstratlib_core::utils::TimeFrame;
+    use optionstratlib_core::utils::time::convert_time_frame;
+    use optionstratlib_simulation::error::SimulationError;
+    use optionstratlib_simulation::simulation::steps::{Step, Xstep, Ystep};
+    use optionstratlib_simulation::simulation::{WalkParams, WalkType, WalkTypeAble};
+    use rust_decimal_macros::dec;
+
+    /// Seed of the simulated walks, so every run draws the same stream.
+    const SEED: u64 = 685;
+
+    // Mock Walker for testing
+    #[derive(Clone)]
+    struct TestWalker {}
+    impl TestWalker {
+        fn new() -> Self {
+            TestWalker {}
+        }
+    }
+    impl WalkTypeAble<Positive, OptionSeries> for TestWalker {}
+
+    // Helper function to create a test OptionSeries
+    fn create_test_option_series() -> OptionSeries {
+        // Create basic chain parameters
+        let price_params = OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(30.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("TEST".to_string()),
+        );
+
+        let chain_params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            5,
+            spos!(5.0),
+            dec!(-0.2),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            price_params,
+            pos_or_panic!(0.2),
+        );
+
+        // Create series with different expirations
+        let series = vec![
+            pos_or_panic!(30.0),
+            pos_or_panic!(60.0),
+            pos_or_panic!(90.0),
+        ];
+        let series_params = OptionSeriesBuildParams::new(chain_params, series);
+
+        // Build the option series
+        OptionSeries::build_series(&series_params).unwrap()
+    }
+
+    #[test]
+    fn test_generator_optionseries_basic() {
+        // Setup
+        let n_steps = 5;
+        let initial_series = create_test_option_series();
+        let std_dev = pos_or_panic!(0.2);
+        let days = pos_or_panic!(30.0);
+        let walker = Box::new(TestWalker::new());
+
+        let walk_params = WalkParams {
+            size: n_steps,
+            init_step: Step {
+                x: Xstep::new(Positive::ONE, TimeFrame::Day, ExpirationDate::Days(days)),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::GeometricBrownian {
+                dt: convert_time_frame(Positive::ONE, &TimeFrame::Day, &TimeFrame::Day),
+                drift: dec!(0.0),
+                volatility: std_dev,
+            },
+            walker,
+            seed: Some(SEED),
+        };
+
+        // Execute
+        let Ok(steps) = generator_optionseries(&walk_params) else {
+            panic!("test fixture failed")
+        };
+
+        // Verify
+        assert!(!steps.is_empty(), "Steps should not be empty");
+        assert_eq!(
+            steps.len(),
+            5,
+            "Should start with just the initial step since we're mocking"
+        );
+
+        // The first step should be the initial step
+        let first_step = &steps[0];
+        assert_eq!(
+            first_step.x.datetime().get_days().unwrap(),
+            pos_or_panic!(30.0)
+        );
+        assert_eq!(*first_step.y.index(), 0);
+    }
+
+    #[test]
+    fn test_generator_optionseries_empty_result() {
+        #[derive(Clone)]
+        struct TestWalker {}
+        // Create a walk with empty y_steps to test early return
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker {});
+
+        impl WalkTypeAble<Positive, OptionSeries> for TestWalker {}
+
+        let walk_params = WalkParams {
+            size: 5,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::Brownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility: pos_or_panic!(0.2),
+            },
+            walker,
+            seed: Some(SEED),
+        };
+
+        // Execute
+        let Ok(steps) = generator_optionseries(&walk_params) else {
+            panic!("test fixture failed")
+        };
+
+        // Verify
+        assert!(!steps.is_empty(), "Steps shouldn't be empty");
+    }
+
+    #[test]
+    fn test_generator_optionseries_historical_empty_prices() {
+        // Test with historical walk type but empty prices
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker::new());
+
+        let walk_params = WalkParams {
+            size: 5,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::Historical {
+                timeframe: TimeFrame::Day,
+                prices: Vec::new(), // Empty prices
+                symbol: None,
+            },
+            walker,
+            seed: None,
+        };
+
+        // Execute
+        let result = generator_optionseries(&walk_params);
+
+        // Verify: insufficient historical data is a typed error, not a
+        // silent init-only walk (unified contract, #406).
+        match result {
+            Err(ChainError::Generator(e)) => {
+                let e = e
+                    .downcast_ref::<SimulationError>()
+                    .expect("the generator's SimulationError must survive boxing");
+                assert!(
+                    matches!(e, SimulationError::InsufficientHistoricalData { .. }),
+                    "expected InsufficientHistoricalData, got: {e}"
+                );
+            }
+            Err(other) => panic!("expected ChainError::Generator, got: {other}"),
+            Ok(_) => panic!("empty historical prices must not produce a silent walk"),
+        }
+    }
+
+    #[test]
+    fn test_generator_optionseries_historical_insufficient_prices() {
+        // Test with historical walk type but insufficient prices
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker::new());
+
+        let walk_params = WalkParams {
+            size: 5,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::Historical {
+                timeframe: TimeFrame::Day,
+                prices: vec![Positive::HUNDRED, pos_or_panic!(101.0)], // Less than size
+                symbol: None,
+            },
+            walker,
+            seed: None,
+        };
+
+        // Execute
+        let result = generator_optionseries(&walk_params);
+
+        // Verify: insufficient historical data is a typed error, not a
+        // silent init-only walk (unified contract, #406).
+        match result {
+            Err(ChainError::Generator(e)) => {
+                let e = e
+                    .downcast_ref::<SimulationError>()
+                    .expect("the generator's SimulationError must survive boxing");
+                assert!(
+                    matches!(e, SimulationError::InsufficientHistoricalData { .. }),
+                    "expected InsufficientHistoricalData, got: {e}"
+                );
+            }
+            Err(other) => panic!("expected ChainError::Generator, got: {other}"),
+            Ok(_) => panic!("insufficient historical prices must not produce a silent walk"),
+        }
+    }
+
+    #[test]
+    fn test_generator_optionseries_all_walk_types() {
+        // This is more of an integration test checking that all walk types are handled
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker::new());
+        let volatility = pos_or_panic!(0.2);
+
+        // Define all walk types to test
+        let walk_types = vec![
+            WalkType::Brownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+            },
+            WalkType::GeometricBrownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+            },
+            WalkType::LogReturns {
+                dt: pos_or_panic!(0.01),
+                expected_return: dec!(0.0),
+                volatility,
+                autocorrelation: Some(dec!(0.0)),
+            },
+            WalkType::MeanReverting {
+                dt: pos_or_panic!(0.01),
+                volatility,
+                speed: pos_or_panic!(0.1),
+                mean: Positive::HUNDRED,
+            },
+            WalkType::JumpDiffusion {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+                intensity: pos_or_panic!(0.1),
+                jump_mean: dec!(0.0),
+                jump_volatility: pos_or_panic!(0.1),
+            },
+            WalkType::Garch {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+                alpha: pos_or_panic!(0.1),
+                beta: pos_or_panic!(0.8),
+            },
+            WalkType::Heston {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+                kappa: Positive::TWO,
+                theta: pos_or_panic!(0.04),
+                xi: pos_or_panic!(0.1),
+                rho: dec!(-0.7),
+            },
+            WalkType::Custom {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility,
+                vov: pos_or_panic!(0.1),
+                vol_speed: pos_or_panic!(0.1),
+                vol_mean: pos_or_panic!(0.2),
+            },
+        ];
+
+        // Make sure each walk type is handled by checking that the function runs
+        for walk_type in walk_types {
+            let walk_params = WalkParams {
+                size: 5,
+                init_step: Step {
+                    x: Xstep::new(
+                        Positive::ONE,
+                        TimeFrame::Day,
+                        ExpirationDate::Days(pos_or_panic!(30.0)),
+                    ),
+                    y: Ystep::new(0, initial_series.clone()),
+                },
+                walk_type,
+                walker: walker.clone(),
+                seed: Some(SEED),
+            };
+
+            // Function should run without panicking for all walk types
+            let _ = generator_optionseries(&walk_params);
+            // We're not checking the result as we're just verifying the function handles all types
+        }
+    }
+
+    #[test]
+    fn test_generator_optionseries_historical() {
+        // Setup for testing historical walk type
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker {});
+        let historical_prices = vec![
+            Positive::HUNDRED,
+            pos_or_panic!(102.0),
+            pos_or_panic!(98.0),
+            pos_or_panic!(105.0),
+            pos_or_panic!(110.0),
+            pos_or_panic!(115.0),
+            pos_or_panic!(112.0),
+            pos_or_panic!(118.0),
+            pos_or_panic!(120.0),
+            pos_or_panic!(125.0),
+        ];
+
+        let walk_params = WalkParams {
+            size: 5,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::Historical {
+                timeframe: TimeFrame::Day,
+                prices: historical_prices,
+                symbol: None,
+            },
+            walker,
+            seed: None,
+        };
+
+        // Execute
+        let Ok(steps) = generator_optionseries(&walk_params) else {
+            panic!("test fixture failed")
+        };
+
+        // Verify
+        assert!(!steps.is_empty(), "Should have at least the initial step");
+        assert_eq!(
+            steps.len(),
+            5,
+            "Should have just the initial step with our mock"
+        );
+    }
+
+    #[test]
+    fn test_create_series_from_step() {
+        // Test the create_series_from_step function directly
+        let initial_series = create_test_option_series();
+        let build_params = match initial_series.to_build_params() {
+            Ok(params) => params,
+            Err(e) => panic!("to_build_params failed: {e}"),
+        };
+        let new_price = pos_or_panic!(105.0);
+        let volatility = spos!(0.22);
+        let aged_series = build_params.series().to_vec();
+
+        // Execute
+        let result = create_series_from_step(&build_params, &new_price, volatility, aged_series);
+
+        // Verify
+        assert!(result.is_ok(), "create_series_from_step should succeed");
+        let new_series = result.unwrap();
+        assert_eq!(
+            new_series.underlying_price, new_price,
+            "New series should have updated price"
+        );
+
+        // Verify the implied volatility was updated if we can access it
+        if let Ok(params) = new_series.to_build_params() {
+            let iv = params.chain_params().get_implied_volatility();
+            assert_pos_relative_eq!(iv, volatility.unwrap(), pos_or_panic!(0.01));
+        }
+    }
+
+    #[test]
+    fn test_assert_steps_length() {
+        // Setup
+        let n_steps = 3;
+        let initial_series = create_test_option_series();
+        let walker = Box::new(TestWalker {});
+
+        let walk_params = WalkParams {
+            size: n_steps,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::GeometricBrownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility: pos_or_panic!(0.2),
+            },
+            walker,
+            seed: Some(SEED),
+        };
+
+        // Execute
+        let Ok(steps) = generator_optionseries(&walk_params) else {
+            panic!("test fixture failed")
+        };
+
+        // Verify
+        assert!(
+            steps.len() <= n_steps,
+            "Steps length should not exceed the specified size"
+        );
+    }
+
+    /// Multi-step behavior under a deterministic ramp walker: rebuilt series
+    /// must track the walked price and their expirations must age with the
+    /// walk (issue #406/#410 behavior, pinned here).
+    #[test]
+    fn test_generator_optionseries_multi_step_aging() {
+        use crate::walk_test_support::RampWalker;
+
+        let initial_series = create_test_option_series(); // expirations 30/60/90d
+        let size = 4;
+        let walk_params = WalkParams {
+            size,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::GeometricBrownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility: pos_or_panic!(0.2),
+            },
+            walker: Box::new(RampWalker {
+                delta: Positive::TWO,
+            }),
+            seed: None,
+        };
+
+        let steps = match generator_optionseries(&walk_params) {
+            Ok(steps) => steps,
+            Err(e) => panic!("generator_optionseries failed: {e}"),
+        };
+        assert_eq!(steps.len(), size);
+
+        for (i, step) in steps.iter().enumerate().skip(1) {
+            let series = step.y.value();
+            // Underlying tracks the ramp.
+            let expected_price = Positive::HUNDRED + Positive::TWO * i as f64;
+            assert_eq!(
+                series.underlying_price, expected_price,
+                "underlying at step {i}"
+            );
+            // Expirations age by exactly the elapsed days.
+            let expirations = match series.get_expiration_dates() {
+                Ok(dates) => dates,
+                Err(e) => panic!("expirations missing at step {i}: {e}"),
+            };
+            let elapsed = i as f64;
+            let expected: Vec<Positive> = [30.0, 60.0, 90.0]
+                .iter()
+                .map(|d| pos_or_panic!(d - elapsed))
+                .collect();
+            assert_eq!(
+                expirations, expected,
+                "series did not age at step {i}: {expirations:?}"
+            );
+        }
+    }
+
+    /// Once every expiration in the series has passed, the walk must stop.
+    #[test]
+    fn test_generator_optionseries_stops_when_all_expired() {
+        use crate::chains::utils::OptionChainBuildParams;
+        use crate::chains::utils::OptionDataPriceParams;
+        use crate::walk_test_support::RampWalker;
+
+        // Single 2-day expiration in the series; walk x-expiry far out.
+        let price_params = OptionDataPriceParams::new(
+            Some(Box::new(Positive::HUNDRED)),
+            Some(ExpirationDate::Days(pos_or_panic!(2.0))),
+            Some(dec!(0.05)),
+            spos!(0.02),
+            Some("TEST".to_string()),
+        );
+        let chain_params = OptionChainBuildParams::new(
+            "TEST".to_string(),
+            None,
+            5,
+            spos!(5.0),
+            dec!(-0.2),
+            dec!(0.1),
+            pos_or_panic!(0.02),
+            2,
+            price_params,
+            pos_or_panic!(0.2),
+        );
+        let series_params = OptionSeriesBuildParams::new(chain_params, vec![pos_or_panic!(2.0)]);
+        let initial_series = match OptionSeries::build_series(&series_params) {
+            Ok(series) => series,
+            Err(e) => panic!("series build failed: {e}"),
+        };
+
+        let walk_params = WalkParams {
+            size: 10,
+            init_step: Step {
+                x: Xstep::new(
+                    Positive::ONE,
+                    TimeFrame::Day,
+                    ExpirationDate::Days(pos_or_panic!(30.0)),
+                ),
+                y: Ystep::new(0, initial_series),
+            },
+            walk_type: WalkType::GeometricBrownian {
+                dt: pos_or_panic!(0.01),
+                drift: dec!(0.0),
+                volatility: pos_or_panic!(0.2),
+            },
+            walker: Box::new(RampWalker {
+                delta: Positive::ONE,
+            }),
+            seed: None,
+        };
+
+        let steps = match generator_optionseries(&walk_params) {
+            Ok(steps) => steps,
+            Err(e) => panic!("generator_optionseries failed: {e}"),
+        };
+        // init (2d left) + step1 (1d left); at step2 the only expiration has
+        // passed, so the walk ends.
+        assert_eq!(
+            steps.len(),
+            2,
+            "walk must stop once every series expiration has passed"
+        );
+    }
+}

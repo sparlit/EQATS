@@ -74,7 +74,9 @@ def load_bars(df: pd.DataFrame) -> list[MarketBar]:
 
 def load_actions(store: ParquetStore, symbol: str) -> list[CorporateAction]:
     try:
-        df = store.read_frame(layer="normalized", dataset="corporate_actions", exchange="NSE", name=symbol)
+        df = store.read_frame(
+            layer="normalized", dataset="corporate_actions", exchange="NSE", name=symbol
+        )
     except FileNotFoundError:
         return []
     actions: list[CorporateAction] = []
@@ -84,7 +86,11 @@ def load_actions(store: ParquetStore, symbol: str) -> list[CorporateAction]:
             row[field] = (
                 value.date()
                 if isinstance(value, datetime)
-                else (date.fromisoformat(str(value)) if value and not isinstance(value, date) else value)
+                else (
+                    date.fromisoformat(str(value))
+                    if value and not isinstance(value, date)
+                    else value
+                )
             )
         actions.append(
             CorporateAction(
@@ -119,13 +125,19 @@ def main() -> int:
     settings = load_settings(args.config)
     symbol = args.symbol.upper()
     store = ParquetStore(settings.data_root, settings.storage.parquet_compression)
-    df = store.read_bars(layer="normalized", exchange=args.exchange, symbol=symbol, timeframe=args.timeframe)
+    df = store.read_bars(
+        layer="normalized", exchange=args.exchange, symbol=symbol, timeframe=args.timeframe
+    )
     bars = load_bars(df)
 
     adjusted_note = "unadjusted"
     actions = [] if args.no_adjust else load_actions(store, symbol)
     if not args.no_adjust:
-        applicable = [a for a in actions if a.action_type in (CorporateActionType.SPLIT, CorporateActionType.BONUS)]
+        applicable = [
+            a
+            for a in actions
+            if a.action_type in (CorporateActionType.SPLIT, CorporateActionType.BONUS)
+        ]
         if applicable:
             bars = apply_corporate_action_adjustment(bars, applicable)
             adjusted_note = f"adjusted by {len(applicable)} split/bonus action(s)"

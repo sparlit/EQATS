@@ -42,7 +42,11 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-LEDGERS = ["scripts/_bse_fund_done.json", "scripts/_bse_fund_fail.json", "scripts/_bse_fund_seen.json"]
+LEDGERS = [
+    "scripts/_bse_fund_done.json",
+    "scripts/_bse_fund_fail.json",
+    "scripts/_bse_fund_seen.json",
+]
 
 
 def _load(path):
@@ -56,7 +60,10 @@ def _at(sha, rel):
     try:
         return json.loads(
             subprocess.run(
-                ["git", "show", f"{sha}:{rel}"], capture_output=True, check=True, cwd=os.path.join(HERE, "..")
+                ["git", "show", f"{sha}:{rel}"],
+                capture_output=True,
+                check=True,
+                cwd=os.path.join(HERE, ".."),
             ).stdout
         )
     except (subprocess.CalledProcessError, ValueError):

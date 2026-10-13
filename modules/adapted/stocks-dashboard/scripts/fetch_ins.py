@@ -47,12 +47,22 @@ d = json.load(open(os.path.join(HERE, "..", "docs", "sf_fundamentals.json")))
 tgt = json.load(open(os.path.join(HERE, "_congap_targets.json")))
 LOG = os.path.join(HERE, "_fetchins_log.json")
 HB = os.path.join(HERE, "_fetchins_hb.txt")
-INS = {"LICI", "SBILIFE", "HDFCLIFE", "ICICIPRULI", "ICICIGI", "GICRE", "NIACL", "STARHEALTH", "MFSL"}
+INS = {
+    "LICI",
+    "SBILIFE",
+    "HDFCLIFE",
+    "ICICIPRULI",
+    "ICICIGI",
+    "GICRE",
+    "NIACL",
+    "STARHEALTH",
+    "MFSL",
+}
 PAT = re.compile(
     r"profit\s*/?\s*\(?\s*(loss\)?\s*)?(after tax|for the (period|quarter|year))|profit after tax|net profit",
-    re.IGNORECASE,
+    re.I,
 )
-INSWORD = re.compile(r"(premium|policyholder|shareholder|income from investment)", re.IGNORECASE)
+INSWORD = re.compile(r"(premium|policyholder|shareholder|income from investment)", re.I)
 DEC = re.compile(r"\d[\d,]*\.\d\d")
 
 

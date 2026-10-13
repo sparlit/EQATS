@@ -44,8 +44,6 @@ def raw_daily_panel():
     +42pp. Raw (not CA-adjusted) is still required: the tender price is
     an as-reported rupee figure.
     """
-    from pathlib import Path
-
     frames = []
     for f in sorted((config.DATA_DIR / "bhav").glob("*.parquet")):
         d = pd.read_parquet(f)[["symbol", "date", "close"]]

@@ -33,8 +33,8 @@ Detects early chart-pattern formations, tags them in DB, backfills
 historical tags, respects the empirical hit-rate gate AND the
 fundamental veto gate.
 """
+import contextlib
 import datetime as dt
-import itertools
 import json
 import math
 import sys
@@ -42,6 +42,7 @@ import sys
 import db
 import numpy as np
 import pandas as pd
+import universe_helper as U
 
 MIN_CONFIDENCE_TO_STORE = 58.0
 DEFAULT_SYMBOL_LIMIT = 500
@@ -114,19 +115,8 @@ def _ensure(conn):
 
 def _symbols(conn, limit=DEFAULT_SYMBOL_LIMIT):
     symbols = set()
-    try:
-        rows = conn.execute(
-            "SELECT symbol FROM universe_broad "
-            "WHERE mcap_cr BETWEEN 1000 AND 8000 "
-            "AND symbol NOT LIKE '%$%' "
-            "AND symbol NOT LIKE '% %' "
-            "ORDER BY mcap_cr DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        for r in rows:
-            symbols.add(r[0])
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        symbols.update(U.band_universe(conn, limit))
     try:
         rows = conn.execute("SELECT symbol FROM stocks WHERE active=1").fetchall()
         for r in rows:
@@ -138,7 +128,9 @@ def _symbols(conn, limit=DEFAULT_SYMBOL_LIMIT):
 
 def _load_df(conn, symbol, n=420):
     rows = conn.execute(
-        "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date DESC LIMIT ?",
+        "SELECT date, open, high, low, close, volume "
+        "FROM prices_daily WHERE symbol=? "
+        "ORDER BY date DESC LIMIT ?",
         (symbol, n),
     ).fetchall()
     if not rows or len(rows) < 120:
@@ -223,8 +215,9 @@ def _pivots(df, kind="high", k=4):
         if kind == "high":
             if center == np.nanmax(window) and center > vals[i - 1] and center >= vals[i + 1]:
                 piv.append({"i": i, "date": df["date"].iloc[i], "price": float(center)})
-        elif center == np.nanmin(window) and center < vals[i - 1] and center <= vals[i + 1]:
-            piv.append({"i": i, "date": df["date"].iloc[i], "price": float(center)})
+        else:
+            if center == np.nanmin(window) and center < vals[i - 1] and center <= vals[i + 1]:
+                piv.append({"i": i, "date": df["date"].iloc[i], "price": float(center)})
     return piv
 
 
@@ -284,12 +277,16 @@ def detect_high_tight_flag(symbol, df, sauce):
     cons_low = float(np.nanmin(low_vals[recent_high_local:]))
 
     ok = pole_gain >= p["pole_min_gain"]
-    checks.append({"name": f"pole_gain >= {p['pole_min_gain']:.0%}", "ok": ok, "got": f"{pole_gain:.1%}"})
+    checks.append(
+        {"name": f"pole_gain >= {p['pole_min_gain']:.0%}", "ok": ok, "got": f"{pole_gain:.1%}"}
+    )
     if not ok:
         return None
 
     ok = pullback <= p["max_pullback"]
-    checks.append({"name": f"pullback <= {p['max_pullback']:.0%}", "ok": ok, "got": f"{pullback:.1%}"})
+    checks.append(
+        {"name": f"pullback <= {p['max_pullback']:.0%}", "ok": ok, "got": f"{pullback:.1%}"}
+    )
     if not ok:
         return None
 
@@ -309,7 +306,13 @@ def detect_high_tight_flag(symbol, df, sauce):
         return None
 
     ok = (vcr is None) or (vcr <= p["max_vcr"])
-    checks.append({"name": f"vcr <= {p['max_vcr']}", "ok": ok, "got": (f"{vcr:.2f}" if vcr is not None else "—")})
+    checks.append(
+        {
+            "name": f"vcr <= {p['max_vcr']}",
+            "ok": ok,
+            "got": (f"{vcr:.2f}" if vcr is not None else "—"),
+        }
+    )
     if not ok:
         return None
 
@@ -336,10 +339,22 @@ def detect_high_tight_flag(symbol, df, sauce):
     breakout = recent_high
     stop = cons_low
     status = _status(close, breakout)
-    notes = f"HTF pole {pole_gain:.0%}, pullback {pullback:.0%}, bars since high {bars_since_high}" + (
-        f", vcr {vcr:.2f}" if vcr is not None else ""
+    notes = (
+        f"HTF pole {pole_gain:.0%}, pullback {pullback:.0%}, "
+        f"bars since high {bars_since_high}" + (f", vcr {vcr:.2f}" if vcr is not None else "")
     )
-    return _mk(symbol, "HIGH_TIGHT_FLAG", "BULLISH", status, min(score, 95), breakout, stop, notes, p, checks)
+    return _mk(
+        symbol,
+        "HIGH_TIGHT_FLAG",
+        "BULLISH",
+        status,
+        min(score, 95),
+        breakout,
+        stop,
+        notes,
+        p,
+        checks,
+    )
 
 
 def detect_ascending_triangle(symbol, df, sauce):
@@ -364,10 +379,18 @@ def detect_ascending_triangle(symbol, df, sauce):
 
     recent_highs = ph[-5:]
     max_high = max(x["price"] for x in recent_highs)
-    near_res = [x for x in recent_highs if abs(x["price"] - max_high) / max_high <= p["resistance_tolerance"]]
+    near_res = [
+        x
+        for x in recent_highs
+        if abs(x["price"] - max_high) / max_high <= p["resistance_tolerance"]
+    ]
     ok = len(near_res) >= p["min_pivot_highs"]
     checks.append(
-        {"name": "flat_resistance_pivots", "ok": ok, "got": f"{len(near_res)} within {p['resistance_tolerance']:.1%}"}
+        {
+            "name": "flat_resistance_pivots",
+            "ok": ok,
+            "got": f"{len(near_res)} within {p['resistance_tolerance']:.1%}",
+        }
     )
     if not ok:
         return None
@@ -377,11 +400,13 @@ def detect_ascending_triangle(symbol, df, sauce):
         return None
     low_prices = [x["price"] for x in recent_lows]
     rising_count = 0
-    for a, b in itertools.pairwise(low_prices):
+    for a, b in zip(low_prices, low_prices[1:], strict=False):
         if b > a * 0.985:
             rising_count += 1
     ok = rising_count >= p["min_rising_lows"] - 1
-    checks.append({"name": "rising_lows", "ok": ok, "got": f"{rising_count} of {len(low_prices) - 1}"})
+    checks.append(
+        {"name": "rising_lows", "ok": ok, "got": f"{rising_count} of {len(low_prices) - 1}"}
+    )
     if not ok:
         return None
 
@@ -389,7 +414,11 @@ def detect_ascending_triangle(symbol, df, sauce):
     distance = resistance / close - 1.0
     ok = -0.02 <= distance <= p["max_distance_to_breakout"]
     checks.append(
-        {"name": f"distance_to_resistance <= {p['max_distance_to_breakout']:.1%}", "ok": ok, "got": f"{distance:.1%}"}
+        {
+            "name": f"distance_to_resistance <= {p['max_distance_to_breakout']:.1%}",
+            "ok": ok,
+            "got": f"{distance:.1%}",
+        }
     )
     if not ok:
         return None
@@ -397,7 +426,13 @@ def detect_ascending_triangle(symbol, df, sauce):
     vcr = sauce.get("vcr")
     ret_std20 = sauce.get("ret_std20")
     ok = (vcr is None) or (vcr <= p["max_vcr"])
-    checks.append({"name": f"vcr <= {p['max_vcr']}", "ok": ok, "got": (f"{vcr:.2f}" if vcr is not None else "—")})
+    checks.append(
+        {
+            "name": f"vcr <= {p['max_vcr']}",
+            "ok": ok,
+            "got": (f"{vcr:.2f}" if vcr is not None else "—"),
+        }
+    )
     if not ok:
         return None
 
@@ -417,7 +452,18 @@ def detect_ascending_triangle(symbol, df, sauce):
     notes = f"Flat resistance near {resistance:.2f}, rising lows, distance {distance:.1%}" + (
         f", vcr {vcr:.2f}" if vcr is not None else ""
     )
-    return _mk(symbol, "ASCENDING_TRIANGLE", "BULLISH", status, min(score, 92), resistance, stop, notes, p, checks)
+    return _mk(
+        symbol,
+        "ASCENDING_TRIANGLE",
+        "BULLISH",
+        status,
+        min(score, 92),
+        resistance,
+        stop,
+        notes,
+        p,
+        checks,
+    )
 
 
 def detect_double_bottom(symbol, df, sauce):
@@ -455,7 +501,11 @@ def detect_double_bottom(symbol, df, sauce):
 
     ok = best is not None
     checks.append(
-        {"name": "two_bottoms_found", "ok": ok, "got": (f"yes (sep={best[4]}, diff={best[3]:.1%})" if ok else "no")}
+        {
+            "name": "two_bottoms_found",
+            "ok": ok,
+            "got": (f"yes (sep={best[4]}, diff={best[3]:.1%})" if ok else "no"),
+        }
     )
     if not ok:
         return None
@@ -464,7 +514,11 @@ def detect_double_bottom(symbol, df, sauce):
     distance = neckline / close - 1.0
     ok = -0.03 <= distance <= p["max_distance_to_neckline"]
     checks.append(
-        {"name": f"distance_to_neckline <= {p['max_distance_to_neckline']:.1%}", "ok": ok, "got": f"{distance:.1%}"}
+        {
+            "name": f"distance_to_neckline <= {p['max_distance_to_neckline']:.1%}",
+            "ok": ok,
+            "got": f"{distance:.1%}",
+        }
     )
     if not ok:
         return None
@@ -487,8 +541,13 @@ def detect_double_bottom(symbol, df, sauce):
         score += 5
     stop = min(a["price"], b["price"]) * 0.985
     status = _status(close, neckline)
-    notes = f"Two bottoms within {diff:.1%}, separated {sep} bars, neckline {neckline:.2f}, distance {distance:.1%}"
-    return _mk(symbol, "DOUBLE_BOTTOM", "BULLISH", status, min(score, 90), neckline, stop, notes, p, checks)
+    notes = (
+        f"Two bottoms within {diff:.1%}, separated {sep} bars, "
+        f"neckline {neckline:.2f}, distance {distance:.1%}"
+    )
+    return _mk(
+        symbol, "DOUBLE_BOTTOM", "BULLISH", status, min(score, 90), neckline, stop, notes, p, checks
+    )
 
 
 def detect_inverse_head_shoulders(symbol, df, sauce):
@@ -528,7 +587,9 @@ def detect_inverse_head_shoulders(symbol, df, sauce):
         candidate = (ls, head, rs, neckline, shoulder_diff, head_depth)
 
     ok = candidate is not None
-    checks.append({"name": "inverse_hs_found", "ok": ok, "got": ("yes" if ok else "no shoulders/head shape")})
+    checks.append(
+        {"name": "inverse_hs_found", "ok": ok, "got": ("yes" if ok else "no shoulders/head shape")}
+    )
     if not ok:
         return None
 
@@ -536,7 +597,11 @@ def detect_inverse_head_shoulders(symbol, df, sauce):
     distance = neckline / close - 1.0
     ok = -0.03 <= distance <= p["max_distance_to_neckline"]
     checks.append(
-        {"name": f"distance_to_neckline <= {p['max_distance_to_neckline']:.1%}", "ok": ok, "got": f"{distance:.1%}"}
+        {
+            "name": f"distance_to_neckline <= {p['max_distance_to_neckline']:.1%}",
+            "ok": ok,
+            "got": f"{distance:.1%}",
+        }
     )
     if not ok:
         return None
@@ -564,7 +629,18 @@ def detect_inverse_head_shoulders(symbol, df, sauce):
         f"head depth {head_depth:.1%}, neckline {neckline:.2f}, "
         f"distance {distance:.1%}"
     )
-    return _mk(symbol, "INVERSE_HEAD_SHOULDERS", "BULLISH", status, min(score, 91), neckline, stop, notes, p, checks)
+    return _mk(
+        symbol,
+        "INVERSE_HEAD_SHOULDERS",
+        "BULLISH",
+        status,
+        min(score, 91),
+        neckline,
+        stop,
+        notes,
+        p,
+        checks,
+    )
 
 
 def detect_head_shoulders_top(symbol, df, sauce):
@@ -640,7 +716,16 @@ def detect_head_shoulders_top(symbol, df, sauce):
         f"head height {head_height:.1%}, neckline {neckline:.2f}"
     )
     return _mk(
-        symbol, "HEAD_SHOULDERS_TOP_WARNING", "BEARISH", status, min(score, 88), breakout, stop, notes, p, checks
+        symbol,
+        "HEAD_SHOULDERS_TOP_WARNING",
+        "BEARISH",
+        status,
+        min(score, 88),
+        breakout,
+        stop,
+        notes,
+        p,
+        checks,
     )
 
 
@@ -747,7 +832,7 @@ def run(limit=DEFAULT_SYMBOL_LIMIT):
             for h in rows:
                 if h["direction"] == "BULLISH":
                     try:
-                        bad, _why = fund_veto.vetoed(h["symbol"], conn=conn)
+                        bad, why = fund_veto.vetoed(h["symbol"], conn=conn)
                     except Exception:
                         bad = False
                     if bad:
@@ -803,7 +888,9 @@ def backfill_tags(step=10, limit=300):
     for i, sym in enumerate(symbols, 1):
         conn = db.get_conn()
         rows = conn.execute(
-            "SELECT date, open, high, low, close, volume FROM prices_daily WHERE symbol=? ORDER BY date", (sym,)
+            "SELECT date, open, high, low, close, volume "
+            "FROM prices_daily WHERE symbol=? ORDER BY date",
+            (sym,),
         ).fetchall()
         conn.close()
         if len(rows) < 200:
@@ -816,7 +903,9 @@ def backfill_tags(step=10, limit=300):
             slice_df = df.iloc[:j].reset_index(drop=True)
             d = str(slice_df["date"].iloc[-1])[:10]
             conn = db.get_conn()
-            exists = conn.execute("SELECT 1 FROM pattern_tags WHERE symbol=? AND date=? LIMIT 1", (sym, d)).fetchone()
+            exists = conn.execute(
+                "SELECT 1 FROM pattern_tags WHERE symbol=? AND date=? LIMIT 1", (sym, d)
+            ).fetchone()
             conn.close()
             if exists:
                 continue

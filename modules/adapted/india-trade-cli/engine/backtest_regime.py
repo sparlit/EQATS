@@ -41,16 +41,13 @@ Usage:
 
 import math
 from dataclasses import dataclass
-from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, Optional
+from enum import StrEnum
 
 import pandas as pd
 import yfinance as yf
+from engine.backtest import BacktestResult
 from rich.console import Console
 from rich.table import Table
-
-if TYPE_CHECKING:
-    from engine.backtest import BacktestResult
 
 console = Console()
 
@@ -293,7 +290,9 @@ def analyse_by_regime(
             regime = regime_labels.loc[closest]
         bucketed[regime].append(trade)
 
-    regimes = {rtype: _build_regime_stats(rtype, bucketed[rtype], _pct(rtype)) for rtype in RegimeType}
+    regimes = {
+        rtype: _build_regime_stats(rtype, bucketed[rtype], _pct(rtype)) for rtype in RegimeType
+    }
 
     return BacktestRegimeResult(
         symbol=result.symbol,

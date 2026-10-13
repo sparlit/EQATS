@@ -29,7 +29,9 @@ import yfinance as yf
 _OHLCV_FIELDS = frozenset({"Close", "Open", "High", "Low", "Volume", "Adj Close"})
 
 
-def safe_yf_download(ticker, period: str | None = None, interval: str = "1d", **kwargs) -> pd.DataFrame:
+def safe_yf_download(
+    ticker, period: str | None = None, interval: str = "1d", **kwargs
+) -> pd.DataFrame:
     """Download prices from yfinance with its warnings and progress bar silenced.
 
     Always uses adjusted prices. Accepts one ticker or a list.

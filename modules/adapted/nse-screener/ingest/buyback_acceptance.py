@@ -43,7 +43,6 @@ import contextlib
 import re
 import sys
 import time
-from datetime import date
 
 import pandas as pd
 from ingest import nse, renames
@@ -52,11 +51,14 @@ import config
 
 DIR = config.DATA_DIR / "buybacks"
 PDF_DIR = DIR / "pdfs"
-ANN_URL = "https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={frm}&to_date={to}"
+ANN_URL = (
+    "https://www.nseindia.com/api/corporate-announcements?index=equities"
+    "&from_date={frm}&to_date={to}"
+)
 WARMUP = "https://www.nseindia.com/companies-listing/corporate-filings-announcements"
 # post-offer filings carry the acceptance numbers; the others give context
-POST = re.compile(r"post[\s-]?(buyback|offer)", re.IGNORECASE)
-ANY_BB = re.compile(r"buy[\s-]?back|post[\s-]?offer", re.IGNORECASE)
+POST = re.compile(r"post[\s-]?(buyback|offer)", re.I)
+ANY_BB = re.compile(r"buy[\s-]?back|post[\s-]?offer", re.I)
 
 
 def scan() -> None:
@@ -86,8 +88,13 @@ def scan() -> None:
     ann["is_post"] = ann["desc"].astype(str).str.contains(POST, na=False)
     ann = ann.drop_duplicates(["symbol", "an_dt", "desc"])
     keep = ["symbol", "an_dt", "desc", "attchmntFile", "is_post", "sm_name"]
-    ann[[c for c in keep if c in ann.columns]].to_parquet(DIR / "announcements.parquet", index=False)
-    print(f"\nbuyback announcements: {len(ann)} ({ann['is_post'].sum()} post-offer with the acceptance numbers)")
+    ann[[c for c in keep if c in ann.columns]].to_parquet(
+        DIR / "announcements.parquet", index=False
+    )
+    print(
+        f"\nbuyback announcements: {len(ann)} "
+        f"({ann['is_post'].sum()} post-offer with the acceptance numbers)"
+    )
     print(ann.groupby(ann["an_dt"].dt.year)["is_post"].sum().to_string())
 
 
@@ -132,8 +139,8 @@ def pdfs(limit: int | None = None) -> None:
 # differs by filing. So acceptance is DERIVED as reserved/tendered, and the
 # stated response is used only as a CROSS-CHECK. A row is kept only if the
 # stated figure matches the derived ratio (as-is or x100) within 5%.
-SMALL = re.compile(r"Reserved\s+category\s+for\s+Small\s+Shareholders", re.IGNORECASE)
-GENERAL = re.compile(r"General\s+[Cc]ategory", re.IGNORECASE)
+SMALL = re.compile(r"Reserved\s+category\s+for\s+Small\s+Shareholders", re.I)
+GENERAL = re.compile(r"General\s+[Cc]ategory", re.I)
 # NOTE: whitespace must NOT be allowed inside this pattern — an earlier
 # version permitted it and greedily merged four table columns into one
 # number. Filings whose PDF text splits a figure ("1,84,7 6,817") now
@@ -190,7 +197,8 @@ def parse() -> None:
             continue
         derived = tendered / reserved  # "times oversubscribed"
         ok = stated is not None and (
-            abs(stated - derived) / derived < 0.05 or abs(stated - derived * 100) / (derived * 100) < 0.05
+            abs(stated - derived) / derived < 0.05
+            or abs(stated - derived * 100) / (derived * 100) < 0.05
         )
         if not ok:
             rejected += 1  # parse not trustworthy
@@ -255,7 +263,7 @@ def parse() -> None:
 PRICE = re.compile(
     r"price\s+o[fl]\s*(?:Rs\.?|INR|₹|`|f|t|\W){0,3}\s*([\d,]+(?:\.\d+)?)"
     r"\s*(?:/[-–])?\s*\(([^)]{0,160})\)",
-    re.IGNORECASE,
+    re.I,
 )
 _UNITS = {
     "zero": 0,
@@ -288,7 +296,14 @@ _UNITS = {
     "eighty": 80,
     "ninety": 90,
 }
-_SCALE = {"hundred": 100, "thousand": 1000, "lakh": 100000, "lakhs": 100000, "crore": 10000000, "crores": 10000000}
+_SCALE = {
+    "hundred": 100,
+    "thousand": 1000,
+    "lakh": 100000,
+    "lakhs": 100000,
+    "crore": 10000000,
+    "crores": 10000000,
+}
 
 
 def words_to_number(text):
@@ -324,7 +339,9 @@ def prices() -> None:
     for _, r in acc.iterrows():
         f = PDF_DIR / r["pdf"]
         try:
-            txt = re.sub(r"\s+", " ", "\n".join((pg.extract_text() or "") for pg in PdfReader(str(f)).pages))
+            txt = re.sub(
+                r"\s+", " ", "\n".join((pg.extract_text() or "") for pg in PdfReader(str(f)).pages)
+            )
         except Exception:
             dropped += 1
             continue
@@ -376,8 +393,14 @@ def prices() -> None:
     if len(out):
         pr = out["premium_pct"].dropna()
         print("\npremium of tender price over market at filing:")
-        print(f"  median {pr.median():+.1f}%   p25 {pr.quantile(0.25):+.1f}%   p75 {pr.quantile(0.75):+.1f}%")
-        print(f"  negative-premium cases: {(pr < 0).sum()} (price below market by the time of the post-offer filing)")
+        print(
+            f"  median {pr.median():+.1f}%   p25 {pr.quantile(0.25):+.1f}%"
+            f"   p75 {pr.quantile(0.75):+.1f}%"
+        )
+        print(
+            f"  negative-premium cases: {(pr < 0).sum()} "
+            f"(price below market by the time of the post-offer filing)"
+        )
 
 
 if __name__ == "__main__":

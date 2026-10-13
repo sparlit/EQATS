@@ -26,7 +26,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 import os
 import sqlite3
-import sys
 
 import numpy as np
 import pandas as pd
@@ -51,7 +50,9 @@ def main():
     conn = sqlite3.connect(DB_PATH)
 
     # 1. Get all (ticker, datadate) pairs
-    df = pd.read_sql("SELECT ticker, datadate, adj_close_q FROM fundamental_data ORDER BY ticker, datadate", conn)
+    df = pd.read_sql(
+        "SELECT ticker, datadate, adj_close_q FROM fundamental_data ORDER BY ticker, datadate", conn
+    )
     df["adj_close_q"] = pd.to_numeric(df["adj_close_q"], errors="coerce")
     df["datadate"] = pd.to_datetime(df["datadate"])
     tickers = sorted(df["ticker"].unique())
@@ -85,9 +86,13 @@ def main():
     all_prices = {}
     for i in range(0, len(yf_tickers), batch_size):
         batch = yf_tickers[i : i + batch_size]
-        print(f"  Batch {i // batch_size + 1}/{(len(yf_tickers) - 1) // batch_size + 1}: {len(batch)} tickers ...")
+        print(
+            f"  Batch {i // batch_size + 1}/{(len(yf_tickers) - 1) // batch_size + 1}: {len(batch)} tickers ..."
+        )
         try:
-            data = yf.download(batch, start=start_str, end=end_str, auto_adjust=True, progress=False)
+            data = yf.download(
+                batch, start=start_str, end=end_str, auto_adjust=True, progress=False
+            )
             if isinstance(data.columns, pd.MultiIndex):
                 # Multi-ticker: columns are (Price, Ticker)
                 close_data = data["Close"] if "Close" in data.columns.get_level_values(0) else data
@@ -96,11 +101,12 @@ def main():
                         series = close_data[t].dropna()
                         if len(series) > 0:
                             all_prices[t] = series
-            # Single ticker
-            elif "Close" in data.columns:
-                series = data["Close"].dropna()
-                if len(series) > 0:
-                    all_prices[batch[0]] = series
+            else:
+                # Single ticker
+                if "Close" in data.columns:
+                    series = data["Close"].dropna()
+                    if len(series) > 0:
+                        all_prices[batch[0]] = series
         except Exception as e:
             print(f"  ERROR: {e}")
 
@@ -124,7 +130,9 @@ def main():
 
     print(f"Price updates ready: {len(updates)}")
     if missing_tickers:
-        print(f"Tickers with no yfinance data ({len(missing_tickers)}): {sorted(missing_tickers)[:20]}...")
+        print(
+            f"Tickers with no yfinance data ({len(missing_tickers)}): {sorted(missing_tickers)[:20]}..."
+        )
 
     # 5. Apply updates
     cursor = conn.cursor()
@@ -138,7 +146,9 @@ def main():
     print(f"Updated adj_close_q for {len(updates)} records")
 
     # 6. Recompute y_return = log(next_quarter / current_quarter)
-    df2 = pd.read_sql("SELECT ticker, datadate, adj_close_q FROM fundamental_data ORDER BY ticker, datadate", conn)
+    df2 = pd.read_sql(
+        "SELECT ticker, datadate, adj_close_q FROM fundamental_data ORDER BY ticker, datadate", conn
+    )
     df2["adj_close_q"] = pd.to_numeric(df2["adj_close_q"], errors="coerce")
     df2["next_q_price"] = df2.groupby("ticker")["adj_close_q"].shift(-1)
     df2["y_return_new"] = np.log(df2["next_q_price"] / df2["adj_close_q"])
@@ -159,7 +169,8 @@ def main():
 
     # 7. Verify fix
     df3 = pd.read_sql(
-        "SELECT ticker, datadate, adj_close_q, y_return FROM fundamental_data ORDER BY ticker, datadate", conn
+        "SELECT ticker, datadate, adj_close_q, y_return FROM fundamental_data ORDER BY ticker, datadate",
+        conn,
     )
     df3["adj_close_q"] = pd.to_numeric(df3["adj_close_q"], errors="coerce")
     df3["y_return"] = pd.to_numeric(df3["y_return"], errors="coerce")

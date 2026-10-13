@@ -25,13 +25,11 @@ import asyncio
 from pathlib import Path
 
 import click
-import numpy as np
 import pandas as pd
 from common.generators import output_feature_set
 from common.model_store import *
 from common.utils import *
 from service.App import *
-from tqdm import tqdm
 
 """
 Execute outputs based on signal file.
@@ -88,7 +86,9 @@ def main(config_file):
             # await output_feature_set(df, os, App.config, App.model_store)
             asyncio.run(output_feature_set(df, os, App.config, App.model_store))
         except Exception as e:
-            log.exception(f"Error in output function: {e}. Generator: {os.get('generator')}. Output config: {os}")
+            log.error(
+                f"Error in output function: {e}. Generator: {os.get('generator')}. Output config: {os}"
+            )
             return
 
     elapsed = datetime.now() - now

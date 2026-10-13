@@ -33,7 +33,7 @@ from pybroker.config import StrategyConfig
 from pybroker.interval import compress
 from pybroker.scope import StaticScope
 
-from .fixtures import *
+from .fixtures import *  # noqa: F401
 
 START_DATE = np.datetime64("2019-01-01")
 END_DATE = np.datetime64("2020-12-31")
@@ -193,7 +193,7 @@ class TestStatefulWalkforward:
 
 
 class TestGarchIntegration:
-    @pytest.fixture
+    @pytest.fixture()
     def spy_df(self, data_source_df):
         return data_source_df[data_source_df[DataCol.SYMBOL.value] == "SPY"]
 
@@ -272,7 +272,9 @@ class TestLagColumnContract:
 
         def capture_train(train_data, lag_train):
             widths["train"] = lag_train.shape[1]
-            widths["data_cols"] = [col for col in train_data.columns if col not in ("date", "symbol")]
+            widths["data_cols"] = [
+                col for col in train_data.columns if col not in ("date", "symbol")
+            ]
 
         def train_fn(symbol, train_data, test_data, lag_train, lag_test):
             capture_train(train_data, lag_train)
@@ -361,7 +363,7 @@ def _compress_symbol(df, interval):
 class TestIntervalPerBar:
     """Per-bar predictions on a compressed interval must not look ahead."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def df(self):
         dates = pd.date_range("2020-01-01", periods=120)
         close = 100 + np.arange(120, dtype=float)
@@ -523,8 +525,7 @@ class TestIntervalPerBar:
             assert isinstance(matrix, np.ndarray)
             seen_matrices.append(matrix)
             if not np.isfinite(matrix).all():
-                msg = "Input X contains NaN"
-                raise ValueError(msg)
+                raise ValueError("Input X contains NaN")
             return np.zeros(len(matrix))
 
         m = model(
@@ -606,7 +607,9 @@ class TestIntervalPerBar:
         # The interval model's train call is the one whose dates are all
         # compressed closing dates; the base model's call carries base
         # dates that include non-closing dates.
-        interval_calls = [call for call in train_calls if set(call[0]) <= bar_set and set(call[1]) <= bar_set]
+        interval_calls = [
+            call for call in train_calls if set(call[0]) <= bar_set and set(call[1]) <= bar_set
+        ]
         assert len(interval_calls) == 1
         train_dates, test_dates, lag_test = interval_calls[0]
         last_train = int(np.nonzero(bar_dates == train_dates.max())[0][0])
@@ -657,7 +660,9 @@ class TestIntervalPerBar:
         strategy.walkforward(windows=2, lookahead=2, train_size=0.5, timeframe="1d")
         bar_dates, _ = _compress_symbol(df, "weekly")
         bar_set = set(bar_dates)
-        weekly_calls = [call for call in train_calls if set(call[1]) <= bar_set and set(call[2]) <= bar_set]
+        weekly_calls = [
+            call for call in train_calls if set(call[1]) <= bar_set and set(call[2]) <= bar_set
+        ]
         # One fresh interval model per walkforward window.
         assert len(weekly_calls) == 2
         weekly_ids = {id(call[0]) for call in weekly_calls}
@@ -689,7 +694,7 @@ class TestIndicatorLagColumns:
     training and ``History column not found`` at prediction.
     """
 
-    @pytest.fixture
+    @pytest.fixture()
     def spy_df(self, data_source_df):
         return data_source_df[data_source_df[DataCol.SYMBOL.value] == "SPY"]
 

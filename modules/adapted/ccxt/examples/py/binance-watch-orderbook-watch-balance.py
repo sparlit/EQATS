@@ -45,7 +45,9 @@ def common_handler(exchange, symbol):
     if balance and orderbook:
         total = balance["total"]
         tip = [orderbook["asks"][0], orderbook["bids"][0]]
-        print(exchange.iso8601(exchange.milliseconds()), symbol, "orderbook:", tip, "balance:", total)
+        print(
+            exchange.iso8601(exchange.milliseconds()), symbol, "orderbook:", tip, "balance:", total
+        )
 
 
 async def watch_order_book(exchange, symbol):

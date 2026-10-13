@@ -48,7 +48,7 @@ import re
 import subprocess
 import threading
 import time
-from datetime import UTC, date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 BACKUP_DIR = os.environ.get("BACKUP_DIR", "backups")
 # Ceiling on dump frequency, not a schedule: a dump only happens if something actually changed.

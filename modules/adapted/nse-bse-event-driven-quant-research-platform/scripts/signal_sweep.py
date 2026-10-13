@@ -56,9 +56,16 @@ def rank_table(results: dict[str, dict]) -> list[dict]:
                 {
                     "signal": signal,
                     "horizon": int(horizon),
-                    **{k: stats.get(k) for k in ("n", "mean_bps", "net_mean_bps", "hit_rate", "t_stat")},
-                    "eq_mean_bps": (stats.get("by_segment", {}).get("EQ", {}) or {}).get("mean_bps"),
-                    "sme_mean_bps": (stats.get("by_segment", {}).get("SME", {}) or {}).get("mean_bps"),
+                    **{
+                        k: stats.get(k)
+                        for k in ("n", "mean_bps", "net_mean_bps", "hit_rate", "t_stat")
+                    },
+                    "eq_mean_bps": (stats.get("by_segment", {}).get("EQ", {}) or {}).get(
+                        "mean_bps"
+                    ),
+                    "sme_mean_bps": (stats.get("by_segment", {}).get("SME", {}) or {}).get(
+                        "mean_bps"
+                    ),
                 }
             )
     return sorted(rows, key=lambda r: (r["t_stat"] is None, -(r["t_stat"] or 0)))

@@ -73,7 +73,10 @@ def report(name, y, factors, labels, periods_per_year=12):
     b, t, r2 = ols(y, np.column_stack(factors))
     alpha_ann = 100 * ((1 + b[0]) ** periods_per_year - 1)
     parts = "  ".join(f"{lab} {b[i + 1]:+.2f} (t {t[i + 1]:+.1f})" for i, lab in enumerate(labels))
-    print(f"  {name:<26} alpha {alpha_ann:+7.2f}%/yr (t {t[0]:+.2f})  {parts}  R2 {r2:.2f}  n={len(y)}")
+    print(
+        f"  {name:<26} alpha {alpha_ann:+7.2f}%/yr (t {t[0]:+.2f})  "
+        f"{parts}  R2 {r2:.2f}  n={len(y)}"
+    )
     return alpha_ann
 
 
@@ -122,7 +125,9 @@ def arm_a():
 
     for rf_ann in (RF_ANNUAL, 0.04, 0.08):
         rf = (1 + rf_ann) ** (1 / 12) - 1
-        j = pd.concat([r.rename("p"), bm.rename("m"), smb.rename("smb")], axis=1, join="inner").dropna()
+        j = pd.concat(
+            [r.rename("p"), bm.rename("m"), smb.rename("smb")], axis=1, join="inner"
+        ).dropna()
         if rf_ann == RF_ANNUAL:
             print(f"  window: {j.index[0].date()} → {j.index[-1].date()}")
         tag = "" if rf_ann == RF_ANNUAL else f" [rf {100 * rf_ann:.0f}%]"
@@ -130,7 +135,10 @@ def arm_a():
         report(f"A2 mkt+SMB{tag}", j["p"] - rf, [j["m"] - rf, j["smb"]], ["mkt", "smb"])
         if rf_ann == RF_ANNUAL:
             # same split as v4's registered windows
-            for label, lo, hi in (("  IS 2023-26", "2023-01-01", None), ("  OOS 2017-22", "2017-01-01", "2022-12-31")):
+            for label, lo, hi in (
+                ("  IS 2023-26", "2023-01-01", None),
+                ("  OOS 2017-22", "2017-01-01", "2022-12-31"),
+            ):
                 w = j.loc[lo:hi]
                 if len(w) > 12:
                     report(f"A2{label}", w["p"] - rf, [w["m"] - rf, w["smb"]], ["mkt", "smb"])

@@ -24,7 +24,9 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import os
 import sys
 
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 sys.path.append(root)
 
 # ----------------------------------------------------------------------------
@@ -35,8 +37,8 @@ sys.path.append(root)
 # ----------------------------------------------------------------------------
 # -*- coding: utf-8 -*-
 
-from ccxt.base.decimal_to_precision import SIGNIFICANT_DIGITS  # noqa: E402
-from ccxt.test.exchange.base import test_shared_methods  # noqa: E402
+from ccxt.base.decimal_to_precision import SIGNIFICANT_DIGITS  # noqa E402
+from ccxt.test.exchange.base import test_shared_methods  # noqa E402
 
 
 def test_currency(exchange, skipped_properties, method, entry):
@@ -46,9 +48,9 @@ def test_currency(exchange, skipped_properties, method, entry):
         "id": "btc",
         "code": "BTC",
     }
-    # TODO: remove fee from empty
+    # todo: remove fee from empty
     empty_allowed_for = ["name", "fee"]
-    # TODO: info key needs to be added in base, when exchange does not have fetchCurrencies
+    # todo: info key needs to be added in base, when exchange does not have fetchCurrencies
     is_native = (
         (exchange.has["fetchCurrencies"] is not None)
         and (exchange.has["fetchCurrencies"] is not False)
@@ -57,7 +59,7 @@ def test_currency(exchange, skipped_properties, method, entry):
     currency_type = exchange.safe_string(entry, "type")
     if is_native:
         format["info"] = {}
-        # TODO: 'name': 'Bitcoin', # uppercase string, base currency, 2 or more letters
+        # todo: 'name': 'Bitcoin', # uppercase string, base currency, 2 or more letters
         format["withdraw"] = True  # withdraw enabled
         format["deposit"] = True  # deposit enabled
         format["precision"] = exchange.parse_number(
@@ -77,16 +79,24 @@ def test_currency(exchange, skipped_properties, method, entry):
         }
         format["type"] = "crypto"  # crypto, fiat, leverage, other
         test_shared_methods.assert_in_array(
-            exchange, skipped_properties, method, entry, "type", ["fiat", "crypto", "leveraged", "other", None]
-        )  # TODO: remove undefined
+            exchange,
+            skipped_properties,
+            method,
+            entry,
+            "type",
+            ["fiat", "crypto", "leveraged", "other", None],
+        )  # todo: remove undefined
         # only require "deposit" & "withdraw" values, when currency is not fiat, or when it's fiat, but not skipped
         if currency_type != "crypto" and ("depositForNonCrypto" in skipped_properties):
             empty_allowed_for.append("deposit")
         if currency_type != "crypto" and ("withdrawForNonCrypto" in skipped_properties):
             empty_allowed_for.append("withdraw")
-        if currency_type in {"leveraged", "other"}:
+        if currency_type == "leveraged" or currency_type == "other":
             empty_allowed_for.append("precision")
-    test_shared_methods.assert_currency_code(exchange, skipped_properties, method, entry, entry["code"])
+    #
+    test_shared_methods.assert_currency_code(
+        exchange, skipped_properties, method, entry, entry["code"]
+    )
     # check if empty networks should be skipped
     networks = exchange.safe_dict(entry, "networks", {})
     network_keys = list(networks.keys())
@@ -94,26 +104,43 @@ def test_currency(exchange, skipped_properties, method, entry):
     if network_keys_length == 0 and ("skipCurrenciesWithoutNetworks" in skipped_properties):
         return
     try:
-        test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+        test_shared_methods.assert_structure(
+            exchange, skipped_properties, method, entry, format, empty_allowed_for
+        )
     except Exception as e:
         message = exchange.exception_message(e)
         # check structure if key is numeric, not string
         if '"id" key' in message:
             # @ts-ignore
             format["id"] = 123
-            test_shared_methods.assert_structure(exchange, skipped_properties, method, entry, format, empty_allowed_for)
+            test_shared_methods.assert_structure(
+                exchange, skipped_properties, method, entry, format, empty_allowed_for
+            )
         else:
             assert message == "", message
-    test_shared_methods.check_precision_accuracy(exchange, skipped_properties, method, entry, "precision")
-    test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, entry, "fee", "0")
+    #
+    test_shared_methods.check_precision_accuracy(
+        exchange, skipped_properties, method, entry, "precision"
+    )
+    test_shared_methods.assert_greater_or_equal(
+        exchange, skipped_properties, method, entry, "fee", "0"
+    )
     if "limits" not in skipped_properties:
         limits = exchange.safe_value(entry, "limits", {})
         withdraw_limits = exchange.safe_value(limits, "withdraw", {})
         deposit_limits = exchange.safe_value(limits, "deposit", {})
-        test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, withdraw_limits, "min", "0")
-        test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, withdraw_limits, "max", "0")
-        test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, deposit_limits, "min", "0")
-        test_shared_methods.assert_greater_or_equal(exchange, skipped_properties, method, deposit_limits, "max", "0")
+        test_shared_methods.assert_greater_or_equal(
+            exchange, skipped_properties, method, withdraw_limits, "min", "0"
+        )
+        test_shared_methods.assert_greater_or_equal(
+            exchange, skipped_properties, method, withdraw_limits, "max", "0"
+        )
+        test_shared_methods.assert_greater_or_equal(
+            exchange, skipped_properties, method, deposit_limits, "min", "0"
+        )
+        test_shared_methods.assert_greater_or_equal(
+            exchange, skipped_properties, method, deposit_limits, "max", "0"
+        )
         # max should be more than min (withdrawal limits)
         min_string_withdrawal = exchange.safe_string(withdraw_limits, "min")
         if min_string_withdrawal is not None:

@@ -80,7 +80,12 @@ def fy_of(qe):
 
 
 def fy_quarters(fy):
-    return [(fy - 1) * 10000 + 630, (fy - 1) * 10000 + 930, (fy - 1) * 10000 + 1231, fy * 10000 + 331]
+    return [
+        (fy - 1) * 10000 + 630,
+        (fy - 1) * 10000 + 930,
+        (fy - 1) * 10000 + 1231,
+        fy * 10000 + 331,
+    ]
 
 
 def band(revop, sym, qe, field):
@@ -134,7 +139,14 @@ def main():
             continue
         med = band(revop, sym, qe, field)
         if med and not (0.2 * med <= new <= 5 * med):
-            bad.append(dict(c, cell=key, current=cur, failed=f"suggestion outside neighbour band (median {med:.2f})"))
+            bad.append(
+                dict(
+                    c,
+                    cell=key,
+                    current=cur,
+                    failed=f"suggestion outside neighbour band (median {med:.2f})",
+                )
+            )
             continue
 
         con = field.endswith("C")
@@ -148,14 +160,22 @@ def main():
         passed = []
 
         # T1 screener quarter
-        lab = next((L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None) if sq else None
+        lab = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in sq.values())), None)
+            if sq
+            else None
+        )
         dk = "%d-%02d-%02d" % (qe // 10000, (qe // 100) % 100, qe % 100)
         t = (sq.get(dk) or {}).get(lab) if lab else None
         if t is not None and close(new, t):
             passed.append(f"T1 screener-quarter {t:.2f}")
 
         # T2 FY identity (must FIX the year, not merely be inside it)
-        alab = next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None) if sa else None
+        alab = (
+            next((L for L in ("Sales", "Revenue") if any(L in r for r in sa.values())), None)
+            if sa
+            else None
+        )
         fy = fy_of(qe)
         tot = (sa.get("%d-03-31" % fy) or {}).get(alab) if alab else None
         if tot is not None:
@@ -169,7 +189,9 @@ def main():
                 now_ok = close(sum(sibs) + cur, tot, 0.015, 2.0)
                 new_ok = close(sum(sibs) + new, tot, 0.015, 2.0)
                 if new_ok and not now_ok:
-                    passed.append("T2 FY%d identity fixed (%.2f vs annual %s)" % (fy, sum(sibs) + new, tot))
+                    passed.append(
+                        "T2 FY%d identity fixed (%.2f vs annual %s)" % (fy, sum(sibs) + new, tot)
+                    )
 
         # T3 cumulative (self-contained)
         qs = fy_quarters(fy)
@@ -185,7 +207,9 @@ def main():
             for p in (10.0, 100.0, 1000.0):
                 if abs(ratio - p) < 0.02 * p or abs(ratio - 1.0 / p) < 0.02 / p:
                     if med and not (0.2 * med <= cur <= 5 * med):
-                        passed.append(f"T4 power-of-ten x{p:g}, current value outside neighbour band")
+                        passed.append(
+                            f"T4 power-of-ten x{p:g}, current value outside neighbour band"
+                        )
                     break
 
         # T1 IS NOT INDEPENDENT EVIDENCE. The agents' suggested values ARE screener's numbers, so
@@ -195,9 +219,8 @@ def main():
         # require a genuinely independent test: T2 (the FY total only reconciles WITH the
         # suggestion), T3 (self-contained cumulative identity) or T4 (clean power of ten).
         strong = [p for p in passed if p[:2] in ("T2", "T3", "T4")]
-        if not strong and passed:
-            if med and not (0.2 * med <= cur <= 5 * med):
-                strong = [*passed, f"current value outside neighbour band (median {med:.2f})"]
+        if not strong and passed and med and not (0.2 * med <= cur <= 5 * med):
+            strong = passed + [f"current value outside neighbour band (median {med:.2f})"]
         if strong:
             ok.append((sym, str(qe), field, cur, new, strong, c))
         else:
@@ -206,17 +229,23 @@ def main():
                     c,
                     cell=key,
                     current=cur,
-                    failed="only T1 (matches screener) -- circular, and our stored value is plausible; needs the filing"
+                    failed="only T1 (matches screener) -- circular, and our stored value "
+                    "is plausible; needs the filing"
                     if passed
                     else "no test passed (T1-T4)",
                 )
             )
 
-    print("agent OURS-WRONG claims: %d | VERIFIED: %d | unverified: %d\n" % (len(claims), len(ok), len(bad)))
+    print(
+        "agent OURS-WRONG claims: %d | VERIFIED: %d | unverified: %d\n"
+        % (len(claims), len(ok), len(bad))
+    )
     tests = collections.Counter(p.split()[0] for _s, _q, _f, _c, _n, ps, _cc in ok for p in ps)
     print("verified by:", dict(tests), "\n")
     for sym, qe, field, cur, new, passed, c in ok[:60]:
-        print("  %-12s %-9s %-5s %13.2f -> %-12.2f  %s" % (sym, qe, field, cur, new, passed[0][:52]))
+        print(
+            "  %-12s %-9s %-5s %13.2f -> %-12.2f  %s" % (sym, qe, field, cur, new, passed[0][:52])
+        )
     if dry:
         json.dump(bad, open(REVIEW, "w"), indent=1)
         print(f"\nDRY RUN -- nothing written. unverified -> {os.path.basename(REVIEW)}")
@@ -250,7 +279,10 @@ def main():
     led.update(journal)
     json.dump(led, open(JOURNAL, "w"), indent=1, sort_keys=True)
     json.dump(bad, open(REVIEW, "w"), indent=1)
-    print("journalled %d -> %s | %d unverified held" % (len(journal), os.path.basename(JOURNAL), len(bad)))
+    print(
+        "journalled %d -> %s | %d unverified held"
+        % (len(journal), os.path.basename(JOURNAL), len(bad))
+    )
 
 
 if __name__ == "__main__":

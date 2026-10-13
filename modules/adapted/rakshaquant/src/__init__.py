@@ -22,12 +22,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 """
-Agentic Paper Trading System for NSE
+RakshaQuant: a paper-trading platform for NSE equities (Platform v2).
 
-A production-grade paper trading system with:
-- LangGraph-orchestrated multi-agent decision layer
-- Learning feedback loop via agent memory
-- Full observability via LangSmith
+A deterministic engine trades paired books on the same signals - one without an advisor, one
+vetoed by a typed decision model, one by an LLM - on a simulated broker, recording every fact
+in an event store. See ``docs/architecture.md``.
 """
 
 __version__ = "0.1.0"

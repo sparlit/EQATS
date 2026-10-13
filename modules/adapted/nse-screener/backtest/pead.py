@@ -25,7 +25,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
     python -m backtest.pead
 """
-import numpy as np
 import pandas as pd
 from backtest import features
 from ingest import etf_list
@@ -47,7 +46,9 @@ def sue_events(trailing: int = 8) -> pd.DataFrame:
     )
     g = fr.groupby("symbol")
     fr["yoy"] = fr["net_profit"] - g["net_profit"].shift(4)
-    fr["sue"] = fr.groupby("symbol")["yoy"].transform(lambda s: s / s.rolling(trailing, min_periods=6).std())
+    fr["sue"] = fr.groupby("symbol")["yoy"].transform(
+        lambda s: s / s.rolling(trailing, min_periods=6).std()
+    )
     fr = fr.dropna(subset=["sue"])
     fr["bdate"] = pd.to_datetime(fr["broadcast"])
     return fr[["symbol", "q_end", "bdate", "sue"]]
@@ -119,13 +120,29 @@ def main():
         print(f"=== {label} ===")
         w = ev[(ev["bdate"] >= lo) & (ev["bdate"] < hi)]
         wd = dec[(dec["bdate"] >= lo) & (dec["bdate"] < hi)]
-        report("baseline SUE>=1, 63d", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid))
+        report(
+            "baseline SUE>=1, 63d",
+            run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid),
+        )
         report("SUE>=2", run_events(w[w["sue"] >= 2], close, open_, bench_c, bench_o, liquid))
-        report("top-decile SUE", run_events(wd[wd["decile"] >= 0.9], close, open_, bench_c, bench_o, liquid))
-        report("hold_5", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, hold=5))
-        report("hold_21", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, hold=21))
-        report("with_trend", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, trend=trend))
-        report("NEGATIVE side (info)", run_events(w[w["sue"] <= -1], close, open_, bench_c, bench_o, liquid))
+        report(
+            "top-decile SUE",
+            run_events(wd[wd["decile"] >= 0.9], close, open_, bench_c, bench_o, liquid),
+        )
+        report(
+            "hold_5", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, hold=5)
+        )
+        report(
+            "hold_21", run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, hold=21)
+        )
+        report(
+            "with_trend",
+            run_events(w[w["sue"] >= 1], close, open_, bench_c, bench_o, liquid, trend=trend),
+        )
+        report(
+            "NEGATIVE side (info)",
+            run_events(w[w["sue"] <= -1], close, open_, bench_c, bench_o, liquid),
+        )
 
 
 if __name__ == "__main__":

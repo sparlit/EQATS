@@ -35,14 +35,28 @@ class ImplicitAPI:
     private_post_my_coin_deposit = privatePostMyCoinDeposit = Entry[_Dict](
         "my/coin/deposit", "private", "POST", {"cost": 1}
     )
-    private_post_my_coin_send = privatePostMyCoinSend = Entry[_Dict]("my/coin/send", "private", "POST", {"cost": 1})
-    private_post_quote_buy = privatePostQuoteBuy = Entry[_Dict]("quote/buy", "private", "POST", {"cost": 1})
-    private_post_quote_sell = privatePostQuoteSell = Entry[_Dict]("quote/sell", "private", "POST", {"cost": 1})
-    private_post_my_balances = privatePostMyBalances = Entry[_Dict]("my/balances", "private", "POST", {"cost": 1})
-    private_post_my_orders = privatePostMyOrders = Entry[_Dict]("my/orders", "private", "POST", {"cost": 1})
+    private_post_my_coin_send = privatePostMyCoinSend = Entry[_Dict](
+        "my/coin/send", "private", "POST", {"cost": 1}
+    )
+    private_post_quote_buy = privatePostQuoteBuy = Entry[_Dict](
+        "quote/buy", "private", "POST", {"cost": 1}
+    )
+    private_post_quote_sell = privatePostQuoteSell = Entry[_Dict](
+        "quote/sell", "private", "POST", {"cost": 1}
+    )
+    private_post_my_balances = privatePostMyBalances = Entry[_Dict](
+        "my/balances", "private", "POST", {"cost": 1}
+    )
+    private_post_my_orders = privatePostMyOrders = Entry[_Dict](
+        "my/orders", "private", "POST", {"cost": 1}
+    )
     private_post_my_buy = privatePostMyBuy = Entry[_Dict]("my/buy", "private", "POST", {"cost": 1})
-    private_post_my_sell = privatePostMySell = Entry[_Dict]("my/sell", "private", "POST", {"cost": 1})
-    private_post_my_buy_cancel = privatePostMyBuyCancel = Entry[_Dict]("my/buy/cancel", "private", "POST", {"cost": 1})
+    private_post_my_sell = privatePostMySell = Entry[_Dict](
+        "my/sell", "private", "POST", {"cost": 1}
+    )
+    private_post_my_buy_cancel = privatePostMyBuyCancel = Entry[_Dict](
+        "my/buy/cancel", "private", "POST", {"cost": 1}
+    )
     private_post_my_sell_cancel = privatePostMySellCancel = Entry[_Dict](
         "my/sell/cancel", "private", "POST", {"cost": 1}
     )
@@ -67,9 +81,9 @@ class ImplicitAPI:
     private_post_ro_my_transactions_open = privatePostRoMyTransactionsOpen = Entry[_Dict](
         "ro/my/transactions/open", "private", "POST", {"cost": 1}
     )
-    private_post_ro_my_transactions_cointype_open = privatePostRoMyTransactionsCointypeOpen = Entry[_Dict](
-        "ro/my/transactions/{cointype}/open", "private", "POST", {"cost": 1}
-    )
+    private_post_ro_my_transactions_cointype_open = privatePostRoMyTransactionsCointypeOpen = Entry[
+        _Dict
+    ]("ro/my/transactions/{cointype}/open", "private", "POST", {"cost": 1})
     private_post_ro_my_sendreceive = privatePostRoMySendreceive = Entry[_Dict](
         "ro/my/sendreceive", "private", "POST", {"cost": 1}
     )
@@ -79,7 +93,9 @@ class ImplicitAPI:
     private_post_ro_my_referralpayments = privatePostRoMyReferralpayments = Entry[_Dict](
         "ro/my/referralpayments", "private", "POST", {"cost": 1}
     )
-    v2_public_get_latest = v2PublicGetLatest = Entry[_Dict]("latest", ["v2", "public"], "GET", {"cost": 1})
+    v2_public_get_latest = v2PublicGetLatest = Entry[_Dict](
+        "latest", ["v2", "public"], "GET", {"cost": 1}
+    )
     v2_public_get_latest_cointype = v2PublicGetLatestCointype = Entry[_Dict](
         "latest/{cointype}", ["v2", "public"], "GET", {"cost": 1}
     )
@@ -89,34 +105,40 @@ class ImplicitAPI:
     v2_public_get_buyprice_cointype = v2PublicGetBuypriceCointype = Entry[_Dict](
         "buyprice/{cointype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_buyprice_cointype_markettype = v2PublicGetBuypriceCointypeMarkettype = Entry[_Dict](
-        "buyprice/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1}
-    )
+    v2_public_get_buyprice_cointype_markettype = v2PublicGetBuypriceCointypeMarkettype = Entry[
+        _Dict
+    ]("buyprice/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1})
     v2_public_get_sellprice_cointype = v2PublicGetSellpriceCointype = Entry[_Dict](
         "sellprice/{cointype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_sellprice_cointype_markettype = v2PublicGetSellpriceCointypeMarkettype = Entry[_Dict](
-        "sellprice/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1}
-    )
+    v2_public_get_sellprice_cointype_markettype = v2PublicGetSellpriceCointypeMarkettype = Entry[
+        _Dict
+    ]("sellprice/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1})
     v2_public_get_orders_open_cointype = v2PublicGetOrdersOpenCointype = Entry[_Dict](
         "orders/open/{cointype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_orders_open_cointype_markettype = v2PublicGetOrdersOpenCointypeMarkettype = Entry[_Dict](
-        "orders/open/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1}
-    )
+    v2_public_get_orders_open_cointype_markettype = v2PublicGetOrdersOpenCointypeMarkettype = Entry[
+        _Dict
+    ]("orders/open/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1})
     v2_public_get_orders_completed_cointype = v2PublicGetOrdersCompletedCointype = Entry[_Dict](
         "orders/completed/{cointype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_orders_completed_cointype_markettype = v2PublicGetOrdersCompletedCointypeMarkettype = Entry[_Dict](
+    v2_public_get_orders_completed_cointype_markettype = (
+        v2PublicGetOrdersCompletedCointypeMarkettype
+    ) = Entry[_Dict](
         "orders/completed/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_public_get_orders_summary_completed_cointype = v2PublicGetOrdersSummaryCompletedCointype = Entry[_Dict](
-        "orders/summary/completed/{cointype}", ["v2", "public"], "GET", {"cost": 1}
+    v2_public_get_orders_summary_completed_cointype = v2PublicGetOrdersSummaryCompletedCointype = (
+        Entry[_Dict]("orders/summary/completed/{cointype}", ["v2", "public"], "GET", {"cost": 1})
     )
-    v2_public_get_orders_summary_completed_cointype_markettype = v2PublicGetOrdersSummaryCompletedCointypeMarkettype = (
-        Entry[_Dict]("orders/summary/completed/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1})
+    v2_public_get_orders_summary_completed_cointype_markettype = (
+        v2PublicGetOrdersSummaryCompletedCointypeMarkettype
+    ) = Entry[_Dict](
+        "orders/summary/completed/{cointype}/{markettype}", ["v2", "public"], "GET", {"cost": 1}
     )
-    v2_private_post_status = v2PrivatePostStatus = Entry[_Dict]("status", ["v2", "private"], "POST", {"cost": 1})
+    v2_private_post_status = v2PrivatePostStatus = Entry[_Dict](
+        "status", ["v2", "private"], "POST", {"cost": 1}
+    )
     v2_private_post_my_coin_deposit = v2PrivatePostMyCoinDeposit = Entry[_Dict](
         "my/coin/deposit", ["v2", "private"], "POST", {"cost": 1}
     )
@@ -129,19 +151,29 @@ class ImplicitAPI:
     v2_private_post_quote_swap_now = v2PrivatePostQuoteSwapNow = Entry[_Dict](
         "quote/swap/now", ["v2", "private"], "POST", {"cost": 1}
     )
-    v2_private_post_my_buy = v2PrivatePostMyBuy = Entry[_Dict]("my/buy", ["v2", "private"], "POST", {"cost": 1})
+    v2_private_post_my_buy = v2PrivatePostMyBuy = Entry[_Dict](
+        "my/buy", ["v2", "private"], "POST", {"cost": 1}
+    )
     v2_private_post_my_buy_edit = v2PrivatePostMyBuyEdit = Entry[_Dict](
         "my/buy/edit", ["v2", "private"], "POST", {"cost": 1}
     )
-    v2_private_post_my_sell = v2PrivatePostMySell = Entry[_Dict]("my/sell", ["v2", "private"], "POST", {"cost": 1})
+    v2_private_post_my_sell = v2PrivatePostMySell = Entry[_Dict](
+        "my/sell", ["v2", "private"], "POST", {"cost": 1}
+    )
     v2_private_post_my_sell_edit = v2PrivatePostMySellEdit = Entry[_Dict](
         "my/sell/edit", ["v2", "private"], "POST", {"cost": 1}
     )
     v2_private_post_my_buy_now = v2PrivatePostMyBuyNow = Entry[_Dict](
         "my/buy/now", ["v2", "private"], "POST", {"cost": 1}
     )
+    v2_private_post_my_buy_now_coinlist = v2PrivatePostMyBuyNowCoinlist = Entry[_Dict](
+        "my/buy/now/coinlist", ["v2", "private"], "POST", {"cost": 1}
+    )
     v2_private_post_my_sell_now = v2PrivatePostMySellNow = Entry[_Dict](
         "my/sell/now", ["v2", "private"], "POST", {"cost": 1}
+    )
+    v2_private_post_my_sell_now_coinlist = v2PrivatePostMySellNowCoinlist = Entry[_Dict](
+        "my/sell/now/coinlist", ["v2", "private"], "POST", {"cost": 1}
     )
     v2_private_post_my_swap_now = v2PrivatePostMySwapNow = Entry[_Dict](
         "my/swap/now", ["v2", "private"], "POST", {"cost": 1}
@@ -158,21 +190,27 @@ class ImplicitAPI:
     v2_private_post_my_sell_cancel_all = v2PrivatePostMySellCancelAll = Entry[_Dict](
         "my/sell/cancel/all", ["v2", "private"], "POST", {"cost": 1}
     )
-    v2_private_post_my_coin_withdraw_senddetails = v2PrivatePostMyCoinWithdrawSenddetails = Entry[_Dict](
-        "my/coin/withdraw/senddetails", ["v2", "private"], "POST", {"cost": 1}
-    )
+    v2_private_post_my_coin_withdraw_senddetails = v2PrivatePostMyCoinWithdrawSenddetails = Entry[
+        _Dict
+    ]("my/coin/withdraw/senddetails", ["v2", "private"], "POST", {"cost": 1})
     v2_private_post_my_coin_withdraw_send = v2PrivatePostMyCoinWithdrawSend = Entry[_Dict](
         "my/coin/withdraw/send", ["v2", "private"], "POST", {"cost": 1}
     )
+    v2_private_post_my_coin_withdraw_send_async = v2PrivatePostMyCoinWithdrawSendAsync = Entry[
+        _Dict
+    ]("my/coin/withdraw/send/async", ["v2", "private"], "POST", {"cost": 1})
+    v2_private_post_my_coin_withdraw_send_status = v2PrivatePostMyCoinWithdrawSendStatus = Entry[
+        _Dict
+    ]("my/coin/withdraw/send/status", ["v2", "private"], "POST", {"cost": 1})
     v2_private_post_ro_status = v2PrivatePostRoStatus = Entry[_Dict](
         "ro/status", ["v2", "private"], "POST", {"cost": 1}
     )
     v2_private_post_ro_orders_market_open = v2PrivatePostRoOrdersMarketOpen = Entry[_Dict](
         "ro/orders/market/open", ["v2", "private"], "POST", {"cost": 1}
     )
-    v2_private_post_ro_orders_market_completed = v2PrivatePostRoOrdersMarketCompleted = Entry[_Dict](
-        "ro/orders/market/completed", ["v2", "private"], "POST", {"cost": 1}
-    )
+    v2_private_post_ro_orders_market_completed = v2PrivatePostRoOrdersMarketCompleted = Entry[
+        _Dict
+    ]("ro/orders/market/completed", ["v2", "private"], "POST", {"cost": 1})
     v2_private_post_ro_my_balances = v2PrivatePostRoMyBalances = Entry[_Dict](
         "ro/my/balances", ["v2", "private"], "POST", {"cost": 1}
     )
@@ -188,9 +226,9 @@ class ImplicitAPI:
     v2_private_post_ro_my_orders_completed = v2PrivatePostRoMyOrdersCompleted = Entry[_Dict](
         "ro/my/orders/completed", ["v2", "private"], "POST", {"cost": 1}
     )
-    v2_private_post_ro_my_orders_market_completed = v2PrivatePostRoMyOrdersMarketCompleted = Entry[_Dict](
-        "ro/my/orders/market/completed", ["v2", "private"], "POST", {"cost": 1}
-    )
+    v2_private_post_ro_my_orders_market_completed = v2PrivatePostRoMyOrdersMarketCompleted = Entry[
+        _Dict
+    ]("ro/my/orders/market/completed", ["v2", "private"], "POST", {"cost": 1})
     v2_private_post_ro_my_sendreceive = v2PrivatePostRoMySendreceive = Entry[_Dict](
         "ro/my/sendreceive", ["v2", "private"], "POST", {"cost": 1}
     )
