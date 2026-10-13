@@ -1,5 +1,5 @@
 {
-  "current_index": 64,
+  "current_index": 65,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -517,7 +517,7 @@
       "name": "nse-closing-stock-price-prediction-using-lstm",
       "target": "avirichie/nse-closing-stock-price-prediction-using-lstm",
       "url": "https://github.com/avirichie/nse-closing-stock-price-prediction-using-lstm",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
