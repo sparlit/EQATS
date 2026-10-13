@@ -8,7 +8,7 @@ import threading
 import time
 from typing import Any
 
-_INIT_DB_LOCK = threading.Lock()
+_INIT_DB_LOCK = threading.RLock()
 
 import config
 
@@ -27,7 +27,7 @@ except ImportError:
 # Encryption key management with environment variable support
 _ENCRYPTION_KEY = None
 _ENCRYPTION_SALT = None
-_INIT_DB_LOCK = threading.Lock()
+_INIT_DB_LOCK = threading.RLock()
 
 
 def _get_encryption_key() -> Any:
@@ -577,6 +577,12 @@ def _init_db_impl() -> None:
                 )
             conn.commit()
             conn.close()
+            try:
+                import broker_database
+
+                broker_database.build_and_seed_broker_database(force_rebuild=False)
+            except Exception as b_err:
+                _log.debug("Auto-seeding broker_database note: %s", b_err)
             return
         except Exception as e:
             _log.warning("init_db attempt %d failed: %s", attempt + 1, e)

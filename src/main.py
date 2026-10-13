@@ -41,6 +41,12 @@ class AutonomousScalper:
 
     def __init__(self) -> None:
         database.init_db()
+        try:
+            import broker_database
+
+            broker_database.build_and_seed_broker_database(force_rebuild=False)
+        except Exception as err:
+            _log.debug("Main auto-seed broker database note: %s", err)
         if config.SIMULATION_MODE:
             print("--- RUNNING IN SIMULATION MODE (PAPER TRADING) ---")
             self.conn = connector.SimulatorConnector(initial_balance=10000.0)

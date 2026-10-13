@@ -4,6 +4,7 @@ import unittest
 
 import broker_database
 import database
+from institutional_integrations.web_api import TradingOSHTTPServer
 
 
 class TestBrokerDatabase(unittest.TestCase):
@@ -68,6 +69,23 @@ class TestBrokerDatabase(unittest.TestCase):
         self.assertGreater(len(results), 0)
         for b in results:
             self.assertTrue(any("Commodity" in s for s in b["segments"]))
+
+    def test_web_api_registered_broker_endpoints(self) -> None:
+        server = TradingOSHTTPServer(port=59999)
+        # Test /api/brokers/search
+        res_search = server._route_request("GET", "/api/brokers/search?q=5paisa")
+        self.assertEqual(res_search["status"], "SUCCESS")
+        self.assertGreater(res_search["count"], 0)
+
+        # Test /api/brokers/lookup
+        res_lookup = server._route_request("GET", "/api/brokers/lookup?q=INZ000173137")
+        self.assertEqual(res_lookup["status"], "SUCCESS")
+        self.assertIsNotNone(res_lookup["broker"])
+
+        # Test /api/brokers/stats
+        res_stats = server._route_request("GET", "/api/brokers/stats")
+        self.assertEqual(res_stats["status"], "SUCCESS")
+        self.assertIn("total_unique_brokers", res_stats["stats"])
 
 
 if __name__ == "__main__":
