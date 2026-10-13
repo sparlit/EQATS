@@ -26,16 +26,10 @@ python client for tectonic server
 """
 
 import asyncio
-import json
 import socket
 import struct
-import sys
-import time
-from io import StringIO
 
 import ffi
-import numpy as np
-import pandas as pd
 
 
 class TectonicDB:
@@ -96,7 +90,8 @@ class TectonicDB:
 
         if "GET" in cmd and "JSON" not in cmd and "CSV" not in cmd:
             return await self._recv_dtf()
-        return await self._recv_text()
+        else:
+            return await self._recv_text()
 
     async def _recv_dtf(self):
         success, data = await self._recv_text()
@@ -119,7 +114,8 @@ class TectonicDB:
         body_len = len(body)
         while body_len < bytes_to_read:
             len_to_read = bytes_to_read - body_len
-            len_to_read = min(len_to_read, 32)
+            if len_to_read > 32:
+                len_to_read = 32
             body += await loop.sock_recv(self.sock, len_to_read)
             body_len = len(body)
         return success, body
@@ -151,7 +147,9 @@ class TectonicDB:
 
     async def add(self, ts, seq, is_trade, is_bid, price, size):
         return await self.cmd(
-            "ADD {}, {}, {} ,{}, {}, {};".format(ts, seq, "t" if is_trade else "f", "t" if is_bid else "f", price, size)
+            "ADD {}, {}, {} ,{}, {}, {};".format(
+                ts, seq, "t" if is_trade else "f", "t" if is_bid else "f", price, size
+            )
         )
 
     async def getall(self):
@@ -162,7 +160,8 @@ class TectonicDB:
         success, ret = await self.cmd(f"GET {n}")
         if success:
             return success, [x.to_dict() for x in ret]
-        return False, None
+        else:
+            return False, None
 
     async def clear(self):
         return await self.cmd("CLEAR")
@@ -198,4 +197,5 @@ class TectonicDB:
     async def range(self, dbname, start, finish):
         self.use(dbname)
         data = await self.cmd(f"GET ALL FROM {start} TO {finish} AS CSV".encode())
-        return data[1]
+        data = data[1]
+        return data
