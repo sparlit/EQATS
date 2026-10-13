@@ -49,14 +49,19 @@ impl PositionState {
 
     fn to_open_position_local(self) -> OpenPositionLocal {
         OpenPositionLocal {
-            open_time: self.open_time,
+            open_time: Some(self.open_time),
             size: self.size,
             entry_px: self.entry_px,
             side: self.side,
             fees: self.fees,
             funding: self.funding,
             realised_pnl: self.realised_pnl,
-            fill_type: self.fill_type,
+            fill_type: Some(self.fill_type),
+            origin: Some(crate::TradeOrigin::Algo),
+            adoption: None,
+            closed_size: 0.0,
+            closed_value: 0.0,
+            close_origin: None,
         }
     }
 }
@@ -837,16 +842,19 @@ impl Backtester {
             fees: pos.fees,
             funding: pos.funding,
             open: FillInfo {
-                time: pos.open_time,
+                time: Some(pos.open_time),
                 price: pos.entry_px,
-                fill_type: pos.fill_type,
+                fill_type: Some(pos.fill_type),
+                origin: Some(crate::TradeOrigin::Algo),
             },
             close: FillInfo {
-                time: ts,
+                time: Some(ts),
                 price: px,
-                fill_type,
+                fill_type: Some(fill_type),
+                origin: Some(crate::TradeOrigin::Algo),
             },
             strategy: None,
+            adoption: None,
         };
 
         self.trades.push(trade.clone());

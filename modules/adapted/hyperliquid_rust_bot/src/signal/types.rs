@@ -17,6 +17,7 @@ pub struct ExecParams {
     pub margin: f64,
     pub lev: usize,
     pub open_pos: Option<OpenPosInfo>,
+    pub position_reserve: f64,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -33,6 +34,7 @@ impl ExecParams {
             margin,
             lev,
             open_pos: None,
+            position_reserve: 0.0,
         }
     }
 
@@ -42,7 +44,11 @@ impl ExecParams {
         }
 
         if let Some(open) = self.open_pos {
-            self.margin - ((open.entry_px * open.size) / self.lev as f64)
+            (self.margin
+                - self
+                    .position_reserve
+                    .max((open.entry_px * open.size) / self.lev as f64))
+            .max(0.0)
         } else {
             self.margin
         }
@@ -61,6 +67,7 @@ pub enum ExecParam {
     Margin(f64),
     Lev(usize),
     OpenPosition(Option<OpenPosInfo>),
+    PositionReserve(f64),
 }
 
 #[derive(Debug)]

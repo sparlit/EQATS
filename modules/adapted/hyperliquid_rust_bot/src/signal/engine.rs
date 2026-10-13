@@ -132,6 +132,11 @@ impl SignalEngine {
         if !enabled {
             self.state = EngineState::Idle;
             self.pending_orders = None;
+        } else {
+            self.state = self
+                .exec_params
+                .open_pos
+                .map_or(EngineState::Idle, EngineState::Open);
         }
     }
 
@@ -208,12 +213,16 @@ impl SignalEngine {
             Margin(m) => self.exec_params.margin = m,
             Lev(l) => self.exec_params.lev = l,
             OpenPosition(pos) => self.apply_open_position_update(pos),
+            PositionReserve(reserve) => self.exec_params.position_reserve = reserve,
         }
     }
 
     fn apply_open_position_update(&mut self, pos: Option<OpenPosInfo>) {
         let previous_pos = self.exec_params.open_pos;
         self.exec_params.open_pos = pos;
+        if pos.is_none() {
+            self.exec_params.position_reserve = 0.0;
+        }
 
         if self.paused {
             return;
@@ -886,7 +895,13 @@ impl SignalEngine {
                         self.log_tx.clone(),
                         self.asset.clone(),
                     );
-                    self.state = EngineState::Idle;
+                    self.state = if self.paused {
+                        EngineState::Idle
+                    } else {
+                        self.exec_params
+                            .open_pos
+                            .map_or(EngineState::Idle, EngineState::Open)
+                    };
                     self.pending_strategy_candle = None;
                 }
 
@@ -954,7 +969,16 @@ impl SignalEngine {
                 }
 
                 EngineCommand::ExecResume => {
-                    self.paused = false;
+                    self.set_trading_enabled(true);
+                    if let Some(sender) = &self.data_tx {
+                        let _ = self
+                            .queue_market_command(
+                                sender,
+                                "engine resume state",
+                                MarketCommand::EngineStateChange(self.state.into()),
+                            )
+                            .await;
+                    }
                 }
 
                 EngineCommand::Stop => {
@@ -1393,6 +1417,76 @@ mod tests {
         BtAction, BtOrder, EngineOrder, EngineView, ExecCommand, ExecParams, IndicatorKind,
         MarketCommand, OpenPosInfo, PositionOp, Side, TimeFrame,
     };
+
+    #[tokio::test]
+    async fn adopted_position_resumes_into_on_open_and_emits_a_close() {
+        let rhai = Arc::new(create_engine());
+        let compiled = compile_strategy(
+            rhai.as_ref(),
+            "open_market(LONG, margin_amount(100.0))",
+            "flatten_market()",
+            "()",
+            None,
+        )
+        .unwrap();
+        let (engine_tx, engine_rx) = tokio::sync::mpsc::channel(16);
+        let (market_tx, _market_rx) = tokio::sync::mpsc::channel(16);
+        let (log_tx, _logs) = tokio::sync::mpsc::channel(16);
+        let (trade_tx, trades) = flume::bounded(16);
+        let asset = Arc::<str>::from("BTC");
+        let mut params = ExecParams::new(300.0, 5);
+        params.open_pos = Some(OpenPosInfo {
+            side: Side::Short,
+            size: 10.0,
+            entry_px: 100.0,
+            open_time: 1000,
+        });
+        params.position_reserve = 200.0;
+        let mut engine = SignalEngine::new(
+            asset.clone(),
+            None,
+            rhai,
+            compiled,
+            vec![],
+            engine_rx,
+            Some(market_tx),
+            log_tx,
+            trade_tx,
+            params,
+        )
+        .await;
+        engine.set_trading_enabled(false);
+        assert_eq!(engine.exec_params.free_margin(), 100.0);
+        let handle = tokio::spawn(async move { engine.start().await });
+        engine_tx.send(EngineCommand::ExecResume).await.unwrap();
+        for time in [60_000, 120_000] {
+            engine_tx
+                .send(EngineCommand::UpdatePrice((
+                    asset.clone(),
+                    PriceData::Single(crate::Price {
+                        open_time: time,
+                        close_time: time + 60_000,
+                        open: 90.0,
+                        high: 90.0,
+                        low: 90.0,
+                        close: 90.0,
+                        vlm: 1.0,
+                    }),
+                )))
+                .await
+                .unwrap();
+        }
+        let command = tokio::time::timeout(std::time::Duration::from_secs(1), trades.recv_async())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            matches!(command, ExecCommand::Order(order) if order.action == PositionOp::Close && order.size == 10.0)
+        );
+        assert!(trades.try_recv().is_err());
+        engine_tx.send(EngineCommand::Stop).await.unwrap();
+        handle.await.unwrap();
+    }
 
     #[test]
     fn new_backtest_replaces_self_indicators_with_market_asset() {

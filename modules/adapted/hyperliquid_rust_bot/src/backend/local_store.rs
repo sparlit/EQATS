@@ -448,13 +448,17 @@ mod tests {
                         total_pnl: 1.0,
                         fees: 0.0,
                         funding: 0.0,
-                        open_time: 1,
+                        open_time: Some(1),
                         open_price: 1.0,
-                        open_type: "Market".to_string(),
-                        close_time,
+                        open_type: Some("Market".to_string()),
+                        close_time: Some(close_time),
                         close_price: 2.0,
-                        close_type: "Market".to_string(),
+                        close_type: Some("Market".to_string()),
                         strategy: Some("shared".to_string()),
+                        open_origin: Some(crate::TradeOrigin::Algo),
+                        close_origin: Some(crate::TradeOrigin::Algo),
+                        adoption: None,
+                        managed_pnl: Some(1.0),
                     },
                 )
                 .await
@@ -463,7 +467,7 @@ mod tests {
 
         let page = store.list_trades("0xaaaa", "BTC", 1, 0).await.unwrap();
         assert_eq!(page.len(), 1);
-        assert_eq!(page[0].close_time, 20);
+        assert_eq!(page[0].close_time, Some(20));
         assert_eq!(
             store
                 .list_trades("0xbbbb", "BTC", 10, 0)
