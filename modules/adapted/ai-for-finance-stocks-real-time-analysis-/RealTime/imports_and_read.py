@@ -24,18 +24,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 # Import the libraries
 # import math
 # import pandas_datareader as web
-import datetime
-from datetime import date
-
-import numpy as np
-import pandas as pd
-import streamlit as st
-
 # from keras.models import Sequential
 # from keras.layers import Dense, LSTM
 # import matplotlib.pyplot as plt
 # plt.style.use('fivethirtyeight')
-from keras.models import load_model
-from nsepy import get_history
-from PIL import Image
-from sklearn.preprocessing import MinMaxScaler
+import datetime

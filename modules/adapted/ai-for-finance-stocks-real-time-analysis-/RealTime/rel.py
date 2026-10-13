@@ -25,7 +25,6 @@ import datetime
 from datetime import date
 
 import numpy as np
-import pandas as pd
 import streamlit as st
 from keras.models import load_model
 from nsepy import get_history
@@ -42,7 +41,9 @@ def main():
 
     st.header("Select the stock and check its next day predicted value")
 
-    choose_stock = st.sidebar.selectbox("Choose the Stock!", ["NONE", "Reliance", "PowerMech Solns.", "RepcoHomes"])
+    choose_stock = st.sidebar.selectbox(
+        "Choose the Stock!", ["NONE", "Reliance", "PowerMech Solns.", "RepcoHomes"]
+    )
 
     if choose_stock == "Reliance":
         # get abfrl real time stock price
