@@ -23,7 +23,7 @@
       "url": "https://github.com/0xramm/indian-stock-market-api",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot",
