@@ -66,7 +66,8 @@ def get_portfolio_info(qty, buy_rate, brok, current_rate):
 def sfloat(data):
     if data is None:
         return 0
-    return float(str(data))
+    else:
+        return float(str(data))
 
 
 def display_data(stdscr, data, updated, qty, rate, brok):
@@ -76,11 +77,21 @@ def display_data(stdscr, data, updated, qty, rate, brok):
 
     sym = " " + data.get("symbol") + " "
 
-    stdscr.addstr(1, len(sym) + 2, data.get("companyName"), curses.A_BOLD | gc(COLOR_WHITE_ON_BLACK))
-    stdscr.addstr(1, 1, sym, gc(COLOR_BLACK_ON_YELLOW))
-    stdscr.addstr(2, 1, "Volume: " + pretty(int(data.get("totalTradedVolume")), False), gc(COLOR_WHITE_ON_BLACK))
     stdscr.addstr(
-        3, 1, " " + pretty(data.get("lastPrice")) + " ", get_color_bg(data.get("open"), data.get("lastPrice"))
+        1, len(sym) + 2, data.get("companyName"), curses.A_BOLD | gc(COLOR_WHITE_ON_BLACK)
+    )
+    stdscr.addstr(1, 1, sym, gc(COLOR_BLACK_ON_YELLOW))
+    stdscr.addstr(
+        2,
+        1,
+        "Volume: " + pretty(int(data.get("totalTradedVolume")), False),
+        gc(COLOR_WHITE_ON_BLACK),
+    )
+    stdscr.addstr(
+        3,
+        1,
+        " " + pretty(data.get("lastPrice")) + " ",
+        get_color_bg(data.get("open"), data.get("lastPrice")),
     )
     stdscr.addstr(
         4,
@@ -102,9 +113,17 @@ def display_data(stdscr, data, updated, qty, rate, brok):
 
     if qty > 0 and rate > 0:
         pinfo = get_portfolio_info(qty, rate, brok, data.get("lastPrice"))
-        stdscr.addstr(2, 30, "Holding: " + str(qty) + " shares @ " + str(rate) + "/share", gc(COLOR_WHITE_ON_BLACK))
         stdscr.addstr(
-            3, 30, " " + pretty(pinfo.get("revenue")) + " ", get_color_bg(pinfo.get("investment"), pinfo.get("revenue"))
+            2,
+            30,
+            "Holding: " + str(qty) + " shares @ " + str(rate) + "/share",
+            gc(COLOR_WHITE_ON_BLACK),
+        )
+        stdscr.addstr(
+            3,
+            30,
+            " " + pretty(pinfo.get("revenue")) + " ",
+            get_color_bg(pinfo.get("investment"), pinfo.get("revenue")),
         )
         stdscr.addstr(
             4,
@@ -120,7 +139,10 @@ def display_data(stdscr, data, updated, qty, rate, brok):
         stdscr.addstr(
             5,
             30,
-            "Investment: " + pretty(pinfo.get("investment")) + "    Brokerage: " + pretty(pinfo.get("brokerage")),
+            "Investment: "
+            + pretty(pinfo.get("investment"))
+            + "    Brokerage: "
+            + pretty(pinfo.get("brokerage")),
             gc(COLOR_WHITE_ON_BLACK),
         )
 
@@ -138,7 +160,9 @@ def display_data(stdscr, data, updated, qty, rate, brok):
     stdscr.addstr(8, 34, pad_left_str(data.get("dayHigh"), 9), gc(COLOR_WHITE_ON_BLACK))
     stdscr.addstr(8, 45, pad_left_str(data.get("low52"), 9), gc(COLOR_WHITE_ON_BLACK))
     stdscr.addstr(8, 56, pad_left_str(data.get("high52"), 9), gc(COLOR_WHITE_ON_BLACK))
-    stdscr.addstr(8, 67, pad_left_str(data.get("deliveryToTradedQuantity"), 8) + "%", gc(COLOR_WHITE_ON_BLACK))
+    stdscr.addstr(
+        8, 67, pad_left_str(data.get("deliveryToTradedQuantity"), 8) + "%", gc(COLOR_WHITE_ON_BLACK)
+    )
 
     stdscr.addstr(10, 1, "     BID QTY ", gc(COLOR_BLACK_ON_YELLOW))
     stdscr.addstr(10, 15, "   BID PRICE ", gc(COLOR_BLACK_ON_YELLOW))
@@ -158,7 +182,10 @@ def display_data(stdscr, data, updated, qty, rate, brok):
                 gc(COLOR_WHITE_ON_BLACK),
             )
         stdscr.addstr(
-            10 + i, 15, pad_left_str(pretty(data.get("buyPrice" + str(i)), False), 12), gc(COLOR_WHITE_ON_BLACK)
+            10 + i,
+            15,
+            pad_left_str(pretty(data.get("buyPrice" + str(i)), False), 12),
+            gc(COLOR_WHITE_ON_BLACK),
         )
         if data.get("sellQuantity" + str(i)) is None:
             stdscr.addstr(10 + i, 29, pad_left_str("-", 12), gc(COLOR_WHITE_ON_BLACK))
@@ -170,7 +197,10 @@ def display_data(stdscr, data, updated, qty, rate, brok):
                 gc(COLOR_WHITE_ON_BLACK),
             )
         stdscr.addstr(
-            10 + i, 43, pad_left_str(pretty(data.get("sellPrice" + str(i)), False), 12), gc(COLOR_WHITE_ON_BLACK)
+            10 + i,
+            43,
+            pad_left_str(pretty(data.get("sellPrice" + str(i)), False), 12),
+            gc(COLOR_WHITE_ON_BLACK),
         )
 
         if qty > 0 and rate > 0:
@@ -181,7 +211,10 @@ def display_data(stdscr, data, updated, qty, rate, brok):
             else:
                 pinfo = get_portfolio_info(qty, rate, brok, sfloat(offerPrice))
                 stdscr.addstr(
-                    10 + i, 57, pad_left_str(pretty(pinfo.get("change"), False), 18), get_color_fg(pinfo.get("change"))
+                    10 + i,
+                    57,
+                    pad_left_str(pretty(pinfo.get("change"), False), 18),
+                    get_color_fg(pinfo.get("change")),
                 )
 
     # print total bid and offer quantities
@@ -189,13 +222,19 @@ def display_data(stdscr, data, updated, qty, rate, brok):
         stdscr.addstr(16, 1, pad_left_str("-", 12), gc(COLOR_WHITE_ON_BLUE))
     else:
         stdscr.addstr(
-            16, 1, pad_left_str(pretty(int(data.get("totalBuyQuantity")), False), 12) + " ", gc(COLOR_WHITE_ON_BLUE)
+            16,
+            1,
+            pad_left_str(pretty(int(data.get("totalBuyQuantity")), False), 12) + " ",
+            gc(COLOR_WHITE_ON_BLUE),
         )
     if data.get("totalSellQuantity") is None:
         stdscr.addstr(16, 29, pad_left_str("-", 12), gc(COLOR_WHITE_ON_BLUE))
     else:
         stdscr.addstr(
-            16, 29, pad_left_str(pretty(int(data.get("totalSellQuantity")), False), 12) + " ", gc(COLOR_WHITE_ON_BLUE)
+            16,
+            29,
+            pad_left_str(pretty(int(data.get("totalSellQuantity")), False), 12) + " ",
+            gc(COLOR_WHITE_ON_BLUE),
         )
 
     stdscr.refresh()
@@ -218,26 +257,27 @@ def initialize(stdscr):
 def parseArgs(args):
     if len(sys.argv) == 1:
         return (None, None, None, None)
-    scrip = sys.argv[1].upper()
-    if not market.isValid(scrip):
-        scrip = None
+    else:
+        scrip = sys.argv[1].upper()
+        if not market.isValid(scrip):
+            scrip = None
 
-    qty = 0
-    rate = 0
-    brokerage = 0
+        qty = 0
+        rate = 0
+        brokerage = 0
 
-    if len(sys.argv) >= 3:
-        temp = sys.argv[2]
-        pos = temp.find("@")
-        if pos > -1:
-            qty = int(temp[0:pos])
-            rate = sfloat(temp[pos + 1 :])
+        if len(sys.argv) >= 3:
+            temp = sys.argv[2]
+            pos = temp.find("@")
+            if pos > -1:
+                qty = int(temp[0:pos])
+                rate = sfloat(temp[pos + 1 :])
 
-    if len(sys.argv) >= 4:
-        temp = sys.argv[3]
-        brokerage = sfloat(temp)
+        if len(sys.argv) >= 4:
+            temp = sys.argv[3]
+            brokerage = sfloat(temp)
 
-    return (scrip, qty, rate, brokerage)
+        return (scrip, qty, rate, brokerage)
 
 
 def printUsage():
@@ -290,7 +330,7 @@ def main():
     scrip, qty, rate, brokerage = parseArgs(sys.argv)
     if scrip is None:
         printUsage()
-        sys.exit(1)
+        exit(1)
     else:
         curses.wrapper(app_main)
 

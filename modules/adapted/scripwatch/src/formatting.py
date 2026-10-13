@@ -86,7 +86,8 @@ def pad_amount_signed(data, maxlen=8):
     delta = maxlen - len(sdata)
     if delta < 0:
         return sdata + " "
-    return (" " * (delta + 1)) + sdata + " "
+    else:
+        return (" " * (delta + 1)) + sdata + " "
 
 
 def pad_amount(data, maxlen=8):
@@ -102,7 +103,8 @@ def pad_amount(data, maxlen=8):
     delta = maxlen - len(sdata)
     if delta < 0:
         return sdata + " "
-    return (" " * (delta + 1)) + sdata + " "
+    else:
+        return (" " * (delta + 1)) + sdata + " "
 
 
 def pad_left_str(data, width):
@@ -110,30 +112,34 @@ def pad_left_str(data, width):
     n = len(sdata)
     if n < width:
         return (" " * (width - n)) + sdata
-    return sdata
+    else:
+        return sdata
 
 
 def pad_str_max(data, maxlen):
     n = len(data)
     if n <= maxlen:
         return data
-    return data[0 : maxlen - 3] + "..."
+    else:
+        return data[0 : maxlen - 3] + "..."
 
 
 def get_color_bg(old_data, new_data):
     if old_data is None or new_data is None or old_data == new_data:
         return curses.color_pair(COLOR_BLACK_ON_WHITE)
-    if new_data > old_data:
+    elif new_data > old_data:
         return curses.color_pair(COLOR_WHITE_ON_GREEN)
-    return curses.color_pair(COLOR_WHITE_ON_RED)
+    else:
+        return curses.color_pair(COLOR_WHITE_ON_RED)
 
 
 def get_color_fg(data):
     if data is None or data == 0:
         return curses.color_pair(COLOR_WHITE_ON_BLACK)
-    if data > 0:
+    elif data > 0:
         return curses.color_pair(COLOR_GREEN_ON_BLACK)
-    return curses.color_pair(COLOR_RED_ON_BLACK)
+    else:
+        return curses.color_pair(COLOR_RED_ON_BLACK)
 
 
 def get_current_time():
@@ -147,7 +153,7 @@ def is_market_closed():
     now = datetime.now()
     ctime = now.strftime(fmt)
     w = int(now.strftime("%w"))
-    if w in {0, 6}:
+    if w == 0 or w == 6:
         return True
 
     marker1 = "15:30"
@@ -167,17 +173,16 @@ def is_market_closed():
         datetime.strptime(x, "%H:%M:%S")
         # return y.strftime(fmt) + " to open"
         return True
-    if delta1.total_seconds() >= 0 and delta2.total_seconds() >= 0:
+    elif delta1.total_seconds() >= 0 and delta2.total_seconds() >= 0:
         # between 9:15am and 3:15pm
         x = str(delta1)
         datetime.strptime(x, "%H:%M:%S")
         # return y.strftime(fmt) + " to close"
         return False
-    if delta1.total_seconds() < 0 and delta2.total_seconds() >= 0:
+    elif delta1.total_seconds() < 0 and delta2.total_seconds() >= 0:
         # between 3:15pm and 12am
         # return "market closed"
         return True
-    return None
 
 
 def pretty(amt, dec=True):
@@ -200,19 +205,25 @@ def pretty(amt, dec=True):
 
     if len(whole) < 4 or (whole.startswith("-") and len(whole) == 4):
         return whole + frac
-    if len(whole) < 6 or (whole.startswith("-") and len(whole) == 6):
+    elif len(whole) < 6 or (whole.startswith("-") and len(whole) == 6):
         if len(whole) == 4:
             return whole[0] + "," + whole[1:] + frac
-        if len(whole) == 5:
+        elif len(whole) == 5:
             return whole[0:2] + "," + whole[2:] + frac
-        return whole[0:3] + "," + whole[3:] + frac
-    s = whole[len(whole) - 3 :]
-    for i in range(len(whole) - 4, -1, -1):
-        j = len(whole) - i - 4
-        s = whole[i] + "," + s if j % 2 == 0 and whole[i] != "-" and whole[i] != "+" else whole[i] + s
+        else:
+            return whole[0:3] + "," + whole[3:] + frac
+    else:
+        s = whole[len(whole) - 3 :]
+        for i in range(len(whole) - 4, -1, -1):
+            j = len(whole) - i - 4
+            if j % 2 == 0 and whole[i] != "-" and whole[i] != "+":
+                s = whole[i] + "," + s
+            else:
+                s = whole[i] + s
 
-    s = s.removeprefix(",")
-    return s + frac
+        if s.startswith(","):
+            s = s[1:]
+        return s + frac
 
 
 def gc(cp):
@@ -222,6 +233,7 @@ def gc(cp):
 def symbol(val):
     if val == 0:
         return SAME
-    if val > 0:
+    elif val > 0:
         return UP
-    return DOWN
+    else:
+        return DOWN
