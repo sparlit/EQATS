@@ -2318,8 +2318,8 @@
       "target": "rahlumin/nseeod",
       "url": "https://github.com/rahlumin/nseeod",
       "status": "Processed",
-      "pr_url": null,
-      "merged": false
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3284",
+      "merged": true
     },
     {
       "name": "trading_expiry",
