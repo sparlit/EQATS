@@ -40,6 +40,12 @@ Structure: each entry answers the same six questions.
     sight     - how to spot this yourself without any tool
 
 Written for someone who has never read a trading book.
+
+THE CLICK POPUP NO LONGER SHOWS ALL SEVEN. Since the decision-first card landed,
+the popup renders one `headline` (the single most important thing), then
+`what`, `use`, `spot`, `action` and an optional `caution`. The seven legacy
+questions above are kept for /glossary only; `how` is also exposed as `method`.
+See POPUP_SECTIONS and CARD_FIELDS below, and .agents/knowledge-popup-spec.md.
 """
 
 # --------------------------------------------------------------------------
@@ -463,6 +469,374 @@ EXPLAIN = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# The decision-first card.
+#
+# WHY: the owner's complaint was that every click showed the same seven
+# equal-weight paragraphs. A card is now ONE headline carrying the single most
+# important thing, then four short labelled rows - what it is, how to use it,
+# how to spot it on screen, and the one check to do next - plus an optional
+# "Careful" line for a real trap.
+#
+# ADDITIVE ROLLOUT (spec C.5 step 1-3): nothing above is deleted. These fields
+# are merged onto the legacy entries at import time, so `get()`, `catalog()`,
+# `/api/explain` and `/glossary` keep working unchanged, and the old text is
+# still there for the glossary. `how` is copied to `method` so the click popup
+# can stop rendering machine internals without losing the knowledge.
+#
+# Field law (spec A.2): no field over two sentences; headline <= 70 chars with
+# no trailing full stop; `action` is a CHECK, never an order; acronyms are
+# glossed in plain words in the same field.
+# ---------------------------------------------------------------------------
+
+# Spec section B.2 - the 12 most-clicked keys, ready to paste.
+PROPOSED_TOP12 = {
+    "setup": {
+        "title": "The pattern we look for",
+        "headline": "A strong rise, then a quiet pause - that pause is the pattern",
+        "what": "A stock that climbed hard, then went quiet and sideways just above "
+        "its recent average price.",
+        "use": "A real climb followed by a calm, quiet pause is the one shape worth "
+        "watching. Excitement at the top of a long run is not the pattern.",
+        "spot": "Find the flat, boring stretch after a climb. On the chart it sits "
+        "between the green trigger line and the pink stop line.",
+        "action": "Wait for the price to push above the pause before doing anything with it.",
+        "caution": "All five plain checks have to pass together; four out of five is "
+        "not the pattern.",
+    },
+    "signal": {
+        "title": "A recorded setup",
+        "headline": "A pattern match written down before the result was known",
+        "what": "A dated record that a stock matched the pattern, with the trigger, "
+        "stop and goal frozen at that moment.",
+        "use": "Read many of them, never one. The tally of finished outcomes is the "
+        "only honest scorecard the system has.",
+        "spot": "Rows in Short-Term Ideas and in Every Idea We Recorded. The badge at "
+        "the end of the row says WIN, LOSS, TIMEOUT or OPEN.",
+        "action": "Judge the method on the whole list rather than on the newest row.",
+        "caution": "One record proves nothing either way.",
+    },
+    "p_win": {
+        "title": "Chance of a good move",
+        "headline": "The machine's rough lean that the price reaches +10% in a month",
+        "what": "A model score for how likely this stock is to touch a price 10% "
+        "higher at some point in the next 20 trading sessions.",
+        "use": "Above half is the model's genuine interest; near half is a coin flip. "
+        "It ranks ideas, it does not say whether your trade will work.",
+        "spot": "The chip beside the symbol that reads Event 62%, and the Model Event "
+        "Score line on the research page.",
+        "action": "Use it to decide what to read first, then check the pattern and the "
+        "stop on that name.",
+        "caution": "This score is a rough machine guess and has been wrong in bulk "
+        "before; it is not the odds of a trade working out.",
+    },
+    "target": {
+        "title": "The point where you take profit",
+        "headline": "Chosen in advance: three times your risk, not a feeling",
+        "what": "A price above your trigger where the plan says the idea is finished.",
+        "use": "A target sitting close to your trigger means little is being asked of "
+        "the price. Further away means more has to go right.",
+        "spot": "The dashed blue line labelled Target 3R (three times the money "
+        "risked) on the chart, and the Target column of the ideas table.",
+        "action": "Fix the number before you decide anything, then work out where you "
+        "would move the stop up to.",
+        "caution": "The hit-rate table shows how often targets of this size were actually reached.",
+    },
+    "composite": {
+        "title": "Overall ranking score",
+        "headline": "One blended score, used only to decide what to read first",
+        "what": "A single number mixing the model score with quiet accumulation, "
+        "industry strength and delivery.",
+        "use": "Small gaps near the top mean nothing. Only a clear gap tells you one "
+        "name is being ranked ahead of another.",
+        "spot": "The Rank figure on each shortlist card, and the order of the Today's "
+        "Shortlist panel.",
+        "action": "Open the top names and check the pattern, the stop and the data "
+        "freshness for yourself.",
+        "caution": "It sets a queue order and is never a reason on its own.",
+    },
+    "data_quality": {
+        "title": "Is our data trustworthy today",
+        "headline": "If this is not green, every other number on screen is suspect",
+        "what": "Six automatic checks on whether today's prices and company figures "
+        "are complete and fresh.",
+        "use": "Green means you can act on what you are reading. Any red means treat "
+        "results as wrong until the cause is fixed.",
+        "spot": "The deployment check box at the bottom of the System page. Compare "
+        "today's date with the newest date stored in the tables.",
+        "action": "Check here first whenever a result looks surprising.",
+        "caution": "Stale prices still produce confident-looking numbers.",
+    },
+    "hit_rate": {
+        "title": "How often it got there",
+        "headline": "How many past similar cases reached each profit level before failing",
+        "what": "The share of past cases that looked like today and then touched +1R, "
+        "+2R or +3R, where one R is the amount that was risked.",
+        "use": "In a healthy set of cases +1R (one unit of the money risked) is the "
+        "largest figure and +3R the smallest. A big drop from +1R to +2R means "
+        "most cases stall early.",
+        "spot": "The Hit rate (given trigger) row on the research page, printed as "
+        "+1R, +2R and +3R, each one a multiple of the money risked.",
+        "action": "Pick a profit goal that past cases actually reached.",
+        "caution": "A high percentage worked out from a handful of cases is thin evidence.",
+    },
+    "mfe": {
+        "title": "The best it ever looked",
+        "headline": "The best moment while the idea was open, measured in risk",
+        "what": "The furthest the price went in your favour while the idea was open, "
+        "as a multiple of the money you had risked.",
+        "use": "A high figure next to a flat final result means profit was given back. "
+        "Around one R (one unit of the money risked) or less means it never "
+        "really went your way.",
+        "spot": "The row labelled MFE in R on the research page - MFE means the best "
+        "moment, counted in units of risk. It shows a middle figure and a "
+        "best-case figure.",
+        "action": "Compare the best moment with the final result to see whether the "
+        "exit plan handed money back.",
+        "caution": "It is a high point that may never have been reachable in real trading.",
+    },
+    "mae": {
+        "title": "The worst it ever looked",
+        "headline": "The deepest dip against you while the idea was open, measured in risk",
+        "what": "How far the price went against you while the idea was open, as a "
+        "multiple of the money you had risked.",
+        "use": "Well under one R (one unit of the money risked) is a comfortable ride. "
+        "Reaching or passing one R means your safety line was tested or hit.",
+        "spot": "The row labelled MAE in R on the research page, directly under the "
+        "best-moment row - MAE means the deepest dip against you, in units of "
+        "risk.",
+        "action": "Ask whether you could sit through that dip without exiting at the bottom.",
+        "caution": "Ideas that go far against you first are the ones people abandon early.",
+    },
+    "pullback": {
+        "title": "The pause dip",
+        "headline": "How far the price eased back - a step is fine, a cliff is not",
+        "what": "The distance the price has dropped from its recent high while it pauses.",
+        "use": "A gentle dip of a few percent up to about a quarter is normal. A "
+        "sudden sharp fall means the earlier rise is already broken.",
+        "spot": "The PB (pause dip) column in Short-Term Ideas, and the pause dip row "
+        "under Show setup details.",
+        "action": "If the dip is deep or violent, leave it and read the next name.",
+        "caution": "A violent drop is not a pause, however good the earlier rise looked.",
+    },
+    "impulse": {
+        "title": "The earlier rise",
+        "headline": "The climb before the pause; too small or too big both fail",
+        "what": "How much the stock climbed before it started pausing.",
+        "use": "Roughly a fifth to three-quarters higher over a few months is the "
+        "sweet spot. A bigger climb than that is usually spent.",
+        "spot": "The Impulse column in Short-Term Ideas, and the earlier rise row "
+        "under Show setup details.",
+        "action": "Confirm there was a real climb before reading anything else about the name.",
+        "caution": "No earlier rise means there is no pattern, whatever else looks good.",
+    },
+    "shape_score": {
+        "title": "How tidy the pause is",
+        "headline": "A tidy, even pause continues more often than a jagged one",
+        "what": "A tidiness grade from 0 to 100 for the sideways pause.",
+        "use": "Above 60 is a clean pause and below 40 is messy. Use it to choose "
+        "between two names that look otherwise alike.",
+        "spot": "The how tidy the pause is row under Show setup details, shown as a "
+        "figure out of 100.",
+        "action": "When two names look alike, read the tidier one first.",
+        "caution": "A high grade measures tidiness, not what happens next.",
+    },
+}
+
+CARD_FIELDS = dict(PROPOSED_TOP12)
+# Spec section C.3 - the remaining 15 keys. `look`/`sight`/`when` supply the
+# decision content (bands, comparisons, next checks); the advice-flavoured
+# wording is rewritten so `action` reads as a check.
+CARD_FIELDS.update(
+    {
+        "regime": {
+            "headline": "Market weather decides how much else is worth reading",
+            "use": "A calm, rising market is the safest backdrop for a new idea. A "
+            "falling one holds new ideas back and leaves only deeply fallen shares "
+            "worth a look.",
+            "spot": "The weather banner at the top of the page. On any index chart, check "
+            "whether the line is above or below its recent average, and which way "
+            "that average points.",
+            "action": "Check the banner before reading anything else, and treat every "
+            "idea as fragile while it says the market is weak.",
+            "caution": "Every share tends to follow the market on a bad day, however good "
+            "its own chart looks.",
+        },
+        "breadth": {
+            "headline": "A rising market carried by a few shares is a warning sign",
+            "use": "More than half of tracked shares above their own recent average, with "
+            "more rising than falling, is healthy. A narrow market is a warning.",
+            "spot": "Scan a watchlist or the market overview: is most of it above its "
+            "recent average, or only a few names?",
+            "action": "Check breadth before trusting a rising index, because a narrow "
+            "rise fails more often than a broad one.",
+            "caution": "A handful of large companies can hold an index up while most shares fall.",
+        },
+        "volume": {
+            "headline": "Quiet trading during a pause is the good sign",
+            "use": "Volume clearly below its recent normal is what you want to see. The "
+            "last few days are compared with the average of the past month.",
+            "spot": "The volume bars under the price chart. Are the recent bars visibly "
+            "shorter than the ones before them?",
+            "action": "Check the volume bars whenever the price drifts sideways, and wait "
+            "while the trading is still heavy.",
+            "caution": "Heavy trading during a pause usually means a large holder is leaving.",
+        },
+        "accum": {
+            "headline": "Buying on up days, heavier than selling on down days",
+            "use": "A higher reading means demand has been more consistent. "
+            "Around half means there is no clear story either way.",
+            "spot": "The volume bars on the chart: do the bigger bars line up with the "
+            "green days or with the red days?",
+            "action": "Check whether a strong reading lines up with the pause pattern "
+            "rather than reading it on its own.",
+            "caution": "It is a clue about steady interest, never proof.",
+        },
+        "delivery": {
+            "headline": "Buyers choosing to hold shares, not flip them the same day",
+            "use": "A persistently high reading is interesting, while one odd day means "
+            "nothing. It only matters when it stays high for many days alongside a "
+            "pause.",
+            "spot": "The delivery row on the research and data pages. It is not on the "
+            "price chart at all; it comes from separate exchange figures.",
+            "action": "Check the figure across many days rather than one session before "
+            "treating it as evidence of real holding.",
+            "caution": "A single big delivery day is often a one-off transfer, not steady "
+            "accumulation.",
+        },
+        "sector_rs": {
+            "headline": "A strong share in a strong industry has wind at its back",
+            "use": "Top-three industries are allowed for a new idea. Leading means beating "
+            "other groups over the past one to three months.",
+            "spot": "The industry strength column on the research page, or compare a few "
+            "industry charts over the past month.",
+            "action": "Check the industry ranking whenever a chart looks good, and be "
+            "more sceptical when the group is weak.",
+            "caution": "A weak industry can drag a good-looking chart down with it.",
+        },
+        "stop": {
+            "headline": "The price that proves you wrong, decided before you commit",
+            "what": "A price chosen in advance, below your entry price, where the idea "
+            "has clearly failed and the loss stays small.",
+            "use": "Usually just below the low of the quiet pause. If that price is more "
+            "than about 5% below your entry price, the idea is skipped as too "
+            "risky.",
+            "spot": "The pink stop line on the chart and the stop column of the ideas "
+            "table. It is the lowest point of the flat pause.",
+            "action": "Confirm the stop level before the idea begins, and leave it where "
+            "it was set.",
+            "caution": "Widening the stop after the idea begins is how a small planned "
+            "loss turns into a large one.",
+        },
+        "risk_pct": {
+            "headline": "The distance to your stop, as a share of the price you pay",
+            "use": "Up to about 5% is acceptable, and more than that means the system "
+            "skips the idea. A wide stop also means a smaller position.",
+            "spot": "The risk percentage column on the research page. Compare where the "
+            "pause low sits with the price you would pay.",
+            "action": "Check the distance before deciding on a position, and wait for a "
+            "tighter pattern when it is too wide.",
+            "caution": "The figure is planned distance only; a gap down can lose more "
+            "than planned.",
+        },
+        "sizing": {
+            "headline": "How many shares keeps one loss small and survivable",
+            "use": "A wider distance to the stop means fewer shares, and a hard maximum "
+            "keeps any single idea from dominating the account.",
+            "spot": "The position-size box on the research page. It turns the distance to "
+            "the stop into a number of shares.",
+            "action": "Check the loss at the suggested size and compare it with the rest "
+            "of the list before deciding.",
+            "caution": "Size decides how a bad streak feels, not how often one happens.",
+        },
+        "r_multiple": {
+            "headline": "One R is one bite of risk; every result is measured in it",
+            "what": "One R (one bite of risk) is the money risked on an idea: the gap "
+            "between the price you paid and the stop below it.",
+            "use": "At plus 2R (two units of risk) the result is twice what was risked, "
+            "and at minus 1R it is exactly what had already been accepted as a "
+            "loss. Zero R means the idea ended flat.",
+            "spot": "The R column (one R is one bite of risk) on the performance page. "
+            "Measure the gap from the entry price down to the stop, then compare "
+            "the final move with that gap.",
+            "action": "Read the result in units of risk after the idea closes, and use it "
+            "to compare ideas of very different size.",
+            "caution": "This measure shows the size of a result, not whether the idea was "
+            "any good.",
+        },
+        "expectancy": {
+            "headline": "The average result of one idea over every idea recorded",
+            "what": "The typical result of one idea, measured in R (the money risked), "
+            "averaged over every idea the system recorded.",
+            "use": "Above zero means the average idea added to the pot, and below zero "
+            "means the average idea lost money.",
+            "spot": "The average result per idea figure on the performance page. It is "
+            "not on any chart; it is a running average of the system's own "
+            "record.",
+            "action": "Check it over many recorded ideas only, because a handful of "
+            "results can look good or bad by luck.",
+            "caution": "A good average built on three ideas is not evidence of anything.",
+        },
+        "profit_factor": {
+            "headline": "Rupees won for every rupee lost across all closed ideas",
+            "use": "Above 1 means the winners outweigh the losers, and around 1.5 or more "
+            "is solid. Below 1 means the losses are bigger than the gains.",
+            "spot": "The profit per unit lost figure on the performance page. Compare the "
+            "total of the green results with the total of the red ones.",
+            "action": "Check it alongside the win rate, because many small wins can still "
+            "lose money when the rare losses are large.",
+            "caution": "One huge winner can flatter this figure for a long time.",
+        },
+        "max_drawdown": {
+            "headline": "The deepest fall from a peak, in units of risk",
+            "what": "The deepest the running total of results fell from its highest "
+            "point, counted in R (the money risked on one idea).",
+            "use": "Smaller is easier to live with. Compare it with the average result per "
+            "idea: a big fall against a small average means a rough ride.",
+            "spot": "The figure labelled worst fall from a peak on the performance page. "
+            "Look at the losing results in order and ask how many in a row would "
+            "make you quit.",
+            "action": "Check the worst fall against what you could sit through before "
+            "trusting a good-looking average.",
+            "caution": "A plan abandoned in a bad patch is no plan at all.",
+        },
+        "veto": {
+            "headline": "A blocked name is blocked, whatever the chart looks like",
+            "use": "It blocks when debt is far above profits, when the return on capital "
+            "is very low, or when the owners hold very little of their own "
+            "company.",
+            "spot": "The blocked label on a name, and the company-finance rows on the "
+            "research page. None of it is visible on a chart.",
+            "action": "Check whether a name is blocked before studying its chart, and "
+            "move on when it is.",
+            "caution": "A missing company figure passes the check by default, which is a "
+            "known weakness.",
+        },
+        "sources": {
+            "headline": "If a source breaks, the numbers still look fine",
+            "use": "Every source needs to show healthy with a recent success. Warnings "
+            "and errors are informative, not cosmetic.",
+            "spot": "The source health box on the System page. It lists each outside "
+            "service with its last success and its last error.",
+            "action": "Check the source list first whenever many results look wrong at once.",
+            "caution": "A quiet connector can fail for days while the numbers still look "
+            "plausible.",
+        },
+    }
+)
+
+_MISSING = [k for k in CARD_FIELDS if k not in EXPLAIN]
+if _MISSING:
+    raise KeyError(f"CARD_FIELDS keys with no EXPLAIN entry: {_MISSING}")
+
+for _key, _fields in CARD_FIELDS.items():
+    EXPLAIN[_key].update(_fields)
+
+# `method` is the machine-internals text under a glossary-only name, so the popup
+# can stop rendering it (spec C.1) without the knowledge leaving the repo.
+for _entry in EXPLAIN.values():
+    _entry.setdefault("method", _entry.get("how", ""))
+
 # Friendly names for the six questions, in the order the UI shows them.
 SECTIONS = [
     ("what", "What is it"),
@@ -471,6 +845,32 @@ SECTIONS = [
     ("where", "Where else it is used"),
     ("when", "When to act"),
     ("how", "How it is worked out"),
+    ("sight", "How to spot it yourself"),
+]
+
+# What the click popup renders, in order: one headline, these four rows, then an
+# optional caution. Labels are duplicated in explainer.js because the popup must
+# work for the fallback tiers too, where no entry exists.
+POPUP_SECTIONS = [
+    ("what", "What it is"),
+    ("use", "How to use it"),
+    ("spot", "How to spot it"),
+    ("action", "Do this next"),
+]
+CAUTION_LABEL = "Careful"
+METHOD_LABEL = "How it is worked out"  # /glossary only - never the popup
+
+# The glossary keeps every question the popup no longer shows, including the
+# machine-internals text under `method` (spec C.1, C.5 step 4). It is spelled out
+# separately from SECTIONS so a future edit can drop `how` from the API contract
+# without silently losing the glossary row.
+GLOSSARY_SECTIONS = [
+    ("what", "What is it"),
+    ("why", "Why it matters"),
+    ("look", "What to look for"),
+    ("where", "Where else it is used"),
+    ("when", "When to act"),
+    ("how", METHOD_LABEL),
     ("sight", "How to spot it yourself"),
 ]
 
@@ -484,6 +884,34 @@ def all_keys():
     return sorted(EXPLAIN)
 
 
+def popup(key):
+    """The decision-first card for one key, or None when the key is unknown.
+
+    Returns the four resolved rows in popup order plus the headline and the
+    optional caution, so a caller never has to know which fields exist. Empty
+    fields are dropped rather than returned blank (spec D, invariant 3).
+    """
+    entry = get(key)
+    if not entry:
+        return None
+    rows = [
+        {"key": skey, "label": label, "text": entry[skey]}
+        for skey, label in POPUP_SECTIONS
+        if str(entry.get(skey) or "").strip()
+    ]
+    return {
+        "key": (key or "").strip().lower(),
+        "title": entry.get("title") or "",
+        "headline": str(entry.get("headline") or "").strip(),
+        "rows": rows,
+        "caution": str(entry.get("caution") or "").strip(),
+        "has_caution": bool(entry.get("caution")),
+    }
+
+
 def catalog():
     """Lightweight list for the UI index (no long text)."""
-    return [{"key": k, "title": v["title"], "what": v["what"]} for k, v in sorted(EXPLAIN.items())]
+    return [
+        {"key": k, "title": v["title"], "headline": v.get("headline", ""), "what": v["what"]}
+        for k, v in sorted(EXPLAIN.items())
+    ]

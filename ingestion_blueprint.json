@@ -197,209 +197,209 @@
       "name": "buynsell",
       "target": "akt114/buynsell",
       "url": "https://github.com/akt114/buynsell",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3319",
+      "merged": true
     },
     {
       "name": "osengine",
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3320",
+      "merged": true
     },
     {
       "name": "ai-algotrading-agent",
       "target": "algotrading-lab/ai-algotrading-agent",
       "url": "https://github.com/algotrading-lab/ai-algotrading-agent",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3321",
+      "merged": true
     },
     {
       "name": "nse",
       "target": "alloc7260/nse",
       "url": "https://github.com/alloc7260/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3322",
+      "merged": true
     },
     {
       "name": "raptorbt",
       "target": "alphabench/raptorbt",
       "url": "https://github.com/alphabench/raptorbt",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3323",
+      "merged": true
     },
     {
       "name": "zerobha",
       "target": "althk/zerobha",
       "url": "https://github.com/althk/zerobha",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3324",
+      "merged": true
     },
     {
       "name": "tickgrinder",
       "target": "ameobea/tickgrinder",
       "url": "https://github.com/ameobea/tickgrinder",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3325",
+      "merged": true
     },
     {
       "name": "nse-swing-scanner",
       "target": "amitashwinibhagat/nse-swing-scanner",
       "url": "https://github.com/amitashwinibhagat/nse-swing-scanner",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3326",
+      "merged": true
     },
     {
       "name": "yata",
       "target": "amv-dev/yata",
       "url": "https://github.com/amv-dev/yata",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3327",
+      "merged": true
     },
     {
       "name": "vse",
       "target": "aneesh540/vse",
       "url": "https://github.com/aneesh540/vse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3328",
+      "merged": true
     },
     {
       "name": "ai-stock-screener",
       "target": "animesh4002/ai-stock-screener",
       "url": "https://github.com/animesh4002/ai-stock-screener",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3329",
+      "merged": true
     },
     {
       "name": "nsetradeagents",
       "target": "aniruddhsujish/nsetradeagents",
       "url": "https://github.com/aniruddhsujish/nsetradeagents",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3330",
+      "merged": true
     },
     {
       "name": "sharewatch",
       "target": "anjulgarg/sharewatch",
       "url": "https://github.com/anjulgarg/sharewatch",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3331",
+      "merged": true
     },
     {
       "name": "nse-system",
       "target": "ankitchaudhary6886/nse-system",
       "url": "https://github.com/ankitchaudhary6886/nse-system",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3332",
+      "merged": true
     },
     {
       "name": "nse_scrapper",
       "target": "ankitsny/nse_scrapper",
       "url": "https://github.com/ankitsny/nse_scrapper",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3333",
+      "merged": true
     },
     {
       "name": "nse",
       "target": "anshulk/nse",
       "url": "https://github.com/anshulk/nse",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3334",
+      "merged": true
     },
     {
       "name": "nse-oi-visualizer",
       "target": "anshuthopsee/nse-oi-visualizer",
       "url": "https://github.com/anshuthopsee/nse-oi-visualizer",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3335",
+      "merged": true
     },
     {
       "name": "rust-trading-engine",
       "target": "anthdm/rust-trading-engine",
       "url": "https://github.com/anthdm/rust-trading-engine",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3336",
+      "merged": true
     },
     {
       "name": "kite-option-chain",
       "target": "anurag-roy/kite-option-chain",
       "url": "https://github.com/anurag-roy/kite-option-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3337",
+      "merged": true
     },
     {
       "name": "shoonya-option-chain",
       "target": "anurag-roy/shoonya-option-chain",
       "url": "https://github.com/anurag-roy/shoonya-option-chain",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3338",
+      "merged": true
     },
     {
       "name": "nse-india",
       "target": "api-evangelist/nse-india",
       "url": "https://github.com/api-evangelist/nse-india",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3339",
+      "merged": true
     },
     {
       "name": "algo-trade",
       "target": "aravin/algo-trade",
       "url": "https://github.com/aravin/algo-trade",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3340",
+      "merged": true
     },
     {
       "name": "nse-data",
       "target": "aravin/nse-data",
       "url": "https://github.com/aravin/nse-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3341",
+      "merged": true
     },
     {
       "name": "nse-live_testing",
       "target": "arishhassan/nse-live_testing",
       "url": "https://github.com/arishhassan/nse-live_testing",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3342",
+      "merged": true
     },
     {
       "name": "kalshi-rs",
       "target": "arvchahal/kalshi-rs",
       "url": "https://github.com/arvchahal/kalshi-rs",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3344",
+      "merged": true
     },
     {
       "name": "intelligent-trading-bot",
       "target": "asavinov/intelligent-trading-bot",
       "url": "https://github.com/asavinov/intelligent-trading-bot",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Completed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3345",
+      "merged": true
     },
     {
       "name": "nse-sentiment-analyzer",
