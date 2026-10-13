@@ -1,5 +1,5 @@
 {
-  "current_index": 25,
+  "current_index": 26,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -205,7 +205,7 @@
       "name": "osengine",
       "target": "alexwan/osengine",
       "url": "https://github.com/alexwan/osengine",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
