@@ -82,9 +82,25 @@ class ScalperBrain:
         """Calculates and returns versioned slippage pips bounds across supported releases."""
         slippage = round(max(0.5, min(5.0, 1.5 * vol_ratio)), 2)
         versions = [
-            "v8_4", "v8_5", "v8_6", "v8_7", "v8_8", "v8_9",
-            "v9_1", "v9_2", "v9_3", "v9_4", "v9_5", "v9_6", "v9_7",
-            "v10_0", "v10_1", "v10_2", "v10_3", "v10_4", "v11_0"
+            "v8_4",
+            "v8_5",
+            "v8_6",
+            "v8_7",
+            "v8_8",
+            "v8_9",
+            "v9_1",
+            "v9_2",
+            "v9_3",
+            "v9_4",
+            "v9_5",
+            "v9_6",
+            "v9_7",
+            "v10_0",
+            "v10_1",
+            "v10_2",
+            "v10_3",
+            "v10_4",
+            "v11_0",
         ]
         return {f"{v}_slippage_pips": slippage for v in versions}
 
