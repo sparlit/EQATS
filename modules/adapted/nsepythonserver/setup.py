@@ -42,7 +42,7 @@ setuptools.setup(
     author="Aeron7",
     author_email="dexter@unofficed.com",
     url="https://github.com/aeron7/nsepythonserver",
-    install_requires=["requests", "pandas", "scipy"],
+    install_requires=["requests", "pandas", "scipy", "curl_cffi"],
     keywords=["nseindia", "nse", "python", "sdk", "trading", "stock markets"],
     classifiers=[
         "Intended Audience :: Developers",
