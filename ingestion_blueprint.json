@@ -1,5 +1,5 @@
 {
-  "current_index": 286,
+  "current_index": 287,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -2293,9 +2293,9 @@
       "name": "nse-premarket-data",
       "target": "quantmechanics/nse-premarket-data",
       "url": "https://github.com/quantmechanics/nse-premarket-data",
-      "status": "pending",
-      "pr_url": null,
-      "merged": false
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3275",
+      "merged": true
     },
     {
       "name": "nse-alpha",
