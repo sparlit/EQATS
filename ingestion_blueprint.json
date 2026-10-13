@@ -1,5 +1,5 @@
 {
-  "current_index": 70,
+  "current_index": 71,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -565,7 +565,7 @@
       "name": "bhavfno",
       "target": "beinghorizontal/bhavfno",
       "url": "https://github.com/beinghorizontal/bhavfno",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
