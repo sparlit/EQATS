@@ -37,12 +37,11 @@ import contextlib
 import json
 import logging
 import os
-import pickle
 import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -63,7 +62,7 @@ logger = logging.getLogger(__name__)
 class DataStore:
     """Data store for managing persistent data storage."""
 
-    def __init__(self, base_dir: str | None = None):
+    def __init__(self, base_dir: str = None):
         """
         Initialize data store.
 
@@ -299,7 +298,9 @@ class DataStore:
                 if col == "ticker":
                     df["ticker"] = df.get("gvkey", "UNKNOWN")
                 elif col == "date":
-                    df["date"] = df.index if isinstance(df.index, pd.DatetimeIndex) else df.get("datadate")
+                    df["date"] = (
+                        df.index if isinstance(df.index, pd.DatetimeIndex) else df.get("datadate")
+                    )
                 else:
                     df[col] = np.nan
 
@@ -332,7 +333,9 @@ class DataStore:
                     )
                     rows_affected += 1
                 except Exception as e:
-                    logger.warning(f"Failed to save price data for {row.get('ticker')} on {row.get('date')}: {e}")
+                    logger.warning(
+                        f"Failed to save price data for {row.get('ticker')} on {row.get('date')}: {e}"
+                    )
                     continue
 
             conn.commit()
@@ -356,7 +359,9 @@ class DataStore:
         if isinstance(tickers, pd.Series):
             tickers_list = tickers.astype(str).tolist()
         elif isinstance(tickers, pd.DataFrame):
-            tickers_list = tickers["tickers"].astype(str).tolist() if "tickers" in tickers.columns else []
+            tickers_list = (
+                tickers["tickers"].astype(str).tolist() if "tickers" in tickers.columns else []
+            )
         else:
             tickers_list = list(tickers) if tickers is not None else []
 
@@ -373,7 +378,7 @@ class DataStore:
         """
 
         with sqlite3.connect(self.db_path) as conn:
-            df = pd.read_sql_query(query, conn, params=[*tickers_list, start_date, end_date])
+            df = pd.read_sql_query(query, conn, params=tickers_list + [start_date, end_date])
 
         if not df.empty:
             # Rename to match expected format
@@ -404,7 +409,11 @@ class DataStore:
         rows = []
         for article in articles:
             symbol = article.get("symbol") or ticker
-            published_raw = article.get("publishedDate") or article.get("published_datetime") or article.get("date")
+            published_raw = (
+                article.get("publishedDate")
+                or article.get("published_datetime")
+                or article.get("date")
+            )
             published_ts = pd.to_datetime(published_raw, errors="coerce")
             if pd.isna(published_ts):
                 published_ts = pd.Timestamp.utcnow()
@@ -455,7 +464,7 @@ class DataStore:
             return pd.DataFrame()
 
         with sqlite3.connect(self.db_path) as conn:
-            return pd.read_sql_query(
+            df = pd.read_sql_query(
                 """
                 SELECT ticker, published_datetime, published_date, publisher, title, site, image, body, url,
                        sentiment, sentiment_confidence, sentiment_model
@@ -469,7 +478,11 @@ class DataStore:
                 params=(ticker, start_date, end_date),
             )
 
-    def save_news_fetch_range(self, ticker: str, start_date: str, end_date: str, record_count: int) -> None:
+        return df
+
+    def save_news_fetch_range(
+        self, ticker: str, start_date: str, end_date: str, record_count: int
+    ) -> None:
         """Store fetched date ranges for news."""
         if not ticker or not start_date or not end_date:
             return
@@ -485,7 +498,9 @@ class DataStore:
             )
             conn.commit()
 
-    def get_missing_news_ranges(self, ticker: str, start_date: str, end_date: str) -> list[tuple[str, str]]:
+    def get_missing_news_ranges(
+        self, ticker: str, start_date: str, end_date: str
+    ) -> list[tuple[str, str]]:
         """Identify which sub ranges of [start_date, end_date] have not been fetched yet."""
         if not ticker:
             return [(start_date, end_date)]
@@ -570,7 +585,9 @@ class DataStore:
             conn.commit()
 
     @staticmethod
-    def _merge_date_ranges(ranges: list[tuple[pd.Timestamp, pd.Timestamp]]) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    def _merge_date_ranges(
+        ranges: list[tuple[pd.Timestamp, pd.Timestamp]],
+    ) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
         """Merge overlapping or adjacent date ranges."""
         if not ranges:
             return []
@@ -632,17 +649,25 @@ class DataStore:
                 return [(start_date, end_date)]
 
             # Use trading calendar to find missing trading days
-            missing_trading_days = get_missing_trading_days(existing_dates, start_date, end_date, exchange=exchange)
+            missing_trading_days = get_missing_trading_days(
+                existing_dates, start_date, end_date, exchange=exchange
+            )
 
             if not missing_trading_days:
                 # No missing trading days
                 return []
 
             # Consolidate consecutive dates into ranges
-            return consolidate_date_ranges(missing_trading_days)
+            missing_ranges = consolidate_date_ranges(missing_trading_days)
+
+        return missing_ranges
 
     def get_missing_price_dates_bulk(
-        self, tickers: list[str] | pd.DataFrame, start_date: str, end_date: str, exchange: str = "NYSE"
+        self,
+        tickers: list[str] | pd.DataFrame,
+        start_date: str,
+        end_date: str,
+        exchange: str = "NYSE",
     ) -> dict[str, list[tuple[str, str]]]:
         """
         Bulk version of missing trading date range detection.
@@ -694,7 +719,7 @@ class DataStore:
         """
 
         with sqlite3.connect(self.db_path) as conn:
-            df = pd.read_sql_query(query, conn, params=[*tickers_list, start_date, end_date])
+            df = pd.read_sql_query(query, conn, params=tickers_list + [start_date, end_date])
 
         # Build per-ticker existing date sets
         existing_dates_by_ticker: dict[str, set[str]] = {t: set() for t in tickers_list}
@@ -711,7 +736,11 @@ class DataStore:
                 dfa = None
 
             # Effective start = max(global start, dateFirstAdded) if available
-            eff_start_dt = max(pd.to_datetime(start_date), dfa) if dfa is not None else pd.to_datetime(start_date)
+            eff_start_dt = (
+                max(pd.to_datetime(start_date), dfa)
+                if dfa is not None
+                else pd.to_datetime(start_date)
+            )
             eff_end_dt = pd.to_datetime(end_date)
 
             if eff_start_dt > eff_end_dt:
@@ -739,7 +768,9 @@ class DataStore:
 
         return results
 
-    def save_sp500_components(self, date: str, tickers: str, sectors: str, dateFirstAdded: str) -> bool:
+    def save_sp500_components(
+        self, date: str, tickers: str, sectors: str, dateFirstAdded: str
+    ) -> bool:
         """
         Save S&P 500 components to database.
 
@@ -766,10 +797,10 @@ class DataStore:
             logger.info(f"Saved S&P 500 components for {date}")
             return True
         except Exception as e:
-            logger.exception(f"Failed to save S&P 500 components: {e}")
+            logger.error(f"Failed to save S&P 500 components: {e}")
             return False
 
-    def get_sp500_components(self, date: str | None = None) -> str | None:
+    def get_sp500_components(self, date: str = None) -> str | None:
         """
         Get S&P 500 components from database.
 
@@ -799,7 +830,8 @@ class DataStore:
             result = cursor.fetchone()
             if result:
                 return result[0], result[1], result[2]
-            return None, None, None
+            else:
+                return None, None, None
 
     def get_storage_stats(self) -> dict:
         """Get storage statistics."""
@@ -862,7 +894,13 @@ class DataStore:
         return None
 
     def _save_raw_payload(
-        self, source: str, ticker: str | None, payload: str, start_date: str | None, end_date: str | None, data: Any
+        self,
+        source: str,
+        ticker: str | None,
+        payload: str,
+        start_date: str | None,
+        end_date: str | None,
+        data: Any,
     ) -> str | None:
         """
         Save raw fundamentals payload into raw_payloads table.
@@ -904,18 +942,24 @@ class DataStore:
 
         date_column = self._find_date_column(obj_to_store)
         if not date_column:
-            logger.warning(f"Skipping raw payload {payload} from {source} for {ticker}: no date column found")
+            logger.warning(
+                f"Skipping raw payload {payload} from {source} for {ticker}: no date column found"
+            )
             return None
 
         try:
             obj_to_store[date_column] = pd.to_datetime(obj_to_store[date_column], errors="coerce")
         except Exception:
-            logger.warning(f"Failed to parse date column '{date_column}' for raw payload {payload} ({source})")
+            logger.warning(
+                f"Failed to parse date column '{date_column}' for raw payload {payload} ({source})"
+            )
             return None
 
         obj_to_store = obj_to_store.dropna(subset=[date_column])
         if obj_to_store.empty:
-            logger.warning(f"All rows invalid after date parsing for raw payload {payload} ({source})")
+            logger.warning(
+                f"All rows invalid after date parsing for raw payload {payload} ({source})"
+            )
             return None
 
         # Filter by requested date range if provided
@@ -930,11 +974,15 @@ class DataStore:
             pass
 
         if obj_to_store.empty:
-            logger.warning(f"No rows within requested range for raw payload {payload} of {ticker} ({source})")
+            logger.warning(
+                f"No rows within requested range for raw payload {payload} of {ticker} ({source})"
+            )
             return None
 
         obj_to_store[date_column] = obj_to_store[date_column].dt.strftime("%Y-%m-%d")
-        obj_to_store = obj_to_store.sort_values(date_column).drop_duplicates(subset=[date_column], keep="last")
+        obj_to_store = obj_to_store.sort_values(date_column).drop_duplicates(
+            subset=[date_column], keep="last"
+        )
 
         # Insert per-row into raw_payloads keyed by source/payload/ticker/date
         params: list[tuple[str, str, str, str, str]] = []
@@ -993,7 +1041,7 @@ class DataStore:
                 out.append(json.loads(row_json))
             except Exception:
                 continue
-        return out or None
+        return out if out else None
 
     # =========================
     # Fundamental data helpers
@@ -1126,7 +1174,9 @@ class DataStore:
                     )
                     rows_affected += 1
                 except Exception as e:
-                    logger.warning(f"Failed to save fundamental row {row.get('ticker')} {row.get('datadate')}: {e}")
+                    logger.warning(
+                        f"Failed to save fundamental row {row.get('ticker')} {row.get('datadate')}: {e}"
+                    )
                     continue
             conn.commit()
 
@@ -1134,7 +1184,7 @@ class DataStore:
         return rows_affected
 
     def get_fundamental_data(
-        self, tickers: list[str] | None = None, start_date: str | None = None, end_date: str | None = None
+        self, tickers: list[str] = None, start_date: str = None, end_date: str = None
     ) -> pd.DataFrame:
         """
         Load fundamental data from database.
@@ -1152,7 +1202,9 @@ class DataStore:
 
         if tickers:
             if isinstance(tickers, (pd.Series, pd.DataFrame)):
-                tickers = list(tickers) if isinstance(tickers, pd.Series) else tickers["tickers"].tolist()
+                tickers = (
+                    list(tickers) if isinstance(tickers, pd.Series) else tickers["tickers"].tolist()
+                )
             placeholders = ",".join(["?"] * len(tickers))
             conditions.append(f"ticker IN ({placeholders})")
             params.extend(tickers)
@@ -1176,7 +1228,9 @@ class DataStore:
 
         return df
 
-    def get_raw_payload_latest_date(self, ticker: str, payload: str, source: str = "FMP") -> str | None:
+    def get_raw_payload_latest_date(
+        self, ticker: str, payload: str, source: str = "FMP"
+    ) -> str | None:
         """Return the latest available date for a given (source, payload, ticker)."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -1195,7 +1249,7 @@ _data_store = None
 _data_store_config = {}
 
 
-def get_data_store(base_dir: str | None = None) -> DataStore:
+def get_data_store(base_dir: str = None) -> DataStore:
     """
     Get global data store instance.
 

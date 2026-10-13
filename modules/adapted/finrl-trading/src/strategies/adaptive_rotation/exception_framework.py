@@ -36,10 +36,8 @@ Author: Adaptive Rotation Strategy Team
 Version: 1.2.1
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from .config_loader import AdaptiveRotationConfig
@@ -317,7 +315,9 @@ def check_asset_exception(
         window = zscores.tail(lookback_weeks)
 
         # Count triggers
-        trigger_count, trigger_dates = count_triggers_in_window(zscores, z_threshold, lookback_weeks)
+        trigger_count, trigger_dates = count_triggers_in_window(
+            zscores, z_threshold, lookback_weeks
+        )
 
         # Get recent z-scores as list
         recent_zscores = window.tolist()
@@ -333,15 +333,17 @@ def check_asset_exception(
     strong_reason = None
 
     if strong_signal_enabled and asset_prices is not None and benchmark_prices is not None:
-        strong_qualified, strong_return, strong_benchmark_return, strong_reason = check_strong_signal_rule(
-            symbol,
-            latest_zscore,
-            asset_prices,
-            benchmark_prices,
-            z_threshold=strong_signal_z_threshold,
-            return_multiplier=strong_signal_return_multiplier,
-            return_lookback_weeks=strong_signal_return_lookback,
-            require_positive_return=strong_signal_require_positive,
+        strong_qualified, strong_return, strong_benchmark_return, strong_reason = (
+            check_strong_signal_rule(
+                symbol,
+                latest_zscore,
+                asset_prices,
+                benchmark_prices,
+                z_threshold=strong_signal_z_threshold,
+                return_multiplier=strong_signal_return_multiplier,
+                return_lookback_weeks=strong_signal_return_lookback,
+                require_positive_return=strong_signal_require_positive,
+            )
         )
 
     return ExceptionCandidate(
@@ -649,7 +651,9 @@ class ExceptionDetector:
             strong_signal_z_threshold = getattr(strong_signal_cfg, "z_threshold", 3.5)
             strong_signal_return_multiplier = getattr(strong_signal_cfg, "return_multiplier", 1.5)
             strong_signal_return_lookback = getattr(strong_signal_cfg, "return_lookback_weeks", 12)
-            strong_signal_require_positive = getattr(strong_signal_cfg, "require_positive_return", True)
+            strong_signal_require_positive = getattr(
+                strong_signal_cfg, "require_positive_return", True
+            )
         else:
             # Default: disabled
             strong_signal_enabled = False

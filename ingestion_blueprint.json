@@ -1,5 +1,5 @@
 {
-  "current_index": 16,
+  "current_index": 17,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -133,7 +133,7 @@
       "name": "finrl-trading",
       "target": "ai4finance-foundation/finrl-trading",
       "url": "https://github.com/ai4finance-foundation/finrl-trading",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },

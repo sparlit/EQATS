@@ -47,7 +47,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
     sys.path.insert(0, os.path.join(project_root, "src"))
 
-from data.data_fetcher import fetch_fundamental_data, get_all_historical_sp500_tickers
+from data.data_fetcher import fetch_fundamental_data
 from data.data_store import get_data_store
 
 DB_PATH = os.path.join(project_root, "data", "finrl_trading.db")
@@ -132,7 +132,9 @@ def fetch_and_store_fundamentals(missing_tickers: set):
         batch = tickers_list[i : i + batch_size]
         batch_num = i // batch_size + 1
         total_batches = (len(tickers_list) - 1) // batch_size + 1
-        print(f"  Batch {batch_num}/{total_batches}: {len(batch)} tickers ({batch[0]}..{batch[-1]})")
+        print(
+            f"  Batch {batch_num}/{total_batches}: {len(batch)} tickers ({batch[0]}..{batch[-1]})"
+        )
 
         try:
             tickers_df = pd.DataFrame(
@@ -266,7 +268,10 @@ def fill_tradedate_and_prices(conn: sqlite3.Connection):
             from_dt = (pd.to_datetime(min_dt) - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
             to_dt = (pd.to_datetime(max_dt) + pd.Timedelta(days=5)).strftime("%Y-%m-%d")
 
-            url = f"{base_url}/historical-price-eod/full?symbol={fmp_tic}&from={from_dt}&to={to_dt}&apikey={api_key}"
+            url = (
+                f"{base_url}/historical-price-eod/full?"
+                f"symbol={fmp_tic}&from={from_dt}&to={to_dt}&apikey={api_key}"
+            )
             try:
                 resp = requests.get(url)
                 resp.raise_for_status()
@@ -314,7 +319,9 @@ def fill_tradedate_and_prices(conn: sqlite3.Connection):
                 # Try a few days around
                 for offset in range(1, 6):
                     for sign in [1, -1]:
-                        dt_try = (pd.to_datetime(actual_td) + pd.Timedelta(days=offset * sign)).strftime("%Y-%m-%d")
+                        dt_try = (
+                            pd.to_datetime(actual_td) + pd.Timedelta(days=offset * sign)
+                        ).strftime("%Y-%m-%d")
                         if dt_try in price_map:
                             price = price_map[dt_try]
                             break
@@ -396,7 +403,7 @@ def main():
 
     # Step 1: Identify missing tickers
     print("=== Step 1: Identifying missing (ticker, quarter) pairs ===")
-    missing_tickers, missing_pairs, _quarter_expected = identify_missing_pairs(conn)
+    missing_tickers, missing_pairs, quarter_expected = identify_missing_pairs(conn)
     print(f"  Missing unique tickers: {len(missing_tickers)}")
     print(f"  Missing (ticker, quarter) pairs: {len(missing_pairs)}")
 
@@ -421,7 +428,9 @@ def main():
     _, remaining_pairs, _ = identify_missing_pairs(conn)
     newly_added = len(missing_pairs) - len(remaining_pairs)
     print(f"\n  Newly added records: {newly_added}")
-    print(f"  Still missing pairs: {len(remaining_pairs)} (bankrupt/delisted tickers with no FMP data)")
+    print(
+        f"  Still missing pairs: {len(remaining_pairs)} (bankrupt/delisted tickers with no FMP data)"
+    )
 
     # Step 3: Fill tradedate, actual_tradedate, trade_price
     fill_tradedate_and_prices(conn)

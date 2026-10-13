@@ -83,9 +83,13 @@ def main():
     all_prices = {}
     for i in range(0, len(yf_tickers), batch_size):
         batch = yf_tickers[i : i + batch_size]
-        print(f"  Batch {i // batch_size + 1}/{(len(yf_tickers) - 1) // batch_size + 1}: {len(batch)} tickers")
+        print(
+            f"  Batch {i // batch_size + 1}/{(len(yf_tickers) - 1) // batch_size + 1}: {len(batch)} tickers"
+        )
         try:
-            data = yf.download(batch, start=start_str, end=end_str, auto_adjust=True, progress=False)
+            data = yf.download(
+                batch, start=start_str, end=end_str, auto_adjust=True, progress=False
+            )
             if isinstance(data.columns, pd.MultiIndex):
                 close_data = data["Close"] if "Close" in data.columns.get_level_values(0) else data
                 for t in batch:
@@ -93,10 +97,11 @@ def main():
                         series = close_data[t].dropna()
                         if len(series) > 0:
                             all_prices[t] = series
-            elif "Close" in data.columns:
-                series = data["Close"].dropna()
-                if len(series) > 0:
-                    all_prices[batch[0]] = series
+            else:
+                if "Close" in data.columns:
+                    series = data["Close"].dropna()
+                    if len(series) > 0:
+                        all_prices[batch[0]] = series
         except Exception as e:
             print(f"  ERROR: {e}")
 
@@ -153,7 +158,10 @@ def main():
 
     # 7. Verify
     for label, dt in [("Q4 2025", "2025-12-31"), ("Q1 2026", "2026-03-31")]:
-        check = pd.read_sql(f"SELECT ticker, adj_close_q, y_return FROM fundamental_data WHERE datadate = '{dt}'", conn)
+        check = pd.read_sql(
+            f"SELECT ticker, adj_close_q, y_return FROM fundamental_data WHERE datadate = '{dt}'",
+            conn,
+        )
         check["y_return"] = pd.to_numeric(check["y_return"], errors="coerce")
         print(
             f"\n{label}: {len(check)} records, y_return filled: {check['y_return'].notna().sum()}, "

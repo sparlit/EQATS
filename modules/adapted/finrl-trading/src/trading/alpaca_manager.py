@@ -39,7 +39,7 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import requests
@@ -120,13 +120,12 @@ class AlpacaManager:
 
         # Set default account if only one provided
         if len(self.accounts) == 1:
-            self.current_account = next(iter(self.accounts.values()))
+            self.current_account = list(self.accounts.values())[0]
 
     def set_account(self, account_name: str):
         """Set the current active account."""
         if account_name not in self.accounts:
-            msg = f"Account '{account_name}' not found"
-            raise ValueError(msg)
+            raise ValueError(f"Account '{account_name}' not found")
         self.current_account = self.accounts[account_name]
         self.logger.info(f"Switched to account: {account_name}")
 
@@ -170,7 +169,11 @@ class AlpacaManager:
         return float(account_info.get("portfolio_value", 0))
 
     def get_orders(
-        self, status: str = "all", limit: int = 500, direction: str = "desc", account_name: str | None = None
+        self,
+        status: str = "all",
+        limit: int = 500,
+        direction: str = "desc",
+        account_name: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get list of orders.
@@ -219,7 +222,9 @@ class AlpacaManager:
             params["date_start"] = date_start
         if date_end:
             params["date_end"] = date_end
-        return self._api_request("GET", "/v2/account/portfolio/history", params=params, account=account)
+        return self._api_request(
+            "GET", "/v2/account/portfolio/history", params=params, account=account
+        )
 
     def place_order(self, order: OrderRequest, account_name: str | None = None) -> OrderResponse:
         """
@@ -277,10 +282,14 @@ class AlpacaManager:
             order_type=response["type"],
             submitted_at=pd.to_datetime(response["submitted_at"]),
             filled_at=pd.to_datetime(response["filled_at"]) if response.get("filled_at") else None,
-            average_fill_price=float(response.get("filled_avg_price", 0)) if response.get("filled_avg_price") else None,
+            average_fill_price=float(response.get("filled_avg_price", 0))
+            if response.get("filled_avg_price")
+            else None,
         )
 
-    def place_orders_batch(self, orders: list[OrderRequest], account_name: str | None = None) -> list[OrderResponse]:
+    def place_orders_batch(
+        self, orders: list[OrderRequest], account_name: str | None = None
+    ) -> list[OrderResponse]:
         """
         Place multiple orders.
 
@@ -302,7 +311,7 @@ class AlpacaManager:
                 time.sleep(0.1)
 
             except Exception as e:
-                self.logger.exception(f"Failed to place order for {order.symbol}: {e}")
+                self.logger.error(f"Failed to place order for {order.symbol}: {e}")
                 # Create failed order response
                 responses.append(
                     OrderResponse(
@@ -336,7 +345,7 @@ class AlpacaManager:
             self.logger.info(f"Cancelled order: {order_id}")
             return True
         except Exception as e:
-            self.logger.exception(f"Failed to cancel order {order_id}: {e}")
+            self.logger.error(f"Failed to cancel order {order_id}: {e}")
             return False
 
     def cancel_all_orders(self, account_name: str | None = None) -> int:
@@ -356,10 +365,12 @@ class AlpacaManager:
             self.logger.info(f"Cancelled {cancelled_count} orders")
             return cancelled_count
         except Exception as e:
-            self.logger.exception(f"Failed to cancel all orders: {e}")
+            self.logger.error(f"Failed to cancel all orders: {e}")
             return 0
 
-    def get_order_status(self, order_id: str, account_name: str | None = None) -> OrderResponse | None:
+    def get_order_status(
+        self, order_id: str, account_name: str | None = None
+    ) -> OrderResponse | None:
         """
         Get order status.
 
@@ -382,13 +393,15 @@ class AlpacaManager:
                 side=response["side"],
                 order_type=response["type"],
                 submitted_at=pd.to_datetime(response["submitted_at"]),
-                filled_at=pd.to_datetime(response["filled_at"]) if response.get("filled_at") else None,
+                filled_at=pd.to_datetime(response["filled_at"])
+                if response.get("filled_at")
+                else None,
                 average_fill_price=float(response.get("filled_avg_price", 0))
                 if response.get("filled_avg_price")
                 else None,
             )
         except Exception as e:
-            self.logger.exception(f"Failed to get order status for {order_id}: {e}")
+            self.logger.error(f"Failed to get order status for {order_id}: {e}")
             return None
 
     def wait_for_order_fill(
@@ -415,7 +428,9 @@ class AlpacaManager:
 
             time.sleep(2)  # Check every 2 seconds
 
-        self.logger.warning(f"Order {order_id} did not reach terminal status within {timeout_seconds} seconds")
+        self.logger.warning(
+            f"Order {order_id} did not reach terminal status within {timeout_seconds} seconds"
+        )
         return None
 
     def execute_portfolio_rebalance(
@@ -468,7 +483,9 @@ class AlpacaManager:
         for position in positions:
             symbol = position["symbol"]
             market_value = float(position["market_value"])
-            current_weights[symbol] = (market_value / portfolio_value) if portfolio_value > 0 else 0.0
+            current_weights[symbol] = (
+                (market_value / portfolio_value) if portfolio_value > 0 else 0.0
+            )
 
         # Filter淶: ɽױģȨΪ0Ҫʱһ<=1
         filtered_targets: dict[str, float] = {}
@@ -492,13 +509,17 @@ class AlpacaManager:
         if sum_w > 1.0001:
             # Ȩغ>1ܺͽŹһ
             used_target_weights = {s: (w / sum_w) for s, w in filtered_targets.items()}
-            self.logger.info(f"Target weights sum {sum_w:.6f} > 1; normalized to 1.0 proportionally")
+            self.logger.info(
+                f"Target weights sum {sum_w:.6f} > 1; normalized to 1.0 proportionally"
+            )
         else:
             # <=1ʣֽ
             used_target_weights = dict(filtered_targets)
 
         all_symbols = set(current_weights.keys()) | set(used_target_weights.keys())
-        full_target_weights: dict[str, float] = {s: float(used_target_weights.get(s, 0.0)) for s in all_symbols}
+        full_target_weights: dict[str, float] = {
+            s: float(used_target_weights.get(s, 0.0)) for s in all_symbols
+        }
 
         # Phase 1: build SELL orders first (reduce positions to free cash)
         sell_orders = []
@@ -552,7 +573,9 @@ class AlpacaManager:
                 # Respect minimum share quantity
                 if shares_abs >= (0.0001 if self._is_symbol_fractionable(symbol) else 1.0):
                     sell_orders.append(
-                        OrderRequest(symbol=symbol, quantity=shares_abs, side="sell", order_type="market")
+                        OrderRequest(
+                            symbol=symbol, quantity=shares_abs, side="sell", order_type="market"
+                        )
                     )
 
         results_sell = []
@@ -574,7 +597,9 @@ class AlpacaManager:
             for position in positions:
                 symbol = position["symbol"]
                 market_value = float(position["market_value"])
-                current_weights[symbol] = (market_value / portfolio_value) if portfolio_value > 0 else 0.0
+                current_weights[symbol] = (
+                    (market_value / portfolio_value) if portfolio_value > 0 else 0.0
+                )
 
         # Phase 2: build BUY orders with buying power scaling and rounding
         from src.config.settings import get_config
@@ -628,17 +653,20 @@ class AlpacaManager:
                 qty = math.floor(qty)
             # Minimum quantity check
             if qty >= (0.0001 if self._is_symbol_fractionable(symbol) else 1.0):
-                buy_orders.append(OrderRequest(symbol=symbol, quantity=qty, side="buy", order_type="market"))
+                buy_orders.append(
+                    OrderRequest(symbol=symbol, quantity=qty, side="buy", order_type="market")
+                )
 
         results_buy = []
         if dry_run or (not will_place_orders):
             pass
-        elif buy_orders:
-            # Apply time_in_force
-            for o in buy_orders:
-                o.time_in_force = default_tif
-            results_buy = self.place_orders_batch(buy_orders, account_name)
-            self.logger.info(f"Executed {len(results_buy)} buy orders in rebalance phase 2")
+        else:
+            if buy_orders:
+                # Apply time_in_force
+                for o in buy_orders:
+                    o.time_in_force = default_tif
+                results_buy = self.place_orders_batch(buy_orders, account_name)
+                self.logger.info(f"Executed {len(results_buy)} buy orders in rebalance phase 2")
 
         # If dry-run or market closed and skipping, return plan only
         if dry_run or ((not is_open) and (market_closed_action == "skip")):
@@ -673,21 +701,24 @@ class AlpacaManager:
                 "market_open": is_open,
                 "used_time_in_force": default_tif,
             }
-        self.logger.info("No rebalance orders needed")
-        return {
-            "orders_placed": 0,
-            "orders": [],
-            "target_weights": used_target_weights,
-            "market_open": is_open,
-            "used_time_in_force": default_tif,
-        }
+        else:
+            self.logger.info("No rebalance orders needed")
+            return {
+                "orders_placed": 0,
+                "orders": [],
+                "target_weights": used_target_weights,
+                "market_open": is_open,
+                "used_time_in_force": default_tif,
+            }
 
     def _ensure_assets_loaded(self):
         """Load and cache active assets list once."""
         if self._assets_loaded:
             return
         try:
-            assets = self._api_request("GET", "/v2/assets", params={"status": "active"}, account=self._get_account())
+            assets = self._api_request(
+                "GET", "/v2/assets", params={"status": "active"}, account=self._get_account()
+            )
             if isinstance(assets, list):
                 for a in assets:
                     sym = a.get("symbol")
@@ -745,13 +776,12 @@ class AlpacaManager:
         """Get account for API calls."""
         if account_name:
             if account_name not in self.accounts:
-                msg = f"Account '{account_name}' not found"
-                raise ValueError(msg)
+                raise ValueError(f"Account '{account_name}' not found")
             return self.accounts[account_name]
-        if self.current_account:
+        elif self.current_account:
             return self.current_account
-        msg = "No account specified and no current account set"
-        raise ValueError(msg)
+        else:
+            raise ValueError("No account specified and no current account set")
 
     def _api_request(
         self,
@@ -788,7 +818,9 @@ class AlpacaManager:
         }
 
         try:
-            response = requests.request(method, url, headers=headers, json=json_body, params=params, timeout=timeout)
+            response = requests.request(
+                method, url, headers=headers, json=json_body, params=params, timeout=timeout
+            )
 
             if response.status_code >= 400:
                 error_info = (
@@ -796,8 +828,7 @@ class AlpacaManager:
                     if response.headers.get("content-type", "").startswith("application/json")
                     else {"message": response.text}
                 )
-                msg = f"Alpaca API error {response.status_code}: {error_info}"
-                raise RuntimeError(msg)
+                raise RuntimeError(f"Alpaca API error {response.status_code}: {error_info}")
 
             if response.status_code == 204:  # No content
                 return {}
@@ -805,8 +836,7 @@ class AlpacaManager:
             return response.json()
 
         except requests.exceptions.RequestException as e:
-            msg = f"Request failed: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"Request failed: {e}")
 
     def _api_data_request(
         self,
@@ -838,7 +868,9 @@ class AlpacaManager:
         }
 
         try:
-            response = requests.request(method, url, headers=headers, json=json_body, params=params, timeout=timeout)
+            response = requests.request(
+                method, url, headers=headers, json=json_body, params=params, timeout=timeout
+            )
 
             if response.status_code >= 400:
                 error_info = (
@@ -846,16 +878,14 @@ class AlpacaManager:
                     if response.headers.get("content-type", "").startswith("application/json")
                     else {"message": response.text}
                 )
-                msg = f"Alpaca DATA API error {response.status_code}: {error_info}"
-                raise RuntimeError(msg)
+                raise RuntimeError(f"Alpaca DATA API error {response.status_code}: {error_info}")
 
             if response.status_code == 204:
                 return {}
 
             return response.json()
         except requests.exceptions.RequestException as e:
-            msg = f"Data request failed: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(f"Data request failed: {e}")
 
     def _get_latest_price(self, symbol: str, account: AlpacaAccount = None) -> float | None:
         """Get latest trade/quote-derived price for a symbol from Alpaca Market Data.
@@ -932,8 +962,7 @@ def create_alpaca_account_from_env(name: str = "default") -> AlpacaAccount:
     base_url = config.alpaca.base_url
 
     if not api_key or not api_secret:
-        msg = "Alpaca API credentials not found in environment variables"
-        raise ValueError(msg)
+        raise ValueError("Alpaca API credentials not found in environment variables")
 
     return AlpacaAccount(name=name, api_key=api_key, api_secret=api_secret, base_url=base_url)
 

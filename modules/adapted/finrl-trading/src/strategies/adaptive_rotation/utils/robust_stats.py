@@ -37,13 +37,14 @@ Author: Adaptive Rotation Strategy Team
 Version: 1.2.1
 """
 
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 
-def compute_mad(series: pd.Series, window: int | None = None, center: bool = False) -> float | pd.Series:
+def compute_mad(
+    series: pd.Series, window: int | None = None, center: bool = False
+) -> float | pd.Series:
     """
     Compute Median Absolute Deviation (MAD)
 
@@ -78,11 +79,14 @@ def compute_mad(series: pd.Series, window: int | None = None, center: bool = Fal
     if window is None:
         # Compute single MAD value
         median = series.median()
-        return (series - median).abs().median()
-    # Compute rolling MAD
-    rolling_median = series.rolling(window=window, center=center).median()
-    deviations = (series - rolling_median).abs()
-    return deviations.rolling(window=window, center=center).median()
+        mad = (series - median).abs().median()
+        return mad
+    else:
+        # Compute rolling MAD
+        rolling_median = series.rolling(window=window, center=center).median()
+        deviations = (series - rolling_median).abs()
+        rolling_mad = deviations.rolling(window=window, center=center).median()
+        return rolling_mad
 
 
 def robust_zscore(
@@ -125,8 +129,7 @@ def robust_zscore(
 
     # Validate center_metric early
     if center_metric not in ["median", "mean"]:
-        msg = f"center_metric must be 'median' or 'mean', got {center_metric}"
-        raise ValueError(msg)
+        raise ValueError(f"center_metric must be 'median' or 'mean', got {center_metric}")
 
     # Initialize output series with NaN
     zscores = pd.Series(index=series.index, dtype=float)
@@ -159,13 +162,18 @@ def robust_zscore(
             # MAD too small, treat as constant series
             if abs(current_value - center) < MIN_MAD_THRESHOLD:
                 return 0.0
-            # Cap at reasonable extreme value instead of inf
-            return 10.0 * np.sign(current_value - center)
+            else:
+                # Cap at reasonable extreme value instead of inf
+                return 10.0 * np.sign(current_value - center)
 
         return (current_value - center) / mad
 
     # Apply rolling calculation
-    return series.rolling(window=window, min_periods=min_periods).apply(compute_window_zscore, raw=False)
+    zscores = series.rolling(window=window, min_periods=min_periods).apply(
+        compute_window_zscore, raw=False
+    )
+
+    return zscores
 
 
 def compute_information_ratio(

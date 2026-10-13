@@ -21,12 +21,7 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-import random
-
-import numpy as np
 import pandas as pd
-import pandas_market_calendars as mcal
-from strategies.strategylogger import StrategyLogger
 
 
 class UniverseManager:
@@ -59,7 +54,9 @@ class UniverseManager:
         # map column names
         # -----------------------------
         df = stock_selection_df.copy()
-        df = df.rename(columns={col_map["tic_name"]: "tic_name", col_map["trade_date"]: "trade_date"})
+        df = df.rename(
+            columns={col_map["tic_name"]: "tic_name", col_map["trade_date"]: "trade_date"}
+        )
         df["trade_date"] = pd.to_datetime(df["trade_date"])
 
         # === select backtest period ===
@@ -133,7 +130,12 @@ class UniverseManager:
                 for tic in tics:
                     records.append({"date": d, "tic_name": tic, "in_universe": 1})
 
-        return pd.DataFrame(records).drop_duplicates(["date", "tic_name"]).sort_values(["date", "tic_name"])
+        universe_df = (
+            pd.DataFrame(records)
+            .drop_duplicates(["date", "tic_name"])
+            .sort_values(["date", "tic_name"])
+        )
+        return universe_df
 
     def _build_fast_index(self, universe_df):
         fast = {}
@@ -175,10 +177,14 @@ class UniverseManager:
 
         # --- modified: use logger's compatible signature ---
         for tic in sorted(added):
-            self.logger.log_universe(date=date, symbol=tic, in_universe=1, close_only=False, has_position=False)
+            self.logger.log_universe(
+                date=date, symbol=tic, in_universe=1, close_only=False, has_position=False
+            )
 
         for tic in sorted(removed):
-            self.logger.log_universe(date=date, symbol=tic, in_universe=0, close_only=False, has_position=False)
+            self.logger.log_universe(
+                date=date, symbol=tic, in_universe=0, close_only=False, has_position=False
+            )
         # --- end of modification ---
 
         self.prev_universe = today_u.copy()

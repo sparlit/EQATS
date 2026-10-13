@@ -30,9 +30,8 @@ Uses pandas_market_calendars or exchange_calendars if available, with fallback t
 """
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from functools import lru_cache
-from typing import List, Set
 
 import pandas as pd
 import tzlocal
@@ -57,8 +56,12 @@ except ImportError:
         _nyse_calendar = xcals.get_calendar("XNYS")  # NYSE calendar
         logger.info("Using exchange_calendars for trading calendar")
     except ImportError:
-        logger.warning("Neither pandas_market_calendars nor exchange_calendars found. Using basic calendar logic.")
-        logger.warning("Install with: pip install pandas-market-calendars  OR  pip install exchange-calendars")
+        logger.warning(
+            "Neither pandas_market_calendars nor exchange_calendars found. Using basic calendar logic."
+        )
+        logger.warning(
+            "Install with: pip install pandas-market-calendars  OR  pip install exchange-calendars"
+        )
 
 
 @lru_cache(maxsize=32)
@@ -197,7 +200,9 @@ def get_missing_trading_days(
     end_date_dt = pd.to_datetime(end_date).date()
     if end_date_dt >= now_exchange and existing_dates:
         # Only consider existing_dates <= end_date
-        existing_dates_in_range = [d for d in existing_dates if pd.to_datetime(d).date() <= end_date_dt]
+        existing_dates_in_range = [
+            d for d in existing_dates if pd.to_datetime(d).date() <= end_date_dt
+        ]
         if existing_dates_in_range:
             # Use the latest available date
             latest_existing = max(existing_dates_in_range)
@@ -210,7 +215,9 @@ def get_missing_trading_days(
     existing_set = set(existing_dates)
 
     # Find missing trading days
-    return sorted(all_trading_days - existing_set)
+    missing = sorted(all_trading_days - existing_set)
+
+    return missing
 
 
 def consolidate_date_ranges(dates: list[str]) -> list[tuple]:

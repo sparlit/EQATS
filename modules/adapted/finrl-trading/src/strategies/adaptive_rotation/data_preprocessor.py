@@ -38,19 +38,15 @@ Version: 1.2.1
 """
 
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from .config_loader import AdaptiveRotationConfig
 from .utils.calendar_utils import (
-    align_to_trading_day,
-    get_trading_calendar,
     get_week_end_dates,
-    is_trading_day,
 )
 
 # ============================================================================
@@ -89,8 +85,7 @@ def load_daily_csv(
     csv_path = Path(data_dir) / f"{symbol}_daily.csv"
 
     if not csv_path.exists():
-        msg = f"Data file not found: {csv_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"Data file not found: {csv_path}")
 
     try:
         # Load CSV
@@ -99,8 +94,7 @@ def load_daily_csv(
         # Validate columns
         required_cols = ["date", "open", "high", "low", "close", "volume"]
         if not all(col in df.columns for col in required_cols):
-            msg = f"Missing required columns in {symbol} data"
-            raise ValueError(msg)
+            raise ValueError(f"Missing required columns in {symbol} data")
 
         # Parse dates and set as index
         df["date"] = pd.to_datetime(df["date"])
@@ -114,8 +108,7 @@ def load_daily_csv(
 
         # Validate data
         if df.empty:
-            msg = f"No data for {symbol} in specified date range"
-            raise ValueError(msg)
+            raise ValueError(f"No data for {symbol} in specified date range")
 
         # Check for negative prices/volume (data quality)
         if (df[["open", "high", "low", "close"]] < 0).any().any():
@@ -125,8 +118,7 @@ def load_daily_csv(
         return df
 
     except Exception as e:
-        msg = f"Failed to load {symbol}: {e}"
-        raise ValueError(msg)
+        raise ValueError(f"Failed to load {symbol}: {e}")
 
 
 def load_multiple_symbols(
@@ -171,8 +163,7 @@ def load_multiple_symbols(
 
     if required and failed:
         error_msg = "\n".join([f"  - {sym}: {err}" for sym, err in failed])
-        msg = f"Failed to load required symbols:\n{error_msg}"
-        raise ValueError(msg)
+        raise ValueError(f"Failed to load required symbols:\n{error_msg}")
 
     return data
 
@@ -215,11 +206,12 @@ def aggregate_daily_to_weekly(
         >>> weekly = aggregate_daily_to_weekly(daily_df, week_ends)
     """
     if method not in ["last_available", "strict"]:
-        msg = f"Invalid method: {method}"
-        raise ValueError(msg)
+        raise ValueError(f"Invalid method: {method}")
 
     # Initialize result with NaN
-    weekly_df = pd.DataFrame(index=week_end_dates, columns=["open", "high", "low", "close", "volume"])
+    weekly_df = pd.DataFrame(
+        index=week_end_dates, columns=["open", "high", "low", "close", "volume"]
+    )
 
     if method == "last_available":
         # For each week end, aggregate data from previous week
@@ -320,8 +312,7 @@ def align_symbols_to_common_dates(
         >>> aligned, dates = align_symbols_to_common_dates(weekly_data)
     """
     if not data:
-        msg = "No data provided"
-        raise ValueError(msg)
+        raise ValueError("No data provided")
 
     # Find union of all dates
     all_dates = pd.DatetimeIndex([])
@@ -331,8 +322,7 @@ def align_symbols_to_common_dates(
     all_dates = all_dates.sort_values()
 
     if all_dates.empty:
-        msg = "No common dates found"
-        raise ValueError(msg)
+        raise ValueError("No common dates found")
 
     # Reindex all symbols to common dates
     aligned_data = {}
@@ -356,8 +346,7 @@ def align_symbols_to_common_dates(
             # Keep NaN as is
             pass
         else:
-            msg = f"Invalid fill_method: {fill_method}"
-            raise ValueError(msg)
+            raise ValueError(f"Invalid fill_method: {fill_method}")
 
         aligned_data[symbol] = aligned_df
 
@@ -612,8 +601,7 @@ class DataPreprocessor:
             RuntimeError: If data not loaded yet
         """
         if self.weekly_data is None:
-            msg = "Data not loaded. Call load_and_prepare() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Data not loaded. Call load_and_prepare() first.")
 
         return get_data_as_of_date(
             data=self.weekly_data,
@@ -654,8 +642,7 @@ class DataPreprocessor:
             >>> vix_daily = daily_prices['^VIX']
         """
         if self.daily_data is None:
-            msg = "Daily data not loaded. Call load_and_prepare() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Daily data not loaded. Call load_and_prepare() first.")
 
         as_of_ts = pd.Timestamp(as_of_date)
 
@@ -696,8 +683,7 @@ class DataPreprocessor:
             RuntimeError: If data not loaded yet
         """
         if self.weekly_data is None:
-            msg = "Data not loaded. Call load_and_prepare() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Data not loaded. Call load_and_prepare() first.")
 
         min_weeks = min_weeks or self.config.history.minimum_history_weeks
 
@@ -720,8 +706,7 @@ class DataPreprocessor:
             RuntimeError: If data not loaded yet
         """
         if self.common_dates is None:
-            msg = "Data not loaded. Call load_and_prepare() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Data not loaded. Call load_and_prepare() first.")
 
         return self.common_dates[0], self.common_dates[-1]
 
@@ -744,11 +729,13 @@ class DataPreprocessor:
             RuntimeError: If data not loaded yet
         """
         if self.weekly_data is None:
-            msg = "Data not loaded. Call load_and_prepare() first."
-            raise RuntimeError(msg)
+            raise RuntimeError("Data not loaded. Call load_and_prepare() first.")
 
         # Get data slice
-        data = self.get_data_as_of(as_of_date, lookback_periods) if as_of_date is not None else self.weekly_data
+        if as_of_date is not None:
+            data = self.get_data_as_of(as_of_date, lookback_periods)
+        else:
+            data = self.weekly_data
 
         # Calculate returns
         returns = {}

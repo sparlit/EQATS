@@ -22,16 +22,11 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 
 import os
-import random
-from collections.abc import Iterable
-from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
-import pandas_market_calendars as mcal
 
 from .strategylogger import StrategyLogger
-from .universe_manager import UniverseManager
 
 
 class BaseSignalEngine:
@@ -114,12 +109,11 @@ class BaseSignalEngine:
                 # 统一 datetime
                 if "datetime" in chunk.columns:
                     chunk["date"] = pd.to_datetime(chunk["datetime"])
-                    chunk = chunk.drop(columns=["datetime"])  # === NEW === 删除冗余列
+                    chunk.drop(columns=["datetime"], inplace=True)  # === NEW === 删除冗余列
                 elif "date" in chunk.columns:
                     chunk["date"] = pd.to_datetime(chunk["date"])
                 else:
-                    msg = f"{path} 缺少 date/datetime 列"
-                    raise ValueError(msg)
+                    raise ValueError(f"{path} 缺少 date/datetime 列")
                 # === data time filter ===
                 if self.data_start_date is not None:
                     chunk = chunk[chunk["date"] >= self.data_start_date]
@@ -149,19 +143,20 @@ class BaseSignalEngine:
         chunks = []
         for chunk in pd.read_csv(filepath, chunksize=self.chunk_size):
             rename_map = {
-                file_col: internal_col for internal_col, file_col in self.col_map.items() if file_col in chunk.columns
+                file_col: internal_col
+                for internal_col, file_col in self.col_map.items()
+                if file_col in chunk.columns
             }
             chunk = chunk.rename(columns=rename_map)
 
             if "datetime" in chunk.columns:
                 chunk["date"] = pd.to_datetime(chunk["datetime"])
-                chunk = chunk.drop(columns=["datetime"])  # === NEW === 删除冗余列
+                chunk.drop(columns=["datetime"], inplace=True)  # === NEW === 删除冗余列
 
             elif "date" in chunk.columns:
                 chunk["date"] = pd.to_datetime(chunk["date"])
             else:
-                msg = "文件缺少 date/datetime 列"
-                raise ValueError(msg)
+                raise ValueError("文件缺少 date/datetime 列")
 
             # === data time filter ===
             if self.data_start_date is not None:
@@ -176,7 +171,8 @@ class BaseSignalEngine:
             chunks.append(chunk)
 
         df = pd.concat(chunks, ignore_index=True)
-        return df.sort_values(["tic", "date"])
+        df = df.sort_values(["tic", "date"])
+        return df
 
     # expand signal to daily, weekly, monthly
 
@@ -193,7 +189,7 @@ class BaseSignalEngine:
         # -------- 周频：覆盖至下次周信号 --------
         if freq == "W":
             idx = signal_df.index
-            next_idx = [*list(idx[1:]), idx[-1] + pd.Timedelta(days=7)]
+            next_idx = list(idx[1:]) + [idx[-1] + pd.Timedelta(days=7)]
 
             records = []
             for start, end in zip(idx, next_idx, strict=False):
@@ -210,7 +206,7 @@ class BaseSignalEngine:
         # -------- 月频：覆盖至下次月信号 --------
         if freq == "M":
             idx = signal_df.index
-            next_idx = [*list(idx[1:]), idx[-1] + pd.offsets.MonthEnd(1)]
+            next_idx = list(idx[1:]) + [idx[-1] + pd.offsets.MonthEnd(1)]
 
             records = []
             for start, end in zip(idx, next_idx, strict=False):
@@ -224,8 +220,7 @@ class BaseSignalEngine:
                 out[col] = [r[1][col] for r in records]
             return out
 
-        msg = f"Unsupported signal freq: {freq}"
-        raise ValueError(msg)
+        raise ValueError(f"Unsupported signal freq: {freq}")
 
     # ===============================================================
     # 主方法：生成 signal_df（date × tic）

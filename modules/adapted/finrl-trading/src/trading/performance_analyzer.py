@@ -32,8 +32,7 @@ import logging
 # from alpaca_trade_api import REST as AlpacaAPI
 import os
 import sys
-from datetime import UTC, datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -64,16 +63,22 @@ def get_first_order_date(manager: AlpacaManager) -> datetime | None:
         orders = manager.get_orders(status="closed", limit=1, direction="asc")
         if orders:
             first_order = orders[0]
-            return datetime.fromisoformat(first_order["submitted_at"])
-        logger.warning("No closed orders found. Using account creation date.")
-        account_info = manager.get_account_info()
-        return datetime.fromisoformat(account_info["created_at"])
+            return datetime.fromisoformat(first_order["submitted_at"].replace("Z", "+00:00"))
+        else:
+            logger.warning("No closed orders found. Using account creation date.")
+            account_info = manager.get_account_info()
+            creation_date = datetime.fromisoformat(
+                account_info["created_at"].replace("Z", "+00:00")
+            )
+            return creation_date
     except Exception as e:
-        logger.exception(f"Error getting first order date: {e}")
+        logger.error(f"Error getting first order date: {e}")
         return None
 
 
-def get_portfolio_history(manager: AlpacaManager, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+def get_portfolio_history(
+    manager: AlpacaManager, start_date: datetime, end_date: datetime
+) -> pd.DataFrame:
     """Get portfolio history from start_date to end_date using AlpacaManager."""
     history = manager.get_portfolio_history(
         timeframe="1D",
@@ -126,7 +131,9 @@ def _compute_daily_returns(series: pd.Series) -> pd.Series:
     return s.pct_change().dropna()
 
 
-def compute_performance_metrics(series: pd.Series, risk_free_rate: float = 0.02) -> dict[str, float]:
+def compute_performance_metrics(
+    series: pd.Series, risk_free_rate: float = 0.02
+) -> dict[str, float]:
     """Compute key performance metrics for a price/equity series.
 
     Returns metrics as percentages for return/volatility/drawdown and raw value for Sharpe.
@@ -172,7 +179,9 @@ def compute_performance_metrics(series: pd.Series, risk_free_rate: float = 0.02)
     eps = 1e-12
     sharpe_ratio = 0.0
     if annual_volatility > eps:
-        sharpe_ratio = ((annual_return / 100.0) - float(risk_free_rate)) / (annual_volatility / 100.0)
+        sharpe_ratio = ((annual_return / 100.0) - float(risk_free_rate)) / (
+            annual_volatility / 100.0
+        )
 
     # Max drawdown
     rolling_max = s.cummax()
@@ -191,7 +200,9 @@ def compute_performance_metrics(series: pd.Series, risk_free_rate: float = 0.02)
     return result
 
 
-def display_metrics_table(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame, risk_free_rate: float | None = None):
+def display_metrics_table(
+    portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame, risk_free_rate: float | None = None
+):
     """Display performance metrics for Portfolio/Benchmarks using aligned common non-null dates."""
     if portfolio_df.empty or benchmark_df.empty:
         print("No data available for metrics table.")
@@ -217,7 +228,7 @@ def display_metrics_table(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame
     bs = bs[present_benchmarks].sort_index()
 
     combined = pd.concat([ps, bs], axis=1)
-    required_cols = ["Portfolio", *present_benchmarks]
+    required_cols = ["Portfolio"] + present_benchmarks
     combined = combined.dropna(subset=required_cols)
 
     if len(combined) < 2:
@@ -225,13 +236,19 @@ def display_metrics_table(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame
         return
 
     # Compute metrics using the exact same date set for all series
-    columns = ["Portfolio", *present_benchmarks]
+    columns = ["Portfolio"] + present_benchmarks
     data = {}
     for name in columns:
         data[name] = compute_performance_metrics(combined[name], rfr)
 
     # Build display DataFrame
-    metrics_order = ["total_return", "annual_return", "annual_volatility", "sharpe_ratio", "max_drawdown"]
+    metrics_order = [
+        "total_return",
+        "annual_return",
+        "annual_volatility",
+        "sharpe_ratio",
+        "max_drawdown",
+    ]
     metric_names = {
         "total_return": "Total Return (%)",
         "annual_return": "Annual Return (%)",
@@ -325,7 +342,7 @@ def plot_performance(portfolio_df: pd.DataFrame, benchmark_df: pd.DataFrame):
     bs = bs[present_benchmarks].sort_index()
 
     combined = pd.concat([ps, bs], axis=1)
-    required_cols = ["Portfolio", *present_benchmarks]
+    required_cols = ["Portfolio"] + present_benchmarks
     combined = combined.dropna(subset=required_cols)
     if len(combined) < 2:
         print("Not enough aligned data to plot.")
@@ -366,8 +383,7 @@ def _build_manager_from_env() -> AlpacaManager:
         sec = os.getenv(f"APCA_{tag}_API_SECRET") or os.getenv("APCA_API_SECRET")
         base = os.getenv(f"APCA_{tag}_BASE_URL") or default_base
         if not key or not sec:
-            msg = f"Missing API key/secret for account '{raw}' in .env"
-            raise ValueError(msg)
+            raise ValueError(f"Missing API key/secret for account '{raw}' in .env")
         cfg[raw] = {"api_key": key, "api_secret": sec, "base_url": base}
 
     accounts = create_multiple_accounts_from_config(cfg)
@@ -401,7 +417,9 @@ def run_multi_account_performance(
 
             # fetch data
             pf = get_portfolio_history(manager, start, end)
-            bench = get_benchmark_data(start.date().isoformat(), (end + timedelta(days=1)).date().isoformat())
+            bench = get_benchmark_data(
+                start.date().isoformat(), (end + timedelta(days=1)).date().isoformat()
+            )
             # align benchmark to portfolio dates (reuse existing alignment logic downstream)
 
             if not bench.empty and not pf.empty:
@@ -498,13 +516,14 @@ def main():
 
             # fetch data
             pf = get_portfolio_history(manager, start, end)
-            bench = get_benchmark_data(start.date().isoformat(), (end + timedelta(days=1)).date().isoformat())
+            bench = get_benchmark_data(
+                start.date().isoformat(), (end + timedelta(days=1)).date().isoformat()
+            )
 
             # print("\n[DEBUG] Raw Benchmark (FMP) Data:")
             # print(bench.tail(10))
-            if not bench.empty and not pf.empty:
-                if len(bench) > len(pf):
-                    bench = bench.iloc[:-1]
+            if not bench.empty and not pf.empty and len(bench) > len(pf):
+                bench = bench.iloc[:-1]
             if not bench.empty and not pf.empty:
                 mask = np.isin(bench.index.date, pf["date"].dt.date.unique())
                 bench = bench[mask]

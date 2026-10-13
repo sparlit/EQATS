@@ -41,9 +41,7 @@ Version: 1.2.1
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Union
 
-import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 
@@ -101,10 +99,14 @@ def get_trading_calendar(
     schedule = calendar.schedule(start_date=start, end_date=end)
 
     # Extract dates (market_open column contains trading days)
-    return pd.DatetimeIndex(schedule.index.date).unique()
+    trading_days = pd.DatetimeIndex(schedule.index.date).unique()
+
+    return trading_days
 
 
-def get_week_end_dates(start: str | pd.Timestamp, end: str | pd.Timestamp, exchange: str = "NYSE") -> pd.DatetimeIndex:
+def get_week_end_dates(
+    start: str | pd.Timestamp, end: str | pd.Timestamp, exchange: str = "NYSE"
+) -> pd.DatetimeIndex:
     """
     Get week-end dates (Friday or last trading day of week)
 
@@ -188,7 +190,10 @@ def is_trading_day(date: str | pd.Timestamp | datetime, exchange: str = "NYSE") 
 
 
 def trading_days_between(
-    start: str | pd.Timestamp, end: str | pd.Timestamp, exchange: str = "NYSE", inclusive: str = "both"
+    start: str | pd.Timestamp,
+    end: str | pd.Timestamp,
+    exchange: str = "NYSE",
+    inclusive: str = "both",
 ) -> int:
     """
     Count trading days between two dates
@@ -246,13 +251,16 @@ def trading_days_between(
         if is_trading_day(end, exchange):
             count -= 1
     else:
-        msg = f"inclusive must be 'both', 'left', 'right', or 'neither', got {inclusive}"
-        raise ValueError(msg)
+        raise ValueError(
+            f"inclusive must be 'both', 'left', 'right', or 'neither', got {inclusive}"
+        )
 
     return max(0, count)
 
 
-def get_next_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n_days: int = 1) -> pd.Timestamp:
+def get_next_trading_day(
+    date: str | pd.Timestamp, exchange: str = "NYSE", n_days: int = 1
+) -> pd.Timestamp:
     """
     Get the next trading day after a given date
 
@@ -281,8 +289,7 @@ def get_next_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n_day
         - Useful for forward-looking date calculations
     """
     if n_days < 1:
-        msg = f"n_days must be >= 1, got {n_days}"
-        raise ValueError(msg)
+        raise ValueError(f"n_days must be >= 1, got {n_days}")
 
     date = pd.Timestamp(date)
 
@@ -294,13 +301,16 @@ def get_next_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n_day
     trading_days = get_trading_calendar(start, end, exchange)
 
     if len(trading_days) < n_days:
-        msg = f"Not enough future trading days. Need {n_days}, found {len(trading_days)}"
-        raise IndexError(msg)
+        raise IndexError(
+            f"Not enough future trading days. Need {n_days}, found {len(trading_days)}"
+        )
 
     return trading_days[n_days - 1]
 
 
-def get_previous_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n_days: int = 1) -> pd.Timestamp:
+def get_previous_trading_day(
+    date: str | pd.Timestamp, exchange: str = "NYSE", n_days: int = 1
+) -> pd.Timestamp:
     """
     Get the previous trading day before a given date
 
@@ -329,8 +339,7 @@ def get_previous_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n
         - Useful for backward-looking date calculations
     """
     if n_days < 1:
-        msg = f"n_days must be >= 1, got {n_days}"
-        raise ValueError(msg)
+        raise ValueError(f"n_days must be >= 1, got {n_days}")
 
     date = pd.Timestamp(date)
 
@@ -342,8 +351,7 @@ def get_previous_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", n
     trading_days = get_trading_calendar(start, end, exchange)
 
     if len(trading_days) < n_days:
-        msg = f"Not enough past trading days. Need {n_days}, found {len(trading_days)}"
-        raise IndexError(msg)
+        raise IndexError(f"Not enough past trading days. Need {n_days}, found {len(trading_days)}")
 
     return trading_days[-(n_days)]
 
@@ -363,7 +371,9 @@ def get_available_exchanges() -> list:
     return mcal.get_calendar_names()
 
 
-def align_to_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", method: str = "forward") -> pd.Timestamp:
+def align_to_trading_day(
+    date: str | pd.Timestamp, exchange: str = "NYSE", method: str = "forward"
+) -> pd.Timestamp:
     """
     Align a date to the nearest trading day
 
@@ -401,9 +411,9 @@ def align_to_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", metho
 
     if method == "forward":
         return get_next_trading_day(date, exchange, n_days=1)
-    if method == "backward":
+    elif method == "backward":
         return get_previous_trading_day(date, exchange, n_days=1)
-    if method == "nearest":
+    elif method == "nearest":
         # Get both directions
         next_day = get_next_trading_day(date, exchange, n_days=1)
         prev_day = get_previous_trading_day(date, exchange, n_days=1)
@@ -411,9 +421,10 @@ def align_to_trading_day(date: str | pd.Timestamp, exchange: str = "NYSE", metho
         # Return closer one
         if abs((next_day - date).days) <= abs((date - prev_day).days):
             return next_day
-        return prev_day
-    msg = f"method must be 'forward', 'backward', or 'nearest', got {method}"
-    raise ValueError(msg)
+        else:
+            return prev_day
+    else:
+        raise ValueError(f"method must be 'forward', 'backward', or 'nearest', got {method}")
 
 
 if __name__ == "__main__":

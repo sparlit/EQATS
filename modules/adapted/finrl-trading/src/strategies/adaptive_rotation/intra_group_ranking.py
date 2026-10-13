@@ -37,12 +37,10 @@ Version: 1.2.1
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from .config_loader import AdaptiveRotationConfig
 from .utils.robust_stats import robust_zscore
 
 # ============================================================================
@@ -115,7 +113,9 @@ def compute_residual_returns(
         return pd.Series(dtype=float)
 
     # Compute residual
-    return asset_returns.loc[common_dates] - group_returns.loc[common_dates]
+    residual = asset_returns.loc[common_dates] - group_returns.loc[common_dates]
+
+    return residual
 
 
 def compute_residual_momentum(
@@ -225,13 +225,18 @@ def compute_asset_score(
 
     if robust:
         z_scores = robust_zscore(
-            residual_returns, window=min(ZSCORE_WINDOW, len(residual_returns)), center_metric="median"
+            residual_returns,
+            window=min(ZSCORE_WINDOW, len(residual_returns)),
+            center_metric="median",
         )
     else:
         # Standard Z-score
         mean = residual_returns.mean()
         std = residual_returns.std()
-        z_scores = pd.Series(0.0, index=residual_returns.index) if std == 0 else (residual_returns - mean) / std
+        if std == 0:
+            z_scores = pd.Series(0.0, index=residual_returns.index)
+        else:
+            z_scores = (residual_returns - mean) / std
 
     # Use most recent Z-score
     current_zscore = z_scores.iloc[-1] if len(z_scores) > 0 else 0.0

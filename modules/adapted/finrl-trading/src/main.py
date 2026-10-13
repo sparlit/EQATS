@@ -37,9 +37,8 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from utils.logging_utils import setup_logging
-
 from config.settings import get_config
+from utils.logging_utils import setup_logging
 
 
 def setup_parser():
@@ -57,7 +56,9 @@ Examples:
     )
 
     parser.add_argument(
-        "command", choices=["dashboard", "backtest", "trade", "data", "config"], help="Command to execute"
+        "command",
+        choices=["dashboard", "backtest", "trade", "data", "config"],
+        help="Command to execute",
     )
 
     parser.add_argument("--config", type=str, help="Path to configuration file")
@@ -116,7 +117,7 @@ def main():
         logger.info("Operation cancelled by user")
         sys.exit(1)
     except Exception as e:
-        logger.exception(f"Error executing command '{args.command}': {e}")
+        logger.error(f"Error executing command '{args.command}': {e}")
         if args.verbose:
             import traceback
 
