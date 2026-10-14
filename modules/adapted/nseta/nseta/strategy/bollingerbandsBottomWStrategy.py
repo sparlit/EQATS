@@ -186,7 +186,7 @@ class bollingerbandsBottomWStrategy:
                 if moveon:
                     moveon = False
                     default_logger().debug(f"\nRange from {i} - {j}")
-                    for m in range(i, j - 1, -1):  # TODO: Should be (i, j, -1) ?
+                    for m in range(i, j - 1, -1):
                         default_logger().debug(
                             "\nClose: {}, lower_band: {}, alpha: {}, threshold: {}".format(
                                 df["close"][m], df["lower_band"][m], alpha, threshold
@@ -197,7 +197,7 @@ class bollingerbandsBottomWStrategy:
                             (df["close"][m] - df["lower_band"][m] < alpha)
                             and (df["close"][m] > df["lower_band"][m])
                             and (df["close"][m] <= threshold)
-                        ):  # TODO: Should be (df['close'][m]<=threshold) ?
+                        ):
                             df.loc[:, "bb_signal"].iloc[i] = 1
                             df.loc[:, "coordinates"].iloc[i] = f"{l},{k},{j},{m},{i}"
                             df["bb_position"] = df["bb_signal"].cumsum()
