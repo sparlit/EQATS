@@ -51,6 +51,25 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertEqual(res['r1'], 100.0)
         self.assertEqual(res['s1'], 90.0)
 
+    def test_ichimoku(self) -> None:
+        res_empty = indicators.calculate_ichimoku([], [], [])
+        self.assertEqual(res_empty, {"tenkan": 0.0, "kijun": 0.0})
+
+        closes_short = [10.0 + i for i in range(10)]
+        highs_short = [10.5 + i for i in range(10)]
+        lows_short = [9.5 + i for i in range(10)]
+        res_short = indicators.calculate_ichimoku(highs_short, lows_short, closes_short)
+        self.assertEqual(res_short, {"tenkan": closes_short[-1], "kijun": closes_short[-1]})
+
+        highs = [10.0 + i for i in range(30)]
+        lows = [1.0 + i for i in range(30)]
+        closes = [5.0 + i for i in range(30)]
+        res = indicators.calculate_ichimoku(highs, lows, closes)
+        self.assertIn("tenkan", res)
+        self.assertIn("kijun", res)
+        self.assertEqual(res["tenkan"], 30.5)
+        self.assertEqual(res["kijun"], 22.0)
+
 class TestScalperBrainAndConnector(unittest.TestCase):
 
     def _reset_global_state(self) -> None:
