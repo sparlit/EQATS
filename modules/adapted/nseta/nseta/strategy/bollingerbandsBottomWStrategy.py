@@ -1,11 +1,10 @@
 import datetime
-
-import pytz
+import zoneinfo
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -119,10 +118,8 @@ class bollingerbandsBottomWStrategy:
         # beta denotes the scale of bandwidth
         # when bandwidth is larger than beta, it is expansion period
         # when bandwidth is smaller than beta, it is contraction period
-        alpha = (
-            data.loc[:, "close"].iloc[0] * 0.01
-        )  # 0.0001 # TODO: Should be a much lower value for alpha?
-        beta = alpha  # 0.0001
+        alpha = data.loc[:, "close"].iloc[0] * 0.01
+        beta = alpha
         default_logger().debug(f"\nAlpha set to: {alpha}")
         df = self.bollinger_bands(data)
         df["bb_signal"] = 0
@@ -186,7 +183,7 @@ class bollingerbandsBottomWStrategy:
                 if moveon:
                     moveon = False
                     default_logger().debug(f"\nRange from {i} - {j}")
-                    for m in range(i, j - 1, -1):  # TODO: Should be (i, j, -1) ?
+                    for m in range(i, j - 1, -1):
                         default_logger().debug(
                             "\nClose: {}, lower_band: {}, alpha: {}, threshold: {}".format(
                                 df["close"][m], df["lower_band"][m], alpha, threshold
@@ -197,7 +194,7 @@ class bollingerbandsBottomWStrategy:
                             (df["close"][m] - df["lower_band"][m] < alpha)
                             and (df["close"][m] > df["lower_band"][m])
                             and (df["close"][m] <= threshold)
-                        ):  # TODO: Should be (df['close'][m]<=threshold) ?
+                        ):
                             df.loc[:, "bb_signal"].iloc[i] = 1
                             df.loc[:, "coordinates"].iloc[i] = f"{l},{k},{j},{m},{i}"
                             df["bb_position"] = df["bb_signal"].cumsum()
