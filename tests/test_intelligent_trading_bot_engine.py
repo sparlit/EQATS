@@ -123,3 +123,63 @@ def test_cancel_order_success_and_failure():
             res = asyncio.run(cancel_order())
             assert res is None
             mock_sync.assert_called_once()
+
+
+def test_update_trade_status_single_open_order():
+    mock_mt5 = MagicMock()
+    mock_mt5.__author__ = "MetaTrader 5 Ltd."
+    mock_mt5.__version__ = "5.0.45"
+    mock_mt5.ORDER_TYPE_SELL_LIMIT = 1
+    mock_mt5.ORDER_TYPE_SELL = 2
+    mock_mt5.ORDER_TYPE_BUY_LIMIT = 0
+    mock_mt5.ORDER_TYPE_BUY = 3
+    mock_mt5.ORDER_TYPE_OTHER = 99
+
+    mock_modules = {
+        "MetaTrader5": mock_mt5,
+        "pytz": MagicMock(),
+        "joblib": MagicMock(),
+        "dateparser": MagicMock(),
+        "apscheduler": MagicMock(),
+        "apscheduler.triggers": MagicMock(),
+        "apscheduler.triggers.cron": MagicMock(),
+        "scipy": MagicMock(),
+        "scipy.stats": MagicMock(),
+        "sklearn": MagicMock(),
+        "sklearn.metrics": MagicMock(),
+    }
+
+    with patch.dict(sys.modules, mock_modules):
+        from outputs.trader_mt5 import update_trade_status, App
+
+        App.config = {"symbol": "BTCUSD"}
+
+        # Sell Limit Order
+        order_sell_limit = MagicMock(type=mock_mt5.ORDER_TYPE_SELL_LIMIT)
+        mock_mt5.orders_get.return_value = (order_sell_limit,)
+        asyncio.run(update_trade_status())
+        assert App.status == "SELLING"
+
+        # Sell Market Order
+        order_sell = MagicMock(type=mock_mt5.ORDER_TYPE_SELL)
+        mock_mt5.orders_get.return_value = (order_sell,)
+        asyncio.run(update_trade_status())
+        assert App.status == "SELLING"
+
+        # Buy Limit Order
+        order_buy_limit = MagicMock(type=mock_mt5.ORDER_TYPE_BUY_LIMIT)
+        mock_mt5.orders_get.return_value = (order_buy_limit,)
+        asyncio.run(update_trade_status())
+        assert App.status == "BUYING"
+
+        # Buy Market Order
+        order_buy = MagicMock(type=mock_mt5.ORDER_TYPE_BUY)
+        mock_mt5.orders_get.return_value = (order_buy,)
+        asyncio.run(update_trade_status())
+        assert App.status == "BUYING"
+
+        # Invalid Order Type
+        order_invalid = MagicMock(type=99)
+        mock_mt5.orders_get.return_value = (order_invalid,)
+        res = asyncio.run(update_trade_status())
+        assert res is None
