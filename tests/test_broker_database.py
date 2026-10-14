@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import unittest
+from unittest.mock import MagicMock, patch
 
 import broker_database
 import database
@@ -86,6 +87,146 @@ class TestBrokerDatabase(unittest.TestCase):
         res_stats = server._route_request("GET", "/api/brokers/stats")
         self.assertEqual(res_stats["status"], "SUCCESS")
         self.assertIn("total_unique_brokers", res_stats["stats"])
+
+
+class TestParseXlsBrokers(unittest.TestCase):
+    def test_parse_xls_brokers_nonexistent_file(self) -> None:
+        records = broker_database.parse_xls_brokers("non_existent_file_xyz_123.xls")
+        self.assertEqual(records, [])
+
+    def test_parse_xls_brokers_real_file(self) -> None:
+        real_xls = os.path.join(
+            "Brokers",
+            "Registered Stock Brokers in Equity Derivative Segment as on Jul 11 2026.xls",
+        )
+        if os.path.exists(real_xls):
+            records = broker_database.parse_xls_brokers(real_xls)
+            self.assertGreater(len(records), 0)
+            first = records[0]
+            self.assertIn("name", first)
+            self.assertIn("registration_no", first)
+            self.assertIn("Equity Derivative", first["segments"])
+            self.assertIn(os.path.basename(real_xls), first["sources"])
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook")
+    def test_parse_xls_brokers_mocked_success(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        mock_wb = MagicMock()
+        mock_sheet = MagicMock()
+        mock_wb.sheet_by_index.return_value = mock_sheet
+        mock_open_wb.return_value = mock_wb
+
+        # Row indices:
+        # Row 0, 1, 2: header / unused
+        # Row 3: valid full broker record
+        # Row 4: empty primary name, but valid trade_name
+        mock_sheet.nrows = 5
+        mock_sheet.ncols = 22
+
+        def cell_val(row_idx: int, col_idx: int) -> str:
+            if row_idx == 3:
+                data = {
+                    0: "ALPHA CAPITAL LTD",
+                    1: "INZ000111222",
+                    2: "John Doe",
+                    3: "123 Main St",
+                    4: "john@alpha.com",
+                    5: "9876543210",
+                    6: "022-1234567",
+                    7: "Mumbai",
+                    8: "Maharashtra",
+                    9: "400001",
+                    17: "2020-01-01",
+                    18: "2030-01-01",
+                    20: "NSE",
+                    21: "ALPHA TRADING",
+                }
+                return data.get(col_idx, "")
+            elif row_idx == 4:
+                data = {
+                    0: "",  # Name empty
+                    1: "INZ000333444",
+                    21: "BETA SECURITIES TRADING",  # Trade name present
+                }
+                return data.get(col_idx, "")
+            return ""
+
+        mock_sheet.cell_value.side_effect = cell_val
+
+        fpath = "Brokers in Commodity Derivative Segment as on Jul 11 2026.xls"
+        records = broker_database.parse_xls_brokers(fpath)
+
+        self.assertEqual(len(records), 2)
+        # Record 0 checks
+        r0 = records[0]
+        self.assertEqual(r0["name"], "ALPHA CAPITAL LTD")
+        self.assertEqual(r0["registration_no"], "INZ000111222")
+        self.assertEqual(r0["trade_name"], "ALPHA TRADING")
+        self.assertEqual(r0["contact_person"], "John Doe")
+        self.assertEqual(r0["email"], "john@alpha.com")
+        self.assertEqual(r0["phone"], "9876543210")
+        self.assertEqual(r0["fax"], "022-1234567")
+        self.assertEqual(r0["address"], "123 Main St")
+        self.assertEqual(r0["city"], "Mumbai")
+        self.assertEqual(r0["state"], "Maharashtra")
+        self.assertEqual(r0["pincode"], "400001")
+        self.assertEqual(r0["valid_from"], "2020-01-01")
+        self.assertEqual(r0["valid_to"], "2030-01-01")
+        self.assertEqual(r0["exchange"], "NSE")
+        self.assertEqual(r0["segments"], ["Commodity Derivative"])
+        self.assertEqual(r0["sources"], [fpath])
+
+        # Record 1 checks (trade_name fallback when name is empty)
+        r1 = records[1]
+        self.assertEqual(r1["name"], "BETA SECURITIES TRADING")
+        self.assertEqual(r1["trade_name"], "BETA SECURITIES TRADING")
+        self.assertEqual(r1["registration_no"], "INZ000333444")
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook")
+    def test_parse_xls_brokers_empty_row_and_short_row(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        mock_wb = MagicMock()
+        mock_sheet = MagicMock()
+        mock_wb.sheet_by_index.return_value = mock_sheet
+        mock_open_wb.return_value = mock_wb
+
+        # Row 3: empty row (skipped)
+        # Row 4: short row (ncols = 2, only name & reg_no)
+        mock_sheet.nrows = 5
+        mock_sheet.ncols = 2
+
+        def cell_val(row_idx: int, col_idx: int) -> str:
+            if row_idx == 4:
+                if col_idx == 0:
+                    return "GAMMA TRADERS"
+                elif col_idx == 1:
+                    return "INZ000555666"
+            return ""
+
+        mock_sheet.cell_value.side_effect = cell_val
+
+        # Test filename without segment match pattern -> default segment "General"
+        fpath = "random_brokers_file.xls"
+        records = broker_database.parse_xls_brokers(fpath)
+
+        self.assertEqual(len(records), 1)
+        r = records[0]
+        self.assertEqual(r["name"], "GAMMA TRADERS")
+        self.assertEqual(r["registration_no"], "INZ000555666")
+        self.assertEqual(r["segments"], ["General"])
+        self.assertEqual(r["sources"], ["random_brokers_file.xls"])
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook", side_effect=Exception("XLS file corrupted or invalid"))
+    def test_parse_xls_brokers_exception_handling(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        records = broker_database.parse_xls_brokers("corrupted.xls")
+        self.assertEqual(records, [])
 
 
 if __name__ == "__main__":
