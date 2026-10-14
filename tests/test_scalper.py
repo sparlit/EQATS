@@ -51,6 +51,43 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertEqual(res['r1'], 100.0)
         self.assertEqual(res['s1'], 90.0)
 
+    def test_stochastic(self) -> None:
+        # 1. Edge case: empty or insufficient data (< period)
+        res_empty = indicators.calculate_stochastic([], [], [])
+        self.assertEqual(res_empty, {"k": 50.0, "d": 50.0})
+
+        highs_short = [10.0, 11.0, 12.0]
+        lows_short = [9.0, 10.0, 11.0]
+        closes_short = [9.5, 10.5, 11.5]
+        res_short = indicators.calculate_stochastic(highs_short, lows_short, closes_short, period=14)
+        self.assertEqual(res_short, {"k": 50.0, "d": 50.0})
+
+        # 2. Flat price series (denom == 0)
+        highs_flat = [10.0] * 20
+        lows_flat = [10.0] * 20
+        closes_flat = [10.0] * 20
+        res_flat = indicators.calculate_stochastic(highs_flat, lows_flat, closes_flat, period=14, d_period=3)
+        self.assertEqual(res_flat, {"k": 50.0, "d": 50.0})
+
+        # 3. Standard price series with period=14, d_period=3
+        highs = [10.0 + i * 0.5 for i in range(20)]
+        lows = [8.0 + i * 0.5 for i in range(20)]
+        closes = [9.0 + i * 0.5 for i in range(20)]
+        res_std = indicators.calculate_stochastic(highs, lows, closes, period=14, d_period=3)
+        self.assertIn("k", res_std)
+        self.assertIn("d", res_std)
+        self.assertIsInstance(res_std["k"], float)
+        self.assertIsInstance(res_std["d"], float)
+        self.assertTrue(0.0 <= res_std["k"] <= 100.0)
+        self.assertTrue(0.0 <= res_std["d"] <= 100.0)
+
+        # 4. Custom period parameters (period=5, d_period=2)
+        res_custom = indicators.calculate_stochastic(highs, lows, closes, period=5, d_period=2)
+        self.assertIn("k", res_custom)
+        self.assertIn("d", res_custom)
+        self.assertTrue(0.0 <= res_custom["k"] <= 100.0)
+        self.assertTrue(0.0 <= res_custom["d"] <= 100.0)
+
 class TestScalperBrainAndConnector(unittest.TestCase):
 
     def _reset_global_state(self) -> None:
