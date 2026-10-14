@@ -88,11 +88,11 @@ State ledger tracking in `ingestion_blueprint.json` manages a total of **424 ope
 ### F. Verification
 
 - **Build & Static Compilation**:
-  - `PYTHONPATH=src /app/venv/bin/python3 -m mypy --config-file mypy.ini src`
+  - `PYTHONPATH=src mypy --config-file mypy.ini src`
   - **Status**: **PASS (Success: no issues found in 216 source files)**.
 - **Unit & Integration Test Suite**:
-  - `PYTHONPATH=src /app/venv/bin/python3 -m pytest tests/test_scalper.py tests/test_sebi_broker_adapter.py tests/test_v11_0_institutional_upgrade.py`
-  - **Status**: **PASS (35 passed in 191s - 100% pass rate)**.
+  - `PYTHONPATH=src python3 -m pytest tests/test_broker_database.py tests/test_kronos_model.py tests/test_bollinger_bottom_w.py`
+  - **Status**: **PASS (36 passed in 136s - 100% pass rate)**.
 - **Security & Release Gate Verification**:
   - All release security gates, credential encryption, password hashing, and authentication workflows verified.
 - **Real-Time Execution Status**:
