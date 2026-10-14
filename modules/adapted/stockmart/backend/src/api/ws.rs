@@ -146,6 +146,10 @@ async fn handle_client_message(
         std::mem::discriminant(&client_msg)
     );
 
+    if let Some(sid) = conn_state.session_id {
+        state.sessions.increment_message_count(sid);
+    }
+
     match client_msg {
         ClientMessage::Auth { token } => {
             handle_auth(
