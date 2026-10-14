@@ -105,7 +105,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
                 print(f"===> BOUGHT: {order}")
                 App.status = "BOUGHT"
             elif status == "SELLING":
-                print(f"<=== SOLD: {order}")  # TODO: Check if it is correct
+                print(f"<=== SOLD: {order}")
                 App.status = "SOLD"
             log.info(f"New trade mode: {App.status}")
         elif order_status in [
@@ -231,7 +231,7 @@ async def update_trade_status():
             App.status = "BOUGHT"
 
     elif len(open_orders) == 1:
-        order = open_orders[0]  # TODO: Check if it is correct
+        order = open_orders[0]
         if order.type == mt5.ORDER_TYPE_SELL_LIMIT:
             App.status = "SELLING"
         elif order.type == mt5.ORDER_TYPE_BUY_LIMIT:
@@ -271,13 +271,18 @@ async def update_order_status():
     new_order = order_info[0]
 
     # Impose and overwrite the new order information
-    if new_order:
+    if hasattr(new_order, "_asdict"):
         order.update(new_order._asdict())
-    else:  # TODO: Check if it is correct
+    elif isinstance(new_order, dict):
+        order.update(new_order)
+    else:
         return None
 
+    if "status" not in order and "state" in order:
+        order["status"] = order["state"]
+
     # Now order["status"] contains the latest status of the order
-    return order["status"]
+    return order.get("status")
 
 
 async def update_account_balance():
