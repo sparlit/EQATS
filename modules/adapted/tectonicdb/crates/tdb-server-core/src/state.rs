@@ -20,8 +20,6 @@ use tdb_core::dtf::file_format::scan_files_for_range;
 use tdb_core::postprocessing::orderbook::Orderbook;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-static PRICE_DECIMALS: u8 = 10; // TODO: don't hardcode this
-
 macro_rules! catch {
     ($($code:tt)*) => {
         (|| { Some({ $($code)* }) })()
@@ -208,7 +206,7 @@ impl TectonicServer {
         let mut books = HashMap::new();
         books.insert(
             BookName::from("default").unwrap(),
-            Book::new("default", settings.clone(), PRICE_DECIMALS)
+            Book::new("default", settings.clone(), settings.price_decimals)
         );
         let subscriptions = HashMap::new();
         let history = HashMap::new();
@@ -488,7 +486,7 @@ impl TectonicServer {
         } else {
             self.books.insert(
                 book_name.to_owned(),
-                Book::new(book_name, self.settings.clone(), PRICE_DECIMALS),
+                Book::new(book_name, self.settings.clone(), self.settings.price_decimals),
             );
             Some(())
         }
