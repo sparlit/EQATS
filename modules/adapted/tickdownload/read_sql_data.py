@@ -37,22 +37,26 @@ _DB_METADATA = None
 
 
 def get_all_scrips_names_in_db(metadata=None):
+    if metadata is None:
+        metadata = _DB_METADATA
     all_scrips_table = create_or_get_all_scrips_table(metadata=metadata)
     scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(
         all_scrips_table.c.nse_traded
     )
 
-    result = execute_one(scrips_select_st, engine=metadata.bind)
+    engine = metadata.bind if metadata is not None else None
+    result = execute_one(scrips_select_st, engine=engine)
     symbols = [row[0] for row in result.fetchall()]
 
     return symbols
 
 
-# FIXME metadata=None doesn't look correct, we need to pass db_meta perhaps?
 def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
+    if metadata is None:
+        metadata = _DB_METADATA
     lscrips = get_all_scrips_names_in_db(metadata=metadata)
 
-    e = metadata.bind
+    e = metadata.bind if metadata is not None else None
     hist_data = create_or_get_nse_equities_hist_data(metadata=metadata)
 
     scripdata_dict = {}
@@ -112,7 +116,7 @@ def main(args):
             print(f"Not a valid DB URL: {args.dbpath} (Exception: {e})")
             return -1
 
-    get_hist_data_as_dataframes_dict()
+    get_hist_data_as_dataframes_dict(metadata=_DB_METADATA)
 
     return 0
 
