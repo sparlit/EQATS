@@ -1,7 +1,10 @@
 import os
 import sqlite3
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+
+import openpyxl
 
 import broker_database
 import database
@@ -124,6 +127,93 @@ class TestBrokerDatabase(unittest.TestCase):
         res_stats = server._route_request("GET", "/api/brokers/stats")
         self.assertEqual(res_stats["status"], "SUCCESS")
         self.assertIn("total_unique_brokers", res_stats["stats"])
+
+    def test_parse_xlsx_brokers_nonexistent_file(self) -> None:
+        records = broker_database.parse_xlsx_brokers("non_existent_file_12345.xlsx")
+        self.assertEqual(records, [])
+
+    def test_parse_xlsx_brokers_actual_file(self) -> None:
+        xlsx_path = os.path.join("Brokers", "indian_brokers.xlsx")
+        if os.path.exists(xlsx_path):
+            records = broker_database.parse_xlsx_brokers(xlsx_path)
+            self.assertGreater(len(records), 0)
+            for rec in records:
+                self.assertIn("name", rec)
+                self.assertIn("segments", rec)
+                self.assertEqual(rec["sources"], ["indian_brokers.xlsx"])
+                self.assertNotIn(rec["name"].upper(), ("TRADE NAME", "MEMBER NAME", "INDIAN STOCK MARKET REGISTERED BROKERS"))
+
+    def test_parse_xlsx_brokers_mock_file(self) -> None:
+        wb = openpyxl.Workbook()
+        ws_equity = wb.active
+        ws_equity.title = "NSE_Equity"
+        ws_equity.append(["TRADE NAME"])
+        ws_equity.append(["  ALPHA CAPITAL PRIVATE LIMITED  "])
+        ws_equity.append(["BETA SECURITIES 100.0"])
+        ws_equity.append([None])
+        ws_equity.append([""])
+
+        ws_deriv = wb.create_sheet(title="NSE_Derivatives")
+        ws_deriv.append(["MEMBER NAME"])
+        ws_deriv.append(["GAMMA BROKING LTD"])
+
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            wb.save(tmp_path)
+            records = broker_database.parse_xlsx_brokers(tmp_path)
+            fname = os.path.basename(tmp_path)
+
+            self.assertEqual(len(records), 3)
+            self.assertEqual(
+                records[0],
+                {"name": "ALPHA CAPITAL PRIVATE LIMITED", "segments": ["NSE_Equity"], "sources": [fname]},
+            )
+            self.assertEqual(
+                records[1],
+                {"name": "BETA SECURITIES 100", "segments": ["NSE_Equity"], "sources": [fname]},
+            )
+            self.assertEqual(
+                records[2],
+                {"name": "GAMMA BROKING LTD", "segments": ["NSE_Derivatives"], "sources": [fname]},
+            )
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_parse_xlsx_brokers_corrupt_file_exception_handling(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            tmp.write(b"NOT A VALID XLSX CONTENT CORRUPT BYTES")
+            tmp_path = tmp.name
+
+        try:
+            records = broker_database.parse_xlsx_brokers(tmp_path)
+            self.assertEqual(records, [])
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_parse_txt_brokers(self) -> None:
+        self.assertEqual(broker_database.parse_txt_brokers("non_existent.txt"), [])
+
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w", encoding="utf-8") as tmp:
+            tmp.write("TRADE NAME\n  DELTA TRADING CO  \n\nEPSILON BROKERAGE\n")
+            tmp_path = tmp.name
+
+        try:
+            records = broker_database.parse_txt_brokers(tmp_path)
+            fname = os.path.basename(tmp_path)
+            self.assertEqual(len(records), 2)
+            self.assertEqual(records[0], {"name": "DELTA TRADING CO", "sources": [fname]})
+            self.assertEqual(records[1], {"name": "EPSILON BROKERAGE", "sources": [fname]})
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_parse_xls_and_pdf_nonexistent(self) -> None:
+        self.assertEqual(broker_database.parse_xls_brokers("non_existent.xls"), [])
+        self.assertEqual(broker_database.parse_pdf_brokers("non_existent.pdf"), [])
 
 
 class TestParseXlsBrokers(unittest.TestCase):
