@@ -1,11 +1,20 @@
 import datetime
+from zoneinfo import ZoneInfo
 
-import pytz
+import pandas as pd
+from sqlalchemy import desc
+from tickerplot.sql.sqlalchemy_wrapper import (
+    create_or_get_all_scrips_table,
+    create_or_get_nse_equities_hist_data,
+    execute_one,
+    get_metadata,
+    select_expr,
+)
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -23,20 +32,15 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 
 # pylint: disable-msg=broad-except, global-statement
 
-import pandas as pd
-from sqlalchemy import desc
-from tickerplot.sql.sqlalchemy_wrapper import (
-    create_or_get_all_scrips_table,
-    create_or_get_nse_equities_hist_data,
-    execute_one,
-    get_metadata,
-    select_expr,
-)
-
 _DB_METADATA = None
 
 
 def get_all_scrips_names_in_db(metadata=None):
+    if metadata is None:
+        metadata = _DB_METADATA
+    if metadata is None:
+        raise ValueError("Database metadata must be provided or set via _DB_METADATA.")
+
     all_scrips_table = create_or_get_all_scrips_table(metadata=metadata)
     scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(
         all_scrips_table.c.nse_traded
@@ -48,16 +52,19 @@ def get_all_scrips_names_in_db(metadata=None):
     return symbols
 
 
-# FIXME metadata=None doesn't look correct, we need to pass db_meta perhaps?
 def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
+    if metadata is None:
+        metadata = _DB_METADATA
+    if metadata is None:
+        raise ValueError("Database metadata must be provided or set via _DB_METADATA.")
+
     lscrips = get_all_scrips_names_in_db(metadata=metadata)
 
     e = metadata.bind
     hist_data = create_or_get_nse_equities_hist_data(metadata=metadata)
 
     scripdata_dict = {}
-    scrips = 0
-    for scrip in lscrips:
+    for scrips, scrip in enumerate(lscrips, start=1):
         sql_st = (
             select_expr(
                 [
@@ -85,14 +92,13 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
         scripdata.drop("date", axis=1, inplace=True)
         scripdata_dict[scrip] = scripdata
 
-        scrips += 1
         if scrips == max_scrips:
             break
 
     return scripdata_dict
 
 
-def main(args):
+def main(args=None):
 
     import argparse
 
@@ -101,18 +107,18 @@ def main(args):
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")
 
-    args = parser.parse_args()
+    parsed_args = parser.parse_args(args)
 
     # Make sure we can access the DB path if specified or else exit right here.
-    if args.dbpath:
+    if parsed_args.dbpath:
         try:
             global _DB_METADATA
-            _DB_METADATA = get_metadata(args.dbpath)
+            _DB_METADATA = get_metadata(parsed_args.dbpath)
         except Exception as e:
-            print(f"Not a valid DB URL: {args.dbpath} (Exception: {e})")
+            print(f"Not a valid DB URL: {parsed_args.dbpath} (Exception: {e})")
             return -1
 
-    get_hist_data_as_dataframes_dict()
+    get_hist_data_as_dataframes_dict(metadata=_DB_METADATA)
 
     return 0
 
@@ -120,4 +126,4 @@ def main(args):
 if __name__ == "__main__":
     import sys
 
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
