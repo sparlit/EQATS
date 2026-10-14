@@ -4,19 +4,37 @@ import subprocess
 import sys
 from typing import Any
 
-from openai import OpenAI  # Or anthropic, google-genai, etc.
+try:
+    from openai import OpenAI  # Or anthropic, google-genai, etc.
+except ImportError:
+    OpenAI = None  # type: ignore[misc, assignment]
 
 # Configuration
 MAX_RETRIES = 3
-TEST_COMMAND = "python -m pytest -n auto -vv -s --count=100 --full-trace --cache-clear -k 'not gui_integration' --json-report --json-report-file=.pytest_report.json"
+TEST_ARGS = [
+    "-m",
+    "pytest",
+    "-n",
+    "auto",
+    "-vv",
+    "-s",
+    "--count=100",
+    "--full-trace",
+    "--cache-clear",
+    "-k",
+    "not gui_integration",
+    "--json-report",
+    "--json-report-file=.pytest_report.json",
+]
 
-client = OpenAI(api_key=os.getenv("LLM_API_KEY"))
+client = OpenAI(api_key=os.getenv("LLM_API_KEY")) if OpenAI is not None else None
 
 
 def run_tests() -> bool:
     """Runs the test suite and returns True if successful, False otherwise."""
-    print(f"Executing: {TEST_COMMAND}")
-    result = subprocess.run(TEST_COMMAND, shell=True)
+    cmd = [sys.executable] + TEST_ARGS
+    print(f"Executing: {' '.join(cmd)}")
+    result = subprocess.run(cmd, check=False)
     return result.returncode == 0
 
 
@@ -59,15 +77,15 @@ def find_target_file_contents() -> dict[str, str]:
 def ask_ai_to_fix(errors: str, codebase: dict[str, str]) -> dict[str, Any]:
     """Sends code and errors to the LLM to get an updated code layout."""
     prompt = f"""
-    You are an autonomous engineering agent. A test suite just failed. 
+    You are an autonomous engineering agent. A test suite just failed.
     Your objective is to fix the code files so that the tests pass. Do not break existing functionality.
-    
+
     FAILED TEST DETAILS:
     {errors}
-    
+
     CURRENT CODEBASE FILES:
     {json.dumps(codebase, indent=2)}
-    
+
     Respond strictly in JSON format matching this schema:
     {{
         "explanation": "Brief reason for the failure and your fix",
@@ -101,7 +119,7 @@ def apply_fixes(fixes: dict[str, Any]) -> None:
 
 def main() -> None:
     # Install dependency required to parse errors dynamically if missing
-    subprocess.run("pip install pytest-json-report", shell=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "pytest-json-report"], check=False)
 
     for attempt in range(1, MAX_RETRIES + 1):
         print(f"\n=== Autonomous Cycle Attempt {attempt}/{MAX_RETRIES} ===")
