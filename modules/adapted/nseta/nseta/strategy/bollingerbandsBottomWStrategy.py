@@ -20,7 +20,8 @@ from termcolor import colored as cl
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
-    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    """Checks whether current or provided time falls within NSE/BSE IST market session
+    (09:15 to 15:30 IST Mon-Fri)."""
     ist = pytz.timezone("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
@@ -248,9 +249,10 @@ class bollingerbandsBottomWStrategy:
         print(f"\n{strategy_copy.to_string(index=False)}\n")
         total_investment_ret = round(sum(strategy_copy["bb_returns"]), 2)
         profit_percentage = round((total_investment_ret / investment_value_initial) * 100, 3)
+        msg = f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n"
         print(
             cl(
-                f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n",
+                msg,
                 attrs=["bold"],
             )
         )

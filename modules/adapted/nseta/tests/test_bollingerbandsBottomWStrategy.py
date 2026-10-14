@@ -65,9 +65,5 @@ class TestBollingerBandsBottomWStrategy(baseUnitTest):
         result = strategy.calculate_roi(df, "TEST")
         self.assertFalse(result)
 
-    def tearDown(self):
-        super().tearDown()
-
-
 if __name__ == "__main__":
     unittest.main()
