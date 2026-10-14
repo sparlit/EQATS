@@ -362,7 +362,6 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             cutoff = 75  # max historical period
             dfceiv = dfceiv.tail(cutoff)
             dfpeiv = dfpeiv.tail(cutoff)
-            # todo: append current values so rank wont be negative below
             dtx = dt_1.strftime("%Y%m%d")
 
             dfpeiv_current = pd.DataFrame(
