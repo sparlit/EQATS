@@ -2,7 +2,7 @@
 Tests for Intelligent Trading Bot ML Feature Engineering Engine Integration Module
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from institutional_integrations.intelligent_trading_bot_engine import (
     MAGIC_NUMBER_INTELLIGENT_TRADING_BOT,
@@ -59,3 +59,67 @@ def test_intelligent_trading_bot_broker_adapter():
         assert res.status == "FILLED"
         assert res.price == 2500.00
         assert res.ticket.startswith("ITBOT-")
+
+
+import asyncio
+import os
+import sys
+
+# Add modules/adapted/intelligent-trading-bot to sys.path if necessary for common/service imports
+adapt_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "modules", "adapted", "intelligent-trading-bot"))
+if adapt_dir not in sys.path:
+    sys.path.insert(0, adapt_dir)
+
+
+def test_cancel_order_success_and_failure():
+    mock_mt5 = MagicMock()
+    mock_mt5.__author__ = "MetaTrader 5 Ltd."
+    mock_mt5.__version__ = "5.0.45"
+    mock_mt5.TRADE_ACTION_REMOVE = 1
+    mock_mt5.TRADE_RETCODE_DONE = 10009
+    mock_mt5.ORDER_STATE_CANCELED = "CANCELED"
+    mock_mt5.last_error.return_value = (0, "Success")
+
+    mock_modules = {
+        "MetaTrader5": mock_mt5,
+        "pytz": MagicMock(),
+        "joblib": MagicMock(),
+        "dateparser": MagicMock(),
+        "apscheduler": MagicMock(),
+        "apscheduler.triggers": MagicMock(),
+        "apscheduler.triggers.cron": MagicMock(),
+        "scipy": MagicMock(),
+        "scipy.stats": MagicMock(),
+        "sklearn": MagicMock(),
+        "sklearn.metrics": MagicMock(),
+    }
+
+    with patch.dict(sys.modules, mock_modules):
+        from outputs.trader_mt5 import cancel_order, App
+
+        # Test 1: No active order
+        App.order = {}
+        res = asyncio.run(cancel_order())
+        assert res is None
+
+        # Test 2: Successful cancellation
+        App.order = {"orderId": 12345}
+        mock_result_done = MagicMock()
+        mock_result_done.retcode = mock_mt5.TRADE_RETCODE_DONE
+        mock_result_done._asdict.return_value = {"orderId": 12345, "state": "CANCELED"}
+
+        with patch.object(mock_mt5, "order_send", return_value=mock_result_done):
+            state = asyncio.run(cancel_order())
+            assert state == "CANCELED"
+            assert App.order["state"] == "CANCELED"
+
+        # Test 3: Failed cancellation with status resync
+        App.order = {"orderId": 67890}
+        mock_result_fail = MagicMock()
+        mock_result_fail.retcode = 10006  # TRADE_RETCODE_REJECT
+
+        with patch.object(mock_mt5, "order_send", return_value=mock_result_fail), \
+             patch("outputs.trader_mt5.update_trade_status", new_callable=AsyncMock) as mock_sync:
+            res = asyncio.run(cancel_order())
+            assert res is None
+            mock_sync.assert_called_once()
