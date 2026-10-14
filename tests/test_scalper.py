@@ -88,6 +88,39 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertTrue(0.0 <= res_custom["k"] <= 100.0)
         self.assertTrue(0.0 <= res_custom["d"] <= 100.0)
 
+    def test_adx(self) -> None:
+        # 1. Edge case: empty or insufficient data (< period * 2)
+        self.assertEqual(indicators.calculate_adx([], [], []), 20.0)
+
+        highs_short = [10.0 + i for i in range(10)]
+        lows_short = [9.0 + i for i in range(10)]
+        closes_short = [9.5 + i for i in range(10)]
+        self.assertEqual(indicators.calculate_adx(highs_short, lows_short, closes_short, period=14), 20.0)
+
+        # 2. Flat price series (zero true range / zero movement)
+        highs_flat = [10.0] * 35
+        lows_flat = [10.0] * 35
+        closes_flat = [10.0] * 35
+        res_flat = indicators.calculate_adx(highs_flat, lows_flat, closes_flat, period=14)
+        self.assertIsInstance(res_flat, float)
+        self.assertTrue(0.0 <= res_flat <= 100.0)
+
+        # 3. Standard strong trending price series
+        highs_trend = [10.0 + i * 0.5 for i in range(40)]
+        lows_trend = [9.0 + i * 0.5 for i in range(40)]
+        closes_trend = [9.8 + i * 0.5 for i in range(40)]
+        res_trend = indicators.calculate_adx(highs_trend, lows_trend, closes_trend, period=14)
+        self.assertIsInstance(res_trend, float)
+        self.assertTrue(0.0 <= res_trend <= 100.0)
+
+        # 4. Custom period parameter
+        highs_custom = [10.0 + i * 0.2 for i in range(15)]
+        lows_custom = [9.0 + i * 0.2 for i in range(15)]
+        closes_custom = [9.5 + i * 0.2 for i in range(15)]
+        res_custom = indicators.calculate_adx(highs_custom, lows_custom, closes_custom, period=5)
+        self.assertIsInstance(res_custom, float)
+        self.assertTrue(0.0 <= res_custom <= 100.0)
+
 class TestScalperBrainAndConnector(unittest.TestCase):
 
     def _reset_global_state(self) -> None:
