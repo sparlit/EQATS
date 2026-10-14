@@ -32,6 +32,7 @@ pub enum EngineError {
         available: Price,
     },
     OrderNotFound,
+    InvalidPrice,
     InternalError(String),
 }
 
@@ -72,6 +73,7 @@ impl std::fmt::Display for EngineError {
                 )
             }
             EngineError::OrderNotFound => write!(f, "Order not found"),
+            EngineError::InvalidPrice => write!(f, "Order price cannot be negative"),
             EngineError::InternalError(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -88,6 +90,7 @@ impl EngineError {
             EngineError::InsufficientShares { .. } => "INSUFFICIENT_SHARES",
             EngineError::InsufficientMargin { .. } => "INSUFFICIENT_MARGIN",
             EngineError::OrderNotFound => "ORDER_NOT_FOUND",
+            EngineError::InvalidPrice => "INVALID_PRICE",
             EngineError::InternalError(_) => "INTERNAL_ERROR",
         }
     }
@@ -124,6 +127,9 @@ impl EngineError {
                 available: *available,
             },
             EngineError::OrderNotFound => TradingError::OrderNotFound { order_id: 0 },
+            EngineError::InvalidPrice => TradingError::InvalidOrder {
+                reason: "Order price cannot be negative".to_string(),
+            },
             EngineError::InternalError(msg) => TradingError::InvalidOrder {
                 reason: msg.clone(),
             },
@@ -304,6 +310,11 @@ impl MatchingEngine {
         // Check market status
         if !self.is_market_open() {
             return Err(EngineError::MarketClosed);
+        }
+
+        // Validate price - reject negative prices
+        if order.price < 0 {
+            return Err(EngineError::InvalidPrice);
         }
 
         // Verify symbol exists

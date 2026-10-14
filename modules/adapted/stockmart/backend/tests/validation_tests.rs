@@ -70,15 +70,13 @@ async fn test_negative_price_boundary() {
 
     open_market(&state);
 
-    // Negative price - DOCUMENTS CURRENT BEHAVIOR
-    // Note: This is a security vulnerability - should be rejected
+    // Negative price - must be rejected
     let result = place_limit_buy(&state, buyer, &symbol, 10, -dollars(100)).await;
 
-    // Document current behavior
-    match &result {
-        Ok(_) => println!("VULNERABILITY: Negative price accepted"),
-        Err(e) => println!("Negative price correctly rejected: {}", e),
-    }
+    assert!(
+        result.is_err(),
+        "Negative price order should be rejected"
+    );
 }
 
 /// VAL-PRICE-004: Zero price handling
