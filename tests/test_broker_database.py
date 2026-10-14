@@ -128,6 +128,22 @@ class TestBrokerDatabase(unittest.TestCase):
         self.assertEqual(res_stats["status"], "SUCCESS")
         self.assertIn("total_unique_brokers", res_stats["stats"])
 
+    def test_web_api_config_get_and_post(self) -> None:
+        import config
+
+        server = TradingOSHTTPServer(port=59998)
+        # Test GET /api/config
+        res_get = server._route_request("GET", "/api/config")
+        self.assertEqual(res_get["status"], "SUCCESS")
+        self.assertIn("simulation_mode", res_get)
+
+        # Test POST /api/config
+        payload = {"risk_per_trade_percent": 1.5, "max_concurrent_trades": 25}
+        res_post = server._route_request("POST", "/api/config", payload)
+        self.assertEqual(res_post["status"], "UPDATED")
+        self.assertEqual(config.RISK_PER_TRADE_PERCENT, 1.5)
+        self.assertEqual(config.MAX_CONCURRENT_TRADES, 25)
+
     def test_parse_xlsx_brokers_nonexistent_file(self) -> None:
         records = broker_database.parse_xlsx_brokers("non_existent_file_12345.xlsx")
         self.assertEqual(records, [])
