@@ -26,12 +26,8 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
 import pandas as pd
 from sqlalchemy import desc
 from tickerplot.sql.sqlalchemy_wrapper import (
-    create_or_get_all_scrips_table,
-    create_or_get_nse_equities_hist_data,
-    execute_one,
-    get_metadata,
-    select_expr,
-)
+    create_or_get_all_scrips_table, create_or_get_nse_equities_hist_data,
+    execute_one, get_metadata, select_expr)
 
 _DB_METADATA = None
 
