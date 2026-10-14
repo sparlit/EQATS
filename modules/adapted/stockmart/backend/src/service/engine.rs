@@ -306,6 +306,13 @@ impl MatchingEngine {
             return Err(EngineError::MarketClosed);
         }
 
+        // Validate limit order price
+        if order.order_type == OrderType::Limit && order.price <= 0 {
+            return Err(EngineError::InternalError(
+                "Price must be greater than 0 for limit orders".to_string(),
+            ));
+        }
+
         // Verify symbol exists
         if !self.orderbooks.contains_key(&order.symbol) {
             return Err(EngineError::SymbolNotFound);

@@ -101,11 +101,7 @@ async fn test_zero_price_boundary() {
     // Zero price
     let result = place_limit_buy(&state, buyer, &symbol, 10, 0).await;
 
-    // Document current behavior
-    match &result {
-        Ok(_) => println!("INFO: Zero price accepted (may be intentional for free shares)"),
-        Err(e) => println!("Zero price rejected: {}", e),
-    }
+    assert!(result.is_err(), "Zero price limit orders must be rejected");
 }
 
 /// VAL-PRICE-005: Price with maximum precision

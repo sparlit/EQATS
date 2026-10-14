@@ -182,9 +182,7 @@ async fn test_place_order_zero_qty() {
     );
 }
 
-/// TRADE-PLACE-012: Place limit order with price<=0
-/// NOTE: Current implementation does not validate price>0.
-/// This test documents current behavior.
+/// TRADE-PLACE-012: Place limit order with price<=0 should fail
 #[tokio::test]
 async fn test_place_order_zero_price() {
     let state = create_test_state().await;
@@ -201,12 +199,10 @@ async fn test_place_order_zero_price() {
 
     open_market(&state);
 
-    // Current behavior: price=0 orders are accepted (no validation)
     let result = place_limit_buy(&state, user_id, &symbol, 10, 0).await;
-    // Document current behavior - this is a known gap in validation
     assert!(
-        result.is_ok(),
-        "Currently price=0 orders are accepted (missing validation)"
+        result.is_err(),
+        "Limit order with price=0 should be rejected"
     );
 }
 
