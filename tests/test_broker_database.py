@@ -15,6 +15,43 @@ class TestBrokerDatabase(unittest.TestCase):
         database.init_db()
         broker_database.build_and_seed_broker_database("Brokers", force_rebuild=True)
 
+    def test_parse_txt_brokers_nonexistent(self) -> None:
+        records = broker_database.parse_txt_brokers("Brokers/nonexistent_file_12345.txt")
+        self.assertEqual(records, [])
+
+    def test_parse_txt_brokers_valid_file(self) -> None:
+        import tempfile
+
+        content = (
+            "TRADE NAME\n"
+            "   \n"
+            "MEMBER NAME\n"
+            "   Zerodha Broking Limited   \n"
+            "INDIAN STOCK MARKET REGISTERED BROKERS\n"
+            "  Groww   Pay   \n"
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write(content)
+            temp_path = f.name
+
+        try:
+            records = broker_database.parse_txt_brokers(temp_path)
+            fname = os.path.basename(temp_path)
+            self.assertEqual(len(records), 2)
+            self.assertEqual(records[0], {"name": "Zerodha Broking Limited", "sources": [fname]})
+            self.assertEqual(records[1], {"name": "Groww Pay", "sources": [fname]})
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    def test_parse_txt_brokers_error_handling(self) -> None:
+        import tempfile
+
+        # Open a directory or invalid path to raise an exception in open()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            records = broker_database.parse_txt_brokers(temp_dir)
+            self.assertEqual(records, [])
+
     def test_clean_field(self) -> None:
         self.assertEqual(broker_database.clean_field("  AXIS   BANK  "), "AXIS BANK")
         self.assertEqual(broker_database.clean_field("12345.0"), "12345")
