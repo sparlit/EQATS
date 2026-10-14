@@ -105,7 +105,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
                 print(f"===> BOUGHT: {order}")
                 App.status = "BOUGHT"
             elif status == "SELLING":
-                print(f"<=== SOLD: {order}")  # TODO: Check if it is correct
+                print(f"<=== SOLD: {order}")
                 App.status = "SOLD"
             log.info(f"New trade mode: {App.status}")
         elif order_status in [
