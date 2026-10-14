@@ -1,6 +1,20 @@
 import datetime
+import logging
+import os
+import sys
+import tempfile
+import zipfile
+from datetime import timedelta
+from logging.handlers import RotatingFileHandler
 
+import pandas as pd
 import pytz
+import requests
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except (ImportError, ModuleNotFoundError):
+    from mcp.server.mcpserver import MCPServer as FastMCP  # type: ignore[no-redef]
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -20,18 +34,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
 
-
-import logging
-import os
-import sys
-import tempfile
-import zipfile
-from datetime import datetime, timedelta
-from logging.handlers import RotatingFileHandler
-
-import pandas as pd
-import requests
-from mcp.server.fastmcp import FastMCP
 
 # Create logs directory if it doesn't exist
 log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
@@ -57,14 +59,28 @@ root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(file_handler)
 
-# Redirect stderr to log file
-sys.stderr = open(log_file, "a")
+# Redirect stderr to log file using context/safe assignment
+_log_stream = open(log_file, "a")  # noqa: SIM115
+sys.stderr = _log_stream
 
 # Create logger for this module
 logger = logging.getLogger("nsei_mcp_server")
 logger.info(f"Logging to file: {log_file}")
 
-trades = pd.DataFrame()  # TODO: implement global cache of trades
+# Global cache of trades and market BhavCopy records
+trades: pd.DataFrame = pd.DataFrame()
+
+
+def get_cached_trades() -> pd.DataFrame:
+    """Returns a copy of the global trades cache DataFrame."""
+    global trades
+    return trades.copy()
+
+
+def clear_trades_cache() -> None:
+    """Clears the global trades cache DataFrame."""
+    global trades
+    trades = pd.DataFrame()
 
 
 def _post_process_bhav_copy(df: pd.DataFrame) -> pd.DataFrame:
@@ -112,7 +128,7 @@ def _download_bhav_copy(date: str):
     Downloads the NSE Bhav Copy for a given date and returns it as a DataFrame.
 
     Args:
-        date: Date string in format 'YYYY-MM-DD'
+        date: Date string in format 'YYYY-MM-DD' or 'YYYYMMDD'
 
     Returns:
         pandas DataFrame containing the Bhav Copy data
@@ -128,7 +144,7 @@ def _download_bhav_copy(date: str):
         # Handle date format conversion
         if "-" in date:
             try:
-                parsed_date = datetime.strptime(date, "%Y-%m-%d")
+                parsed_date = datetime.datetime.strptime(date, "%Y-%m-%d")
                 date = parsed_date.strftime("%Y%m%d")
                 logger.debug(f"Converted date format: {date}")
             except ValueError as e:
@@ -178,16 +194,17 @@ def _download_bhav_copy(date: str):
 
 def _get_data_for_date_range(date: str, ndays: int):
     """
-    Get data for a specific date range from the cache.
+    Get data for a specific date range from the cache, downloading missing days as needed.
 
     Args:
         date: date string in format 'YYYY-MM-DD'
         ndays: number of days to get data leading upto the given date
     """
+    global trades
     logger.info(f"Retrieving data for date: {date}, ndays: {ndays}")
     try:
         # Convert input date format from YYYY-MM-DD to YYYYMMDD for processing
-        end_date = datetime.strptime(date, "%Y-%m-%d")
+        end_date = datetime.datetime.strptime(date, "%Y-%m-%d")
         start_date = end_date - timedelta(days=ndays - 1)
         logger.info(
             f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
@@ -199,23 +216,44 @@ def _get_data_for_date_range(date: str, ndays: int):
         while current_date <= end_date:
             date_list.append(current_date)
             current_date += timedelta(days=1)
-        # Initialize an empty DataFrame to store all data
+
         all_data = pd.DataFrame()
 
-        # Download data for each date in the range
+        # Retrieve from global trades cache or download missing dates
         for date_obj in date_list:
-            date_str = date_obj.strftime("%Y%m%d")
-            logger.info(f"Downloading data for date: {date_str}")
+            date_fmt_dash = date_obj.strftime("%Y-%m-%d")
+            date_fmt_compact = date_obj.strftime("%Y%m%d")
 
-            # Download bhav copy for this date
-            day_data = _download_bhav_copy(date_str)
+            # Check if global trades cache has data for this date
+            cached_day_data = pd.DataFrame()
+            if not trades.empty and "TradDt" in trades.columns:
+                trad_dt_str = trades["TradDt"].astype(str)
+                cached_day_data = trades[
+                    (trad_dt_str == date_fmt_dash) | (trad_dt_str == date_fmt_compact)
+                ]
 
-            # If data was successfully downloaded, add it to our collection
+            if not cached_day_data.empty:
+                logger.info(f"Cache hit for date: {date_fmt_dash} ({len(cached_day_data)} rows)")
+                day_data = cached_day_data
+            else:
+                logger.info(f"Cache miss for date: {date_fmt_dash}. Downloading data...")
+                day_data = _download_bhav_copy(date_fmt_compact)
+
+                if day_data is not None and not day_data.empty:
+                    # Update global trades cache
+                    if trades.empty:
+                        trades = day_data.copy()
+                    else:
+                        trades = pd.concat([trades, day_data], ignore_index=True).drop_duplicates()
+                    logger.info(
+                        f"Updated global trades cache for {date_fmt_compact}. Total cached rows: {len(trades)}"
+                    )
+
             if day_data is not None and not day_data.empty:
                 all_data = pd.concat([all_data, day_data], ignore_index=True)
-                logger.info(f"Added data for {date_str}, total rows now: {len(all_data)}")
+                logger.info(f"Added data for {date_fmt_compact}, total range rows: {len(all_data)}")
             else:
-                logger.warning(f"No data available for {date_str}")
+                logger.warning(f"No data available for {date_fmt_compact}")
 
         if all_data.empty:
             logger.error("No data was retrieved for the entire date range")
@@ -232,8 +270,7 @@ def _get_data_for_date_range(date: str, ndays: int):
         return None
 
 
-# Initialize FastMCP server and cache
-# logger.info("Initializing NSEI MCP Server")
+# Initialize FastMCP server
 mcp = FastMCP("nsei")
 logger.info("Server initialization complete")
 
@@ -262,7 +299,7 @@ async def get_trades(date: str, ndays: int = 1, symbol: str = None) -> dict:
         df = df[df["TckrSymb"] == symbol]
 
     # Group by symbol and calculate total trades and value
-    trades = (
+    trades_summary = (
         df.groupby("TckrSymb")
         .agg(
             {
@@ -277,13 +314,11 @@ async def get_trades(date: str, ndays: int = 1, symbol: str = None) -> dict:
     )
 
     # Format the results
-    def format_trades(df):
-        # Reset index to make sure we have unique indices before converting to dict
-        df_reset = df.reset_index()
-        # Use records orient instead of index to avoid unique index requirement
+    def format_trades(summary_df):
+        df_reset = summary_df.reset_index()
         return df_reset.round(2).to_dict("records")
 
-    result = {"trades": format_trades(trades)}
+    result = {"trades": format_trades(trades_summary)}
 
     logger.info(
         f"Successfully retrieved trades for {symbol} in date range {date} to {ndays} days ago"
@@ -314,23 +349,19 @@ async def get_top_movers(date: str, ndays: int = 1) -> dict:
     logger.info(df.head())
 
     # Process the data to find top movers
-    # First get start and end prices for each symbol
     logger.info("Calculating start and end prices for each symbol...")
 
-    # Check if we're dealing with single day data
     unique_dates = df["TradDt"].unique()
     logger.info(f"Number of unique dates in data: {len(unique_dates)}")
 
     if len(unique_dates) == 1:
         logger.info("Single day data detected - using open and close prices for the same day")
-        # For single day, use open price as start and close price as end
         latest_data = df.set_index("TckrSymb")
         price_changes = pd.DataFrame(
             {"start_price": latest_data["OpnPric"], "end_price": latest_data["ClsPric"]}
         )
     else:
         logger.info("Multiple days data detected - using first and last day closing prices")
-        # For multiple days, use closing prices from first and last day
         start_prices = df.groupby("TckrSymb").first()[["OpnPric"]]
         end_prices = df.groupby("TckrSymb").last()[["ClsPric"]]
         price_changes = pd.DataFrame(
@@ -347,7 +378,6 @@ async def get_top_movers(date: str, ndays: int = 1) -> dict:
     logger.info("\nSample of calculated changes:")
     logger.info(price_changes.head())
 
-    # Get additional details from the latest day's data
     latest_day_data = df[df["TradDt"].astype(str) == date]
     if len(latest_day_data) == 0:
         logger.warning(
@@ -364,31 +394,23 @@ async def get_top_movers(date: str, ndays: int = 1) -> dict:
         f"Final number of stocks after joining with latest day's data: {len(price_changes)}"
     )
 
-    # Sort by absolute percentage change to get top movers
     logger.info("Identifying top gainers and losers...")
     top_gainers = price_changes[price_changes["pct_change"] > 0].nlargest(10, "pct_change")
     top_losers = price_changes[price_changes["pct_change"] < 0].nsmallest(10, "pct_change")
 
     logger.info(f"Found {len(top_gainers)} gainers and {len(top_losers)} losers")
-    logger.info("\nSample of top gainers:")
-    logger.info(top_gainers.head())
-    logger.info("\nSample of top losers:")
-    logger.info(top_losers.head())
 
-    # Format the results
-    def format_movers(df):
-        # Reset index to make sure we have unique indices before converting to dict
-        df_reset = df.reset_index()
-        # Use records orient instead of index to avoid unique index requirement
+    def format_movers(movers_df):
+        df_reset = movers_df.reset_index()
         return df_reset.round(2).to_dict("records")
 
     result = {
         "top_gainers": format_movers(top_gainers),
         "top_losers": format_movers(top_losers),
         "date_range": {
-            "start": (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=ndays - 1)).strftime(
-                "%Y-%m-%d"
-            ),
+            "start": (
+                datetime.datetime.strptime(date, "%Y-%m-%d") - timedelta(days=ndays - 1)
+            ).strftime("%Y-%m-%d"),
             "end": date,
         },
     }
@@ -398,6 +420,4 @@ async def get_top_movers(date: str, ndays: int = 1) -> dict:
 
 
 if __name__ == "__main__":
-    # Initialize and run the server
     mcp.run(transport="stdio")
-    # print(get_top_movers("2025-04-11", 1))
