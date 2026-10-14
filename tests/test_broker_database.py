@@ -1,3 +1,5 @@
+"""Unit tests for broker database ingestion and XLS broker parsing."""
+
 import os
 import sqlite3
 import unittest
@@ -9,6 +11,7 @@ from institutional_integrations.web_api import TradingOSHTTPServer
 
 
 class TestBrokerDatabase(unittest.TestCase):
+    """Test suite for registered broker database queries and web API endpoints."""
     @classmethod
     def setUpClass(cls) -> None:
         # Initialize test database using in-memory or temp path
@@ -90,11 +93,15 @@ class TestBrokerDatabase(unittest.TestCase):
 
 
 class TestParseXlsBrokers(unittest.TestCase):
+    """Test suite for parse_xls_brokers spreadsheet parser."""
+
     def test_parse_xls_brokers_nonexistent_file(self) -> None:
+        """Verifies parse_xls_brokers returns empty list when file path does not exist."""
         records = broker_database.parse_xls_brokers("non_existent_file_xyz_123.xls")
         self.assertEqual(records, [])
 
     def test_parse_xls_brokers_real_file(self) -> None:
+        """Verifies parse_xls_brokers accurately parses an actual XLS broker spreadsheet."""
         real_xls = os.path.join(
             "Brokers",
             "Registered Stock Brokers in Equity Derivative Segment as on Jul 11 2026.xls",
@@ -113,6 +120,7 @@ class TestParseXlsBrokers(unittest.TestCase):
     def test_parse_xls_brokers_mocked_success(
         self, mock_open_wb: MagicMock, mock_exists: MagicMock
     ) -> None:
+        """Verifies mock XLS parsing for field mapping, trade name fallback, and segment regex."""
         mock_wb = MagicMock()
         mock_sheet = MagicMock()
         mock_wb.sheet_by_index.return_value = mock_sheet
@@ -144,7 +152,7 @@ class TestParseXlsBrokers(unittest.TestCase):
                     21: "ALPHA TRADING",
                 }
                 return data.get(col_idx, "")
-            elif row_idx == 4:
+            if row_idx == 4:
                 data = {
                     0: "",  # Name empty
                     1: "INZ000333444",
@@ -158,7 +166,10 @@ class TestParseXlsBrokers(unittest.TestCase):
         fpath = "Brokers in Commodity Derivative Segment as on Jul 11 2026.xls"
         records = broker_database.parse_xls_brokers(fpath)
 
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
         self.assertEqual(len(records), 2)
+
         # Record 0 checks
         r0 = records[0]
         self.assertEqual(r0["name"], "ALPHA CAPITAL LTD")
@@ -189,6 +200,7 @@ class TestParseXlsBrokers(unittest.TestCase):
     def test_parse_xls_brokers_empty_row_and_short_row(
         self, mock_open_wb: MagicMock, mock_exists: MagicMock
     ) -> None:
+        """Verifies parse_xls_brokers skips empty rows and handles short row lengths safely."""
         mock_wb = MagicMock()
         mock_sheet = MagicMock()
         mock_wb.sheet_by_index.return_value = mock_sheet
@@ -203,7 +215,7 @@ class TestParseXlsBrokers(unittest.TestCase):
             if row_idx == 4:
                 if col_idx == 0:
                     return "GAMMA TRADERS"
-                elif col_idx == 1:
+                if col_idx == 1:
                     return "INZ000555666"
             return ""
 
@@ -213,6 +225,8 @@ class TestParseXlsBrokers(unittest.TestCase):
         fpath = "random_brokers_file.xls"
         records = broker_database.parse_xls_brokers(fpath)
 
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
         self.assertEqual(len(records), 1)
         r = records[0]
         self.assertEqual(r["name"], "GAMMA TRADERS")
@@ -225,7 +239,10 @@ class TestParseXlsBrokers(unittest.TestCase):
     def test_parse_xls_brokers_exception_handling(
         self, mock_open_wb: MagicMock, mock_exists: MagicMock
     ) -> None:
+        """Verifies parse_xls_brokers catches xlrd errors gracefully and returns empty list."""
         records = broker_database.parse_xls_brokers("corrupted.xls")
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
         self.assertEqual(records, [])
 
 
