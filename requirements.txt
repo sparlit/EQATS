@@ -11,6 +11,9 @@ pandas>=2.0.0
 xlrd>=2.0.0
 openpyxl>=3.1.0
 pdfplumber>=0.11.0
+matplotlib>=3.5.0
+pytz>=2023.3
+termcolor>=2.0.0
 
 # Note: On Windows with live MetaTrader 5 execution, also run:
 # pip install MetaTrader5
