@@ -41,7 +41,7 @@ pub async fn init_dbs<'a>(state: &mut TectonicServer) {
             state.books
                 .entry(BookName::from(&symbol).unwrap())
                 .and_modify(|e| if e.nominal_count < header_size {e.nominal_count += header_size})
-                .or_insert_with(|| Book::new(&symbol, settings, 10_u8)); // TODO: don't hardcode price decimals
+                .or_insert_with(|| Book::new(&symbol, settings.clone()));
         }
     }
 }

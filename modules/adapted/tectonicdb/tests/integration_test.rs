@@ -16,6 +16,7 @@ fn it_works() {
         flush_interval: 1000,
         granularity: 1000,
         q_capacity: 1000,
+        price_decimals: 10,
         influx: None,
     });
 

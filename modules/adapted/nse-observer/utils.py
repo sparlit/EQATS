@@ -1,11 +1,27 @@
 import datetime
+import zoneinfo
 
-import pytz
+import numpy as np
+from numpy import cdouble, exp, linspace, meshgrid, pi, sqrt, zeros_like
+from numpy.fft import fftfreq, irfftn
+from numpy.random import rand, seed
+
+try:
+    from scipy.io import loadmat
+except ImportError:
+    loadmat = None
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(iterable, *args, **kwargs):
+        _ = (args, kwargs)
+        return iterable
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -19,15 +35,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-import matplotlib.pyplot as plt
-import numpy as np
-from numpy import cdouble, exp, linspace, meshgrid, pi, sqrt, zeros_like
-from numpy.fft import fftfreq, ifftn
-from numpy.random import rand, seed
-from scipy.io import loadmat
-from tqdm import tqdm
 
 
 def zero_mean_normal_noise(X, std):
@@ -45,12 +52,14 @@ def zero_mean_uniform_noise(X, std):
 
 
 def compute_rms(
-    random_seeds=np.array([123, 124]),
+    random_seeds=None,
     folder_location="../../data/r{0}_g64by64_nu0.006",
     dt=0.01,
     time_range=None,
     solver="jax-cfd",
 ):
+    if random_seeds is None:
+        random_seeds = np.array([123, 124])
     if time_range is None:
         time_range = [10, 15]
     vel_x = []
@@ -73,6 +82,8 @@ def compute_rms(
 
 
 def plot_norms(series, titles, figsize=(24, 10), display=False, save_file=None):
+    import matplotlib.pyplot as plt
+
     plt.figure(num=None, figsize=figsize, dpi=80, facecolor="w", edgecolor="k")
 
     for i in range(min(4, len(series))):
@@ -89,6 +100,8 @@ def plot_norms(series, titles, figsize=(24, 10), display=False, save_file=None):
 
 
 def plot_stats(u_mean, v_mean, u_std, v_std, figsize=(12, 10), display=False, save_file=None):
+    import matplotlib.pyplot as plt
+
     plt.figure(num=None, figsize=figsize, dpi=80, facecolor="w", edgecolor="k")
     plt.subplot(2, 1, 1)
     plt.ylabel("mean value")
@@ -172,38 +185,34 @@ class RandomField:
             |\\hat psi|^2 = \\frac{e(k)}{\\pi k^3}
         subsequently velocity transforms are computed by using differentiation
         in fourier space but the function itself is simulated with shinozuka
-        and deodatis method.
+        and deodatis method, inverse transformed using irfftn for real fields.
         """
-        # todo: consider reimplementing this with irfftn
         seed(self.seed)
         m1, m2 = self.x.shape
         # stream function transform
         psi_hat = zeros_like(self.x, dtype=cdouble)
         for n1 in range(1, m1 // 2 - 1):
             for n2 in range(1, m2):
-                self.__single_term(n1, n2, m2, self.delta_kappa, self.energy_function, psi_hat)
+                self.__single_term(n1, n2, self.energy_function, psi_hat)
         self.psi_hat = psi_hat
-        psi = ifftn(psi_hat)
+        # Inverse real 2D Fourier transform along spatial axes
+        half_m2 = m2 // 2 + 1
+        psi = irfftn(psi_hat[:, :half_m2], s=(m1, m2), axes=(0, 1))
         u_hat = 1j * self.kappa_y * psi_hat
         v_hat = -1j * self.kappa_x * psi_hat
-        u = ifftn(u_hat)
-        v = ifftn(v_hat)
-        if abs(psi.imag).any() > 0:
-            raise ValueError("non-zero imaginary values in psi")
-        return psi.real, u.real, v.real
+        u = irfftn(u_hat[:, :half_m2], s=(m1, m2), axes=(0, 1))
+        v = irfftn(v_hat[:, :half_m2], s=(m1, m2), axes=(0, 1))
+        return psi, u, v
 
-    def __single_term(self, n1, n2, M2, delta_kappa, E, psi_hat):
+    def __single_term(self, n1, n2, E, psi_hat):
         """A single term in the sum for process simulation formula. This
         function avoids copy/paste programming in the main two loops."""
         kappa_x = self.kappa_x[n1, n2]
         kappa_y = self.kappa_y[n1, n2]
         kappa = sqrt(kappa_x**2 + kappa_y**2)
-        # mag_psi_hat_k = M2**2*delta_kappa*sqrt(
-        #     E(kappa) / (pi * kappa**3))
         mag_psi_hat_k = sqrt(E(kappa) / (pi * kappa**3))
         theta = 2 * pi * rand()
-        # theta = 2*pi*xi[n1, n2]
         psi_hat[n1, n2] = mag_psi_hat_k * exp(1j * theta)
-        # Conjugate-even order is necessary to real and is imposed
+        # Conjugate-even order is necessary for real field and is imposed
         # manually here:
         psi_hat[-n1, -n2] = mag_psi_hat_k * exp(-1j * theta)

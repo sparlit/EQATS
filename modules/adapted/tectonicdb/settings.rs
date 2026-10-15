@@ -26,7 +26,7 @@ pub fn key_or_none(key: &str) -> Option<String> {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Settings {
     /// autoflush: boolean. Flush everything to disk at some interval.
     pub autoflush: bool,
@@ -38,8 +38,24 @@ pub struct Settings {
     pub granularity: u64,
     /// history circular queue capacity
     pub q_capacity: usize,
+    /// price decimals for orderbook precision
+    pub price_decimals: u8,
     /// settings for influxdb
     pub influx: Option<InfluxSettings>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            autoflush: false,
+            dtf_folder: String::new(),
+            flush_interval: 0,
+            granularity: 0,
+            q_capacity: 0,
+            price_decimals: 10,
+            influx: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]

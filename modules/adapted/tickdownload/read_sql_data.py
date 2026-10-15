@@ -1,6 +1,7 @@
 """Database query module for NSE equities tick data."""
 
 import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytz
@@ -63,8 +64,7 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
     hist_data = create_or_get_nse_equities_hist_data(metadata=metadata)
 
     scripdata_dict = {}
-    scrips = 0
-    for scrip in lscrips:
+    for scrips, scrip in enumerate(lscrips, start=1):
         sql_st = (
             select_expr(
                 [
@@ -100,7 +100,6 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
         scripdata.drop("date", axis=1, inplace=True)
         scripdata_dict[scrip] = scripdata
 
-        scrips += 1
         if scrips == max_scrips:
             break
 
@@ -135,4 +134,4 @@ def main(args):
 if __name__ == "__main__":
     import sys
 
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))
