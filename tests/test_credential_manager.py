@@ -21,12 +21,14 @@ def temp_db() -> Generator[str]:
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield path
+    from contextlib import suppress
+
     if os.path.exists(path):
-        with contextlib.suppress(Exception):
+        with suppress(Exception):
             os.remove(path)
     salt_file = path + ".salt"
     if os.path.exists(salt_file):
-        with contextlib.suppress(Exception):
+        with suppress(Exception):
             os.remove(salt_file)
 
 
@@ -46,6 +48,7 @@ def test_add_user_error_paths(temp_db: str) -> None:
 
     # 2. Test database exception handling (line 78 error path)
     from unittest.mock import patch
+
     with patch("database.add_user", side_effect=Exception("Database error simulation")):
         assert cm.add_user("trader_bob", "Password123!", "123456") is False
 
@@ -74,11 +77,7 @@ def test_user_crud_operations(temp_db: str) -> None:
 
     # 4. Update user
     assert (
-        cm.update_user(
-            "trader_bob",
-            new_password="NewPassword456!",
-            new_role="SOVEREIGN_ADMIN",
-        )
+        cm.update_user("trader_bob", new_password="NewPassword456!", new_role="SOVEREIGN_ADMIN")
         is True
     )
     assert cm.verify_user_credentials("trader_bob", "NewPassword456!", "123456") is True
@@ -245,6 +244,8 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     assert cm.reencrypt_all_broker_credentials() is True
 
     # Circuit breaker state
+    import database
+
     database.save_circuit_breaker_state(
         trading_date="2026-03-31",
         daily_start_balance=10000.0,
