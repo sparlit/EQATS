@@ -329,8 +329,7 @@ impl<T: Config<I>, I: Instance> Module<T, I> {
 
 impl<T: Config<I>, I: Instance> LiquidityPools<T::AccountId> for Module<T, I> {
 	fn all() -> Vec<LiquidityPoolId> {
-		// TODO: optimize once `iter_first_key` is ready
-		<Pools<T, I>>::iter().map(|(pool_id, _)| pool_id).collect()
+		<Pools<T, I>>::iter_keys().collect()
 	}
 
 	fn is_owner(pool_id: LiquidityPoolId, who: &T::AccountId) -> bool {

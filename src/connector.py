@@ -56,6 +56,25 @@ class TradingConnector(abc.ABC):
         """
         raise AbstractConnectorError("Subclasses must implement get_history()")
 
+    def get_bulk_history(self, symbols: list[Any], count: Any) -> dict[str, Any]:
+        """
+        Returns a dict mapping symbol -> list of dicts representing historical bar data.
+        Performs concurrent fetches for multiple symbols to eliminate N+1 query bottlenecks.
+        """
+        results: dict[str, Any] = {}
+        if not symbols:
+            return results
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 10)) as executor:
+            future_to_sym = {executor.submit(self.get_history, sym, count): sym for sym in symbols}
+            for future in concurrent.futures.as_completed(future_to_sym):
+                sym = future_to_sym[future]
+                try:
+                    results[sym] = future.result()
+                except Exception as e:
+                    _log.warning("get_bulk_history failed for %s: %s", sym, e)
+                    results[sym] = []
+        return results
+
     @abc.abstractmethod
     def get_history_bulk(self, symbols: Any, count: Any) -> None:
         """
