@@ -6,7 +6,11 @@
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
+<<<<<<< HEAD
       "pr_url": "https://github.com/sparlit/EQATS/pull/3451",
+=======
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3452",
+>>>>>>> integrate/tectonicdb
       "merged": true
     },
     {
@@ -15,7 +19,7 @@
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
       "status": "Processed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
