@@ -171,3 +171,30 @@ def test_gui_poly_screen_switch_and_update() -> None:
         assert hasattr(app, 'lbl_poly_pnl_val')
         app._update_poly_screen_data()
         assert app.lbl_poly_pnl_val is not None
+
+
+def test_gui_port_screen_bulk_history_update() -> None:
+    """Tests PORT screen data update using connector get_history_bulk."""
+    database.init_db()
+    mock_root = mock.MagicMock()
+    mock_scalper = mock.MagicMock()
+    mock_scalper.conn.get_account_info.return_value = {'balance': 10000.0, 'equity': 10000.0}
+    mock_scalper.conn.get_history_bulk.return_value = {
+        sym: [{'close': 1.0 + i * 0.01} for i in range(30)]
+        for sym in ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
+    }
+    with mock.patch('gui.ttk.Style'), mock.patch('gui.tk.StringVar'), mock.patch('gui.tk.OptionMenu'), mock.patch('gui.messagebox'), mock.patch('gui.ScalperGui._show_login_dialog', return_value=True), mock.patch('main.AutonomousScalper', return_value=mock_scalper):
+        import gui
+        app = gui.ScalperGui(mock_root)
+        app.port_tree = mock.MagicMock()
+        app.pf_pos_tree = mock.MagicMock()
+        app.pf_hold_tree = mock.MagicMock()
+        app.pf_funds_text = mock.MagicMock()
+
+        app._update_port_screen_data()
+        assert mock_scalper.conn.get_history_bulk.called
+        assert app.port_tree.insert.called
+
+        mock_scalper.conn.get_history_bulk.reset_mock()
+        app._update_pf_screen_data()
+        assert mock_scalper.conn.get_history_bulk.called
