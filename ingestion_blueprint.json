@@ -583,7 +583,7 @@
       "url": "https://github.com/bennythadikaran/eod2",
       "status": "Completed",
       "pr_url": null,
-      "merged": false
+      "merged": true
     },
     {
       "name": "eod2_data",
