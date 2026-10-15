@@ -6,8 +6,7 @@
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3459",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3451",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3460",
       "merged": true
     },
     {
@@ -17,9 +16,6 @@
       "status": "pending",
       "pr_url": null,
       "merged": false
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3457",
-      "merged": true
     },
     {
       "name": "indian-stock-market-api",
