@@ -187,6 +187,23 @@ impl MarketMonitor {
     }
 
 
+    pub fn parse_iso_to_timestamp(iso8601: &str) -> Option<u64> {
+        let trimmed = iso8601.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        chrono::DateTime::parse_from_rfc3339(trimmed)
+            .ok()
+            .and_then(|dt| {
+                let ts = dt.timestamp();
+                if ts > 0 {
+                    Some(ts as u64)
+                } else {
+                    None
+                }
+            })
+    }
+
     /// Get current market condition IDs (for checking if markets are closed)
     pub async fn get_current_condition_ids(&self) -> (String, String) {
         let eth = self.eth_market.lock().await.condition_id.clone();
@@ -249,12 +266,13 @@ impl MarketMonitor {
             }
             
             // Store ETH market end time for accurate remaining time calculation
-            // Parse end_date_iso (ISO 8601 format) to Unix timestamp
-            // For now, we'll skip this and use the slug-based calculation
-            // TODO: Implement proper ISO date parsing if needed
-            // if let Ok(end_timestamp) = Self::parse_iso_to_timestamp(&eth_details.end_date_iso) {
-            //     *self.eth_market_end_timestamp.lock().await = Some(end_timestamp);
-            // }
+            if let Some(end_timestamp) = Self::parse_iso_to_timestamp(&eth_details.end_date_iso) {
+                *self.eth_market_end_timestamp.lock().await = Some(end_timestamp);
+            } else {
+                *self.eth_market_end_timestamp.lock().await = None;
+            }
+        } else {
+            *self.eth_market_end_timestamp.lock().await = None;
         }
 
         // Get BTC market details
@@ -271,36 +289,38 @@ impl MarketMonitor {
             }
             
             // Store market end time for accurate remaining time calculation
-            // Parse end_date_iso (ISO 8601 format) to Unix timestamp
-            // For now, we'll skip this and use the slug-based calculation
-            // TODO: Implement proper ISO date parsing if needed
-            // if let Ok(end_timestamp) = Self::parse_iso_to_timestamp(&btc_details.end_date_iso) {
-            //     *self.btc_market_end_timestamp.lock().await = Some(end_timestamp);
-            // }
+            if let Some(end_timestamp) = Self::parse_iso_to_timestamp(&btc_details.end_date_iso) {
+                *self.btc_market_end_timestamp.lock().await = Some(end_timestamp);
+            } else {
+                *self.btc_market_end_timestamp.lock().await = None;
+            }
+        } else {
+            *self.btc_market_end_timestamp.lock().await = None;
         }
 
         // Get Solana market details (skip if dummy fallback - no real market)
         if solana_condition_id != "dummy_solana_fallback" {
             if let Ok(solana_details) = self.api.get_market(&solana_condition_id).await {
                 for token in &solana_details.tokens {
-                let outcome_upper = token.outcome.to_uppercase();
-                if outcome_upper.contains("UP") || outcome_upper == "1" {
-                    *self.solana_up_token_id.lock().await = Some(token.token_id.clone());
-                    crate::term_ui::print_outcome_token_id("SOL", true, &token.token_id);
-                } else if outcome_upper.contains("DOWN") || outcome_upper == "0" {
-                    *self.solana_down_token_id.lock().await = Some(token.token_id.clone());
-                    crate::term_ui::print_outcome_token_id("SOL", false, &token.token_id);
+                    let outcome_upper = token.outcome.to_uppercase();
+                    if outcome_upper.contains("UP") || outcome_upper == "1" {
+                        *self.solana_up_token_id.lock().await = Some(token.token_id.clone());
+                        crate::term_ui::print_outcome_token_id("SOL", true, &token.token_id);
+                    } else if outcome_upper.contains("DOWN") || outcome_upper == "0" {
+                        *self.solana_down_token_id.lock().await = Some(token.token_id.clone());
+                        crate::term_ui::print_outcome_token_id("SOL", false, &token.token_id);
+                    }
+                }
+
+                // Store Solana market end time for accurate remaining time calculation
+                if let Some(end_timestamp) = Self::parse_iso_to_timestamp(&solana_details.end_date_iso) {
+                    *self.solana_market_end_timestamp.lock().await = Some(end_timestamp);
+                } else {
+                    *self.solana_market_end_timestamp.lock().await = None;
                 }
             }
-            
-            // Store Solana market end time for accurate remaining time calculation
-            // Parse end_date_iso (ISO 8601 format) to Unix timestamp
-            // For now, we'll skip this and use the slug-based calculation
-            // TODO: Implement proper ISO date parsing if needed
-            // if let Ok(end_timestamp) = Self::parse_iso_to_timestamp(&solana_details.end_date_iso) {
-            //     *self.solana_market_end_timestamp.lock().await = Some(end_timestamp);
-            // }
-            }
+        } else {
+            *self.solana_market_end_timestamp.lock().await = None;
         }
 
         // Get XRP market details (skip if dummy fallback - no real market)
@@ -316,8 +336,15 @@ impl MarketMonitor {
                         crate::term_ui::print_outcome_token_id("XRP", false, &token.token_id);
                     }
                 }
-                // Store XRP market end time for accurate remaining time calculation (optional)
+                // Store XRP market end time for accurate remaining time calculation
+                if let Some(end_timestamp) = Self::parse_iso_to_timestamp(&xrp_details.end_date_iso) {
+                    *self.xrp_market_end_timestamp.lock().await = Some(end_timestamp);
+                } else {
+                    *self.xrp_market_end_timestamp.lock().await = None;
+                }
             }
+        } else {
+            *self.xrp_market_end_timestamp.lock().await = None;
         }
 
         *self.last_market_refresh.lock().await = Some(std::time::Instant::now());
@@ -390,28 +417,23 @@ impl MarketMonitor {
             stored_end.clone()
         };
         
-        let btc_period_end = if let Some(api_end_time) = btc_market_end {
-            api_end_time // Use actual end time from API
-        } else {
-            btc_market_timestamp + period_duration
-        };
-        
-        let eth_period_end = if let Some(api_end_time) = eth_market_end {
-            api_end_time // Use actual end time from API
-        } else {
-            eth_market_timestamp + period_duration
-        };
-        
-        let solana_period_end = if let Some(api_end_time) = solana_market_end {
-            api_end_time // Use actual end time from API
-        } else {
-            solana_market_timestamp + period_duration
-        };
-        let xrp_period_end = if let Some(api_end_time) = xrp_market_end {
-            api_end_time // Use actual end time from API
-        } else {
-            xrp_market_timestamp + period_duration
-        };
+        // CLOB end_date_iso can be coarse (e.g., midnight date). If it is not strictly
+        // after the slug period start, treat it as invalid and fall back to slug + duration.
+        let btc_period_end = btc_market_end
+            .filter(|api_end_time| *api_end_time > btc_market_timestamp)
+            .unwrap_or(btc_market_timestamp + period_duration);
+
+        let eth_period_end = eth_market_end
+            .filter(|api_end_time| *api_end_time > eth_market_timestamp)
+            .unwrap_or(eth_market_timestamp + period_duration);
+
+        let solana_period_end = solana_market_end
+            .filter(|api_end_time| *api_end_time > solana_market_timestamp)
+            .unwrap_or(solana_market_timestamp + period_duration);
+
+        let xrp_period_end = xrp_market_end
+            .filter(|api_end_time| *api_end_time > xrp_market_timestamp)
+            .unwrap_or(xrp_market_timestamp + period_duration);
         
         let eth_remaining_secs = if eth_period_end > current_timestamp {
             eth_period_end - current_timestamp
@@ -788,5 +810,29 @@ impl MarketMonitor {
             
             sleep(self.check_interval).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_iso_to_timestamp() {
+        // Valid RFC3339 / ISO 8601 strings
+        assert_eq!(
+            MarketMonitor::parse_iso_to_timestamp("2026-03-21T12:00:00Z"),
+            Some(1774094400)
+        );
+        assert_eq!(
+            MarketMonitor::parse_iso_to_timestamp("2026-03-21T12:00:00+00:00"),
+            Some(1774094400)
+        );
+
+        // Invalid or empty strings
+        assert_eq!(MarketMonitor::parse_iso_to_timestamp(""), None);
+        assert_eq!(MarketMonitor::parse_iso_to_timestamp("   "), None);
+        assert_eq!(MarketMonitor::parse_iso_to_timestamp("invalid-date"), None);
+        assert_eq!(MarketMonitor::parse_iso_to_timestamp("1970-01-01T00:00:00Z"), None);
     }
 }

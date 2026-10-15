@@ -29,6 +29,7 @@ pub struct SessionInfo {
     pub user_id: UserId,
     pub connected_at: i64,
     pub last_activity: i64,
+    pub messages_sent: u64,
 }
 
 /// Session manager tracks active sessions per user
@@ -70,6 +71,7 @@ impl SessionManager {
             user_id,
             connected_at: now,
             last_activity: now,
+            messages_sent: 0,
         };
 
         let mut kicked_sessions = Vec::new();
@@ -146,6 +148,14 @@ impl SessionManager {
         }
     }
 
+    /// Increment message count for a session and update last activity
+    pub fn increment_message_count(&self, session_id: SessionId) {
+        if let Some(mut session) = self.sessions.get_mut(&session_id) {
+            session.messages_sent += 1;
+            session.last_activity = chrono::Utc::now().timestamp();
+        }
+    }
+
     /// Get total active session count
     pub fn total_sessions(&self) -> usize {
         self.sessions.len()
@@ -205,5 +215,20 @@ mod tests {
         assert!(manager.get_session(session1).is_some());
         assert!(manager.get_session(session2).is_some());
         assert_eq!(manager.get_user_sessions(100).len(), 2);
+    }
+
+    #[test]
+    fn test_message_count_tracking() {
+        let manager = SessionManager::new(1);
+        let (session_id, _) = manager.create_session(100);
+
+        let info = manager.get_session(session_id).unwrap();
+        assert_eq!(info.messages_sent, 0);
+
+        manager.increment_message_count(session_id);
+        manager.increment_message_count(session_id);
+
+        let info_updated = manager.get_session(session_id).unwrap();
+        assert_eq!(info_updated.messages_sent, 2);
     }
 }
