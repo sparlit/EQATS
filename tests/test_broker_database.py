@@ -364,5 +364,100 @@ class TestParseXlsBrokers(unittest.TestCase):
         self.assertEqual(records, [])
 
 
+class TestParsePdfBrokers(unittest.TestCase):
+    """Unit tests for parse_pdf_brokers in broker_database."""
+
+    def test_parse_pdf_brokers_nonexistent(self) -> None:
+        records = broker_database.parse_pdf_brokers("non_existent_file_999.pdf")
+        self.assertEqual(records, [])
+
+    def test_parse_pdf_brokers_actual_file(self) -> None:
+        pdf_path = os.path.join(
+            "Brokers",
+            "List_of_Members_registered_with_NSE_Clearing_Limited_as_on_October_2025_0.pdf",
+        )
+        if os.path.exists(pdf_path):
+            records = broker_database.parse_pdf_brokers(pdf_path)
+            self.assertGreater(len(records), 0)
+            fname = os.path.basename(pdf_path)
+            for rec in records:
+                self.assertIn("name", rec)
+                self.assertIn("member_codes", rec)
+                self.assertIn("segments", rec)
+                self.assertEqual(rec["sources"], [fname])
+                self.assertTrue(len(rec["name"]) > 0)
+
+    @patch("os.path.exists", return_value=True)
+    @patch("pdfplumber.open")
+    def test_parse_pdf_brokers_mocked_pdf(
+        self, mock_pdf_open: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        mock_page1 = MagicMock()
+        mock_page1.extract_tables.return_value = [
+            [
+                ["Sr. No.", "Member Name", "Code", "Segment"],
+                ["1", "Short Row"],
+                ["2.0", "  ZERODHA BROKING LIMITED  ", "13942.0", "  Capital Market  "],
+                ["3", "  GROWW PAY SECURITIES  ", "14888", ""],
+            ]
+        ]
+
+        mock_page2 = MagicMock()
+        mock_page2.extract_tables.return_value = [
+            [
+                ["No.", "Name", "Member Code", "Seg"],
+                ["4", "   ", "12345", "Derivatives"],
+                ["5", "UPSTOX SECURITIES", "09876"],
+            ]
+        ]
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_page1, mock_page2]
+        mock_pdf_open.return_value.__enter__.return_value = mock_pdf
+
+        file_path = "sample_ncl_members.pdf"
+        records = broker_database.parse_pdf_brokers(file_path)
+
+        self.assertEqual(len(records), 3)
+
+        self.assertEqual(
+            records[0],
+            {
+                "name": "ZERODHA BROKING LIMITED",
+                "member_codes": ["13942"],
+                "segments": ["Capital Market"],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+        self.assertEqual(
+            records[1],
+            {
+                "name": "GROWW PAY SECURITIES",
+                "member_codes": ["14888"],
+                "segments": [],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+        self.assertEqual(
+            records[2],
+            {
+                "name": "UPSTOX SECURITIES",
+                "member_codes": ["09876"],
+                "segments": [],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+    @patch("os.path.exists", return_value=True)
+    @patch("pdfplumber.open", side_effect=Exception("Failed to read PDF stream"))
+    def test_parse_pdf_brokers_exception_handling(
+        self, mock_pdf_open: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        records = broker_database.parse_pdf_brokers("corrupt.pdf")
+        self.assertEqual(records, [])
+
+
 if __name__ == "__main__":
     unittest.main()
