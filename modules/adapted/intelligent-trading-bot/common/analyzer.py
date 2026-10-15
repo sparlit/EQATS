@@ -188,6 +188,20 @@ class Analyzer:
             if self.dirty_records >= result_df_len:
                 self.dirty_records = -1
 
+    def _compute_feature_sets(self, feature_sets: list, last_rows: int) -> list:
+        """
+        Compute feature sets and update self.df.
+        Used for both normal (pre-ML) features and signal features.
+        """
+        feature_columns = []
+        for fs in feature_sets:
+            df, feats = generate_feature_set(
+                self.df, fs, self.config, self.model_store, last_rows=last_rows
+            )
+            self.df = df
+            feature_columns.extend(feats)
+        return feature_columns
+
     def analyze(self):
         """
         Compute derived columns for dirty records and add them to the data frame:
@@ -216,13 +230,7 @@ class Analyzer:
         #
 
         feature_sets = self.config.get("feature_sets", [])
-        feature_columns = []
-        for fs in feature_sets:
-            df, feats = generate_feature_set(
-                self.df, fs, self.config, self.model_store, last_rows=last_rows
-            )
-            self.df = df
-            feature_columns.extend(feats)
+        feature_columns = self._compute_feature_sets(feature_sets, last_rows)
 
         #
         # 2. Apply ML models and generate intelligent indicators
@@ -266,13 +274,7 @@ class Analyzer:
         #
 
         signal_sets = self.config.get("signal_sets", [])
-        signal_columns = []
-        for fs in signal_sets:
-            df, feats = generate_feature_set(
-                self.df, fs, self.config, self.model_store, last_rows=last_rows
-            )
-            self.df = df
-            signal_columns.extend(feats)
+        signal_columns = self._compute_feature_sets(signal_sets, last_rows)
 
         #
         # Append the new rows to the main data frame with all previously computed data

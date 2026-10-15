@@ -146,30 +146,94 @@ def test_update_order_status():
     }
 
     with patch.dict(sys.modules, mock_modules):
-        from outputs.trader_mt5 import update_order_status, App
+        import pandas as pd
+        from outputs.trader_mt5 import trader_mt5, App
 
-        # Test 1: No active order or missing orderId
-        App.order = {}
-        assert asyncio.run(update_order_status()) is None
+        App.config = {
+            "symbol": "BTCUSD",
+            "freq": "1h",
+            "mt5_account_id": None,
+        }
 
-        # Test 2: MT5 returns None or empty list
-        App.order = {"orderId": 101}
-        with patch.object(mock_mt5, "orders_get", return_value=None):
-            assert asyncio.run(update_order_status()) is None
+        df = pd.DataFrame([{"close": 50000.0}])
+        model = {"buy_signal_column": "buy", "sell_signal_column": "sell"}
+        config = {"symbol": "BTCUSD", "freq": "1h"}
+        model_store = MagicMock()
 
-        # Test 3: Valid order info with namedtuple containing _asdict
-        App.order = {"orderId": 102}
-        mock_order = MagicMock()
-        mock_order._asdict.return_value = {"ticket": 102, "state": "FILLED"}
+        with patch("outputs.trader_mt5.pandas_get_interval", return_value=("2025-01-01 00:00:00", "2025-01-01 01:00:00")), \
+             patch("outputs.trader_mt5.now_timestamp", return_value=1700000000), \
+             patch("outputs.trader_mt5.get_signal", return_value={"side": "NONE", "close_price": 50000.0, "close_time": 1700000000}), \
+             patch("outputs.trader_mt5.update_order_status", new_callable=AsyncMock, return_value=4), \
+             patch("outputs.trader_mt5.update_account_balance", new_callable=AsyncMock):
 
-        with patch.object(mock_mt5, "orders_get", return_value=(mock_order,)):
-            status = asyncio.run(update_order_status())
-            assert status == "FILLED"
-            assert App.order["status"] == "FILLED"
+            # Test SELLING -> SOLD transition on FILLED
+            App.status = "SELLING"
+            App.order = {"orderId": 101, "status": 4}
+            asyncio.run(trader_mt5(df, model, config, model_store))
+            assert App.status == "SOLD"
 
-        # Test 4: Valid order info with dict
-        App.order = {"orderId": 103}
-        with patch.object(mock_mt5, "orders_get", return_value=({"ticket": 103, "status": "CANCELED"},)):
-            status = asyncio.run(update_order_status())
-            assert status == "CANCELED"
-            assert App.order["status"] == "CANCELED"
+            # Test BUYING -> BOUGHT transition on FILLED
+            App.status = "BUYING"
+            App.order = {"orderId": 102, "status": 4}
+            asyncio.run(trader_mt5(df, model, config, model_store))
+            assert App.status == "BOUGHT"
+
+
+def test_analyzer_feature_and_signal_generation():
+    import pandas as pd
+    from common.analyzer import Analyzer
+
+    config = {
+        "symbol": "BTCUSDT",
+        "freq": "1min",
+        "time_column": "timestamp",
+        "predict_length": 10,
+        "features_horizon": 5,
+        "data_sources": [{"folder": "BTCUSDT", "column_prefix": ""}],
+        "train_features": ["close"],
+        "feature_sets": [
+            {
+                "generator": "itbstats",
+                "config": {"columns": "close", "functions": ["mean"], "windows": [5]},
+                "feature_prefix": "feat",
+            }
+        ],
+        "train_feature_sets": [],
+        "signal_sets": [
+            {
+                "generator": "threshold_rule",
+                "config": {
+                    "columns": "close",
+                    "names": ["buy_sig", "sell_sig"],
+                    "parameters": {"buy_signal_threshold": 100.0, "sell_signal_threshold": 50.0},
+                },
+            }
+        ],
+    }
+
+    model_store = MagicMock()
+    analyzer = Analyzer(config, model_store)
+
+    dt_index = pd.date_range("2025-01-01 00:00:00", periods=20, freq="1min", tz="UTC")
+    df_raw = pd.DataFrame(
+        {
+            "timestamp": dt_index,
+            "open": 100.0,
+            "high": 105.0,
+            "low": 95.0,
+            "close": 102.0,
+            "volume": 1000.0,
+        }
+    )
+
+    analyzer.append_data({"BTCUSDT": df_raw})
+    assert len(analyzer.df) == 20
+    assert analyzer.dirty_records != 0
+
+    analyzer.analyze()
+
+    assert analyzer.dirty_records == 0
+    assert "buy_sig" in analyzer.df.columns
+    assert "sell_sig" in analyzer.df.columns
+    assert bool(analyzer.df["buy_sig"].iloc[-1]) is True
+    assert bool(analyzer.df["sell_sig"].iloc[-1]) is False
