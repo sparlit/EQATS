@@ -76,7 +76,11 @@ Total Repositories: 424 | Current Index: 74
 | 71 | beinghorizontal/bhavfno | Completed | https://github.com/sparlit/EQATS/pull/3368 |
 | 72 | benimward9621/advanced-nse-momentum-terminal | Skipped: Private/Non-Existent (404/403) | None |
 | 73 | bennythadikaran/eod2 | Completed | None |
+<<<<<<< HEAD
 | 74 | bennythadikaran/eod2_data | Processed | None |
+=======
+| 74 | bennythadikaran/eod2_data | Processed | https://github.com/sparlit/EQATS/pull/3450 |
+>>>>>>> integrate/eod2_data
 | 75 | bennythadikaran/nseindiaapi | pending | None |
 | 76 | bhala-srinivash/nse-trading-skills | pending | None |
 | 77 | bhumi008007/stock_prediction | pending | None |

@@ -590,7 +590,11 @@
       "target": "bennythadikaran/eod2_data",
       "url": "https://github.com/bennythadikaran/eod2_data",
       "status": "Processed",
+<<<<<<< HEAD
       "pr_url": null,
+=======
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3450",
+>>>>>>> integrate/eod2_data
       "merged": true
     },
     {
