@@ -12,8 +12,7 @@ except ImportError:
 
 # Configuration
 MAX_RETRIES = 3
-TEST_COMMAND = [
-    sys.executable,
+TEST_ARGS = [
     "-m",
     "pytest",
     "-n",
@@ -29,14 +28,14 @@ TEST_COMMAND = [
     "--json-report-file=.pytest_report.json",
 ]
 
-client = OpenAI(api_key=os.getenv("LLM_API_KEY")) if OpenAI else None
+client = OpenAI(api_key=os.getenv("LLM_API_KEY")) if OpenAI is not None else None
 
 
 def run_tests() -> bool:
     """Runs the test suite and returns True if successful, False otherwise."""
-    print(f"Executing: {TEST_COMMAND}")
-    cmd_args = shlex.split(TEST_COMMAND)
-    result = subprocess.run(cmd_args)
+    cmd = [sys.executable] + TEST_ARGS
+    print(f"Executing: {' '.join(cmd)}")
+    result = subprocess.run(cmd, check=False)
     return result.returncode == 0
 
 
@@ -121,7 +120,7 @@ def apply_fixes(fixes: dict[str, Any]) -> None:
 
 def main() -> None:
     # Install dependency required to parse errors dynamically if missing
-    subprocess.run([sys.executable, "-m", "pip", "install", "pytest-json-report"], check=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "pytest-json-report"], check=False)
 
     for attempt in range(1, MAX_RETRIES + 1):
         print(f"\n=== Autonomous Cycle Attempt {attempt}/{MAX_RETRIES} ===")
