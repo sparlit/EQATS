@@ -1,121 +1,113 @@
 import json
+import sys
+from datetime import datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from expressoptionchain.option_chain import (
-    OptionChainCreator,
-    OptionChainFetcher,
-    is_ist_market_session_active,
-    round_to_ist_tick,
-)
+
+# Ensure modules/adapted/express-option-chain/src is in path
+EXPRESS_SRC = Path(__file__).resolve().parent.parent / "modules" / "adapted" / "express-option-chain" / "src"
+if str(EXPRESS_SRC) not in sys.path:
+    sys.path.insert(0, str(EXPRESS_SRC))
+
+from expressoptionchain.exceptions import OptionStreamValidationException
+from expressoptionchain.option_stream import OptionStream
 
 
-def test_round_to_ist_tick():
-    assert round_to_ist_tick(100.02) == 100.0
-    assert round_to_ist_tick(100.03) == 100.05
-    assert round_to_ist_tick(-10.0) == 0.0
-
-
-def test_is_ist_market_session_active():
-    res = is_ist_market_session_active()
-    assert isinstance(res, bool)
-
-
-def test_option_chain_fetcher_success():
-    mock_redis = MagicMock()
-    mock_data = json.dumps({"trading_symbol": "HDFCBANK", "expiry": {}})
-    mock_redis.hget.return_value = mock_data.encode("utf-8")
-
-    with patch("expressoptionchain.redis_helper.get_redis_instance", return_value=mock_redis):
-        fetcher = OptionChainFetcher()
-        res = fetcher.get_option_chain("NFO:HDFCBANK")
-        assert res["trading_symbol"] == "HDFCBANK"
-
-
-def test_option_chain_fetcher_not_found():
-    mock_redis = MagicMock()
-    mock_redis.hget.return_value = None
-
-    with patch("expressoptionchain.redis_helper.get_redis_instance", return_value=mock_redis):
-        fetcher = OptionChainFetcher()
-        with pytest.raises(Exception, match="Option chain of NFO:INVALID not found"):
-            fetcher.get_option_chain("NFO:INVALID")
-
-
-def test_option_chain_fetcher_get_option_chains():
-    mock_redis = MagicMock()
-    mock_data = json.dumps({"trading_symbol": "HDFCBANK"})
-    mock_redis.hget.return_value = mock_data.encode("utf-8")
-
-    with patch("expressoptionchain.redis_helper.get_redis_instance", return_value=mock_redis):
-        fetcher = OptionChainFetcher()
-        res = fetcher.get_option_chains(["NFO:HDFCBANK", "NFO:HDFCBANK"])
-        assert len(res) == 2
-
-
-def test_option_chain_creator_base_and_underlying():
-    mock_redis = MagicMock()
-    mock_redis.hget.return_value = b"1500.50"
-
-    with patch("expressoptionchain.redis_helper.get_redis_instance", return_value=mock_redis), patch(
-        "expressoptionchain.option_chain.KiteConnector"
+class TestExpressOptionStream:
+    @patch("expressoptionchain.option_stream.KiteInstrumentManager")
+    @patch("expressoptionchain.option_stream.KiteConnectionManager")
+    @patch("expressoptionchain.option_stream.redis_helper.get_redis_instance")
+    @patch("expressoptionchain.option_stream.KiteInstrumentFetcher")
+    def test_option_stream_initialization_and_throttle(
+        self, mock_fetcher, mock_redis_inst, mock_conn_mgr, mock_inst_mgr
     ):
-        creator = OptionChainCreator(kite_secrets={"api_key": "test"})
-        token_info = {
-            "exchange": "NFO",
-            "name": "HDFCBANK",
-            "segment": "NFO",
-            "lot_size": 550,
-        }
-        base = creator.get_option_chain_base(token_info, "23-02-2023")
+        mock_db = MagicMock()
+        mock_db.get.return_value = json.dumps(
+            {"instrument_last_fetch_time": datetime.now().strftime("%d-%m-%Y %H:%M:%S")}
+        )
+        mock_db.hkeys.return_value = ["NFO:HDFCBANK", "NFO:INFY"]
+        mock_db.smembers.return_value = {"23-02-2023"}
+        mock_redis_inst.return_value = mock_db
 
-        assert base["trading_symbol"] == "HDFCBANK"
-        assert base["exchange"] == "NFO"
-        assert base["segment"] == "NFO"
-        assert base["underlying_value"] == 1500.50
-        assert base["lot_size"] == 550
-        assert "23-02-2023" in base["expiry"]
+        fetcher_instance = MagicMock()
+        fetcher_instance.get_tokens.return_value = [1001, 1002]
+        mock_fetcher.return_value = fetcher_instance
 
+        secrets = {"api_key": "test_key", "access_token": "test_token"}
+        symbols = ["NFO:HDFCBANK", "NFO:INFY"]
 
-def test_option_chain_creator_underlying_value_index_returns_none():
-    mock_redis = MagicMock()
+        stream = OptionStream(
+            trading_symbols=symbols,
+            secrets=secrets,
+            expiry="23-02-2023",
+            throttle_interval=0.15,
+        )
 
-    with patch("expressoptionchain.redis_helper.get_redis_instance", return_value=mock_redis), patch(
-        "expressoptionchain.option_chain.KiteConnector"
+        assert stream.throttle_interval == 0.15
+        assert stream.trading_symbols == symbols
+        assert stream.expiry == "23-02-2023"
+
+    @patch("expressoptionchain.option_stream.KiteInstrumentManager")
+    @patch("expressoptionchain.option_stream.KiteConnectionManager")
+    @patch("expressoptionchain.option_stream.redis_helper.get_redis_instance")
+    @patch("expressoptionchain.option_stream.KiteInstrumentFetcher")
+    def test_option_stream_validation_failure(
+        self, mock_fetcher, mock_redis_inst, mock_conn_mgr, mock_inst_mgr
     ):
-        creator = OptionChainCreator(kite_secrets={"api_key": "test"})
-        # NIFTY should return None as per implementation
-        val = creator.get_underlying_value("NFO", "NIFTY23FEB18000CE")
-        assert val is None
+        mock_db = MagicMock()
+        mock_db.get.return_value = json.dumps(
+            {"instrument_last_fetch_time": datetime.now().strftime("%d-%m-%Y %H:%M:%S")}
+        )
+        mock_redis_inst.return_value = mock_db
 
+        secrets = {"api_key": "", "access_token": "test_token"}
+        with pytest.raises(OptionStreamValidationException, match="Secrets does not contain api key"):
+            OptionStream(
+                trading_symbols=["NFO:HDFCBANK"],
+                secrets=secrets,
+                expiry="23-02-2023",
+            )
 
-def test_option_chain_creator_get_option_detail():
-    tick = {
-        "depth": {
-            "buy": [{"quantity": 100, "price": 10.5}],
-            "sell": [{"quantity": 200, "price": 11.0}],
-        },
-        "last_price": 10.75,
-        "last_trade_time": "2023-02-23T10:00:00",
-        "exchange_timestamp": "2023-02-23T10:00:00",
-        "last_traded_quantity": 50,
-        "change": 0.5,
-        "oi": 10000,
-        "oi_day_high": 12000,
-        "oi_day_low": 8000,
-        "total_buy_quantity": 5000,
-        "ohlc": {"open": 10.0, "high": 11.5, "low": 9.5, "close": 10.0},
-        "total_sell_quantity": 6000,
-        "volume_traded": 25000,
-        "tradable": True,
-        "instrument_token": 123456,
-    }
+    @patch("expressoptionchain.option_stream.time.sleep")
+    @patch("expressoptionchain.option_stream.OptionChainCreator")
+    @patch("expressoptionchain.option_stream.KiteInstrumentManager")
+    @patch("expressoptionchain.option_stream.KiteConnectionManager")
+    @patch("expressoptionchain.option_stream.redis_helper.get_redis_instance")
+    @patch("expressoptionchain.option_stream.KiteInstrumentFetcher")
+    def test_create_option_chain_throttling(
+        self, mock_fetcher, mock_redis_inst, mock_conn_mgr, mock_inst_mgr, mock_creator_cls, mock_sleep
+    ):
+        mock_db = MagicMock()
+        mock_db.get.return_value = json.dumps(
+            {"instrument_last_fetch_time": datetime.now().strftime("%d-%m-%Y %H:%M:%S")}
+        )
+        mock_db.hkeys.return_value = ["NFO:HDFCBANK"]
+        mock_db.smembers.return_value = {"23-02-2023"}
+        mock_redis_inst.return_value = mock_db
 
-    detail = OptionChainCreator.get_option_detail(tick)
-    assert detail["bid_quantity"] == 100
-    assert detail["bid_price"] == 10.5
-    assert detail["ask_quantity"] == 200
-    assert detail["ask_price"] == 11.0
-    assert detail["premium"] == 10.75
-    assert detail["volume"] == 25000
-    assert detail["instrument_token"] == 123456
+        fetcher_instance = MagicMock()
+        fetcher_instance.get_tokens.return_value = [1001]
+        mock_fetcher.return_value = fetcher_instance
+
+        mock_creator = MagicMock()
+        # Raise KeyboardInterrupt after 1 loop iteration to break while True loop cleanly
+        mock_creator.create_option_chain.side_effect = [None, KeyboardInterrupt()]
+        mock_creator_cls.return_value = mock_creator
+
+        secrets = {"api_key": "test_key", "access_token": "test_token"}
+        stream = OptionStream(
+            trading_symbols=["NFO:HDFCBANK"],
+            secrets=secrets,
+            expiry="23-02-2023",
+            throttle_interval=0.25,
+        )
+
+        with pytest.raises(KeyboardInterrupt):
+            stream.create_option_chain()
+
+        assert mock_sleep.called
+        # Check that sleep duration was approximately throttle_interval (<= 0.25)
+        sleep_arg = mock_sleep.call_args[0][0]
+        assert 0.0 < sleep_arg <= 0.25

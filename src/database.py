@@ -396,16 +396,17 @@ def _init_db_impl() -> None:
             )
             """)
 
-            # Alter table if existing schema lacks strategy or method columns
-            for col_def in [
-                ("strategy TEXT DEFAULT ''", "strategy"),
-                ("method TEXT DEFAULT ''", "method"),
-                ("product TEXT DEFAULT ''", "product"),
-            ]:
+            # Alter table if existing schema lacks strategy, method, or product columns
+            _TRADES_SCHEMA_ALTERS = [
+                ("ALTER TABLE trades ADD COLUMN strategy TEXT DEFAULT ''", "strategy"),
+                ("ALTER TABLE trades ADD COLUMN method TEXT DEFAULT ''", "method"),
+                ("ALTER TABLE trades ADD COLUMN product TEXT DEFAULT ''", "product"),
+            ]
+            for _sql, _col in _TRADES_SCHEMA_ALTERS:
                 try:
-                    cursor.execute(f"ALTER TABLE trades ADD COLUMN {col_def[0]}")
+                    cursor.execute(_sql)
                 except sqlite3.OperationalError as err:
-                    _log.debug("Column %s already present: %s", col_def[1], err)
+                    _log.debug("Column %s already present: %s", _col, err)
             cursor.execute(
                 "\n            CREATE TABLE IF NOT EXISTS performance_metrics (\n                date TEXT PRIMARY KEY,\n                initial_balance REAL NOT NULL,\n                final_balance REAL NOT NULL,\n                trades_taken INTEGER DEFAULT 0,\n                win_rate REAL DEFAULT 0.0,\n                net_profit REAL DEFAULT 0.0\n            )\n            "
             )
