@@ -120,3 +120,31 @@ def test_main_with_invalid_dbpath():
     with patch("modules.adapted.tickdownload.read_sql_data.get_metadata", side_effect=Exception("Connection failed")):
         ret = read_sql_data.main(["--dbpath", "invalid_db_path"])
         assert ret == -1
+
+
+def test_profiler_context_and_panel_bench():
+    """Test ProfilerContext context manager and ProcessPandasPanelBench run_bench_cprofile."""
+    import modules.adapted.tickdownload.process_pd_panel_bench as bench_module
+    from modules.adapted.tickdownload.process_pd_panel_bench import ProfilerContext, ProcessPandasPanelBench
+
+    # Test ProfilerContext directly
+    with ProfilerContext(label="test_run") as prof:
+        prof.result = [1, 2, 3]
+        sum([i for i in range(100)])
+
+    assert prof.elapsed_time >= 0.0
+    assert len(prof.stats_str) > 0
+
+    # Test ProcessPandasPanelBench with mocked benchmark calls
+    with (
+        patch.object(bench_module, "get_metadata", return_value=MagicMock()),
+        patch.object(bench_module, "panel_bench_lc", return_value=[True, False]),
+        patch.object(bench_module, "panel_bench_vector", return_value=["item1"]),
+    ):
+        bench_inst = ProcessPandasPanelBench(limit_rows=10, db_path="sqlite:///:memory:")
+        bench_inst.set_method("cprofile")
+        with pytest.raises(ValueError, match="Method name should be 'cProfile'"):
+            bench_inst.set_method("invalid_method")
+
+        # Call run_bench_cprofile with dummy panel object
+        bench_inst.run_bench_cprofile(panel=MagicMock())

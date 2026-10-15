@@ -64,3 +64,22 @@ def test_calculate_roi_insufficient_signals(capsys):
     assert result is False
     captured = capsys.readouterr()
     assert "Not enough data yet" in captured.out
+
+
+def test_signal_generation_with_custom_alpha_and_beta():
+    strategy = bollingerbandsBottomWStrategy()
+    np.random.seed(42)
+    dates = pd.date_range(start="2024-01-01", periods=120, freq="D")
+    prices = 100 + np.cumsum(np.random.randn(120))
+    df = pd.DataFrame(
+        {
+            "Date": dates.strftime("%Y-%m-%d %H:%M:%S"),
+            "Symbol": "TESTSTOCK",
+            "close": prices,
+        }
+    )
+    signals = strategy.signal_generation(df, alpha=0.005, beta=0.005)
+    assert "bb_signal" in signals.columns
+    assert "bb_position" in signals.columns
+    assert "coordinates" in signals.columns
+    assert len(signals) > 0

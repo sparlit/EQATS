@@ -234,7 +234,7 @@ async def update_trade_status():
         order = open_orders[0]
         if order.type == mt5.ORDER_TYPE_SELL_LIMIT:
             App.status = "SELLING"
-        elif order.type == mt5.ORDER_TYPE_BUY_LIMIT:
+        elif order.type in (mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY):
             App.status = "BUYING"
         else:
             log.error(f"Neither SELL nor BUY side of the order {order}.")
