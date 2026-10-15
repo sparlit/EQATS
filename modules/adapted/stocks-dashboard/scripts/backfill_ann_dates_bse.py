@@ -1,11 +1,10 @@
 import datetime
-
-import pytz
+from zoneinfo import ZoneInfo
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -625,7 +624,7 @@ def main():
         if ann:
             ledger[key] = {"ann": ann, "src": "bse:" + how}
             known[(sym, qe)] = (
-                ann  # todo is qe-ascending: a fill bounds the same co's later targets
+                ann  # Note: todo list is qe-ascending, so a fill bounds the same company's later targets
             )
             filled += 1
             print("  %-14s %d -> %d (%s)" % (sym, qe, ann, how))

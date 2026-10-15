@@ -31,7 +31,7 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import MetaTrader5 as mt5
@@ -53,10 +53,10 @@ TICK_CHUNK_SIZE = 5  # How many ticks worth of duration to request in each chunk
 RATE_LIMIT_DELAY = (
     0.1  # (float): The delay in seconds between requests. Small delay between requests (seconds)
 )
-default_start_dt = datetime(2014, 1, 1, tzinfo=timezone)  # Or get from config if needed
+default_start_dt = datetime(2014, 1, 1, tzinfo=timezone.utc)  # Or get from config if needed
 
 time_column = "timestamp"
-timezone = pytz.timezone("Etc/UTC")
+utc_tz = pytz.timezone("Etc/UTC")
 
 
 def init_client(parameters, client_args):
@@ -167,7 +167,7 @@ async def request_symbol_klines(symbol: str, mt5_timeframe: int, start_from_dt) 
         Exception: If any other error occurs during data retrieval.
     """
     # Define end point for download (now)
-    end_dt = datetime.now(timezone)
+    end_dt = datetime.now(timezone.utc)
 
     if start_from_dt:
         current_start_dt = start_from_dt
@@ -331,9 +331,9 @@ def download_klines(config, data_sources):
         print(f"MetaTrader5 frequency: {mt5_timeframe}")
 
     # Define the timezone for MT5 (usually UTC)
-    timezone = pytz.timezone("Etc/UTC")
+    utc_tz = pytz.timezone("Etc/UTC")
     # Define a default historical start if no file exists => 2014 | 2017 | 2024
-    historical_start_date = datetime(2017, 1, 1, tzinfo=timezone)  # Or get from config if needed
+    historical_start_date = datetime(2017, 1, 1, tzinfo=timezone.utc)  # Or get from config if needed
 
     # Connect to trading account
     if mt5_account_id and mt5_password and mt5_server:
@@ -437,7 +437,7 @@ def download_klines(config, data_sources):
             start_dt = historical_start_date  # Ensure start_dt is set
 
         # Define end point for download (now)
-        end_dt = datetime.now(timezone)
+        end_dt = datetime.now(timezone.utc)
 
         # Check if symbol is available
         symbol_info = mt5.symbol_info(quote)
