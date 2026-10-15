@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
+import database
 from src.credential_manager import CredentialManager
 
 
@@ -32,6 +33,7 @@ def temp_db() -> Generator[str]:
 
 
 def test_credential_manager_init(temp_db: str) -> None:
+    """Tests initialization of CredentialManager with custom DB path."""
     cm = CredentialManager(db_path=temp_db)
     assert cm is not None
 
@@ -51,6 +53,7 @@ def test_add_user_error_paths(temp_db: str) -> None:
 
 
 def test_user_crud_operations(temp_db: str) -> None:
+    """Tests user CRUD operations."""
     cm = CredentialManager(db_path=temp_db)
 
     # 1. Add user
@@ -72,11 +75,24 @@ def test_user_crud_operations(temp_db: str) -> None:
     assert cm.verify_user_credentials("trader_bob", "WrongPassword", "123456") is False
 
     # 4. Update user
-    assert cm.update_user("trader_bob", new_password="NewPassword456!", new_role="SOVEREIGN_ADMIN") is True
+    assert (
+        cm.update_user(
+            "trader_bob",
+            new_password="NewPassword456!",
+            new_role="SOVEREIGN_ADMIN",
+        )
+        is True
+    )
     assert cm.verify_user_credentials("trader_bob", "NewPassword456!", "123456") is True
 
     # 5. Reset admin credentials
-    assert cm.reset_admin_credentials(new_password="NewAdminPassword789!", new_pin="999888") is True
+    assert (
+        cm.reset_admin_credentials(
+            new_password="NewAdminPassword789!",
+            new_pin="999888",
+        )
+        is True
+    )
     assert cm.verify_user_credentials("QUANT_OPERATOR", "NewAdminPassword789!", "999888") is True
 
     # 6. Delete user
@@ -85,18 +101,22 @@ def test_user_crud_operations(temp_db: str) -> None:
 
 
 def test_broker_crud_operations(temp_db: str) -> None:
+    """Tests broker CRUD operations."""
     cm = CredentialManager(db_path=temp_db)
 
     # 1. Add broker
-    assert cm.add_broker_account(
-        broker_name="Interactive Brokers",
-        server="127.0.0.1:4002",
-        account_id="U1234567",
-        password="IBSecretPassword",
-        leverage="1:50",
-        protocol_type="IBKR",
-        is_active=1,
-    ) is True
+    assert (
+        cm.add_broker_account(
+            broker_name="Interactive Brokers",
+            server="127.0.0.1:4002",
+            account_id="U1234567",
+            password="IBSecretPassword",
+            leverage="1:50",
+            protocol_type="IBKR",
+            is_active=1,
+        )
+        is True
+    )
 
     # 2. Get brokers
     brokers = cm.get_all_brokers()
@@ -111,13 +131,16 @@ def test_broker_crud_operations(temp_db: str) -> None:
     assert active_b["broker_name"] == "Interactive Brokers"
 
     # 4. Save primary broker credentials
-    assert cm.save_primary_broker_credentials(
-        server="127.0.0.1:4002",
-        account_id="U1234567",
-        password="UpdatedIBSecretPassword",
-        leverage="1:100",
-        broker_name="Interactive Brokers Updated",
-    ) is True
+    assert (
+        cm.save_primary_broker_credentials(
+            server="127.0.0.1:4002",
+            account_id="U1234567",
+            password="UpdatedIBSecretPassword",
+            leverage="1:100",
+            broker_name="Interactive Brokers Updated",
+        )
+        is True
+    )
 
     active_b_updated = cm.get_active_broker_credentials()
     assert active_b_updated is not None
@@ -198,6 +221,7 @@ def test_broker_error_paths(temp_db: str, monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_security_health_and_circuit_breaker(temp_db: str) -> None:
+    """Tests security health check and circuit breaker reset."""
     cm = CredentialManager(db_path=temp_db)
 
     # Security health
@@ -223,7 +247,6 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     assert cm.reencrypt_all_broker_credentials() is True
 
     # Circuit breaker state
-    import database
     database.save_circuit_breaker_state(
         trading_date="2026-03-31",
         daily_start_balance=10000.0,
@@ -242,53 +265,65 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
 
 
 def test_credential_manager_error_paths(temp_db: str) -> None:
-    """Tests exception handling and error paths across CredentialManager methods."""
+    """Verifies that CredentialManager methods handle exceptions gracefully and return False."""
     cm = CredentialManager(db_path=temp_db)
 
-    # 1. add_user validation errors and database exception
-    assert cm.add_user("", "pass", "1234") is False
-    assert cm.add_user("user", "", "1234") is False
+    # 1. add_user missing parameters
+    assert cm.add_user("", "pass", "pin") is False
+    assert cm.add_user("user", "", "pin") is False
     assert cm.add_user("user", "pass", "") is False
 
-    with patch("database.add_user", side_effect=RuntimeError("Database error")):
-        assert cm.add_user("testuser", "pass", "1234") is False
+    # 2. add_user exception path
+    with patch.object(database, "add_user", side_effect=Exception("DB Error")):
+        assert cm.add_user("error_user", "pass", "pin") is False
 
-    # 2. update_user database exception
-    with patch("database.update_user", side_effect=RuntimeError("Database error")):
-        assert cm.update_user("testuser", new_password="newpass") is False
+    # 3. update_user exception path
+    with patch.object(database, "update_user", side_effect=Exception("DB Error")):
+        assert cm.update_user("error_user", new_password="new_pass") is False
 
-    # 3. delete_user database exception
-    with patch("database.delete_user", side_effect=RuntimeError("Database error")):
-        assert cm.delete_user("testuser") is False
+    # 4. delete_user exception path
+    with patch.object(database, "delete_user", side_effect=Exception("DB Error")):
+        assert cm.delete_user("error_user") is False
 
-    # 4. reset_admin_credentials database exception (both when user exists and when not)
-    with patch("database.update_user", side_effect=RuntimeError("Database error")):
-        assert cm.reset_admin_credentials(admin_username="QUANT_OPERATOR") is False
+    # 5. reset_admin_credentials exception path
+    with patch.object(cm, "get_user", side_effect=Exception("DB Error")):
+        assert cm.reset_admin_credentials() is False
 
-    with patch.object(cm, "get_user", return_value=None):
-        with patch("database.add_user", side_effect=RuntimeError("Database error")):
-            assert cm.reset_admin_credentials(admin_username="NEW_ADMIN") is False
+    # 6. add_broker_account exception path (covers line 202 error path)
+    with patch.object(database, "add_broker_account", side_effect=Exception("DB Error")):
+        assert (
+            cm.add_broker_account(
+                broker_name="Failed Broker",
+                server="Server",
+                account_id="123",
+                password="pass",
+            )
+            is False
+        )
 
-    # 5. add_broker_account database exception
-    with patch("database.add_broker_account", side_effect=RuntimeError("Database error")):
-        assert cm.add_broker_account("Broker", "Server", "123", "pass") is False
+    # 7. save_primary_broker_credentials exception path
+    with patch.object(database, "save_broker_credentials", side_effect=Exception("DB Error")):
+        assert (
+            cm.save_primary_broker_credentials(
+                server="Server",
+                account_id="123",
+                password="pass",
+            )
+            is False
+        )
 
-    # 6. save_primary_broker_credentials database exception
-    with patch("database.save_broker_credentials", side_effect=RuntimeError("Database error")):
-        assert cm.save_primary_broker_credentials("Server", "123", "pass") is False
+    # 8. set_active_broker exception path
+    with patch.object(database, "set_active_broker", side_effect=Exception("DB Error")):
+        assert cm.set_active_broker(999) is False
 
-    # 7. set_active_broker database exception
-    with patch("database.set_active_broker", side_effect=RuntimeError("Database error")):
-        assert cm.set_active_broker(1) is False
+    # 9. delete_broker_account exception path
+    with patch.object(database, "delete_broker_account", side_effect=Exception("DB Error")):
+        assert cm.delete_broker_account(999) is False
 
-    # 8. delete_broker_account database exception
-    with patch("database.delete_broker_account", side_effect=RuntimeError("Database error")):
-        assert cm.delete_broker_account(1) is False
+    # 10. add_broker_profile exception path
+    with patch.object(database, "add_broker_profile", side_effect=Exception("DB Error")):
+        assert cm.add_broker_profile("key", "Display") is False
 
-    # 9. add_broker_profile database exception
-    with patch("database.add_broker_profile", side_effect=RuntimeError("Database error")):
-        assert cm.add_broker_profile("key", "display") is False
-
-    # 10. reencrypt_all_broker_credentials database exception
-    with patch.object(cm, "get_all_brokers", side_effect=RuntimeError("Database error")):
+    # 11. reencrypt_all_broker_credentials exception path
+    with patch.object(cm, "get_all_brokers", side_effect=Exception("DB Error")):
         assert cm.reencrypt_all_broker_credentials() is False
