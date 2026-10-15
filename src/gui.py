@@ -2185,8 +2185,7 @@ class ScalperGui:
     def _update_whale_screen_data(self) -> None:
         if not hasattr(self, "whale_tree") or not self.whale_tree:
             return
-        from institutional_integrations.whale_tracker import \
-            WhaleLiquidityTracker
+        from institutional_integrations.whale_tracker import WhaleLiquidityTracker
 
         tracker = WhaleLiquidityTracker()
         alert = tracker.fetch_whale_transfers("BTCUSD")
@@ -2263,8 +2262,7 @@ class ScalperGui:
         self._update_backtest_screen_data()
 
     def _run_backtest_simulation(self) -> None:
-        from institutional_integrations.backtest_engine import \
-            EventDrivenBacktester
+        from institutional_integrations.backtest_engine import EventDrivenBacktester
 
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 100)
         bt = EventDrivenBacktester()
@@ -2282,8 +2280,7 @@ class ScalperGui:
         self.txt_backtest_res.delete("1.0", tk.END)
         sym = self.selected_symbol_gp
         history = self.scalper.conn.get_history(sym, 100)
-        from institutional_integrations.backtest_engine import \
-            EventDrivenBacktester
+        from institutional_integrations.backtest_engine import EventDrivenBacktester
 
         bt = EventDrivenBacktester()
         if not wf_results:
@@ -2335,8 +2332,10 @@ class ScalperGui:
         )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
         from institutional_integrations.options_gex_engine import (
-            calculate_aggregate_gex, compute_black_scholes_greeks,
-            detect_gamma_flip_level)
+            calculate_aggregate_gex,
+            compute_black_scholes_greeks,
+            detect_gamma_flip_level,
+        )
 
         chain = [
             {"strike": 1.09, "call_open_interest": 1200, "put_open_interest": 450, "gamma": 0.0012},
@@ -2370,8 +2369,9 @@ class ScalperGui:
             relief=tk.SOLID,
         )
         txt.pack(fill=tk.BOTH, expand=True, pady=5)
-        from institutional_integrations.advanced_math import \
-            calculate_markov_regime_switching_probability
+        from institutional_integrations.advanced_math import (
+            calculate_markov_regime_switching_probability,
+        )
 
         history = self.scalper.conn.get_history(self.selected_symbol_gp, 30)
         closes = [b["close"] for b in history] if history else [1.1] * 30
@@ -7752,8 +7752,7 @@ class ScalperGui:
             return
         self.sent_tree.delete(*self.sent_tree.get_children())
         import database
-        from institutional_integrations.natural_language import \
-            extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
 
         try:
             conn = database.get_connection()
@@ -7880,8 +7879,9 @@ class ScalperGui:
         history = self.scalper.conn.get_history(sym, 20)
         if not history:
             return
-        from institutional_integrations.machine_learning import \
-            generate_multi_model_ensemble_prediction
+        from institutional_integrations.machine_learning import (
+            generate_multi_model_ensemble_prediction,
+        )
 
         closes = [b["close"] for b in history]
         current_price = closes[-1]
@@ -8583,7 +8583,9 @@ class ScalperGui:
         """Action handler to perform auto-detection and auto-tuning."""
         try:
             from institutional_integrations.system_autotune import (
-                auto_tune_system_parameters, detect_system_capabilities)
+                auto_tune_system_parameters,
+                detect_system_capabilities,
+            )
 
             caps = detect_system_capabilities()
             tuned = auto_tune_system_parameters(caps)
@@ -8606,7 +8608,9 @@ class ScalperGui:
             ):
                 return
             from institutional_integrations.system_autotune import (
-                global_system_caps, global_tuned_config)
+                global_system_caps,
+                global_tuned_config,
+            )
 
             caps = global_system_caps
             tuned = global_tuned_config
@@ -10395,8 +10399,7 @@ class ScalperGui:
         if not hasattr(self, "wei_tree") or not self.wei_tree:
             return
         self.wei_tree.delete(*self.wei_tree.get_children())
-        from institutional_integrations.web_api import \
-            fetch_yfinance_external_rates
+        from institutional_integrations.web_api import fetch_yfinance_external_rates
 
         ext_rates = fetch_yfinance_external_rates()
         macro_assets = [
@@ -10585,8 +10588,7 @@ class ScalperGui:
                     fg=self.fg_red if is_deviating else self.fg_green,
                 )
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
-                from institutional_integrations.quantum_local_llm import \
-                    local_financial_llm
+                from institutional_integrations.quantum_local_llm import local_financial_llm
 
                 local_financial_llm.train_on_text(
                     f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",
