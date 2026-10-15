@@ -33,11 +33,13 @@ def temp_db() -> Generator[str]:
 
 
 def test_credential_manager_init(temp_db: str) -> None:
+    """Tests initialization of CredentialManager with custom DB path."""
     cm = CredentialManager(db_path=temp_db)
     assert cm is not None
 
 
 def test_user_crud_operations(temp_db: str) -> None:
+    """Tests user CRUD operations."""
     cm = CredentialManager(db_path=temp_db)
 
     # 1. Add user
@@ -82,6 +84,7 @@ def test_user_crud_operations(temp_db: str) -> None:
 
 
 def test_broker_crud_operations(temp_db: str) -> None:
+    """Tests broker CRUD operations."""
     cm = CredentialManager(db_path=temp_db)
 
     # 1. Add broker
@@ -142,6 +145,7 @@ def test_broker_crud_operations(temp_db: str) -> None:
 
 
 def test_security_health_and_circuit_breaker(temp_db: str) -> None:
+    """Tests security health check and circuit breaker reset."""
     cm = CredentialManager(db_path=temp_db)
 
     # Security health
