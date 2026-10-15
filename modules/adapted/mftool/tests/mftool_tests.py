@@ -1,11 +1,23 @@
-import datetime
+"""This is a test module for testing mftool functionality."""
 
-import pytz
+import datetime
+import json
+import logging
+import unittest
+import zoneinfo
+from unittest.mock import patch
+
+import six
+from mftool import Mftool
+from mftool.utils import get_friday, get_today, is_holiday
+
+log = logging.getLogger("mftool")
+logging.basicConfig(level=logging.DEBUG)
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -19,21 +31,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-"""
-    This is a test module for testing
-"""
-import json
-import logging
-import unittest
-
-import six
-from mftool import Mftool
-from mftool.utils import get_friday, get_today, is_holiday
-
-log = logging.getLogger("mftool")
-logging.basicConfig(level=logging.DEBUG)
 
 
 class TestAPIs(unittest.TestCase):
@@ -179,8 +176,129 @@ class TestAPIs(unittest.TestCase):
             },
         )
 
+    def test_get_open_ended_debt_scheme_performance(self):
+        with patch.object(
+            self.mftool,
+            "_get_daily_scheme_performance",
+            return_value=[{"scheme_name": "Debt Fund"}],
+        ):
+            res = self.mftool.get_open_ended_debt_scheme_performance()
+            self.assertIsInstance(res, dict)
 
-# ToDO : Add remaining test
+    def test_get_open_ended_hybrid_scheme_performance(self):
+        with patch.object(
+            self.mftool,
+            "_get_daily_scheme_performance",
+            return_value=[{"scheme_name": "Hybrid Fund"}],
+        ):
+            res = self.mftool.get_open_ended_hybrid_scheme_performance()
+            self.assertIsInstance(res, dict)
+
+    def test_get_open_ended_solution_scheme_performance(self):
+        with patch.object(
+            self.mftool,
+            "_get_daily_scheme_performance",
+            return_value=[{"scheme_name": "Solution Fund"}],
+        ):
+            res = self.mftool.get_open_ended_solution_scheme_performance()
+            self.assertIsInstance(res, dict)
+
+    def test_get_open_ended_other_scheme_performance(self):
+        with patch.object(
+            self.mftool,
+            "_get_daily_scheme_performance",
+            return_value=[{"scheme_name": "Other Fund"}],
+        ):
+            res = self.mftool.get_open_ended_other_scheme_performance()
+            self.assertIsInstance(res, dict)
+
+    def test_calculate_returns(self):
+        code = "101305"
+        with patch.object(self.mftool, "get_scheme_quote", return_value={"nav": "50.0"}):
+            res = self.mftool.calculate_returns(
+                code, balanced_units=1000, monthly_sip=1000, investment_in_months=12
+            )
+            self.assertIsInstance(res, dict)
+            self.assertIn("final_investment_value", res)
+
+        invalid_res = self.mftool.calculate_returns("invalid_code", 1000, 1000, 12)
+        self.assertIsNone(invalid_res)
+
+    def test_search_schemes(self):
+        mock_codes = {
+            "101305": "HDFC Top 100 Fund - Direct Plan - Growth",
+            "119598": "Axis Bluechip Fund - Direct Plan - Growth",
+        }
+        with patch.object(self.mftool, "get_scheme_codes", return_value=mock_codes):
+            results = self.mftool.search_schemes("HDFC", limit=5)
+            self.assertIsInstance(results, list)
+            self.assertTrue(len(results) > 0)
+            self.assertEqual(results[0]["code"], "101305")
+
+            empty_res = self.mftool.search_schemes("")
+            self.assertEqual(empty_res, [])
+
+    def test_search_schemes_by_amc(self):
+        mock_schemes = {"101305": "HDFC Equity Fund - Direct"}
+        with patch.object(self.mftool, "get_available_schemes", return_value=mock_schemes):
+            results = self.mftool.search_schemes_by_amc("HDFC", search_term="Equity")
+            self.assertIsInstance(results, list)
+            self.assertEqual(len(results), 1)
+
+            results_no_search = self.mftool.search_schemes_by_amc("HDFC")
+            self.assertIsInstance(results_no_search, list)
+
+    def test_search_schemes_by_type(self):
+        mock_codes = {
+            "101305": "HDFC Equity Growth Fund",
+            "119598": "Axis Debt Savings Fund",
+        }
+        with patch.object(self.mftool, "get_scheme_codes", return_value=mock_codes):
+            results = self.mftool.search_schemes_by_type("Equity")
+            self.assertIsInstance(results, list)
+            self.assertEqual(len(results), 1)
+            self.assertEqual(results[0]["code"], "101305")
+
+    def test_get_bulk_quotes(self):
+        mock_quote = {"scheme_code": "101305", "nav": "50.0", "scheme_name": "Test Fund"}
+        with (
+            patch.object(self.mftool, "is_valid_code", return_value=True),
+            patch.object(self.mftool, "get_scheme_quote", return_value=mock_quote),
+        ):
+            quotes = self.mftool.get_bulk_quotes(["101305"])
+            self.assertIsInstance(quotes, dict)
+            self.assertIn("101305", quotes)
+
+    def test_calculate_portfolio_value(self):
+        mock_quotes = {
+            "101305": {"nav": "50.0", "scheme_name": "Test Fund", "last_updated": "01-Jan-2025"}
+        }
+        holdings = [{"scheme_code": "101305", "units": 100}]
+        with patch.object(self.mftool, "get_bulk_quotes", return_value=mock_quotes):
+            portfolio = self.mftool.calculate_portfolio_value(holdings)
+            self.assertIsInstance(portfolio, dict)
+            self.assertEqual(portfolio["total_value"], 5000.0)
+
+    def test_cache_management(self):
+        self.mftool.clear_cache()
+        stats = self.mftool.get_cache_stats()
+        self.assertIsInstance(stats, dict)
+        self.mftool.disable_cache()
+        self.mftool.enable_cache()
+
+    def test_ist_market_helpers(self):
+        self.assertEqual(round_to_ist_tick(100.03), 100.05)
+        self.assertEqual(round_to_ist_tick(-5.0), 0.0)
+
+        # Monday 10:00 AM IST
+        ist = zoneinfo.ZoneInfo("Asia/Kolkata")
+        mon_open = datetime.datetime(2025, 1, 6, 10, 0, tzinfo=ist)
+        self.assertTrue(is_ist_market_session_active(mon_open))
+
+        # Sunday 10:00 AM IST
+        sun_closed = datetime.datetime(2025, 1, 5, 10, 0, tzinfo=ist)
+        self.assertFalse(is_ist_market_session_active(sun_closed))
+
 
 if __name__ == "__main__":
     unittest.main()

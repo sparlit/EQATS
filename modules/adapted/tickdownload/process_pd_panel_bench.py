@@ -12,7 +12,7 @@ from tickerplot.sql.sqlalchemy_wrapper import get_metadata
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
     """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    ist = ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -76,6 +76,42 @@ def panel_bench_vector(panel):
     pan11 = panel[cl2.index]
 
     return pan11.items
+
+
+class ProfilerContext:
+    """Context manager for profiling code blocks using cProfile and printing performance metrics."""
+
+    def __init__(self, label: int | str = 0, sort_by: str = "cumulative", fraction: float = 0.1):
+        self.label = label
+        self.sort_by = sort_by
+        self.fraction = fraction
+        self.profile = cProfile.Profile()
+        self.start_time = 0.0
+        self.elapsed_time = 0.0
+        self.stats_str = ""
+        self.result = None
+
+    def __enter__(self):
+        self.start_time = time.time()
+        self.profile.enable()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.profile.disable()
+        self.elapsed_time = time.time() - self.start_time
+        stream = StringIO()
+        ps = pstats.Stats(self.profile, stream=stream).sort_stats(self.sort_by)
+        ps.print_stats(self.fraction)
+        self.stats_str = stream.getvalue()
+
+        print(self.label, self.elapsed_time)
+        if self.result is not None:
+            try:
+                print(len(self.result))
+            except TypeError:
+                print(self.result)
+        print(self.stats_str)
+        return False
 
 
 class ProcessPandasPanelBench:
