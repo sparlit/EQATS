@@ -2691,9 +2691,8 @@ class ScalperGui:
             self.v_tree.heading(col, text=col)
             self.v_tree.column(col, anchor=tk.W, width=130)
         self.v_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        import numpy as np
-
         import config
+        import numpy as np
 
         try:
             self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
@@ -7752,7 +7751,9 @@ class ScalperGui:
             return
         self.sent_tree.delete(*self.sent_tree.get_children())
         import database
-        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import (
+            extract_advanced_nlp_sentiments,
+        )
 
         try:
             conn = database.get_connection()
@@ -10588,7 +10589,9 @@ class ScalperGui:
                     fg=self.fg_red if is_deviating else self.fg_green,
                 )
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
-                from institutional_integrations.quantum_local_llm import local_financial_llm
+                from institutional_integrations.quantum_local_llm import (
+                    local_financial_llm,
+                )
 
                 local_financial_llm.train_on_text(
                     f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",
