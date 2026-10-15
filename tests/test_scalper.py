@@ -80,6 +80,43 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertEqual(res['r1'], 100.0)
         self.assertEqual(res['s1'], 90.0)
 
+    def test_donchian_channels(self) -> None:
+        # 1. Edge case: empty, None, insufficient data length, or invalid period (returns None)
+        self.assertIsNone(indicators.calculate_donchian_channels([], []))
+        self.assertIsNone(indicators.calculate_donchian_channels(None, None))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 5, [9.0] * 5, period=20))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 5, period=20))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 20, period=0))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 20, period=-5))
+
+        # 2. Standard price series with period=20 (default)
+        highs = [10.0 + i for i in range(25)]
+        lows = [8.0 + i for i in range(25)]
+        res_std = indicators.calculate_donchian_channels(highs, lows, period=20)
+        self.assertIsNotNone(res_std)
+        self.assertIn("upper", res_std)
+        self.assertIn("lower", res_std)
+        self.assertIn("middle", res_std)
+        self.assertEqual(res_std["upper"], 34.0)
+        self.assertEqual(res_std["lower"], 13.0)
+        self.assertEqual(res_std["middle"], 23.5)
+
+        # 3. Custom period parameters (period=5)
+        res_custom = indicators.calculate_donchian_channels(highs, lows, period=5)
+        self.assertIsNotNone(res_custom)
+        self.assertEqual(res_custom["upper"], 34.0)
+        self.assertEqual(res_custom["lower"], 28.0)
+        self.assertEqual(res_custom["middle"], 31.0)
+
+        # 4. Flat price series
+        highs_flat = [15.0] * 20
+        lows_flat = [10.0] * 20
+        res_flat = indicators.calculate_donchian_channels(highs_flat, lows_flat, period=20)
+        self.assertIsNotNone(res_flat)
+        self.assertEqual(res_flat["upper"], 15.0)
+        self.assertEqual(res_flat["lower"], 10.0)
+        self.assertEqual(res_flat["middle"], 12.5)
+
     def test_stochastic(self) -> None:
         # 1. Edge case: empty or insufficient data (< period)
         res_empty = indicators.calculate_stochastic([], [], [])
