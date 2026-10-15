@@ -45,6 +45,35 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertGreater(res['upper'], res['middle'])
         self.assertGreater(res['middle'], res['lower'])
 
+    def test_bollinger_squeeze(self) -> None:
+        # 1. Insufficient or empty price series
+        self.assertIsNone(indicators.calculate_bollinger_squeeze([], period=20))
+        prices_short = [100.0, 101.0, 102.0]
+        self.assertIsNone(indicators.calculate_bollinger_squeeze(prices_short, period=20))
+        self.assertIsNone(indicators.calculate_bollinger_squeeze([100.0] * 20, period=0))
+
+        # 2. Normal price series
+        prices = [100.0, 101.0, 102.0, 101.0, 100.0, 102.0, 103.0, 104.0, 102.0, 101.0,
+                  100.0, 99.0, 101.0, 102.0, 103.0, 102.0, 101.0, 100.0, 98.0, 102.0]
+        squeeze = indicators.calculate_bollinger_squeeze(prices, period=10, num_std=2.0)
+        self.assertIsNotNone(squeeze)
+        self.assertIsInstance(squeeze, float)
+        self.assertGreater(squeeze, 0.0)
+
+        # Confirm consistency with calculate_bollinger_bands bandwidth output
+        bb = indicators.calculate_bollinger_bands(prices, period=10, num_std=2.0)
+        self.assertIsNotNone(bb)
+        self.assertAlmostEqual(squeeze, bb['bandwidth'], places=7)
+
+        # 3. Custom period and num_std
+        squeeze_custom = indicators.calculate_bollinger_squeeze(prices, period=5, num_std=1.5)
+        self.assertIsNotNone(squeeze_custom)
+        self.assertIsInstance(squeeze_custom, float)
+
+        # 4. Zero middle band edge case
+        zero_prices = [0.0] * 20
+        self.assertIsNone(indicators.calculate_bollinger_squeeze(zero_prices, period=10))
+
     def test_pivot_points(self) -> None:
         res = indicators.calculate_pivot_points(100.0, 90.0, 95.0)
         self.assertEqual(res['pivot'], 95.0)
