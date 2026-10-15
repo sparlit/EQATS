@@ -2687,18 +2687,22 @@ class ScalperGui:
 
         import config
 
+        other_symbols = [s for s in config.SYMBOLS if s != self.selected_symbol_gp][:8]
+        all_symbols = [self.selected_symbol_gp] + other_symbols
         try:
-            self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
-        except Exception:
-            self_hist = None
+            bulk_hist = self.scalper.conn.get_bulk_history(all_symbols, 10)
+        except Exception as err:
+            _log.debug("bulk history fetch error: %s", err)
+            bulk_hist = {}
+
+        self_hist = bulk_hist.get(self.selected_symbol_gp)
         self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
         self_vec = [np.mean(self_closes), np.std(self_closes)]
 
-        other_symbols = [s for s in config.SYMBOLS if s != self.selected_symbol_gp][:8]
         distances = []
         for osym in other_symbols:
             try:
-                hist = self.scalper.conn.get_history(osym, 10)
+                hist = bulk_hist.get(osym)
                 if hist:
                     closes = [bar["close"] for bar in hist]
 
