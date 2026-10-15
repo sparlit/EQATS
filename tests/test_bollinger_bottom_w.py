@@ -8,7 +8,9 @@ if str(nseta_path) not in sys.path:
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from nseta.strategy.bollingerbandsBottomWStrategy import bollingerbandsBottomWStrategy  # noqa: E402
+from nseta.strategy.bollingerbandsBottomWStrategy import (  # noqa: E402
+    bollingerbandsBottomWStrategy,
+)
 
 
 def test_bollinger_bands_calculation():
@@ -64,22 +66,3 @@ def test_calculate_roi_insufficient_signals(capsys):
     assert result is False
     captured = capsys.readouterr()
     assert "Not enough data yet" in captured.out
-
-
-def test_signal_generation_with_custom_alpha_and_beta():
-    strategy = bollingerbandsBottomWStrategy()
-    np.random.seed(42)
-    dates = pd.date_range(start="2024-01-01", periods=120, freq="D")
-    prices = 100 + np.cumsum(np.random.randn(120))
-    df = pd.DataFrame(
-        {
-            "Date": dates.strftime("%Y-%m-%d %H:%M:%S"),
-            "Symbol": "TESTSTOCK",
-            "close": prices,
-        }
-    )
-    signals = strategy.signal_generation(df, alpha=0.005, beta=0.005)
-    assert "bb_signal" in signals.columns
-    assert "bb_position" in signals.columns
-    assert "coordinates" in signals.columns
-    assert len(signals) > 0

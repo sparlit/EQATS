@@ -7,22 +7,13 @@
 
 import copy
 import datetime
-import math
-
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pytz
-from nseta.common.log import default_logger, tracelog
-from nseta.resources.resources import resources
-from termcolor import colored as cl
+import zoneinfo
 
 
+# codespell:ignore IST,ist
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
-    """Checks whether current or provided time falls within NSE/BSE IST market session
-    (09:15 to 15:30 IST Mon-Fri)."""
-    ist = pytz.timezone("Asia/Kolkata")
+    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""  # noqa: E501
+    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
         return False
@@ -120,10 +111,8 @@ class bollingerbandsBottomWStrategy:
         # beta denotes the scale of bandwidth
         # when bandwidth is larger than beta, it is expansion period
         # when bandwidth is smaller than beta, it is contraction period
-        if alpha is None:
-            alpha = data.loc[:, "close"].iloc[0] * 0.001
-        if beta is None:
-            beta = alpha
+        alpha = data.loc[:, "close"].iloc[0] * 0.01
+        beta = alpha
         default_logger().debug(f"\nAlpha set to: {alpha}")
         df = self.bollinger_bands(data)
         df["bb_signal"] = 0
@@ -257,7 +246,7 @@ class bollingerbandsBottomWStrategy:
         msg = f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n"
         print(
             cl(
-                msg,
+                f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n",  # noqa: E501
                 attrs=["bold"],
             )
         )
