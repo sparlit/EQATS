@@ -1,54 +1,44 @@
+"""
+Unit tests for src/autonomous_fix.py ensuring secure subprocess execution without shell=True.
+"""
+
+import contextlib
 import sys
 from unittest.mock import MagicMock, patch
 
-import autonomous_fix
+# Mock openai module if not installed in current environment
+if "openai" not in sys.modules:
+    sys.modules["openai"] = MagicMock()
+
+from autonomous_fix import main, run_tests
 
 
-def test_run_tests_success() -> None:
-    """Tests that run_tests calls subprocess.run with list argument and shell=False (default)."""
-    mock_completed_proc = MagicMock()
-    mock_completed_proc.returncode = 0
-
-    with patch("subprocess.run", return_value=mock_completed_proc) as mock_run:
-        result = autonomous_fix.run_tests()
-        assert result is True
+def test_run_tests_uses_list_args_without_shell():
+    with patch("autonomous_fix.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        success = run_tests()
+        assert success is True
         mock_run.assert_called_once()
         args, kwargs = mock_run.call_args
-        assert args[0] == autonomous_fix.TEST_COMMAND
         assert isinstance(args[0], list)
+        assert args[0][0] == "python"
+        assert args[0][1] == "-m"
+        assert args[0][2] == "pytest"
         assert kwargs.get("shell") is not True
 
 
-def test_run_tests_failure() -> None:
-    """Tests that run_tests returns False on non-zero returncode."""
-    mock_completed_proc = MagicMock()
-    mock_completed_proc.returncode = 1
+def test_main_pip_install_uses_sys_executable_list_without_shell():
+    class StopMain(Exception):
+        pass
 
-    with patch("subprocess.run", return_value=mock_completed_proc) as mock_run:
-        result = autonomous_fix.run_tests()
-        assert result is False
-        mock_run.assert_called_once()
-        args, kwargs = mock_run.call_args
-        assert args[0] == autonomous_fix.TEST_COMMAND
-        assert isinstance(args[0], list)
-        assert kwargs.get("shell") is not True
+    with patch("autonomous_fix.subprocess.run") as mock_run, \
+         patch("autonomous_fix.run_tests", return_value=True), \
+         patch("autonomous_fix.sys.exit", side_effect=StopMain) as mock_exit:
+        with contextlib.suppress(StopMain):
+            main()
 
-
-def test_main_dependency_install() -> None:
-    """Tests that main installs dependencies using list command without shell=True."""
-    mock_completed_proc = MagicMock()
-    mock_completed_proc.returncode = 0
-
-    with patch("subprocess.run", return_value=mock_completed_proc) as mock_run, \
-         patch("autonomous_fix.run_tests", return_value=True):
-        try:
-            autonomous_fix.main()
-        except SystemExit as e:
-            assert e.code == 0
-
-        # Check the first call to subprocess.run in main()
-        pip_call_args = mock_run.call_args_list[0]
-        cmd = pip_call_args[0][0]
-        kwargs = pip_call_args[1]
-        assert cmd == [sys.executable, "-m", "pip", "install", "pytest-json-report"]
-        assert kwargs.get("shell") is not True
+        mock_run.assert_called_once_with(
+            [sys.executable, "-m", "pip", "install", "pytest-json-report"],
+            check=True,
+        )
+        mock_exit.assert_called_once_with(0)

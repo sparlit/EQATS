@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import subprocess
 import sys
 from typing import Any
@@ -33,8 +34,9 @@ client = OpenAI(api_key=os.getenv("LLM_API_KEY")) if OpenAI else None
 
 def run_tests() -> bool:
     """Runs the test suite and returns True if successful, False otherwise."""
-    print(f"Executing: {' '.join(TEST_COMMAND)}")
-    result = subprocess.run(TEST_COMMAND)
+    print(f"Executing: {TEST_COMMAND}")
+    cmd_args = shlex.split(TEST_COMMAND)
+    result = subprocess.run(cmd_args)
     return result.returncode == 0
 
 
@@ -119,7 +121,7 @@ def apply_fixes(fixes: dict[str, Any]) -> None:
 
 def main() -> None:
     # Install dependency required to parse errors dynamically if missing
-    subprocess.run([sys.executable, "-m", "pip", "install", "pytest-json-report"])
+    subprocess.run([sys.executable, "-m", "pip", "install", "pytest-json-report"], check=True)
 
     for attempt in range(1, MAX_RETRIES + 1):
         print(f"\n=== Autonomous Cycle Attempt {attempt}/{MAX_RETRIES} ===")
