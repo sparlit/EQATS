@@ -2444,9 +2444,17 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        try:
+            history_map = (
+                self.scalper.conn.get_history_bulk(assets, 30)
+                if hasattr(self.scalper.conn, "get_history_bulk")
+                else {s: self.scalper.conn.get_history(s, 30) for s in assets}
+            )
+        except Exception:
+            history_map = {}
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = history_map.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
@@ -6027,9 +6035,17 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        try:
+            history_map = (
+                self.scalper.conn.get_history_bulk(assets, 30)
+                if hasattr(self.scalper.conn, "get_history_bulk")
+                else {s: self.scalper.conn.get_history(s, 30) for s in assets}
+            )
+        except Exception:
+            history_map = {}
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = history_map.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
@@ -7740,7 +7756,9 @@ class ScalperGui:
             return
         self.sent_tree.delete(*self.sent_tree.get_children())
         import database
-        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import (
+            extract_advanced_nlp_sentiments,
+        )
 
         try:
             conn = database.get_connection()
@@ -10576,7 +10594,9 @@ class ScalperGui:
                     fg=self.fg_red if is_deviating else self.fg_green,
                 )
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
-                from institutional_integrations.quantum_local_llm import local_financial_llm
+                from institutional_integrations.quantum_local_llm import (
+                    local_financial_llm,
+                )
 
                 local_financial_llm.train_on_text(
                     f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",
