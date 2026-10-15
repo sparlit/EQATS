@@ -183,3 +183,49 @@ def test_trader_mt5_order_filled_transitions():
             App.order = {"orderId": 102, "status": 4}
             asyncio.run(trader_mt5(df, model, config, model_store))
             assert App.status == "BOUGHT"
+
+
+def test_analyzer_signal_feature_computation():
+    import pandas as pd
+    from common.analyzer import Analyzer
+
+    config = {
+        "symbol": "RELIANCE",
+        "predict_length": 10,
+        "features_horizon": 2,
+        "time_column": "timestamp",
+        "freq": "1min",
+        "train_features": ["close"],
+        "feature_sets": [{"generator": "mock_feat", "config": {}}],
+        "train_feature_sets": [],
+        "signal_sets": [{"generator": "mock_sig", "config": {}}],
+    }
+    model_store = MagicMock()
+    analyzer = Analyzer(config, model_store)
+
+    dt_index = pd.date_range("2025-01-01", periods=5, freq="1min", tz="UTC")
+    analyzer.df = pd.DataFrame(
+        {"timestamp": dt_index, "close": [100.0, 101.0, 102.0, 103.0, 104.0]},
+        index=dt_index,
+    )
+    analyzer.previous_df = pd.DataFrame()
+    analyzer.dirty_records = 5
+
+    def mock_gen_feat(df, fs, cfg, ms, last_rows):
+        gen = fs.get("generator")
+        if gen == "mock_feat":
+            df["feat_1"] = df["close"] * 2
+            return df, ["feat_1"]
+        elif gen == "mock_sig":
+            df["sig_1"] = df["close"] > 102
+            return df, ["sig_1"]
+        return df, []
+
+    with patch("common.analyzer.generate_feature_set", side_effect=mock_gen_feat):
+        analyzer.analyze()
+
+    assert "feat_1" in analyzer.df.columns
+    assert "sig_1" in analyzer.df.columns
+    assert analyzer.dirty_records == 0
+    assert analyzer.df["feat_1"].iloc[-1] == 208.0
+    assert bool(analyzer.df["sig_1"].iloc[-1]) is True
