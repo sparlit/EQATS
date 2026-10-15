@@ -101,7 +101,12 @@ class bollingerbandsBottomWStrategy:
     # plz refer to the following link for my poor visualization
     # https://github.com/je-suis-tm/quant-trading/blob/master/preview/bollinger%20bands%20bottom%20w%20pattern.png
     @tracelog
-    def signal_generation(self, data):
+    def signal_generation(
+        self,
+        data: pd.DataFrame,
+        alpha: float | None = None,
+        beta: float | None = None,
+    ) -> pd.DataFrame:
 
         # according to investopedia
         # for a double bottom pattern
@@ -115,10 +120,10 @@ class bollingerbandsBottomWStrategy:
         # beta denotes the scale of bandwidth
         # when bandwidth is larger than beta, it is expansion period
         # when bandwidth is smaller than beta, it is contraction period
-        alpha = (
-            data.loc[:, "close"].iloc[0] * 0.01
-        )  # 0.0001 # TODO: Should be a much lower value for alpha?
-        beta = alpha  # 0.0001
+        if alpha is None:
+            alpha = data.loc[:, "close"].iloc[0] * 0.001
+        if beta is None:
+            beta = alpha
         default_logger().debug(f"\nAlpha set to: {alpha}")
         df = self.bollinger_bands(data)
         df["bb_signal"] = 0

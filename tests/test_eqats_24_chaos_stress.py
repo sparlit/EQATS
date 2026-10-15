@@ -118,5 +118,52 @@ class TestEQATS24ChaosStressCompliance(unittest.TestCase):
         self.assertGreater(score_ok['decision_quality_score'], score_fail['decision_quality_score'])
         self.assertEqual(self.engine.learning.attribute_luck_vs_skill(case_profitable), 'SKILL')
         self.assertEqual(self.engine.learning.attribute_luck_vs_skill(case_unprofitable), 'LUCK')
+
+    def test_data_plane_store_price_iso_parse_error_handling(self) -> None:
+        """DataPlane: Verifies store_price gracefully handles ISO format parse errors when last record timestamp is malformed."""
+        data_plane = self.engine.data
+        symbol = "EURUSD"
+        data_plane._pit_database[symbol] = [
+            {
+                "event_time": "INVALID_TIMESTAMP",
+                "publication_time": "INVALID_TIMESTAMP",
+                "availability_time": "INVALID_TIMESTAMP",
+                "bid": 1.0500,
+                "ask": 1.0502,
+            }
+        ]
+
+        with self.assertLogs("eqats_planes", level="DEBUG") as cm:
+            data_plane.store_price(symbol, 1.0510, 1.0512)
+
+        self.assertTrue(any("ISO format parse error in store_price" in msg for msg in cm.output))
+        records = data_plane._pit_database[symbol]
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[-1]["bid"], 1.0510)
+        self.assertEqual(records[-1]["ask"], 1.0512)
+
+    def test_data_plane_store_price_monotonic_timestamp(self) -> None:
+        """DataPlane: Verifies store_price enforces strictly monotonic timestamps when previous timestamp is in the future."""
+        import datetime
+
+        data_plane = self.engine.data
+        symbol = "GBPUSD"
+        future_time_str = "2099-12-31T23:59:59.999999+00:00"
+        data_plane._pit_database[symbol] = [
+            {
+                "event_time": future_time_str,
+                "publication_time": future_time_str,
+                "availability_time": future_time_str,
+                "bid": 1.2500,
+                "ask": 1.2502,
+            }
+        ]
+
+        data_plane.store_price(symbol, 1.2510, 1.2512)
+        records = data_plane._pit_database[symbol]
+        self.assertEqual(len(records), 2)
+        last_time = datetime.datetime.fromisoformat(records[-1]["availability_time"])
+        prev_time = datetime.datetime.fromisoformat(future_time_str)
+        self.assertGreater(last_time, prev_time)
 if __name__ == '__main__':
     unittest.main()
