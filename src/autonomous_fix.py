@@ -5,13 +5,31 @@ import subprocess
 import sys
 from typing import Any
 
-from openai import OpenAI  # Or anthropic, google-genai, etc.
+try:
+    from openai import OpenAI  # Or anthropic, google-genai, etc.
+except ImportError:
+    OpenAI = None  # type: ignore[misc, assignment]
 
 # Configuration
 MAX_RETRIES = 3
-TEST_COMMAND = "python -m pytest -n auto -vv -s --count=100 --full-trace --cache-clear -k 'not gui_integration' --json-report --json-report-file=.pytest_report.json"
+TEST_COMMAND = [
+    sys.executable,
+    "-m",
+    "pytest",
+    "-n",
+    "auto",
+    "-vv",
+    "-s",
+    "--count=100",
+    "--full-trace",
+    "--cache-clear",
+    "-k",
+    "not gui_integration",
+    "--json-report",
+    "--json-report-file=.pytest_report.json",
+]
 
-client = OpenAI(api_key=os.getenv("LLM_API_KEY"))
+client = OpenAI(api_key=os.getenv("LLM_API_KEY")) if OpenAI else None
 
 
 def run_tests() -> bool:

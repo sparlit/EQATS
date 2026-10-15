@@ -1,3 +1,5 @@
+"""Unit tests for broker database ingestion and XLS broker parsing."""
+
 import os
 import sqlite3
 import tempfile
@@ -12,6 +14,7 @@ from institutional_integrations.web_api import TradingOSHTTPServer
 
 
 class TestBrokerDatabase(unittest.TestCase):
+    """Test suite for registered broker database queries and web API endpoints."""
     @classmethod
     def setUpClass(cls) -> None:
         # Initialize test database using in-memory or temp path
@@ -127,6 +130,22 @@ class TestBrokerDatabase(unittest.TestCase):
         res_stats = server._route_request("GET", "/api/brokers/stats")
         self.assertEqual(res_stats["status"], "SUCCESS")
         self.assertIn("total_unique_brokers", res_stats["stats"])
+
+    def test_web_api_config_get_and_post(self) -> None:
+        import config
+
+        server = TradingOSHTTPServer(port=59998)
+        # Test GET /api/config
+        res_get = server._route_request("GET", "/api/config")
+        self.assertEqual(res_get["status"], "SUCCESS")
+        self.assertIn("simulation_mode", res_get)
+
+        # Test POST /api/config
+        payload = {"risk_per_trade_percent": 1.5, "max_concurrent_trades": 25}
+        res_post = server._route_request("POST", "/api/config", payload)
+        self.assertEqual(res_post["status"], "UPDATED")
+        self.assertEqual(config.RISK_PER_TRADE_PERCENT, 1.5)
+        self.assertEqual(config.MAX_CONCURRENT_TRADES, 25)
 
     def test_parse_xlsx_brokers_nonexistent_file(self) -> None:
         records = broker_database.parse_xlsx_brokers("non_existent_file_12345.xlsx")
@@ -345,6 +364,255 @@ class TestParseXlsBrokers(unittest.TestCase):
         self, mock_open_wb: MagicMock, mock_exists: MagicMock
     ) -> None:
         records = broker_database.parse_xls_brokers("corrupt.xls")
+        self.assertEqual(records, [])
+
+
+class TestParsePdfBrokers(unittest.TestCase):
+    """Unit tests for parse_pdf_brokers in broker_database."""
+
+    def test_parse_pdf_brokers_nonexistent(self) -> None:
+        records = broker_database.parse_pdf_brokers("non_existent_file_999.pdf")
+        self.assertEqual(records, [])
+
+    def test_parse_pdf_brokers_actual_file(self) -> None:
+        pdf_path = os.path.join(
+            "Brokers",
+            "List_of_Members_registered_with_NSE_Clearing_Limited_as_on_October_2025_0.pdf",
+        )
+        if os.path.exists(pdf_path):
+            records = broker_database.parse_pdf_brokers(pdf_path)
+            self.assertGreater(len(records), 0)
+            fname = os.path.basename(pdf_path)
+            for rec in records:
+                self.assertIn("name", rec)
+                self.assertIn("member_codes", rec)
+                self.assertIn("segments", rec)
+                self.assertEqual(rec["sources"], [fname])
+                self.assertTrue(len(rec["name"]) > 0)
+
+    @patch("os.path.exists", return_value=True)
+    @patch("pdfplumber.open")
+    def test_parse_pdf_brokers_mocked_pdf(
+        self, mock_pdf_open: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        mock_page1 = MagicMock()
+        mock_page1.extract_tables.return_value = [
+            [
+                ["Sr. No.", "Member Name", "Code", "Segment"],
+                ["1", "Short Row"],
+                ["2.0", "  ZERODHA BROKING LIMITED  ", "13942.0", "  Capital Market  "],
+                ["3", "  GROWW PAY SECURITIES  ", "14888", ""],
+            ]
+        ]
+
+        mock_page2 = MagicMock()
+        mock_page2.extract_tables.return_value = [
+            [
+                ["No.", "Name", "Member Code", "Seg"],
+                ["4", "   ", "12345", "Derivatives"],
+                ["5", "UPSTOX SECURITIES", "09876"],
+            ]
+        ]
+
+        mock_pdf = MagicMock()
+        mock_pdf.pages = [mock_page1, mock_page2]
+        mock_pdf_open.return_value.__enter__.return_value = mock_pdf
+
+        file_path = "sample_ncl_members.pdf"
+        records = broker_database.parse_pdf_brokers(file_path)
+
+        self.assertEqual(len(records), 3)
+
+        self.assertEqual(
+            records[0],
+            {
+                "name": "ZERODHA BROKING LIMITED",
+                "member_codes": ["13942"],
+                "segments": ["Capital Market"],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+        self.assertEqual(
+            records[1],
+            {
+                "name": "GROWW PAY SECURITIES",
+                "member_codes": ["14888"],
+                "segments": [],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+        self.assertEqual(
+            records[2],
+            {
+                "name": "UPSTOX SECURITIES",
+                "member_codes": ["09876"],
+                "segments": [],
+                "sources": ["sample_ncl_members.pdf"],
+            },
+        )
+
+    @patch("os.path.exists", return_value=True)
+    @patch("pdfplumber.open", side_effect=Exception("Failed to read PDF stream"))
+    def test_parse_pdf_brokers_exception_handling(
+        self, mock_pdf_open: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        records = broker_database.parse_pdf_brokers("corrupt.pdf")
+        self.assertEqual(records, [])
+
+
+class TestParseXlsBrokers(unittest.TestCase):
+    """Test suite for parse_xls_brokers spreadsheet parser."""
+
+    def test_parse_xls_brokers_nonexistent_file(self) -> None:
+        """Verifies parse_xls_brokers returns empty list when file path does not exist."""
+        records = broker_database.parse_xls_brokers("non_existent_file_xyz_123.xls")
+        self.assertEqual(records, [])
+
+    def test_parse_xls_brokers_real_file(self) -> None:
+        """Verifies parse_xls_brokers accurately parses an actual XLS broker spreadsheet."""
+        real_xls = os.path.join(
+            "Brokers",
+            "Registered Stock Brokers in Equity Derivative Segment as on Jul 11 2026.xls",
+        )
+        if os.path.exists(real_xls):
+            records = broker_database.parse_xls_brokers(real_xls)
+            self.assertGreater(len(records), 0)
+            first = records[0]
+            self.assertIn("name", first)
+            self.assertIn("registration_no", first)
+            self.assertIn("Equity Derivative", first["segments"])
+            self.assertIn(os.path.basename(real_xls), first["sources"])
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook")
+    def test_parse_xls_brokers_mocked_success(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        """Verifies mock XLS parsing for field mapping, trade name fallback, and segment regex."""
+        mock_wb = MagicMock()
+        mock_sheet = MagicMock()
+        mock_wb.sheet_by_index.return_value = mock_sheet
+        mock_open_wb.return_value = mock_wb
+
+        # Row indices:
+        # Row 0, 1, 2: header / unused
+        # Row 3: valid full broker record
+        # Row 4: empty primary name, but valid trade_name
+        mock_sheet.nrows = 5
+        mock_sheet.ncols = 22
+
+        def cell_val(row_idx: int, col_idx: int) -> str:
+            if row_idx == 3:
+                data = {
+                    0: "ALPHA CAPITAL LTD",
+                    1: "INZ000111222",
+                    2: "John Doe",
+                    3: "123 Main St",
+                    4: "john@alpha.com",
+                    5: "9876543210",
+                    6: "022-1234567",
+                    7: "Mumbai",
+                    8: "Maharashtra",
+                    9: "400001",
+                    17: "2020-01-01",
+                    18: "2030-01-01",
+                    20: "NSE",
+                    21: "ALPHA TRADING",
+                }
+                return data.get(col_idx, "")
+            if row_idx == 4:
+                data = {
+                    0: "",  # Name empty
+                    1: "INZ000333444",
+                    21: "BETA SECURITIES TRADING",  # Trade name present
+                }
+                return data.get(col_idx, "")
+            return ""
+
+        mock_sheet.cell_value.side_effect = cell_val
+
+        fpath = "Brokers in Commodity Derivative Segment as on Jul 11 2026.xls"
+        records = broker_database.parse_xls_brokers(fpath)
+
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
+        self.assertEqual(len(records), 2)
+
+        # Record 0 checks
+        r0 = records[0]
+        self.assertEqual(r0["name"], "ALPHA CAPITAL LTD")
+        self.assertEqual(r0["registration_no"], "INZ000111222")
+        self.assertEqual(r0["trade_name"], "ALPHA TRADING")
+        self.assertEqual(r0["contact_person"], "John Doe")
+        self.assertEqual(r0["email"], "john@alpha.com")
+        self.assertEqual(r0["phone"], "9876543210")
+        self.assertEqual(r0["fax"], "022-1234567")
+        self.assertEqual(r0["address"], "123 Main St")
+        self.assertEqual(r0["city"], "Mumbai")
+        self.assertEqual(r0["state"], "Maharashtra")
+        self.assertEqual(r0["pincode"], "400001")
+        self.assertEqual(r0["valid_from"], "2020-01-01")
+        self.assertEqual(r0["valid_to"], "2030-01-01")
+        self.assertEqual(r0["exchange"], "NSE")
+        self.assertEqual(r0["segments"], ["Commodity Derivative"])
+        self.assertEqual(r0["sources"], [fpath])
+
+        # Record 1 checks (trade_name fallback when name is empty)
+        r1 = records[1]
+        self.assertEqual(r1["name"], "BETA SECURITIES TRADING")
+        self.assertEqual(r1["trade_name"], "BETA SECURITIES TRADING")
+        self.assertEqual(r1["registration_no"], "INZ000333444")
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook")
+    def test_parse_xls_brokers_empty_row_and_short_row(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        """Verifies parse_xls_brokers skips empty rows and handles short row lengths safely."""
+        mock_wb = MagicMock()
+        mock_sheet = MagicMock()
+        mock_wb.sheet_by_index.return_value = mock_sheet
+        mock_open_wb.return_value = mock_wb
+
+        # Row 3: empty row (skipped)
+        # Row 4: short row (ncols = 2, only name & reg_no)
+        mock_sheet.nrows = 5
+        mock_sheet.ncols = 2
+
+        def cell_val(row_idx: int, col_idx: int) -> str:
+            if row_idx == 4:
+                if col_idx == 0:
+                    return "GAMMA TRADERS"
+                if col_idx == 1:
+                    return "INZ000555666"
+            return ""
+
+        mock_sheet.cell_value.side_effect = cell_val
+
+        # Test filename without segment match pattern -> default segment "General"
+        fpath = "random_brokers_file.xls"
+        records = broker_database.parse_xls_brokers(fpath)
+
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
+        self.assertEqual(len(records), 1)
+        r = records[0]
+        self.assertEqual(r["name"], "GAMMA TRADERS")
+        self.assertEqual(r["registration_no"], "INZ000555666")
+        self.assertEqual(r["segments"], ["General"])
+        self.assertEqual(r["sources"], ["random_brokers_file.xls"])
+
+    @patch("os.path.exists", return_value=True)
+    @patch("xlrd.open_workbook", side_effect=Exception("XLS file corrupted or invalid"))
+    def test_parse_xls_brokers_exception_handling(
+        self, mock_open_wb: MagicMock, mock_exists: MagicMock
+    ) -> None:
+        """Verifies parse_xls_brokers catches xlrd errors gracefully and returns empty list."""
+        records = broker_database.parse_xls_brokers("corrupted.xls")
+        self.assertTrue(mock_exists.called)
+        self.assertTrue(mock_open_wb.called)
         self.assertEqual(records, [])
 
 

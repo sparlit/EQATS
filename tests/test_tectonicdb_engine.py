@@ -19,3 +19,45 @@ def test_tectonicdb_filter_time_range() -> None:
     filtered = engine.filter_time_range(ticks, start_ns=150, end_ns=250)
     assert len(filtered) == 1
     assert filtered[0]['timestamp_ns'] == 200
+
+
+def test_tectonicdb_empty_ticks() -> None:
+    engine = TectonicDBEngine(magic_number=9500001)
+    assert engine.pack_ticks([]) == b""
+    assert engine.unpack_ticks(b"") == []
+    assert engine.filter_time_range([], start_ns=0, end_ns=100) == []
+
+
+def test_tectonicdb_invalid_unpack_payload() -> None:
+    engine = TectonicDBEngine(magic_number=9500001)
+    assert engine.unpack_ticks(b"\x01\x02") == []
+
+
+def test_tectonicdb_python_fallback_methods() -> None:
+    engine = TectonicDBEngine(magic_number=9500001)
+    sample_ticks = [
+        {
+            'timestamp_ns': 1000,
+            'bid_price': 50.0,
+            'ask_price': 50.1,
+            'bid_size': 1.0,
+            'ask_size': 1.0,
+            'trade_price': 50.05,
+            'trade_volume': 2.0,
+        },
+        {
+            'timestamp_ns': 1050,
+            'bid_price': 50.1,
+            'ask_price': 50.2,
+            'bid_size': 2.0,
+            'ask_size': 1.5,
+            'trade_price': 50.15,
+            'trade_volume': 1.0,
+        },
+    ]
+    packed = engine._python_pack_ticks(sample_ticks)
+    assert len(packed) > 0
+    unpacked = engine._python_unpack_ticks(packed)
+    assert len(unpacked) == 2
+    assert unpacked[0]['timestamp_ns'] == 1000
+    assert unpacked[1]['timestamp_ns'] == 1050

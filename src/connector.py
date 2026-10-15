@@ -56,6 +56,25 @@ class TradingConnector(abc.ABC):
         """
         raise AbstractConnectorError("Subclasses must implement get_history()")
 
+    def get_bulk_history(self, symbols: list[Any], count: Any) -> dict[str, Any]:
+        """
+        Returns a dict mapping symbol -> list of dicts representing historical bar data.
+        Performs concurrent fetches for multiple symbols to eliminate N+1 query bottlenecks.
+        """
+        results: dict[str, Any] = {}
+        if not symbols:
+            return results
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(symbols), 10)) as executor:
+            future_to_sym = {executor.submit(self.get_history, sym, count): sym for sym in symbols}
+            for future in concurrent.futures.as_completed(future_to_sym):
+                sym = future_to_sym[future]
+                try:
+                    results[sym] = future.result()
+                except Exception as e:
+                    _log.warning("get_bulk_history failed for %s: %s", sym, e)
+                    results[sym] = []
+        return results
+
     @abc.abstractmethod
     def get_current_price(self, symbol: Any) -> None:
         """Returns the current bid/ask price dict: { 'bid': float, 'ask': float }"""
@@ -218,6 +237,11 @@ class UniversalConnector(TradingConnector):
 
     def get_history(self, symbol: Any, count: Any) -> Any:
         return self.sim_fallback.get_history(symbol, count)
+
+    def get_bulk_history(self, symbols: list[Any], count: Any) -> Any:
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.get_bulk_history(symbols, count)
+        return super().get_bulk_history(symbols, count)
 
     def get_current_price(self, symbol: Any) -> Any:
         return self.sim_fallback.get_current_price(symbol)
@@ -849,6 +873,12 @@ class SimulatorConnector(TradingConnector):
         if symbol not in self.historical_prices:
             self._generate_initial_history(symbol)
         return self.historical_prices[symbol][-count:]
+
+    def get_bulk_history(self, symbols: list[Any], count: Any) -> Any:
+        results = {}
+        for sym in symbols:
+            results[sym] = self.get_history(sym, count)
+        return results
 
     def get_historical_ticks(self, symbol: Any, count: Any = 20) -> Any:
         price = self.get_current_price(symbol)
