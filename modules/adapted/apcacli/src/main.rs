@@ -1097,9 +1097,7 @@ async fn order_cancel(client: Client, cancel: CancelOrder) -> Result<()> {
       .issue::<order::Delete>(&id.0)
       .await
       .with_context(|| "failed to cancel order"),
-    CancelOrder::All => {
-      // TODO: This isn't quite sufficient if there are more than 500
-      //       open orders (unlikely but possible).
+    CancelOrder::All => loop {
       let request = orders::ListReq {
         status: orders::Status::Open,
         limit: Some(500),
@@ -1113,6 +1111,12 @@ async fn order_cancel(client: Client, cancel: CancelOrder) -> Result<()> {
         .await
         .with_context(|| "failed to list orders")?;
 
+      if orders.is_empty() {
+        break Ok(());
+      }
+
+      let count = orders.len();
+
       orders
         .into_iter()
         .map(|order| {
@@ -1124,7 +1128,11 @@ async fn order_cancel(client: Client, cancel: CancelOrder) -> Result<()> {
         })
         .collect::<FuturesUnordered<_>>()
         .try_for_each_concurrent(Some(MAX_CONCURRENCY), |()| ready(Ok(())))
-        .await
+        .await?;
+
+      if count < 500 {
+        break Ok(());
+      }
     },
   }
 }

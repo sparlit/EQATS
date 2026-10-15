@@ -32,7 +32,7 @@ pub enum EngineError {
         available: Price,
     },
     OrderNotFound,
-    InvalidPrice,
+    InvalidQuantity,
     InternalError(String),
 }
 
@@ -73,7 +73,7 @@ impl std::fmt::Display for EngineError {
                 )
             }
             EngineError::OrderNotFound => write!(f, "Order not found"),
-            EngineError::InvalidPrice => write!(f, "Order price cannot be negative"),
+            EngineError::InvalidQuantity => write!(f, "Order quantity must be greater than 0"),
             EngineError::InternalError(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -90,7 +90,7 @@ impl EngineError {
             EngineError::InsufficientShares { .. } => "INSUFFICIENT_SHARES",
             EngineError::InsufficientMargin { .. } => "INSUFFICIENT_MARGIN",
             EngineError::OrderNotFound => "ORDER_NOT_FOUND",
-            EngineError::InvalidPrice => "INVALID_PRICE",
+            EngineError::InvalidQuantity => "INVALID_QTY",
             EngineError::InternalError(_) => "INTERNAL_ERROR",
         }
     }
@@ -127,8 +127,8 @@ impl EngineError {
                 available: *available,
             },
             EngineError::OrderNotFound => TradingError::OrderNotFound { order_id: 0 },
-            EngineError::InvalidPrice => TradingError::InvalidOrder {
-                reason: "Order price cannot be negative".to_string(),
+            EngineError::InvalidQuantity => TradingError::InvalidOrder {
+                reason: "Order quantity must be greater than 0".to_string(),
             },
             EngineError::InternalError(msg) => TradingError::InvalidOrder {
                 reason: msg.clone(),
@@ -312,9 +312,9 @@ impl MatchingEngine {
             return Err(EngineError::MarketClosed);
         }
 
-        // Validate price - reject negative prices
-        if order.price < 0 {
-            return Err(EngineError::InvalidPrice);
+        // Validate quantity
+        if order.qty == 0 {
+            return Err(EngineError::InvalidQuantity);
         }
 
         // Verify symbol exists
