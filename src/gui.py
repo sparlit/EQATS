@@ -2691,8 +2691,9 @@ class ScalperGui:
             self.v_tree.heading(col, text=col)
             self.v_tree.column(col, anchor=tk.W, width=130)
         self.v_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        import config
         import numpy as np
+
+        import config
 
         try:
             self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
