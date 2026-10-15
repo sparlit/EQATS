@@ -2,13 +2,17 @@
 Unit tests for the CredentialManager standalone module.
 """
 
+import importlib
 import os
+import sys
 import tempfile
 from collections.abc import Generator
+from unittest.mock import patch
 
 import pytest
 
-from src.credential_manager import CredentialManager
+import database
+from src.credential_manager import CredentialManager, main
 
 
 @pytest.fixture
@@ -139,7 +143,6 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     assert cm.reencrypt_all_broker_credentials() is True
 
     # Circuit breaker state
-    import database
     database.save_circuit_breaker_state(
         trading_date="2026-03-31",
         daily_start_balance=10000.0,
@@ -155,3 +158,167 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     cb_state_reset = cm.load_circuit_breaker_state()
     assert cb_state_reset is not None
     assert cb_state_reset["is_halted"] is False
+
+
+# =============================================================================
+# ERROR PATH & EDGE CASE TESTS
+# =============================================================================
+
+
+def test_tkinter_import_error_path() -> None:
+    """Verifies module import behavior when tkinter throws ImportError."""
+    real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+
+    def mock_import(name: str, *args, **kwargs):
+        if name == "tkinter":
+            raise ImportError("No module named tkinter")
+        return real_import(name, *args, **kwargs)
+
+    with patch("builtins.__import__", side_effect=mock_import):
+        import src.credential_manager as cm_mod
+        importlib.reload(cm_mod)
+        assert cm_mod._TKINTER_AVAILABLE is False
+
+    # Reload again to restore normal state
+    import src.credential_manager as cm_mod
+    importlib.reload(cm_mod)
+
+
+def test_add_user_error_paths(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # Missing parameters
+    assert cm.add_user("", "Password123!", "123456") is False
+    assert cm.add_user("valid_user", "", "123456") is False
+    assert cm.add_user("valid_user", "Password123!", "") is False
+
+    # Exception in database.add_user
+    with patch("database.add_user", side_effect=RuntimeError("DB error")):
+        assert cm.add_user("user_err", "pass", "pin") is False
+
+
+def test_update_user_error_path(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+    with patch("database.update_user", side_effect=RuntimeError("DB error")):
+        assert cm.update_user("QUANT_OPERATOR", new_password="new_pass") is False
+
+
+def test_delete_user_error_path(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+    with patch("database.delete_user", side_effect=RuntimeError("DB error")):
+        assert cm.delete_user("QUANT_OPERATOR") is False
+
+
+def test_reset_admin_credentials_error_path(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+    # 1. When admin user exists and database.update_user raises Exception
+    with patch("database.update_user", side_effect=RuntimeError("DB error")):
+        assert cm.reset_admin_credentials() is False
+
+    # 2. When admin user does not exist and database.add_user raises Exception
+    with patch.object(cm, "get_user", return_value=None):
+        with patch("database.add_user", side_effect=RuntimeError("DB error")):
+            assert cm.reset_admin_credentials() is False
+
+
+def test_broker_error_paths(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # add_broker_account exception
+    with patch("database.add_broker_account", side_effect=RuntimeError("DB error")):
+        assert cm.add_broker_account("Broker", "Server", "Acc", "Pass") is False
+
+    # save_primary_broker_credentials exception
+    with patch("database.save_broker_credentials", side_effect=RuntimeError("DB error")):
+        assert cm.save_primary_broker_credentials("Server", "Acc", "Pass") is False
+
+    # set_active_broker exception
+    with patch("database.set_active_broker", side_effect=RuntimeError("DB error")):
+        assert cm.set_active_broker(99) is False
+
+    # delete_broker_account exception
+    with patch("database.delete_broker_account", side_effect=RuntimeError("DB error")):
+        assert cm.delete_broker_account(99) is False
+
+
+def test_broker_profile_operations(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # Add profile success
+    assert cm.add_broker_profile(broker_key="ZERODHA", display_name="Zerodha Kite") is True
+    profiles = cm.get_all_broker_profiles()
+    assert any(p.get("broker_key", "").upper() == "ZERODHA" for p in profiles)
+
+    # Add profile exception
+    with patch("database.add_broker_profile", side_effect=RuntimeError("DB error")):
+        assert cm.add_broker_profile(broker_key="FAIL_KEY", display_name="Fail") is False
+
+
+def test_security_health_cryptography_import_error(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+    real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
+
+    def mock_import(name: str, *args, **kwargs):
+        if name == "cryptography":
+            raise ImportError("No module named cryptography")
+        return real_import(name, *args, **kwargs)
+
+    with patch("builtins.__import__", side_effect=mock_import):
+        health = cm.get_security_health_status()
+        assert health["cryptography_available"] is False
+
+
+def test_reencrypt_all_broker_credentials_active_and_inactive(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # Add 1 active and 1 inactive broker
+    cm.add_broker_account("Active Broker", "Server1", "1001", "Pass1", is_active=1)
+    cm.add_broker_account("Inactive Broker", "Server2", "1002", "Pass2", is_active=0)
+
+    assert cm.reencrypt_all_broker_credentials() is True
+
+    # Re-encryption exception
+    with patch.object(cm, "get_all_brokers", side_effect=RuntimeError("DB error")):
+        assert cm.reencrypt_all_broker_credentials() is False
+
+
+def test_cli_main_entrypoint_flags(temp_db: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # Test --add-user missing params
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--add-user", "--username", "test"])
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == 1
+
+    # Test --gui with _TKINTER_AVAILABLE = False
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--gui"])
+    with patch("src.credential_manager._TKINTER_AVAILABLE", False):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+    # Test --add-user success
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--add-user", "--username", "cli_u", "--password", "cli_p", "--pin", "123456"])
+    main()
+    assert cm.get_user("cli_u") is not None
+
+    # Test --list-users
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--list-users"])
+    main()
+
+    # Test --reset-admin
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--reset-admin", "--password", "new_admin_p", "--pin", "654321"])
+    main()
+
+    # Test --list-brokers
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--list-brokers"])
+    main()
+
+    # Test --reset-circuit-breaker
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--reset-circuit-breaker"])
+    main()
+
+    # Test --check-security
+    monkeypatch.setattr(sys, "argv", ["credential_manager", "--check-security"])
+    main()
