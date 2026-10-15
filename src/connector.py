@@ -8,7 +8,8 @@ from typing import Any
 
 import config
 import database
-from institutional_integrations.universal_broker_adapter import UniversalBrokerGateway
+from institutional_integrations.universal_broker_adapter import \
+    UniversalBrokerGateway
 
 _log = logging.getLogger("connector")
 
