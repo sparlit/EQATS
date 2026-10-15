@@ -1,5 +1,5 @@
 {
-  "current_index": 9,
+  "current_index": 10,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -77,7 +77,7 @@
       "name": "indian-share-market",
       "target": "abuhurairalakdawala/indian-share-market",
       "url": "https://github.com/abuhurairalakdawala/indian-share-market",
-      "status": "pending",
+      "status": "Processed",
       "pr_url": null,
       "merged": false
     },
