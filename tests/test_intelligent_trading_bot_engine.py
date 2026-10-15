@@ -123,3 +123,53 @@ def test_cancel_order_success_and_failure():
             res = asyncio.run(cancel_order())
             assert res is None
             mock_sync.assert_called_once()
+
+
+def test_update_order_status():
+    mock_mt5 = MagicMock()
+    mock_mt5.__author__ = "MetaTrader 5 Ltd."
+    mock_mt5.__version__ = "5.0.45"
+    mock_mt5.last_error.return_value = (0, "Success")
+
+    mock_modules = {
+        "MetaTrader5": mock_mt5,
+        "pytz": MagicMock(),
+        "joblib": MagicMock(),
+        "dateparser": MagicMock(),
+        "apscheduler": MagicMock(),
+        "apscheduler.triggers": MagicMock(),
+        "apscheduler.triggers.cron": MagicMock(),
+        "scipy": MagicMock(),
+        "scipy.stats": MagicMock(),
+        "sklearn": MagicMock(),
+        "sklearn.metrics": MagicMock(),
+    }
+
+    with patch.dict(sys.modules, mock_modules):
+        from outputs.trader_mt5 import update_order_status, App
+
+        # Test 1: No active order or missing orderId
+        App.order = {}
+        assert asyncio.run(update_order_status()) is None
+
+        # Test 2: MT5 returns None or empty list
+        App.order = {"orderId": 101}
+        with patch.object(mock_mt5, "orders_get", return_value=None):
+            assert asyncio.run(update_order_status()) is None
+
+        # Test 3: Valid order info with namedtuple containing _asdict
+        App.order = {"orderId": 102}
+        mock_order = MagicMock()
+        mock_order._asdict.return_value = {"ticket": 102, "state": "FILLED"}
+
+        with patch.object(mock_mt5, "orders_get", return_value=(mock_order,)):
+            status = asyncio.run(update_order_status())
+            assert status == "FILLED"
+            assert App.order["status"] == "FILLED"
+
+        # Test 4: Valid order info with dict
+        App.order = {"orderId": 103}
+        with patch.object(mock_mt5, "orders_get", return_value=({"ticket": 103, "status": "CANCELED"},)):
+            status = asyncio.run(update_order_status())
+            assert status == "CANCELED"
+            assert App.order["status"] == "CANCELED"

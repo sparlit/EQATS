@@ -62,10 +62,10 @@ pub struct Book {
 
 impl Book {
 
-    pub fn new(name: &str, settings: Arc<Settings>, price_decimals: u8) -> Self {
+    pub fn new(name: &str, settings: Arc<Settings>) -> Self {
         let vec = Vec::with_capacity(usize::max(settings.flush_interval as usize * 3, 1024*64));
         let nominal_count = 0;
-        let orderbook = Orderbook::with_precision(price_decimals);
+        let orderbook = Orderbook::with_precision(settings.price_decimals);
         let name = name.to_owned();
         let in_memory = false;
         let mut ret = Self {
@@ -206,7 +206,7 @@ impl TectonicServer {
         let mut books = HashMap::new();
         books.insert(
             BookName::from("default").unwrap(),
-            Book::new("default", settings.clone(), settings.price_decimals)
+            Book::new("default", settings.clone())
         );
         let subscriptions = HashMap::new();
         let history = HashMap::new();
@@ -486,7 +486,7 @@ impl TectonicServer {
         } else {
             self.books.insert(
                 book_name.to_owned(),
-                Book::new(book_name, self.settings.clone(), self.settings.price_decimals),
+                Book::new(book_name, self.settings.clone()),
             );
             Some(())
         }

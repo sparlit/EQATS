@@ -1,6 +1,22 @@
 import datetime
+import os
+import random
+import re
+import time
+from collections import namedtuple
+from datetime import date as dt_date
+from datetime import datetime as dt
 
+import pandas as pd
 import pytz
+import requests
+from tickerplot.nse.nse_utils import nse_get_all_stocks_list
+from tickerplot.sql.sqlalchemy_wrapper import (
+    create_or_get_nse_corp_actions_hist_data,
+    execute_many_insert,
+    get_metadata,
+)
+from tickerplot.utils.logger import get_logger
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -36,25 +52,7 @@ For every corp action, we output data in the following form -
 scrip, ex_date, type(B:bonus,D:dividend,S:split), ratio, value.
 ratio < 1.0 for bonus/split, value in Rs. for div"""
 
-import os
-import random
-import re
-import time
-from collections import namedtuple
-from datetime import datetime as dt
-
-import requests
-from tickerplot.nse.nse_utils import nse_get_all_stocks_list
-from tickerplot.sql.sqlalchemy_wrapper import (
-    create_or_get_nse_corp_actions_hist_data,
-    execute_many_insert,
-    get_metadata,
-)
-from tickerplot.utils.logger import get_logger
-
 module_logger = get_logger(os.path.basename(__file__))
-
-# FIXME : Implement bonus/split processing from a specific date.
 
 # _CorpActionAll is a named tuple of following type
 # "Symbol","Company","Industry","Series","Face Value(Rs.)","Purpose",
@@ -131,44 +129,132 @@ def _do_process_purpose(action):
     return actions
 
 
-def _process_purpose(corp_actions):
-    """Takes a list of `corp_actions` named tuples and does lot of processing
-    on text of the purpose and generates a list of comma separated strings of
-    the following form.
-    symbol, ex_date(yyyy-mm-dd), purpose(d/b/s), ratio(for b/s), value(for d),
+def process_corp_actions_from_date(corp_actions, start_date=None, action_types=None):
+    """Filters corporate actions on or after start_date, optionally filtering by action_types (e.g. ['B', 'S']).
+
+    Args:
+        corp_actions (list[CorpAction]): List of CorpAction tuples.
+        start_date (datetime.date | str | None): Cutoff start date.
+        action_types (iterable[str] | None): Filter by action codes (e.g. ['B', 'S', 'D']).
+
+    Returns:
+        list[CorpAction]: Filtered list of corporate actions sorted by ex_date.
+    """
+    if start_date is None and action_types is None:
+        return list(corp_actions)
+
+    cutoff = None
+    if start_date is not None:
+        if isinstance(start_date, dt_date) and not isinstance(start_date, dt):
+            cutoff = start_date
+        elif isinstance(start_date, dt):
+            cutoff = start_date.date()
+        elif isinstance(start_date, str):
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d-%b-%Y"):
+                try:
+                    cutoff = dt.strptime(start_date, fmt).date()
+                    break
+                except ValueError:
+                    pass
+            if cutoff is None:
+                raise ValueError(f"Invalid start_date format: {start_date}")
+
+    filtered = []
+    allowed_types = set(action_types) if action_types is not None else None
+
+    for act in corp_actions:
+        act_date = getattr(act, "ex_date", None)
+        if isinstance(act_date, dt):
+            act_date = act_date.date()
+        elif isinstance(act_date, str):
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d-%b-%Y"):
+                try:
+                    act_date = dt.strptime(act_date, fmt).date()
+                    break
+                except ValueError:
+                    pass
+
+        if cutoff is not None and isinstance(act_date, dt_date) and act_date < cutoff:
+            continue
+        if allowed_types is not None and getattr(act, "action", None) not in allowed_types:
+            continue
+        filtered.append(act)
+
+    return filtered
+
+
+def adjust_prices_for_bonus_split(df: pd.DataFrame, corp_actions, start_date=None) -> pd.DataFrame:
+    """Adjusts OHLCV prices and volumes in DataFrame for bonus ('B') and split ('S') corporate actions
+    occurring on or after start_date.
+
+    Args:
+        df (pandas.DataFrame): Historical price data indexed by Timestamp/Date.
+        corp_actions (list[CorpAction]): List of CorpAction tuples.
+        start_date (datetime.date | str | None): Optional date filter for actions.
+
+    Returns:
+        pandas.DataFrame: Adjusted DataFrame.
+    """
+    if df.empty or not corp_actions:
+        return df
+
+    df_adjusted = df.copy()
+    actions_to_apply = process_corp_actions_from_date(corp_actions, start_date=start_date, action_types=["B", "S"])
+
+    for act in actions_to_apply:
+        ex_dt = act.ex_date
+        if not isinstance(ex_dt, pd.Timestamp):
+            ex_dt = pd.Timestamp(ex_dt)
+        ratio = float(act.ratio)
+        if ratio <= 0:
+            continue
+
+        mask = df_adjusted.index < ex_dt
+        for col in df_adjusted.columns:
+            col_lower = str(col).lower()
+            if col_lower in ["o", "open", "h", "high", "l", "low", "c", "close"]:
+                df_adjusted.loc[mask, col] = df_adjusted.loc[mask, col] * ratio
+            elif col_lower in ["v", "volume", "d", "deliverable"]:
+                df_adjusted.loc[mask, col] = df_adjusted.loc[mask, col] / ratio
+
+    return df_adjusted
+
+
+def _process_purpose(corp_actions, start_date=None, action_types=None):
+    """Takes a list of `corp_actions` named tuples and processes the text of the purpose,
+    generating a list of CorpAction namedtuples. Option to filter from a start_date or action_types.
     """
     actions = []
     for a in corp_actions:
         actions.extend(_do_process_purpose(a))
-    return actions
+    return process_corp_actions_from_date(actions, start_date=start_date, action_types=action_types)
 
 
-def _process_ca_text(ca_text):
-    """Processes a CA text and returns a list of strings of the format
-    symbol,ex_date,purpose,value,ratio
-    symbol: symbol - always present
-    ex_date: may be absent - we've seen it in some cases
-    purpose : could be 'D'vididend, 'B'onus, 'S'plit, 'M'erger
+def _process_ca_text(ca_text, start_date=None, action_types=None):
+    """Processes a CA text and returns a list of CorpAction tuples.
+    Supports filtering by start_date and action_types.
     """
     corp_actions = []
     for line in ca_text.split("\n"):
-        l = [x.strip().replace('"', "") for x in line.split(",")]
-        if l[0].lower() == "symbol":
+        line_parts = [x.strip().replace('"', "") for x in line.split(",")]
+        if line_parts[0].lower() == "symbol":
             continue
-        if len(l) < len(_CorpActionAll._fields):
-            module_logger.info("Not Processed: %s", l)
+        if len(line_parts) < len(_CorpActionAll._fields):
+            module_logger.info("Not Processed: %s", line_parts)
             continue
-        l[6] = dt.date(dt.strptime(l[6], "%d-%b-%Y"))
-        a = _CorpActionAll(*l)
+        line_parts[6] = dt.date(dt.strptime(line_parts[6], "%d-%b-%Y"))
+        a = _CorpActionAll(*line_parts)
         corp_actions.append(a)
-    return _process_purpose(sorted(set(corp_actions), key=lambda x: x.ex_date))
+    return _process_purpose(
+        sorted(set(corp_actions), key=lambda x: x.ex_date),
+        start_date=start_date,
+        action_types=action_types,
+    )
 
 
-def get_corp_action_csv(sym_name=None, time_period=None):
-    """
-    Get's the corp action CSV for the symbol name, if sym_name is specified or
-    else get's corp action CSV for the time_period specifid. If both are
-    specified, get's for both.
+def get_corp_action_csv(sym_name=None, time_period=None, start_date=None, action_types=None):
+    """Gets the corp action CSV for the symbol name or time_period, with optional
+    filtering by start_date and action_types (e.g. ['B', 'S']).
     """
     ca_text = ""
     if sym_name:
@@ -203,7 +289,7 @@ def get_corp_action_csv(sym_name=None, time_period=None):
         else:
             module_logger.error("GET: %s(%d)", url, r.status_code)
 
-    return _process_ca_text(ca_text)
+    return _process_ca_text(ca_text, start_date=start_date, action_types=action_types)
 
 
 def main(args):

@@ -102,9 +102,32 @@ mod test {
 
     #[test]
     fn test_into_events() {
-        // let records = dtf::decode(FNAME, Some(10000));
-        // let ups = records.as_slice();
-        // TODO: Finish this test...
+        let records = dtf::file_format::decode(FNAME, Some(10000)).unwrap();
+        let ups = records.as_slice();
+
+        let evts = Events::from(ups);
+
+        assert!(!evts.cancelled.is_empty() || !evts.created.is_empty() || !evts.trades.is_empty());
+
+        let test_ups = vec![
+            Update { ts: 100, seq: 1, is_trade: false, is_bid: true, price: 100.0, size: 10.0 },
+            Update { ts: 100, seq: 2, is_trade: false, is_bid: true, price: 100.0, size: 15.0 },
+            Update { ts: 101, seq: 3, is_trade: false, is_bid: true, price: 100.0, size: 5.0 },
+            Update { ts: 102, seq: 4, is_trade: true,  is_bid: true, price: 100.0, size: 5.0 },
+            Update { ts: 103, seq: 5, is_trade: false, is_bid: true, price: 100.0, size: 0.0 },
+        ];
+
+        let synth_evts = Events::from(test_ups.as_slice());
+
+        assert_eq!(synth_evts.created.len(), 1);
+        assert_eq!(synth_evts.created.get(&100).unwrap().len(), 2);
+
+        assert_eq!(synth_evts.cancelled.len(), 2);
+        assert_eq!(synth_evts.cancelled.get(&101).unwrap().len(), 1);
+        assert_eq!(synth_evts.cancelled.get(&103).unwrap().len(), 1);
+
+        assert_eq!(synth_evts.trades.len(), 1);
+        assert_eq!(synth_evts.trades.get(&102).unwrap().len(), 1);
     }
 
     #[test]
