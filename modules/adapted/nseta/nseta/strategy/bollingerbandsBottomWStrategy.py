@@ -1,27 +1,3 @@
-import datetime
-import zoneinfo
-
-
-def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
-    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
-    ist = zoneinfo.ZoneInfo("Asia/Kolkata")
-    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
-    if now.weekday() >= 5:
-        return False
-    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
-    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
-    return market_open <= now <= market_close
-
-
-def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
-    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
-    if price <= 0:
-        return 0.0
-    return round(round(price / tick_size) * tick_size, 2)
-
-
-# coding: utf-8
-
 # There are many patterns for recognition
 # top m, bottom w, head-shoulder top, head-shoulder bottom, elliott waves
 # This is the Bottom W strategy implementation.
@@ -37,9 +13,30 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytz
 from nseta.common.log import default_logger, tracelog
-from nseta.resources.resources import *
+from nseta.resources.resources import resources
 from termcolor import colored as cl
+
+
+def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
+    """Checks whether current or provided time falls within NSE/BSE IST market session
+    (09:15 to 15:30 IST Mon-Fri)."""
+    ist = pytz.timezone("Asia/Kolkata")
+    now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
+    if now.weekday() >= 5:
+        return False
+    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now <= market_close
+
+
+def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
+    """Rounds price to nearest NSE/BSE valid price tick (default 0.05 INR)."""
+    if price <= 0:
+        return 0.0
+    return round(round(price / tick_size) * tick_size, 2)
+
 
 __all__ = ["bollingerbandsBottomWStrategy"]
 
@@ -178,9 +175,9 @@ class bollingerbandsBottomWStrategy:
 
                 if moveon:
                     moveon = False
-                    for l in range(k, i - period, -1):
+                    for l_idx in range(k, i - period, -1):
                         # this one is for plotting w shape
-                        if df["mid_band"][l] < df["close"][l]:
+                        if df["mid_band"][l_idx] < df["close"][l_idx]:
                             moveon = True
                             default_logger().debug(
                                 "\nPlot Condition satisfied for BB Bottom W pattern"
@@ -203,7 +200,7 @@ class bollingerbandsBottomWStrategy:
                             and (df["close"][m] <= threshold)
                         ):
                             df.loc[:, "bb_signal"].iloc[i] = 1
-                            df.loc[:, "coordinates"].iloc[i] = f"{l},{k},{j},{m},{i}"
+                            df.loc[:, "coordinates"].iloc[i] = f"{l_idx},{k},{j},{m},{i}"
                             df["bb_position"] = df["bb_signal"].cumsum()
                             moveon = True
                             default_logger().debug(
@@ -257,9 +254,10 @@ class bollingerbandsBottomWStrategy:
         print(f"\n{strategy_copy.to_string(index=False)}\n")
         total_investment_ret = round(sum(strategy_copy["bb_returns"]), 2)
         profit_percentage = round((total_investment_ret / investment_value_initial) * 100, 3)
+        msg = f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n"
         print(
             cl(
-                f"\nProfit gained from the BB strategy by investing INR 100k in {symbol} : {total_investment_ret}\n",
+                msg,
                 attrs=["bold"],
             )
         )

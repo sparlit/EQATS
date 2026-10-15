@@ -125,17 +125,11 @@ def test_cancel_order_success_and_failure():
             mock_sync.assert_called_once()
 
 
-def test_trader_mt5_order_filled_transitions():
+def test_update_order_status():
     mock_mt5 = MagicMock()
     mock_mt5.__author__ = "MetaTrader 5 Ltd."
     mock_mt5.__version__ = "5.0.45"
-    mock_mt5.ORDER_STATE_FILLED = 4
-    mock_mt5.ORDER_STATE_PLACED = 1
-    mock_mt5.ORDER_STATE_PARTIAL = 2
-    mock_mt5.ORDER_STATE_REQUEST_CANCEL = 3
-    mock_mt5.ORDER_STATE_REJECTED = 5
-    mock_mt5.ORDER_STATE_EXPIRED = 6
-    mock_mt5.ORDER_STATE_CANCELED = 7
+    mock_mt5.last_error.return_value = (0, "Success")
 
     mock_modules = {
         "MetaTrader5": mock_mt5,
