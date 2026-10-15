@@ -83,6 +83,13 @@ class TradingConnector(abc.ABC):
         raise AbstractConnectorError("Subclasses must implement get_history_bulk()")
 
     @abc.abstractmethod
+    def get_bulk_history(self, symbols: Any, count: Any) -> Any:
+        """
+        Returns a dict mapping symbol -> list of dicts of historical bar data.
+        """
+        raise AbstractConnectorError("Subclasses must implement get_bulk_history()")
+
+    @abc.abstractmethod
     def get_current_price(self, symbol: Any) -> None:
         """Returns the current bid/ask price dict: { 'bid': float, 'ask': float }"""
         raise AbstractConnectorError("Subclasses must implement get_current_price()")
@@ -245,8 +252,12 @@ class UniversalConnector(TradingConnector):
     def get_history(self, symbol: Any, count: Any) -> Any:
         return self.sim_fallback.get_history(symbol, count)
 
-    def get_history_bulk(self, symbols: Any, count: Any) -> Any:
-        return self.sim_fallback.get_history_bulk(symbols, count)
+    def get_bulk_history(self, symbols: Any, count: Any) -> Any:
+        if self.protocol == "SIMULATOR":
+            return self.sim_fallback.get_bulk_history(symbols, count)
+        if self.gateway.is_connected() and hasattr(self.gateway, "get_bulk_history"):
+            return self.gateway.get_bulk_history(symbols, count)
+        return {sym: self.get_history(sym, count) for sym in symbols}
 
     def get_current_price(self, symbol: Any) -> Any:
         return self.sim_fallback.get_current_price(symbol)
@@ -536,8 +547,11 @@ class MT5Connector(TradingConnector):
             )
         return bars
 
-    def get_history_bulk(self, symbols: Any, count: Any) -> Any:
-        return {sym: self.get_history(sym, count) for sym in symbols}
+    def get_bulk_history(self, symbols: Any, count: Any) -> Any:
+        res = {}
+        for sym in symbols:
+            res[sym] = self.get_history(sym, count)
+        return res
 
     def get_current_price(self, symbol: Any) -> Any:
         if not self.mt5:
@@ -882,7 +896,7 @@ class SimulatorConnector(TradingConnector):
             self._generate_initial_history(symbol)
         return self.historical_prices[symbol][-count:]
 
-    def get_history_bulk(self, symbols: Any, count: Any) -> Any:
+    def get_bulk_history(self, symbols: Any, count: Any) -> Any:
         res = {}
         for sym in symbols:
             if sym not in self.historical_prices:
