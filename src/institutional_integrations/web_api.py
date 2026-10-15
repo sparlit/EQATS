@@ -218,7 +218,18 @@ class TradingOSHTTPServer:
             method = parts[0] if parts else "GET"
             path = parts[1] if len(parts) > 1 else "/"
 
-            payload = self._route_request(method, path)
+            body_data: dict[str, Any] = {}
+            if "\r\n\r\n" in raw_req:
+                raw_body = raw_req.split("\r\n\r\n", 1)[1]
+                if raw_body.strip():
+                    try:
+                        parsed_body = json.loads(raw_body)
+                        if isinstance(parsed_body, dict):
+                            body_data = parsed_body
+                    except Exception as err:
+                        _log.debug("Failed to parse HTTP request JSON body: %s", err)
+
+            payload = self._route_request(method, path, body_data)
             body = json.dumps(payload)
             response = (
                 "HTTP/1.1 200 OK\r\n"
@@ -236,7 +247,9 @@ class TradingOSHTTPServer:
             except Exception as err:
                 _log.debug("Socket close error in _handle_request: %s", err)
 
-    def _route_request(self, method: str, path: str) -> dict[str, Any]:
+    def _route_request(
+        self, method: str, path: str, body_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         path_clean = path.split("?")[0]
         if path_clean in ("/health", "/api/health"):
             return {
@@ -264,11 +277,21 @@ class TradingOSHTTPServer:
         elif path_clean == "/api/config":
             import config
 
+            if method.upper() == "POST" and body_data:
+                for key, val in body_data.items():
+                    key_upper = key.upper()
+                    if hasattr(config, key_upper):
+                        setattr(config, key_upper, val)
+                    elif hasattr(config, key):
+                        setattr(config, key, val)
+
             return {
+                "status": "UPDATED" if method.upper() == "POST" else "SUCCESS",
                 "simulation_mode": config.SIMULATION_MODE,
                 "symbols": config.SYMBOLS,
                 "risk_per_trade_percent": config.RISK_PER_TRADE_PERCENT,
                 "max_concurrent_trades": config.MAX_CONCURRENT_TRADES,
+                "mt5_terminal_path": getattr(config, "MT5_TERMINAL_PATH", ""),
             }
         elif path_clean == "/api/brokers/search":
             import urllib.parse
