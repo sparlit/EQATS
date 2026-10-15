@@ -94,3 +94,9 @@ filterwarnings = [
 markers = [
     "gui_integration: Marks slow interface integration tests to be filtered out during parallel CI rounds"
 ]
+
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["institutional_integrations", "brain", "connector", "database", "indicators", "main", "config"]
