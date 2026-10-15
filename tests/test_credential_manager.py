@@ -129,6 +129,60 @@ def test_broker_crud_operations(temp_db: str) -> None:
     assert len(cm.get_all_brokers()) == 0
 
 
+def test_user_error_paths(temp_db: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # 1. add_user validation errors (missing params)
+    assert cm.add_user("", "Pass123!", "123456") is False
+    assert cm.add_user("user1", "", "123456") is False
+    assert cm.add_user("user1", "Pass123!", "") is False
+
+    # 2. add_user database exception error path
+    monkeypatch.setattr("database.add_user", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.add_user("err_user", "Pass123!", "123456") is False
+
+    # 3. update_user database exception error path
+    monkeypatch.setattr("database.update_user", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.update_user("trader_bob", new_password="NewPass!") is False
+
+    # 4. delete_user database exception error path
+    monkeypatch.setattr("database.delete_user", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.delete_user("trader_bob") is False
+
+    # 5. reset_admin_credentials database exception error path
+    monkeypatch.setattr("database.add_user", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    monkeypatch.setattr("database.update_user", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.reset_admin_credentials() is False
+
+
+def test_broker_error_paths(temp_db: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # 1. add_broker_account exception error path
+    monkeypatch.setattr("database.add_broker_account", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.add_broker_account("BrokerX", "127.0.0.1", "12345", "pass") is False
+
+    # 2. save_primary_broker_credentials exception error path
+    monkeypatch.setattr("database.save_broker_credentials", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.save_primary_broker_credentials("127.0.0.1", "12345", "pass") is False
+
+    # 3. set_active_broker exception error path
+    monkeypatch.setattr("database.set_active_broker", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.set_active_broker(1) is False
+
+    # 4. delete_broker_account exception error path
+    monkeypatch.setattr("database.delete_broker_account", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.delete_broker_account(1) is False
+
+    # 5. add_broker_profile exception error path
+    monkeypatch.setattr("database.add_broker_profile", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.add_broker_profile("KEY", "Display Name") is False
+
+    # 6. reencrypt_all_broker_credentials exception error path
+    monkeypatch.setattr(cm, "get_all_brokers", lambda: (_ for _ in ()).throw(RuntimeError("DB error")))
+    assert cm.reencrypt_all_broker_credentials() is False
+
+
 def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     cm = CredentialManager(db_path=temp_db)
 
