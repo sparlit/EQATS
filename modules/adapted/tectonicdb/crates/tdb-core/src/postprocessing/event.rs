@@ -102,9 +102,84 @@ mod test {
 
     #[test]
     fn test_into_events() {
-        // let records = dtf::decode(FNAME, Some(10000));
-        // let ups = records.as_slice();
-        // TODO: Finish this test...
+        let ups = vec![
+            Update {
+                ts: 1000,
+                seq: 1,
+                is_trade: true,
+                is_bid: true,
+                price: 100.0,
+                size: 10.0,
+            },
+            Update {
+                ts: 1001,
+                seq: 2,
+                is_trade: false,
+                is_bid: true,
+                price: 100.0,
+                size: 50.0,
+            },
+            Update {
+                ts: 1002,
+                seq: 3,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 30.0,
+            },
+            Update {
+                ts: 1003,
+                seq: 4,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 40.0,
+            },
+            Update {
+                ts: 1004,
+                seq: 5,
+                is_trade: false,
+                is_bid: true,
+                price: 100.0,
+                size: 20.0,
+            },
+            Update {
+                ts: 1005,
+                seq: 6,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 0.0,
+            },
+        ];
+
+        let evts = Events::from(ups.as_slice());
+
+        assert_eq!(evts.trades.len(), 1);
+        assert!(evts.trades.contains_key(&1000));
+        assert_eq!(evts.trades[&1000].len(), 1);
+        assert_eq!(evts.trades[&1000][0].price, 100.0);
+        assert_eq!(evts.trades[&1000][0].size, 10.0);
+        assert!(evts.trades[&1000][0].is_trade);
+
+        assert_eq!(evts.created.len(), 3);
+        assert!(evts.created.contains_key(&1001));
+        assert!(evts.created.contains_key(&1002));
+        assert!(evts.created.contains_key(&1003));
+        assert_eq!(evts.created[&1001][0].size, 50.0);
+        assert_eq!(evts.created[&1002][0].size, 30.0);
+        assert_eq!(evts.created[&1003][0].size, 40.0);
+
+        assert_eq!(evts.cancelled.len(), 2);
+        assert!(evts.cancelled.contains_key(&1004));
+        assert!(evts.cancelled.contains_key(&1005));
+        assert_eq!(evts.cancelled[&1004][0].size, 20.0);
+        assert_eq!(evts.cancelled[&1005][0].size, 0.0);
+
+        let empty_evts = Events::from(&[][..]);
+        assert!(empty_evts.trades.is_empty());
+        assert!(empty_evts.created.is_empty());
+        assert!(empty_evts.cancelled.is_empty());
     }
 
     #[test]
