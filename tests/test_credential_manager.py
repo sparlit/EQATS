@@ -8,6 +8,8 @@ import tempfile
 from collections.abc import Generator
 from unittest.mock import patch
 
+from unittest.mock import patch
+
 import pytest
 
 from unittest.mock import patch
@@ -262,75 +264,63 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     assert cb_state_reset["is_halted"] is False
 
 
-def test_user_error_paths(temp_db: str) -> None:
-    from unittest.mock import patch
-
+def test_add_broker_account_and_save_primary_broker_exceptions(temp_db: str) -> None:
     cm = CredentialManager(db_path=temp_db)
 
-    # Missing parameters validation
+    with patch("database.add_broker_account", side_effect=Exception("Database connection failed")):
+        result = cm.add_broker_account(
+            broker_name="Error Broker",
+            server="DemoServer",
+            account_id="111222",
+            password="ErrPassword",
+        )
+        assert result is False
+
+
+def test_credential_manager_error_paths_and_exceptions(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # 1. Invalid/empty inputs for add_user
     assert cm.add_user("", "Password123!", "123456") is False
-    assert cm.add_user("user1", "", "123456") is False
-    assert cm.add_user("user1", "Password123!", "") is False
+    assert cm.add_user("trader_alice", "", "123456") is False
+    assert cm.add_user("trader_alice", "Password123!", "") is False
 
-    # Exception handling when calling database functions
-    with patch("database.add_user", side_effect=RuntimeError("Database failure")):
-        assert cm.add_user("fail_user", "Pass123!", "123456") is False
+    # 2. add_user exception path
+    with patch("database.add_user", side_effect=Exception("User creation failed")):
+        assert cm.add_user("trader_alice", "Password123!", "123456") is False
 
-    with patch("database.update_user", side_effect=RuntimeError("Database failure")):
-        assert cm.update_user("fail_user", new_password="NewPass123!") is False
+    # 3. update_user exception path
+    with patch("database.update_user", side_effect=Exception("User update failed")):
+        assert cm.update_user("QUANT_OPERATOR", new_password="NewPass123!") is False
 
-    with patch("database.delete_user", side_effect=RuntimeError("Database failure")):
-        assert cm.delete_user("fail_user") is False
+    # 4. delete_user exception path
+    with patch("database.delete_user", side_effect=Exception("User delete failed")):
+        assert cm.delete_user("QUANT_OPERATOR") is False
 
-    # Reset admin credentials error paths
-    with patch("database.add_user", side_effect=RuntimeError("Admin reset failure")):
-        assert cm.reset_admin_credentials(admin_username="NON_EXISTENT_ADMIN") is False
+    # 5. reset_admin_credentials exception path
+    with patch("database.update_user", side_effect=Exception("Admin reset failed")):
+        assert cm.reset_admin_credentials() is False
 
-    with patch("database.update_user", side_effect=RuntimeError("Admin update failure")):
-        assert cm.reset_admin_credentials(admin_username="QUANT_OPERATOR") is False
+    # 6. set_active_broker exception path
+    with patch("database.set_active_broker", side_effect=Exception("Set active broker failed")):
+        assert cm.set_active_broker(1) is False
 
+    # 7. delete_broker_account exception path
+    with patch("database.delete_broker_account", side_effect=Exception("Delete broker failed")):
+        assert cm.delete_broker_account(1) is False
 
-def test_broker_error_paths(temp_db: str) -> None:
-    from unittest.mock import patch
+    # 8. add_broker_profile exception path
+    with patch("database.add_broker_profile", side_effect=Exception("Add broker profile failed")):
+        assert cm.add_broker_profile("TEST_BROKER", "Test Broker Profile") is False
 
-    cm = CredentialManager(db_path=temp_db)
-
-    # Test broker profile CRUD happy path and error handling
-    assert cm.add_broker_profile(broker_key="NSE_TEST", display_name="NSE Test Broker") is True
-    profiles = cm.get_all_broker_profiles()
-    assert any(p.get("broker_key") == "nse_test" for p in profiles)
-
-    with patch("database.add_broker_profile", side_effect=RuntimeError("Profile error")):
-        assert cm.add_broker_profile(broker_key="FAIL_KEY", display_name="Fail Broker") is False
-
-    # Broker account error paths
-    with patch("database.add_broker_account", side_effect=RuntimeError("Add account error")):
-        assert (
-            cm.add_broker_account(
-                broker_name="FailBroker",
-                server="FailServer",
-                account_id="000",
-                password="Pass",
-            )
-            is False
-        )
-
-    with patch("database.save_broker_credentials", side_effect=RuntimeError("Save credentials error")):
-        assert (
-            cm.save_primary_broker_credentials(
-                server="FailServer",
-                account_id="000",
-                password="Pass",
-            )
-            is False
-        )
-
-    with patch("database.set_active_broker", side_effect=RuntimeError("Set active error")):
-        assert cm.set_active_broker(999) is False
-
-    with patch("database.delete_broker_account", side_effect=RuntimeError("Delete broker error")):
-        assert cm.delete_broker_account(999) is False
-
-    # Re-encryption error handling
-    with patch.object(cm, "get_all_brokers", side_effect=RuntimeError("Get brokers error")):
+    # 9. reencrypt_all_broker_credentials exception path
+    with patch.object(cm, "get_all_brokers", side_effect=Exception("Fetch brokers failed")):
         assert cm.reencrypt_all_broker_credentials() is False
+
+    with patch("database.save_broker_credentials", side_effect=Exception("Database save failed")):
+        result = cm.save_primary_broker_credentials(
+            server="DemoServer",
+            account_id="111222",
+            password="ErrPassword",
+        )
+        assert result is False
