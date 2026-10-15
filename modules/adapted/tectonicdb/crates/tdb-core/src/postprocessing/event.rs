@@ -102,32 +102,84 @@ mod test {
 
     #[test]
     fn test_into_events() {
-        let records = dtf::file_format::decode(FNAME, Some(10000)).unwrap();
-        let ups = records.as_slice();
-
-        let evts = Events::from(ups);
-
-        assert!(!evts.cancelled.is_empty() || !evts.created.is_empty() || !evts.trades.is_empty());
-
-        let test_ups = vec![
-            Update { ts: 100, seq: 1, is_trade: false, is_bid: true, price: 100.0, size: 10.0 },
-            Update { ts: 100, seq: 2, is_trade: false, is_bid: true, price: 100.0, size: 15.0 },
-            Update { ts: 101, seq: 3, is_trade: false, is_bid: true, price: 100.0, size: 5.0 },
-            Update { ts: 102, seq: 4, is_trade: true,  is_bid: true, price: 100.0, size: 5.0 },
-            Update { ts: 103, seq: 5, is_trade: false, is_bid: true, price: 100.0, size: 0.0 },
+        let ups = vec![
+            Update {
+                ts: 1000,
+                seq: 1,
+                is_trade: true,
+                is_bid: true,
+                price: 100.0,
+                size: 10.0,
+            },
+            Update {
+                ts: 1001,
+                seq: 2,
+                is_trade: false,
+                is_bid: true,
+                price: 100.0,
+                size: 50.0,
+            },
+            Update {
+                ts: 1002,
+                seq: 3,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 30.0,
+            },
+            Update {
+                ts: 1003,
+                seq: 4,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 40.0,
+            },
+            Update {
+                ts: 1004,
+                seq: 5,
+                is_trade: false,
+                is_bid: true,
+                price: 100.0,
+                size: 20.0,
+            },
+            Update {
+                ts: 1005,
+                seq: 6,
+                is_trade: false,
+                is_bid: false,
+                price: 101.0,
+                size: 0.0,
+            },
         ];
 
-        let synth_evts = Events::from(test_ups.as_slice());
+        let evts = Events::from(ups.as_slice());
 
-        assert_eq!(synth_evts.created.len(), 1);
-        assert_eq!(synth_evts.created.get(&100).unwrap().len(), 2);
+        assert_eq!(evts.trades.len(), 1);
+        assert!(evts.trades.contains_key(&1000));
+        assert_eq!(evts.trades[&1000].len(), 1);
+        assert_eq!(evts.trades[&1000][0].price, 100.0);
+        assert_eq!(evts.trades[&1000][0].size, 10.0);
+        assert!(evts.trades[&1000][0].is_trade);
 
-        assert_eq!(synth_evts.cancelled.len(), 2);
-        assert_eq!(synth_evts.cancelled.get(&101).unwrap().len(), 1);
-        assert_eq!(synth_evts.cancelled.get(&103).unwrap().len(), 1);
+        assert_eq!(evts.created.len(), 3);
+        assert!(evts.created.contains_key(&1001));
+        assert!(evts.created.contains_key(&1002));
+        assert!(evts.created.contains_key(&1003));
+        assert_eq!(evts.created[&1001][0].size, 50.0);
+        assert_eq!(evts.created[&1002][0].size, 30.0);
+        assert_eq!(evts.created[&1003][0].size, 40.0);
 
-        assert_eq!(synth_evts.trades.len(), 1);
-        assert_eq!(synth_evts.trades.get(&102).unwrap().len(), 1);
+        assert_eq!(evts.cancelled.len(), 2);
+        assert!(evts.cancelled.contains_key(&1004));
+        assert!(evts.cancelled.contains_key(&1005));
+        assert_eq!(evts.cancelled[&1004][0].size, 20.0);
+        assert_eq!(evts.cancelled[&1005][0].size, 0.0);
+
+        let empty_evts = Events::from(&[][..]);
+        assert!(empty_evts.trades.is_empty());
+        assert!(empty_evts.created.is_empty());
+        assert!(empty_evts.cancelled.is_empty());
     }
 
     #[test]
