@@ -1125,7 +1125,118 @@ mod tests {
         }
     }
 
-    // TODO: write more test cases...
+    #[test]
+    fn should_err_on_long_symbol() {
+        let mut buf = vec![];
+        let long_symbol = "A_VERY_LONG_SYMBOL_NAME_THAT_EXCEEDS_TWENTY_CHARACTERS";
+        let res = write_symbol(&mut buf, long_symbol);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn should_handle_invalid_magic_value() {
+        let fname = "invalid_magic.dtf";
+        {
+            let mut f = File::create(fname).unwrap();
+            f.write_all(b"NOT_A_DTF_FILE_HEADER").unwrap();
+        }
+        assert_eq!(is_dtf(fname).unwrap(), false);
+        assert!(file_reader(fname).is_err());
+        let _ = fs::remove_file(fname);
+    }
+
+    #[test]
+    fn should_handle_invalid_range_min_greater_than_max() {
+        init();
+        let fname = "test.dtf";
+        let mut rdr = file_reader(fname).unwrap();
+        let ups = range(&mut rdr, 100000, 1000).unwrap();
+        assert!(ups.is_empty());
+    }
+
+    #[test]
+    fn should_encode_decode_buffer_and_decode_for_each() {
+        let ts = sample_data();
+        let mut cur = Cursor::new(vec![0u8; 4096]);
+        encode_buffer(&mut cur, "BTC_USD", &ts).unwrap();
+
+        cur.seek(SeekFrom::Start(0)).unwrap();
+        let decoded = decode_buffer(&mut cur);
+        assert_eq!(decoded, ts);
+
+        let fname = "buffer_test.dtf";
+        encode(fname, "BTC_USD", &ts).unwrap();
+        assert_eq!(get_size(fname).unwrap(), ts.len() as u64);
+
+        let mut collected = vec![];
+        decode_for_each(fname, None, &mut |up| collected.push(*up)).unwrap();
+        assert_eq!(collected, ts);
+        let _ = fs::remove_file(fname);
+    }
+
+    #[test]
+    fn should_decode_with_row_limits() {
+        init();
+        let fname = "test.dtf";
+        let decoded = decode(fname, Some(1)).unwrap();
+        assert!(!decoded.is_empty());
+        assert!(decoded.len() <= sample_data().len());
+
+        let mut collected = vec![];
+        decode_for_each(fname, Some(1), &mut |up| collected.push(*up)).unwrap();
+        assert_eq!(collected, decoded);
+    }
+
+    #[test]
+    fn should_scan_files_for_range() {
+        let folder = "scan_test_dir";
+        let _ = fs::create_dir_all(folder);
+        let fname1 = format!("{}/file1.dtf", folder);
+        let fname2 = format!("{}/file2.dtf", folder);
+
+        let ts1 = vec![Update {
+            ts: 1000,
+            seq: 1,
+            is_trade: true,
+            is_bid: false,
+            price: 100.0,
+            size: 1.0,
+        }];
+        let ts2 = vec![Update {
+            ts: 2000,
+            seq: 2,
+            is_trade: true,
+            is_bid: false,
+            price: 101.0,
+            size: 2.0,
+        }];
+
+        encode(&fname1, "SCAN_SYM", &ts1).unwrap();
+        encode(&fname2, "SCAN_SYM", &ts2).unwrap();
+
+        let scanned = scan_files_for_range(folder, "SCAN_SYM", 500, 2500).unwrap();
+        assert_eq!(scanned.len(), 2);
+
+        let _ = fs::remove_file(&fname1);
+        let _ = fs::remove_file(&fname2);
+        let _ = fs::remove_dir(folder);
+    }
+
+    #[test]
+    fn should_support_dtf_metadata_reader_and_bufreader_reset() {
+        init();
+        let fname = "test.dtf";
+        let meta_rdr = iterators::DTFMetadataReader::new(file_reader(fname).unwrap());
+        let batches: Vec<_> = meta_rdr.collect();
+        assert!(!batches.is_empty());
+
+        let mut buf_rdr = iterators::DTFBufReader::new(file_reader(fname).unwrap()).to_end();
+        assert_eq!(buf_rdr.current_update_index(), 0);
+        let first = (&mut buf_rdr).next();
+        assert!(first.is_some());
+        buf_rdr.reset();
+        assert_eq!(buf_rdr.current_update_index(), 0);
+    }
 
     #[test]
     fn should_return_correct_symbol() {
