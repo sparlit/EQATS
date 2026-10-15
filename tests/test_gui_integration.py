@@ -171,3 +171,21 @@ def test_gui_poly_screen_switch_and_update() -> None:
         assert hasattr(app, 'lbl_poly_pnl_val')
         app._update_poly_screen_data()
         assert app.lbl_poly_pnl_val is not None
+
+
+def test_gui_vds_screen_n_plus_one_optimization() -> None:
+    """Verifies VDS screen get_history calls for selected symbol and other symbols."""
+    database.init_db()
+    mock_root = mock.MagicMock()
+    mock_scalper = mock.MagicMock()
+    mock_scalper.conn.get_history.return_value = [{"close": 1.1 + i * 0.001} for i in range(10)]
+    with mock.patch("gui.ttk.Style"), mock.patch("gui.tk.StringVar"), mock.patch("gui.tk.OptionMenu"), mock.patch("gui.messagebox"), mock.patch("gui.ScalperGui._show_login_dialog", return_value=True), mock.patch("main.AutonomousScalper", return_value=mock_scalper):
+        import gui
+        app = gui.ScalperGui(mock_root)
+        mock_scalper.conn.get_history.reset_mock()
+        app.selected_symbol_gp = "EURUSD"
+        app._show_vds_screen()
+        # Verify get_history was called for selected_symbol_gp exactly once
+        call_symbols = [c.args[0] for c in mock_scalper.conn.get_history.call_args_list]
+        selected_symbol_calls = [s for s in call_symbols if s == "EURUSD"]
+        assert len(selected_symbol_calls) == 1, f"Expected 1 call for EURUSD, got {len(selected_symbol_calls)}"
