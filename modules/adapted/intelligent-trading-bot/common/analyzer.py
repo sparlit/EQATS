@@ -271,7 +271,7 @@ class Analyzer:
             df, feats = generate_feature_set(
                 self.df, fs, self.config, self.model_store, last_rows=last_rows
             )
-            self.df = df  # TODO: Signal features should be computed in the same way as normal (pre-ML) features
+            self.df = df
             signal_columns.extend(feats)
 
         #
