@@ -1,5 +1,13 @@
+import cProfile
 import datetime
-from zoneinfo import ZoneInfo
+import pstats
+import time
+from io import StringIO
+
+import pandas as pd
+import pytz
+from read_sql_data import get_hist_data_as_dataframes_dict
+from tickerplot.sql.sqlalchemy_wrapper import get_metadata
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -29,14 +37,30 @@ We want to profile it for different datasets.
 """
 
 
-import cProfile
-import pstats
-import time
-from io import StringIO
+class ProfileContext:
+    """Context manager class for profiling code blocks with cProfile and pstats."""
 
-import pandas as pd
-from read_sql_data import get_hist_data_as_dataframes_dict
-from tickerplot.sql.sqlalchemy_wrapper import get_metadata
+    def __init__(self, sort_by="cumulative", print_fraction=0.1):
+        self.sort_by = sort_by
+        self.print_fraction = print_fraction
+        self.profiler = cProfile.Profile()
+        self.stream = StringIO()
+        self.start_time = 0.0
+        self.elapsed_time = 0.0
+        self.stats = None
+        self.stats_output = ""
+
+    def __enter__(self):
+        self.start_time = time.time()
+        self.profiler.enable()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.profiler.disable()
+        self.elapsed_time = time.time() - self.start_time
+        self.stats = pstats.Stats(self.profiler, stream=self.stream).sort_stats(self.sort_by)
+        self.stats.print_stats(self.print_fraction)
+        self.stats_output = self.stream.getvalue()
 
 
 def panel_bench_lc(panel):
@@ -98,16 +122,24 @@ class ProcessPandasPanelBench:
         self.metadata = get_metadata(self.db_path)
 
     def set_method(self, method_name="cProfile"):
-        if method_name not in ("cprofile",):
+        if method_name not in ("cprofile", "cProfile"):
             raise ValueError("Method name should be 'cProfile'")
         self.method_name = method_name
 
     def run_bench_cprofile(self, panel):
-        with ProfilerContext(label=self.limit_rows) as prof:
-            prof.result = panel_bench_lc(panel=panel)
+        with ProfileContext(sort_by="cumulative", print_fraction=0.1) as prof:
+            selectors = panel_bench_lc(panel=panel)
 
-        with ProfilerContext(label=self.limit_rows) as prof:
-            prof.result = panel_bench_vector(panel=panel)
+        print(self.limit_rows, prof.elapsed_time)
+        print(len(selectors))
+        print(prof.stats_output)
+
+        with ProfileContext(sort_by="cumulative", print_fraction=0.1) as prof:
+            selectors = panel_bench_vector(panel=panel)
+
+        print(self.limit_rows, prof.elapsed_time)
+        print(len(selectors))
+        print(prof.stats_output)
 
     def run_bench(self):
 

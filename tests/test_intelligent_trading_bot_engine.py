@@ -125,17 +125,11 @@ def test_cancel_order_success_and_failure():
             mock_sync.assert_called_once()
 
 
-def test_trader_mt5_order_filled_transitions():
+def test_update_order_status():
     mock_mt5 = MagicMock()
     mock_mt5.__author__ = "MetaTrader 5 Ltd."
     mock_mt5.__version__ = "5.0.45"
-    mock_mt5.ORDER_STATE_FILLED = 4
-    mock_mt5.ORDER_STATE_PLACED = 1
-    mock_mt5.ORDER_STATE_PARTIAL = 2
-    mock_mt5.ORDER_STATE_REQUEST_CANCEL = 3
-    mock_mt5.ORDER_STATE_REJECTED = 5
-    mock_mt5.ORDER_STATE_EXPIRED = 6
-    mock_mt5.ORDER_STATE_CANCELED = 7
+    mock_mt5.last_error.return_value = (0, "Success")
 
     mock_modules = {
         "MetaTrader5": mock_mt5,
@@ -152,34 +146,30 @@ def test_trader_mt5_order_filled_transitions():
     }
 
     with patch.dict(sys.modules, mock_modules):
-        import pandas as pd
-        from outputs.trader_mt5 import trader_mt5, App
+        from outputs.trader_mt5 import update_order_status, App
 
-        App.config = {
-            "symbol": "BTCUSD",
-            "freq": "1h",
-            "mt5_account_id": None,
-        }
+        # Test 1: No active order or missing orderId
+        App.order = {}
+        assert asyncio.run(update_order_status()) is None
 
-        df = pd.DataFrame([{"close": 50000.0}])
-        model = {"buy_signal_column": "buy", "sell_signal_column": "sell"}
-        config = {"symbol": "BTCUSD", "freq": "1h"}
-        model_store = MagicMock()
+        # Test 2: MT5 returns None or empty list
+        App.order = {"orderId": 101}
+        with patch.object(mock_mt5, "orders_get", return_value=None):
+            assert asyncio.run(update_order_status()) is None
 
-        with patch("outputs.trader_mt5.pandas_get_interval", return_value=("2025-01-01 00:00:00", "2025-01-01 01:00:00")), \
-             patch("outputs.trader_mt5.now_timestamp", return_value=1700000000), \
-             patch("outputs.trader_mt5.get_signal", return_value={"side": "NONE", "close_price": 50000.0, "close_time": 1700000000}), \
-             patch("outputs.trader_mt5.update_order_status", new_callable=AsyncMock, return_value=4), \
-             patch("outputs.trader_mt5.update_account_balance", new_callable=AsyncMock):
+        # Test 3: Valid order info with namedtuple containing _asdict
+        App.order = {"orderId": 102}
+        mock_order = MagicMock()
+        mock_order._asdict.return_value = {"ticket": 102, "state": "FILLED"}
 
-            # Test SELLING -> SOLD transition on FILLED
-            App.status = "SELLING"
-            App.order = {"orderId": 101, "status": 4}
-            asyncio.run(trader_mt5(df, model, config, model_store))
-            assert App.status == "SOLD"
+        with patch.object(mock_mt5, "orders_get", return_value=(mock_order,)):
+            status = asyncio.run(update_order_status())
+            assert status == "FILLED"
+            assert App.order["status"] == "FILLED"
 
-            # Test BUYING -> BOUGHT transition on FILLED
-            App.status = "BUYING"
-            App.order = {"orderId": 102, "status": 4}
-            asyncio.run(trader_mt5(df, model, config, model_store))
-            assert App.status == "BOUGHT"
+        # Test 4: Valid order info with dict
+        App.order = {"orderId": 103}
+        with patch.object(mock_mt5, "orders_get", return_value=({"ticket": 103, "status": "CANCELED"},)):
+            status = asyncio.run(update_order_status())
+            assert status == "CANCELED"
+            assert App.order["status"] == "CANCELED"
