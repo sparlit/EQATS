@@ -1,5 +1,5 @@
 {
-  "current_index": 72,
+  "current_index": 73,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -581,7 +581,7 @@
       "name": "eod2",
       "target": "bennythadikaran/eod2",
       "url": "https://github.com/bennythadikaran/eod2",
-      "status": "pending",
+      "status": "Completed",
       "pr_url": null,
       "merged": false
     },
