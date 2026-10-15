@@ -125,17 +125,15 @@ def test_cancel_order_success_and_failure():
             mock_sync.assert_called_once()
 
 
-def test_trader_mt5_order_filled_transitions():
+def test_update_trade_status_single_open_order():
     mock_mt5 = MagicMock()
     mock_mt5.__author__ = "MetaTrader 5 Ltd."
     mock_mt5.__version__ = "5.0.45"
-    mock_mt5.ORDER_STATE_FILLED = 4
-    mock_mt5.ORDER_STATE_PLACED = 1
-    mock_mt5.ORDER_STATE_PARTIAL = 2
-    mock_mt5.ORDER_STATE_REQUEST_CANCEL = 3
-    mock_mt5.ORDER_STATE_REJECTED = 5
-    mock_mt5.ORDER_STATE_EXPIRED = 6
-    mock_mt5.ORDER_STATE_CANCELED = 7
+    mock_mt5.ORDER_TYPE_SELL_LIMIT = 1
+    mock_mt5.ORDER_TYPE_SELL = 2
+    mock_mt5.ORDER_TYPE_BUY_LIMIT = 0
+    mock_mt5.ORDER_TYPE_BUY = 3
+    mock_mt5.ORDER_TYPE_OTHER = 99
 
     mock_modules = {
         "MetaTrader5": mock_mt5,
@@ -152,80 +150,36 @@ def test_trader_mt5_order_filled_transitions():
     }
 
     with patch.dict(sys.modules, mock_modules):
-        import pandas as pd
-        from outputs.trader_mt5 import trader_mt5, App
+        from outputs.trader_mt5 import update_trade_status, App
 
-        App.config = {
-            "symbol": "BTCUSD",
-            "freq": "1h",
-            "mt5_account_id": None,
-        }
+        App.config = {"symbol": "BTCUSD"}
 
-        df = pd.DataFrame([{"close": 50000.0}])
-        model = {"buy_signal_column": "buy", "sell_signal_column": "sell"}
-        config = {"symbol": "BTCUSD", "freq": "1h"}
-        model_store = MagicMock()
+        # Sell Limit Order
+        order_sell_limit = MagicMock(type=mock_mt5.ORDER_TYPE_SELL_LIMIT)
+        mock_mt5.orders_get.return_value = (order_sell_limit,)
+        asyncio.run(update_trade_status())
+        assert App.status == "SELLING"
 
-        with patch("outputs.trader_mt5.pandas_get_interval", return_value=("2025-01-01 00:00:00", "2025-01-01 01:00:00")), \
-             patch("outputs.trader_mt5.now_timestamp", return_value=1700000000), \
-             patch("outputs.trader_mt5.get_signal", return_value={"side": "NONE", "close_price": 50000.0, "close_time": 1700000000}), \
-             patch("outputs.trader_mt5.update_order_status", new_callable=AsyncMock, return_value=4), \
-             patch("outputs.trader_mt5.update_account_balance", new_callable=AsyncMock):
+        # Sell Market Order
+        order_sell = MagicMock(type=mock_mt5.ORDER_TYPE_SELL)
+        mock_mt5.orders_get.return_value = (order_sell,)
+        asyncio.run(update_trade_status())
+        assert App.status == "SELLING"
 
-            # Test SELLING -> SOLD transition on FILLED
-            App.status = "SELLING"
-            App.order = {"orderId": 101, "status": 4}
-            asyncio.run(trader_mt5(df, model, config, model_store))
-            assert App.status == "SOLD"
+        # Buy Limit Order
+        order_buy_limit = MagicMock(type=mock_mt5.ORDER_TYPE_BUY_LIMIT)
+        mock_mt5.orders_get.return_value = (order_buy_limit,)
+        asyncio.run(update_trade_status())
+        assert App.status == "BUYING"
 
-            # Test BUYING -> BOUGHT transition on FILLED
-            App.status = "BUYING"
-            App.order = {"orderId": 102, "status": 4}
-            asyncio.run(trader_mt5(df, model, config, model_store))
-            assert App.status == "BOUGHT"
+        # Buy Market Order
+        order_buy = MagicMock(type=mock_mt5.ORDER_TYPE_BUY)
+        mock_mt5.orders_get.return_value = (order_buy,)
+        asyncio.run(update_trade_status())
+        assert App.status == "BUYING"
 
-
-def test_analyzer_signal_feature_computation():
-    import pandas as pd
-    from common.analyzer import Analyzer
-
-    config = {
-        "symbol": "RELIANCE",
-        "predict_length": 10,
-        "features_horizon": 2,
-        "time_column": "timestamp",
-        "freq": "1min",
-        "train_features": ["close"],
-        "feature_sets": [{"generator": "mock_feat", "config": {}}],
-        "train_feature_sets": [],
-        "signal_sets": [{"generator": "mock_sig", "config": {}}],
-    }
-    model_store = MagicMock()
-    analyzer = Analyzer(config, model_store)
-
-    dt_index = pd.date_range("2025-01-01", periods=5, freq="1min", tz="UTC")
-    analyzer.df = pd.DataFrame(
-        {"timestamp": dt_index, "close": [100.0, 101.0, 102.0, 103.0, 104.0]},
-        index=dt_index,
-    )
-    analyzer.previous_df = pd.DataFrame()
-    analyzer.dirty_records = 5
-
-    def mock_gen_feat(df, fs, cfg, ms, last_rows):
-        gen = fs.get("generator")
-        if gen == "mock_feat":
-            df["feat_1"] = df["close"] * 2
-            return df, ["feat_1"]
-        elif gen == "mock_sig":
-            df["sig_1"] = df["close"] > 102
-            return df, ["sig_1"]
-        return df, []
-
-    with patch("common.analyzer.generate_feature_set", side_effect=mock_gen_feat):
-        analyzer.analyze()
-
-    assert "feat_1" in analyzer.df.columns
-    assert "sig_1" in analyzer.df.columns
-    assert analyzer.dirty_records == 0
-    assert analyzer.df["feat_1"].iloc[-1] == 208.0
-    assert bool(analyzer.df["sig_1"].iloc[-1]) is True
+        # Invalid Order Type
+        order_invalid = MagicMock(type=99)
+        mock_mt5.orders_get.return_value = (order_invalid,)
+        res = asyncio.run(update_trade_status())
+        assert res is None

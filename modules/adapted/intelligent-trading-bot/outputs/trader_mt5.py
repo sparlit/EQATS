@@ -231,10 +231,10 @@ async def update_trade_status():
             App.status = "BOUGHT"
 
     elif len(open_orders) == 1:
-        order = open_orders[0]  # TODO: Check if it is correct
-        if order.type == mt5.ORDER_TYPE_SELL_LIMIT:
+        order = open_orders[0]
+        if order.type in (mt5.ORDER_TYPE_SELL_LIMIT, mt5.ORDER_TYPE_SELL):
             App.status = "SELLING"
-        elif order.type == mt5.ORDER_TYPE_BUY_LIMIT:
+        elif order.type in (mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY):
             App.status = "BUYING"
         else:
             log.error(f"Neither SELL nor BUY side of the order {order}.")
@@ -273,7 +273,7 @@ async def update_order_status():
     # Impose and overwrite the new order information
     if new_order:
         order.update(new_order._asdict())
-    else:  # TODO: Check if it is correct
+    else:
         return None
 
     # Now order["status"] contains the latest status of the order
