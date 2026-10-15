@@ -875,7 +875,7 @@ if _TKINTER_AVAILABLE:
                 messagebox.showwarning("Warning", "Select a broker entry first.")
                 return
             item = self.brokers_tree.item(selected[0])
-            b_id = item["values"][0]
+            b_id = int(item["values"][0])
             if self.cm.set_active_broker(b_id):
                 messagebox.showinfo(
                     "Active Gateway Set", f"Broker ID {b_id} set as active primary gateway."
@@ -890,7 +890,7 @@ if _TKINTER_AVAILABLE:
                 messagebox.showwarning("Warning", "Select a broker entry first.")
                 return
             item = self.brokers_tree.item(selected[0])
-            b_id = item["values"][0]
+            b_id = int(item["values"][0])
             if messagebox.askyesno("Confirm Delete", f"Delete broker entry ID {b_id}?"):
                 if self.cm.delete_broker_account(b_id):
                     messagebox.showinfo("Deleted", f"Broker ID {b_id} deleted.")
@@ -1057,27 +1057,29 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
                     f"  ID: {u['id']} | Username: {u['username']} | Role: {u['role']} | MFA: {u.get('mfa_enabled')}"
                 )
         elif choice == "2":
-            u = input("Username: ").strip()
-            p = input("Password: ").strip()
-            pin = input("Secondary MFA PIN: ").strip()
-            r = input("Role [QUANT_TRADER/SOVEREIGN_ADMIN]: ").strip() or "QUANT_TRADER"
-            if cm.add_user(u, p, pin, role=r):
-                print(f"✓ User '{u}' created.")
+            user_name = input("Username: ").strip()
+            pass_word = input("Password: ").strip()
+            pin_code = input("Secondary MFA PIN: ").strip()
+            role_type = input("Role [QUANT_TRADER/SOVEREIGN_ADMIN]: ").strip() or "QUANT_TRADER"
+            if cm.add_user(user_name, pass_word, pin_code, role=role_type):
+                print(f"✓ User '{user_name}' created.")
             else:
                 print("✗ Failed to create user.")
         elif choice == "3":
-            u = input("Target Username: ").strip()
-            p = input("New Password (blank to skip): ").strip() or None
-            pin = input("New PIN (blank to skip): ").strip() or None
-            r = input("New Role (blank to skip): ").strip() or None
-            if cm.update_user(u, new_password=p, new_pin=pin, new_role=r):
-                print(f"✓ User '{u}' updated.")
+            target_user = input("Target Username: ").strip()
+            new_pass_val = input("New Password (blank to skip): ").strip() or None
+            new_pin_val = input("New PIN (blank to skip): ").strip() or None
+            new_role_val = input("New Role (blank to skip): ").strip() or None
+            if cm.update_user(
+                target_user, new_password=new_pass_val, new_pin=new_pin_val, new_role=new_role_val
+            ):
+                print(f"✓ User '{target_user}' updated.")
             else:
                 print("✗ Failed to update user.")
         elif choice == "4":
-            u = input("Username to delete: ").strip()
-            if cm.delete_user(u):
-                print(f"✓ User '{u}' deleted.")
+            user_to_del = input("Username to delete: ").strip()
+            if cm.delete_user(user_to_del):
+                print(f"✓ User '{user_to_del}' deleted.")
             else:
                 print("✗ Failed to delete user.")
         elif choice == "5":

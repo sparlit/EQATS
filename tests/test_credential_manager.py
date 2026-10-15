@@ -17,22 +17,35 @@ def temp_db() -> Generator[str]:
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield path
+    from contextlib import suppress
+
     if os.path.exists(path):
-        try:
+        with suppress(Exception):
             os.remove(path)
-        except Exception:
-            pass
     salt_file = path + ".salt"
     if os.path.exists(salt_file):
-        try:
+        with suppress(Exception):
             os.remove(salt_file)
-        except Exception:
-            pass
 
 
 def test_credential_manager_init(temp_db: str) -> None:
     cm = CredentialManager(db_path=temp_db)
     assert cm is not None
+
+
+def test_add_user_error_paths(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # 1. Test empty / missing inputs
+    assert cm.add_user("", "Password123!", "123456") is False
+    assert cm.add_user("trader_bob", "", "123456") is False
+    assert cm.add_user("trader_bob", "Password123!", "") is False
+
+    # 2. Test database exception handling (line 78 error path)
+    from unittest.mock import patch
+
+    with patch("database.add_user", side_effect=Exception("Database error simulation")):
+        assert cm.add_user("trader_bob", "Password123!", "123456") is False
 
 
 def test_user_crud_operations(temp_db: str) -> None:
@@ -54,7 +67,10 @@ def test_user_crud_operations(temp_db: str) -> None:
     assert cm.verify_user_credentials("trader_bob", "WrongPassword", "123456") is False
 
     # 4. Update user
-    assert cm.update_user("trader_bob", new_password="NewPassword456!", new_role="SOVEREIGN_ADMIN") is True
+    assert (
+        cm.update_user("trader_bob", new_password="NewPassword456!", new_role="SOVEREIGN_ADMIN")
+        is True
+    )
     assert cm.verify_user_credentials("trader_bob", "NewPassword456!", "123456") is True
 
     # 5. Reset admin credentials
@@ -70,15 +86,18 @@ def test_broker_crud_operations(temp_db: str) -> None:
     cm = CredentialManager(db_path=temp_db)
 
     # 1. Add broker
-    assert cm.add_broker_account(
-        broker_name="Interactive Brokers",
-        server="127.0.0.1:4002",
-        account_id="U1234567",
-        password="IBSecretPassword",
-        leverage="1:50",
-        protocol_type="IBKR",
-        is_active=1,
-    ) is True
+    assert (
+        cm.add_broker_account(
+            broker_name="Interactive Brokers",
+            server="127.0.0.1:4002",
+            account_id="U1234567",
+            password="IBSecretPassword",
+            leverage="1:50",
+            protocol_type="IBKR",
+            is_active=1,
+        )
+        is True
+    )
 
     # 2. Get brokers
     brokers = cm.get_all_brokers()
@@ -93,13 +112,16 @@ def test_broker_crud_operations(temp_db: str) -> None:
     assert active_b["broker_name"] == "Interactive Brokers"
 
     # 4. Save primary broker credentials
-    assert cm.save_primary_broker_credentials(
-        server="127.0.0.1:4002",
-        account_id="U1234567",
-        password="UpdatedIBSecretPassword",
-        leverage="1:100",
-        broker_name="Interactive Brokers Updated",
-    ) is True
+    assert (
+        cm.save_primary_broker_credentials(
+            server="127.0.0.1:4002",
+            account_id="U1234567",
+            password="UpdatedIBSecretPassword",
+            leverage="1:100",
+            broker_name="Interactive Brokers Updated",
+        )
+        is True
+    )
 
     active_b_updated = cm.get_active_broker_credentials()
     assert active_b_updated is not None
@@ -140,6 +162,7 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
 
     # Circuit breaker state
     import database
+
     database.save_circuit_breaker_state(
         trading_date="2026-03-31",
         daily_start_balance=10000.0,
