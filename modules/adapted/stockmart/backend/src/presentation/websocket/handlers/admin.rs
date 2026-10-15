@@ -459,7 +459,7 @@ async fn handle_get_dashboard_metrics(
                     .unwrap_or_else(|| format!("User {}", session.user_id)),
                 connected_at: session.connected_at,
                 last_activity: session.last_activity,
-                messages_sent: 0, // TODO: Track message count per session
+                messages_sent: session.messages_sent,
             }
         })
         .collect();

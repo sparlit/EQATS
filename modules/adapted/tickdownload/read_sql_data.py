@@ -1,10 +1,24 @@
-import datetime
+"""Database query module for NSE equities tick data."""
 
+import datetime
+from zoneinfo import ZoneInfo
+
+import pandas as pd
 import pytz
+from sqlalchemy import desc
+from tickerplot.sql.sqlalchemy_wrapper import (
+    create_or_get_all_scrips_table,
+    create_or_get_nse_equities_hist_data,
+    execute_one,
+    get_metadata,
+    select_expr,
+)
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
-    """Checks whether current or provided time falls within NSE/BSE IST market session (09:15 to 15:30 IST Mon-Fri)."""
+    """Checks whether current or provided time falls within NSE/BSE IST market session
+    (09:15 to 15:30 IST Mon-Fri).
+    """
     ist = pytz.timezone("Asia/Kolkata")
     now = dt.astimezone(ist) if dt else datetime.datetime.now(ist)
     if now.weekday() >= 5:
@@ -21,43 +35,36 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     return round(round(price / tick_size) * tick_size, 2)
 
 
-# pylint: disable-msg=broad-except, global-statement
-
-import pandas as pd
-from sqlalchemy import desc
-from tickerplot.sql.sqlalchemy_wrapper import (
-    create_or_get_all_scrips_table,
-    create_or_get_nse_equities_hist_data,
-    execute_one,
-    get_metadata,
-    select_expr,
-)
-
 _DB_METADATA = None
 
 
 def get_all_scrips_names_in_db(metadata=None):
+    """Retrieves all traded NSE scrip symbols from all_scrips table in the database."""
+    if metadata is None:
+        metadata = _DB_METADATA
     all_scrips_table = create_or_get_all_scrips_table(metadata=metadata)
     scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(
         all_scrips_table.c.nse_traded
     )
 
-    result = execute_one(scrips_select_st, engine=metadata.bind)
+    engine = metadata.bind if metadata is not None else None
+    result = execute_one(scrips_select_st, engine=engine)
     symbols = [row[0] for row in result.fetchall()]
 
     return symbols
 
 
-# FIXME metadata=None doesn't look correct, we need to pass db_meta perhaps?
 def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
+    """Retrieves historical equities data as a dictionary of pandas DataFrames."""
+    if metadata is None:
+        metadata = _DB_METADATA
     lscrips = get_all_scrips_names_in_db(metadata=metadata)
 
-    e = metadata.bind
+    e = metadata.bind if metadata is not None else None
     hist_data = create_or_get_nse_equities_hist_data(metadata=metadata)
 
     scripdata_dict = {}
-    scrips = 0
-    for scrip in lscrips:
+    for scrips, scrip in enumerate(lscrips, start=1):
         sql_st = (
             select_expr(
                 [
@@ -79,13 +86,20 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
 
         scripdata = pd.io.sql.read_sql(sql_st, e)
 
-        scripdata.columns = ["date", "open", "high", "low", "close", "volume", "delivery"]
+        scripdata.columns = [
+            "date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "delivery",
+        ]
         scripdata.reset_index(inplace=True)
         scripdata.set_index(pd.DatetimeIndex(scripdata["date"]), inplace=True)
         scripdata.drop("date", axis=1, inplace=True)
         scripdata_dict[scrip] = scripdata
 
-        scrips += 1
         if scrips == max_scrips:
             break
 
@@ -93,7 +107,7 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
 
 
 def main(args):
-
+    """CLI entry point for testing database data loading."""
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -101,18 +115,18 @@ def main(args):
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")
 
-    args = parser.parse_args()
+    parsed_args = parser.parse_args(args[1:])
 
     # Make sure we can access the DB path if specified or else exit right here.
-    if args.dbpath:
+    if parsed_args.dbpath:
         try:
             global _DB_METADATA
-            _DB_METADATA = get_metadata(args.dbpath)
+            _DB_METADATA = get_metadata(parsed_args.dbpath)
         except Exception as e:
-            print(f"Not a valid DB URL: {args.dbpath} (Exception: {e})")
+            print(f"Not a valid DB URL: {parsed_args.dbpath} (Exception: {e})")
             return -1
 
-    get_hist_data_as_dataframes_dict()
+    get_hist_data_as_dataframes_dict(metadata=_DB_METADATA)
 
     return 0
 
@@ -120,4 +134,4 @@ def main(args):
 if __name__ == "__main__":
     import sys
 
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))

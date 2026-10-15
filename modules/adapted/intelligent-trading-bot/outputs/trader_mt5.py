@@ -105,7 +105,7 @@ async def trader_mt5(df: pd.DataFrame, model: dict, config: dict, model_store: M
                 print(f"===> BOUGHT: {order}")
                 App.status = "BOUGHT"
             elif status == "SELLING":
-                print(f"<=== SOLD: {order}")  # TODO: Check if it is correct
+                print(f"<=== SOLD: {order}")
                 App.status = "SOLD"
             log.info(f"New trade mode: {App.status}")
         elif order_status in [
@@ -231,10 +231,10 @@ async def update_trade_status():
             App.status = "BOUGHT"
 
     elif len(open_orders) == 1:
-        order = open_orders[0]  # TODO: Check if it is correct
+        order = open_orders[0]
         if order.type == mt5.ORDER_TYPE_SELL_LIMIT:
             App.status = "SELLING"
-        elif order.type == mt5.ORDER_TYPE_BUY_LIMIT:
+        elif order.type in (mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY):
             App.status = "BUYING"
         else:
             log.error(f"Neither SELL nor BUY side of the order {order}.")
@@ -271,13 +271,18 @@ async def update_order_status():
     new_order = order_info[0]
 
     # Impose and overwrite the new order information
-    if new_order:
+    if hasattr(new_order, "_asdict"):
         order.update(new_order._asdict())
-    else:  # TODO: Check if it is correct
+    elif isinstance(new_order, dict):
+        order.update(new_order)
+    else:
         return None
 
+    if "status" not in order and "state" in order:
+        order["status"] = order["state"]
+
     # Now order["status"] contains the latest status of the order
-    return order["status"]
+    return order.get("status")
 
 
 async def update_account_balance():
@@ -309,7 +314,7 @@ async def update_account_balance():
 
 async def cancel_order():
     """
-    Kill existing sell order. It is a blocking request, that is, it waits for the end of the operation.
+    Kill existing sell or buy order. It is a blocking request, that is, it waits for the end of the operation.
     Info: DELETE /api/v3/order - cancel order
     """
 
@@ -326,18 +331,19 @@ async def cancel_order():
         "order": order_id,
     }
     result = mt5.order_send(request)
-    if result.retcode != mt5.TRADE_RETCODE_DONE:
+    if result is None or getattr(result, "retcode", None) != mt5.TRADE_RETCODE_DONE:
         log.error(f"MT5 error in 'order_send' {mt5.last_error()}")
+        await update_trade_status()
         return None
-    new_order = result
-    #   We need to somehow catch and process this case
-    #   If we get an error (say, order does not exist and cannot be killed), then after error returned, we could do trade state reset
 
     # Impose and overwrite the new order information
-    if new_order:
-        order.update(new_order)
-    else:
-        return None  # TODO: Check if it is correct
+    if hasattr(result, "_asdict"):
+        order.update(result._asdict())
+    elif isinstance(result, dict):
+        order.update(result)
+
+    if "state" not in order:
+        order["state"] = getattr(mt5, "ORDER_STATE_CANCELED", "CANCELED")
 
     # Now order["state"] contains the latest status of the order
     return order["state"]

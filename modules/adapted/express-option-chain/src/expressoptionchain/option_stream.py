@@ -139,6 +139,7 @@ class OptionStream:
         max_connections=MAX_WEBSOCKET_CONNECTIONS,
         update_instruments: bool = False,
         redis_config: RedisConfig = RedisConfig(),
+        throttle_interval: float = 0.2,
     ):
         """
         :param trading_symbols: list of trading symbols in the format "exchange:trading_symbol".
@@ -159,9 +160,11 @@ class OptionStream:
         :param update_instruments: Set this variable to True if you want to force refresh the kite instruments on this
         run. This will be mostly not necessary as kite instruments are refreshed every day on the first run anyway.
         :param redis_config: specify a different redis configuration
+        :param throttle_interval: time in seconds to throttle option chain creation per iteration when symbol count <= 50
         """
         self.secrets = secrets
         self.redis_config = redis_config
+        self.throttle_interval = throttle_interval
         KiteConnectionManager(secrets).check_connection()
         self.db = redis_helper.get_redis_instance(redis_config)
         self.check_refresh_instruments(update_instruments)
@@ -300,6 +303,7 @@ class OptionStream:
         option_chain_creator = OptionChainCreator(self.secrets)
         count = 0
         while True:
+            cycle_start = time.time()
             if count % 30 == 0:
                 log.info("Updating option chain in the background")
             for trading_symbol in self.trading_symbols:
@@ -309,11 +313,11 @@ class OptionStream:
             # when trading symbols are less, it takes less time to create the option chain
             # it doesn't make sense to create option chain using the ticks stored in db faster
             # than the option stream updating the ticks
-
-            # ideally this number should be deduced from the speed with which option chain is getting created
             if len(self.trading_symbols) <= 50:
-                # todo_low: 0.2s is not a fixed value
-                time.sleep(0.2)
+                elapsed_time = time.time() - cycle_start
+                sleep_duration = max(0.0, self.throttle_interval - elapsed_time)
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
 
     def check_refresh_instruments(self, should_refresh_instruments):
         if should_refresh_instruments:

@@ -2444,9 +2444,17 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        try:
+            history_map = (
+                self.scalper.conn.get_history_bulk(assets, 30)
+                if hasattr(self.scalper.conn, "get_history_bulk")
+                else {s: self.scalper.conn.get_history(s, 30) for s in assets}
+            )
+        except Exception:
+            history_map = {}
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = history_map.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
@@ -2683,21 +2691,30 @@ class ScalperGui:
             self.v_tree.heading(col, text=col)
             self.v_tree.column(col, anchor=tk.W, width=130)
         self.v_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        import numpy as np
+
         import config
 
         other_symbols = [s for s in config.SYMBOLS if s != self.selected_symbol_gp][:8]
+        all_symbols = [self.selected_symbol_gp] + other_symbols
+        try:
+            bulk_hist = self.scalper.conn.get_bulk_history(all_symbols, 10)
+        except Exception as err:
+            _log.debug("bulk history fetch error: %s", err)
+            bulk_hist = {}
+
+        self_hist = bulk_hist.get(self.selected_symbol_gp)
+        self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
+        self_vec = [np.mean(self_closes), np.std(self_closes)]
+
         distances = []
         for osym in other_symbols:
             try:
-                hist = self.scalper.conn.get_history(osym, 10)
+                hist = bulk_hist.get(osym)
                 if hist:
                     closes = [bar["close"] for bar in hist]
-                    import numpy as np
 
                     other_vec = [np.mean(closes), np.std(closes)]
-                    self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
-                    self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
-                    self_vec = [np.mean(self_closes), np.std(self_closes)]
                     l2_dist = np.sqrt(
                         (other_vec[0] - self_vec[0]) ** 2 + (other_vec[1] - self_vec[1]) ** 2
                     )
@@ -6018,9 +6035,17 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        try:
+            history_map = (
+                self.scalper.conn.get_history_bulk(assets, 30)
+                if hasattr(self.scalper.conn, "get_history_bulk")
+                else {s: self.scalper.conn.get_history(s, 30) for s in assets}
+            )
+        except Exception:
+            history_map = {}
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = history_map.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
@@ -7731,7 +7756,9 @@ class ScalperGui:
             return
         self.sent_tree.delete(*self.sent_tree.get_children())
         import database
-        from institutional_integrations.natural_language import extract_advanced_nlp_sentiments
+        from institutional_integrations.natural_language import (
+            extract_advanced_nlp_sentiments,
+        )
 
         try:
             conn = database.get_connection()
@@ -10567,7 +10594,9 @@ class ScalperGui:
                     fg=self.fg_red if is_deviating else self.fg_green,
                 )
                 self.lbl_mlp_accuracy.config(text=f"Historical System Accuracy: {win_rate}%")
-                from institutional_integrations.quantum_local_llm import local_financial_llm
+                from institutional_integrations.quantum_local_llm import (
+                    local_financial_llm,
+                )
 
                 local_financial_llm.train_on_text(
                     f"TICK: {self.selected_symbol_gp} active quote close at {nn.last_prediction:.5f}",

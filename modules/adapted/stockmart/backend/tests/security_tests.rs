@@ -349,9 +349,7 @@ async fn test_very_large_quantity() {
     // This is a security vulnerability that should be fixed with saturating_mul
 }
 
-/// SEC-INPUT-004: Negative price - DOCUMENTS MISSING VALIDATION
-/// NOTE: This test documents that negative prices are NOT currently rejected.
-/// This is a security vulnerability that should be fixed with input validation.
+/// SEC-INPUT-004: Negative price validation
 #[tokio::test]
 async fn test_negative_price_handling() {
     let state = create_test_state().await;
@@ -371,18 +369,11 @@ async fn test_negative_price_handling() {
     // Try to place order with negative price
     let result = place_limit_buy(&state, user, &symbol, 10, -dollars(100)).await;
 
-    // VULNERABILITY: Negative prices are currently accepted
-    // This should be fixed to reject negative prices
-    // For now, document the current behavior
-    match result {
-        Ok(_) => {
-            // Currently accepted - this is a bug
-            // TODO: Add validation to reject negative prices
-        }
-        Err(_) => {
-            // If rejected, the validation was added
-        }
-    }
+    // Negative prices must be rejected
+    assert!(
+        result.is_err(),
+        "Order with negative price should be rejected"
+    );
 }
 
 /// SEC-INPUT-005: Very long symbol handled
@@ -444,9 +435,7 @@ async fn test_empty_strings_handled() {
     }
 }
 
-/// SEC-INPUT-007: Zero quantity - DOCUMENTS MISSING VALIDATION
-/// NOTE: This test documents that zero quantity is NOT currently rejected.
-/// This is a security vulnerability that should be fixed with input validation.
+/// SEC-INPUT-007: Zero quantity handling - rejects zero quantity orders
 #[tokio::test]
 async fn test_zero_quantity_handling() {
     let state = create_test_state().await;
@@ -466,22 +455,20 @@ async fn test_zero_quantity_handling() {
     // Try to place order with zero quantity
     let result = place_limit_buy(&state, user, &symbol, 0, dollars(100)).await;
 
-    // VULNERABILITY: Zero quantity is currently accepted
-    // This should be fixed to reject zero quantity orders
-    match result {
-        Ok(_) => {
-            // Currently accepted - this is a bug
-            // TODO: Add validation to reject zero quantity
-        }
-        Err(_) => {
-            // If rejected, the validation was added
-        }
-    }
+    // Zero quantity orders must be rejected
+    assert!(
+        result.is_err(),
+        "Order with zero quantity should be rejected"
+    );
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("INVALID_QTY") || err.to_lowercase().contains("quantity"),
+        "Error message should mention invalid quantity: {}",
+        err
+    );
 }
 
-/// SEC-INPUT-008: Zero price - DOCUMENTS MISSING VALIDATION
-/// NOTE: This test documents that zero price is NOT currently rejected.
-/// This is a security vulnerability that should be fixed with input validation.
+/// SEC-INPUT-008: Zero price - REJECTED BY VALIDATION
 #[tokio::test]
 async fn test_zero_price_handling() {
     let state = create_test_state().await;
@@ -501,17 +488,10 @@ async fn test_zero_price_handling() {
     // Try to place limit order with zero price
     let result = place_limit_buy(&state, user, &symbol, 10, 0).await;
 
-    // VULNERABILITY: Zero price is currently accepted
-    // This should be fixed to reject zero price for limit orders
-    match result {
-        Ok(_) => {
-            // Currently accepted - this is a bug
-            // TODO: Add validation to reject zero price for limit orders
-        }
-        Err(_) => {
-            // If rejected, the validation was added
-        }
-    }
+    assert!(
+        result.is_err(),
+        "Zero price limit orders must be rejected"
+    );
 }
 
 // =============================================================================
