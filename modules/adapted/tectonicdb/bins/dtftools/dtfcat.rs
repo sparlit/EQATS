@@ -2,7 +2,6 @@ use memmap::MmapOptions;
 use tdb_core::dtf::{self, file_format as ff};
 use tdb_core::postprocessing::candle::time_bars::TimeBars;
 use std::fs::File;
-use std::io::{self, Write, BufWriter};
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn run(matches: &clap::ArgMatches) {
@@ -60,9 +59,6 @@ pub fn run(matches: &clap::ArgMatches) {
                     .template("[{elapsed_precise}, remaining: {eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
                     .progress_chars("##-"));
 
-                let stdout = io::stdout();
-                let mut writer = BufWriter::new(stdout.lock());
-
                 let mut ret = vec![];
                 for (i, up) in &mut it
                     .enumerate()
@@ -73,12 +69,11 @@ pub fn run(matches: &clap::ArgMatches) {
                     if has_output {
                         ret.push(up);
                     } else if csv {
-                        writeln!(writer, "{}", up.to_csv()).unwrap();
+                        println!("{}", up.to_csv()) // TODO: slooooow
                     } else {
-                        writeln!(writer, "[{}]", up.as_json()).unwrap();
+                        println!("[{}]", up.as_json())
                     }
                 }
-                writer.flush().unwrap();
                 bar.finish();
 
                 if has_output {
@@ -107,8 +102,6 @@ pub fn run(matches: &clap::ArgMatches) {
                     .to_csv();
                 println!("{}", rebinned)
             } else {
-                let stdout = io::stdout();
-                let mut writer = BufWriter::new(stdout.lock());
                 let mut ret = vec![];
                 tdb_core::dtf::file_format::scan_files_for_range_for_each(
                     &folder,
@@ -119,12 +112,11 @@ pub fn run(matches: &clap::ArgMatches) {
                         if has_output {
                             ret.push(*up);
                         } else if csv {
-                            writeln!(writer, "{}", up.to_csv()).unwrap();
+                            println!("{}", up.to_csv())
                         } else {
-                            writeln!(writer, "[{}]", up.as_json()).unwrap();
+                            println!("[{}]", up.as_json())
                         }
                     }).unwrap();
-                writer.flush().unwrap();
 
                 if has_output {
                     let fname = matches.value_of("output").unwrap();
