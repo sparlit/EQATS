@@ -312,9 +312,11 @@ impl MatchingEngine {
             return Err(EngineError::MarketClosed);
         }
 
-        // Validate price - reject negative prices
-        if order.price < 0 {
-            return Err(EngineError::InvalidPrice);
+        // Validate limit order price
+        if order.order_type == OrderType::Limit && order.price <= 0 {
+            return Err(EngineError::InternalError(
+                "Price must be greater than 0 for limit orders".to_string(),
+            ));
         }
 
         // Verify symbol exists
