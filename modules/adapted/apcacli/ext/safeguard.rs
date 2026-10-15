@@ -250,12 +250,6 @@ async fn run() -> Result<()> {
     ApiInfo::from_env().with_context(|| "failed to retrieve Alpaca environment information")?;
   let client = Client::new(api_info);
 
-  // TODO: We may want to retrieve orders and positions concurrently.
-  let positions = client
-    .issue::<positions::List>(&())
-    .await
-    .with_context(|| "failed to retrieve position information")?;
-
   let request = orders::ListReq {
     symbols: Vec::new(),
     status: orders::Status::Open,
@@ -264,10 +258,21 @@ async fn run() -> Result<()> {
     nested: false,
     ..Default::default()
   };
-  let orders = client
-    .issue::<orders::List>(&request)
-    .await
-    .with_context(|| "failed to retrieve order information")?;
+
+  let (positions, orders) = tokio::try_join!(
+    async {
+      client
+        .issue::<positions::List>(&())
+        .await
+        .with_context(|| "failed to retrieve position information")
+    },
+    async {
+      client
+        .issue::<orders::List>(&request)
+        .await
+        .with_context(|| "failed to retrieve order information")
+    },
+  )?;
 
   evaluate_positions_and_orders(&args, &positions, &orders)
 }

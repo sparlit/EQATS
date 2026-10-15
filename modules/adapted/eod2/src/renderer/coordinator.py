@@ -177,6 +177,7 @@ class PlotCoordinator:
 
             if self.drawing_tool:
                 self.drawing_tool.set_data(df)
+                self.drawing_tool.reset_drawmode()
 
             # Add SNR levels
             if self.cmd.snr and self.is_stock_mode:
@@ -486,7 +487,11 @@ class PlotCoordinator:
                 watch_name = self.cmd.source.watch.name
 
             if watch_name:
-                self.session_store.save_watch_resume(watch_name, self.nav.current_index)
+                self.session_store.save_watch_resume(
+                    watch_name,
+                    self.nav.current_index,
+                    self.nav.length,
+                )
 
         self._close_all()
         exit(0)
