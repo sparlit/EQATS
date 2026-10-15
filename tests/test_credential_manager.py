@@ -5,6 +5,7 @@ Unit tests for the CredentialManager standalone module.
 import os
 import tempfile
 from collections.abc import Generator
+from unittest.mock import patch
 
 import pytest
 
@@ -155,3 +156,57 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     cb_state_reset = cm.load_circuit_breaker_state()
     assert cb_state_reset is not None
     assert cb_state_reset["is_halted"] is False
+
+
+def test_save_primary_broker_credentials_error_path(temp_db: str) -> None:
+    """Tests that save_primary_broker_credentials handles database exceptions gracefully."""
+    cm = CredentialManager(db_path=temp_db)
+    with patch("database.save_broker_credentials", side_effect=Exception("Database write error")):
+        res = cm.save_primary_broker_credentials(
+            server="demo.server.com",
+            account_id="12345",
+            password="secret_password",
+        )
+        assert res is False
+
+
+def test_credential_manager_methods_error_paths(temp_db: str) -> None:
+    """Tests error handling for all CredentialManager CRUD & operational methods when exceptions occur."""
+    cm = CredentialManager(db_path=temp_db)
+
+    # add_user invalid input & database exception
+    assert cm.add_user("", "", "") is False
+    with patch("database.add_user", side_effect=Exception("DB user add failure")):
+        assert cm.add_user("testuser", "pass", "1234") is False
+
+    # update_user exception
+    with patch("database.update_user", side_effect=Exception("DB user update failure")):
+        assert cm.update_user("testuser", new_password="newpass") is False
+
+    # delete_user exception
+    with patch("database.delete_user", side_effect=Exception("DB user delete failure")):
+        assert cm.delete_user("testuser") is False
+
+    # reset_admin_credentials exception
+    with patch("database.update_user", side_effect=Exception("DB admin reset failure")):
+        assert cm.reset_admin_credentials() is False
+
+    # add_broker_account exception
+    with patch("database.add_broker_account", side_effect=Exception("DB broker add failure")):
+        assert cm.add_broker_account("TestBroker", "Server", "123", "pass") is False
+
+    # set_active_broker exception
+    with patch("database.set_active_broker", side_effect=Exception("DB set active failure")):
+        assert cm.set_active_broker(1) is False
+
+    # delete_broker_account exception
+    with patch("database.delete_broker_account", side_effect=Exception("DB delete broker failure")):
+        assert cm.delete_broker_account(1) is False
+
+    # add_broker_profile exception
+    with patch("database.add_broker_profile", side_effect=Exception("DB add profile failure")):
+        assert cm.add_broker_profile("KEY", "Display Name") is False
+
+    # reencrypt_all_broker_credentials exception
+    with patch.object(cm, "get_all_brokers", side_effect=Exception("DB get brokers failure")):
+        assert cm.reencrypt_all_broker_credentials() is False
