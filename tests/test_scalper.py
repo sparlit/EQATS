@@ -45,11 +45,165 @@ class TestScalperIndicators(unittest.TestCase):
         self.assertGreater(res['upper'], res['middle'])
         self.assertGreater(res['middle'], res['lower'])
 
+    def test_bollinger_squeeze(self) -> None:
+        # 1. Insufficient or empty price series
+        self.assertIsNone(indicators.calculate_bollinger_squeeze([], period=20))
+        prices_short = [100.0, 101.0, 102.0]
+        self.assertIsNone(indicators.calculate_bollinger_squeeze(prices_short, period=20))
+        self.assertIsNone(indicators.calculate_bollinger_squeeze([100.0] * 20, period=0))
+
+        # 2. Normal price series
+        prices = [100.0, 101.0, 102.0, 101.0, 100.0, 102.0, 103.0, 104.0, 102.0, 101.0,
+                  100.0, 99.0, 101.0, 102.0, 103.0, 102.0, 101.0, 100.0, 98.0, 102.0]
+        squeeze = indicators.calculate_bollinger_squeeze(prices, period=10, num_std=2.0)
+        self.assertIsNotNone(squeeze)
+        self.assertIsInstance(squeeze, float)
+        self.assertGreater(squeeze, 0.0)
+
+        # Confirm consistency with calculate_bollinger_bands bandwidth output
+        bb = indicators.calculate_bollinger_bands(prices, period=10, num_std=2.0)
+        self.assertIsNotNone(bb)
+        self.assertAlmostEqual(squeeze, bb['bandwidth'], places=7)
+
+        # 3. Custom period and num_std
+        squeeze_custom = indicators.calculate_bollinger_squeeze(prices, period=5, num_std=1.5)
+        self.assertIsNotNone(squeeze_custom)
+        self.assertIsInstance(squeeze_custom, float)
+
+        # 4. Zero middle band edge case
+        zero_prices = [0.0] * 20
+        self.assertIsNone(indicators.calculate_bollinger_squeeze(zero_prices, period=10))
+
     def test_pivot_points(self) -> None:
         res = indicators.calculate_pivot_points(100.0, 90.0, 95.0)
         self.assertEqual(res['pivot'], 95.0)
         self.assertEqual(res['r1'], 100.0)
         self.assertEqual(res['s1'], 90.0)
+
+    def test_ichimoku(self) -> None:
+        res_empty = indicators.calculate_ichimoku([], [], [])
+        self.assertEqual(res_empty, {"tenkan": 0.0, "kijun": 0.0})
+
+        closes_short = [10.0 + i for i in range(10)]
+        highs_short = [10.5 + i for i in range(10)]
+        lows_short = [9.5 + i for i in range(10)]
+        res_short = indicators.calculate_ichimoku(highs_short, lows_short, closes_short)
+        self.assertEqual(res_short, {"tenkan": closes_short[-1], "kijun": closes_short[-1]})
+
+        highs = [10.0 + i for i in range(30)]
+        lows = [1.0 + i for i in range(30)]
+        closes = [5.0 + i for i in range(30)]
+        res = indicators.calculate_ichimoku(highs, lows, closes)
+        self.assertIn("tenkan", res)
+        self.assertIn("kijun", res)
+        self.assertEqual(res["tenkan"], 30.5)
+        self.assertEqual(res["kijun"], 22.0)
+    def test_donchian_channels(self) -> None:
+        # 1. Edge case: empty, None, insufficient data length, or invalid period (returns None)
+        self.assertIsNone(indicators.calculate_donchian_channels([], []))
+        self.assertIsNone(indicators.calculate_donchian_channels(None, None))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 5, [9.0] * 5, period=20))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 5, period=20))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 20, period=0))
+        self.assertIsNone(indicators.calculate_donchian_channels([10.0] * 20, [9.0] * 20, period=-5))
+
+        # 2. Standard price series with period=20 (default)
+        highs = [10.0 + i for i in range(25)]
+        lows = [8.0 + i for i in range(25)]
+        res_std = indicators.calculate_donchian_channels(highs, lows, period=20)
+        self.assertIsNotNone(res_std)
+        self.assertIn("upper", res_std)
+        self.assertIn("lower", res_std)
+        self.assertIn("middle", res_std)
+        self.assertEqual(res_std["upper"], 34.0)
+        self.assertEqual(res_std["lower"], 13.0)
+        self.assertEqual(res_std["middle"], 23.5)
+
+        # 3. Custom period parameters (period=5)
+        res_custom = indicators.calculate_donchian_channels(highs, lows, period=5)
+        self.assertIsNotNone(res_custom)
+        self.assertEqual(res_custom["upper"], 34.0)
+        self.assertEqual(res_custom["lower"], 28.0)
+        self.assertEqual(res_custom["middle"], 31.0)
+
+        # 4. Flat price series
+        highs_flat = [15.0] * 20
+        lows_flat = [10.0] * 20
+        res_flat = indicators.calculate_donchian_channels(highs_flat, lows_flat, period=20)
+        self.assertIsNotNone(res_flat)
+        self.assertEqual(res_flat["upper"], 15.0)
+        self.assertEqual(res_flat["lower"], 10.0)
+        self.assertEqual(res_flat["middle"], 12.5)
+
+    def test_stochastic(self) -> None:
+        # 1. Edge case: empty or insufficient data (< period)
+        res_empty = indicators.calculate_stochastic([], [], [])
+        self.assertEqual(res_empty, {"k": 50.0, "d": 50.0})
+
+        highs_short = [10.0, 11.0, 12.0]
+        lows_short = [9.0, 10.0, 11.0]
+        closes_short = [9.5, 10.5, 11.5]
+        res_short = indicators.calculate_stochastic(highs_short, lows_short, closes_short, period=14)
+        self.assertEqual(res_short, {"k": 50.0, "d": 50.0})
+
+        # 2. Flat price series (denom == 0)
+        highs_flat = [10.0] * 20
+        lows_flat = [10.0] * 20
+        closes_flat = [10.0] * 20
+        res_flat = indicators.calculate_stochastic(highs_flat, lows_flat, closes_flat, period=14, d_period=3)
+        self.assertEqual(res_flat, {"k": 50.0, "d": 50.0})
+
+        # 3. Standard price series with period=14, d_period=3
+        highs = [10.0 + i * 0.5 for i in range(20)]
+        lows = [8.0 + i * 0.5 for i in range(20)]
+        closes = [9.0 + i * 0.5 for i in range(20)]
+        res_std = indicators.calculate_stochastic(highs, lows, closes, period=14, d_period=3)
+        self.assertIn("k", res_std)
+        self.assertIn("d", res_std)
+        self.assertIsInstance(res_std["k"], float)
+        self.assertIsInstance(res_std["d"], float)
+        self.assertTrue(0.0 <= res_std["k"] <= 100.0)
+        self.assertTrue(0.0 <= res_std["d"] <= 100.0)
+
+        # 4. Custom period parameters (period=5, d_period=2)
+        res_custom = indicators.calculate_stochastic(highs, lows, closes, period=5, d_period=2)
+        self.assertIn("k", res_custom)
+        self.assertIn("d", res_custom)
+        self.assertTrue(0.0 <= res_custom["k"] <= 100.0)
+        self.assertTrue(0.0 <= res_custom["d"] <= 100.0)
+
+    def test_adx(self) -> None:
+        # 1. Edge case: empty or insufficient data (< period * 2)
+        self.assertEqual(indicators.calculate_adx([], [], []), 20.0)
+
+        highs_short = [10.0 + i for i in range(10)]
+        lows_short = [9.0 + i for i in range(10)]
+        closes_short = [9.5 + i for i in range(10)]
+        self.assertEqual(indicators.calculate_adx(highs_short, lows_short, closes_short, period=14), 20.0)
+
+        # 2. Flat price series (zero true range / zero movement)
+        highs_flat = [10.0] * 35
+        lows_flat = [10.0] * 35
+        closes_flat = [10.0] * 35
+        res_flat = indicators.calculate_adx(highs_flat, lows_flat, closes_flat, period=14)
+        self.assertIsInstance(res_flat, float)
+        self.assertTrue(0.0 <= res_flat <= 100.0)
+
+        # 3. Standard strong trending price series
+        highs_trend = [10.0 + i * 0.5 for i in range(40)]
+        lows_trend = [9.0 + i * 0.5 for i in range(40)]
+        closes_trend = [9.8 + i * 0.5 for i in range(40)]
+        res_trend = indicators.calculate_adx(highs_trend, lows_trend, closes_trend, period=14)
+        self.assertIsInstance(res_trend, float)
+        self.assertTrue(0.0 <= res_trend <= 100.0)
+
+        # 4. Custom period parameter
+        highs_custom = [10.0 + i * 0.2 for i in range(15)]
+        lows_custom = [9.0 + i * 0.2 for i in range(15)]
+        closes_custom = [9.5 + i * 0.2 for i in range(15)]
+        res_custom = indicators.calculate_adx(highs_custom, lows_custom, closes_custom, period=5)
+        self.assertIsInstance(res_custom, float)
+        self.assertTrue(0.0 <= res_custom <= 100.0)
 
 class TestScalperBrainAndConnector(unittest.TestCase):
 

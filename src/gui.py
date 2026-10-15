@@ -2444,9 +2444,14 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        if hasattr(self.scalper.conn, "get_bulk_history"):
+            bulk_history = self.scalper.conn.get_bulk_history(assets, 30)
+        else:
+            bulk_history = {sym: self.scalper.conn.get_history(sym, 30) for sym in assets}
+
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = bulk_history.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
@@ -2683,7 +2688,16 @@ class ScalperGui:
             self.v_tree.heading(col, text=col)
             self.v_tree.column(col, anchor=tk.W, width=130)
         self.v_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        import numpy as np
+
         import config
+
+        try:
+            self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
+        except Exception:
+            self_hist = None
+        self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
+        self_vec = [np.mean(self_closes), np.std(self_closes)]
 
         other_symbols = [s for s in config.SYMBOLS if s != self.selected_symbol_gp][:8]
         distances = []
@@ -2692,12 +2706,8 @@ class ScalperGui:
                 hist = self.scalper.conn.get_history(osym, 10)
                 if hist:
                     closes = [bar["close"] for bar in hist]
-                    import numpy as np
 
                     other_vec = [np.mean(closes), np.std(closes)]
-                    self_hist = self.scalper.conn.get_history(self.selected_symbol_gp, 10)
-                    self_closes = [bar["close"] for bar in self_hist] if self_hist else [1.0]
-                    self_vec = [np.mean(self_closes), np.std(self_closes)]
                     l2_dist = np.sqrt(
                         (other_vec[0] - self_vec[0]) ** 2 + (other_vec[1] - self_vec[1]) ** 2
                     )
