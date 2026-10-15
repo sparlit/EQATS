@@ -6,26 +6,20 @@
       "target": "0b01/tectonicdb",
       "url": "https://github.com/0b01/tectonicdb",
       "status": "Processed",
-<<<<<<< HEAD
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3459",
       "pr_url": "https://github.com/sparlit/EQATS/pull/3451",
-=======
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3458",
->>>>>>> integrate/tectonicdb
       "merged": true
     },
     {
       "name": "hyperliquid_rust_bot",
       "target": "0xnosystem/hyperliquid_rust_bot",
       "url": "https://github.com/0xnosystem/hyperliquid_rust_bot",
-<<<<<<< HEAD
-      "status": "Processed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3457",
-      "merged": true
-=======
       "status": "pending",
       "pr_url": null,
       "merged": false
->>>>>>> integrate/tectonicdb
+      "status": "Processed",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3457",
+      "merged": true
     },
     {
       "name": "indian-stock-market-api",
