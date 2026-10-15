@@ -1,6 +1,16 @@
 import datetime
+import io
+import math
+import zipfile
 
+import mibian
+import numpy as np
+import pandas as pd
 import pytz
+import requests
+from def_date_string import date_string
+from def_expiry import expiry
+from def_market_off import market_off
 
 
 def is_ist_market_session_active(dt: datetime.datetime | None = None) -> bool:
@@ -19,20 +29,6 @@ def round_to_ist_tick(price: float, tick_size: float = 0.05) -> float:
     if price <= 0:
         return 0.0
     return round(round(price / tick_size) * tick_size, 2)
-
-
-import datetime
-import io
-import math
-import zipfile
-
-import mibian
-import numpy as np
-import pandas as pd
-import requests
-from def_date_string import date_string
-from def_expiry import expiry
-from def_market_off import market_off
 
 # from kaleido.scopes.plotly import PlotlyScope  # pip install kaleido (another method to save plotly html graph as png)
 
@@ -362,6 +358,7 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             cutoff = 75  # max historical period
             dfceiv = dfceiv.tail(cutoff)
             dfpeiv = dfpeiv.tail(cutoff)
+            # Append current session values to historical window to ensure non-negative IV rank calculations
             dtx = dt_1.strftime("%Y%m%d")
 
             dfpeiv_current = pd.DataFrame(
@@ -370,25 +367,39 @@ def bhav_options(dayback=-1, root=path):  # dayback = -2 = yday, 0 today
             dfceiv_current = pd.DataFrame(
                 ["CEIV", dtx, ceiv_mean, ceiv_mean, ceiv_mean, ceiv_mean]
             ).transpose()
-            dfpeiv_all = pd.concat([dfpeiv, dfpeiv_current], axis=0)
-            dfceiv_all = pd.concat([dfceiv, dfceiv_current], axis=0)
-            dfpeiv_all = dfpeiv_all.reset_index()
-            dfceiv_all = dfceiv_all.reset_index()
+            dfpeiv_all = pd.concat([dfpeiv, dfpeiv_current], axis=0).reset_index(drop=True)
+            dfceiv_all = pd.concat([dfceiv, dfceiv_current], axis=0).reset_index(drop=True)
             dfpeiv_all[4] = pd.to_numeric(dfpeiv_all[4])
-            peiv_rank = 100 * (
-                (peiv_mean - dfpeiv_all[4].min()) / (dfpeiv_all[4].max() - dfpeiv_all[4].min())
+            peiv_min, peiv_max = dfpeiv_all[4].min(), dfpeiv_all[4].max()
+            peiv_rank = (
+                100 * ((peiv_mean - peiv_min) / (peiv_max - peiv_min))
+                if peiv_max > peiv_min
+                else 50.0
             )
+
             dfceiv_all = dfceiv_all.dropna()
             dfceiv_all[4] = pd.to_numeric(dfceiv_all[4])
-            ceiv_rank = 100 * (
-                (ceiv_mean - dfceiv_all[4].min()) / (dfceiv_all[4].max() - dfceiv_all[4].min())
+            ceiv_min, ceiv_max = dfceiv_all[4].min(), dfceiv_all[4].max()
+            ceiv_rank = (
+                100 * ((ceiv_mean - ceiv_min) / (ceiv_max - ceiv_min))
+                if ceiv_max > ceiv_min
+                else 50.0
             )
+
             "# iv percentile calculations"
             dfceiv_all["low_close"] = np.where(dfceiv_all[4] < ceiv_mean, 1, 0)
-            ceiv_percentile = 100 * (dfceiv_all["low_close"].sum() / cutoff)
+            ceiv_percentile = (
+                100 * (dfceiv_all["low_close"].sum() / len(dfceiv_all))
+                if len(dfceiv_all) > 0
+                else 50.0
+            )
 
             dfpeiv_all["low_close"] = np.where(dfpeiv_all[4] < peiv_mean, 1, 0)
-            peiv_percentile = 100 * (dfpeiv_all["low_close"].sum() / cutoff)
+            peiv_percentile = (
+                100 * (dfpeiv_all["low_close"].sum() / len(dfpeiv_all))
+                if len(dfpeiv_all) > 0
+                else 50.0
+            )
 
             "# ce unwinding"
             list_ce_unwind = (dfsmall_ce[dfsmall_ce["CHG_IN_OI"] < 0]).STRIKE_PR.to_list()
