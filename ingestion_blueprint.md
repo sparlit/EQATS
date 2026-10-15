@@ -1,14 +1,14 @@
 # EQATS Master Integration Blueprint
-Total Repositories: 424 | Current Index: 2
+Total Repositories: 424 | Current Index: 3
 
 | Index | Repository Target | Status | PR Link |
 |---|---|---|---|
 | 1 | 0b01/tectonicdb | Processed | https://github.com/sparlit/EQATS/pull/3461 |
 | 2 | 0xnosystem/hyperliquid_rust_bot | Processed | https://github.com/sparlit/EQATS/pull/3463 |
-| 3 | 0xramm/indian-stock-market-api | pending | None |
-| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | pending | None |
-| 5 | 0xtan1319/hyperliquid-trading-bot-rust | pending | None |
-| 6 | 85599/banknifty-golden-ratio-strategy | pending | None |
+| 3 | 0xramm/indian-stock-market-api | Processed | https://github.com/sparlit/EQATS/pull/3469 |
+| 4 | 0xrustpro/stealth-bsc-bnb-create-devbuy-volume-bundler-trading-bot | Processed | https://github.com/sparlit/EQATS/pull/3465 |
+| 5 | 0xtan1319/hyperliquid-trading-bot-rust | Processed | https://github.com/sparlit/EQATS/pull/3466 |
+| 6 | 85599/banknifty-golden-ratio-strategy | Processed | https://github.com/sparlit/EQATS/pull/3467 |
 | 7 | aadityatamrakar/option_chain_analysis | pending | None |
 | 8 | aaryansinha16/ai-trader | pending | None |
 | 9 | abhiwalia15/ai-for-finance-stocks-real-time-analysis- | pending | None |
