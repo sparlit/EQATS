@@ -36,6 +36,20 @@ def test_credential_manager_init(temp_db: str) -> None:
     assert cm is not None
 
 
+def test_add_user_error_paths(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # 1. Test empty / missing inputs
+    assert cm.add_user("", "Password123!", "123456") is False
+    assert cm.add_user("trader_bob", "", "123456") is False
+    assert cm.add_user("trader_bob", "Password123!", "") is False
+
+    # 2. Test database exception handling (line 78 error path)
+    from unittest.mock import patch
+    with patch("database.add_user", side_effect=Exception("Database error simulation")):
+        assert cm.add_user("trader_bob", "Password123!", "123456") is False
+
+
 def test_user_crud_operations(temp_db: str) -> None:
     cm = CredentialManager(db_path=temp_db)
 
