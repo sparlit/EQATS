@@ -2444,9 +2444,14 @@ class ScalperGui:
 
         assets = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD"]
         real_returns = {}
+        if hasattr(self.scalper.conn, "get_bulk_history"):
+            bulk_history = self.scalper.conn.get_bulk_history(assets, 30)
+        else:
+            bulk_history = {sym: self.scalper.conn.get_history(sym, 30) for sym in assets}
+
         for sym in assets:
             try:
-                history = self.scalper.conn.get_history(sym, 30)
+                history = bulk_history.get(sym)
                 if history:
                     closes = [bar["close"] for bar in history]
                     rets = [
