@@ -262,55 +262,71 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     assert cb_state_reset["is_halted"] is False
 
 
-def test_save_primary_broker_credentials_error_path(temp_db: str) -> None:
-    """Tests that save_primary_broker_credentials handles database exceptions gracefully."""
-    cm = CredentialManager(db_path=temp_db)
-    with patch("database.save_broker_credentials", side_effect=Exception("Database write error")):
-        res = cm.save_primary_broker_credentials(
-            server="demo.server.com",
-            account_id="12345",
-            password="secret_password",
-        )
-        assert res is False
-
-
-def test_credential_manager_methods_error_paths(temp_db: str) -> None:
-    """Tests error handling for all CredentialManager CRUD & operational methods when exceptions occur."""
+def test_credential_manager_error_paths(temp_db: str) -> None:
+    from unittest.mock import patch
     cm = CredentialManager(db_path=temp_db)
 
-    # add_user invalid input & database exception
-    assert cm.add_user("", "", "") is False
-    with patch("database.add_user", side_effect=Exception("DB user add failure")):
-        assert cm.add_user("testuser", "pass", "1234") is False
-
-    # update_user exception
-    with patch("database.update_user", side_effect=Exception("DB user update failure")):
-        assert cm.update_user("testuser", new_password="newpass") is False
-
-    # delete_user exception
-    with patch("database.delete_user", side_effect=Exception("DB user delete failure")):
-        assert cm.delete_user("testuser") is False
-
-    # reset_admin_credentials exception
-    with patch("database.update_user", side_effect=Exception("DB admin reset failure")):
-        assert cm.reset_admin_credentials() is False
-
-    # add_broker_account exception
-    with patch("database.add_broker_account", side_effect=Exception("DB broker add failure")):
-        assert cm.add_broker_account("TestBroker", "Server", "123", "pass") is False
-
-    # set_active_broker exception
-    with patch("database.set_active_broker", side_effect=Exception("DB set active failure")):
+    # 1. set_active_broker exception handling
+    with patch("database.set_active_broker", side_effect=Exception("Database lock failure")):
         assert cm.set_active_broker(1) is False
 
-    # delete_broker_account exception
-    with patch("database.delete_broker_account", side_effect=Exception("DB delete broker failure")):
+    # 2. delete_broker_account exception handling
+    with patch("database.delete_broker_account", side_effect=Exception("Foreign key failure")):
         assert cm.delete_broker_account(1) is False
 
-    # add_broker_profile exception
-    with patch("database.add_broker_profile", side_effect=Exception("DB add profile failure")):
-        assert cm.add_broker_profile("KEY", "Display Name") is False
+    # 3. validate_terminal_path exception handling (ValueError)
+    with patch("database.validate_terminal_path", side_effect=ValueError("Invalid path extension")):
+        valid, msg = cm.validate_terminal_path("/invalid/path/test")
+        assert valid is False
+        assert "Invalid path extension" in msg
 
-    # reencrypt_all_broker_credentials exception
-    with patch.object(cm, "get_all_brokers", side_effect=Exception("DB get brokers failure")):
+    # 4. add_user missing input and database exception
+    assert cm.add_user("", "", "") is False
+    with patch("database.add_user", side_effect=Exception("Duplicate username")):
+        assert cm.add_user("testuser", "pass", "1234") is False
+
+    # 5. update_user database exception
+    with patch("database.update_user", side_effect=Exception("User not found")):
+        assert cm.update_user("nonexistent", new_password="new") is False
+
+    # 6. delete_user database exception
+    with patch("database.delete_user", side_effect=Exception("Delete constraint")):
+        assert cm.delete_user("admin") is False
+
+    # 7. reset_admin_credentials database exception
+    with patch("database.update_user", side_effect=Exception("Update error")):
+        assert cm.reset_admin_credentials() is False
+
+    # 8. add_broker_account database exception
+    with patch("database.add_broker_account", side_effect=Exception("Broker add fail")):
+        assert cm.add_broker_account("Test", "Server", "123", "pass") is False
+
+    # 9. save_primary_broker_credentials database exception
+    with patch("database.save_broker_credentials", side_effect=Exception("Save fail")):
+        assert cm.save_primary_broker_credentials("Server", "123", "pass") is False
+
+    # 10. add_broker_profile database exception
+    with patch("database.add_broker_profile", side_effect=Exception("Profile add fail")):
+        assert cm.add_broker_profile("key", "Display Name") is False
+
+    # 11. reencrypt_all_broker_credentials database exception
+    with patch.object(cm, "get_all_brokers", side_effect=Exception("Get brokers fail")):
         assert cm.reencrypt_all_broker_credentials() is False
+
+
+def test_broker_profiles_crud(temp_db: str) -> None:
+    cm = CredentialManager(db_path=temp_db)
+
+    # Add broker profile
+    assert cm.add_broker_profile(
+        broker_key="ZERODHA",
+        display_name="Zerodha Kite Connect",
+        protocol_type="REST_WS",
+        auth_type="api_key_secret",
+    ) is True
+
+    # Retrieve profiles
+    profiles = cm.get_all_broker_profiles()
+    assert len(profiles) >= 1
+    found = any(p.get("broker_key") == "zerodha" for p in profiles)
+    assert found is True
