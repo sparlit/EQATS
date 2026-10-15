@@ -232,7 +232,7 @@ async def update_trade_status():
 
     elif len(open_orders) == 1:
         order = open_orders[0]
-        if order.type in (mt5.ORDER_TYPE_SELL_LIMIT, mt5.ORDER_TYPE_SELL):
+        if order.type == mt5.ORDER_TYPE_SELL_LIMIT:
             App.status = "SELLING"
         elif order.type in (mt5.ORDER_TYPE_BUY_LIMIT, mt5.ORDER_TYPE_BUY):
             App.status = "BUYING"
@@ -271,13 +271,18 @@ async def update_order_status():
     new_order = order_info[0]
 
     # Impose and overwrite the new order information
-    if new_order:
+    if hasattr(new_order, "_asdict"):
         order.update(new_order._asdict())
+    elif isinstance(new_order, dict):
+        order.update(new_order)
     else:
         return None
 
+    if "status" not in order and "state" in order:
+        order["status"] = order["state"]
+
     # Now order["status"] contains the latest status of the order
-    return order["status"]
+    return order.get("status")
 
 
 async def update_account_balance():
