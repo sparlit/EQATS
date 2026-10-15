@@ -20,6 +20,8 @@ use tdb_core::dtf::file_format::scan_files_for_range;
 use tdb_core::postprocessing::orderbook::Orderbook;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+static PRICE_DECIMALS: u8 = 10; // TODO: don't hardcode this
+
 macro_rules! catch {
     ($($code:tt)*) => {
         (|| { Some({ $($code)* }) })()
@@ -62,10 +64,10 @@ pub struct Book {
 
 impl Book {
 
-    pub fn new(name: &str, settings: Arc<Settings>) -> Self {
+    pub fn new(name: &str, settings: Arc<Settings>, price_decimals: u8) -> Self {
         let vec = Vec::with_capacity(usize::max(settings.flush_interval as usize * 3, 1024*64));
         let nominal_count = 0;
-        let orderbook = Orderbook::with_precision(settings.price_decimals);
+        let orderbook = Orderbook::with_precision(price_decimals);
         let name = name.to_owned();
         let in_memory = false;
         let mut ret = Self {
@@ -206,7 +208,7 @@ impl TectonicServer {
         let mut books = HashMap::new();
         books.insert(
             BookName::from("default").unwrap(),
-            Book::new("default", settings.clone())
+            Book::new("default", settings.clone(), PRICE_DECIMALS)
         );
         let subscriptions = HashMap::new();
         let history = HashMap::new();
@@ -486,7 +488,7 @@ impl TectonicServer {
         } else {
             self.books.insert(
                 book_name.to_owned(),
-                Book::new(book_name, self.settings.clone()),
+                Book::new(book_name, self.settings.clone(), PRICE_DECIMALS),
             );
             Some(())
         }

@@ -125,17 +125,11 @@ def test_cancel_order_success_and_failure():
             mock_sync.assert_called_once()
 
 
-def test_trader_mt5_order_filled_transitions():
+def test_update_order_status():
     mock_mt5 = MagicMock()
     mock_mt5.__author__ = "MetaTrader 5 Ltd."
     mock_mt5.__version__ = "5.0.45"
-    mock_mt5.ORDER_STATE_FILLED = 4
-    mock_mt5.ORDER_STATE_PLACED = 1
-    mock_mt5.ORDER_STATE_PARTIAL = 2
-    mock_mt5.ORDER_STATE_REQUEST_CANCEL = 3
-    mock_mt5.ORDER_STATE_REJECTED = 5
-    mock_mt5.ORDER_STATE_EXPIRED = 6
-    mock_mt5.ORDER_STATE_CANCELED = 7
+    mock_mt5.last_error.return_value = (0, "Success")
 
     mock_modules = {
         "MetaTrader5": mock_mt5,
@@ -183,3 +177,63 @@ def test_trader_mt5_order_filled_transitions():
             App.order = {"orderId": 102, "status": 4}
             asyncio.run(trader_mt5(df, model, config, model_store))
             assert App.status == "BOUGHT"
+
+
+def test_analyzer_feature_and_signal_generation():
+    import pandas as pd
+    from common.analyzer import Analyzer
+
+    config = {
+        "symbol": "BTCUSDT",
+        "freq": "1min",
+        "time_column": "timestamp",
+        "predict_length": 10,
+        "features_horizon": 5,
+        "data_sources": [{"folder": "BTCUSDT", "column_prefix": ""}],
+        "train_features": ["close"],
+        "feature_sets": [
+            {
+                "generator": "itbstats",
+                "config": {"columns": "close", "functions": ["mean"], "windows": [5]},
+                "feature_prefix": "feat",
+            }
+        ],
+        "train_feature_sets": [],
+        "signal_sets": [
+            {
+                "generator": "threshold_rule",
+                "config": {
+                    "columns": "close",
+                    "names": ["buy_sig", "sell_sig"],
+                    "parameters": {"buy_signal_threshold": 100.0, "sell_signal_threshold": 50.0},
+                },
+            }
+        ],
+    }
+
+    model_store = MagicMock()
+    analyzer = Analyzer(config, model_store)
+
+    dt_index = pd.date_range("2025-01-01 00:00:00", periods=20, freq="1min", tz="UTC")
+    df_raw = pd.DataFrame(
+        {
+            "timestamp": dt_index,
+            "open": 100.0,
+            "high": 105.0,
+            "low": 95.0,
+            "close": 102.0,
+            "volume": 1000.0,
+        }
+    )
+
+    analyzer.append_data({"BTCUSDT": df_raw})
+    assert len(analyzer.df) == 20
+    assert analyzer.dirty_records != 0
+
+    analyzer.analyze()
+
+    assert analyzer.dirty_records == 0
+    assert "buy_sig" in analyzer.df.columns
+    assert "sell_sig" in analyzer.df.columns
+    assert bool(analyzer.df["buy_sig"].iloc[-1]) is True
+    assert bool(analyzer.df["sell_sig"].iloc[-1]) is False

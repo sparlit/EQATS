@@ -47,10 +47,6 @@ fn main() {
         .value_of("q_capacity")
         .map(String::from)
         .unwrap_or_else(|| key_or_default("TDB_Q_CAPACITY", "300"));
-    let price_decimals = matches
-        .value_of("price_decimals")
-        .map(String::from)
-        .unwrap_or_else(|| key_or_default("TDB_PRICE_DECIMALS", "10"));
 
     let log_file = matches
         .value_of("log_file")
@@ -83,7 +79,6 @@ fn main() {
             flush_interval: flush_interval.parse().unwrap(),
             granularity: granularity.parse().unwrap(),
             q_capacity: q_capacity.parse().unwrap(),
-            price_decimals: price_decimals.parse().unwrap(),
             influx,
         }
     );
@@ -190,13 +185,6 @@ fn get_matches<'a>() -> ArgMatches<'a> {
                 .long("log_file")
                 .value_name("LOG_FILE")
                 .help("Sets the log file to write to"),
-        )
-        .arg(
-            Arg::with_name("price_decimals")
-                .long("price_decimals")
-                .value_name("DECIMALS")
-                .help("Sets price decimals for orderbook precision (default 10)")
-                .takes_value(true),
         );
 
         let app = {
