@@ -177,7 +177,6 @@ class OptionChainCreator:
         }
 
     def get_option_chain_base(self, token_info, expiry):
-        # todo add underlying_value
         exchange = token_info["exchange"]
         trading_symbol = token_info["name"]
         return {
