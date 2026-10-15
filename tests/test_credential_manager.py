@@ -155,3 +155,77 @@ def test_security_health_and_circuit_breaker(temp_db: str) -> None:
     cb_state_reset = cm.load_circuit_breaker_state()
     assert cb_state_reset is not None
     assert cb_state_reset["is_halted"] is False
+
+
+def test_user_error_paths(temp_db: str) -> None:
+    from unittest.mock import patch
+
+    cm = CredentialManager(db_path=temp_db)
+
+    # Missing parameters validation
+    assert cm.add_user("", "Password123!", "123456") is False
+    assert cm.add_user("user1", "", "123456") is False
+    assert cm.add_user("user1", "Password123!", "") is False
+
+    # Exception handling when calling database functions
+    with patch("database.add_user", side_effect=RuntimeError("Database failure")):
+        assert cm.add_user("fail_user", "Pass123!", "123456") is False
+
+    with patch("database.update_user", side_effect=RuntimeError("Database failure")):
+        assert cm.update_user("fail_user", new_password="NewPass123!") is False
+
+    with patch("database.delete_user", side_effect=RuntimeError("Database failure")):
+        assert cm.delete_user("fail_user") is False
+
+    # Reset admin credentials error paths
+    with patch("database.add_user", side_effect=RuntimeError("Admin reset failure")):
+        assert cm.reset_admin_credentials(admin_username="NON_EXISTENT_ADMIN") is False
+
+    with patch("database.update_user", side_effect=RuntimeError("Admin update failure")):
+        assert cm.reset_admin_credentials(admin_username="QUANT_OPERATOR") is False
+
+
+def test_broker_error_paths(temp_db: str) -> None:
+    from unittest.mock import patch
+
+    cm = CredentialManager(db_path=temp_db)
+
+    # Test broker profile CRUD happy path and error handling
+    assert cm.add_broker_profile(broker_key="NSE_TEST", display_name="NSE Test Broker") is True
+    profiles = cm.get_all_broker_profiles()
+    assert any(p.get("broker_key") == "nse_test" for p in profiles)
+
+    with patch("database.add_broker_profile", side_effect=RuntimeError("Profile error")):
+        assert cm.add_broker_profile(broker_key="FAIL_KEY", display_name="Fail Broker") is False
+
+    # Broker account error paths
+    with patch("database.add_broker_account", side_effect=RuntimeError("Add account error")):
+        assert (
+            cm.add_broker_account(
+                broker_name="FailBroker",
+                server="FailServer",
+                account_id="000",
+                password="Pass",
+            )
+            is False
+        )
+
+    with patch("database.save_broker_credentials", side_effect=RuntimeError("Save credentials error")):
+        assert (
+            cm.save_primary_broker_credentials(
+                server="FailServer",
+                account_id="000",
+                password="Pass",
+            )
+            is False
+        )
+
+    with patch("database.set_active_broker", side_effect=RuntimeError("Set active error")):
+        assert cm.set_active_broker(999) is False
+
+    with patch("database.delete_broker_account", side_effect=RuntimeError("Delete broker error")):
+        assert cm.delete_broker_account(999) is False
+
+    # Re-encryption error handling
+    with patch.object(cm, "get_all_brokers", side_effect=RuntimeError("Get brokers error")):
+        assert cm.reencrypt_all_broker_credentials() is False
