@@ -1,5 +1,5 @@
 {
-  "current_index": 8,
+  "current_index": 9,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -70,7 +70,7 @@
       "target": "abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
       "url": "https://github.com/abhiwalia15/ai-for-finance-stocks-real-time-analysis-",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3484",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3501",
       "merged": true
     },
     {
