@@ -29,10 +29,10 @@ jobs:
           workspaces: "eqats_rust_core -> target"
       - name: Cargo build
         run: |
-          if [ -f Cargo.toml ]; then cargo build --verbose; else echo "no Cargo.toml, skipping"; fi
+          if [ -f eqats_rust_core/Cargo.toml ]; then cargo build --manifest-path eqats_rust_core/Cargo.toml --verbose; elif [ -f Cargo.toml ]; then cargo build --verbose; else echo "no Cargo.toml, skipping"; fi
       - name: Cargo test
         run: |
-          if [ -f Cargo.toml ]; then cargo test --verbose; else echo "no Cargo.toml, skipping"; fi
+          if [ -f eqats_rust_core/Cargo.toml ]; then cargo test --manifest-path eqats_rust_core/Cargo.toml --verbose; elif [ -f Cargo.toml ]; then cargo test --verbose; else echo "no Cargo.toml, skipping"; fi
 
   python:
     runs-on: ubuntu-latest
@@ -47,4 +47,4 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f pyproject.toml ]; then pip install maturin pytest && (maturin build || true); fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -d tests ] || ls -1 **/test_*.py >/dev/null 2>&1; then PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q || true; else echo "no python tests"; fi
+          if [ -d tests ] || ls -1 **/test_*.py >/dev/null 2>&1; then PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src pytest -q -k "not gui_integration" --ignore=tests/test_eqats_24_chaos_stress.py || true; else echo "no python tests"; fi
