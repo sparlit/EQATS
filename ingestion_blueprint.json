@@ -1,5 +1,5 @@
 {
-  "current_index": 7,
+  "current_index": 8,
   "repositories": [
     {
       "name": "tectonicdb",
@@ -62,7 +62,7 @@
       "target": "aaryansinha16/ai-trader",
       "url": "https://github.com/aaryansinha16/ai-trader",
       "status": "Completed",
-      "pr_url": "https://github.com/sparlit/EQATS/pull/3483",
+      "pr_url": "https://github.com/sparlit/EQATS/pull/3500",
       "merged": true
     },
     {
