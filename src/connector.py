@@ -60,6 +60,7 @@ class TradingConnector(abc.ABC):
         """
         Returns a dict mapping symbol -> list of dicts representing historical bar data.
         Performs concurrent fetches for multiple symbols to eliminate N+1 query bottlenecks.
+        Subclasses can override for direct protocol-native batch retrieval.
         """
         results: dict[str, Any] = {}
         if not symbols:
@@ -75,19 +76,12 @@ class TradingConnector(abc.ABC):
                     results[sym] = []
         return results
 
-    @abc.abstractmethod
-    def get_history_bulk(self, symbols: Any, count: Any) -> None:
+    def get_history_bulk(self, symbols: Any, count: Any) -> Any:
         """
         Returns dict mapping symbol to list of dicts representing historical bar data.
+        Aliases to get_bulk_history for backward compatibility.
         """
-        raise AbstractConnectorError("Subclasses must implement get_history_bulk()")
-
-    @abc.abstractmethod
-    def get_bulk_history(self, symbols: Any, count: Any) -> Any:
-        """
-        Returns a dict mapping symbol -> list of dicts of historical bar data.
-        """
-        raise AbstractConnectorError("Subclasses must implement get_bulk_history()")
+        return self.get_bulk_history(symbols, count)
 
     @abc.abstractmethod
     def get_current_price(self, symbol: Any) -> None:
