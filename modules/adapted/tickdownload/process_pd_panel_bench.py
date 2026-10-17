@@ -3,6 +3,7 @@ import datetime
 import pstats
 import time
 from io import StringIO
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytz

@@ -129,6 +129,8 @@ def test_update_order_status():
     mock_mt5 = MagicMock()
     mock_mt5.__author__ = "MetaTrader 5 Ltd."
     mock_mt5.__version__ = "5.0.45"
+    mock_mt5.ORDER_STATE_FILLED = 4
+    mock_mt5.ORDER_STATE_PLACED = 1
     mock_mt5.last_error.return_value = (0, "Success")
 
     mock_modules = {
