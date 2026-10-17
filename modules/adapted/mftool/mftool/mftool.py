@@ -120,13 +120,21 @@ class Mftool:
         scheme_info = {}
         url = self._get_quote_url
         response = self._session.get(url)
-        data = response.text.split("\n")
-        for scheme_data in data:
-            if ";" in scheme_data:
-                scheme = scheme_data.split(";")
-                scheme_info[scheme[0]] = (
-                    f"{scheme[3]} - {scheme[5]}" if len(scheme) > 5 else scheme[3]
-                )
+        try:
+            data = response.json()
+            if isinstance(data, list):
+                for item in data:
+                    c = str(item.get("schemeCode"))
+                    n = item.get("schemeName", "")
+                    scheme_info[c] = n
+        except Exception:
+            data = response.text.split("\n")
+            for scheme_data in data:
+                if ";" in scheme_data:
+                    scheme = scheme_data.split(";")
+                    scheme_info[scheme[0]] = (
+                        f"{scheme[3]} - {scheme[5]}" if len(scheme) > 5 else scheme[3]
+                    )
 
         result = render_response(scheme_info, as_json)
         # Cache the result
@@ -149,8 +157,10 @@ class Mftool:
         :return: Boolean
         """
         if code:
-            # Performance improvement
-            return code in self._scheme_codes
+            code_str = str(code)
+            if self._scheme_codes:
+                return code_str in self._scheme_codes
+            return code_str.isdigit() and len(code_str) >= 5
         else:
             return False
 
@@ -182,19 +192,36 @@ class Mftool:
                 return cached_result
 
             scheme_info = {}
-            url = self._get_quote_url
-            response = self._session.get(url)
-            data = response.text.split("\n")
-            for scheme_data in data:
-                if code in scheme_data:
-                    scheme = scheme_data.split(";")
-                    scheme_info["scheme_code"] = scheme[0]
-                    scheme_info["scheme_name"] = scheme[3]
-                    scheme_info["plan"] = scheme[4]
-                    scheme_info["option"] = scheme[5]
-                    scheme_info["last_updated"] = scheme[7].replace("\r", "")
-                    scheme_info["nav"] = scheme[6]
-                    break
+            try:
+                url = self._get_scheme_url + str(code)
+                response = self._session.get(url)
+                res_data = response.json()
+                if "meta" in res_data and "data" in res_data and res_data["data"]:
+                    meta = res_data["meta"]
+                    latest = res_data["data"][0]
+                    scheme_info["scheme_code"] = str(meta.get("scheme_code", code))
+                    scheme_info["scheme_name"] = meta.get("scheme_name", "")
+                    scheme_info["last_updated"] = latest.get("date", "")
+                    scheme_info["nav"] = str(latest.get("nav", "0.0"))
+            except Exception:
+                pass
+
+            if not scheme_info:
+                url = self._get_quote_url
+                response = self._session.get(url)
+                if response.status_code == 200:
+                    data = response.text.split("\n")
+                    for scheme_data in data:
+                        if ";" in scheme_data and code in scheme_data:
+                            scheme = [s.strip() for s in scheme_data.split(";")]
+                            if len(scheme) >= 4 and scheme[0] == code:
+                                scheme_info["scheme_code"] = scheme[0]
+                                scheme_info["scheme_name"] = scheme[3] if len(scheme) > 3 else scheme[0]
+                                scheme_info["plan"] = scheme[4] if len(scheme) > 4 else ""
+                                scheme_info["option"] = scheme[5] if len(scheme) > 5 else ""
+                                scheme_info["nav"] = scheme[6] if len(scheme) > 6 else (scheme[4] if len(scheme) > 4 and scheme[4].replace(".", "", 1).isdigit() else "0.0")
+                                scheme_info["last_updated"] = scheme[7].replace("\r", "") if len(scheme) > 7 else (scheme[5].replace("\r", "") if len(scheme) > 5 else "")
+                                break
 
             result = render_response(scheme_info, as_json)
             # Cache the result
@@ -567,11 +594,12 @@ class Mftool:
         """
         code = str(code)
         if self.is_valid_code(code):
-            scheme_info = {}
             scheme_info = self.get_scheme_quote(code)
-            market_value = float(balance_units) * float(scheme_info["nav"])
-            scheme_info.update(balance_units_value=f"{market_value:.2f}")
-            return render_response(scheme_info, as_json)
+            if scheme_info and "nav" in scheme_info:
+                market_value = float(balance_units) * float(scheme_info["nav"])
+                scheme_info.update(balance_units_value=f"{market_value:.2f}")
+                return render_response(scheme_info, as_json)
+            return None
         else:
             return None
 
@@ -644,6 +672,19 @@ class Mftool:
         else:
             return None
 
+    def get_scheme_historical_nav_year(self, code, year, as_json=False, as_dataframe=False):
+        """
+        gets the scheme historical data for a specific year for a given scheme code
+        """
+        code = str(code)
+        if self.is_valid_code(code):
+            start_date = f"01-01-{year}"
+            end_date = f"31-12-{year}"
+            return self.get_scheme_historical_nav_for_dates(
+                code, start_date, end_date, as_json=as_json, as_dataframe=as_dataframe
+            )
+        return None
+
     def get_open_ended_equity_scheme_performance(self, report_date=None, as_json=False):
         """
         gets the daily performance of open-ended equity schemes for all AMCs
@@ -653,8 +694,9 @@ class Mftool:
         """
         scheme_performance = {}
         subCategory = self._open_ended_equity_category
-        for key in subCategory:
-            scheme_performance[subCategory[key]] = self._get_daily_scheme_performance(
+        items = subCategory.items() if isinstance(subCategory, dict) else enumerate(subCategory, start=1)
+        for key, cat_name in items:
+            scheme_performance[cat_name] = self._get_daily_scheme_performance(
                 self._get_open_ended_equity_scheme_url, report_date, 1, key
             )
         return render_response(scheme_performance, as_json)
@@ -668,8 +710,9 @@ class Mftool:
         """
         subCategory = self._open_ended_debt_category
         scheme_performance = {}
-        for key in subCategory:
-            scheme_performance[subCategory[key]] = self._get_daily_scheme_performance(
+        items = subCategory.items() if isinstance(subCategory, dict) else enumerate(subCategory, start=1)
+        for key, cat_name in items:
+            scheme_performance[cat_name] = self._get_daily_scheme_performance(
                 self._get_open_ended_equity_scheme_url, report_date, 2, key
             )
         return render_response(scheme_performance, as_json)
@@ -683,8 +726,9 @@ class Mftool:
         """
         subCategory = self._open_ended_hybrid_category
         scheme_performance = {}
-        for key in subCategory:
-            scheme_performance[subCategory[key]] = self._get_daily_scheme_performance(
+        items = subCategory.items() if isinstance(subCategory, dict) else enumerate(subCategory, start=1)
+        for key, cat_name in items:
+            scheme_performance[cat_name] = self._get_daily_scheme_performance(
                 self._get_open_ended_equity_scheme_url, report_date, 3, key
             )
         return render_response(scheme_performance, as_json)
@@ -698,8 +742,9 @@ class Mftool:
         """
         subCategory = self._open_ended_solution_category
         scheme_performance = {}
-        for key in subCategory:
-            scheme_performance[subCategory[key]] = self._get_daily_scheme_performance(
+        items = subCategory.items() if isinstance(subCategory, dict) else enumerate(subCategory, start=1)
+        for key, cat_name in items:
+            scheme_performance[cat_name] = self._get_daily_scheme_performance(
                 self._get_open_ended_equity_scheme_url, report_date, 4, key
             )
         return render_response(scheme_performance, as_json)
@@ -713,8 +758,9 @@ class Mftool:
         """
         subCategory = self._open_ended_other_category
         scheme_performance = {}
-        for key in subCategory:
-            scheme_performance[subCategory[key]] = self._get_daily_scheme_performance(
+        items = subCategory.items() if isinstance(subCategory, dict) else enumerate(subCategory, start=1)
+        for key, cat_name in items:
+            scheme_performance[cat_name] = self._get_daily_scheme_performance(
                 self._get_open_ended_equity_scheme_url, report_date, 5, key
             )
         return render_response(scheme_performance, as_json)

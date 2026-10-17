@@ -1,0 +1,15 @@
+{
+    "get_quote_url": "https://api.mfapi.in/mf/",
+    "get_scheme_url": "https://api.mfapi.in/mf/",
+    "get_amc_details_url": "https://www.amfiindia.com/spages/NAVAll.txt",
+    "get_open_ended_equity_scheme_url": "https://www.amfiindia.com/net-asset-value/nav-history",
+    "get_avg_aum_url": "https://www.amfiindia.com/modules/AverageAUMDetails.aspx",
+    "open_ended_equity_category": ["Multi Cap Fund", "Large Cap Fund", "Large & Mid Cap Fund", "Mid Cap Fund", "Small Cap Fund", "Dividend Yield Fund", "Value Fund", "Contra Fund", "Focused Fund", "Sectoral/ Thematic", "ELSS", "Flexi Cap Fund"],
+    "open_ended_debt_category": ["Overnight Fund", "Liquid Fund", "Ultra Short Duration Fund", "Low Duration Fund", "Money Market Fund", "Short Duration Fund", "Medium Duration Fund", "Medium to Long Duration Fund", "Long Duration Fund", "Dynamic Bond", "Corporate Bond Fund", "Credit Risk Fund", "Banking and PSU Fund", "Gilt Fund", "Gilt Fund with 10 year constant duration", "Floater Fund"],
+    "open_ended_hybrid_category": ["Conservative Hybrid Fund", "Balanced Hybrid Fund", "Aggressive Hybrid Fund", "Dynamic Asset Allocation", "Multi Asset Allocation", "Arbitrage Fund", "Equity Savings"],
+    "open_ended_solution_category": ["Retirement Fund", "Childrens Fund"],
+    "open_ended_other_category": ["Index Funds", "GOLD ETF", "Other ETFs", "FoF Overseas", "FoF Domestic"],
+    "amc": [],
+    "user_agent": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"},
+    "codes": []
+}

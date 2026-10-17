@@ -42,6 +42,8 @@ def get_all_scrips_names_in_db(metadata=None):
     """Retrieves all traded NSE scrip symbols from all_scrips table in the database."""
     if metadata is None:
         metadata = _DB_METADATA
+    if metadata is None:
+        raise ValueError("Database metadata must be provided or set via _DB_METADATA")
     all_scrips_table = create_or_get_all_scrips_table(metadata=metadata)
     scrips_select_st = select_expr([all_scrips_table.c.nse_symbol]).where(
         all_scrips_table.c.nse_traded
@@ -58,6 +60,8 @@ def get_hist_data_as_dataframes_dict(metadata=None, limit=0, max_scrips=16000):
     """Retrieves historical equities data as a dictionary of pandas DataFrames."""
     if metadata is None:
         metadata = _DB_METADATA
+    if metadata is None:
+        raise ValueError("Database metadata must be provided or set via _DB_METADATA")
     lscrips = get_all_scrips_names_in_db(metadata=metadata)
 
     e = metadata.bind if metadata is not None else None
@@ -115,7 +119,12 @@ def main(args):
     # --dbpath option
     parser.add_argument("--dbpath", help="Database URL to be used.", dest="dbpath")
 
-    parsed_args = parser.parse_args(args[1:])
+    if args and not args[0].startswith("-"):
+        args_to_parse = args[1:]
+    else:
+        args_to_parse = args
+
+    parsed_args = parser.parse_args(args_to_parse)
 
     # Make sure we can access the DB path if specified or else exit right here.
     if parsed_args.dbpath:
