@@ -387,6 +387,44 @@ class CredentialManager:
             _log.error("Re-encryption failed: %s", e)
             return False
 
+    def fetch_centralized_secret(self, secret_key: str, default: str = "") -> str:
+        """
+        Retrieves sensitive settings/credentials from centralized secrets manager
+        (e.g., HashiCorp Vault, AWS Secrets Manager) or falls back to environment variables.
+        """
+        vault_addr = os.environ.get("VAULT_ADDR")
+        vault_token = os.environ.get("VAULT_TOKEN")
+        if vault_addr and vault_token:
+            try:
+                import requests
+                resp = requests.get(
+                    f"{vault_addr}/v1/secret/data/{secret_key}",
+                    headers={"X-Vault-Token": vault_token},
+                    timeout=2.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {}).get("data", {})
+                    if "value" in data:
+                        return str(data["value"])
+            except Exception as e:
+                _log.warning("Vault secret retrieval for '%s' failed: %s", secret_key, e)
+
+        aws_secret_id = os.environ.get("AWS_SECRET_NAME")
+        if aws_secret_id:
+            try:
+                import json
+                import boto3  # type: ignore
+                client = boto3.client("secretsmanager")
+                res = client.get_secret_value(SecretId=aws_secret_id)
+                if "SecretString" in res:
+                    secrets_dict = json.loads(res["SecretString"])
+                    if secret_key in secrets_dict:
+                        return str(secrets_dict[secret_key])
+            except Exception as e:
+                _log.warning("AWS Secrets Manager retrieval for '%s' failed: %s", secret_key, e)
+
+        return os.environ.get(secret_key, default)
+
     def load_circuit_breaker_state(self) -> dict[str, Any] | None:
         """Retrieves current emergency circuit breaker state."""
         return database.load_circuit_breaker_state()
