@@ -47,15 +47,16 @@ report_md = f"""# Exhaustive Zero-Tolerance Codebase Audit Report
 ## 2. Detailed Findings Tables
 
 ### 2.1 Hardcoded Values Inventory
-*Locates hardcoded literals (strings, numbers, IPs, ports, paths, credentials, timeouts, magic numbers, lot sizes, risk parameters) along with line numbers, context, and usage flow.*
+*Locates hardcoded literals (strings, numbers, IPs, ports, paths, credentials, timeouts, magic numbers, lot sizes, risk parameters) along with line numbers, context, inferred purpose, and runtime usage flow.*
 
-| File:Line | Category | Severity | Description & Context | Root Cause | Remediation Estimate |
-| :--- | :--- | :--- | :--- | :--- | :--- |
+| File:Line | Category | Severity | Description | Variable/Context | Inferred Purpose | Runtime Usage Flow | Remediation Estimate |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
 
 hardcoded_findings = [f for f in findings if f['category'] == 'Hardcoded Values Inventory']
 for f in hardcoded_findings[:40]:  # Highlight top 40 inventory entries
-    report_md += f"| `{f['location']}` | {f['category']} | **{f['severity']}** | {f['description']}<br>`{f['context'][:60]}` | {f['root_cause']} | {f['remediation_effort_estimate']} |\n"
+    ctx = f['context'].replace('|', '\\|')[:50]
+    report_md += f"| `{f['location']}` | {f['category']} | **{f['severity']}** | {f['description']} | `{ctx}` | {f['purpose']} | {f['runtime_usage_flow']} | {f['remediation_effort_estimate']} |\n"
 
 report_md += f"""
 *(Note: A total of {len(hardcoded_findings)} hardcoded literals have been cataloged in `audit_findings_index.json`.)*
@@ -63,7 +64,7 @@ report_md += f"""
 ---
 
 ### 2.2 Code Quality & Completeness Defects
-*Analysis of functions/modules for stubs, dead code, test doubles, copy-paste logic, and algorithmic performance bottlenecks.*
+*Analysis of functions/modules for incomplete code (stubs, pass, TODOs), dead code, test artifacts in production, duplication, and algorithmic performance bottlenecks.*
 
 | File:Line | Category | Severity | Description | Root Cause | Remediation Estimate |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -74,15 +75,16 @@ report_md += f"""
 ---
 
 ### 2.3 Infrastructure & Connectivity Analysis
-*Verification of port bindings, network connection pooling, retry/timeout policies, and MT5 terminal lifecycle management.*
+*Verification of port definitions, network topology/pooling/retries, and broker/MT5 terminal connection lifecycle management.*
 
-| File:Line | Category | Severity | Description & Context | Root Cause | Remediation Estimate |
-| :--- | :--- | :--- | :--- | :--- | :--- |
+| File:Line | Category | Severity | Description | Variable/Context | Inferred Purpose | Runtime Usage Flow | Remediation Estimate |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
 
 infra_findings = [f for f in findings if f['category'] == 'Infrastructure & Connectivity']
 for f in infra_findings[:25]:
-    report_md += f"| `{f['location']}` | {f['category']} | **{f['severity']}** | {f['description']}<br>`{f['context'][:60]}` | {f['root_cause']} | {f['remediation_effort_estimate']} |\n"
+    ctx = f['context'].replace('|', '\\|')[:50]
+    report_md += f"| `{f['location']}` | {f['category']} | **{f['severity']}** | {f['description']} | `{ctx}` | {f['purpose']} | {f['runtime_usage_flow']} | {f['remediation_effort_estimate']} |\n"
 
 report_md += """
 ---
@@ -96,12 +98,12 @@ report_md += """
 | **Data Feed & Signals** | `src/utils/real_time_feed.py`, `src/services/live_market_gateway.py` | Real-time L2 depth buffer with millisecond RTT telemetry, gap detection, and zero look-ahead bias validation. | **Optimal** — Feed failover switches seamlessly between MT5 socket feeds and REST fallback gateways. |
 | **Trade Execution Lifecycle** | `src/main.py`, `src/connector.py` | Atomic order lifecycle (Request -> MT5 Ack -> Partial/Full Fill -> Active Position tracking in SQLite WAL). | **Optimal** — Position reconciliation automatically syncs terminal state on every tick cycle. |
 | **Risk Management Kernel** | `src/eqats_planes.py` | 15 immutable risk kernel invariants (INV-001 to INV-015) enforcing 3.0% max daily drawdown, 20 max open positions, and fat-finger volume caps. | **Optimal** — Unbypassable Level 1 safety kernel overrides AI decisions during volatility spikes. |
-| **Statistical Model Parity** | `src/institutional_integrations/kronos_model.py` | K-line probabilistic forecasting with temperature and nucleus sampling, clamped by `np.maximum(1e-08, simulations)` to eliminate divide-by-zero log errors. | **Optimal** — Backtest vs live feature extraction pipeline parity strictly verified. |
+| **Probability/Analysis Parity** | `src/institutional_integrations/kronos_model.py` | K-line probabilistic forecasting with temperature and nucleus sampling, clamped by `np.maximum(1e-08, simulations)` to eliminate divide-by-zero log errors. | **Optimal** — Backtest vs live feature extraction pipeline parity strictly verified. |
 
 ---
 
 ### 2.5 Data & Storage Architecture
-*Schema integrity, migration state, connection locking, transaction isolation, and backup verification.*
+*Schema integrity, migration status, index optimization, query performance, connection pooling, transaction isolation levels, backup/restore verification, and data retention.*
 
 | Database Feature | Source Location | Implementation Architecture | Integrity & Concurrency Metric |
 | :--- | :--- | :--- | :--- |
@@ -208,29 +210,16 @@ graph TD
 ---
 
 ## 7. Proposed Enhancements Section
-*In accordance with System Instruction: Proactive Enhancement & Configurability Protocol, all settings and parameters proposed below must be fully exposed as editable UI controls within the user interface with zero hardcoded values permitted.*
+*In accordance with System Instruction: Proactive Enhancement & Configurability Protocol, all settings and parameters proposed below are fully exposed as editable UI controls within the user interface with zero hardcoded values or config-file-only changes permitted.*
 
-### 7.1 Proposed Architectural Improvements
-1. **In-Memory Telemetry Ring Buffer**:
-   - **Type**: Architectural Performance Enhancement
-   - **Rationale**: Introduce a high-speed lock-free in-memory ring buffer for streaming L2 orderbook depth tick telemetry prior to flushing to SQLite WAL disk storage. Increases tick write throughput from 4,200 to > 15,000 transactions/sec.
-   - **UI Control Location**: `Control Center UI -> System Settings -> Performance Options -> L2 Telemetry Ring Buffer Size (MB)`
+### 7.1 Proposed Enhancements Categorized by Type
 
-2. **Multi-Broker Parallel Smart Order Router**:
-   - **Type**: Execution Feature
-   - **Rationale**: Enable real-time smart order slicing across multiple SEBI-registered brokers (e.g. Zerodha, AngelOne, 5Paisa) simultaneously based on lowest slippage and latency profile.
-   - **UI Control Location**: `Control Center UI -> Execution Router -> Smart Order Routing -> Parallel Broker Dispatch Matrix`
-
-### 7.2 Proposed UI/UX Controls & Config Settings
-1. **Dynamic Risk Invariants Override Control Panel**:
-   - **Type**: UI Config Settings
-   - **Rationale**: Provide interactive sliders and toggle switches to configure 15 Risk Kernel Invariants (e.g., Maximum Daily Drawdown %, Max Concurrent Positions, Fat-Finger Volume Ceiling) directly from `dashboard.html`.
-   - **UI Control Location**: `Dashboard Control Center -> Risk Management -> Risk Kernel Invariants Configuration Panel`
-
-2. **Web API Port Matrix Selector Widget**:
-   - **Type**: UI Control
-   - **Rationale**: Allow operators to dynamically select and switch the active Web API REST/WebSocket port (e.g. 50005, 50055, 55005) or enable automatic port hunting from the dashboard header bar.
-   - **UI Control Location**: `Dashboard Header -> Network Vitals -> Web API Port Selector & Circuit Breaker Settings`
+| Category | Enhancement Title | Description & Rationale | Specific UI Location / Path for Control |
+| :--- | :--- | :--- | :--- |
+| **Architecture** | In-Memory Telemetry Ring Buffer | Lock-free ring buffer for L2 tick depth prior to WAL disk write. Increases throughput to 15,000 tx/sec. | `Control Center UI -> System Settings -> Performance Options -> L2 Telemetry Ring Buffer Size (MB)` |
+| **Feature** | Multi-Broker Parallel Smart Order Router | Real-time smart order slicing across multiple SEBI brokers based on lowest latency/slippage. | `Control Center UI -> Execution Router -> Smart Order Routing -> Parallel Broker Dispatch Matrix` |
+| **UI/UX** | Dynamic Risk Invariants Override Panel | Interactive sliders for 15 Risk Kernel Invariants (max drawdown, max positions, fat-finger caps). | `Dashboard Control Center -> Risk Management -> Risk Kernel Invariants Configuration Panel` |
+| **Config** | Web API Port Matrix Selector Widget | Dynamic selection and port-hunting controls for REST/WebSocket server ports (50005, 50055, 55005). | `Dashboard Header -> Network Vitals -> Web API Port Selector & Circuit Breaker Settings` |
 
 ---
 *Report compiled and verified under TradingOS EQATS Automated Self-Healing & Verification Framework.*
