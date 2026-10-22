@@ -397,6 +397,7 @@ class CredentialManager:
         if vault_addr and vault_token:
             try:
                 import requests
+
                 resp = requests.get(
                     f"{vault_addr}/v1/secret/data/{secret_key}",
                     headers={"X-Vault-Token": vault_token},
@@ -413,7 +414,9 @@ class CredentialManager:
         if aws_secret_id:
             try:
                 import json
+
                 import boto3  # type: ignore
+
                 client = boto3.client("secretsmanager")
                 res = client.get_secret_value(SecretId=aws_secret_id)
                 if "SecretString" in res:
