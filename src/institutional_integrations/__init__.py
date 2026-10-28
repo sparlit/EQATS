@@ -146,6 +146,7 @@ from .comprehensive_suite import (
     integrate_pytest,
     integrate_pytorch,
     integrate_quantlib,
+    integrate_quantstats,
     integrate_ray,
     integrate_requests,
     integrate_rich,
@@ -377,6 +378,11 @@ from .quantdinger_engine import (
     GridState,
     QuantDingerFactorResearchEngine,
     QuantDingerGridEngine,
+)
+from .quantstats_engine import (
+    MAGIC_NUMBER_QUANTSTATS,
+    QuantStatsBrokerAdapter,
+    QuantStatsEngine,
 )
 from .quantum_quantum_engine import QuantumAutoEngine
 from .rc_news_feeder import NewsBlackoutCheck, NewsEvent, NewsImpact, RCNewsFeederEngine
@@ -632,8 +638,11 @@ __all__ = [
     "QMAQuantStrategy",
     "QuantDingerFactorResearchEngine",
     "QuantDingerGridEngine",
+    "MAGIC_NUMBER_QUANTSTATS",
     "QuantPerformanceMetrics",
     "QuantSignal",
+    "QuantStatsBrokerAdapter",
+    "QuantStatsEngine",
     "QuantStrategySignal",
     "QuantumAutoEngine",
     "QuantumSelfHealer",

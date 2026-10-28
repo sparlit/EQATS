@@ -1553,6 +1553,25 @@ def integrate_yfinance() -> Any:
         }
 
 
+def integrate_quantstats() -> Any:
+    """Generates portfolio risk reports and tear sheets using QuantStats."""
+    try:
+        import quantstats as qs
+
+        return {
+            "status": "ACTIVE",
+            "version": getattr(qs, "__version__", "unknown"),
+            "engine": "QUANTSTATS",
+        }
+    except Exception as e:
+        return {
+            "status": "UNAVAILABLE",
+            "reason": f"QuantStats not installed or failed: {e}",
+            "version": None,
+            "engine": "QUANTSTATS",
+        }
+
+
 def integrate_rust_wrapped_python() -> Any:
     """Wraps Rust math extensions in Python."""
     return {
