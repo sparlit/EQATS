@@ -433,6 +433,11 @@ from .trading_agents_suite import (
     TradingAgentsOrchestrator,
 )
 from .trading_seatbelt_engine import CooldownStatus, SeatbeltStatus, TradingSeatbeltEngine
+from .vectorbt_engine import (
+    MAGIC_NUMBER_VECTORBT,
+    VectorBTBrokerAdapter,
+    VectorBTEngine,
+)
 from .web_api import fetch_yfinance_external_rates, push_telemetry_to_kafka_queue
 from .xcrypto_engine import XCryptoBrokerAdapter, XCryptoEngine
 from .zipline_finance_engine import (
@@ -672,6 +677,9 @@ __all__ = [
     "TriggerStatus",
     "UnifiedIndianBrokerClientAdapter",
     "UpstoxAdapter",
+    "MAGIC_NUMBER_VECTORBT",
+    "VectorBTBrokerAdapter",
+    "VectorBTEngine",
     "VWAPFadeStrategy",
     "VolatilityAnalyst",
     "VolatilityExpansionStrategy",
