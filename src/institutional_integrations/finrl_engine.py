@@ -70,7 +70,9 @@ class FinRLFrameworkEngine:
     ) -> None:
         self.initial_capital = float(initial_capital)
         self.current_capital = float(initial_capital)
-        self.algorithm = algorithm.lower() if algorithm.lower() in self.SUPPORTED_ALGORITHMS else "ensemble"
+        self.algorithm = (
+            algorithm.lower() if algorithm.lower() in self.SUPPORTED_ALGORITHMS else "ensemble"
+        )
         self.risk_free_rate = float(risk_free_rate)
         self.magic_number = MAGIC_NUMBER_FINRL
         self._fitted_weights: dict[str, float] = {}
@@ -109,9 +111,7 @@ class FinRLFrameworkEngine:
             "turbulence": turbulence,
         }
 
-    def predict_drl_actions(
-        self, state_features: dict[str, dict[str, float]]
-    ) -> dict[str, float]:
+    def predict_drl_actions(self, state_features: dict[str, dict[str, float]]) -> dict[str, float]:
         """
         Evaluates continuous state representations across multi-agent policies
         and returns target allocation weights for each symbol.
@@ -164,7 +164,7 @@ class FinRLFrameworkEngine:
         total_score = sum(scores.values())
         if total_score <= 0:
             eq_w = 1.0 / len(state_features)
-            weights = {s: eq_w for s in state_features}
+            weights = dict.fromkeys(state_features, eq_w)
         else:
             weights = {s: sc / total_score for s, sc in scores.items()}
 
