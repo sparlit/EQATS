@@ -10,12 +10,12 @@ Provides:
 - ML4TBrokerAdapter: SEBI-Compliant Broker Adapter Plugin registered with IndianBrokerPluginRegistry
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 import logging
 import math
-from typing import Any, Dict, List, Optional
 import zoneinfo
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 
@@ -41,7 +41,7 @@ def round_tick_005(price: float) -> float:
         return 0.05
 
 
-def is_ist_market_open(now_dt: Optional[datetime] = None) -> bool:
+def is_ist_market_open(now_dt: datetime | None = None) -> bool:
     """
     Checks if current time is within Indian Standard Time (IST) market hours:
     09:15 to 15:30 IST, Monday to Friday.
@@ -72,9 +72,9 @@ class WalkForwardSplit:
 @dataclass
 class EigenportfolioResult:
     num_components: int
-    explained_variance_ratios: List[float]
-    first_eigenportfolio_weights: Dict[str, float]
-    factor_loadings: List[List[float]]
+    explained_variance_ratios: list[float]
+    first_eigenportfolio_weights: dict[str, float]
+    factor_loadings: list[list[float]]
 
 
 class PurgedWalkForwardCV:
@@ -88,7 +88,7 @@ class PurgedWalkForwardCV:
         self.embargo_days = embargo_days
         self.num_folds = num_folds
 
-    def generate_splits(self, start_date: datetime) -> List[WalkForwardSplit]:
+    def generate_splits(self, start_date: datetime) -> list[WalkForwardSplit]:
         """Generates purged walk-forward date splits."""
         splits = []
         curr_train_start = start_date
@@ -115,7 +115,7 @@ class EigenportfolioDecomposition:
     """PCA Latent Factor Decomposition & Eigenportfolio Weight Solver."""
 
     def compute_eigenportfolios(
-        self, returns_matrix: Dict[str, List[float]], n_components: int = 3
+        self, returns_matrix: dict[str, list[float]], n_components: int = 3
     ) -> EigenportfolioResult:
         """Solves principal component factor loadings and normalized eigenportfolio weights."""
         symbols = sorted(list(returns_matrix.keys()))
@@ -152,9 +152,11 @@ class ML4TSignalEngine:
     SUPPORTED_MODELS = {"linear", "ridge", "lasso", "random_forest", "gbdt"}
 
     def __init__(self, model_type: str = "ridge") -> None:
-        self.model_type = model_type.lower() if model_type.lower() in self.SUPPORTED_MODELS else "ridge"
+        self.model_type = (
+            model_type.lower() if model_type.lower() in self.SUPPORTED_MODELS else "ridge"
+        )
 
-    def compute_technical_features(self, prices: List[float]) -> Dict[str, float]:
+    def compute_technical_features(self, prices: list[float]) -> dict[str, float]:
         """Calculates normalized technical indicator features from price series."""
         if not prices or len(prices) < 5:
             return {"sma_ratio": 1.0, "rsi": 50.0, "macd": 0.0, "volatility": 0.01, "momentum": 0.0}
@@ -199,7 +201,7 @@ class ML4TSignalEngine:
             "momentum": round(momentum, 4),
         }
 
-    def predict_signal(self, features: Dict[str, float]) -> float:
+    def predict_signal(self, features: dict[str, float]) -> float:
         """Predicts directional alpha score given engineered features."""
         sma_ratio = features.get("sma_ratio", 1.0)
         rsi = features.get("rsi", 50.0)
@@ -251,13 +253,13 @@ class ML4TTradingEngine:
         self.risk_free_rate = float(risk_free_rate)
         self.magic_number = MAGIC_NUMBER_ML4T
 
-    def allocate_portfolio(self, symbol_prices: Dict[str, List[float]]) -> Dict[str, float]:
+    def allocate_portfolio(self, symbol_prices: dict[str, list[float]]) -> dict[str, float]:
         """Calculates portfolio target weights using ML signals and eigenportfolio risk adjustments."""
         if not symbol_prices:
             return {}
 
-        raw_signals: Dict[str, float] = {}
-        returns_matrix: Dict[str, List[float]] = {}
+        raw_signals: dict[str, float] = {}
+        returns_matrix: dict[str, list[float]] = {}
 
         for sym, prices in symbol_prices.items():
             features = self.signal_engine.compute_technical_features(prices)
@@ -269,7 +271,11 @@ class ML4TTradingEngine:
                 returns_matrix[sym] = rets
 
         # PCA Eigenportfolio decomposition factor check
-        eigen_res = self.pca_engine.compute_eigenportfolios(returns_matrix) if len(symbol_prices) >= 2 else None
+        eigen_res = (
+            self.pca_engine.compute_eigenportfolios(returns_matrix)
+            if len(symbol_prices) >= 2
+            else None
+        )
 
         tot_sig = sum(raw_signals.values())
         if tot_sig <= 0:
@@ -291,12 +297,17 @@ class ML4TTradingEngine:
 
         return weights
 
-    def calculate_backtest_metrics(self, portfolio_history: List[float]) -> Dict[str, float]:
+    def calculate_backtest_metrics(self, portfolio_history: list[float]) -> dict[str, float]:
         """
         Calculates performance analytics (Cumulative Return, Sharpe Ratio, Max Drawdown, Information Ratio).
         """
         if not portfolio_history or len(portfolio_history) < 2:
-            return {"cumulative_return": 0.0, "sharpe_ratio": 0.0, "max_drawdown": 0.0, "information_ratio": 0.0}
+            return {
+                "cumulative_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "information_ratio": 0.0,
+            }
 
         returns = []
         for i in range(1, len(portfolio_history)):
@@ -335,8 +346,8 @@ class ML4TTradingEngine:
         symbol: str,
         target_weight: float,
         current_price: float,
-        portfolio_value: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        portfolio_value: float | None = None,
+    ) -> dict[str, Any]:
         """Converts ML policy target weight into execution order recommendation."""
         port_val = self.current_capital if portfolio_value is None else portfolio_value
         price = round_tick_005(current_price)
@@ -377,11 +388,11 @@ class ML4TBrokerAdapter(SEBIBrokerAdapter):
         self._connected = False
         return True
 
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         self._connected = True
         return True
 
-    def get_account_info(self) -> Dict[str, Any]:
+    def get_account_info(self) -> dict[str, Any]:
         return {
             "broker": self.broker_name,
             "connected": self._connected,
@@ -392,10 +403,10 @@ class ML4TBrokerAdapter(SEBIBrokerAdapter):
 
     def get_history(
         self, symbol: str, exchange: str = "NSE", count: int = 100, interval: str = "minute"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
-    def get_current_price(self, symbol: str, exchange: str = "NSE") -> Dict[str, float]:
+    def get_current_price(self, symbol: str, exchange: str = "NSE") -> dict[str, float]:
         return {"bid": 100.0, "ask": 100.05, "last_price": 100.0}
 
     def execute_order(self, request: SEBIOrderRequest) -> SEBIOrderResponse:
@@ -454,7 +465,7 @@ class ML4TBrokerAdapter(SEBIBrokerAdapter):
             error="",
         )
 
-    def get_open_orders(self) -> List[Dict[str, Any]]:
+    def get_open_orders(self) -> list[dict[str, Any]]:
         return []
 
 
