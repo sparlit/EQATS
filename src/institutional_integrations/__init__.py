@@ -288,8 +288,12 @@ from .meta_edge_quant import (
     calculate_probabilistic_sharpe_ratio,
 )
 from .ml4t_trading_engine import (
+    MAGIC_NUMBER_ML4T,
     EigenportfolioDecomposition,
     EigenportfolioResult,
+    ML4TBrokerAdapter,
+    ML4TSignalEngine,
+    ML4TTradingEngine,
     PurgedWalkForwardCV,
     WalkForwardSplit,
 )
