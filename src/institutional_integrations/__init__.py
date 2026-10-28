@@ -297,6 +297,11 @@ from .ml4t_trading_engine import (
     PurgedWalkForwardCV,
     WalkForwardSplit,
 )
+from .vectorbt_engine import (
+    MAGIC_NUMBER_VECTORBT,
+    VectorBTBrokerAdapter,
+    VectorBTEngine,
+)
 from .mql_colab_engine import CandlestickAIClassifier, LatencyArbitrage, SLTPEngine
 from .mt5bot_engine import MT5BotVolumeNormalizer, RelativePricePredictionEvaluator
 from .natural_language import extract_advanced_nlp_sentiments
@@ -672,6 +677,9 @@ __all__ = [
     "TriggerStatus",
     "UnifiedIndianBrokerClientAdapter",
     "UpstoxAdapter",
+    "MAGIC_NUMBER_VECTORBT",
+    "VectorBTBrokerAdapter",
+    "VectorBTEngine",
     "VWAPFadeStrategy",
     "VolatilityAnalyst",
     "VolatilityExpansionStrategy",
