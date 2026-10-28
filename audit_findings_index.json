@@ -1,8 +1,8 @@
 {
   "system_info": {
     "system_name": "TradingOS EQATS Version 11.0.0",
-    "total_source_files": 216,
-    "total_findings": 259,
+    "total_source_files": 220,
+    "total_findings": 263,
     "circular_dependencies": 4,
     "zero_stub_compliance": "100% (0 production stubs)"
   },
@@ -2216,6 +2216,21 @@
       "id": "AUDIT-0148",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
+      "location": "src/institutional_integrations/finrl_engine.py:69",
+      "description": "Hardcoded trading parameter default `0.05`",
+      "root_cause": "Risk / trading parameter literal defined inline.",
+      "remediation_effort_estimate": "0.25 Hours",
+      "context": "risk_free_rate: float = 0.05,",
+      "runtime_usage_flow": "Used in position sizing or risk calculation.",
+      "item": "Hardcoded trading parameter default `0.05`",
+      "purpose": "Trading rule parameter default.",
+      "usage": "Order volume or risk limit evaluation.",
+      "risk_assessment": "Minor"
+    },
+    {
+      "id": "AUDIT-0149",
+      "category": "Hardcoded Values Inventory",
+      "severity": "Minor",
       "location": "src/institutional_integrations/finterion_adapter.py:84",
       "description": "Hardcoded trading parameter default `0.01`",
       "root_cause": "Risk / trading parameter literal defined inline.",
@@ -2228,7 +2243,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0149",
+      "id": "AUDIT-0150",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_journal_analyzer.py:47",
@@ -2243,7 +2258,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0150",
+      "id": "AUDIT-0151",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:53",
@@ -2258,7 +2273,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0151",
+      "id": "AUDIT-0152",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:62",
@@ -2273,7 +2288,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0152",
+      "id": "AUDIT-0153",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_tradingbot_core.py:46",
@@ -2288,7 +2303,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0153",
+      "id": "AUDIT-0154",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/hummingbot_suite.py:50",
@@ -2303,7 +2318,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0154",
+      "id": "AUDIT-0155",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_market_state_machine.py:22",
@@ -2318,7 +2333,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0155",
+      "id": "AUDIT-0156",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:99",
@@ -2333,7 +2348,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0156",
+      "id": "AUDIT-0157",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/indian_stock_market_api.py:154",
@@ -2348,7 +2363,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0157",
+      "id": "AUDIT-0158",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:109",
@@ -2363,7 +2378,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0158",
+      "id": "AUDIT-0159",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:117",
@@ -2378,7 +2393,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0159",
+      "id": "AUDIT-0160",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:512",
@@ -2393,7 +2408,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0160",
+      "id": "AUDIT-0161",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:168",
@@ -2408,7 +2423,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0161",
+      "id": "AUDIT-0162",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:211",
@@ -2423,7 +2438,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0162",
+      "id": "AUDIT-0163",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:242",
@@ -2438,7 +2453,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0163",
+      "id": "AUDIT-0164",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:273",
@@ -2453,7 +2468,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0164",
+      "id": "AUDIT-0165",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:58",
@@ -2468,7 +2483,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0165",
+      "id": "AUDIT-0166",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:65",
@@ -2483,7 +2498,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0166",
+      "id": "AUDIT-0167",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:89",
@@ -2498,7 +2513,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0167",
+      "id": "AUDIT-0168",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:50",
@@ -2513,7 +2528,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0168",
+      "id": "AUDIT-0169",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
@@ -2528,7 +2543,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0169",
+      "id": "AUDIT-0170",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
@@ -2543,7 +2558,22 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0170",
+      "id": "AUDIT-0171",
+      "category": "Hardcoded Values Inventory",
+      "severity": "Minor",
+      "location": "src/institutional_integrations/ml4t_trading_engine.py:246",
+      "description": "Hardcoded trading parameter default `0.05`",
+      "root_cause": "Risk / trading parameter literal defined inline.",
+      "remediation_effort_estimate": "0.25 Hours",
+      "context": "risk_free_rate: float = 0.05,",
+      "runtime_usage_flow": "Used in position sizing or risk calculation.",
+      "item": "Hardcoded trading parameter default `0.05`",
+      "purpose": "Trading rule parameter default.",
+      "usage": "Order volume or risk limit evaluation.",
+      "risk_assessment": "Minor"
+    },
+    {
+      "id": "AUDIT-0172",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nautilus_trader_engine.py:40",
@@ -2558,7 +2588,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0171",
+      "id": "AUDIT-0173",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nofx_ai_terminal_engine.py:213",
@@ -2573,7 +2603,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0172",
+      "id": "AUDIT-0174",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_swing_scanner_engine.py:92",
@@ -2588,7 +2618,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0173",
+      "id": "AUDIT-0175",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_system_engine.py:153",
@@ -2603,7 +2633,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0174",
+      "id": "AUDIT-0176",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:139",
@@ -2618,7 +2648,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0175",
+      "id": "AUDIT-0177",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:148",
@@ -2633,7 +2663,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0176",
+      "id": "AUDIT-0178",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:220",
@@ -2648,7 +2678,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0177",
+      "id": "AUDIT-0179",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:89",
@@ -2663,7 +2693,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0178",
+      "id": "AUDIT-0180",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:134",
@@ -2678,7 +2708,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0179",
+      "id": "AUDIT-0181",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:143",
@@ -2693,7 +2723,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0180",
+      "id": "AUDIT-0182",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:152",
@@ -2708,7 +2738,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0181",
+      "id": "AUDIT-0183",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:161",
@@ -2723,7 +2753,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0182",
+      "id": "AUDIT-0184",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:224",
@@ -2738,7 +2768,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0183",
+      "id": "AUDIT-0185",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:94",
@@ -2753,7 +2783,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0184",
+      "id": "AUDIT-0186",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:137",
@@ -2768,7 +2798,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0185",
+      "id": "AUDIT-0187",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:144",
@@ -2783,7 +2813,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0186",
+      "id": "AUDIT-0188",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:149",
@@ -2798,7 +2828,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0187",
+      "id": "AUDIT-0189",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_chain_analysis_engine.py:98",
@@ -2813,7 +2843,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0188",
+      "id": "AUDIT-0190",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_strat_greeks_engine.py:54",
@@ -2828,7 +2858,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0189",
+      "id": "AUDIT-0191",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/options_derivatives_engine.py:215",
@@ -2843,7 +2873,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0190",
+      "id": "AUDIT-0192",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/portfolio_optimizer.py:13",
@@ -2858,7 +2888,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0191",
+      "id": "AUDIT-0193",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/prop_firm_monte_carlo_ev.py:137",
@@ -2873,7 +2903,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0192",
+      "id": "AUDIT-0194",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:37",
@@ -2888,7 +2918,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0193",
+      "id": "AUDIT-0195",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:39",
@@ -2903,7 +2933,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0194",
+      "id": "AUDIT-0196",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:185",
@@ -2918,7 +2948,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0195",
+      "id": "AUDIT-0197",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:277",
@@ -2933,7 +2963,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0196",
+      "id": "AUDIT-0198",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:23",
@@ -2948,7 +2978,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0197",
+      "id": "AUDIT-0199",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:99",
@@ -2963,7 +2993,22 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0198",
+      "id": "AUDIT-0200",
+      "category": "Hardcoded Values Inventory",
+      "severity": "Minor",
+      "location": "src/institutional_integrations/quantstats_engine.py:78",
+      "description": "Hardcoded trading parameter default `0.05`",
+      "root_cause": "Risk / trading parameter literal defined inline.",
+      "remediation_effort_estimate": "0.25 Hours",
+      "context": "risk_free_rate: float = 0.05,",
+      "runtime_usage_flow": "Used in position sizing or risk calculation.",
+      "item": "Hardcoded trading parameter default `0.05`",
+      "purpose": "Trading rule parameter default.",
+      "usage": "Order volume or risk limit evaluation.",
+      "risk_assessment": "Minor"
+    },
+    {
+      "id": "AUDIT-0201",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/raptorbt_engine.py:29",
@@ -2978,7 +3023,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0199",
+      "id": "AUDIT-0202",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/rqalpha_event_engine.py:118",
@@ -2993,7 +3038,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0200",
+      "id": "AUDIT-0203",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:506",
@@ -3008,7 +3053,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0201",
+      "id": "AUDIT-0204",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:231",
@@ -3023,7 +3068,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0202",
+      "id": "AUDIT-0205",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:239",
@@ -3038,7 +3083,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0203",
+      "id": "AUDIT-0206",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:218",
@@ -3053,7 +3098,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0204",
+      "id": "AUDIT-0207",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1570",
@@ -3068,7 +3113,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0205",
+      "id": "AUDIT-0208",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1581",
@@ -3083,7 +3128,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0206",
+      "id": "AUDIT-0209",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:684",
@@ -3098,7 +3143,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0207",
+      "id": "AUDIT-0210",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:207",
@@ -3113,7 +3158,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0208",
+      "id": "AUDIT-0211",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:330",
@@ -3128,7 +3173,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0209",
+      "id": "AUDIT-0212",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:460",
@@ -3143,7 +3188,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0210",
+      "id": "AUDIT-0213",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:584",
@@ -3158,7 +3203,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0211",
+      "id": "AUDIT-0214",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:732",
@@ -3173,7 +3218,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0212",
+      "id": "AUDIT-0215",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:728",
@@ -3188,7 +3233,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0213",
+      "id": "AUDIT-0216",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/solana_dex_risk_guard.py:83",
@@ -3203,7 +3248,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0214",
+      "id": "AUDIT-0217",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:20",
@@ -3218,7 +3263,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0215",
+      "id": "AUDIT-0218",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:89",
@@ -3233,7 +3278,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0216",
+      "id": "AUDIT-0219",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
@@ -3248,7 +3293,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0217",
+      "id": "AUDIT-0220",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
@@ -3263,7 +3308,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0218",
+      "id": "AUDIT-0221",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:70",
@@ -3278,7 +3323,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0219",
+      "id": "AUDIT-0222",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:135",
@@ -3293,7 +3338,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0220",
+      "id": "AUDIT-0223",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:136",
@@ -3308,7 +3353,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0221",
+      "id": "AUDIT-0224",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:144",
@@ -3323,7 +3368,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0222",
+      "id": "AUDIT-0225",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:166",
@@ -3338,7 +3383,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0223",
+      "id": "AUDIT-0226",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:169",
@@ -3353,7 +3398,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0224",
+      "id": "AUDIT-0227",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:149",
@@ -3368,7 +3413,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0225",
+      "id": "AUDIT-0228",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:113",
@@ -3383,7 +3428,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0226",
+      "id": "AUDIT-0229",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:191",
@@ -3398,7 +3443,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0227",
+      "id": "AUDIT-0230",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:664",
@@ -3413,7 +3458,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0228",
+      "id": "AUDIT-0231",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:665",
@@ -3428,7 +3473,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0229",
+      "id": "AUDIT-0232",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:787",
@@ -3443,7 +3488,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0230",
+      "id": "AUDIT-0233",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1176",
@@ -3458,7 +3503,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0231",
+      "id": "AUDIT-0234",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1320",
@@ -3473,7 +3518,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0232",
+      "id": "AUDIT-0235",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1436",
@@ -3488,7 +3533,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0233",
+      "id": "AUDIT-0236",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:135",
@@ -3503,7 +3548,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0234",
+      "id": "AUDIT-0237",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:343",
@@ -3518,7 +3563,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0235",
+      "id": "AUDIT-0238",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:538",
@@ -3533,7 +3578,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0236",
+      "id": "AUDIT-0239",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:478",
@@ -3548,7 +3593,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0237",
+      "id": "AUDIT-0240",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:171",
@@ -3563,7 +3608,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0238",
+      "id": "AUDIT-0241",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_autonomous_executive_agent.py:66",
@@ -3578,7 +3623,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0239",
+      "id": "AUDIT-0242",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:61",
@@ -3593,7 +3638,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0240",
+      "id": "AUDIT-0243",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:509",
@@ -3608,7 +3653,22 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0241",
+      "id": "AUDIT-0244",
+      "category": "Hardcoded Values Inventory",
+      "severity": "Minor",
+      "location": "src/institutional_integrations/vectorbt_engine.py:79",
+      "description": "Hardcoded trading parameter default `0.05`",
+      "root_cause": "Risk / trading parameter literal defined inline.",
+      "remediation_effort_estimate": "0.25 Hours",
+      "context": "risk_free_rate: float = 0.05,",
+      "runtime_usage_flow": "Used in position sizing or risk calculation.",
+      "item": "Hardcoded trading parameter default `0.05`",
+      "purpose": "Trading rule parameter default.",
+      "usage": "Order volume or risk limit evaluation.",
+      "risk_assessment": "Minor"
+    },
+    {
+      "id": "AUDIT-0245",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:23",
@@ -3623,7 +3683,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0242",
+      "id": "AUDIT-0246",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:361",
@@ -3638,7 +3698,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0243",
+      "id": "AUDIT-0247",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:167",
@@ -3653,7 +3713,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0244",
+      "id": "AUDIT-0248",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:219",
@@ -3668,7 +3728,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0245",
+      "id": "AUDIT-0249",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:254",
@@ -3683,7 +3743,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0246",
+      "id": "AUDIT-0250",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/institutional_integrations/xcrypto_engine.py:91",
@@ -3698,7 +3758,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0247",
+      "id": "AUDIT-0251",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/main.py:67",
@@ -3713,7 +3773,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0248",
+      "id": "AUDIT-0252",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/main.py:69",
@@ -3728,7 +3788,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0249",
+      "id": "AUDIT-0253",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/main.py:573",
@@ -3743,7 +3803,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0250",
+      "id": "AUDIT-0254",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/main.py:835",
@@ -3758,7 +3818,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0251",
+      "id": "AUDIT-0255",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/main.py:927",
@@ -3773,7 +3833,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0252",
+      "id": "AUDIT-0256",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/main.py:658",
@@ -3788,7 +3848,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0253",
+      "id": "AUDIT-0257",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/migrate_credentials.py:93",
@@ -3803,7 +3863,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0254",
+      "id": "AUDIT-0258",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/migrate_credentials.py:100",
@@ -3818,7 +3878,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0255",
+      "id": "AUDIT-0259",
       "category": "Hardcoded Values Inventory",
       "severity": "Critical",
       "location": "src/migrate_credentials.py:117",
@@ -3833,7 +3893,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0256",
+      "id": "AUDIT-0260",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/release_gates.py:231",
@@ -3848,7 +3908,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0257",
+      "id": "AUDIT-0261",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:21",
@@ -3863,7 +3923,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0258",
+      "id": "AUDIT-0262",
       "category": "Hardcoded Values Inventory",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:120",
@@ -3878,7 +3938,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0259",
+      "id": "AUDIT-0263",
       "category": "Hardcoded Values Inventory",
       "severity": "Major",
       "location": "src/telegram_bot.py:16",
