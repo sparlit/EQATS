@@ -15,7 +15,7 @@
 - **Blocker Count**: **0** (Zero active blockers preventing live deployment).
 - **Critical Severity Items**: **100** (Config externalization & admin default credential reset requirements).
 - **Major Severity Items**: **61** (Static port bindings and absolute path default externalization).
-- **Minor Severity Items**: **98** (Inline trading parameter defaults, e.g., 0.05 tick rounding & 0.01 lot defaults).
+- **Minor Severity Items**: **102** (Inline trading parameter defaults, e.g., 0.05 tick rounding & 0.01 lot defaults).
 
 ### 1.2 Severity Distribution Table
 | Severity Level | Count | Definition & Production Impact | Action Deadline |
@@ -23,8 +23,8 @@
 | **Blocker** | **0** | Production execution failure or security compromise. | Immediate |
 | **Critical** | **100** | Hardcoded initial admin credential default or static IP fallback. | Pre-Deployment |
 | **Major** | **61** | Static network port or path literal in source file. | Sprint 1 |
-| **Minor** | **98** | Inline default value for tick rounding (0.05) or lot size (0.01). | Sprint 2 |
-| **TOTAL** | **259** | **Full repository cataloged with zero omissions.** | **Continuous** |
+| **Minor** | **102** | Inline default value for tick rounding (0.05) or lot size (0.01). | Sprint 2 |
+| **TOTAL** | **263** | **Full repository cataloged with zero omissions.** | **Continuous** |
 
 ---
 
@@ -76,7 +76,7 @@
 | `src/credential_manager.py:1127` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `p = input("New Admin Password [default: admin]: ")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 | `src/credential_manager.py:1145` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `pwd = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 
-*(Note: A total of 245 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
+*(Note: A total of 249 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
 
 ---
 
