@@ -20,7 +20,8 @@ This document contains the sequential list of all 411 target GitHub repositories
 | 14 | aeron7/nsepythonserver | Pending |
 | 15 | affaan-m/dprc-autotrader-v2 | Pending |
 | 16 | agrawalarnav129-ui/jarvis-trading | Pending |
-| 17 | ai4finance-foundation/finrl-trading | Pending |
+| 17 | ai4finance-foundation/finrl-trading | Completed |
+| 104 | ai4finance-foundation/finrl | Completed |
 | 18 | ajakaiye33/ngrcoydisclosures | Pending |
 | 19 | ajeeshworkspace/indian-trading-skills | Pending |
 | 20 | akashnag/scripwatch | Pending |

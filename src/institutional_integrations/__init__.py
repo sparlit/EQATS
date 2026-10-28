@@ -202,6 +202,11 @@ from .dxtrade_broker_adapter import (
 from .ea_scalper_xauusd_engine import AMDCycleTracker, FootprintPocAnalyzer, MarketGapCooldownGuard
 from .extended_market_connectors import ExtendedDataConnectors
 from .finagent_hedgefund_swarm import HedgeFundSwarmOrchestrator
+from .finrl_engine import (
+    MAGIC_NUMBER_FINRL,
+    FinRLBrokerAdapter,
+    FinRLFrameworkEngine,
+)
 from .finterion_adapter import (
     FinterionOrderExecutor,
     FinterionOrderRequest,
@@ -508,6 +513,8 @@ __all__ = [
     "FactorScoreResult",
     "FewShotTemporalMatcher",
     "FilteredNewsArticle",
+    "FinRLBrokerAdapter",
+    "FinRLFrameworkEngine",
     "FinterionOrderExecutor",
     "FinterionOrderRequest",
     "FinterionOrderResponse",

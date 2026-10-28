@@ -499,6 +499,12 @@
   - Registered in `IndianBrokerPluginRegistry` under `FINRL_TRADING`.
   - Unit tests added to `tests/test_finrl_trading_engine.py` with 100% pass rate.
 
+- [x] **Repo 104: AI4Finance-Foundation/FinRL (Magic Number: 9100104)**
+  - Deep Reinforcement Learning (DRL) algorithms (PPO, A2C, DDPG, SAC, TD3, Ensemble), continuous feature extraction, backtest performance evaluation, and market session safeguards integrated into `src/institutional_integrations/finrl_engine.py`.
+  - Registered in `IndianBrokerPluginRegistry` under `FINRL`.
+  - Exposed in `src/institutional_integrations/__init__.py`.
+  - Unit tests added to `tests/test_finrl_engine.py` with 100% pass rate.
+
 - [x] **Repo 019: ajakaiye33/ngrcoydisclosures (Magic Number: 9100034)**
   - Corporate disclosure XML feed parser and event classification adapted into `src/institutional_integrations/ngrcoydisclosures_engine.py`.
   - Registered in `IndianBrokerPluginRegistry` under `NGRCOY_DISCLOSURES`.

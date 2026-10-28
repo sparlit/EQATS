@@ -15,6 +15,7 @@ aeron7/nsepythonserver
 affaan-m/dprc-autotrader-v2
 agrawalarnav129-ui/jarvis-trading
 ai4finance-foundation/finrl-trading
+ai4finance-foundation/finrl
 ajakaiye33/ngrcoydisclosures
 ajeeshworkspace/indian-trading-skills
 akashnag/scripwatch
