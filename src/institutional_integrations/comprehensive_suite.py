@@ -1558,7 +1558,11 @@ def integrate_quantstats() -> Any:
     try:
         import quantstats as qs
 
-        return {"status": "ACTIVE", "version": getattr(qs, "__version__", "unknown"), "engine": "QUANTSTATS"}
+        return {
+            "status": "ACTIVE",
+            "version": getattr(qs, "__version__", "unknown"),
+            "engine": "QUANTSTATS",
+        }
     except Exception as e:
         return {
             "status": "UNAVAILABLE",

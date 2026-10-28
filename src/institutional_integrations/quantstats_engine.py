@@ -130,9 +130,19 @@ class QuantStatsEngine:
                 win_rate = float(qs.stats.win_rate(ret_s))
                 volatility = float(qs.stats.volatility(ret_s))
                 var_95 = float(qs.stats.value_at_risk(ret_s, sigma=1.0, confidence=0.95))
-                cvar_95 = float(qs.stats.conditional_value_at_risk(ret_s, sigma=1.0, confidence=0.95))
-                profit_ratio = float(qs.stats.profit_ratio(ret_s)) if hasattr(qs.stats, "profit_ratio") else 0.0
-                kelly = float(qs.stats.kelly_criterion(ret_s)) if hasattr(qs.stats, "kelly_criterion") else 0.0
+                cvar_95 = float(
+                    qs.stats.conditional_value_at_risk(ret_s, sigma=1.0, confidence=0.95)
+                )
+                profit_ratio = (
+                    float(qs.stats.profit_ratio(ret_s))
+                    if hasattr(qs.stats, "profit_ratio")
+                    else 0.0
+                )
+                kelly = (
+                    float(qs.stats.kelly_criterion(ret_s))
+                    if hasattr(qs.stats, "kelly_criterion")
+                    else 0.0
+                )
 
                 return {
                     "sharpe_ratio": round(sharpe if not math.isnan(sharpe) else 0.0, 4),
@@ -149,7 +159,9 @@ class QuantStatsEngine:
                     "engine": "quantstats_native",
                 }
             except Exception as e:
-                logger.warning(f"QuantStats native metrics calculation failed: {e}, using fallback.")
+                logger.warning(
+                    f"QuantStats native metrics calculation failed: {e}, using fallback."
+                )
 
         # Fast institutional fallback calculations
         arr = ret_s.values
@@ -177,7 +189,9 @@ class QuantStatsEngine:
 
         downside_arr = arr[arr < 0]
         downside_std = float(np.std(downside_arr, ddof=1)) if len(downside_arr) > 1 else 0.0
-        sortino = ((mean_ret - daily_rf) / downside_std) * np.sqrt(252.0) if downside_std > 1e-8 else 0.0
+        sortino = (
+            ((mean_ret - daily_rf) / downside_std) * np.sqrt(252.0) if downside_std > 1e-8 else 0.0
+        )
 
         cum_returns = (1.0 + ret_s).cumprod()
         peak = cum_returns.cummax()
@@ -248,7 +262,9 @@ class QuantStatsEngine:
                 if os.path.exists(output_path):
                     return os.path.abspath(output_path)
             except Exception as e:
-                logger.warning(f"QuantStats native HTML generation failed: {e}, creating HTML report directly.")
+                logger.warning(
+                    f"QuantStats native HTML generation failed: {e}, creating HTML report directly."
+                )
 
         metrics = self.calculate_metrics(ret_s, bm_s, rf_rate)
         html_content = f"""<!DOCTYPE html>
