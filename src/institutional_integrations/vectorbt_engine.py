@@ -333,11 +333,7 @@ class VectorBTEngine:
         std_ret = float(np.std(returns)) if len(returns) > 0 else 0.0
 
         daily_rf = self.risk_free_rate / 252.0
-        sharpe = (
-            float(((avg_ret - daily_rf) / std_ret) * np.sqrt(252.0))
-            if std_ret > 1e-8
-            else 0.0
-        )
+        sharpe = float(((avg_ret - daily_rf) / std_ret) * np.sqrt(252.0)) if std_ret > 1e-8 else 0.0
 
         peak = np.maximum.accumulate(arr)
         drawdown = (arr - peak) / peak
@@ -345,9 +341,7 @@ class VectorBTEngine:
 
         gains = returns[returns > 0]
         losses = -returns[returns < 0]
-        profit_factor = (
-            float(np.sum(gains) / np.sum(losses)) if np.sum(losses) > 1e-8 else 0.0
-        )
+        profit_factor = float(np.sum(gains) / np.sum(losses)) if np.sum(losses) > 1e-8 else 0.0
 
         return {
             "total_return": round(tot_ret, 4),
