@@ -277,6 +277,7 @@ class ScalperGui:
         )
         self.scalper = main.AutonomousScalper()
         self.bot_thread = None
+        self.bot_stop_event = threading.Event()
         self.running = False
         self.active_screen = "POLY"
         self.selected_symbol_gp = "EURUSD"
@@ -9976,6 +9977,7 @@ class ScalperGui:
         if self.running:
             return
         self.running = True
+        self.bot_stop_event.clear()
         self.btn_start.config(state=tk.DISABLED, bg="#1e293b")
         self.btn_stop.config(state=tk.NORMAL)
         self.btn_toggle_mode.config(state=tk.DISABLED)
@@ -9990,10 +9992,8 @@ class ScalperGui:
                     self.scalper.tick_and_execute()
                 except Exception as e:
                     print(f"Error in execution tick: {e}")
-                for _ in range(config.CHECK_INTERVAL_SECONDS):
-                    if not self.running:
-                        break
-                    time.sleep(1)
+                if self.bot_stop_event.wait(timeout=config.CHECK_INTERVAL_SECONDS):
+                    break
             self.scalper.stop()
             self.root.after(0, self.reset_buttons)
 
@@ -10005,6 +10005,7 @@ class ScalperGui:
         if not self.running:
             return
         self.running = False
+        self.bot_stop_event.set()
         self.lbl_clock.config(text="Stopping bot...")
         self.btn_stop.config(state=tk.DISABLED)
 
