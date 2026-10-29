@@ -26,7 +26,6 @@ import json
 
 # from keras.models import save_model, load_model
 import logging
-import pickle
 from pathlib import Path
 
 from joblib import dump, load
@@ -109,9 +108,7 @@ class ModelStore:
                 elif model_extension in [".pickle", ".scaler"]:  # Python serialization
                     model_object = load(model_path)
                 else:  # Python object
-                    with open(model_path, "rb") as f:
-                        model_object = pickle.load(f)
-                    # Alternatively model_object = joblib.load(model_path)
+                    model_object = load(model_path)
             except Exception:
                 model_object = None
 
@@ -127,6 +124,7 @@ class ModelStore:
                 f"Model with name '{name}' is not found in the model registry of config file"
             )
 
+        self.model_path.mkdir(parents=True, exist_ok=True)  # Ensure folder exists
         model_file = model_entry.get("file")
         model_path = self.model_path / model_file
         model_extension = model_path.suffix.lower()
@@ -139,9 +137,7 @@ class ModelStore:
         elif model_extension in [".pickle", ".scaler"]:  # Python serialization
             dump(model, model_path)
         else:  # Python object
-            with open(model_path, "wb") as f:
-                pickle.dump(model, f)
-            # Alternatively joblib.dump(model, model_path)
+            dump(model, model_path)
 
         # Update the in-memory registry
         self.models[name] = model
