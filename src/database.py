@@ -306,12 +306,63 @@ def _legacy_decrypt_secret(cipher_text: Any, key_seed: Any = "EQATS_CIPHER_KEY_2
         return ""
 
 
+class PooledConnection(sqlite3.Connection):
+    """Custom SQLite connection wrapper that prevents closing when thread-local connection pooling is enabled."""
+
+    def close(self, force: bool = False) -> None:
+        if getattr(self, "_is_pooled", False) and not force:
+            return
+        super().close()
+
+
+_thread_local = threading.local()
+
+
+def clear_connection_pool() -> None:
+    """Closes and clears all thread-local pooled connections."""
+    cache = getattr(_thread_local, "db_connections", None)
+    if cache:
+        for conn in list(cache.values()):
+            try:
+                conn.close(force=True)
+            except Exception as e:
+                _log.debug("Error closing pooled connection: %s", e)
+        cache.clear()
+
+
 def get_connection() -> Any:
-    """Returns a thread-safe connection to the SQLite database with WAL journal mode and 60-second busy timeout."""
-    if config.DB_PATH == ":memory:":
-        conn = sqlite3.connect("file::memory:?cache=shared", uri=True, timeout=60.0)
+    """Returns a thread-safe connection to the SQLite database with WAL journal mode, 60-second busy timeout, and connection pooling."""
+    db_path = config.DB_PATH
+    if db_path == ":memory:":
+        target_key = "file::memory:?cache=shared"
+        is_uri = True
     else:
-        conn = sqlite3.connect(config.DB_PATH, timeout=60.0)
+        target_key = db_path
+        is_uri = False
+
+    cache = getattr(_thread_local, "db_connections", None)
+    if cache is None:
+        cache = {}
+        _thread_local.db_connections = cache
+
+    conn = cache.get(target_key)
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1;")
+            return conn
+        except Exception:
+            try:
+                conn.close(force=True)
+            except Exception:
+                pass
+            cache.pop(target_key, None)
+
+    if is_uri:
+        conn = sqlite3.connect(target_key, uri=True, timeout=60.0, factory=PooledConnection)
+    else:
+        conn = sqlite3.connect(target_key, timeout=60.0, factory=PooledConnection)
+
+    conn._is_pooled = True
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -323,6 +374,8 @@ def get_connection() -> Any:
             conn.execute("PRAGMA busy_timeout=60000;")
         except Exception as err:
             _log.debug("PRAGMA journal_mode DELETE fallback error: %s", err)
+
+    cache[target_key] = conn
     return conn
 
 
@@ -2169,16 +2222,14 @@ def get_daily_profit(date_str: Any = None) -> Any:
     """Calculates total profits for closed trades on a specific date (YYYY-MM-DD)."""
     if date_str is None:
         date_str = datetime.date.today().isoformat()
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
+    row = _fetch_with_retry(
         "\n    SELECT SUM(profit) FROM trades\n    WHERE status = 'CLOSED' AND close_time LIKE ?\n    ",
         (f"{date_str}%",),
+        fetch_all=False,
     )
-    row = cursor.fetchone()
-    profit = row[0] if row[0] is not None else 0.0
-    conn.close()
-    return profit
+    if row is None or row[0] is None:
+        return 0.0
+    return float(row[0])
 
 
 def update_performance_metrics(date_str: Any, current_balance: Any) -> None:
