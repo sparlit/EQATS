@@ -11,10 +11,49 @@ import main
 class TestScalperIndicators(unittest.TestCase):
 
     def test_ema(self) -> None:
-        res = indicators.calculate_ema([], 5)
-        self.assertIsNone(res)
-        prices = [10.0, 10.0, 10.0, 10.0, 10.0]
-        self.assertEqual(indicators.calculate_ema(prices, 3), 10.0)
+        from unittest.mock import patch
+
+        # 1. Edge / invalid inputs
+        self.assertIsNone(indicators.calculate_ema([], 5))
+        self.assertIsNone(indicators.calculate_ema(None, 5))
+        self.assertIsNone(indicators.calculate_ema([10.0, 20.0], 0))
+        self.assertIsNone(indicators.calculate_ema([10.0, 20.0], -3))
+        self.assertIsNone(indicators.calculate_ema([10.0, 20.0], 3))
+
+        # 2. Exact length input (len(prices) == period)
+        prices_exact = [10.0, 20.0, 30.0]
+        self.assertEqual(indicators.calculate_ema(prices_exact, 3), 20.0)
+
+        # 3. Constant price series
+        prices_constant = [15.0] * 10
+        self.assertEqual(indicators.calculate_ema(prices_constant, 4), 15.0)
+
+        # 4. Standard step-by-step mathematical calculation
+        # prices = [10, 20, 30, 40, 50], period = 3
+        # multiplier = 2 / (3 + 1) = 0.5
+        # initial sma = (10 + 20 + 30) / 3 = 20
+        # step 1 (price 40): 40 * 0.5 + 20 * 0.5 = 30
+        # step 2 (price 50): 50 * 0.5 + 30 * 0.5 = 40
+        prices_step = [10.0, 20.0, 30.0, 40.0, 50.0]
+        self.assertAlmostEqual(indicators.calculate_ema(prices_step, 3), 40.0, places=7)
+
+        # 5. Rust CFFI acceleration behavior and fallbacks
+        with patch("institutional_integrations.rust_bridge.is_rust_available", return_value=True):
+            # Case A: Rust returned correct series matching length
+            with patch("institutional_integrations.rust_bridge.rust_accelerated_ema", return_value=[10.0, 20.0, 30.0, 40.0, 99.0]):
+                self.assertEqual(indicators.calculate_ema(prices_step, 3), 99.0)
+
+            # Case B: Rust returned mismatched length series (fall back to Python)
+            with patch("institutional_integrations.rust_bridge.rust_accelerated_ema", return_value=[99.0]):
+                self.assertAlmostEqual(indicators.calculate_ema(prices_step, 3), 40.0, places=7)
+
+            # Case C: Rust returned None/empty (fall back to Python)
+            with patch("institutional_integrations.rust_bridge.rust_accelerated_ema", return_value=[]):
+                self.assertAlmostEqual(indicators.calculate_ema(prices_step, 3), 40.0, places=7)
+
+            # Case D: Rust raises an exception (fall back to Python gracefully)
+            with patch("institutional_integrations.rust_bridge.rust_accelerated_ema", side_effect=RuntimeError("Rust bridge error")):
+                self.assertAlmostEqual(indicators.calculate_ema(prices_step, 3), 40.0, places=7)
 
     def test_rsi_calculations(self) -> None:
         prices = [100.0, 102.0, 104.0, 103.0, 105.0, 104.0, 106.0, 107.0, 105.0, 108.0, 109.0, 107.0, 110.0, 111.0, 109.0, 112.0]
