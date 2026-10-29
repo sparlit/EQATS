@@ -2306,24 +2306,20 @@ def load_circuit_breaker_state() -> dict[str, Any] | None:
 
     Returns None if no state exists in the database.
     """
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM circuit_breaker_state WHERE id = 1")
-        row = cursor.fetchone()
-        conn.close()
+    row = _fetch_with_retry(
+        "SELECT * FROM circuit_breaker_state WHERE id = 1",
+        fetch_all=False,
+    )
 
-        if row:
-            return {
-                "trading_date": row["trading_date"],
-                "daily_start_balance": row["daily_start_balance"],
-                "is_halted": bool(row["is_halted"]),
-                "halt_timestamp": row["halt_timestamp"],
-                "halt_reason": row["halt_reason"],
-            }
-        return None
-    except sqlite3.OperationalError:
-        return None
+    if row:
+        return {
+            "trading_date": row["trading_date"],
+            "daily_start_balance": row["daily_start_balance"],
+            "is_halted": bool(row["is_halted"]),
+            "halt_timestamp": row["halt_timestamp"],
+            "halt_reason": row["halt_reason"],
+        }
+    return None
 
 
 def clear_circuit_breaker_halt() -> Any:
