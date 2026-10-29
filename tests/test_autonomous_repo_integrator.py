@@ -86,7 +86,42 @@ def sample_func(price: float) -> float:
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     # Ensure from __future__ import is the first code statement
     assert lines[0] == "from __future__ import annotations"
+    assert "# TODO: implement later" not in content
     assert "is_ist_market_session_active" in content
+    assert "round_to_ist_tick" in content
+    assert "def sample_func(price: float) -> float:" in content
+
+
+def test_sanitize_and_adapt_code_short_file(temp_integrator_env):
+    integrator, temp_dir = temp_integrator_env
+    short_file = temp_dir / "short.py"
+    short_file.write_text("# short", encoding="utf-8")
+
+    adapted = integrator.sanitize_and_adapt_code(short_file, temp_dir, "mock_repo")
+    assert adapted is None
+
+
+def test_sanitize_and_adapt_code_no_future_import_and_stubs(temp_integrator_env):
+    integrator, temp_dir = temp_integrator_env
+    sample_code = """# WIP
+# Implement later
+def calculate_pnl(entry: float, exit: float) -> float:
+    # TODO: add fee deduction
+    return exit - entry
+"""
+    test_file = temp_dir / "standard_strategy.py"
+    test_file.write_text(sample_code, encoding="utf-8")
+
+    adapted = integrator.sanitize_and_adapt_code(test_file, temp_dir, "mock_repo")
+    assert adapted is not None
+    assert adapted.exists()
+
+    content = adapted.read_text(encoding="utf-8")
+    assert "# WIP" not in content
+    assert "# Implement later" not in content
+    assert "# TODO: add fee deduction" not in content
+    assert "is_ist_market_session_active" in content
+    assert "def calculate_pnl(entry: float, exit: float) -> float:" in content
 
 
 def test_auto_fix_syntax(temp_integrator_env):
