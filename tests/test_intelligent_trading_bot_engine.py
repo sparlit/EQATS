@@ -239,3 +239,41 @@ def test_analyzer_feature_and_signal_generation():
     assert "sell_sig" in analyzer.df.columns
     assert bool(analyzer.df["buy_sig"].iloc[-1]) is True
     assert bool(analyzer.df["sell_sig"].iloc[-1]) is False
+
+
+def test_model_store_joblib_deserialization(tmp_path):
+    from common.model_store import ModelStore
+
+    config = {
+        "symbol": "AAPL",
+        "data_folder": str(tmp_path),
+        "model_folder": str(tmp_path / "models"),
+        "model_registry": [
+            {"name": "m1_pickle", "file": "model1.pickle"},
+            {"name": "m2_obj", "file": "model2.bin"},
+            {"name": "m3_corrupt", "file": "corrupt.bin"},
+        ],
+    }
+
+    store = ModelStore(config)
+    sample_model_1 = {"type": "classifier", "weights": [0.1, 0.2, 0.5]}
+    sample_model_2 = {"type": "regressor", "params": {"alpha": 0.01}}
+
+    # Test saving models with put_model
+    store.put_model("m1_pickle", sample_model_1)
+    store.put_model("m2_obj", sample_model_2)
+
+    assert (tmp_path / "models" / "model1.pickle").exists()
+    assert (tmp_path / "models" / "model2.bin").exists()
+
+    # Create a corrupt file for m3_corrupt
+    corrupt_path = tmp_path / "models" / "corrupt.bin"
+    corrupt_path.write_bytes(b"INVALID_CORRUPT_DATA")
+
+    # Load models
+    new_store = ModelStore(config)
+    new_store.load_models()
+
+    assert new_store.get_model("m1_pickle") == sample_model_1
+    assert new_store.get_model("m2_obj") == sample_model_2
+    assert new_store.get_model("m3_corrupt") is None
