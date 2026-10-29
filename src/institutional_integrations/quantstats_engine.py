@@ -111,7 +111,7 @@ class QuantStatsEngine:
         returns: pd.Series | pd.DataFrame | list[float],
         benchmark: pd.Series | pd.DataFrame | list[float] | None = None,
         rf: float | None = None,
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """
         Calculates key QuantStats quantitative metrics (Sharpe, Sortino, Calmar, Max Drawdown, CAGR, Win Rate, VaR).
         """

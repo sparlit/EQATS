@@ -95,7 +95,7 @@ class FinRLFrameworkEngine:
         adx = float(data.get("adx", 20.0))
         turbulence = float(data.get("turbulence", 1.0))
 
-        return {
+        res_tech: dict[str, Any] = {
             "symbol": symbol,
             "close": close,
             "open": open_price,
@@ -110,6 +110,7 @@ class FinRLFrameworkEngine:
             "adx": adx,
             "turbulence": turbulence,
         }
+        return res_tech
 
     def predict_drl_actions(self, state_features: dict[str, dict[str, float]]) -> dict[str, float]:
         """
