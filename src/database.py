@@ -30,14 +30,70 @@ _ENCRYPTION_SALT = None
 _INIT_DB_LOCK = threading.RLock()
 
 
+def _get_or_create_fallback_key() -> str:
+    """
+    Retrieves or generates a cryptographically secure, persistent fallback master passphrase
+    when EQATS_MASTER_KEY is not set in the environment.
+
+    The secret is stored in a file adjacent to the database with restrictive permissions (0o600).
+    This avoids deterministic master password derivation while maintaining key persistence
+    across restarts.
+
+    Returns:
+        str: Cryptographically secure random master passphrase
+    """
+    key_file = config.DB_PATH + ".key"
+
+    try:
+        if os.path.exists(key_file):
+            with open(key_file, encoding="utf-8") as f:
+                key_text = f.read().strip()
+                if len(key_text) >= 32:
+                    return key_text
+    except Exception as e:
+        _log.debug("Could not read key file: %s", e)
+
+    import secrets
+
+    fallback_key = secrets.token_hex(32)
+
+    try:
+        with open(key_file, "w", encoding="utf-8") as f:
+            f.write(fallback_key)
+        if hasattr(os, "chmod"):
+            os.chmod(key_file, 0o600)
+    except Exception as e:
+        _log.warning("Could not persist key file: %s", e)
+
+    return fallback_key
+
+
+def _get_legacy_machine_encryption_key() -> bytes:
+    """
+    Derives the legacy machine-derived key for backward compatibility when decrypting
+    credentials stored prior to non-deterministic fallback key implementation.
+    """
+    try:
+        import platform
+
+        machine_id = platform.node() + platform.machine()
+    except Exception:
+        machine_id = "EQATS_DEFAULT_MACHINE"
+
+    legacy_master_password = f"EQATS_DERIVED_{machine_id}_2026"
+    salt = _get_or_create_salt()
+    return hashlib.pbkdf2_hmac(
+        "sha256", legacy_master_password.encode("utf-8"), salt, 480000, dklen=32
+    )
+
+
 def _get_encryption_key() -> Any:
     """
     Retrieves or generates the encryption key for broker credentials.
 
     The key is derived from an environment variable EQATS_MASTER_KEY using PBKDF2.
-    If no environment variable is set, falls back to a machine-specific derived key
-    that provides better security than the previous hardcoded seed while maintaining
-    backward compatibility for existing deployments.
+    If no environment variable is set, falls back to a cryptographically secure,
+    randomly generated persistent key file.
 
     Returns:
         bytes: 32-byte encryption key suitable for Fernet symmetric encryption
@@ -51,16 +107,9 @@ def _get_encryption_key() -> Any:
     master_password = os.environ.get("EQATS_MASTER_KEY", "")
 
     if not master_password:
-        try:
-            import platform
-
-            machine_id = platform.node() + platform.machine()
-        except Exception:
-            machine_id = "EQATS_DEFAULT_MACHINE"
-
-        master_password = f"EQATS_DERIVED_{machine_id}_2026"
+        master_password = _get_or_create_fallback_key()
         _log.warning(
-            "No EQATS_MASTER_KEY environment variable set. Using machine-derived key. "
+            "No EQATS_MASTER_KEY environment variable set. Using random persistent fallback key. "
             "For production deployments, set EQATS_MASTER_KEY to a strong passphrase."
         )
 
@@ -245,8 +294,8 @@ def decrypt_secret(cipher_text: Any) -> Any:
     Decrypts Fernet-encrypted broker credentials.
 
     Attempts to decrypt using Fernet authenticated encryption. If decryption fails
-    (e.g., for legacy XOR-encrypted data), attempts legacy decryption for backward
-    compatibility during migration.
+    (e.g., for data encrypted with legacy machine key or XOR-encrypted data),
+    attempts legacy decryption for backward compatibility during migration.
 
     Args:
         cipher_text: The encrypted credential string
@@ -260,7 +309,7 @@ def decrypt_secret(cipher_text: Any) -> Any:
     try:
         from cryptography.fernet import Fernet
 
-        # Get or derive encryption key
+        # Get or derive active encryption key
         key = _get_encryption_key()
 
         # Fernet requires base64-encoded 32-byte key
@@ -276,10 +325,23 @@ def decrypt_secret(cipher_text: Any) -> Any:
         # Fallback to legacy XOR for backward compatibility
         return _legacy_decrypt_secret(cipher_text)
     except Exception:
+        # Fallback 1: Try legacy machine-derived Fernet key for backward compatibility
+        try:
+            from cryptography.fernet import Fernet
+
+            legacy_key = _get_legacy_machine_encryption_key()
+            fernet_key = base64.urlsafe_b64encode(legacy_key)
+            cipher = Fernet(fernet_key)
+            decrypted = cipher.decrypt(cipher_text.encode("utf-8"))
+            return decrypted.decode("utf-8")
+        except Exception:
+            pass
+
+        # Fallback 2: Try legacy XOR method
         try:
             return _legacy_decrypt_secret(cipher_text)
         except Exception:
-            _log.debug("Failed to decrypt credential with both Fernet and legacy methods")
+            _log.debug("Failed to decrypt credential with primary, legacy machine, and XOR methods")
             return ""
 
 
