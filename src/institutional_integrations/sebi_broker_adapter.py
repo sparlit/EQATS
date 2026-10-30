@@ -83,8 +83,6 @@ class SEBIOrderResponse:
 class AbstractSEBIBrokerAdapterError(NotImplementedError):
     """Raised when an abstract SEBIBrokerAdapter method is invoked without subclass implementation."""
 
-    pass
-
 
 class SEBIBrokerAdapter(abc.ABC):
     """
