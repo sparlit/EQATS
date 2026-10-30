@@ -119,9 +119,9 @@ def test_gateway_validation_prevents_fix_message_construction() -> Any:
 
     class MockFIXEngine(FIXEngine):
 
-        def create_new_order_single(self, *args: Any, **kwargs: Any) -> Any:
+        def send_new_order_single(self, *args: Any, **kwargs: Any) -> Any:
             call_tracker['called'] = True
-            return super().create_new_order_single(*args, **kwargs)
+            return '8=FIX.4.4...'
     gw = UniversalBrokerGateway(protocol='FIX', broker_config={'account_id': 'TEST_CLIENT', 'server': 'TEST_SERVER'})
     gw.fix_engine = MockFIXEngine(sender_comp_id='TEST', target_comp_id='BROKER')
     call_tracker['called'] = False
@@ -134,6 +134,57 @@ def test_gateway_validation_prevents_fix_message_construction() -> Any:
     assert result['success'] is False
     assert result['reason'] == 'QUANTITY_TOO_LARGE'
     assert not call_tracker['called'], 'FIX message should not be created for invalid quantity'
+
+
+def test_fix_atomic_send_methods_invoked() -> None:
+    """
+    Test that UniversalBrokerGateway uses atomic send methods on FIXEngine
+    for modify_order, execute_order, and close_order to prevent out-of-order transmission.
+    """
+    from institutional_integrations.fix_engine import FIXEngine
+
+    calls = []
+
+    class MockAtomicFIXEngine(FIXEngine):
+        def send_new_order_single(self, cl_ord_id: Any, symbol: Any, side: Any, quantity: Any, ord_type: Any, price: Any) -> Any:
+            calls.append(('send_new_order_single', cl_ord_id, symbol, side, quantity, ord_type, price))
+            return "8=FIX.4.4..."
+
+        def send_order_cancel_replace_request(self, cl_ord_id: Any, orig_cl_ord_id: Any, stop_px: Any = None, price: Any = None) -> Any:
+            calls.append(('send_order_cancel_replace_request', cl_ord_id, orig_cl_ord_id, stop_px, price))
+            return "8=FIX.4.4..."
+
+        def send_order_cancel_request(self, cl_ord_id: Any, orig_cl_ord_id: Any) -> Any:
+            calls.append(('send_order_cancel_request', cl_ord_id, orig_cl_ord_id))
+            return "8=FIX.4.4..."
+
+    gw = UniversalBrokerGateway(protocol='FIX', broker_config={'account_id': 'TEST_CLIENT', 'server': 'TEST_SERVER'})
+    mock_engine = MockAtomicFIXEngine(sender_comp_id='TEST', target_comp_id='BROKER')
+    gw.fix_engine = mock_engine
+    gw.is_connected_flag = True
+
+    # 1. Test execute_order invokes send_new_order_single
+    exec_res = gw.execute_order('EURUSD', 'BUY', 1.0, 1.08, 1.10)
+    assert exec_res['success'] is True
+    assert len(calls) == 1
+    assert calls[0][0] == 'send_new_order_single'
+    assert calls[0][2] == 'EURUSD'
+
+    # 2. Test modify_order invokes send_order_cancel_replace_request
+    mod_res = gw.modify_order('TICKET123', 1.085, 1.105)
+    assert mod_res is True
+    assert len(calls) == 2
+    assert calls[1][0] == 'send_order_cancel_replace_request'
+    assert calls[1][2] == 'TICKET123'
+    assert calls[1][3] == 1.085
+    assert calls[1][4] == 1.105
+
+    # 3. Test close_order invokes send_order_cancel_request
+    close_res = gw.close_order('TICKET123', reason='TP')
+    assert close_res['success'] is True
+    assert len(calls) == 3
+    assert calls[2][0] == 'send_order_cancel_request'
+    assert calls[2][2] == 'TICKET123'
 if __name__ == '__main__':
     print('Testing gateway order validation...')
     test_gateway_rejects_invalid_order_type()
