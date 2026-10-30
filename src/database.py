@@ -46,7 +46,7 @@ def _get_or_create_fallback_key() -> str:
 
     try:
         if os.path.exists(key_file):
-            with open(key_file, "r", encoding="utf-8") as f:
+            with open(key_file, encoding="utf-8") as f:
                 key_text = f.read().strip()
                 if len(key_text) >= 32:
                     return key_text
