@@ -83,6 +83,33 @@ def test_salt_persistence() -> None:
     assert key1 == key2, 'Key derivation not consistent'
     print('  ✓ Salt persistence verified\n')
 
+def test_fallback_key_persistence() -> None:
+    """Test non-deterministic random fallback key generation, file persistence, and legacy key compatibility."""
+    print('Test 5b: Fallback Key Persistence & Legacy Machine Compatibility')
+    key_file = config.DB_PATH + '.key'
+    if os.environ.get('EQATS_MASTER_KEY'):
+        del os.environ['EQATS_MASTER_KEY']
+    database._ENCRYPTION_KEY = None
+    database._ENCRYPTION_SALT = None
+
+    fallback_key_1 = database._get_or_create_fallback_key()
+    assert os.path.exists(key_file), 'Key file not created'
+    assert len(fallback_key_1) >= 64, 'Fallback key is not long enough'
+
+    fallback_key_2 = database._get_or_create_fallback_key()
+    assert fallback_key_1 == fallback_key_2, 'Fallback key read from file was not identical'
+
+    # Test legacy machine key decryption fallback
+    import base64, hashlib
+    from cryptography.fernet import Fernet
+    legacy_machine_key = database._get_legacy_machine_encryption_key()
+    fernet_legacy = Fernet(base64.urlsafe_b64encode(legacy_machine_key))
+    legacy_ciphertext = fernet_legacy.encrypt(b'LegacyMachineSecret123').decode('utf-8')
+
+    decrypted_legacy = database.decrypt_secret(legacy_ciphertext)
+    assert decrypted_legacy == 'LegacyMachineSecret123', 'Legacy machine key fallback decryption failed'
+    print('  ✓ Fallback key persistence & legacy compatibility verified\n')
+
 def test_environment_variable() -> None:
     """Test key derivation from environment variable."""
     print('Test 6: Environment Variable Key Derivation')
@@ -105,6 +132,9 @@ def cleanup() -> None:
         salt_file = test_db + '.salt'
         if os.path.exists(salt_file):
             os.remove(salt_file)
+        key_file = test_db + '.key'
+        if os.path.exists(key_file):
+            os.remove(key_file)
     except Exception as e:
         print(f'Warning: Could not clean up test files: {e}')
 
@@ -119,6 +149,7 @@ def main() -> Any:
         test_empty_strings()
         test_database_operations()
         test_salt_persistence()
+        test_fallback_key_persistence()
         test_environment_variable()
         print('=' * 60)
         print('✓ All tests passed!')
