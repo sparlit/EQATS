@@ -16,8 +16,6 @@ _log = logging.getLogger("connector")
 class AbstractConnectorError(NotImplementedError):
     """Raised when an abstract TradingConnector method is invoked without subclass implementation."""
 
-    pass
-
 
 class TradingConnector(abc.ABC):
     """
