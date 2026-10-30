@@ -91,7 +91,7 @@ TradingOS (EQATS Version 11.0.0) is engineered as an institutional autonomous mu
 
 ### Verification Status Matrix
 - **Build Status:** `cargo check --manifest-path eqats_rust_core/Cargo.toml` and Python virtual environment checks pass cleanly.
-- **Test Status:** 41 passed across target unit and integration test suites (`tests/test_autonomous_fix.py`, `tests/test_credential_manager.py`, `tests/test_eqats_planes.py`, `tests/test_scalper.py`) in 216 seconds.
+- **Test Status:** 43 passed across target unit and integration test suites (`tests/test_autonomous_fix.py`, `tests/test_credential_manager.py`, `tests/test_eqats_planes.py`, `tests/test_scalper.py`) in 146 seconds.
 - **Integration Status:** 100% connected end-to-end across core engine, adapted modules, web API HTTP server, and GUI sheets.
 - **Security Status:** AES-256 encrypted credential storage, RBAC toggles, and zero plain-text secret persistence verified.
 - **Performance Status:** Optimized bulk data fetching, process pool isolation, and zero stdout locking bottlenecks verified.
