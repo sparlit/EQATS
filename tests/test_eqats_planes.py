@@ -149,3 +149,56 @@ def test_calculate_stop_loss_exposure_directional_short():
     )
     assert long_exposure > 0
     assert pytest.approx(long_exposure, abs=1e-5) == short_exposure
+
+
+def test_authorize_trade_expected_net_value_thresholds(monkeypatch):
+    """
+    Test trade authorization expected net value security checks.
+    Trades are admitted ONLY if expected_net_value > MIN_EXPECTED_NET_VALUE_THRESHOLD.
+    """
+    from eqats_planes import SafetyVerificationPlane, OperationsResiliencePlane
+    import config
+
+    resilience = OperationsResiliencePlane()
+    safety = SafetyVerificationPlane(resilience_plane=resilience)
+
+    threshold = getattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.00001)
+
+    # Above threshold -> APPROVED
+    assert safety.authorize_trade("EURUSD", expected_net_value=threshold + 0.0001, safety_violations=[]) is True
+
+    # Exactly equal to threshold -> REJECTED
+    assert safety.authorize_trade("EURUSD", expected_net_value=threshold, safety_violations=[]) is False
+
+    # Below threshold (positive but too small) -> REJECTED
+    assert safety.authorize_trade("EURUSD", expected_net_value=threshold / 2.0, safety_violations=[]) is False
+
+    # Zero expected value -> REJECTED
+    assert safety.authorize_trade("EURUSD", expected_net_value=0.0, safety_violations=[]) is False
+
+    # Negative expected value -> REJECTED
+    assert safety.authorize_trade("EURUSD", expected_net_value=-0.01, safety_violations=[]) is False
+
+    # Safety violations present -> REJECTED
+    assert safety.authorize_trade("EURUSD", expected_net_value=0.05, safety_violations=["INV-001"]) is False
+
+    # Resilience state HALTED -> REJECTED
+    resilience.transition_state("HALTED")
+    assert safety.authorize_trade("EURUSD", expected_net_value=0.05, safety_violations=[]) is False
+
+
+def test_authorize_trade_custom_config_threshold(monkeypatch):
+    """Test that authorize_trade respects custom MIN_EXPECTED_NET_VALUE_THRESHOLD in config."""
+    from eqats_planes import SafetyVerificationPlane
+    import config
+
+    safety = SafetyVerificationPlane()
+
+    # Override threshold to 0.001
+    monkeypatch.setattr(config, "MIN_EXPECTED_NET_VALUE_THRESHOLD", 0.001)
+
+    # 0.0005 is less than custom threshold 0.001 -> REJECTED
+    assert safety.authorize_trade("GBPUSD", expected_net_value=0.0005, safety_violations=[]) is False
+
+    # 0.002 is greater than custom threshold 0.001 -> APPROVED
+    assert safety.authorize_trade("GBPUSD", expected_net_value=0.002, safety_violations=[]) is True
