@@ -25,3 +25,4 @@ venv/
 # Rust Target Build Artifacts
 target/
 eqats_rust_core/target/
+*.key

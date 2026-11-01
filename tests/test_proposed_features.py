@@ -128,3 +128,18 @@ def test_universal_broker_adapter_and_connector() -> None:
     assert conn.is_connected() is True
     exec_res = conn.execute_order('EURUSD', 'BUY', 0.01, 1.09, 1.11)
     assert exec_res['success'] is True
+
+def test_rbac_permissions_and_centralized_secret() -> None:
+    from credential_manager import CredentialManager
+    # RBAC permissions
+    assert CredentialManager.has_role_permission('SOVEREIGN_ADMIN', 'MANAGE_SYSTEM_CONFIG') is True
+    assert CredentialManager.has_role_permission('SOVEREIGN_ADMIN', 'EXECUTE_ORDERS') is True
+    assert CredentialManager.has_role_permission('QUANT_TRADER', 'MANAGE_SYSTEM_CONFIG') is False
+    assert CredentialManager.has_role_permission('QUANT_TRADER', 'EXECUTE_ORDERS') is True
+    assert CredentialManager.has_role_permission('RISK_AUDITOR', 'VIEW_AUDIT_LOGS') is True
+    assert CredentialManager.has_role_permission('RISK_AUDITOR', 'EXECUTE_ORDERS') is False
+
+    # Centralized secret retrieval fallback
+    cm = CredentialManager()
+    val = cm.fetch_centralized_secret("NON_EXISTENT_KEY", default="vault_fallback_123")
+    assert val == "vault_fallback_123"

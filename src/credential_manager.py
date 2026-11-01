@@ -436,6 +436,43 @@ class CredentialManager:
         """Clears emergency circuit breaker halt status."""
         return database.clear_circuit_breaker_halt()
 
+    @staticmethod
+    def has_role_permission(user_role: str, permission: str) -> bool:
+        """
+        Validates role-based access control (RBAC) permissions.
+        Roles:
+          - SOVEREIGN_ADMIN: full unrestricted system, execution, credential, and config privileges.
+          - QUANT_TRADER: trading, analytics, strategy configuration, read-only system config.
+          - RISK_AUDITOR: compliance, telemetry monitoring, audit desk, read-only access.
+        """
+        role = (user_role or "").upper().strip()
+        perm = (permission or "").upper().strip()
+
+        if role == "SOVEREIGN_ADMIN":
+            return True
+
+        role_permissions: dict[str, set[str]] = {
+            "QUANT_TRADER": {
+                "VIEW_DASHBOARD",
+                "EXECUTE_ORDERS",
+                "MANAGE_STRATEGIES",
+                "VIEW_ANALYTICS",
+                "VIEW_METRICS",
+                "VIEW_PORTFOLIO",
+            },
+            "RISK_AUDITOR": {
+                "VIEW_DASHBOARD",
+                "VIEW_ANALYTICS",
+                "VIEW_METRICS",
+                "VIEW_AUDIT_LOGS",
+                "VIEW_COMPLIANCE",
+                "VIEW_PORTFOLIO",
+            },
+        }
+
+        allowed_perms = role_permissions.get(role, set())
+        return perm in allowed_perms
+
 
 # =============================================================================
 # STANDALONE TKINTER GUI INTERFACE
