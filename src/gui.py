@@ -14,6 +14,7 @@ import config
 import database
 import main
 from brain import ScalperBrain
+from credential_manager import CredentialManager
 
 _log = logging.getLogger("gui")
 TAB_THEMES = {
@@ -1236,6 +1237,18 @@ class ScalperGui:
             mfa = mfa_ent.get().strip()
             if database.verify_user_credentials(username, password, mfa):
                 authenticated[0] = True
+                self.current_user = username
+                # Fetch assigned user role for RBAC
+                try:
+                    all_users = database.get_all_users()
+                    for u in all_users:
+                        if u.get("username", "").lower() == username.lower():
+                            self.current_user_role = u.get("role", "SOVEREIGN_ADMIN")
+                            break
+                    else:
+                        self.current_user_role = "SOVEREIGN_ADMIN"
+                except Exception:
+                    self.current_user_role = "SOVEREIGN_ADMIN"
                 btn_login.config(text="✓ AUTHORIZED", bg="#15803d", fg="#ffffff")
                 error_lbl.config(
                     text="ACCESS GRANTED: INITIALIZING QUANTUM TERMINAL...", fg="#00ff00"
@@ -1441,6 +1454,20 @@ class ScalperGui:
 
     def switch_to_screen(self, screen_code: Any) -> None:
         """Switches the main dashboard window display dynamically"""
+        user_role = getattr(self, "current_user_role", "SOVEREIGN_ADMIN")
+
+        # RBAC Check for configuration / administrative screens
+        if screen_code in ["SET", "CFG", "CONFIG", "CRED", "SEC"]:
+            if not CredentialManager.has_role_permission(user_role, "MANAGE_SYSTEM_CONFIG"):
+                print(
+                    f"❌ [ACCESS DENIED]: Role '{user_role}' lacks permission to access configuration screen '{screen_code}'."
+                )
+                messagebox.showerror(
+                    "RBAC Access Denied",
+                    f"User role '{user_role}' is unauthorized to modify system configuration ({screen_code}). Contact Sovereign Administrator.",
+                )
+                return
+
         if screen_code in ["SET", "CFG", "CONFIG"] and (not self._prompt_secondary_pin()):
             print(
                 f"❌ [ACCESS DENIED]: Configuration access to '{screen_code}' blocked by secondary PIN security controller."
