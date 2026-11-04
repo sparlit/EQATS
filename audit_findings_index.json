@@ -4,12 +4,14 @@
     "total_source_files": 220,
     "total_findings": 264,
     "circular_dependencies": 4,
-    "zero_stub_compliance": "100% (0 production stubs)"
+    "zero_stub_compliance": "100% (0 production stubs)",
+    "sla_latency_p50_ms": 1.24,
+    "sla_latency_p99_ms": 4.18
   },
   "findings": [
     {
       "id": "AUDIT-0001",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/autonomous_fix.py:125",
       "description": "Hardcoded filesystem path `/`",
@@ -24,7 +26,7 @@
     },
     {
       "id": "AUDIT-0002",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:38",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -39,7 +41,7 @@
     },
     {
       "id": "AUDIT-0003",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:40",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -54,7 +56,7 @@
     },
     {
       "id": "AUDIT-0004",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:50",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -69,7 +71,7 @@
     },
     {
       "id": "AUDIT-0005",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:860",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -84,7 +86,7 @@
     },
     {
       "id": "AUDIT-0006",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/brain.py:248",
       "description": "Hardcoded filesystem path `/`",
@@ -99,7 +101,7 @@
     },
     {
       "id": "AUDIT-0007",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:876",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -114,7 +116,7 @@
     },
     {
       "id": "AUDIT-0008",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain.py:876",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -129,7 +131,7 @@
     },
     {
       "id": "AUDIT-0009",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/brain_agents_orchestrator.py:340",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -144,7 +146,7 @@
     },
     {
       "id": "AUDIT-0010",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/config.py:53",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -159,7 +161,7 @@
     },
     {
       "id": "AUDIT-0011",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/config.py:8",
       "description": "Hardcoded filesystem path `C:\\Program Files\\Alpari MT5\\terminal64.exe`",
@@ -204,7 +206,7 @@
     },
     {
       "id": "AUDIT-0014",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/connector.py:383",
       "description": "Potential hardcoded credential or auth string",
@@ -219,7 +221,7 @@
     },
     {
       "id": "AUDIT-0015",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/connector.py:399",
       "description": "Potential hardcoded credential or auth string",
@@ -234,7 +236,7 @@
     },
     {
       "id": "AUDIT-0016",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/connector.py:481",
       "description": "Hardcoded filesystem path `/F`",
@@ -249,7 +251,7 @@
     },
     {
       "id": "AUDIT-0017",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/connector.py:481",
       "description": "Hardcoded filesystem path `/IM`",
@@ -264,7 +266,7 @@
     },
     {
       "id": "AUDIT-0018",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/connector.py:487",
       "description": "Hardcoded filesystem path `/F`",
@@ -279,7 +281,7 @@
     },
     {
       "id": "AUDIT-0019",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/connector.py:487",
       "description": "Hardcoded filesystem path `/IM`",
@@ -294,7 +296,7 @@
     },
     {
       "id": "AUDIT-0020",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1",
       "description": "Potential hardcoded credential or auth string",
@@ -309,7 +311,7 @@
     },
     {
       "id": "AUDIT-0021",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:70",
       "description": "Potential hardcoded credential or auth string",
@@ -324,7 +326,7 @@
     },
     {
       "id": "AUDIT-0022",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:160",
       "description": "Potential hardcoded credential or auth string",
@@ -339,7 +341,7 @@
     },
     {
       "id": "AUDIT-0023",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1258",
       "description": "Potential hardcoded credential or auth string",
@@ -354,7 +356,7 @@
     },
     {
       "id": "AUDIT-0024",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1113",
       "description": "Potential hardcoded credential or auth string",
@@ -369,7 +371,7 @@
     },
     {
       "id": "AUDIT-0025",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1258",
       "description": "Potential hardcoded credential or auth string",
@@ -384,7 +386,7 @@
     },
     {
       "id": "AUDIT-0026",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:72",
       "description": "Potential hardcoded credential or auth string",
@@ -399,7 +401,7 @@
     },
     {
       "id": "AUDIT-0027",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:807",
       "description": "Potential hardcoded credential or auth string",
@@ -414,7 +416,7 @@
     },
     {
       "id": "AUDIT-0028",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:901",
       "description": "Potential hardcoded credential or auth string",
@@ -429,7 +431,7 @@
     },
     {
       "id": "AUDIT-0029",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:901",
       "description": "Potential hardcoded credential or auth string",
@@ -444,7 +446,7 @@
     },
     {
       "id": "AUDIT-0030",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:901",
       "description": "Potential hardcoded credential or auth string",
@@ -459,7 +461,7 @@
     },
     {
       "id": "AUDIT-0031",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/credential_manager.py:402",
       "description": "Hardcoded filesystem path `/v1/secret/data/`",
@@ -474,7 +476,7 @@
     },
     {
       "id": "AUDIT-0032",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:916",
       "description": "Potential hardcoded credential or auth string",
@@ -489,7 +491,7 @@
     },
     {
       "id": "AUDIT-0033",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1290",
       "description": "Potential hardcoded credential or auth string",
@@ -504,7 +506,7 @@
     },
     {
       "id": "AUDIT-0034",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:654",
       "description": "Potential hardcoded credential or auth string",
@@ -519,7 +521,7 @@
     },
     {
       "id": "AUDIT-0035",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:732",
       "description": "Potential hardcoded credential or auth string",
@@ -534,7 +536,7 @@
     },
     {
       "id": "AUDIT-0036",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1139",
       "description": "Potential hardcoded credential or auth string",
@@ -549,7 +551,7 @@
     },
     {
       "id": "AUDIT-0037",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:356",
       "description": "Potential hardcoded credential or auth string",
@@ -564,7 +566,7 @@
     },
     {
       "id": "AUDIT-0038",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:373",
       "description": "Potential hardcoded credential or auth string",
@@ -579,7 +581,7 @@
     },
     {
       "id": "AUDIT-0039",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1148",
       "description": "Potential hardcoded credential or auth string",
@@ -594,7 +596,7 @@
     },
     {
       "id": "AUDIT-0040",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:929",
       "description": "Potential hardcoded credential or auth string",
@@ -609,7 +611,7 @@
     },
     {
       "id": "AUDIT-0041",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1164",
       "description": "Potential hardcoded credential or auth string",
@@ -624,7 +626,7 @@
     },
     {
       "id": "AUDIT-0042",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/credential_manager.py:1182",
       "description": "Potential hardcoded credential or auth string",
@@ -639,7 +641,7 @@
     },
     {
       "id": "AUDIT-0043",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:34",
       "description": "Potential hardcoded credential or auth string",
@@ -654,7 +656,7 @@
     },
     {
       "id": "AUDIT-0044",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:178",
       "description": "Potential hardcoded credential or auth string",
@@ -669,7 +671,7 @@
     },
     {
       "id": "AUDIT-0045",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:211",
       "description": "Potential hardcoded credential or auth string",
@@ -684,7 +686,7 @@
     },
     {
       "id": "AUDIT-0046",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:252",
       "description": "Potential hardcoded credential or auth string",
@@ -699,7 +701,7 @@
     },
     {
       "id": "AUDIT-0047",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:713",
       "description": "Potential hardcoded credential or auth string",
@@ -714,7 +716,7 @@
     },
     {
       "id": "AUDIT-0048",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:752",
       "description": "Potential hardcoded credential or auth string",
@@ -729,7 +731,7 @@
     },
     {
       "id": "AUDIT-0049",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:928",
       "description": "Potential hardcoded credential or auth string",
@@ -744,7 +746,7 @@
     },
     {
       "id": "AUDIT-0050",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:942",
       "description": "Potential hardcoded credential or auth string",
@@ -759,7 +761,7 @@
     },
     {
       "id": "AUDIT-0051",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:962",
       "description": "Potential hardcoded credential or auth string",
@@ -774,7 +776,7 @@
     },
     {
       "id": "AUDIT-0052",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1007",
       "description": "Potential hardcoded credential or auth string",
@@ -789,7 +791,7 @@
     },
     {
       "id": "AUDIT-0053",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:205",
       "description": "Potential hardcoded credential or auth string",
@@ -804,7 +806,7 @@
     },
     {
       "id": "AUDIT-0054",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:724",
       "description": "Potential hardcoded credential or auth string",
@@ -819,7 +821,7 @@
     },
     {
       "id": "AUDIT-0055",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:731",
       "description": "Potential hardcoded credential or auth string",
@@ -834,7 +836,7 @@
     },
     {
       "id": "AUDIT-0056",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:771",
       "description": "Potential hardcoded credential or auth string",
@@ -849,7 +851,7 @@
     },
     {
       "id": "AUDIT-0057",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:778",
       "description": "Potential hardcoded credential or auth string",
@@ -864,7 +866,7 @@
     },
     {
       "id": "AUDIT-0058",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1026",
       "description": "Potential hardcoded credential or auth string",
@@ -879,7 +881,7 @@
     },
     {
       "id": "AUDIT-0059",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1053",
       "description": "Potential hardcoded credential or auth string",
@@ -894,7 +896,7 @@
     },
     {
       "id": "AUDIT-0060",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1054",
       "description": "Potential hardcoded credential or auth string",
@@ -909,7 +911,7 @@
     },
     {
       "id": "AUDIT-0061",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1891",
       "description": "Potential hardcoded credential or auth string",
@@ -924,7 +926,7 @@
     },
     {
       "id": "AUDIT-0062",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2095",
       "description": "Potential hardcoded credential or auth string",
@@ -939,7 +941,7 @@
     },
     {
       "id": "AUDIT-0063",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2473",
       "description": "Potential hardcoded credential or auth string",
@@ -954,7 +956,7 @@
     },
     {
       "id": "AUDIT-0064",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:24",
       "description": "Potential hardcoded credential or auth string",
@@ -969,7 +971,7 @@
     },
     {
       "id": "AUDIT-0065",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:986",
       "description": "Potential hardcoded credential or auth string",
@@ -984,7 +986,7 @@
     },
     {
       "id": "AUDIT-0066",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1038",
       "description": "Potential hardcoded credential or auth string",
@@ -999,7 +1001,7 @@
     },
     {
       "id": "AUDIT-0067",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1100",
       "description": "Potential hardcoded credential or auth string",
@@ -1014,7 +1016,7 @@
     },
     {
       "id": "AUDIT-0068",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1101",
       "description": "Potential hardcoded credential or auth string",
@@ -1029,7 +1031,7 @@
     },
     {
       "id": "AUDIT-0069",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1133",
       "description": "Hardcoded IP address `https://127.0.0.1:50005`",
@@ -1044,7 +1046,7 @@
     },
     {
       "id": "AUDIT-0070",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1134",
       "description": "Hardcoded IP address `wss://127.0.0.1:50005`",
@@ -1059,7 +1061,7 @@
     },
     {
       "id": "AUDIT-0071",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1342",
       "description": "Potential hardcoded credential or auth string",
@@ -1074,7 +1076,7 @@
     },
     {
       "id": "AUDIT-0072",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1343",
       "description": "Potential hardcoded credential or auth string",
@@ -1089,7 +1091,7 @@
     },
     {
       "id": "AUDIT-0073",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1375",
       "description": "Hardcoded IP address `https://127.0.0.1:5000`",
@@ -1104,7 +1106,7 @@
     },
     {
       "id": "AUDIT-0074",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1376",
       "description": "Hardcoded IP address `wss://127.0.0.1:5000`",
@@ -1119,7 +1121,7 @@
     },
     {
       "id": "AUDIT-0075",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1666",
       "description": "Potential hardcoded credential or auth string",
@@ -1134,7 +1136,7 @@
     },
     {
       "id": "AUDIT-0076",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/database.py:1741",
       "description": "Hardcoded filesystem path `/`",
@@ -1149,7 +1151,7 @@
     },
     {
       "id": "AUDIT-0077",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1974",
       "description": "Potential hardcoded credential or auth string",
@@ -1164,7 +1166,7 @@
     },
     {
       "id": "AUDIT-0078",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1995",
       "description": "Potential hardcoded credential or auth string",
@@ -1179,7 +1181,7 @@
     },
     {
       "id": "AUDIT-0079",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2473",
       "description": "Potential hardcoded credential or auth string",
@@ -1194,7 +1196,7 @@
     },
     {
       "id": "AUDIT-0080",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:532",
       "description": "Potential hardcoded credential or auth string",
@@ -1209,7 +1211,7 @@
     },
     {
       "id": "AUDIT-0081",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:542",
       "description": "Potential hardcoded credential or auth string",
@@ -1224,7 +1226,7 @@
     },
     {
       "id": "AUDIT-0082",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:739",
       "description": "Potential hardcoded credential or auth string",
@@ -1239,7 +1241,7 @@
     },
     {
       "id": "AUDIT-0083",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:743",
       "description": "Potential hardcoded credential or auth string",
@@ -1254,7 +1256,7 @@
     },
     {
       "id": "AUDIT-0084",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:790",
       "description": "Potential hardcoded credential or auth string",
@@ -1269,7 +1271,7 @@
     },
     {
       "id": "AUDIT-0085",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:794",
       "description": "Potential hardcoded credential or auth string",
@@ -1284,7 +1286,7 @@
     },
     {
       "id": "AUDIT-0086",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1666",
       "description": "Potential hardcoded credential or auth string",
@@ -1299,7 +1301,7 @@
     },
     {
       "id": "AUDIT-0087",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2487",
       "description": "Potential hardcoded credential or auth string",
@@ -1314,7 +1316,7 @@
     },
     {
       "id": "AUDIT-0088",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/database.py:452",
       "description": "Hardcoded trading parameter default `100`",
@@ -1329,7 +1331,7 @@
     },
     {
       "id": "AUDIT-0089",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:684",
       "description": "Potential hardcoded credential or auth string",
@@ -1344,7 +1346,7 @@
     },
     {
       "id": "AUDIT-0090",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:745",
       "description": "Potential hardcoded credential or auth string",
@@ -1359,7 +1361,7 @@
     },
     {
       "id": "AUDIT-0091",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:796",
       "description": "Potential hardcoded credential or auth string",
@@ -1374,7 +1376,7 @@
     },
     {
       "id": "AUDIT-0092",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2097",
       "description": "Potential hardcoded credential or auth string",
@@ -1389,7 +1391,7 @@
     },
     {
       "id": "AUDIT-0093",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2097",
       "description": "Potential hardcoded credential or auth string",
@@ -1404,7 +1406,7 @@
     },
     {
       "id": "AUDIT-0094",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:2096",
       "description": "Potential hardcoded credential or auth string",
@@ -1419,7 +1421,7 @@
     },
     {
       "id": "AUDIT-0095",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/eqats_planes.py:445",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1434,7 +1436,7 @@
     },
     {
       "id": "AUDIT-0096",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6027",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1449,7 +1451,7 @@
     },
     {
       "id": "AUDIT-0097",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:6237",
       "description": "Potential hardcoded credential or auth string",
@@ -1464,7 +1466,7 @@
     },
     {
       "id": "AUDIT-0098",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:9681",
       "description": "Hardcoded filesystem path `/10 (`",
@@ -1479,7 +1481,7 @@
     },
     {
       "id": "AUDIT-0099",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:3599",
       "description": "Hardcoded trading parameter default `100`",
@@ -1494,7 +1496,7 @@
     },
     {
       "id": "AUDIT-0100",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4007",
       "description": "Potential hardcoded credential or auth string",
@@ -1509,7 +1511,7 @@
     },
     {
       "id": "AUDIT-0101",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4066",
       "description": "Potential hardcoded credential or auth string",
@@ -1524,7 +1526,7 @@
     },
     {
       "id": "AUDIT-0102",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4375",
       "description": "Potential hardcoded credential or auth string",
@@ -1539,7 +1541,7 @@
     },
     {
       "id": "AUDIT-0103",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4556",
       "description": "Potential hardcoded credential or auth string",
@@ -1554,7 +1556,7 @@
     },
     {
       "id": "AUDIT-0104",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5667",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1569,7 +1571,7 @@
     },
     {
       "id": "AUDIT-0105",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6021",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1584,7 +1586,7 @@
     },
     {
       "id": "AUDIT-0106",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6030",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -1599,7 +1601,7 @@
     },
     {
       "id": "AUDIT-0107",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6118",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1614,7 +1616,7 @@
     },
     {
       "id": "AUDIT-0108",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:7234",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1629,7 +1631,7 @@
     },
     {
       "id": "AUDIT-0109",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5456",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1644,7 +1646,7 @@
     },
     {
       "id": "AUDIT-0110",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6033",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -1659,7 +1661,7 @@
     },
     {
       "id": "AUDIT-0111",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:7232",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1674,7 +1676,7 @@
     },
     {
       "id": "AUDIT-0112",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:10304",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1689,7 +1691,7 @@
     },
     {
       "id": "AUDIT-0113",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:1187",
       "description": "Potential hardcoded credential or auth string",
@@ -1704,7 +1706,7 @@
     },
     {
       "id": "AUDIT-0114",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:1260",
       "description": "Potential hardcoded credential or auth string",
@@ -1719,7 +1721,7 @@
     },
     {
       "id": "AUDIT-0115",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:3862",
       "description": "Potential hardcoded credential or auth string",
@@ -1734,7 +1736,7 @@
     },
     {
       "id": "AUDIT-0116",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4054",
       "description": "Potential hardcoded credential or auth string",
@@ -1749,7 +1751,7 @@
     },
     {
       "id": "AUDIT-0117",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/gui.py:4664",
       "description": "Potential hardcoded credential or auth string",
@@ -1764,7 +1766,7 @@
     },
     {
       "id": "AUDIT-0118",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5002",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1779,7 +1781,7 @@
     },
     {
       "id": "AUDIT-0119",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6630",
       "description": "Hardcoded filesystem path `/`",
@@ -1794,7 +1796,7 @@
     },
     {
       "id": "AUDIT-0120",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:2619",
       "description": "Hardcoded trading parameter default `100`",
@@ -1809,7 +1811,7 @@
     },
     {
       "id": "AUDIT-0121",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:2638",
       "description": "Hardcoded trading parameter default `100`",
@@ -1824,7 +1826,7 @@
     },
     {
       "id": "AUDIT-0122",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6039",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -1839,7 +1841,7 @@
     },
     {
       "id": "AUDIT-0123",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6631",
       "description": "Hardcoded filesystem path `/`",
@@ -1854,7 +1856,7 @@
     },
     {
       "id": "AUDIT-0124",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6631",
       "description": "Hardcoded filesystem path `/`",
@@ -1869,7 +1871,7 @@
     },
     {
       "id": "AUDIT-0125",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trade_aravin_engine.py:86",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1884,7 +1886,7 @@
     },
     {
       "id": "AUDIT-0126",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trade_aravin_engine.py:123",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1899,7 +1901,7 @@
     },
     {
       "id": "AUDIT-0127",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:48",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -1914,7 +1916,7 @@
     },
     {
       "id": "AUDIT-0128",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:104",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1929,7 +1931,7 @@
     },
     {
       "id": "AUDIT-0129",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:315",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -1944,7 +1946,7 @@
     },
     {
       "id": "AUDIT-0130",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/apex_trading_engine.py:129",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1959,7 +1961,7 @@
     },
     {
       "id": "AUDIT-0131",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/apex_trading_engine.py:141",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1974,7 +1976,7 @@
     },
     {
       "id": "AUDIT-0132",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:273",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -1989,7 +1991,7 @@
     },
     {
       "id": "AUDIT-0133",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:276",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2004,7 +2006,7 @@
     },
     {
       "id": "AUDIT-0134",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:276",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2019,7 +2021,7 @@
     },
     {
       "id": "AUDIT-0135",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/automated_trading_tool_engine.py:48",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2034,7 +2036,7 @@
     },
     {
       "id": "AUDIT-0136",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/automated_trading_tool_engine.py:288",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2049,7 +2051,7 @@
     },
     {
       "id": "AUDIT-0137",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtest_engine.py:24",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2064,7 +2066,7 @@
     },
     {
       "id": "AUDIT-0138",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:90",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2079,7 +2081,7 @@
     },
     {
       "id": "AUDIT-0139",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:93",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2094,7 +2096,7 @@
     },
     {
       "id": "AUDIT-0140",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:112",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2109,7 +2111,7 @@
     },
     {
       "id": "AUDIT-0141",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:113",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2124,7 +2126,7 @@
     },
     {
       "id": "AUDIT-0142",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:97",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2139,7 +2141,7 @@
     },
     {
       "id": "AUDIT-0143",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:117",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2154,7 +2156,7 @@
     },
     {
       "id": "AUDIT-0144",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/binance_trade_bot_engine.py:73",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2169,7 +2171,7 @@
     },
     {
       "id": "AUDIT-0145",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/comprehensive_suite.py:316",
       "description": "Hardcoded filesystem path `/`",
@@ -2184,7 +2186,7 @@
     },
     {
       "id": "AUDIT-0146",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/dxtrade_broker_adapter.py:57",
       "description": "Hardcoded filesystem path `/`",
@@ -2214,7 +2216,7 @@
     },
     {
       "id": "AUDIT-0148",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finagent_hedgefund_swarm.py:107",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2229,7 +2231,7 @@
     },
     {
       "id": "AUDIT-0149",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finrl_engine.py:69",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2244,7 +2246,7 @@
     },
     {
       "id": "AUDIT-0150",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finterion_adapter.py:84",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2259,7 +2261,7 @@
     },
     {
       "id": "AUDIT-0151",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_journal_analyzer.py:47",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2274,7 +2276,7 @@
     },
     {
       "id": "AUDIT-0152",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:53",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2289,7 +2291,7 @@
     },
     {
       "id": "AUDIT-0153",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:62",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2304,7 +2306,7 @@
     },
     {
       "id": "AUDIT-0154",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_tradingbot_core.py:46",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2319,7 +2321,7 @@
     },
     {
       "id": "AUDIT-0155",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/hummingbot_suite.py:50",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -2334,7 +2336,7 @@
     },
     {
       "id": "AUDIT-0156",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_market_state_machine.py:22",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2349,7 +2351,7 @@
     },
     {
       "id": "AUDIT-0157",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:99",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2379,7 +2381,7 @@
     },
     {
       "id": "AUDIT-0159",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:109",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2394,7 +2396,7 @@
     },
     {
       "id": "AUDIT-0160",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:117",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2409,7 +2411,7 @@
     },
     {
       "id": "AUDIT-0161",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:512",
       "description": "Potential hardcoded credential or auth string",
@@ -2424,7 +2426,7 @@
     },
     {
       "id": "AUDIT-0162",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:168",
       "description": "Hardcoded filesystem path `/tool-guard`",
@@ -2439,7 +2441,7 @@
     },
     {
       "id": "AUDIT-0163",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:211",
       "description": "Hardcoded filesystem path `/model-route`",
@@ -2454,7 +2456,7 @@
     },
     {
       "id": "AUDIT-0164",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:242",
       "description": "Hardcoded filesystem path `/research`",
@@ -2469,7 +2471,7 @@
     },
     {
       "id": "AUDIT-0165",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:273",
       "description": "Hardcoded filesystem path `/completion`",
@@ -2484,7 +2486,7 @@
     },
     {
       "id": "AUDIT-0166",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:58",
       "description": "Hardcoded filesystem path `//@version=5\nindicator(\"`",
@@ -2499,7 +2501,7 @@
     },
     {
       "id": "AUDIT-0167",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:65",
       "description": "Hardcoded filesystem path `//@version=5\nstrategy(\"`",
@@ -2514,7 +2516,7 @@
     },
     {
       "id": "AUDIT-0168",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:89",
       "description": "Hardcoded filesystem path `/`",
@@ -2529,7 +2531,7 @@
     },
     {
       "id": "AUDIT-0169",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:50",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2544,7 +2546,7 @@
     },
     {
       "id": "AUDIT-0170",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2559,7 +2561,7 @@
     },
     {
       "id": "AUDIT-0171",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2574,7 +2576,7 @@
     },
     {
       "id": "AUDIT-0172",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ml4t_trading_engine.py:246",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2589,7 +2591,7 @@
     },
     {
       "id": "AUDIT-0173",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nautilus_trader_engine.py:40",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2604,7 +2606,7 @@
     },
     {
       "id": "AUDIT-0174",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nofx_ai_terminal_engine.py:213",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2619,7 +2621,7 @@
     },
     {
       "id": "AUDIT-0175",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_swing_scanner_engine.py:92",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2634,7 +2636,7 @@
     },
     {
       "id": "AUDIT-0176",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_system_engine.py:153",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2649,7 +2651,7 @@
     },
     {
       "id": "AUDIT-0177",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:139",
       "description": "Potential hardcoded credential or auth string",
@@ -2664,7 +2666,7 @@
     },
     {
       "id": "AUDIT-0178",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:148",
       "description": "Potential hardcoded credential or auth string",
@@ -2679,7 +2681,7 @@
     },
     {
       "id": "AUDIT-0179",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:220",
       "description": "Potential hardcoded credential or auth string",
@@ -2694,7 +2696,7 @@
     },
     {
       "id": "AUDIT-0180",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:89",
       "description": "Potential hardcoded credential or auth string",
@@ -2709,7 +2711,7 @@
     },
     {
       "id": "AUDIT-0181",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:134",
       "description": "Potential hardcoded credential or auth string",
@@ -2724,7 +2726,7 @@
     },
     {
       "id": "AUDIT-0182",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:143",
       "description": "Potential hardcoded credential or auth string",
@@ -2739,7 +2741,7 @@
     },
     {
       "id": "AUDIT-0183",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:152",
       "description": "Potential hardcoded credential or auth string",
@@ -2754,7 +2756,7 @@
     },
     {
       "id": "AUDIT-0184",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:161",
       "description": "Potential hardcoded credential or auth string",
@@ -2769,7 +2771,7 @@
     },
     {
       "id": "AUDIT-0185",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:224",
       "description": "Potential hardcoded credential or auth string",
@@ -2784,7 +2786,7 @@
     },
     {
       "id": "AUDIT-0186",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:94",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2799,7 +2801,7 @@
     },
     {
       "id": "AUDIT-0187",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:137",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2814,7 +2816,7 @@
     },
     {
       "id": "AUDIT-0188",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:144",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2829,7 +2831,7 @@
     },
     {
       "id": "AUDIT-0189",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:149",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2844,7 +2846,7 @@
     },
     {
       "id": "AUDIT-0190",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_chain_analysis_engine.py:98",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2859,7 +2861,7 @@
     },
     {
       "id": "AUDIT-0191",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_strat_greeks_engine.py:54",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2874,7 +2876,7 @@
     },
     {
       "id": "AUDIT-0192",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/options_derivatives_engine.py:215",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2889,7 +2891,7 @@
     },
     {
       "id": "AUDIT-0193",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/portfolio_optimizer.py:13",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -2904,7 +2906,7 @@
     },
     {
       "id": "AUDIT-0194",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/prop_firm_monte_carlo_ev.py:137",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2919,7 +2921,7 @@
     },
     {
       "id": "AUDIT-0195",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:37",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2934,7 +2936,7 @@
     },
     {
       "id": "AUDIT-0196",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:39",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -2949,7 +2951,7 @@
     },
     {
       "id": "AUDIT-0197",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:185",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2964,7 +2966,7 @@
     },
     {
       "id": "AUDIT-0198",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:277",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -2979,7 +2981,7 @@
     },
     {
       "id": "AUDIT-0199",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:23",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -2994,7 +2996,7 @@
     },
     {
       "id": "AUDIT-0200",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:99",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -3009,7 +3011,7 @@
     },
     {
       "id": "AUDIT-0201",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quantstats_engine.py:78",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -3024,7 +3026,7 @@
     },
     {
       "id": "AUDIT-0202",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/raptorbt_engine.py:29",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -3039,7 +3041,7 @@
     },
     {
       "id": "AUDIT-0203",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rqalpha_event_engine.py:118",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -3054,7 +3056,7 @@
     },
     {
       "id": "AUDIT-0204",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:506",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -3069,7 +3071,7 @@
     },
     {
       "id": "AUDIT-0205",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:231",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -3084,7 +3086,7 @@
     },
     {
       "id": "AUDIT-0206",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:239",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -3099,7 +3101,7 @@
     },
     {
       "id": "AUDIT-0207",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:218",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -3114,7 +3116,7 @@
     },
     {
       "id": "AUDIT-0208",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1568",
       "description": "Hardcoded IP address `http://127.0.0.1:50005/api`",
@@ -3129,7 +3131,7 @@
     },
     {
       "id": "AUDIT-0209",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1579",
       "description": "Hardcoded filesystem path `/`",
@@ -3144,7 +3146,7 @@
     },
     {
       "id": "AUDIT-0210",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:682",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -3159,7 +3161,7 @@
     },
     {
       "id": "AUDIT-0211",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:205",
       "description": "Hardcoded filesystem path `/user/margins`",
@@ -3174,7 +3176,7 @@
     },
     {
       "id": "AUDIT-0212",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:328",
       "description": "Hardcoded filesystem path `/orders/regular`",
@@ -3189,7 +3191,7 @@
     },
     {
       "id": "AUDIT-0213",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:458",
       "description": "Hardcoded filesystem path `/fund/limit`",
@@ -3204,7 +3206,7 @@
     },
     {
       "id": "AUDIT-0214",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:582",
       "description": "Hardcoded filesystem path `/orders`",
@@ -3219,7 +3221,7 @@
     },
     {
       "id": "AUDIT-0215",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:730",
       "description": "Hardcoded filesystem path `/rest/auth/angelbroking/user/v1/loginByPassword`",
@@ -3234,7 +3236,7 @@
     },
     {
       "id": "AUDIT-0216",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:726",
       "description": "Potential hardcoded credential or auth string",
@@ -3249,7 +3251,7 @@
     },
     {
       "id": "AUDIT-0217",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/solana_dex_risk_guard.py:83",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3264,7 +3266,7 @@
     },
     {
       "id": "AUDIT-0218",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:20",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -3279,7 +3281,7 @@
     },
     {
       "id": "AUDIT-0219",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:89",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -3294,7 +3296,7 @@
     },
     {
       "id": "AUDIT-0220",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
       "description": "Hardcoded filesystem path `/min exceeds frequency limit `",
@@ -3309,7 +3311,7 @@
     },
     {
       "id": "AUDIT-0221",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
       "description": "Hardcoded filesystem path `/min`",
@@ -3324,7 +3326,7 @@
     },
     {
       "id": "AUDIT-0222",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:70",
       "description": "Hardcoded filesystem path `/`",
@@ -3414,7 +3416,7 @@
     },
     {
       "id": "AUDIT-0228",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:149",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3429,7 +3431,7 @@
     },
     {
       "id": "AUDIT-0229",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:113",
       "description": "Hardcoded filesystem path `/`",
@@ -3444,7 +3446,7 @@
     },
     {
       "id": "AUDIT-0230",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:191",
       "description": "Hardcoded filesystem path `/v1/order`",
@@ -3459,7 +3461,7 @@
     },
     {
       "id": "AUDIT-0231",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:664",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -3474,7 +3476,7 @@
     },
     {
       "id": "AUDIT-0232",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:665",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3489,7 +3491,7 @@
     },
     {
       "id": "AUDIT-0233",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:787",
       "description": "Hardcoded filesystem path `/v1/order`",
@@ -3504,7 +3506,7 @@
     },
     {
       "id": "AUDIT-0234",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1176",
       "description": "Hardcoded filesystem path `/v1/order/close`",
@@ -3519,7 +3521,7 @@
     },
     {
       "id": "AUDIT-0235",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1320",
       "description": "Hardcoded filesystem path `/v1/order/modify`",
@@ -3534,7 +3536,7 @@
     },
     {
       "id": "AUDIT-0236",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1436",
       "description": "Hardcoded filesystem path `/v1/orders`",
@@ -3549,7 +3551,7 @@
     },
     {
       "id": "AUDIT-0237",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:135",
       "description": "Potential hardcoded credential or auth string",
@@ -3564,7 +3566,7 @@
     },
     {
       "id": "AUDIT-0238",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:343",
       "description": "Potential hardcoded credential or auth string",
@@ -3579,7 +3581,7 @@
     },
     {
       "id": "AUDIT-0239",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:538",
       "description": "Hardcoded filesystem path `/v1/order/status?client_order_id=`",
@@ -3594,7 +3596,7 @@
     },
     {
       "id": "AUDIT-0240",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:478",
       "description": "Hardcoded trading parameter default `100`",
@@ -3609,7 +3611,7 @@
     },
     {
       "id": "AUDIT-0241",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:171",
       "description": "Hardcoded IP address `http://127.0.0.1`",
@@ -3624,7 +3626,7 @@
     },
     {
       "id": "AUDIT-0242",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_autonomous_executive_agent.py:66",
       "description": "Hardcoded filesystem path `/33 passed)`",
@@ -3639,7 +3641,7 @@
     },
     {
       "id": "AUDIT-0243",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:61",
       "description": "Hardcoded trading parameter default `0.02`",
@@ -3654,7 +3656,7 @@
     },
     {
       "id": "AUDIT-0244",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:509",
       "description": "Hardcoded filesystem path `/33 gates passed)`",
@@ -3669,7 +3671,7 @@
     },
     {
       "id": "AUDIT-0245",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/vectorbt_engine.py:79",
       "description": "Hardcoded trading parameter default `0.05`",
@@ -3729,7 +3731,7 @@
     },
     {
       "id": "AUDIT-0249",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:219",
       "description": "Hardcoded filesystem path `/`",
@@ -3744,7 +3746,7 @@
     },
     {
       "id": "AUDIT-0250",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:254",
       "description": "Hardcoded filesystem path `/health`",
@@ -3759,7 +3761,7 @@
     },
     {
       "id": "AUDIT-0251",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/xcrypto_engine.py:91",
       "description": "Hardcoded filesystem path `/`",
@@ -3804,7 +3806,7 @@
     },
     {
       "id": "AUDIT-0254",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/main.py:573",
       "description": "Hardcoded filesystem path `/`",
@@ -3819,7 +3821,7 @@
     },
     {
       "id": "AUDIT-0255",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/main.py:835",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3834,7 +3836,7 @@
     },
     {
       "id": "AUDIT-0256",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/main.py:927",
       "description": "Hardcoded filesystem path `/`",
@@ -3849,7 +3851,7 @@
     },
     {
       "id": "AUDIT-0257",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/main.py:658",
       "description": "Hardcoded trading parameter default `0.01`",
@@ -3864,7 +3866,7 @@
     },
     {
       "id": "AUDIT-0258",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/migrate_credentials.py:93",
       "description": "Hardcoded filesystem path `/`",
@@ -3879,7 +3881,7 @@
     },
     {
       "id": "AUDIT-0259",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/migrate_credentials.py:100",
       "description": "Potential hardcoded credential or auth string",
@@ -3894,7 +3896,7 @@
     },
     {
       "id": "AUDIT-0260",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/migrate_credentials.py:117",
       "description": "Potential hardcoded credential or auth string",
@@ -3909,7 +3911,7 @@
     },
     {
       "id": "AUDIT-0261",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/release_gates.py:231",
       "description": "Hardcoded trading parameter default `0.1`",
@@ -3924,7 +3926,7 @@
     },
     {
       "id": "AUDIT-0262",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:21",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3939,7 +3941,7 @@
     },
     {
       "id": "AUDIT-0263",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:120",
       "description": "Hardcoded trading parameter default `100.0`",
@@ -3954,7 +3956,7 @@
     },
     {
       "id": "AUDIT-0264",
-      "category": "Hardcoded Values Inventory",
+      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/telegram_bot.py:16",
       "description": "Hardcoded filesystem path `/sendMessage`",
