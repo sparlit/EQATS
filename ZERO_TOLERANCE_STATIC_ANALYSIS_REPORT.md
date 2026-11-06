@@ -13,7 +13,7 @@
 - **Python AST Code Quality Scan**: **0 stubs**, **0 placeholder functions**, **0 bare pass blocks**, **0 `...` ellipses** in active production paths.
 - **Unit & Integration Test Suite**: **699 passing unit tests** across 100+ test modules.
 - **Blocker Count**: **0** (Zero active blockers preventing live deployment).
-- **Critical Severity Items**: **101** (Config externalization & admin default credential reset requirements).
+- **Critical Severity Items**: **21** (Config externalization & admin default credential reset requirements).
 - **Major Severity Items**: **61** (Static port bindings and absolute path default externalization).
 - **Minor Severity Items**: **102** (Inline trading parameter defaults, e.g., 0.05 tick rounding & 0.01 lot defaults).
 - **Execution Latency SLA Profile**: p50 = **1.24 ms**, p99 = **4.18 ms** (SLA < 15.0 ms).
@@ -22,10 +22,10 @@
 | Severity Level | Count | Definition & Production Impact | Action Deadline |
 | :--- | :---: | :--- | :--- |
 | **Blocker** | **0** | Production execution failure or security compromise. | Immediate |
-| **Critical** | **101** | Hardcoded initial admin credential default or static IP fallback. | Pre-Deployment |
+| **Critical** | **21** | Hardcoded initial admin credential default or static IP fallback. | Pre-Deployment |
 | **Major** | **61** | Static network port or path literal in source file. | Sprint 1 |
 | **Minor** | **102** | Inline default value for tick rounding (0.05) or lot size (0.01). | Sprint 2 |
-| **TOTAL** | **264** | **Full repository cataloged with zero omissions.** | **Continuous** |
+| **TOTAL** | **184** | **Full repository cataloged with zero omissions.** | **Continuous** |
 
 ---
 
@@ -47,42 +47,47 @@
 | `src/brain_agents_orchestrator.py:340` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.1` | `return {"lot_multiplier": round(max(0.1, min(2.0, ` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
 | `src/config.py:53` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `GLOBAL_RISK_LIMIT_CAP_PERCENT = 100.0` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
 | `src/config.py:8` | Hardcoded Values | **Major** | Hardcoded filesystem path `C:\Program Files\Alpari MT5\terminal64.exe` | `"TRADINGOS_MT5_PATH", "C:\\Program Files\\Alpari M` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
-| `src/connector.py:383` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `password = creds.get("password")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/connector.py:399` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `init_kwargs["password"] = str(password).strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 | `src/connector.py:481` | Hardcoded Values | **Major** | Hardcoded filesystem path `/F` | `["taskkill", "/F", "/IM", "terminal64.exe"],` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
 | `src/connector.py:481` | Hardcoded Values | **Major** | Hardcoded filesystem path `/IM` | `["taskkill", "/F", "/IM", "terminal64.exe"],` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
 | `src/connector.py:487` | Hardcoded Values | **Major** | Hardcoded filesystem path `/F` | `["taskkill", "/F", "/IM", "terminal.exe"],` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
 | `src/connector.py:487` | Hardcoded Values | **Major** | Hardcoded filesystem path `/IM` | `["taskkill", "/F", "/IM", "terminal.exe"],` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
-| `src/credential_manager.py:1` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:70` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""Adds a new operator account with bcrypt hashed ` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:160` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""Validates username, password, and optional seco` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1258` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1113` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `print("  3. Update User Password / PIN / Role")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1258` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:72` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `_log.error("Username, password, and PIN must be pr` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:807` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"Reset QUANT_OPERATOR admin user to default passwo` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:129` | Hardcoded Values | **Critical** | Hardcoded default credential in argument `new_pin`: `741295` | `def reset_admin_credentials(` | Authentication parameter default. | Used when instantiating `reset_admin_credentials` without overriding `new_pin`. | 1.0 Hours |
+| `src/credential_manager.py:129` | Hardcoded Values | **Critical** | Hardcoded default credential in argument `new_password`: `admin` | `def reset_admin_credentials(` | Authentication parameter default. | Used when instantiating `reset_admin_credentials` without overriding `new_password`. | 1.0 Hours |
+| `src/credential_manager.py:901` | Hardcoded Values | **Critical** | Hardcoded default credential in form descriptor `password`: `Password123` | `("PASSWORD:", "password", "Password123"),` | UI default field value. | Populates UI input field upon opening credential setup screen. | 0.5 Hours |
 | `src/credential_manager.py:402` | Hardcoded Values | **Major** | Hardcoded filesystem path `/v1/secret/data/` | `f"{vault_addr}/v1/secret/data/{secret_key}",` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
-| `src/credential_manager.py:916` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `show_char = "*" if key == "password" else ""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1290` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `print("Error: --username, --password, and --pin ar` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:654` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `text="PASSWORD:",` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:732` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `text="NEW PASSWORD (leave blank to keep current):"` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1139` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `pass_word = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:356` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `password=b.get("password", ""),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:373` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `password=b.get("password", ""),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1148` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `new_pass_val = input("New Password (blank to skip)` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:929` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `password=entries["password"].get().strip(),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1164` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `p = input("New Admin Password [default: admin]: ")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1182` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `pwd = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/database.py:34` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/database.py:178` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/database.py:211` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/database.py:252` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/database.py:713` | Hardcoded Values | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/database.py:1133` | Hardcoded Values | **Critical** | Hardcoded IP address `https://127.0.0.1:50005` | `"https://127.0.0.1:50005",` | Remote IP endpoint addressing. | Determines remote connection destination. | 0.5 Hours |
+| `src/database.py:1134` | Hardcoded Values | **Critical** | Hardcoded IP address `wss://127.0.0.1:50005` | `"wss://127.0.0.1:50005",` | Remote IP endpoint addressing. | Determines remote connection destination. | 0.5 Hours |
+| `src/database.py:1375` | Hardcoded Values | **Critical** | Hardcoded IP address `https://127.0.0.1:5000` | `"https://127.0.0.1:5000",` | Remote IP endpoint addressing. | Determines remote connection destination. | 0.5 Hours |
+| `src/database.py:1376` | Hardcoded Values | **Critical** | Hardcoded IP address `wss://127.0.0.1:5000` | `"wss://127.0.0.1:5000",` | Remote IP endpoint addressing. | Determines remote connection destination. | 0.5 Hours |
+| `src/database.py:1741` | Hardcoded Values | **Major** | Hardcoded filesystem path `/` | `clean_path_str = path_str.replace("\\", "/")` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/database.py:452` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100` | `if force or _tick_write_counter % 100 == 0:` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/eqats_planes.py:445` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `global_risk_cap = getattr(config, "GLOBAL_RISK_LIM` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6027` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `margin_factor = 0.01` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:9681` | Hardcoded Values | **Major** | Hardcoded filesystem path `/10 (` | `ftr_str = f"● {total_fills} FILLS \| WIN RATE {win` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/gui.py:3599` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100` | `lot_size = 100` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:5667` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `lots = pos.get("lot_size", 0.01)` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6021` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `lots = pos.get("lot_size", 0.01)` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6030` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.05` | `margin_factor = 0.05` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6118` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `margin_level = equity / (equity - margin_free) * 1` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:7234` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `lot_size = risk_amt / (sl_pips * pip_val_std) if s` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:5456` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `feat_data = f"\n==================================` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6033` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.05` | `margin_factor = 0.05` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:7232` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `risk_amt = bal * (risk_pct / 100.0)` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:10304` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `lots = pos.get("lot_size", 0.01)` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:5002` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `0, f"{getattr(config, 'GLOBAL_RISK_LIMIT_CAP_PERCE` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6630` | Hardcoded Values | **Major** | Hardcoded filesystem path `/` | `f"{stoch_k:.1f}/{stoch_d:.1f}",` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/gui.py:2619` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100` | `text=f"Value at Risk (95% VaR):\n{var_95 * 100:.2f` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:2638` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100` | `text=f"PORTFOLIO TAIL RISK:\nACCEPTABLE\n\nVOLATIL` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6039` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.01` | `margin_factor = 0.01` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/gui.py:6631` | Hardcoded Values | **Major** | Hardcoded filesystem path `/` | `f"{tenkan:.5f}/{kijun:.5f}" if tenkan < 100 else f` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/gui.py:6631` | Hardcoded Values | **Major** | Hardcoded filesystem path `/` | `f"{tenkan:.5f}/{kijun:.5f}" if tenkan < 100 else f` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/institutional_integrations/algo_trade_aravin_engine.py:86` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `price = round_tick_005(float(request_data.get("pri` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/institutional_integrations/algo_trade_aravin_engine.py:123` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `100.0` | `price = round_tick_005(float(request_data.get("pri` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
+| `src/institutional_integrations/algo_trading_infra_engine.py:119` | Hardcoded Values | **Critical** | Hardcoded default credential in argument `access_token`: `INFRA_TOKEN_DEMO` | `def __init__(` | Authentication parameter default. | Used when instantiating `__init__` without overriding `access_token`. | 1.0 Hours |
+| `src/institutional_integrations/algo_trading_infra_engine.py:119` | Hardcoded Values | **Critical** | Hardcoded default credential in argument `api_key`: `INFRA_KEY_DEMO` | `def __init__(` | Authentication parameter default. | Used when instantiating `__init__` without overriding `api_key`. | 1.0 Hours |
+| `src/institutional_integrations/algo_trading_infra_engine.py:48` | Hardcoded Values | **Minor** | Hardcoded trading parameter default `0.05` | `def round_to_ist_tick(price: float, tick_size: flo` | Trading rule parameter default. | Used in position sizing or risk calculation. | 0.25 Hours |
 
-*(Note: A total of 250 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
+*(Note: A total of 170 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
 
 ---
 

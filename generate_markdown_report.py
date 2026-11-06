@@ -1,4 +1,5 @@
-import json, os
+import json
+import os
 
 with open('audit_findings_index.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
@@ -56,7 +57,7 @@ report_md = f"""# Exhaustive Zero-Tolerance Codebase Audit Report
 """
 
 hardcoded_findings = [f for f in findings if f.get('category') == 'Hardcoded Values']
-for f in hardcoded_findings[:45]:
+for f in hardcoded_findings[:50]:
     ctx = f.get('context', '').replace('|', '\\|')[:50]
     report_md += f"| `{f.get('location')}` | {f.get('category')} | **{f.get('severity')}** | {f.get('description')} | `{ctx}` | {f.get('purpose')} | {f.get('runtime_usage_flow')} | {f.get('remediation_effort_estimate')} |\n"
 

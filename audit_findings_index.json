@@ -2,7 +2,7 @@
   "system_info": {
     "system_name": "TradingOS EQATS Version 11.0.0",
     "total_source_files": 220,
-    "total_findings": 264,
+    "total_findings": 184,
     "circular_dependencies": 4,
     "zero_stub_compliance": "100% (0 production stubs)",
     "sla_latency_p50_ms": 1.24,
@@ -207,42 +207,42 @@
     {
       "id": "AUDIT-0014",
       "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/connector.py:383",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password = creds.get(\"password\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0015",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/connector.py:399",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "init_kwargs[\"password\"] = str(password).strip()",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0016",
-      "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/connector.py:481",
       "description": "Hardcoded filesystem path `/F`",
       "root_cause": "Absolute file system path literal in source.",
       "remediation_effort_estimate": "0.5 Hours",
       "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal64.exe\"],",
+      "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
+      "item": "Hardcoded filesystem path `/F`",
+      "purpose": "Filesystem location target.",
+      "usage": "File I/O or binary execution.",
+      "risk_assessment": "Major"
+    },
+    {
+      "id": "AUDIT-0015",
+      "category": "Hardcoded Values",
+      "severity": "Major",
+      "location": "src/connector.py:481",
+      "description": "Hardcoded filesystem path `/IM`",
+      "root_cause": "Absolute file system path literal in source.",
+      "remediation_effort_estimate": "0.5 Hours",
+      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal64.exe\"],",
+      "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
+      "item": "Hardcoded filesystem path `/IM`",
+      "purpose": "Filesystem location target.",
+      "usage": "File I/O or binary execution.",
+      "risk_assessment": "Major"
+    },
+    {
+      "id": "AUDIT-0016",
+      "category": "Hardcoded Values",
+      "severity": "Major",
+      "location": "src/connector.py:487",
+      "description": "Hardcoded filesystem path `/F`",
+      "root_cause": "Absolute file system path literal in source.",
+      "remediation_effort_estimate": "0.5 Hours",
+      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal.exe\"],",
       "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
       "item": "Hardcoded filesystem path `/F`",
       "purpose": "Filesystem location target.",
@@ -253,11 +253,11 @@
       "id": "AUDIT-0017",
       "category": "Hardcoded Values",
       "severity": "Major",
-      "location": "src/connector.py:481",
+      "location": "src/connector.py:487",
       "description": "Hardcoded filesystem path `/IM`",
       "root_cause": "Absolute file system path literal in source.",
       "remediation_effort_estimate": "0.5 Hours",
-      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal64.exe\"],",
+      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal.exe\"],",
       "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
       "item": "Hardcoded filesystem path `/IM`",
       "purpose": "Filesystem location target.",
@@ -267,200 +267,50 @@
     {
       "id": "AUDIT-0018",
       "category": "Hardcoded Values",
-      "severity": "Major",
-      "location": "src/connector.py:487",
-      "description": "Hardcoded filesystem path `/F`",
-      "root_cause": "Absolute file system path literal in source.",
-      "remediation_effort_estimate": "0.5 Hours",
-      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal.exe\"],",
-      "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
-      "item": "Hardcoded filesystem path `/F`",
-      "purpose": "Filesystem location target.",
-      "usage": "File I/O or binary execution.",
-      "risk_assessment": "Major"
+      "severity": "Critical",
+      "location": "src/credential_manager.py:129",
+      "description": "Hardcoded default credential in argument `new_pin`: `741295`",
+      "root_cause": "Default parameter `new_pin` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def reset_admin_credentials(",
+      "runtime_usage_flow": "Used when instantiating `reset_admin_credentials` without overriding `new_pin`.",
+      "item": "Hardcoded default credential in argument `new_pin`: `741295`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
     },
     {
       "id": "AUDIT-0019",
       "category": "Hardcoded Values",
-      "severity": "Major",
-      "location": "src/connector.py:487",
-      "description": "Hardcoded filesystem path `/IM`",
-      "root_cause": "Absolute file system path literal in source.",
-      "remediation_effort_estimate": "0.5 Hours",
-      "context": "[\"taskkill\", \"/F\", \"/IM\", \"terminal.exe\"],",
-      "runtime_usage_flow": "Used for MT5 binary or database location resolution.",
-      "item": "Hardcoded filesystem path `/IM`",
-      "purpose": "Filesystem location target.",
-      "usage": "File I/O or binary execution.",
-      "risk_assessment": "Major"
+      "severity": "Critical",
+      "location": "src/credential_manager.py:129",
+      "description": "Hardcoded default credential in argument `new_password`: `admin`",
+      "root_cause": "Default parameter `new_password` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def reset_admin_credentials(",
+      "runtime_usage_flow": "Used when instantiating `reset_admin_credentials` without overriding `new_password`.",
+      "item": "Hardcoded default credential in argument `new_password`: `admin`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
     },
     {
       "id": "AUDIT-0020",
       "category": "Hardcoded Values",
       "severity": "Critical",
-      "location": "src/credential_manager.py:1",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "location": "src/credential_manager.py:901",
+      "description": "Hardcoded default credential in form descriptor `password`: `Password123`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
+      "context": "(\"PASSWORD:\", \"password\", \"Password123\"),",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `Password123`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
       "id": "AUDIT-0021",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:70",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"Adds a new operator account with bcrypt hashed password and PIN.\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0022",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:160",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"Validates username, password, and optional secondary PIN.\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0023",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1258",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "parser.add_argument(\"--password\", type=str, help=\"Password parameter\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0024",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1113",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "print(\"  3. Update User Password / PIN / Role\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0025",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1258",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "parser.add_argument(\"--password\", type=str, help=\"Password parameter\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0026",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:72",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "_log.error(\"Username, password, and PIN must be provided.\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0027",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:807",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"Reset QUANT_OPERATOR admin user to default password 'admin' & PIN '741295'?\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0028",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:901",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"PASSWORD:\", \"password\", \"Password123\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0029",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:901",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"PASSWORD:\", \"password\", \"Password123\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0030",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:901",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"PASSWORD:\", \"password\", \"Password123\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0031",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/credential_manager.py:402",
@@ -475,562 +325,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0032",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:916",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "show_char = \"*\" if key == \"password\" else \"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0033",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1290",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "print(\"Error: --username, --password, and --pin are required to add user.\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0034",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:654",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "text=\"PASSWORD:\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0035",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:732",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "text=\"NEW PASSWORD (leave blank to keep current):\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0036",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1139",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "pass_word = input(\"Password: \").strip()",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0037",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:356",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password=b.get(\"password\", \"\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0038",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:373",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password=b.get(\"password\", \"\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0039",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1148",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "new_pass_val = input(\"New Password (blank to skip): \").strip() or None",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0040",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:929",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password=entries[\"password\"].get().strip(),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0041",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1164",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "p = input(\"New Admin Password [default: admin]: \").strip() or \"admin\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0042",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/credential_manager.py:1182",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "pwd = input(\"Password: \").strip()",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0043",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:34",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0044",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:178",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0045",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:211",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0046",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:252",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0047",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:713",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0048",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:752",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0049",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:928",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0050",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:942",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "query = \"\\n    INSERT INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)\\n    VALUES (?, ?, ?, ?, ?, ?)\\n    \"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0051",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:962",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0052",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1007",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0053",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:205",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"Using legacy SHA-256 hashing due to missing bcrypt. Install bcrypt for proper password security: pip install bcrypt\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0054",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:724",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "cursor.execute(\"SELECT password_hash FROM users WHERE LOWER(username) = LOWER(?)\", (username,))",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0055",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:731",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "stored_hash = row[\"password_hash\"]",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0056",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:771",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"SELECT password_hash, pin_hash FROM users WHERE LOWER(username) = LOWER(?)\", (username,)",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0057",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:778",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "stored_password_hash = row[\"password_hash\"]",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0058",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1026",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "cursor.execute(\"SELECT password_hash, pin_hash FROM users\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0059",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1053",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"bcrypt_passwords\": bcrypt_passwords,",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0060",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1054",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"legacy_passwords\": legacy_passwords,",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0061",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1891",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0062",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2095",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"password\": (",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0063",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2473",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "parser.add_argument(\"--password\", type=str, help=\"New password for user\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0064",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:24",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"bcrypt library not available. Password security is degraded. Install with: pip install bcrypt\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0065",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:986",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0066",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1038",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "pwd_hash = row[\"password_hash\"]",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0067",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1100",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"mt5_demo\", \"MetaTrader 5 Demo\", \"MT5\", \"password\", \"\", \"\", 0.01, 100.0, 0.01, 20, \"{}\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0068",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1101",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"mt5_live\", \"MetaTrader 5 Live\", \"MT5\", \"password\", \"\", \"\", 0.01, 100.0, 0.01, 20, \"{}\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0069",
+      "id": "AUDIT-0022",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1133",
@@ -1045,7 +340,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0070",
+      "id": "AUDIT-0023",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1134",
@@ -1060,37 +355,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0071",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1342",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"mt5_demo\", \"MetaTrader 5 Demo\", \"MT5\", \"password\", \"\", \"\", 0.01, 100.0, 0.01, 20, \"{}\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0072",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1343",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "(\"mt5_live\", \"MetaTrader 5 Live\", \"MT5\", \"password\", \"\", \"\", 0.01, 100.0, 0.01, 20, \"{}\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0073",
+      "id": "AUDIT-0024",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1375",
@@ -1105,7 +370,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0074",
+      "id": "AUDIT-0025",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/database.py:1376",
@@ -1120,22 +385,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0075",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1666",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "b[\"password\"] = decrypt_secret(b.get(\"password_encrypted\", \"\"))",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0076",
+      "id": "AUDIT-0026",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/database.py:1741",
@@ -1150,172 +400,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0077",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1974",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\\n        UPDATE broker_credentials\\n        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, protocol_type = ?, api_key_encrypted = ?, api_secret_encrypted = ?, rest_url = ?, ws_url = ?, terminal_path = ?, is_active = 1, updated_at = ?\\n        WHERE id = ?\\n        \",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0078",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1995",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\\n        INSERT INTO broker_credentials (broker_name, server, account_id, password_encrypted, leverage, environment, protocol_type, api_key_encrypted, api_secret_encrypted, rest_url, ws_url, terminal_path, is_active, updated_at)\\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)\\n        \",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0079",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2473",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "parser.add_argument(\"--password\", type=str, help=\"New password for user\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0080",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:532",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\\n            CREATE TABLE IF NOT EXISTS users (\\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\\n                username TEXT UNIQUE NOT NULL,\\n                password_hash TEXT NOT NULL,\\n                pin_hash TEXT NOT NULL,\\n                role TEXT NOT NULL DEFAULT 'SOVEREIGN_ADMIN',\\n                mfa_enabled INTEGER DEFAULT 1,\\n                login_style TEXT DEFAULT 'MATRIX_NEON',\\n                created_at TEXT NOT NULL\\n            )\\n            \"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0081",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:542",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "cursor.execute(\"\"\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0082",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:739",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0083",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:743",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "_log.info(\"Upgraded password hash to bcrypt for user: %s\", username)",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0084",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:790",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0085",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:794",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "_log.info(\"Upgraded password hash to bcrypt for user: %s\", username)",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0086",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:1666",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "b[\"password\"] = decrypt_secret(b.get(\"password_encrypted\", \"\"))",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0087",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2487",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "print(f\"  Password:                     '{new_pass}'\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0088",
+      "id": "AUDIT-0027",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/database.py:452",
@@ -1330,97 +415,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0089",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:684",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\\n                INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, mfa_enabled, created_at)\\n                VALUES (?, ?, ?, ?, ?, ?)\\n                \",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0090",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:745",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "_log.warning(\"Failed to upgrade password hash for %s: %s\", username, e)",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0091",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:796",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "_log.warning(\"Failed to upgrade password hash for %s: %s\", username, e)",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0092",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2097",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "if \"password_encrypted\" in keys and row[\"password_encrypted\"]",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0093",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2097",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "if \"password_encrypted\" in keys and row[\"password_encrypted\"]",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0094",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/database.py:2096",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "decrypt_secret(row[\"password_encrypted\"])",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0095",
+      "id": "AUDIT-0028",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/eqats_planes.py:445",
@@ -1435,7 +430,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0096",
+      "id": "AUDIT-0029",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6027",
@@ -1450,22 +445,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0097",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:6237",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"MANAGE OPERATOR PASSWORDS, MFA TOKENS, AND DESIGNER LOGIN PANEL THEMES\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0098",
+      "id": "AUDIT-0030",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:9681",
@@ -1480,7 +460,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0099",
+      "id": "AUDIT-0031",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:3599",
@@ -1495,67 +475,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0100",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4007",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"password\": \"\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0101",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4066",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "self.cfg_bpwd_ent.insert(0, b_creds.get(\"password\", \"\"))",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0102",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4375",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "messagebox.showerror(\"Error\", \"Please provide Username, Password, and Security PIN.\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0103",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4556",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"Error\", \"Please provide Server Name, Account ID, and Broker Password.\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0104",
+      "id": "AUDIT-0032",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5667",
@@ -1570,7 +490,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0105",
+      "id": "AUDIT-0033",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6021",
@@ -1585,7 +505,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0106",
+      "id": "AUDIT-0034",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6030",
@@ -1600,7 +520,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0107",
+      "id": "AUDIT-0035",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6118",
@@ -1615,7 +535,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0108",
+      "id": "AUDIT-0036",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:7234",
@@ -1630,7 +550,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0109",
+      "id": "AUDIT-0037",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5456",
@@ -1645,7 +565,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0110",
+      "id": "AUDIT-0038",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6033",
@@ -1660,7 +580,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0111",
+      "id": "AUDIT-0039",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:7232",
@@ -1675,7 +595,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0112",
+      "id": "AUDIT-0040",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:10304",
@@ -1690,82 +610,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0113",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:1187",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "text=\"GATEWAY PASSWORD:\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0114",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:1260",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "text=\"\u274c ACCESS DENIED: INVALID USERNAME / PASSWORD / MFA\", fg=\"#ff3333\"",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0115",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:3862",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "u_frame, text=\"Password:\", font=(\"Consolas\", 8), bg=self.bg_card, fg=self.fg_light",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0116",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4054",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "bf_inputs, text=\"Password:\", font=(\"Consolas\", 8), bg=self.bg_card, fg=self.fg_light",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0117",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/gui.py:4664",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"\\n                        UPDATE broker_credentials\\n                        SET broker_name = ?, server = ?, account_id = ?, password_encrypted = ?, leverage = ?, environment = ?, terminal_path = ?, updated_at = ?\\n                        WHERE id = ?\\n                        \",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0118",
+      "id": "AUDIT-0041",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:5002",
@@ -1780,7 +625,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0119",
+      "id": "AUDIT-0042",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6630",
@@ -1795,7 +640,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0120",
+      "id": "AUDIT-0043",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:2619",
@@ -1810,7 +655,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0121",
+      "id": "AUDIT-0044",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:2638",
@@ -1825,7 +670,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0122",
+      "id": "AUDIT-0045",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/gui.py:6039",
@@ -1840,7 +685,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0123",
+      "id": "AUDIT-0046",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6631",
@@ -1855,7 +700,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0124",
+      "id": "AUDIT-0047",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/gui.py:6631",
@@ -1870,7 +715,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0125",
+      "id": "AUDIT-0048",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trade_aravin_engine.py:86",
@@ -1885,7 +730,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0126",
+      "id": "AUDIT-0049",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trade_aravin_engine.py:123",
@@ -1900,7 +745,37 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0127",
+      "id": "AUDIT-0050",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/algo_trading_infra_engine.py:119",
+      "description": "Hardcoded default credential in argument `access_token`: `INFRA_TOKEN_DEMO`",
+      "root_cause": "Default parameter `access_token` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `access_token`.",
+      "item": "Hardcoded default credential in argument `access_token`: `INFRA_TOKEN_DEMO`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0051",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/algo_trading_infra_engine.py:119",
+      "description": "Hardcoded default credential in argument `api_key`: `INFRA_KEY_DEMO`",
+      "root_cause": "Default parameter `api_key` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `api_key`.",
+      "item": "Hardcoded default credential in argument `api_key`: `INFRA_KEY_DEMO`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0052",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:48",
@@ -1915,7 +790,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0128",
+      "id": "AUDIT-0053",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:104",
@@ -1930,7 +805,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0129",
+      "id": "AUDIT-0054",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/algo_trading_infra_engine.py:315",
@@ -1945,7 +820,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0130",
+      "id": "AUDIT-0055",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/apex_trading_engine.py:129",
@@ -1960,7 +835,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0131",
+      "id": "AUDIT-0056",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/apex_trading_engine.py:141",
@@ -1975,7 +850,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0132",
+      "id": "AUDIT-0057",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:273",
@@ -1990,7 +865,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0133",
+      "id": "AUDIT-0058",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:276",
@@ -2005,7 +880,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0134",
+      "id": "AUDIT-0059",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/arkorisk_guard.py:276",
@@ -2020,7 +895,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0135",
+      "id": "AUDIT-0060",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/automated_trading_tool_engine.py:48",
@@ -2035,7 +910,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0136",
+      "id": "AUDIT-0061",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/automated_trading_tool_engine.py:288",
@@ -2050,7 +925,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0137",
+      "id": "AUDIT-0062",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtest_engine.py:24",
@@ -2065,7 +940,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0138",
+      "id": "AUDIT-0063",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:90",
@@ -2080,7 +955,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0139",
+      "id": "AUDIT-0064",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:93",
@@ -2095,7 +970,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0140",
+      "id": "AUDIT-0065",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:112",
@@ -2110,7 +985,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0141",
+      "id": "AUDIT-0066",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:113",
@@ -2125,7 +1000,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0142",
+      "id": "AUDIT-0067",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:97",
@@ -2140,7 +1015,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0143",
+      "id": "AUDIT-0068",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/backtrader_engine.py:117",
@@ -2155,7 +1030,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0144",
+      "id": "AUDIT-0069",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/binance_trade_bot_engine.py:73",
@@ -2170,7 +1045,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0145",
+      "id": "AUDIT-0070",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/comprehensive_suite.py:316",
@@ -2185,7 +1060,22 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0146",
+      "id": "AUDIT-0071",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/dxtrade_broker_adapter.py:50",
+      "description": "Hardcoded default credential in argument `password`: `DEMO_PASS`",
+      "root_cause": "Default parameter `password` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `password`.",
+      "item": "Hardcoded default credential in argument `password`: `DEMO_PASS`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0072",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/dxtrade_broker_adapter.py:57",
@@ -2200,7 +1090,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0147",
+      "id": "AUDIT-0073",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/extended_market_connectors.py:236",
@@ -2215,7 +1105,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0148",
+      "id": "AUDIT-0074",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finagent_hedgefund_swarm.py:107",
@@ -2230,7 +1120,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0149",
+      "id": "AUDIT-0075",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finrl_engine.py:69",
@@ -2245,7 +1135,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0150",
+      "id": "AUDIT-0076",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/finterion_adapter.py:84",
@@ -2260,7 +1150,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0151",
+      "id": "AUDIT-0077",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_journal_analyzer.py:47",
@@ -2275,7 +1165,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0152",
+      "id": "AUDIT-0078",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:53",
@@ -2290,7 +1180,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0153",
+      "id": "AUDIT-0079",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_risk_guard.py:62",
@@ -2305,7 +1195,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0154",
+      "id": "AUDIT-0080",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ftmo_tradingbot_core.py:46",
@@ -2320,7 +1210,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0155",
+      "id": "AUDIT-0081",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/hummingbot_suite.py:50",
@@ -2335,7 +1225,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0156",
+      "id": "AUDIT-0082",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_market_state_machine.py:22",
@@ -2350,7 +1240,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0157",
+      "id": "AUDIT-0083",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:99",
@@ -2365,7 +1255,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0158",
+      "id": "AUDIT-0084",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/indian_stock_market_api.py:154",
@@ -2380,7 +1270,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0159",
+      "id": "AUDIT-0085",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:109",
@@ -2395,7 +1285,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0160",
+      "id": "AUDIT-0086",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/indian_stock_market_api.py:117",
@@ -2410,22 +1300,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0161",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/jev_ai_decision_engine.py:512",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "\"Authorization\": f\"Bearer {self.api_key}\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0162",
+      "id": "AUDIT-0087",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:168",
@@ -2440,7 +1315,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0163",
+      "id": "AUDIT-0088",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:211",
@@ -2455,7 +1330,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0164",
+      "id": "AUDIT-0089",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:242",
@@ -2470,7 +1345,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0165",
+      "id": "AUDIT-0090",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/jev_ai_decision_engine.py:273",
@@ -2485,7 +1360,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0166",
+      "id": "AUDIT-0091",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:58",
@@ -2500,7 +1375,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0167",
+      "id": "AUDIT-0092",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:65",
@@ -2515,7 +1390,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0168",
+      "id": "AUDIT-0093",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/kit_bot_engine.py:89",
@@ -2530,7 +1405,52 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0169",
+      "id": "AUDIT-0094",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/kronos_model.py:423",
+      "description": "Hardcoded default credential in argument `pretrained_tokenizer_path`: `NeoQuasar/Kronos-Tokenizer-base`",
+      "root_cause": "Default parameter `pretrained_tokenizer_path` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `pretrained_tokenizer_path`.",
+      "item": "Hardcoded default credential in argument `pretrained_tokenizer_path`: `NeoQuasar/Kronos-Tokenizer-base`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0095",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/kronos_model.py:450",
+      "description": "Hardcoded default credential in argument `api_secret`: `MOCK_KRONOS_SECRET`",
+      "root_cause": "Default parameter `api_secret` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `api_secret`.",
+      "item": "Hardcoded default credential in argument `api_secret`: `MOCK_KRONOS_SECRET`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0096",
+      "category": "Hardcoded Values",
+      "severity": "Critical",
+      "location": "src/institutional_integrations/kronos_model.py:450",
+      "description": "Hardcoded default credential in argument `api_key`: `MOCK_KRONOS_KEY`",
+      "root_cause": "Default parameter `api_key` defined with static credential literal.",
+      "remediation_effort_estimate": "1.0 Hours",
+      "context": "def __init__(",
+      "runtime_usage_flow": "Used when instantiating `__init__` without overriding `api_key`.",
+      "item": "Hardcoded default credential in argument `api_key`: `MOCK_KRONOS_KEY`",
+      "purpose": "Authentication parameter default.",
+      "usage": "Authentication handshake parameter.",
+      "risk_assessment": "Critical"
+    },
+    {
+      "id": "AUDIT-0097",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:50",
@@ -2545,7 +1465,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0170",
+      "id": "AUDIT-0098",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
@@ -2560,7 +1480,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0171",
+      "id": "AUDIT-0099",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/kronos_model.py:532",
@@ -2575,7 +1495,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0172",
+      "id": "AUDIT-0100",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/ml4t_trading_engine.py:246",
@@ -2590,7 +1510,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0173",
+      "id": "AUDIT-0101",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nautilus_trader_engine.py:40",
@@ -2605,7 +1525,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0174",
+      "id": "AUDIT-0102",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nofx_ai_terminal_engine.py:213",
@@ -2620,7 +1540,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0175",
+      "id": "AUDIT-0103",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_swing_scanner_engine.py:92",
@@ -2635,7 +1555,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0176",
+      "id": "AUDIT-0104",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nse_system_engine.py:153",
@@ -2650,142 +1570,97 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0177",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/nsefo_broker_registry.py:139",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "auth_type=\"api_key_password\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0178",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/nsefo_broker_registry.py:148",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "auth_type=\"api_key_password\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0179",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/nsefo_broker_registry.py:220",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "auth_type=\"password_yob\",",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0180",
+      "id": "AUDIT-0105",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:89",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"client_id\", \"password\", \"totp_secret\", \"api_key\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0181",
+      "id": "AUDIT-0106",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:134",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"client_id\", \"password\", \"totp_secret\", \"app_key\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0182",
+      "id": "AUDIT-0107",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:143",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `client_id`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"api_key\", \"password\", \"client_id\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `client_id`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0183",
+      "id": "AUDIT-0108",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:152",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `client_id`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"api_key\", \"password\", \"client_id\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `client_id`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0184",
+      "id": "AUDIT-0109",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:161",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"client_id\", \"password\", \"totp_secret\", \"vendor_code\", \"yob\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `totp_secret`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0185",
+      "id": "AUDIT-0110",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/nsefo_broker_registry.py:224",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
+      "description": "Hardcoded default credential in form descriptor `password`: `yob`",
+      "root_cause": "Form field default contains pre-filled static credential string.",
+      "remediation_effort_estimate": "0.5 Hours",
       "context": "required_fields=[\"client_id\", \"password\", \"yob\"],",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
+      "runtime_usage_flow": "Populates UI input field upon opening credential setup screen.",
+      "item": "Hardcoded default credential in form descriptor `password`: `yob`",
+      "purpose": "UI default field value.",
+      "usage": "Initial user input pre-fill.",
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0186",
+      "id": "AUDIT-0111",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:94",
@@ -2800,7 +1675,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0187",
+      "id": "AUDIT-0112",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:137",
@@ -2815,7 +1690,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0188",
+      "id": "AUDIT-0113",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:144",
@@ -2830,7 +1705,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0189",
+      "id": "AUDIT-0114",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/nsepython_client.py:149",
@@ -2845,7 +1720,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0190",
+      "id": "AUDIT-0115",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_chain_analysis_engine.py:98",
@@ -2860,7 +1735,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0191",
+      "id": "AUDIT-0116",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/option_strat_greeks_engine.py:54",
@@ -2875,7 +1750,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0192",
+      "id": "AUDIT-0117",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/options_derivatives_engine.py:215",
@@ -2890,7 +1765,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0193",
+      "id": "AUDIT-0118",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/portfolio_optimizer.py:13",
@@ -2905,7 +1780,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0194",
+      "id": "AUDIT-0119",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/prop_firm_monte_carlo_ev.py:137",
@@ -2920,7 +1795,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0195",
+      "id": "AUDIT-0120",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:37",
@@ -2935,7 +1810,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0196",
+      "id": "AUDIT-0121",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:39",
@@ -2950,7 +1825,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0197",
+      "id": "AUDIT-0122",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:185",
@@ -2965,7 +1840,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0198",
+      "id": "AUDIT-0123",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_backtest_pro_engine.py:277",
@@ -2980,7 +1855,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0199",
+      "id": "AUDIT-0124",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:23",
@@ -2995,7 +1870,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0200",
+      "id": "AUDIT-0125",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quant_portfolio_analytics.py:99",
@@ -3010,7 +1885,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0201",
+      "id": "AUDIT-0126",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/quantstats_engine.py:78",
@@ -3025,7 +1900,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0202",
+      "id": "AUDIT-0127",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/raptorbt_engine.py:29",
@@ -3040,7 +1915,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0203",
+      "id": "AUDIT-0128",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rqalpha_event_engine.py:118",
@@ -3055,7 +1930,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0204",
+      "id": "AUDIT-0129",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:506",
@@ -3070,7 +1945,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0205",
+      "id": "AUDIT-0130",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:231",
@@ -3085,7 +1960,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0206",
+      "id": "AUDIT-0131",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:239",
@@ -3100,7 +1975,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0207",
+      "id": "AUDIT-0132",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/rust_bridge.py:218",
@@ -3115,7 +1990,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0208",
+      "id": "AUDIT-0133",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1568",
@@ -3130,7 +2005,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0209",
+      "id": "AUDIT-0134",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:1579",
@@ -3145,7 +2020,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0210",
+      "id": "AUDIT-0135",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:682",
@@ -3160,7 +2035,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0211",
+      "id": "AUDIT-0136",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:205",
@@ -3175,7 +2050,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0212",
+      "id": "AUDIT-0137",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:328",
@@ -3190,7 +2065,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0213",
+      "id": "AUDIT-0138",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:458",
@@ -3205,7 +2080,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0214",
+      "id": "AUDIT-0139",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:582",
@@ -3220,7 +2095,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0215",
+      "id": "AUDIT-0140",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/sebi_broker_adapter.py:730",
@@ -3235,22 +2110,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0216",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/sebi_broker_adapter.py:726",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "{\"clientcode\": self.client_id, \"password\": self.password, \"totp\": self.totp}",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0217",
+      "id": "AUDIT-0141",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/solana_dex_risk_guard.py:83",
@@ -3265,7 +2125,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0218",
+      "id": "AUDIT-0142",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:20",
@@ -3280,7 +2140,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0219",
+      "id": "AUDIT-0143",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/sovereign_intelligence.py:89",
@@ -3295,7 +2155,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0220",
+      "id": "AUDIT-0144",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
@@ -3310,7 +2170,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0221",
+      "id": "AUDIT-0145",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/stocksharp_risk_engine.py:74",
@@ -3325,7 +2185,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0222",
+      "id": "AUDIT-0146",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:70",
@@ -3340,7 +2200,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0223",
+      "id": "AUDIT-0147",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:135",
@@ -3355,7 +2215,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0224",
+      "id": "AUDIT-0148",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:136",
@@ -3370,7 +2230,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0225",
+      "id": "AUDIT-0149",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:144",
@@ -3385,7 +2245,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0226",
+      "id": "AUDIT-0150",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:166",
@@ -3400,7 +2260,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0227",
+      "id": "AUDIT-0151",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/system_autotune.py:169",
@@ -3415,7 +2275,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0228",
+      "id": "AUDIT-0152",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:149",
@@ -3430,7 +2290,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0229",
+      "id": "AUDIT-0153",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/trading_seatbelt_engine.py:113",
@@ -3445,7 +2305,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0230",
+      "id": "AUDIT-0154",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:191",
@@ -3460,7 +2320,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0231",
+      "id": "AUDIT-0155",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:664",
@@ -3475,7 +2335,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0232",
+      "id": "AUDIT-0156",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:665",
@@ -3490,7 +2350,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0233",
+      "id": "AUDIT-0157",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:787",
@@ -3505,7 +2365,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0234",
+      "id": "AUDIT-0158",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1176",
@@ -3520,7 +2380,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0235",
+      "id": "AUDIT-0159",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1320",
@@ -3535,7 +2395,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0236",
+      "id": "AUDIT-0160",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:1436",
@@ -3550,37 +2410,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0237",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/universal_broker_adapter.py:135",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password = self.broker_config.get(\"password\", \"\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0238",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/institutional_integrations/universal_broker_adapter.py:343",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password = self.broker_config.get(\"password\", \"\")",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0239",
+      "id": "AUDIT-0161",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/universal_broker_adapter.py:538",
@@ -3595,7 +2425,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0240",
+      "id": "AUDIT-0162",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/universal_broker_adapter.py:478",
@@ -3610,7 +2440,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0241",
+      "id": "AUDIT-0163",
       "category": "Hardcoded Values",
       "severity": "Critical",
       "location": "src/institutional_integrations/universal_broker_adapter.py:171",
@@ -3625,7 +2455,7 @@
       "risk_assessment": "Critical"
     },
     {
-      "id": "AUDIT-0242",
+      "id": "AUDIT-0164",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_autonomous_executive_agent.py:66",
@@ -3640,7 +2470,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0243",
+      "id": "AUDIT-0165",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:61",
@@ -3655,7 +2485,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0244",
+      "id": "AUDIT-0166",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/v11_multi_asset_validation_engine.py:509",
@@ -3670,7 +2500,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0245",
+      "id": "AUDIT-0167",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/institutional_integrations/vectorbt_engine.py:79",
@@ -3685,7 +2515,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0246",
+      "id": "AUDIT-0168",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:23",
@@ -3700,7 +2530,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0247",
+      "id": "AUDIT-0169",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:361",
@@ -3715,7 +2545,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0248",
+      "id": "AUDIT-0170",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:167",
@@ -3730,7 +2560,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0249",
+      "id": "AUDIT-0171",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:219",
@@ -3745,7 +2575,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0250",
+      "id": "AUDIT-0172",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/web_api.py:254",
@@ -3760,7 +2590,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0251",
+      "id": "AUDIT-0173",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/institutional_integrations/xcrypto_engine.py:91",
@@ -3775,7 +2605,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0252",
+      "id": "AUDIT-0174",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/main.py:67",
@@ -3790,7 +2620,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0253",
+      "id": "AUDIT-0175",
       "category": "Infrastructure & Connectivity",
       "severity": "Major",
       "location": "src/main.py:69",
@@ -3805,7 +2635,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0254",
+      "id": "AUDIT-0176",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/main.py:573",
@@ -3820,7 +2650,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0255",
+      "id": "AUDIT-0177",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/main.py:835",
@@ -3835,7 +2665,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0256",
+      "id": "AUDIT-0178",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/main.py:927",
@@ -3850,7 +2680,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0257",
+      "id": "AUDIT-0179",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/main.py:658",
@@ -3865,7 +2695,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0258",
+      "id": "AUDIT-0180",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/migrate_credentials.py:93",
@@ -3880,37 +2710,7 @@
       "risk_assessment": "Major"
     },
     {
-      "id": "AUDIT-0259",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/migrate_credentials.py:100",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password=broker.get(\"password\", \"\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0260",
-      "category": "Hardcoded Values",
-      "severity": "Critical",
-      "location": "src/migrate_credentials.py:117",
-      "description": "Potential hardcoded credential or auth string",
-      "root_cause": "Secret substring hardcoded in source literal.",
-      "remediation_effort_estimate": "1.0 Hours",
-      "context": "password=broker.get(\"password\", \"\"),",
-      "runtime_usage_flow": "Used during request header authentication.",
-      "item": "Potential hardcoded credential or auth string",
-      "purpose": "Authentication header token.",
-      "usage": "HTTP request authorization.",
-      "risk_assessment": "Critical"
-    },
-    {
-      "id": "AUDIT-0261",
+      "id": "AUDIT-0181",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/release_gates.py:231",
@@ -3925,7 +2725,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0262",
+      "id": "AUDIT-0182",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:21",
@@ -3940,7 +2740,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0263",
+      "id": "AUDIT-0183",
       "category": "Hardcoded Values",
       "severity": "Minor",
       "location": "src/supervisor_agent.py:120",
@@ -3955,7 +2755,7 @@
       "risk_assessment": "Minor"
     },
     {
-      "id": "AUDIT-0264",
+      "id": "AUDIT-0184",
       "category": "Hardcoded Values",
       "severity": "Major",
       "location": "src/telegram_bot.py:16",
