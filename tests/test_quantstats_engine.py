@@ -62,7 +62,15 @@ class TestQuantStatsEngine(unittest.TestCase):
         self.assertIn("volatility", metrics)
         self.assertIn("value_at_risk_95", metrics)
         self.assertIn("cvar_95", metrics)
+        self.assertIn("benchmark_beta", metrics)
         self.assertIn("engine", metrics)
+
+    def test_calculate_metrics_with_benchmark(self) -> None:
+        bm_returns = self.returns_series * 0.8 + 0.001
+        metrics = self.engine.calculate_metrics(self.returns_series, benchmark=bm_returns)
+        self.assertIn("benchmark_beta", metrics)
+        self.assertIsInstance(metrics["benchmark_beta"], float)
+        self.assertGreater(metrics["benchmark_beta"], 0.0)
 
     def test_generate_html_report(self) -> None:
         report_path = "test_qs_report.html"
