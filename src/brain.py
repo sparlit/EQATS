@@ -261,8 +261,9 @@ class ScalperBrain:
                     vol_ratio,
                 )
             if getattr(config, "ENABLE_SYMBOL_FLOATING_LOSS_GATE", True):
+                target_symbol = symbol.upper() if hasattr(symbol, "upper") else str(symbol).upper()
                 symbol_trades = [
-                    t for t in open_trades if t.get("symbol", "").upper() == symbol.upper()
+                    t for t in open_trades if t.get("symbol", "").upper() == target_symbol
                 ]
                 if symbol_trades:
                     any_loss = False
