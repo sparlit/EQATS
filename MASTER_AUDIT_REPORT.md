@@ -74,6 +74,8 @@ TradingOS (EQATS Version 11.0.0) is engineered as an institutional autonomous mu
 ### Applied Hardening & Optimization
 - **Stdout Locking Optimization:** High-performance Rust binary tools (`dtfcat`) wrap `stdout` with `BufWriter` to eliminate per-tick stdout lock contention.
 - **Concurrent API Retrieval:** Alpaca Rust CLI (`safeguard.rs`) uses `tokio::try_join!` for concurrent position and order retrievals.
+- **Benchmark Comparative Attribution Engine:** `QuantStatsEngine` (`src/institutional_integrations/quantstats_engine.py`) actively computes benchmark beta and comparative risk metrics across both native and fast fallback matrix algorithms.
+- **Zero-Tolerance Pyflakes & Export Parity:** `src/institutional_integrations/__init__.py` exposes all 409 institutional engine classes, broker adapters, magic numbers, and integration suite functions in `__all__`, achieving zero unused import/variable warnings across 220 source files.
 - **Dynamic Throttle Interval:** `OptionStream` in `express-option-chain` utilizes adaptive cycle sleep pacing (`max(0.0, self.throttle_interval - elapsed_time)`).
 - **Substrate Storage Key Iteration:** `laminar-chain` modules use `iter_keys()` to avoid unneccessary value decoding during storage key scans.
 

@@ -143,6 +143,11 @@ class QuantStatsEngine:
                     if hasattr(qs.stats, "kelly_criterion")
                     else 0.0
                 )
+                beta = (
+                    float(qs.stats.greeks(ret_s, bm_s, rf=rf_rate)["beta"])
+                    if bm_s is not None and hasattr(qs.stats, "greeks")
+                    else 0.0
+                )
 
                 return {
                     "sharpe_ratio": round(sharpe if not math.isnan(sharpe) else 0.0, 4),
@@ -156,6 +161,7 @@ class QuantStatsEngine:
                     "cvar_95": round(cvar_95 if not math.isnan(cvar_95) else 0.0, 4),
                     "profit_ratio": round(profit_ratio if not math.isnan(profit_ratio) else 0.0, 4),
                     "kelly_criterion": round(kelly if not math.isnan(kelly) else 0.0, 4),
+                    "benchmark_beta": round(beta if not math.isnan(beta) else 0.0, 4),
                     "engine": "quantstats_native",
                 }
             except Exception as e:
@@ -178,6 +184,7 @@ class QuantStatsEngine:
                 "cvar_95": 0.0,
                 "profit_ratio": 0.0,
                 "kelly_criterion": 0.0,
+                "benchmark_beta": 0.0,
                 "engine": "quantstats_fallback",
             }
 
@@ -220,6 +227,21 @@ class QuantStatsEngine:
         b_ratio = avg_win / avg_loss if avg_loss > 1e-8 else 1.0
         kelly = (b_ratio * win_prob - loss_prob) / b_ratio if b_ratio > 0 else 0.0
 
+        beta = 0.0
+        if bm_s is not None and len(bm_s) > 1 and len(ret_s) > 1:
+            try:
+                # Align series on index
+                aligned_df = pd.concat([ret_s, bm_s], axis=1).dropna()
+                if len(aligned_df) > 1:
+                    r_series = aligned_df.iloc[:, 0].values
+                    b_series = aligned_df.iloc[:, 1].values
+                    cov_mat = np.cov(r_series, b_series)
+                    var_b = cov_mat[1, 1]
+                    if var_b > 1e-8:
+                        beta = float(cov_mat[0, 1] / var_b)
+            except Exception as e:
+                logger.debug(f"Benchmark beta calculation fallback error: {e}")
+
         return {
             "sharpe_ratio": round(sharpe, 4),
             "sortino_ratio": round(sortino, 4),
@@ -232,6 +254,7 @@ class QuantStatsEngine:
             "cvar_95": round(cvar_95, 4),
             "profit_ratio": round(profit_ratio, 4),
             "kelly_criterion": round(kelly, 4),
+            "benchmark_beta": round(beta, 4),
             "engine": "quantstats_fallback",
         }
 
