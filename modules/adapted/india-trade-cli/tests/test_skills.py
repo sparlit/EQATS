@@ -108,6 +108,7 @@ class FakeMacroSnapshot:
 class FakeBacktestResult:
     symbol: str = "INFY"
     strategy: str = "rsi"
+    strategy_name: str = "rsi"
     total_return: float = 18.5
     sharpe_ratio: float = 1.2
     max_drawdown: float = -12.3
@@ -604,3 +605,70 @@ class TestOpenClawManifest:
     def test_manifest_base_url_is_set(self, client):
         r = client.get("/.well-known/openclaw.json")
         assert r.json()["base_url"] != ""
+
+
+# ── /skills/backtest_report ───────────────────────────────────
+
+
+class TestBacktestReportSkill:
+    def test_backtest_report_success(self, client, tmp_path):
+        fake_result = FakeBacktestResult(symbol="RELIANCE", strategy="rsi")
+
+        def fake_generate(results, output_path=None):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write("<html><body><h1>Backtest HTML Report</h1></body></html>")
+            return output_path
+
+        with (
+            patch("engine.backtest.run_backtest", return_value=fake_result),
+            patch("engine.backtest_report.generate_html_report", side_effect=fake_generate),
+        ):
+            r = client.post(
+                "/skills/backtest_report",
+                json={"symbol": "reliance", "strategies": ["rsi"], "period": "6m"},
+            )
+        assert r.status_code == 200
+        d = r.json()
+        assert d["status"] == "ok"
+        assert d["data"]["symbol"] == "RELIANCE"
+        assert d["data"]["strategies_run"] == ["rsi"]
+        assert "<html><body><h1>Backtest HTML Report</h1></body></html>" in d["data"]["html"]
+        assert d["data"]["errors"] == []
+
+    def test_backtest_report_partial_failure(self, client):
+        fake_result = FakeBacktestResult(symbol="INFY", strategy="rsi")
+
+        def fake_run(symbol, strategy_name, period):
+            if strategy_name == "macd":
+                raise ValueError("macd failed")
+            return fake_result
+
+        def fake_generate(results, output_path=None):
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write("<html><body>Partial Report</body></html>")
+            return output_path
+
+        with (
+            patch("engine.backtest.run_backtest", side_effect=fake_run),
+            patch("engine.backtest_report.generate_html_report", side_effect=fake_generate),
+        ):
+            r = client.post(
+                "/skills/backtest_report",
+                json={"symbol": "infy", "strategies": ["rsi", "macd"]},
+            )
+        assert r.status_code == 200
+        d = r.json()
+        assert d["status"] == "ok"
+        assert d["data"]["strategies_run"] == ["rsi"]
+        assert len(d["data"]["errors"]) == 1
+        assert d["data"]["errors"][0]["strategy"] == "macd"
+        assert "<html><body>Partial Report</body></html>" in d["data"]["html"]
+
+    def test_backtest_report_all_failed_raises_500(self, client):
+        with patch("engine.backtest.run_backtest", side_effect=ValueError("strategy error")):
+            r = client.post(
+                "/skills/backtest_report",
+                json={"symbol": "TCS", "strategies": ["rsi"]},
+            )
+        assert r.status_code == 500
+        assert "All strategies failed" in str(r.json())
