@@ -1237,8 +1237,13 @@ class ScalperGui:
             mfa = mfa_ent.get().strip()
             if database.verify_user_credentials(username, password, mfa):
                 # EQATS-101: Warn and prompt if default admin password remains in use
-                if username.upper() == "QUANT_OPERATOR" and database.is_default_admin_password_active(username):
-                    _log.warning("Security Warning: Administrator account is using default password 'admin'.")
+                if (
+                    username.upper() == "QUANT_OPERATOR"
+                    and database.is_default_admin_password_active(username)
+                ):
+                    _log.warning(
+                        "Security Warning: Administrator account is using default password 'admin'."
+                    )
                 authenticated[0] = True
                 self.current_user = username
                 # Fetch assigned user role for RBAC

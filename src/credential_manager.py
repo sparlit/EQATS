@@ -1130,7 +1130,9 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
     print("================================================================================")
     # EQATS-101: Check default administrator password status upon CLI startup
     if cm.is_default_admin_password_active("QUANT_OPERATOR"):
-        print("\n[!] SECURITY ALERT (EQATS-101): QUANT_OPERATOR is using the default password 'admin'.")
+        print(
+            "\n[!] SECURITY ALERT (EQATS-101): QUANT_OPERATOR is using the default password 'admin'."
+        )
         if not cm.enforce_admin_credential_policy("QUANT_OPERATOR"):
             print("[!] Please update credentials immediately to prevent unauthorized access.")
     while True:
