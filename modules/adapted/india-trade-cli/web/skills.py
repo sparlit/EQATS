@@ -168,6 +168,12 @@ def _err(msg: str, code: int = 500) -> HTTPException:
     return HTTPException(status_code=code, detail={"status": "error", "message": msg})
 
 
+def _read_file_content(path: str) -> str:
+    """Reads and returns text file content safely with explicit closure and UTF-8 decoding."""
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return f.read()
+
+
 # ── Skills ────────────────────────────────────────────────────
 
 
@@ -1641,7 +1647,7 @@ async def skill_backtest_report(req: BacktestReportRequest):
             tmp_path = f.name
 
         report_path = generate_html_report(results, output_path=tmp_path)
-        html_content = open(report_path).read()
+        html_content = await asyncio.to_thread(_read_file_content, report_path)
 
         return _ok(
             {
