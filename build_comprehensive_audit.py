@@ -165,18 +165,43 @@ for filepath in all_src_files:
 
 print(f"Generated {len(findings)} findings.")
 
-# Check circular dependencies
+# Check circular dependencies (Optimized graph adjacency approach)
+# Aggregate imports by module name
+mod_imports = defaultdict(set)
+mod_order = []
+for f, imps in imports_graph.items():
+    m = os.path.basename(f).replace('.py', '')
+    if m not in mod_imports:
+        mod_order.append(m)
+    mod_imports[m].update(imps)
+
+# Pre-index mapping from import strings to target modules
+all_unique_imports = {imp for imps in mod_imports.values() for imp in imps}
+import_to_targets = defaultdict(list)
+for m in mod_order:
+    for imp in all_unique_imports:
+        if m in imp:
+            import_to_targets[imp].append(m)
+
+# Build directed adjacency graph
+adj = defaultdict(set)
+for m1, imps in mod_imports.items():
+    for imp in imps:
+        for m2 in import_to_targets.get(imp, ()):
+            if m1 != m2:
+                adj[m1].add(m2)
+
+# Identify mutual circular dependency pairs
 circular_deps = []
-for f1, imports in imports_graph.items():
-    mod1 = os.path.basename(f1).replace('.py', '')
-    for imp in imports:
-        for f2, imports2 in imports_graph.items():
-            mod2 = os.path.basename(f2).replace('.py', '')
-            if imp.endswith(mod2) or mod2 in imp:
-                for imp2 in imports2:
-                    if imp2.endswith(mod1) or mod1 in imp2:
-                        if mod1 != mod2 and (mod2, mod1) not in circular_deps:
-                            circular_deps.append((mod1, mod2))
+seen_pairs = set()
+for mod1 in mod_order:
+    for mod2 in adj.get(mod1, ()):
+        if mod1 in adj.get(mod2, ()):
+            pair = (mod1, mod2)
+            reverse_pair = (mod2, mod1)
+            if pair not in seen_pairs and reverse_pair not in seen_pairs:
+                circular_deps.append(pair)
+                seen_pairs.add(pair)
 
 print(f"Circular dependency pairs found: {len(circular_deps)}")
 
