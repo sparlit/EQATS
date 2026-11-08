@@ -523,7 +523,7 @@ class MT5Connector(TradingConnector):
     def get_history(self, symbol: Any, count: Any) -> Any:
         if not self.mt5:
             return [{"open": 1.1, "high": 1.101, "low": 1.099, "close": 1.1} for _ in range(count)]
-        import MetaTrader5 as mt5
+        mt5 = self.mt5
 
         timeframe = mt5.TIMEFRAME_M1
         rates = self.mt5.copy_rates_from_pos(symbol, timeframe, 0, count)
@@ -575,7 +575,7 @@ class MT5Connector(TradingConnector):
             return [{"bid": price["bid"], "ask": price["ask"], "volume": 10} for _ in range(count)]
         import datetime
 
-        import MetaTrader5 as mt5
+        mt5 = self.mt5
 
         now = datetime.datetime.now(datetime.UTC)
         ticks = self.mt5.copy_ticks_from(symbol, now, count, mt5.COPY_TICKS_ALL)
@@ -695,7 +695,7 @@ class MT5Connector(TradingConnector):
     def close_order(self, ticket: Any, reason: Any = "MANUAL") -> Any:
         if not self.mt5:
             return {"success": False, "price": 0.0, "profit": 0.0, "error": "MT5 not connected."}
-        import MetaTrader5 as mt5
+        mt5 = self.mt5
 
         orders = self.get_open_orders()
         target_order = None
@@ -752,7 +752,7 @@ class MT5Connector(TradingConnector):
     def modify_order(self, ticket: Any, sl: Any, tp: Any) -> Any:
         if not self.mt5:
             return False
-        import MetaTrader5 as mt5
+        mt5 = self.mt5
 
         positions = self.mt5.positions_get(ticket=int(ticket))
         if not positions or len(positions) == 0:
@@ -790,7 +790,7 @@ class MT5Connector(TradingConnector):
     def get_open_orders(self) -> Any:
         if not self.mt5:
             return []
-        import MetaTrader5 as mt5
+        mt5 = self.mt5
 
         positions = self.mt5.positions_get()
         if positions is None or len(positions) == 0:
