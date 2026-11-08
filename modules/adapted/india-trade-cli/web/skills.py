@@ -1478,11 +1478,13 @@ async def skill_export_pdf(req: ExportPdfRequest):
                 detail="fpdf2 not installed. Run: pip install fpdf2",
             )
 
-        with open(filepath, "rb") as f:
-            pdf_bytes = f.read()
-
         import os
 
+        def _read_file(path: str) -> bytes:
+            with open(path, "rb") as f:
+                return f.read()
+
+        pdf_bytes = await asyncio.to_thread(_read_file, filepath)
         filename = os.path.basename(filepath)
         return Response(
             content=pdf_bytes,
