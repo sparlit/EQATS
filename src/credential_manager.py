@@ -156,6 +156,26 @@ class CredentialManager:
             _log.error("Failed to reset system admin credentials: %s", e)
             return False
 
+    def is_default_admin_password_active(self, username: str = "QUANT_OPERATOR") -> bool:
+        """Checks if the admin user is still using the default password 'admin' (EQATS-101)."""
+        return database.is_default_admin_password_active(username)
+
+    def enforce_admin_credential_policy(self, username: str = "QUANT_OPERATOR") -> bool:
+        """
+        Enforces EQATS-101 security policy:
+        If default admin password is active, automatically updates it from TRADINGOS_ADMIN_PASS
+        environment variable if present. Returns True if secure, False if default password remains.
+        """
+        if not self.is_default_admin_password_active(username):
+            return True
+        env_pass = os.environ.get("TRADINGOS_ADMIN_PASS")
+        if env_pass and env_pass != "admin":
+            env_pin = os.environ.get("TRADINGOS_ADMIN_PIN", "741295")
+            if self.update_user(username, new_password=env_pass, new_pin=env_pin):
+                _log.info("Mandatory admin password update enforced from TRADINGOS_ADMIN_PASS.")
+                return True
+        return False
+
     def verify_user_credentials(self, username: str, password: str, pin: str | None = None) -> bool:
         """Validates username, password, and optional secondary PIN."""
         return database.verify_user_credentials(username, password, pin)
@@ -333,14 +353,16 @@ class CredentialManager:
             crypto_available = False
 
         bcrypt_available = database._BCRYPT_AVAILABLE
+        default_admin_pass = self.is_default_admin_password_active("QUANT_OPERATOR")
 
         return {
             "master_key_env_set": master_key_set,
             "cryptography_available": crypto_available,
             "bcrypt_available": bcrypt_available,
+            "default_admin_password_active": default_admin_pass,
             "migration_status": migration_status,
             "overall_security_grade": "SECURE (A+)"
-            if (master_key_set and crypto_available and bcrypt_available)
+            if (master_key_set and crypto_available and bcrypt_available and not default_admin_pass)
             else "DEGRADED (NEEDS ATTENTION)",
         }
 
@@ -1106,6 +1128,11 @@ def _run_interactive_cli(cm: CredentialManager) -> None:
     print("================================================================================")
     print("  EQATS CREDENTIAL & SECURITY MANAGER — INTERACTIVE CLI")
     print("================================================================================")
+    # EQATS-101: Check default administrator password status upon CLI startup
+    if cm.is_default_admin_password_active("QUANT_OPERATOR"):
+        print("\n[!] SECURITY ALERT (EQATS-101): QUANT_OPERATOR is using the default password 'admin'.")
+        if not cm.enforce_admin_credential_policy("QUANT_OPERATOR"):
+            print("[!] Please update credentials immediately to prevent unauthorized access.")
     while True:
         print("\nMain Menu:")
         print("  1. List User Accounts")

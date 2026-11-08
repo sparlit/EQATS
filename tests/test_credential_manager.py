@@ -425,3 +425,35 @@ def test_cli_main_entrypoint_flags(temp_db: str, monkeypatch: pytest.MonkeyPatch
     # Test --check-security
     monkeypatch.setattr(sys, "argv", ["credential_manager", "--check-security"])
     main()
+
+
+def test_default_admin_password_detection_and_policy(temp_db, monkeypatch):
+    """Test EQATS-101 detection of default admin password and forced enforcement policy."""
+    cm = CredentialManager()
+
+    # 1. Initially QUANT_OPERATOR is seeded with default password 'admin'
+    cm.reset_admin_credentials(new_password="admin", new_pin="741295")
+    assert cm.is_default_admin_password_active("QUANT_OPERATOR") is True
+
+    # Security report should reflect default admin password active and degraded grade
+    status = cm.get_security_health_status()
+    assert status["default_admin_password_active"] is True
+    assert status["overall_security_grade"] == "DEGRADED (NEEDS ATTENTION)"
+
+    # Enforce policy without TRADINGOS_ADMIN_PASS set -> remains default
+    monkeypatch.delenv("TRADINGOS_ADMIN_PASS", raising=False)
+    assert cm.enforce_admin_credential_policy("QUANT_OPERATOR") is False
+    assert cm.is_default_admin_password_active("QUANT_OPERATOR") is True
+
+    # Enforce policy with secure TRADINGOS_ADMIN_PASS environment override
+    monkeypatch.setenv("TRADINGOS_ADMIN_PASS", "SuperSecurePass999#")
+    monkeypatch.setenv("TRADINGOS_ADMIN_PIN", "889900")
+    assert cm.enforce_admin_credential_policy("QUANT_OPERATOR") is True
+    assert cm.is_default_admin_password_active("QUANT_OPERATOR") is False
+
+    # Verify user can authenticate with new credentials
+    assert cm.verify_user_credentials("QUANT_OPERATOR", "SuperSecurePass999#", "889900") is True
+    assert cm.verify_user_credentials("QUANT_OPERATOR", "admin", "741295") is False
+
+    # Test non-existent user handling
+    assert cm.is_default_admin_password_active("NON_EXISTENT_USER") is False

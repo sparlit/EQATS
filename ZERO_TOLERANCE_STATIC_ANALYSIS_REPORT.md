@@ -13,7 +13,7 @@
 - **Python AST Code Quality Scan**: **0 stubs**, **0 placeholder functions**, **0 bare pass blocks**, **0 `...` ellipses** in active production paths.
 - **Unit & Integration Test Suite**: **699 passing unit tests** across 100+ test modules.
 - **Blocker Count**: **0** (Zero active blockers preventing live deployment).
-- **Critical Severity Items**: **101** (Config externalization & admin default credential reset requirements).
+- **Critical Severity Items**: **111** (Config externalization & admin default credential reset requirements).
 - **Major Severity Items**: **61** (Static port bindings and absolute path default externalization).
 - **Minor Severity Items**: **102** (Inline trading parameter defaults, e.g., 0.05 tick rounding & 0.01 lot defaults).
 
@@ -21,10 +21,10 @@
 | Severity Level | Count | Definition & Production Impact | Action Deadline |
 | :--- | :--- | :--- | :--- |
 | **Blocker** | **0** | Production execution failure or security compromise. | Immediate |
-| **Critical** | **101** | Hardcoded initial admin credential default or static IP fallback. | Pre-Deployment |
+| **Critical** | **111** | Hardcoded initial admin credential default or static IP fallback. | Pre-Deployment |
 | **Major** | **61** | Static network port or path literal in source file. | Sprint 1 |
 | **Minor** | **102** | Inline default value for tick rounding (0.05) or lot size (0.01). | Sprint 2 |
-| **TOTAL** | **264** | **Full repository cataloged with zero omissions.** | **Continuous** |
+| **TOTAL** | **274** | **Full repository cataloged with zero omissions.** | **Continuous** |
 
 ---
 
@@ -54,29 +54,29 @@
 | `src/connector.py:487` | Hardcoded Values Inventory | **Major** | Hardcoded filesystem path `/IM` | `["taskkill", "/F", "/IM", "terminal.exe"],` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
 | `src/credential_manager.py:1` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 | `src/credential_manager.py:70` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""Adds a new operator account with bcrypt hashed ` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:160` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""Validates username, password, and optional seco` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1258` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1113` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `print("  3. Update User Password / PIN / Role")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1258` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:160` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""Checks if the admin user is still using the def` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:164` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:180` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"""Validates username, password, and optional seco` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1285` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:362` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"default_admin_password_active": default_admin_pas` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1133` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `print("\n[!] SECURITY ALERT (EQATS-101): QUANT_OPE` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1140` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `print("  3. Update User Password / PIN / Role")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1285` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `parser.add_argument("--password", type=str, help="` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 | `src/credential_manager.py:72` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `_log.error("Username, password, and PIN must be pr` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:807` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"Reset QUANT_OPERATOR admin user to default passwo` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:901` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:402` | Hardcoded Values Inventory | **Major** | Hardcoded filesystem path `/v1/secret/data/` | `f"{vault_addr}/v1/secret/data/{secret_key}",` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
-| `src/credential_manager.py:916` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `show_char = "*" if key == "password" else ""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1290` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `print("Error: --username, --password, and --pin ar` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:654` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `text="PASSWORD:",` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:732` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `text="NEW PASSWORD (leave blank to keep current):"` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1139` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `pass_word = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:356` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `password=b.get("password", ""),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:373` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `password=b.get("password", ""),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1148` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `new_pass_val = input("New Password (blank to skip)` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:929` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `password=entries["password"].get().strip(),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1164` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `p = input("New Admin Password [default: admin]: ")` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
-| `src/credential_manager.py:1182` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `pwd = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:829` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `"Reset QUANT_OPERATOR admin user to default passwo` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:175` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `_log.info("Mandatory admin password update enforce` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:923` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:923` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:923` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `("PASSWORD:", "password", "Password123"),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:424` | Hardcoded Values Inventory | **Major** | Hardcoded filesystem path `/v1/secret/data/` | `f"{vault_addr}/v1/secret/data/{secret_key}",` | Filesystem location target. | Used for MT5 binary or database location resolution. | 0.5 Hours |
+| `src/credential_manager.py:938` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `show_char = "*" if key == "password" else ""` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1317` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `print("Error: --username, --password, and --pin ar` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:676` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `text="PASSWORD:",` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:754` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `text="NEW PASSWORD (leave blank to keep current):"` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:1166` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `pass_word = input("Password: ").strip()` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
+| `src/credential_manager.py:378` | Hardcoded Values Inventory | **Critical** | Potential hardcoded credential or auth string | `password=b.get("password", ""),` | Authentication header token. | Used during request header authentication. | 1.0 Hours |
 
-*(Note: A total of 250 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
+*(Note: A total of 260 hardcoded literals have been cataloged in `audit_findings_index.json`.)*
 
 ---
 

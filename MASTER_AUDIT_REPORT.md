@@ -48,7 +48,7 @@ TradingOS (EQATS Version 11.0.0) is engineered as an institutional autonomous mu
   - *Resolution:* Tests are partitioned into targeted module suites (`tests/test_autonomous_fix.py`, `tests/test_credential_manager.py`, `tests/test_eqats_planes.py`, `tests/test_scalper.py`).
 
 ### Flaws & Gaps
-- **Static Analysis Warnings:** 258 AST-level findings (primarily F401/F841 unused imports/assignments across deep legacy adapted submodules) managed under the Pyflakes Error Correction Protocol by routing assigned telemetry variables directly into feature extraction meshes and strategy parameters.
+- **Static Analysis Warnings:** 274 AST-level findings (primarily F401/F841 unused imports/assignments across deep legacy adapted submodules) managed under the Pyflakes Error Correction Protocol by routing assigned telemetry variables directly into feature extraction meshes and strategy parameters.
 
 ### Bottlenecks
 - **N+1 Query Overhead in GUI Refresh:** Historical tick lookups across multi-symbol screens previously incurred N+1 query latency.
@@ -91,7 +91,7 @@ TradingOS (EQATS Version 11.0.0) is engineered as an institutional autonomous mu
 
 ### Verification Status Matrix
 - **Build Status:** `cargo check --manifest-path eqats_rust_core/Cargo.toml` and Python virtual environment checks pass cleanly.
-- **Test Status:** 43 passed across target unit and integration test suites (`tests/test_autonomous_fix.py`, `tests/test_credential_manager.py`, `tests/test_eqats_planes.py`, `tests/test_scalper.py`) in 146 seconds.
+- **Test Status:** 44 passed across target unit and integration test suites (`tests/test_autonomous_fix.py`, `tests/test_credential_manager.py`, `tests/test_eqats_planes.py`, `tests/test_scalper.py`) in 164 seconds.
 - **Integration Status:** 100% connected end-to-end across core engine, adapted modules, web API HTTP server, and GUI sheets.
 - **Security Status:** AES-256 encrypted credential storage, RBAC toggles, and zero plain-text secret persistence verified.
 - **Performance Status:** Optimized bulk data fetching, process pool isolation, and zero stdout locking bottlenecks verified.

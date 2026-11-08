@@ -748,6 +748,29 @@ def verify_user_password(username: Any, password_input: Any) -> Any:
     return is_valid
 
 
+def is_default_admin_password_active(username: str = "QUANT_OPERATOR") -> bool:
+    """
+    Checks if the administrator account is currently using the insecure default password ('admin').
+    Used for EQATS-101 mandatory initial admin password change enforcement.
+    """
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT password_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return False
+        stored_hash = row["password_hash"]
+        is_default, _ = verify_credential("admin", stored_hash)
+        return bool(is_default)
+    except Exception as e:
+        _log.error("Failed to check default admin password state for %s: %s", username, e)
+        return False
+
+
 def verify_user_credentials(username: Any, password_input: Any, pin_input: Any = None) -> Any:
     """
     Validates a user's login credentials (username, password, and optional PIN/MFA)
