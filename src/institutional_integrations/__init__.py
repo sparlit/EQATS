@@ -419,6 +419,7 @@ from .systematic_trading_carver import (
     CarverForecastScalarResult,
     PySystemTradeEngine,
 )
+from .tectonicdb_engine import TectonicDBEngine
 from .trading_agents_cn_suite import (
     ChinaMarketAnalystAgent,
     ChinaMarketReport,
@@ -692,6 +693,7 @@ __all__ = [
     "TradingAgentsDecision",
     "TradingAgentsOrchestrator",
     "TradingGymRLAdapter",
+    "TectonicDBEngine",
     "TradingSeatbeltEngine",
     "TrailingDDConfig",
     "TrailingStrategy",
