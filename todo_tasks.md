@@ -81,7 +81,7 @@
   - zero mock/dummy
 
 #### Repository List
-- [ ] 0b01/tectonicdb
+- [x] 0b01/tectonicdb
 - [ ] 0xNoSystem/hyperliquid_rust_bot
 - [ ] 0xramm/Indian-Stock-Market-API
 - [ ] 0xRustPro/Stealth-BSC-BNB-create-devbuy-volume-bundler-trading-bot
