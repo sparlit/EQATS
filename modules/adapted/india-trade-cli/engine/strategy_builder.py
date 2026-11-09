@@ -38,7 +38,6 @@ Components:
 
 
 import ast
-import importlib.util
 import json
 import re
 import sys
@@ -117,6 +116,8 @@ class StrategyStore:
 
     def load_strategy(self, name: str):
         """Dynamically import a saved strategy and return an instance."""
+        import importlib.util
+
         py_file = self.base_dir / f"{name}.py"
         if not py_file.exists():
             raise FileNotFoundError(f"Strategy '{name}' not found at {py_file}")
@@ -464,6 +465,8 @@ def build_and_test(
     ok, error = validate_strategy_code(code)
     if not ok:
         raise ValueError(error)
+
+    import importlib.util
 
     # Write to a temp file and load
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
