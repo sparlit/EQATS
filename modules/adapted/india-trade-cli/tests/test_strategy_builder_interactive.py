@@ -128,3 +128,39 @@ class TestStrategySpecDataclass:
         assert spec.stop_loss_pct == 1.5
         assert spec.target_pct == 3.0
         assert spec.max_hold_days == 15
+
+
+class TestStrategyDynamicLoading:
+    def test_load_strategy_success(self, tmp_path):
+        from engine.strategy_builder import StrategyStore
+
+        store = StrategyStore(base_dir=tmp_path)
+        strat_code = (
+            "from engine.backtest import Strategy\n\n"
+            "class SampleCustomStrategy(Strategy):\n"
+            "    def __init__(self, period=14):\n"
+            "        self.period = period\n"
+            "    def generate_signals(self, df):\n"
+            "        return df\n"
+        )
+        store.save_strategy("sample_test_strat", strat_code, {"parameters": {"period": 21}})
+        strat_instance = store.load_strategy("sample_test_strat")
+        assert strat_instance is not None
+        assert getattr(strat_instance, "period", None) == 21
+
+    def test_load_strategy_not_found(self, tmp_path):
+        import pytest
+        from engine.strategy_builder import StrategyStore
+
+        store = StrategyStore(base_dir=tmp_path)
+        with pytest.raises(FileNotFoundError):
+            store.load_strategy("non_existent_strategy")
+
+    def test_build_and_test_validation_failure(self):
+        import pytest
+        from engine.strategy_builder import build_and_test
+
+        invalid_code = "def invalid_func(): pass"
+        with pytest.raises(ValueError) as excinfo:
+            build_and_test(invalid_code)
+        assert "No class subclassing Strategy found" in str(excinfo.value)
