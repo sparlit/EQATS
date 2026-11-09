@@ -517,11 +517,14 @@ def _init_db_impl() -> None:
                 ("ALTER TABLE trades ADD COLUMN method TEXT DEFAULT ''", "method"),
                 ("ALTER TABLE trades ADD COLUMN product TEXT DEFAULT ''", "product"),
             ]
+            cursor.execute("PRAGMA table_info(trades)")
+            _existing_trades_cols = {row[1] for row in cursor.fetchall()}
             for _sql, _col in _TRADES_SCHEMA_ALTERS:
-                try:
-                    cursor.execute(_sql)
-                except sqlite3.OperationalError as err:
-                    _log.debug("Column %s already present: %s", _col, err)
+                if _col not in _existing_trades_cols:
+                    try:
+                        cursor.execute(_sql)
+                    except sqlite3.OperationalError as err:
+                        _log.debug("Column %s already present: %s", _col, err)
             cursor.execute(
                 "\n            CREATE TABLE IF NOT EXISTS performance_metrics (\n                date TEXT PRIMARY KEY,\n                initial_balance REAL NOT NULL,\n                final_balance REAL NOT NULL,\n                trades_taken INTEGER DEFAULT 0,\n                win_rate REAL DEFAULT 0.0,\n                net_profit REAL DEFAULT 0.0\n            )\n            "
             )
@@ -673,11 +676,14 @@ def _init_db_impl() -> None:
                     "terminal_path",
                 ),
             ]
+            cursor.execute("PRAGMA table_info(broker_credentials)")
+            _existing_bc_cols = {row[1] for row in cursor.fetchall()}
             for _sql, _col in _SCHEMA_ALTERS:
-                try:
-                    cursor.execute(_sql)
-                except sqlite3.OperationalError:
-                    _log.debug("Schema column %s already present, skipping.", _col)
+                if _col not in _existing_bc_cols:
+                    try:
+                        cursor.execute(_sql)
+                    except sqlite3.OperationalError:
+                        _log.debug("Schema column %s already present, skipping.", _col)
             cursor.execute("SELECT COUNT(*) FROM users")
             if cursor.fetchone()[0] == 0:
                 cursor.execute(
